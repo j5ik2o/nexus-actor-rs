@@ -1,0 +1,88 @@
+use std::sync::Arc;
+use std::thread::sleep;
+
+use async_trait::async_trait;
+
+use proto_actor_rs::actor::actor_system::ActorSystem;
+use proto_actor_rs::actor::context::{ContextHandle, MessagePart, SenderPart, SpawnerPart};
+use proto_actor_rs::actor::message::{Actor, ActorHandle, Message, MessageHandle, ProducerFunc};
+use proto_actor_rs::actor::messages::SystemMessage;
+use proto_actor_rs::actor::props::Props;
+
+#[derive(Debug, Clone)]
+struct Hello(pub String);
+
+impl Message for Hello {
+  fn as_any(&self) -> &(dyn std::any::Any + Send + Sync + 'static) {
+    self
+  }
+}
+
+#[derive(Debug)]
+struct ChildActor {}
+
+#[async_trait]
+impl Actor for ChildActor {
+  async fn receive(&self, ctx: ContextHandle) {
+    let msg = ctx.get_message().await;
+    println!("child_actor: msg = {:?}", msg);
+  }
+}
+
+#[derive(Debug)]
+struct MyActor {}
+
+#[async_trait]
+impl Actor for MyActor {
+  async fn receive(&self, mut ctx: ContextHandle) {
+    let msg = ctx.get_message().await.unwrap();
+    println!("my_actor: msg = {:?}", msg);
+
+    if let Some(sm) = msg.as_any().downcast_ref::<SystemMessage>() {
+      println!("string = {:?}", sm);
+      let props = Props::from_producer_func(ProducerFunc::new(|ch| {
+        Box::pin(async move { create_child_actor(ch).await })
+      }))
+      .await;
+
+      let pid = ctx.spawn(props).await;
+      println!("child = {}", pid);
+      for _ in 1..10 {
+        ctx
+          .send(pid.clone(), MessageHandle::new(Hello("hello-2".to_string())))
+          .await;
+      }
+    }
+  }
+}
+
+pub async fn create_my_actor(ctx: ContextHandle) -> ActorHandle {
+  let actor = MyActor {};
+  ActorHandle::new(Arc::new(actor))
+}
+
+pub async fn create_child_actor(ctx: ContextHandle) -> ActorHandle {
+  let actor = ChildActor {};
+  ActorHandle::new(Arc::new(actor))
+}
+
+#[tokio::main]
+async fn main() {
+  env_logger::init();
+  let system = ActorSystem::new(&[]).await;
+  let mut root = system.get_root().await;
+
+  let props = Props::from_producer_func(ProducerFunc::new(|ch| {
+    Box::pin(async move { create_my_actor(ch).await })
+  }))
+  .await;
+
+  let pid = root.spawn(props).await;
+  for _ in 1..10 {
+    root
+      .send(pid.clone(), MessageHandle::new(Hello("hello-1".to_string())))
+      .await;
+  }
+
+  sleep(std::time::Duration::from_secs(3));
+}

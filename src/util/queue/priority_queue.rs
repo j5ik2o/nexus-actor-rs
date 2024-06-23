@@ -1,0 +1,86 @@
+use std::marker::PhantomData;
+use std::sync::Arc;
+
+use async_trait::async_trait;
+use tokio::sync::Mutex;
+
+use crate::util::element::Element;
+use crate::util::queue::{QueueBase, QueueError, QueueReader, QueueSize, QueueWriter};
+
+pub const PRIORITY_LEVELS: usize = 8;
+pub const DEFAULT_PRIORITY: i8 = (PRIORITY_LEVELS / 2) as i8;
+
+pub trait PriorityMessage: Element {
+  fn get_priority(&self) -> i8;
+}
+
+#[derive(Debug, Clone)]
+pub struct PriorityQueue<E, Q> {
+  priority_queues: Arc<Mutex<Vec<Q>>>,
+  phantom_data: PhantomData<E>,
+}
+
+impl<E: PriorityMessage, Q: QueueReader<E> + QueueWriter<E>> PriorityQueue<E, Q> {
+  pub fn new(queue_producer: impl Fn() -> Q + 'static) -> Self {
+    let mut queues = Vec::with_capacity(PRIORITY_LEVELS);
+    for p in 0..PRIORITY_LEVELS {
+      let queue = queue_producer();
+      queues[p] = queue;
+    }
+    Self {
+      priority_queues: Arc::new(Mutex::new(queues)),
+      phantom_data: PhantomData,
+    }
+  }
+}
+
+#[async_trait]
+impl<E: PriorityMessage, Q: QueueReader<E> + QueueWriter<E>> QueueBase<E> for PriorityQueue<E, Q> {
+  async fn len(&self) -> QueueSize {
+    let queues_mg = self.priority_queues.lock().await;
+    let mut len = 0;
+    for queue in queues_mg.iter() {
+      len += queue.len().await.to_usize();
+    }
+    QueueSize::Limited(len)
+  }
+
+  async fn capacity(&self) -> QueueSize {
+    let queues_mg = self.priority_queues.lock().await;
+    let mut capacity = 0;
+    for queue in queues_mg.iter() {
+      capacity += queue.capacity().await.to_usize();
+    }
+    QueueSize::Limited(capacity)
+  }
+}
+
+#[async_trait]
+impl<E: PriorityMessage, Q: QueueReader<E> + QueueWriter<E>> QueueReader<E> for PriorityQueue<E, Q> {
+  async fn poll(&mut self) -> Result<Option<E>, QueueError<E>> {
+    for p in (0..PRIORITY_LEVELS).rev() {
+      let mut priority_queues_mg = self.priority_queues.lock().await;
+      if let Ok(item) = priority_queues_mg[p].poll().await {
+        return Ok(item);
+      }
+    }
+    Ok(None)
+  }
+
+  async fn clean_up(&mut self) {
+    let mut mg = self.priority_queues.lock().await;
+    for queue in mg.iter_mut() {
+      queue.clean_up().await;
+    }
+  }
+}
+
+#[async_trait]
+impl<E: PriorityMessage, Q: QueueReader<E> + QueueWriter<E>> QueueWriter<E> for PriorityQueue<E, Q> {
+  async fn offer(&mut self, element: E) -> Result<(), QueueError<E>> {
+    let mut mg = self.priority_queues.lock().await;
+    let priority = element.get_priority();
+    let adjusted_priority = priority.max(0).min(PRIORITY_LEVELS as i8 - 1) as usize;
+    mg[adjusted_priority].offer(element).await
+  }
+}

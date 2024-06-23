@@ -1,0 +1,258 @@
+use std::sync::Arc;
+
+use tokio::sync::Mutex;
+use uuid::Uuid;
+
+use crate::actor::dead_letter_process::DeadLetterProcess;
+use crate::actor::guardians_value::Guardians;
+use crate::actor::message_envelope::EMPTY_MESSAGE_HEADER;
+use crate::actor::process::ProcessHandle;
+use crate::actor::process_registry::ProcessRegistry;
+use crate::actor::root_context::RootContext;
+use crate::actor::supervision_event::subscribe_supervision;
+use crate::ctxext::extensions::ContextExtensions;
+use crate::event_stream::EventStream;
+
+#[derive(Debug, Clone)]
+struct ActorSystemInner {
+  process_registry: Option<ProcessRegistry>,
+  root: Option<RootContext>,
+  event_stream: Arc<EventStream>,
+  guardians: Option<Guardians>,
+  dead_letter: Option<DeadLetterProcess>,
+  extensions: ContextExtensions,
+  config: Config,
+  id: String,
+}
+
+impl ActorSystemInner {
+  fn new(config: Config) -> Self {
+    let id = Uuid::new_v4().to_string();
+    ActorSystemInner {
+      id,
+      config,
+      process_registry: None,
+      root: None,
+      guardians: None,
+      event_stream: Arc::new(EventStream::new()),
+      dead_letter: None,
+      extensions: ContextExtensions::new(),
+    }
+  }
+}
+
+#[derive(Debug, Clone)]
+pub struct ActorSystem {
+  inner: Arc<Mutex<ActorSystemInner>>,
+}
+
+impl ActorSystem {
+  pub async fn new(options: &[ConfigOption]) -> Self {
+    let config = Self::configure(options);
+    Self::new_with_config(config).await
+  }
+
+  pub async fn new_with_config(config: Config) -> Self {
+    let mut system = Self {
+      inner: Arc::new(Mutex::new(ActorSystemInner::new(config))),
+    };
+    let system_cloned = system.clone();
+    {
+      let mut inner_mg = system.inner.lock().await;
+      inner_mg.root = Some(RootContext::new(
+        system_cloned.clone(),
+        EMPTY_MESSAGE_HEADER.clone(),
+        &[],
+      ));
+    }
+    {
+      let mut inner_mg = system.inner.lock().await;
+      inner_mg.process_registry = Some(ProcessRegistry::new(system_cloned.clone()));
+    }
+    {
+      let mut inner_mg = system.inner.lock().await;
+      inner_mg.guardians = Some(Guardians::new(system_cloned.clone()));
+    }
+    {
+      let mut inner_mg = system.inner.lock().await;
+      inner_mg.dead_letter = Some(DeadLetterProcess::new(system_cloned.clone()).await);
+    }
+
+    subscribe_supervision(&system).await;
+    // if let Some(metrics_provider) = &config.metrics_provider {
+    //   system.extensions.register(Metrics::new(metrics_provider.clone()));
+    // }
+
+    // let event_stream_pid = system.process_registry.add(
+    //   EventStreamProcess::new(Arc::downgrade(&system)),
+    //   "eventstream".to_string(),
+    // );
+    // system.process_registry.add(event_stream_pid, "eventstream".to_string());
+
+    system_cloned
+  }
+
+  fn configure(options: &[ConfigOption]) -> Config {
+    let mut config = Config::default();
+    for option in options {
+      option.apply(&mut config);
+    }
+    config
+  }
+
+  pub async fn get_config(&self) -> Config {
+    let inner_mg = self.inner.lock().await;
+    inner_mg.config.clone()
+  }
+
+  pub async fn get_root(&self) -> RootContext {
+    let inner_mg = self.inner.lock().await;
+    inner_mg.root.as_ref().unwrap().clone()
+  }
+
+  pub async fn get_dead_letter(&self) -> ProcessHandle {
+    let inner_mg = self.inner.lock().await;
+    let dead_letter = inner_mg.dead_letter.as_ref().unwrap().clone();
+    ProcessHandle::new(dead_letter)
+  }
+
+  pub async fn get_process_registry(&self) -> ProcessRegistry {
+    let inner_mg = self.inner.lock().await;
+    inner_mg.process_registry.as_ref().unwrap().clone()
+  }
+
+  pub async fn get_event_stream(&self) -> Arc<EventStream> {
+    let inner_mg = self.inner.lock().await;
+    inner_mg.event_stream.clone()
+  }
+
+  pub async fn get_guardians(&self) -> Guardians {
+    let inner_mg = self.inner.lock().await;
+    inner_mg.guardians.as_ref().unwrap().clone()
+  }
+}
+
+#[derive(Debug, Clone)]
+pub struct Config {
+  // pub metrics_provider: Option<Arc<dyn MetricsProvider>>,
+  pub dispatcher_throughput: usize,
+  pub dead_letter_throttle_interval: tokio::time::Duration,
+  pub dead_letter_throttle_count: usize,
+  pub dead_letter_request_logging: bool,
+  pub developer_supervision_logging: bool,
+  // Other fields...
+}
+
+impl Default for Config {
+  fn default() -> Self {
+    Config {
+      // metrics_provider: None,
+      dispatcher_throughput: 300,
+      dead_letter_throttle_interval: tokio::time::Duration::from_secs(1),
+      dead_letter_throttle_count: 10,
+      dead_letter_request_logging: false,
+      developer_supervision_logging: false,
+      // Set other default values...
+    }
+  }
+}
+
+pub enum ConfigOption {
+  // SetMetricsProvider(Arc<dyn MetricsProvider>),
+  SetDispatcherThroughput(usize),
+  SetDeadLetterThrottleInterval(tokio::time::Duration),
+  SetDeadLetterThrottleCount(usize),
+  // Other options...
+}
+
+impl ConfigOption {
+  fn apply(&self, config: &mut Config) {
+    match self {
+      // ConfigOption::SetMetricsProvider(provider) => {
+      //   config.metrics_provider = Some(Arc::clone(provider));
+      // },
+      ConfigOption::SetDispatcherThroughput(throughput) => {
+        config.dispatcher_throughput = *throughput;
+      }
+      ConfigOption::SetDeadLetterThrottleInterval(interval) => {
+        config.dead_letter_throttle_interval = *interval;
+      }
+      ConfigOption::SetDeadLetterThrottleCount(count) => {
+        config.dead_letter_throttle_count = *count;
+      } // Handle other options...
+    }
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use std::io;
+  use std::io::BufRead;
+  use std::thread::sleep;
+
+  use async_trait::async_trait;
+
+  use crate::actor::context::{ContextHandle, InfoPart, MessagePart, SenderPart, SpawnerPart};
+  use crate::actor::message::{Actor, ActorHandle, Message, MessageHandle, ProducerFunc};
+  use crate::actor::props::Props;
+
+  use super::*;
+
+  #[tokio::test]
+  async fn test_actor_system_new() {
+    let system = ActorSystem::new(&[]).await;
+    let root = system.get_root().await;
+    assert_eq!(root.get_self().await, None);
+  }
+
+  #[tokio::test]
+  async fn test_actor_system_new_with_config() {
+    let system = ActorSystem::new_with_config(Config::default()).await;
+    let root = system.get_root().await;
+    assert_eq!(root.get_self().await, None);
+  }
+
+  #[derive(Debug, Clone)]
+  struct Hello(pub String);
+  impl Message for Hello {
+    fn as_any(&self) -> &(dyn std::any::Any + Send + Sync + 'static) {
+      self
+    }
+  }
+
+  #[derive(Debug)]
+  struct MyActor {}
+
+  #[async_trait]
+  impl Actor for MyActor {
+    async fn receive(&self, ctx: ContextHandle) {
+      let msg = ctx.get_message().await;
+      println!("{:?}", msg);
+    }
+  }
+
+  pub async fn receive(ctx: ContextHandle) -> ActorHandle {
+    let actor = MyActor {};
+    ActorHandle::new(Arc::new(actor))
+  }
+  // spawn actor test
+  #[tokio::test]
+  async fn test_actor_system_spawn_actor() {
+    env_logger::init();
+    let system = ActorSystem::new(&[]).await;
+    let mut root = system.get_root().await;
+    log::debug!("root: {:?}", root);
+    let props = Props::from_producer_func_with_opts(
+      ProducerFunc::new(|ch| Box::pin(async move { receive(ch).await })),
+      vec![],
+    )
+    .await;
+    log::debug!("props: {:?}", props);
+    let pid = root.spawn(props).await;
+    log::debug!("pid: {:?}", pid);
+    println!("pid: {:?}", pid);
+    root.send(pid, MessageHandle::new(Hello("hello".to_string()))).await;
+
+    sleep(std::time::Duration::from_secs(3));
+  }
+}

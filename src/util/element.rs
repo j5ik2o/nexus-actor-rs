@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 use std::sync::Arc;
 
-pub trait Element: Debug + Clone + Send + Sync {}
+pub trait Element: Debug + Send + Sync + 'static {}
 
 impl Element for i8 {}
 
@@ -27,8 +27,8 @@ impl Element for f64 {}
 
 impl Element for String {}
 
-impl<T: Debug + Clone + Send + Sync> Element for Box<T> {}
+impl<T: Debug + Send + Sync + 'static> Element for Box<T> {}
 
-impl<T: Debug + Clone + Send + Sync> Element for Arc<T> {}
+impl<T: Debug + Send + Sync + 'static> Element for Arc<T> {}
 
-impl<T: Debug + Clone + Send + Sync> Element for Option<T> {}
+impl<T: Debug + Send + Sync + 'static> Element for Option<T> {}
