@@ -1,0 +1,14 @@
+[package]
+name = "proto-actor-rs"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+async-trait = "0.1.80"
+futures = "0.3.30"
+tokio = { version = "1.37.0" , features = ["full"] }
+thiserror = "1.0.61"
+oni-comb-uri-rs = "0.2.1"
+log = "0.4.21"
+rand = "0.9.0-alpha.1"
+base64-string-rs = "0.0.1"

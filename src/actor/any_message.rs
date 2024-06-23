@@ -1,10 +1,10 @@
+use crate::actor::message::Message;
 use std::any::Any;
 use std::fmt;
 use std::fmt::Debug;
 use std::sync::Arc;
 
-use crate::core::dispatch::message::Message;
-use crate::core::util::element::Element;
+use crate::util::element::Element;
 
 #[derive(Debug)]
 pub enum AnyMessageError {
