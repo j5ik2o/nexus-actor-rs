@@ -64,8 +64,8 @@ impl MessageHandle {
 impl Element for MessageHandle {}
 
 impl PriorityMessage for MessageHandle {
-  fn get_priority(&self) -> i8 {
-    self.0.get_priority()
+  fn get_priority(&self) -> Option<i8> {
+    Some(self.0.get_priority())
   }
 }
 

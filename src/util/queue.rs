@@ -1,5 +1,6 @@
 use std::cmp::Ordering;
 use std::fmt::Debug;
+use std::ops::Add;
 
 use async_trait::async_trait;
 use thiserror::Error;
@@ -96,6 +97,17 @@ impl QueueSize {
     match self {
       QueueSize::Limitless => usize::MAX,
       QueueSize::Limited(c) => *c,
+    }
+  }
+}
+
+impl Add for QueueSize {
+  type Output = QueueSize;
+
+  fn add(self, other: QueueSize) -> QueueSize {
+    match (self, other) {
+      (QueueSize::Limitless, _) | (_, QueueSize::Limitless) => QueueSize::Limitless,
+      (QueueSize::Limited(a), QueueSize::Limited(b)) => QueueSize::Limited(a + b),
     }
   }
 }
