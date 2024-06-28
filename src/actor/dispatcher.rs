@@ -61,6 +61,8 @@ impl MailboxMiddleware for MailboxMiddlewareHandle {
   }
 }
 
+// ---
+
 // MessageInvoker trait
 #[async_trait]
 pub trait MessageInvoker: Debug + Send + Sync {
@@ -109,6 +111,8 @@ impl MessageInvoker for MessageInvokerHandle {
     mg.escalate_failure(reason, message).await;
   }
 }
+
+// ---
 
 pub struct Runnable(Box<dyn FnOnce() -> BoxFuture<'static, ()> + Send>);
 
