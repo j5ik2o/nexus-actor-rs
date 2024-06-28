@@ -20,6 +20,8 @@ pub mod messages;
 mod middleware_chain;
 pub mod pid;
 pub mod pid_set;
+#[cfg(test)]
+mod pid_set_test;
 pub mod process;
 pub mod process_registry;
 pub mod props;
