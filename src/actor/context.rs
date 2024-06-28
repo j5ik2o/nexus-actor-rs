@@ -5,6 +5,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
+use futures::future::BoxFuture;
 use tokio::sync::Mutex;
 
 use crate::actor::actor_system::ActorSystem;
@@ -240,7 +241,9 @@ impl BasePart for ContextHandle {
   async fn reenter_after(
     &self,
     f: &Future,
-    continuation: Box<dyn FnOnce(Result<Box<dyn Any + Send>, Box<dyn Error + Send + Sync>>) + Send + 'static>,
+    continuation: Box<
+      dyn FnOnce(Result<Box<dyn Any + Send>, Box<dyn Error + Send + Sync>>) -> BoxFuture<'static, ()> + Send + 'static,
+    >,
   ) {
     let mg = self.0.lock().await;
     mg.reenter_after(f, continuation).await
@@ -575,7 +578,7 @@ pub trait BasePart: Debug + Send + Sync + 'static {
     &self,
     f: &Future,
     continuation: Box<
-      dyn FnOnce(Result<Box<dyn Any + Send>, Box<dyn std::error::Error + Send + Sync>>) + Send + 'static,
+      dyn FnOnce(Result<Box<dyn Any + Send>, Box<dyn Error + Send + Sync>>) -> BoxFuture<'static, ()> + Send + 'static,
     >,
   );
 }

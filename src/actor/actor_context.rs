@@ -360,17 +360,13 @@ impl ActorContext {
   }
 
   async fn receive_timeout_handler(&mut self) {
-    match self.get_extras().await {
-      Some(extras) => match extras.get_receive_timeout_timer().await {
-        Some(_) => {
-          self.cancel_receive_timeout().await;
-          self
-            .send(self.get_self().await.unwrap(), MessageHandle::new(ReceiveTimeout {}))
-            .await;
-        }
-        _ => {}
-      },
-      _ => {}
+    if let Some(extras) = self.get_extras().await {
+      if extras.get_receive_timeout_timer().await.is_some() {
+        self.cancel_receive_timeout().await;
+        self
+          .send(self.get_self().await.unwrap(), MessageHandle::new(ReceiveTimeout {}))
+          .await;
+      }
     }
   }
 
@@ -423,13 +419,13 @@ impl ActorContext {
 
   async fn incarnate_actor(&mut self) {
     {
-      let mut mg = self.inner.lock().await;
-      match &mg.state {
-        Some(r) => {
-          r.store(State::Alive as u8, Ordering::SeqCst);
+      let mut inner_mg = self.inner.lock().await;
+      match &inner_mg.state {
+        Some(state) => {
+          state.store(State::Alive as u8, Ordering::SeqCst);
         }
         None => {
-          mg.state = Some(Arc::new(AtomicU8::new(State::Alive as u8)));
+          inner_mg.state = Some(Arc::new(AtomicU8::new(State::Alive as u8)));
         }
       }
     }
@@ -515,14 +511,11 @@ impl ActorContext {
       .invoke_user_message(MessageHandle::new(SystemMessage::Started(Started {})))
       .await;
 
-    match self.get_extras().await {
-      Some(mut extras) => {
-        while !extras.get_stash().await.is_empty().await {
-          let message = extras.get_stash().await.pop().await;
-          self.invoke_user_message(message.unwrap()).await;
-        }
+    if let Some(mut extras) = self.get_extras().await {
+      while !extras.get_stash().await.is_empty().await {
+        let message = extras.get_stash().await.pop().await;
+        self.invoke_user_message(message.unwrap()).await;
       }
-      _ => {}
     }
   }
 
@@ -541,24 +534,18 @@ impl ActorContext {
       who: self.get_self().await.map(|x| x.inner),
       why: 0,
     });
-    match self.get_extras().await {
-      Some(extras) => {
-        let watchers = extras.get_watchers().await;
-        for watcher in watchers.to_vec().await {
-          watcher
-            .send_system_message(self.get_actor_system().await, other_stopped.clone())
-            .await;
-        }
-        match self.get_parent().await {
-          Some(parent) => {
-            parent
-              .send_system_message(self.get_actor_system().await, other_stopped)
-              .await;
-          }
-          _ => {}
-        }
+    if let Some(extras) = self.get_extras().await {
+      let watchers = extras.get_watchers().await;
+      for watcher in watchers.to_vec().await {
+        watcher
+          .send_system_message(self.get_actor_system().await, other_stopped.clone())
+          .await;
       }
-      _ => {}
+      if let Some(parent) = self.get_parent().await {
+        parent
+          .send_system_message(self.get_actor_system().await, other_stopped)
+          .await;
+      }
     }
   }
 
@@ -676,19 +663,16 @@ impl ActorContext {
   }
 
   async fn handle_terminated(&mut self, terminated: &Terminated) {
-    match self.get_extras().await {
-      Some(mut extras) => {
-        let pid = ExtendedPid::new(terminated.clone().who.unwrap(), self.get_actor_system().await);
-        extras.remove_child(&pid).await;
-      }
-      _ => {}
+    if let Some(mut extras) = self.get_extras().await {
+      let pid = ExtendedPid::new(terminated.clone().who.unwrap(), self.get_actor_system().await);
+      extras.remove_child(&pid).await;
     }
 
     self.invoke_user_message(MessageHandle::new(terminated.clone())).await;
     self.try_restart_or_terminate().await;
   }
 
-  async fn handle_root_failure(&self, failure: &mut Failure) {
+  async fn handle_root_failure(&self, failure: &Failure) {
     DEFAULT_SUPERVISION_STRATEGY
       .handle_failure(
         &self.get_actor_system().await,
@@ -832,37 +816,32 @@ impl BasePart for ActorContext {
   }
 
   async fn cancel_receive_timeout(&mut self) {
-    match self.get_extras().await {
-      Some(extras) => match extras.get_receive_timeout_timer().await {
-        Some(_) => {
-          extras.kill_receive_timeout_timer().await;
-        }
-        _ => {}
-      },
-      _ => {}
+    if let Some(extras) = self.get_extras().await {
+      if extras.get_receive_timeout_timer().await.is_some() {
+        extras.kill_receive_timeout_timer().await;
+      }
     }
   }
 
   async fn forward(&self, pid: &ExtendedPid) {
     let mg = self.inner.lock().await;
-    match &mg.message_or_envelope {
-      Some(moe) => {
-        let message = moe.get_value();
-        if let Some(sm) = message.as_any().downcast_ref::<SystemMessage>() {
-          panic!("SystemMessage cannot be forwarded: {:?}", sm);
-        } else {
-          let sm = MessageHandle::new(moe.clone());
-          pid.send_user_message(self.get_actor_system().await, sm).await;
-        }
+    if let Some(moe) = &mg.message_or_envelope {
+      let message = moe.get_value();
+      if let Some(sm) = message.as_any().downcast_ref::<SystemMessage>() {
+        panic!("SystemMessage cannot be forwarded: {:?}", sm);
+      } else {
+        let sm = MessageHandle::new(moe.clone());
+        pid.send_user_message(self.get_actor_system().await, sm).await;
       }
-      _ => {}
     }
   }
 
   async fn reenter_after(
     &self,
     f: &Future,
-    continuation: Box<dyn FnOnce(Result<Box<dyn Any + Send>, Box<dyn Error + Send + Sync>>) + Send + 'static>,
+    continuation: Box<
+      dyn FnOnce(Result<Box<dyn Any + Send>, Box<dyn Error + Send + Sync>>) -> BoxFuture<'static, ()> + Send + 'static,
+    >,
   ) {
     todo!()
   }
@@ -1181,7 +1160,7 @@ impl Supervisor for ActorContext {
       .await;
 
     if self.get_parent().await.is_none() {
-      // TODO
+      self.handle_root_failure(&failure).await
     } else {
       self
         .get_parent()
