@@ -115,29 +115,3 @@ impl ExtendedPid {
       .await;
   }
 }
-
-// impl Deref for ExtendedPid {
-//   type Target = Pid;
-//
-//   fn deref(&self) -> &Self::Target {
-//     &self.inner
-//   }
-// }
-
-// impl From<Pid> for ExtendedPid {
-//   fn from(value: Pid) -> Self {
-//     ExtendedPid::new(value)
-//   }
-// }
-
-// impl AsRef<Pid> for ExtendedPid {
-//   fn as_ref(&self) -> &Pid {
-//     &self.inner
-//   }
-// }
-
-// impl AsMut<Pid> for ExtendedPid {
-//   fn as_mut(&mut self) -> &mut Pid {
-//     &mut self.inner
-//   }
-// }
