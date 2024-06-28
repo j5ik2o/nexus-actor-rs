@@ -40,7 +40,7 @@ impl ProcessHandle {
     ProcessHandle(process)
   }
 
-  pub fn new(p: impl Process + Send + Sync + 'static) -> Self {
+  pub fn new(p: impl Process + 'static) -> Self {
     ProcessHandle(Arc::new(p))
   }
 }

@@ -82,7 +82,7 @@ impl SupervisorStrategyHandle {
     SupervisorStrategyHandle(s)
   }
 
-  pub fn new(s: impl SupervisorStrategy + Send + Sync + 'static) -> Self {
+  pub fn new(s: impl SupervisorStrategy + 'static) -> Self {
     SupervisorStrategyHandle(Arc::new(s))
   }
 }
@@ -121,7 +121,7 @@ impl SupervisorHandle {
     SupervisorHandle(s)
   }
 
-  pub fn new(s: impl Supervisor + Send + Sync + 'static) -> Self {
+  pub fn new(s: impl Supervisor + 'static) -> Self {
     SupervisorHandle(Arc::new(Mutex::new(s)))
   }
 }

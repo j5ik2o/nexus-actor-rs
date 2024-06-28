@@ -37,11 +37,7 @@ impl std::hash::Hash for MailboxMiddlewareHandle {
 }
 
 impl MailboxMiddlewareHandle {
-  pub fn new_arc(middleware: Arc<dyn MailboxMiddleware>) -> Self {
-    MailboxMiddlewareHandle(middleware)
-  }
-
-  pub fn new(middleware: impl MailboxMiddleware + Send + Sync + 'static) -> Self {
+  pub fn new(middleware: impl MailboxMiddleware + 'static) -> Self {
     MailboxMiddlewareHandle(Arc::new(middleware))
   }
 }

@@ -39,7 +39,7 @@ pub trait Message: Debug + Send + Sync + 'static {
   fn as_any(&self) -> &(dyn Any + Send + Sync + 'static);
 }
 
-impl<T: prost::Message + Send + Sync + 'static> Message for T {
+impl<T: prost::Message + 'static> Message for T {
   fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
     self
   }

@@ -40,7 +40,7 @@ impl ReadonlyMessageHeadersHandle {
     ReadonlyMessageHeadersHandle(header)
   }
 
-  pub fn new(header: impl ReadonlyMessageHeaders + Send + Sync + 'static) -> Self {
+  pub fn new(header: impl ReadonlyMessageHeaders + 'static) -> Self {
     ReadonlyMessageHeadersHandle(Arc::new(header))
   }
 }
