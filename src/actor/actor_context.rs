@@ -5,6 +5,7 @@ use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use futures::future::BoxFuture;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use tokio::sync::Mutex;
 
@@ -25,7 +26,7 @@ use crate::actor::message::{
 use crate::actor::message_envelope::{MessageEnvelope, MessageOrEnvelope, ReadonlyMessageHeadersHandle};
 use crate::actor::messages::{
   AutoReceiveMessage, Continuation, Failure, MailboxMessage, NotInfluenceReceiveTimeoutHandle, ReceiveTimeout, Restart,
-  Started, Stopped, Stopping, SystemMessage,
+  Restarting, Started, Stopped, Stopping, SystemMessage,
 };
 use crate::actor::pid::ExtendedPid;
 use crate::actor::pid_set::PidSet;
@@ -614,7 +615,22 @@ impl ActorContext {
     self.try_restart_or_terminate().await;
   }
 
-  async fn handle_restart(&mut self) {}
+  async fn handle_restart(&mut self) {
+    {
+      let mut mg = self.inner.lock().await;
+      mg.state
+        .as_mut()
+        .unwrap()
+        .store(State::Restarting as u8, Ordering::SeqCst);
+    }
+    self
+      .invoke_user_message(MessageHandle::new(AutoReceiveMessage::Restarting(Restarting {})))
+      .await;
+    self.stop_all_children().await;
+    self.try_restart_or_terminate().await;
+
+    // TODO: Metrics
+  }
 
   async fn handle_watch(&mut self, watch: &Watch) {
     let extras = self.ensure_extras().await;
