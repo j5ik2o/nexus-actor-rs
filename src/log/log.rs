@@ -149,5 +149,3 @@ pub async fn reset_logger() {
   reset_global_logger().await;
   reset_subscription().await;
 }
-
-
