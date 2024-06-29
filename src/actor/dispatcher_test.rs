@@ -102,7 +102,7 @@ async fn test_mailbox_with_test_invoker() {
   let invoker = Arc::new(Mutex::new(TestMessageInvoker::new()));
   let invoker_handle = MessageInvokerHandle::new(invoker.clone());
   let dispatcher = Arc::new(TokioRuntimeContextDispatcher::new(5));
-  let dispatcher_handle = DispatcherHandle::new(dispatcher.clone());
+  let dispatcher_handle = DispatcherHandle::new_arc(dispatcher.clone());
   mailbox
     .register_handlers(Some(invoker_handle.clone()), Some(dispatcher_handle.clone()))
     .await;

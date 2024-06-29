@@ -37,8 +37,12 @@ pub trait Dispatcher: Debug + Send + Sync + 'static {
 pub struct DispatcherHandle(Arc<dyn Dispatcher>);
 
 impl DispatcherHandle {
-  pub fn new(dispatcher: Arc<dyn Dispatcher>) -> Self {
+  pub fn new_arc(dispatcher: Arc<dyn Dispatcher>) -> Self {
     Self(dispatcher)
+  }
+
+  pub fn new(dispatcher: impl Dispatcher + 'static) -> Self {
+    Self(Arc::new(dispatcher))
   }
 }
 

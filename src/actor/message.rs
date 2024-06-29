@@ -308,8 +308,11 @@ impl std::hash::Hash for ContextDecoratorFunc {
 }
 
 impl ContextDecoratorFunc {
-  pub fn new(f: impl Fn(ContextHandle) -> BoxFuture<'static, ContextHandle> + Send + Sync + 'static) -> Self {
-    ContextDecoratorFunc(Arc::new(f))
+  pub fn new<F, Fut>(f: F) -> Self
+  where
+    F: Fn(ContextHandle) -> Fut + Send + Sync + 'static,
+    Fut: Future<Output = ContextHandle> + Send + 'static, {
+    Self(Arc::new(move |ch| Box::pin(f(ch)) as BoxFuture<'static, ContextHandle>))
   }
 
   pub async fn run(&self, context: ContextHandle) -> ContextHandle {
