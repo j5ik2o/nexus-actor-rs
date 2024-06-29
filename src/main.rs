@@ -2,10 +2,10 @@ use std::sync::Arc;
 use std::thread::sleep;
 
 use async_trait::async_trait;
-
+use nexus_rs::actor::actor::{Actor, ActorHandle};
 use nexus_rs::actor::actor_system::ActorSystem;
 use nexus_rs::actor::context::{ContextHandle, MessagePart, SenderPart, SpawnerPart};
-use nexus_rs::actor::message::{Actor, ActorHandle, Message, MessageHandle, ProducerFunc};
+use nexus_rs::actor::message::{Message, MessageHandle, ProducerFunc};
 use nexus_rs::actor::messages::SystemMessage;
 use nexus_rs::actor::props::Props;
 
@@ -40,10 +40,7 @@ impl Actor for MyActor {
 
     if let Some(sm) = msg.as_any().downcast_ref::<SystemMessage>() {
       println!("string = {:?}", sm);
-      let props = Props::from_producer_func(ProducerFunc::new(|ch| {
-        Box::pin(async move { create_child_actor(ch).await })
-      }))
-      .await;
+      let props = Props::from_producer_func(ProducerFunc::new(create_child_actor)).await;
 
       let pid = ctx.spawn(props).await;
       println!("child = {}", pid);
@@ -72,10 +69,7 @@ async fn main() {
   let system = ActorSystem::new(&[]).await;
   let mut root = system.get_root_context().await;
 
-  let props = Props::from_producer_func(ProducerFunc::new(|ch| {
-    Box::pin(async move { create_my_actor(ch).await })
-  }))
-  .await;
+  let props = Props::from_producer_func(ProducerFunc::new(create_my_actor)).await;
 
   let pid = root.spawn(props).await;
   for _ in 1..10 {

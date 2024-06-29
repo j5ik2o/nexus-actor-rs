@@ -254,11 +254,7 @@ mod tests {
     let system = ActorSystem::new(&[]).await;
     let mut root = system.get_root_context().await;
     log::debug!("root: {:?}", root);
-    let props = Props::from_producer_func_with_opts(
-      ProducerFunc::new(|ch| Box::pin(async move { receive(ch).await })),
-      vec![],
-    )
-    .await;
+    let props = Props::from_producer_func_with_opts(ProducerFunc::new(receive), vec![]).await;
     log::debug!("props: {:?}", props);
     let pid = root.spawn(props).await;
     log::debug!("pid: {:?}", pid);

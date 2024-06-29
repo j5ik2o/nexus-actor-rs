@@ -1,17 +1,17 @@
 use std::any::Any;
 use std::fmt::{Debug, Display, Formatter};
+use std::future::Future;
 use std::sync::Arc;
+
+use futures::future::BoxFuture;
+use tokio::sync::Mutex;
 
 use crate::actor::actor::ActorHandle;
 use crate::actor::context::{ContextHandle, ReceiverContextHandle, SenderContextHandle};
 use crate::actor::message_envelope::MessageEnvelope;
 use crate::actor::pid::ExtendedPid;
-use crate::actor::supervisor_strategy::SupervisorStrategyHandle;
 use crate::util::element::Element;
-use crate::util::queue::priority_queue::{PriorityMessage, DEFAULT_PRIORITY};
-use async_trait::async_trait;
-use futures::future::BoxFuture;
-use tokio::sync::Mutex;
+use crate::util::queue::priority_queue::{DEFAULT_PRIORITY, PriorityMessage};
 
 pub trait Response: Message + Debug + Send + Sync + 'static {}
 
@@ -156,8 +156,11 @@ impl std::hash::Hash for ProducerFunc {
 }
 
 impl ProducerFunc {
-  pub fn new(f: impl Fn(ContextHandle) -> BoxFuture<'static, ActorHandle> + Send + Sync + 'static) -> Self {
-    ProducerFunc(Arc::new(f))
+  pub fn new<F, Fut>(f: F) -> Self
+  where
+    F: Fn(ContextHandle) -> Fut + Send + Sync + 'static,
+    Fut: Future<Output = ActorHandle> + Send + 'static, {
+    Self(Arc::new(move |ch| Box::pin(f(ch)) as BoxFuture<'static, ActorHandle>))
   }
 
   pub async fn run(&self, c: ContextHandle) -> ActorHandle {

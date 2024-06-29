@@ -21,8 +21,8 @@ impl Runnable {
     Self(Box::new(move || Box::pin(f()) as BoxFuture<'static, ()>))
   }
 
-  pub fn run(self) -> BoxFuture<'static, ()> {
-    (self.0)()
+  pub async fn run(self) {
+    (self.0)().await;
   }
 }
 

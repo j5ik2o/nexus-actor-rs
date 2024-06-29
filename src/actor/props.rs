@@ -473,10 +473,10 @@ impl Props {
   pub async fn from_receive_func_with_opts(f: ReceiveFunc, opts: Vec<PropsOptionFunc>) -> Props {
     let producer = ProducerFunc::new(move |ctx: ContextHandle| {
       let cloned = f.clone();
-      Box::pin(async move {
+      async move {
         let actor = ReceiveFuncActor(cloned);
         ActorHandle::new(Arc::new(actor))
-      })
+      }
     });
     Props::from_producer_func_with_opts(producer, opts).await
   }
