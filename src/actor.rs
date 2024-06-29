@@ -11,6 +11,8 @@ pub mod context;
 pub mod dead_letter_process;
 pub mod directive;
 pub mod dispatcher;
+#[cfg(test)]
+mod dispatcher_test;
 pub mod future;
 pub mod guardians_value;
 pub mod log;
