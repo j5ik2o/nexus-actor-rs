@@ -431,7 +431,7 @@ impl Props {
     self.receiver_middleware_chain.clone()
   }
 
-  pub fn get_context_decorator_chain(&self) -> Option<ContextDecoratorFunc> {
+  pub(crate) fn get_context_decorator_chain(&self) -> Option<ContextDecoratorFunc> {
     self.context_decorator_chain.clone()
   }
 
