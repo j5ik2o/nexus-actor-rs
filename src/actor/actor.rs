@@ -3,10 +3,11 @@ use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 use std::sync::Arc;
 
-use crate::actor::context::ContextHandle;
-use crate::actor::supervisor_strategy::SupervisorStrategyHandle;
 use async_trait::async_trait;
 use backtrace::Backtrace;
+
+use crate::actor::context::ContextHandle;
+use crate::actor::supervisor_strategy::SupervisorStrategyHandle;
 
 include!(concat!(env!("OUT_DIR"), "/actor.rs"));
 
@@ -120,8 +121,7 @@ impl std::hash::Hash for ActorInnerError {
   }
 }
 
-impl From<std::io::Error> for ActorInnerError
-{
+impl From<std::io::Error> for ActorInnerError {
   fn from(error: std::io::Error) -> Self {
     ActorInnerError {
       inner_error: Some(Arc::new(error)),
@@ -143,27 +143,23 @@ impl From<&str> for ActorInnerError {
 }
 
 #[derive(Debug, Clone)]
-pub struct DefaultError{
-    msg: String
+pub struct DefaultError {
+  msg: String,
 }
 
 impl DefaultError {
-    pub fn new(msg: String) -> Self {
-        DefaultError {
-            msg
-        }
-    }
+  pub fn new(msg: String) -> Self {
+    DefaultError { msg }
+  }
 }
 
 impl Display for DefaultError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "DefaultError: {}", self.msg)
-    }
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "DefaultError: {}", self.msg)
+  }
 }
 
 impl Error for DefaultError {}
-
-
 
 #[derive(Debug, Clone)]
 pub enum ActorError {
@@ -175,7 +171,6 @@ pub enum ActorError {
 }
 
 impl ActorError {
-
   pub fn reason(&self) -> Option<&ActorInnerError> {
     match self {
       ActorError::ReceiveError(e)
@@ -185,7 +180,6 @@ impl ActorError {
       | ActorError::CommunicationError(e) => Some(e),
     }
   }
-
 }
 
 impl Display for ActorError {
