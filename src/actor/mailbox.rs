@@ -205,11 +205,19 @@ impl DefaultMailbox {
     *self.inner.dispatcher_opt.lock().await = dispatcher_opt;
   }
 
+  fn compare_exchange_scheduler_status(&self, current: bool,
+                            new: bool,
+                            success: Ordering,
+                            failure: Ordering) -> Result<bool, bool> {
+    self
+        .inner
+        .scheduler_status
+        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+  }
+
   async fn schedule(&self) {
     if self
-      .inner
-      .scheduler_status
-      .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+      .compare_exchange_scheduler_status(false, true, Ordering::SeqCst, Ordering::SeqCst)
       .is_ok()
     {
       if let Some(dispatcher) = self.get_dispatcher_opt().await {
@@ -301,9 +309,7 @@ impl Mailbox for DefaultMailbox {
 
       if sys > 0 || (!self.inner.suspended.load(Ordering::SeqCst) && user > 0) {
         if self
-          .inner
-          .scheduler_status
-          .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+          .compare_exchange_scheduler_status(false, true, Ordering::SeqCst, Ordering::SeqCst)
           .is_ok()
         {
           continue;
