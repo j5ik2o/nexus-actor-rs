@@ -38,6 +38,7 @@ pub mod supervision_event;
 pub mod supervisor_strategy;
 pub mod taks;
 pub mod throttler;
+mod throttler_test;
 pub mod unbounded;
 
 pub trait Reason: Debug + Display + Send + Sync + 'static {
