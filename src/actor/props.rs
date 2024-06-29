@@ -276,7 +276,7 @@ unsafe impl Sync for Props {}
 
 static DEFAULT_DISPATCHER: Lazy<DispatcherHandle> =
   Lazy::new(|| DispatcherHandle::new(Arc::new(TokioDispatcher::new(300))));
-static DEFAULT_MAILBOX_PRODUCER: Lazy<MailboxProduceFunc> = Lazy::new(|| unbounded_mpsc_mailbox_creator(vec![]));
+static DEFAULT_MAILBOX_PRODUCER: Lazy<MailboxProduceFunc> = Lazy::new(|| unbounded_mailbox_creator(vec![]));
 
 static DEFAULT_SPAWNER: Lazy<SpawnFunc> = Lazy::new(|| {
   SpawnFunc::new(
