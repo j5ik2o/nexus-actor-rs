@@ -9,7 +9,7 @@ use futures::future::BoxFuture;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use tokio::sync::Mutex;
 
-use crate::actor::actor::{PoisonPill, Stop, Terminated, Unwatch, Watch};
+use crate::actor::actor::{Actor, ActorHandle, PoisonPill, Stop, Terminated, Unwatch, Watch};
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::auto_respond::{AutoRespond, AutoRespondHandle};
 use crate::actor::context::{
@@ -20,7 +20,7 @@ use crate::actor::context::{
 use crate::actor::future::Future;
 use crate::actor::log::P_LOG;
 use crate::actor::message::{
-  Actor, ActorHandle, Message, MessageHandle, MessageHandles, ProducerFunc, ReceiverFunc, ResponseHandle, SenderFunc,
+  Message, MessageHandle, MessageHandles, ProducerFunc, ReceiverFunc, ResponseHandle, SenderFunc,
 };
 use crate::actor::message_envelope::{MessageEnvelope, MessageOrEnvelope, ReadonlyMessageHeadersHandle};
 use crate::actor::message_invoker::MessageInvoker;

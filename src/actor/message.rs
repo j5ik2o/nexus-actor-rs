@@ -2,16 +2,16 @@ use std::any::Any;
 use std::fmt::{Debug, Display, Formatter};
 use std::sync::Arc;
 
-use async_trait::async_trait;
-use futures::future::BoxFuture;
-use tokio::sync::Mutex;
-
+use crate::actor::actor::ActorHandle;
 use crate::actor::context::{ContextHandle, ReceiverContextHandle, SenderContextHandle};
 use crate::actor::message_envelope::MessageEnvelope;
 use crate::actor::pid::ExtendedPid;
 use crate::actor::supervisor_strategy::SupervisorStrategyHandle;
 use crate::util::element::Element;
 use crate::util::queue::priority_queue::{PriorityMessage, DEFAULT_PRIORITY};
+use async_trait::async_trait;
+use futures::future::BoxFuture;
+use tokio::sync::Mutex;
 
 pub trait Response: Message + Debug + Send + Sync + 'static {}
 
@@ -162,44 +162,6 @@ impl ProducerFunc {
 
   pub async fn run(&self, c: ContextHandle) -> ActorHandle {
     (self.0)(c).await
-  }
-}
-
-#[async_trait]
-pub trait Actor: Debug + Send + Sync + 'static {
-  async fn receive(&self, c: ContextHandle);
-  fn get_supervisor_strategy(&self) -> Option<SupervisorStrategyHandle> {
-    None
-  }
-}
-
-#[derive(Debug, Clone)]
-pub struct ActorHandle(Arc<dyn Actor>);
-
-impl PartialEq for ActorHandle {
-  fn eq(&self, other: &Self) -> bool {
-    Arc::ptr_eq(&self.0, &other.0)
-  }
-}
-
-impl Eq for ActorHandle {}
-
-impl std::hash::Hash for ActorHandle {
-  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    (self.0.as_ref() as *const dyn Actor).hash(state);
-  }
-}
-
-impl ActorHandle {
-  pub fn new(actor: Arc<dyn Actor>) -> Self {
-    ActorHandle(actor)
-  }
-}
-
-#[async_trait]
-impl Actor for ActorHandle {
-  async fn receive(&self, c: ContextHandle) {
-    self.0.receive(c).await;
   }
 }
 

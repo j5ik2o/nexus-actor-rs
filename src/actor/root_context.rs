@@ -3,14 +3,14 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 
-use crate::actor::actor::PoisonPill;
+use crate::actor::actor::{ActorHandle, PoisonPill};
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::{
   InfoPart, MessagePart, SenderContext, SenderContextHandle, SenderPart, SpawnerContext, SpawnerContextHandle,
   SpawnerPart, StopperPart,
 };
 use crate::actor::future::Future;
-use crate::actor::message::{ActorHandle, MessageHandle, SenderFunc};
+use crate::actor::message::{MessageHandle, SenderFunc};
 use crate::actor::message_envelope::{MessageEnvelope, MessageHeaders, ReadonlyMessageHeadersHandle};
 use crate::actor::messages::AutoReceiveMessage;
 use crate::actor::middleware_chain::make_sender_middleware_chain;

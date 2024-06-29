@@ -1,6 +1,7 @@
 use std::fmt::{Debug, Display};
 use std::sync::Arc;
 
+pub mod actor;
 mod actor_context;
 pub mod actor_process;
 pub mod actor_system;
@@ -36,10 +37,6 @@ pub mod supervisor_strategy;
 pub mod taks;
 pub mod throttler;
 pub mod unbounded;
-
-pub mod actor {
-  include!(concat!(env!("OUT_DIR"), "/actor.rs"));
-}
 
 pub trait Reason: Debug + Display + Send + Sync + 'static {
   fn as_any(&self) -> &dyn std::any::Any;

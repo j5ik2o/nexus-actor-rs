@@ -198,11 +198,11 @@ mod tests {
   use std::io::BufRead;
   use std::thread::sleep;
 
-  use async_trait::async_trait;
-
+  use crate::actor::actor::{Actor, ActorHandle};
   use crate::actor::context::{ContextHandle, InfoPart, MessagePart, SenderPart, SpawnerPart};
-  use crate::actor::message::{Actor, ActorHandle, Message, MessageHandle, ProducerFunc};
+  use crate::actor::message::{Message, MessageHandle, ProducerFunc};
   use crate::actor::props::Props;
+  use async_trait::async_trait;
 
   use super::*;
 
