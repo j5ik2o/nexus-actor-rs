@@ -138,8 +138,8 @@ struct DefaultMailboxInner {
   user_messages: AtomicI32,
   sys_messages: AtomicI32,
   suspended: AtomicBool,
-  invoker_opt: Mutex<Option<MessageInvokerHandle>>,
-  dispatcher_opt: Mutex<Option<DispatcherHandle>>,
+  invoker_opt: Arc<Mutex<Option<MessageInvokerHandle>>>,
+  dispatcher_opt: Arc<Mutex<Option<DispatcherHandle>>>,
   middlewares: Vec<MailboxMiddlewareHandle>,
 }
 
@@ -164,8 +164,8 @@ impl DefaultMailbox {
         user_messages: AtomicI32::new(0),
         sys_messages: AtomicI32::new(0),
         suspended: AtomicBool::new(false),
-        invoker_opt: Mutex::new(None),
-        dispatcher_opt: Mutex::new(None),
+        invoker_opt: Arc::new(Mutex::new(None)),
+        dispatcher_opt: Arc::new(Mutex::new(None)),
         middlewares: Vec::new(),
       }),
     }
@@ -182,8 +182,8 @@ impl DefaultMailbox {
         user_messages: AtomicI32::new(0),
         sys_messages: AtomicI32::new(0),
         suspended: AtomicBool::new(false),
-        invoker_opt: Mutex::new(None),
-        dispatcher_opt: Mutex::new(None),
+        invoker_opt: Arc::new(Mutex::new(None)),
+        dispatcher_opt: Arc::new(Mutex::new(None)),
         middlewares,
       }),
     }
