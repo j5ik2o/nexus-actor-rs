@@ -5,8 +5,6 @@ use tokio::time::Duration;
 
 use crate::actor::throttler::{Throttle, ThrottleCallbackFunc, Valve};
 
-use super::*;
-
 #[tokio::test]
 async fn test_throttler() {
   let callback_called = Arc::new(Mutex::new(false));

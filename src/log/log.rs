@@ -8,7 +8,7 @@ use crate::log::caller::CallerInfo;
 use crate::log::event::Event;
 use crate::log::field::Field;
 use crate::log::options::CURRENT;
-use crate::log::stream::{reset_event_stream, EventStream};
+use crate::log::stream::{reset_event_stream, EventStream, EVENT_STREAM};
 use crate::log::string_encoder::{reset_global_logger, reset_no_std_err_logs, reset_subscription};
 
 #[derive(Debug, Clone, Copy, PartialOrd, PartialEq, Eq, TryFromPrimitive)]
@@ -144,7 +144,7 @@ impl Logger {
 }
 
 pub async fn reset_logger() {
-  reset_event_stream().await;
+  reset_event_stream(&EVENT_STREAM).await;
   reset_no_std_err_logs().await;
   reset_global_logger().await;
   reset_subscription().await;

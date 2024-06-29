@@ -98,8 +98,6 @@ mod tests {
   use std::any::Any;
   use std::fmt::Debug;
 
-  use futures::StreamExt;
-
   use crate::actor::message::Message;
   use crate::util::queue::mpsc_unbounded_channel_queue::MpscUnboundedChannelQueue;
 
