@@ -143,7 +143,7 @@ pub struct DispatcherHandle(Arc<dyn Dispatcher>);
 
 impl DispatcherHandle {
   pub fn new(dispatcher: Arc<dyn Dispatcher>) -> Self {
-    DispatcherHandle(dispatcher)
+    Self(dispatcher)
   }
 }
 
@@ -158,31 +158,57 @@ impl Dispatcher for DispatcherHandle {
   }
 }
 
-// --- TokioDispatcher implementation
+// --- TokioRuntimeContextDispatcher implementation
 
 #[derive(Debug, Clone)]
-pub struct TokioDispatcher {
-  runtime: Arc<Runtime>,
-  throughput: Arc<AtomicI32>,
+pub struct TokioRuntimeContextDispatcher {
+  throughput: i32,
 }
 
-impl TokioDispatcher {
-  pub fn new(runtime: Runtime, throughput: i32) -> Self {
-    TokioDispatcher {
-      runtime: Arc::new(runtime),
-      throughput: Arc::new(AtomicI32::new(throughput)),
+impl TokioRuntimeContextDispatcher {
+  pub fn new(throughput: i32) -> Self {
+    Self {
+      throughput,
     }
   }
 }
 
 #[async_trait]
-impl Dispatcher for TokioDispatcher {
+impl Dispatcher for TokioRuntimeContextDispatcher {
+  async fn schedule(&self, runner: Runnable) {
+    tokio::spawn(runner.run());
+  }
+
+  async fn throughput(&self) -> i32 {
+    self.throughput
+  }
+}
+
+// --- TokioRuntimeDispatcher implementation
+
+#[derive(Debug, Clone)]
+pub struct TokioRuntimeDispatcher {
+  runtime: Arc<Runtime>,
+  throughput: i32,
+}
+
+impl TokioRuntimeDispatcher {
+  pub fn new(runtime: Runtime, throughput: i32) -> Self {
+    Self {
+      runtime: Arc::new(runtime),
+      throughput,
+    }
+  }
+}
+
+#[async_trait]
+impl Dispatcher for TokioRuntimeDispatcher {
   async fn schedule(&self, runner: Runnable) {
     self.runtime.spawn(runner.run());
   }
 
   async fn throughput(&self) -> i32 {
-    self.throughput.load(Ordering::Relaxed)
+    self.throughput
   }
 }
 
@@ -215,7 +241,7 @@ impl Dispatcher for SingleWorkerDispatcher {
   }
 }
 
-// --- SynchronizedDispatcher implementation
+// --- CurrentThreadDispatcher implementation
 
 #[derive(Debug, Clone)]
 pub struct CurrentThreadDispatcher {
@@ -344,7 +370,7 @@ mod tests {
     let mut mailbox = DefaultMailbox::new(MpscUnboundedChannelQueue::new(), MpscUnboundedChannelQueue::new());
     let invoker = Arc::new(Mutex::new(TestMessageInvoker::new()));
     let invoker_handle = MessageInvokerHandle::new(invoker.clone());
-    let dispatcher = Arc::new(SingleWorkerDispatcher::new().unwrap());
+    let dispatcher = Arc::new(TokioRuntimeContextDispatcher::new(5));
     let dispatcher_handle = DispatcherHandle::new(dispatcher.clone());
     mailbox
       .register_handlers(Some(invoker_handle.clone()), Some(dispatcher_handle.clone()))

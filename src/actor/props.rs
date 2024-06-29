@@ -12,7 +12,7 @@ use crate::actor::actor_context::ActorContext;
 use crate::actor::actor_process::ActorProcess;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::{ContextHandle, InfoPart, SpawnerContextHandle};
-use crate::actor::dispatcher::{DispatcherHandle, MessageInvokerHandle, TokioDispatcher};
+use crate::actor::dispatcher::{DispatcherHandle, MessageInvokerHandle, TokioRuntimeContextDispatcher, TokioRuntimeDispatcher};
 use crate::actor::mailbox::{Mailbox, MailboxHandle, MailboxProduceFunc};
 use crate::actor::message::{
   Actor, ActorHandle, ContextDecoratorFunc, MessageHandle, ProducerFunc, ReceiveFunc, ReceiverFunc, SenderFunc,
@@ -276,8 +276,8 @@ unsafe impl Send for Props {}
 unsafe impl Sync for Props {}
 
 static DEFAULT_DISPATCHER: Lazy<DispatcherHandle> = Lazy::new(|| {
-  DispatcherHandle::new(Arc::new(TokioDispatcher::new(
-    Runtime::new().expect("Failed to create Tokio runtime for default dispatcher"),
+  // Runtime::new().expect("Failed to create Tokio runtime for default dispatcher"),
+  DispatcherHandle::new(Arc::new(TokioRuntimeContextDispatcher::new(
     300,
   )))
 });
