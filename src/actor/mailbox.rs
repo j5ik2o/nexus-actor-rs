@@ -262,10 +262,10 @@ impl DefaultMailbox {
         let mailbox_message = msg.as_any().downcast_ref::<MailboxMessage>();
         match mailbox_message {
           Some(MailboxMessage::SuspendMailbox) => {
-            self.inner.suspended.store(true, Ordering::SeqCst);
+            self.set_suspended(true);
           }
           Some(MailboxMessage::ResumeMailbox) => {
-            self.inner.suspended.store(false, Ordering::SeqCst);
+            self.set_suspended(false);
           }
           _ => {
             message_invoker.invoke_system_message(msg.clone()).await;
@@ -294,6 +294,10 @@ impl DefaultMailbox {
         break;
       }
     }
+  }
+
+  fn set_suspended(&self, suspended: bool) {
+    self.inner.suspended.store(suspended, Ordering::SeqCst);
   }
 }
 
