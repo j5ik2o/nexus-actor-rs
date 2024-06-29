@@ -2,12 +2,14 @@ use std::sync::Arc;
 use std::thread::sleep;
 
 use async_trait::async_trait;
+
 use nexus_rs::actor::actor::{Actor, ActorHandle};
 use nexus_rs::actor::actor_system::ActorSystem;
 use nexus_rs::actor::context::{ContextHandle, MessagePart, SenderPart, SpawnerPart};
 use nexus_rs::actor::message::{Message, MessageHandle, ProducerFunc};
 use nexus_rs::actor::messages::SystemMessage;
 use nexus_rs::actor::props::Props;
+use nexus_rs::actor::unbounded::unbounded_mpsc_mailbox_creator;
 
 #[derive(Debug, Clone)]
 struct Hello(pub String);
@@ -69,7 +71,11 @@ async fn main() {
   let system = ActorSystem::new(&[]).await;
   let mut root = system.get_root_context().await;
 
-  let props = Props::from_producer_func(ProducerFunc::new(create_my_actor)).await;
+  let props = Props::from_producer_func_with_opts(
+    ProducerFunc::new(create_my_actor),
+    vec![Props::with_mailbox(unbounded_mpsc_mailbox_creator())],
+  )
+  .await;
 
   let pid = root.spawn(props).await;
   for _ in 1..10 {

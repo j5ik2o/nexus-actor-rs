@@ -52,7 +52,7 @@ impl<Q: QueueReader<MessageHandle> + QueueWriter<MessageHandle>> QueueWriter<Mes
   }
 }
 
-pub fn unbounded_mailbox_creator(mailbox_stats: Vec<MailboxMiddlewareHandle>) -> MailboxProduceFunc {
+pub fn unbounded_mailbox_creator_with_opts(mailbox_stats: Vec<MailboxMiddlewareHandle>) -> MailboxProduceFunc {
   MailboxProduceFunc::new(move || {
     let cloned_mailbox_stats = mailbox_stats.clone();
     async move {
@@ -63,7 +63,11 @@ pub fn unbounded_mailbox_creator(mailbox_stats: Vec<MailboxMiddlewareHandle>) ->
   })
 }
 
-pub fn unbounded_priority_mailbox_creator(mailbox_stats: Vec<MailboxMiddlewareHandle>) -> MailboxProduceFunc {
+pub fn unbounded_mailbox_creator() -> MailboxProduceFunc {
+  unbounded_mailbox_creator_with_opts(vec![])
+}
+
+pub fn unbounded_priority_mailbox_creator_with_opts(mailbox_stats: Vec<MailboxMiddlewareHandle>) -> MailboxProduceFunc {
   MailboxProduceFunc::new(move || {
     let cloned_mailbox_stats = mailbox_stats.clone();
     async move {
@@ -74,7 +78,11 @@ pub fn unbounded_priority_mailbox_creator(mailbox_stats: Vec<MailboxMiddlewareHa
   })
 }
 
-pub fn unbounded_mpsc_mailbox_creator(mailbox_stats: Vec<MailboxMiddlewareHandle>) -> MailboxProduceFunc {
+pub fn unbounded_priority_mailbox_creator() -> MailboxProduceFunc {
+  unbounded_priority_mailbox_creator_with_opts(vec![])
+}
+
+pub fn unbounded_mpsc_mailbox_creator_with_opts(mailbox_stats: Vec<MailboxMiddlewareHandle>) -> MailboxProduceFunc {
   MailboxProduceFunc::new(move || {
     let cloned_mailbox_stats = mailbox_stats.clone();
     async move {
@@ -83,4 +91,8 @@ pub fn unbounded_mpsc_mailbox_creator(mailbox_stats: Vec<MailboxMiddlewareHandle
       MailboxHandle::new(DefaultMailbox::new(user_queue, system_queue).with_middlewares(cloned_mailbox_stats.clone()))
     }
   })
+}
+
+pub fn unbounded_mpsc_mailbox_creator() -> MailboxProduceFunc {
+  unbounded_mpsc_mailbox_creator_with_opts(vec![])
 }

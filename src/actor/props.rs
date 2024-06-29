@@ -19,7 +19,7 @@ use crate::actor::strategy_on_for_one::OneForOneStrategy;
 use crate::actor::supervisor_strategy::{
   DeciderFunc, SupervisorHandle, SupervisorStrategy, SupervisorStrategyHandle, DEFAULT_SUPERVISION_STRATEGY,
 };
-use crate::actor::unbounded::unbounded_mailbox_creator;
+use crate::actor::unbounded::unbounded_mailbox_creator_with_opts;
 use crate::actor::ReasonHandle;
 use async_trait::async_trait;
 use futures::future::BoxFuture;
@@ -282,7 +282,7 @@ unsafe impl Sync for Props {}
 
 static DEFAULT_DISPATCHER: Lazy<DispatcherHandle> =
   Lazy::new(|| DispatcherHandle::new(TokioRuntimeContextDispatcher::new(300)));
-static DEFAULT_MAILBOX_PRODUCER: Lazy<MailboxProduceFunc> = Lazy::new(|| unbounded_mailbox_creator(vec![]));
+static DEFAULT_MAILBOX_PRODUCER: Lazy<MailboxProduceFunc> = Lazy::new(|| unbounded_mailbox_creator_with_opts(vec![]));
 
 static DEFAULT_SPAWNER: Lazy<SpawnFunc> = Lazy::new(|| {
   SpawnFunc::new(
