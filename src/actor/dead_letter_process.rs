@@ -66,7 +66,7 @@ impl DeadLetterProcess {
             if let Some(sender) = &dead_letter.sender {
               cloned_self
                 .actor_system
-                .get_root()
+                .get_root_context()
                 .await
                 .send(sender.clone(), MessageHandle::new(DeadLetterResponse { target: None }))
                 .await

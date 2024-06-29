@@ -16,7 +16,7 @@ use crate::event_stream::EventStream;
 #[derive(Debug, Clone)]
 struct ActorSystemInner {
   process_registry: Option<ProcessRegistry>,
-  root: Option<RootContext>,
+  root_context: Option<RootContext>,
   event_stream: Arc<EventStream>,
   guardians: Option<Guardians>,
   dead_letter: Option<DeadLetterProcess>,
@@ -32,7 +32,7 @@ impl ActorSystemInner {
       id,
       config,
       process_registry: None,
-      root: None,
+      root_context: None,
       guardians: None,
       event_stream: Arc::new(EventStream::new()),
       dead_letter: None,
@@ -54,7 +54,7 @@ impl ActorSystem {
 
   async fn set_root_context(&self, root: RootContext) {
     let mut inner_mg = self.inner.lock().await;
-    inner_mg.root = Some(root);
+    inner_mg.root_context = Some(root);
   }
 
   async fn set_process_registry(&self, process_registry: ProcessRegistry) {
@@ -113,9 +113,9 @@ impl ActorSystem {
     inner_mg.config.clone()
   }
 
-  pub async fn get_root(&self) -> RootContext {
+  pub async fn get_root_context(&self) -> RootContext {
     let inner_mg = self.inner.lock().await;
-    inner_mg.root.as_ref().unwrap().clone()
+    inner_mg.root_context.as_ref().unwrap().clone()
   }
 
   pub async fn get_dead_letter(&self) -> ProcessHandle {
@@ -209,14 +209,14 @@ mod tests {
   #[tokio::test]
   async fn test_actor_system_new() {
     let system = ActorSystem::new(&[]).await;
-    let root = system.get_root().await;
+    let root = system.get_root_context().await;
     assert_eq!(root.get_self().await, None);
   }
 
   #[tokio::test]
   async fn test_actor_system_new_with_config() {
     let system = ActorSystem::new_with_config(Config::default()).await;
-    let root = system.get_root().await;
+    let root = system.get_root_context().await;
     assert_eq!(root.get_self().await, None);
   }
 
@@ -252,7 +252,7 @@ mod tests {
   async fn test_actor_system_spawn_actor() {
     init();
     let system = ActorSystem::new(&[]).await;
-    let mut root = system.get_root().await;
+    let mut root = system.get_root_context().await;
     log::debug!("root: {:?}", root);
     let props = Props::from_producer_func_with_opts(
       ProducerFunc::new(|ch| Box::pin(async move { receive(ch).await })),

@@ -70,7 +70,7 @@ pub async fn create_child_actor(ctx: ContextHandle) -> ActorHandle {
 async fn main() {
   env_logger::init();
   let system = ActorSystem::new(&[]).await;
-  let mut root = system.get_root().await;
+  let mut root = system.get_root_context().await;
 
   let props = Props::from_producer_func(ProducerFunc::new(|ch| {
     Box::pin(async move { create_my_actor(ch).await })
