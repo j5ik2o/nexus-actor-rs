@@ -11,6 +11,7 @@ use crate::actor::message::MessageHandle;
 use crate::actor::pid::ExtendedPid;
 use crate::actor::restart_statistics::RestartStatistics;
 use crate::actor::strategy_on_for_one::OneForOneStrategy;
+use crate::actor::strategy_restarting::RestartingStrategy;
 use crate::actor::supervision_event::SupervisorEvent;
 use crate::actor::ReasonHandle;
 
@@ -191,14 +192,6 @@ pub static DEFAULT_SUPERVISION_STRATEGY: Lazy<SupervisorStrategyHandle> = Lazy::
     DeciderFunc::new(default_decider),
   ))
 });
-// static RESTARTING_SUPERVISION_STRATEGY: Lazy<Arc<dyn SupervisorStrategy>> = Lazy::new(|| {
-//     Arc::new(RestartingStrategy::new())
-// });
-//
-// pub fn default_supervisor_strategy() -> Arc<dyn SupervisorStrategy> {
-//     DEFAULT_SUPERVISION_STRATEGY.clone()
-// }
-//
-// pub fn restarting_supervisor_strategy() -> Arc<dyn SupervisorStrategy> {
-//     RESTARTING_SUPERVISION_STRATEGY.clone()
-// }
+
+pub static RESTARTING_SUPERVISION_STRATEGY: Lazy<SupervisorStrategyHandle> =
+  Lazy::new(|| SupervisorStrategyHandle::new(RestartingStrategy::new()));

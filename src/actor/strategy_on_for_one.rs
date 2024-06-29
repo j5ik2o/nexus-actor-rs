@@ -5,7 +5,7 @@ use crate::actor::directive::Directive;
 use crate::actor::message::MessageHandle;
 use crate::actor::pid::ExtendedPid;
 use crate::actor::restart_statistics::RestartStatistics;
-use crate::actor::supervisor_strategy::{DeciderFunc, Supervisor, SupervisorHandle, SupervisorStrategy};
+use crate::actor::supervisor_strategy::{log_failure, DeciderFunc, Supervisor, SupervisorHandle, SupervisorStrategy};
 use crate::actor::ReasonHandle;
 
 #[derive(Debug, Clone)]
@@ -72,22 +72,22 @@ impl SupervisorStrategy for OneForOneStrategy {
     match directive {
       Directive::Resume => {
         // resume the failing child
-        // logFailure(actorSystem, child, reason, directive);
+        log_failure(actor_system, &child, reason, directive).await;
         supervisor.resume_children(&[child]).await
       }
       Directive::Restart => {
         // try restart the failing child
         if self.should_stop(&mut rs) {
-          // logFailure(actorSystem, child, reason, StopDirective);
+          log_failure(actor_system, &child, reason, Directive::Stop).await;
           supervisor.stop_children(&[child]).await;
         } else {
-          // logFailure(actorSystem, child, reason, RestartDirective);
+          log_failure(actor_system, &child, reason, Directive::Restart).await;
           supervisor.restart_children(&[child]).await;
         }
       }
       Directive::Stop => {
         // stop the failing child, no need to involve the crs
-        // logFailure(actorSystem, child, reason, directive);
+        log_failure(actor_system, &child, reason, directive).await;
         supervisor.stop_children(&[child]).await
       }
       Directive::Escalate => {

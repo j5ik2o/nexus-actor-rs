@@ -11,7 +11,7 @@ use crate::actor::context::{ContextHandle, ReceiverContextHandle, SenderContextH
 use crate::actor::message_envelope::MessageEnvelope;
 use crate::actor::pid::ExtendedPid;
 use crate::util::element::Element;
-use crate::util::queue::priority_queue::{DEFAULT_PRIORITY, PriorityMessage};
+use crate::util::queue::priority_queue::{PriorityMessage, DEFAULT_PRIORITY};
 
 pub trait Response: Message + Debug + Send + Sync + 'static {}
 

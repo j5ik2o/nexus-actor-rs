@@ -34,6 +34,7 @@ mod props_opts;
 pub mod restart_statistics;
 pub mod root_context;
 pub mod strategy_on_for_one;
+mod strategy_restarting;
 pub mod supervision_event;
 pub mod supervisor_strategy;
 pub mod taks;

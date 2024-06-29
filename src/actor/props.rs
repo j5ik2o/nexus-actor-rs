@@ -1,6 +1,3 @@
-use std::fmt::{Debug, Formatter};
-use std::sync::Arc;
-
 use crate::actor::actor::{Actor, ActorHandle};
 use crate::actor::actor_context::ActorContext;
 use crate::actor::actor_process::ActorProcess;
@@ -14,12 +11,17 @@ use crate::actor::messages::{Started, SystemMessage};
 use crate::actor::pid::ExtendedPid;
 use crate::actor::process::ProcessHandle;
 use crate::actor::restart_statistics::RestartStatistics;
-use crate::actor::supervisor_strategy::{SupervisorHandle, SupervisorStrategy, SupervisorStrategyHandle};
+use crate::actor::strategy_on_for_one::OneForOneStrategy;
+use crate::actor::supervisor_strategy::{
+  DeciderFunc, SupervisorHandle, SupervisorStrategy, SupervisorStrategyHandle, DEFAULT_SUPERVISION_STRATEGY,
+};
 use crate::actor::unbounded::unbounded_mailbox_creator;
 use crate::actor::ReasonHandle;
 use async_trait::async_trait;
 use futures::future::BoxFuture;
 use once_cell::sync::Lazy;
+use std::fmt::{Debug, Formatter};
+use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::Mutex;
 
@@ -316,26 +318,6 @@ static DEFAULT_SPAWNER: Lazy<SpawnFunc> = Lazy::new(|| {
     },
   )
 });
-
-static DEFAULT_SUPERVISION_STRATEGY: Lazy<SupervisorStrategyHandle> =
-  Lazy::new(|| SupervisorStrategyHandle::new(DefaultSupervisionStrategy));
-
-#[derive(Debug, Clone)]
-struct DefaultSupervisionStrategy;
-
-#[async_trait]
-impl SupervisorStrategy for DefaultSupervisionStrategy {
-  async fn handle_failure(
-    &self,
-    actor_system: &ActorSystem,
-    supervisor: SupervisorHandle,
-    child: ExtendedPid,
-    rs: RestartStatistics,
-    reason: ReasonHandle,
-    message: MessageHandle,
-  ) {
-  }
-}
 
 fn initialize(props: Props, ctx: ActorContext) {
   for init in props.on_init {
