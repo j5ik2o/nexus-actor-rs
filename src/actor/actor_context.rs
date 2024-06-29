@@ -1119,6 +1119,7 @@ impl Supervisor for ActorContext {
   }
 
   async fn escalate_failure(&mut self, reason: ReasonHandle, message: MessageHandle) {
+    let self_pid = self.get_self().await.expect("Failed to retrieve self_pid");
     if self
       .get_actor_system()
       .await
@@ -1128,7 +1129,7 @@ impl Supervisor for ActorContext {
     {
       println!(
         "[Supervision] Actor: {}, failed with message: {}, exception: {}",
-        self.get_self().await.unwrap(),
+        self_pid,
         message,
         reason
       );
@@ -1136,7 +1137,7 @@ impl Supervisor for ActorContext {
         .error(
           &format!(
             "[Supervision] Actor: {}, failed with message: {}, exception: {}",
-            self.get_self().await.unwrap(),
+            self_pid,
             message,
             reason
           ),
@@ -1146,7 +1147,7 @@ impl Supervisor for ActorContext {
     }
 
     let failure = Failure::new(
-      self.get_self().await.unwrap(),
+      self_pid,
       reason,
       self.ensure_extras().await.restart_stats().await,
       message,
