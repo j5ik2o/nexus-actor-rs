@@ -52,7 +52,7 @@ impl ActorSystem {
     Self::new_with_config(config).await
   }
 
-  async fn set_root(&self, root: RootContext) {
+  async fn set_root_context(&self, root: RootContext) {
     let mut inner_mg = self.inner.lock().await;
     inner_mg.root = Some(root);
   }
@@ -77,7 +77,7 @@ impl ActorSystem {
       inner: Arc::new(Mutex::new(ActorSystemInner::new(config))),
     };
     system
-      .set_root(RootContext::new(system.clone(), EMPTY_MESSAGE_HEADER.clone(), &[]))
+      .set_root_context(RootContext::new(system.clone(), EMPTY_MESSAGE_HEADER.clone(), &[]))
       .await;
     system.set_process_registry(ProcessRegistry::new(system.clone())).await;
     system.set_guardians(Guardians::new(system.clone())).await;
