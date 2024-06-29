@@ -436,8 +436,8 @@ impl Props {
   }
 
   async fn produce_mailbox(&self) -> MailboxHandle {
-    if let Some(producer) = &self.mailbox_producer {
-      producer.run().await
+    if let Some(mailbox_producer) = &self.mailbox_producer {
+      mailbox_producer.run().await
     } else {
       DEFAULT_MAILBOX_PRODUCER.run().await
     }
