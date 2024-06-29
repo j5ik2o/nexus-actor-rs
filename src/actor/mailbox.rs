@@ -215,6 +215,10 @@ impl DefaultMailbox {
         .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
   }
 
+  fn get_middlewares(&self) -> &Vec<MailboxMiddlewareHandle> {
+    &self.inner.middlewares
+  }
+
   async fn schedule(&self) {
     if self
       .compare_exchange_scheduler_status(false, true, Ordering::SeqCst, Ordering::SeqCst)
@@ -271,7 +275,7 @@ impl DefaultMailbox {
             message_invoker.invoke_system_message(msg.clone()).await;
           }
         }
-        for middleware in &self.inner.middlewares {
+        for middleware in self.get_middlewares() {
           middleware.message_received(msg.clone()).await;
         }
         continue;
@@ -287,7 +291,7 @@ impl DefaultMailbox {
       } {
         self.inner.user_messages.fetch_sub(1, Ordering::SeqCst);
         message_invoker.invoke_user_message(msg.clone()).await;
-        for middleware in &self.inner.middlewares {
+        for middleware in self.get_middlewares() {
           middleware.message_received(msg.clone()).await;
         }
       } else {
@@ -323,13 +327,13 @@ impl Mailbox for DefaultMailbox {
       break;
     }
 
-    for middleware in &self.inner.middlewares {
+    for middleware in self.get_middlewares() {
       middleware.mailbox_empty().await;
     }
   }
 
   async fn post_user_message(&self, message: MessageHandle) {
-    for middleware in &self.inner.middlewares {
+    for middleware in self.get_middlewares() {
       middleware.message_posted(message.clone()).await;
     }
 
@@ -345,7 +349,7 @@ impl Mailbox for DefaultMailbox {
   }
 
   async fn post_system_message(&self, message: MessageHandle) {
-    for middleware in &self.inner.middlewares {
+    for middleware in self.get_middlewares() {
       middleware.message_posted(message.clone()).await;
     }
 
@@ -366,7 +370,7 @@ impl Mailbox for DefaultMailbox {
   }
 
   async fn start(&self) {
-    for middleware in &self.inner.middlewares {
+    for middleware in self.get_middlewares() {
       middleware.mailbox_started().await;
     }
   }
