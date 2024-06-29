@@ -185,10 +185,7 @@ impl SpawnerPart for RootContext {
     }
 
     let sh = SpawnerContextHandle::new(root_context.clone());
-    props
-      .clone()
-      .spawn(self.get_actor_system().await.clone(), id, sh)
-      .await
+    props.clone().spawn(self.get_actor_system().await.clone(), id, sh).await
   }
 }
 

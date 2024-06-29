@@ -5,6 +5,7 @@ use async_trait::async_trait;
 use futures::future::BoxFuture;
 use once_cell::sync::Lazy;
 use thiserror::Error;
+use tokio::runtime::{Builder, Runtime};
 use tokio::sync::Mutex;
 
 use crate::actor::actor_context::ActorContext;
@@ -274,8 +275,12 @@ pub struct Props {
 unsafe impl Send for Props {}
 unsafe impl Sync for Props {}
 
-static DEFAULT_DISPATCHER: Lazy<DispatcherHandle> =
-  Lazy::new(|| DispatcherHandle::new(Arc::new(TokioDispatcher::new(300))));
+static DEFAULT_DISPATCHER: Lazy<DispatcherHandle> = Lazy::new(|| {
+  DispatcherHandle::new(Arc::new(TokioDispatcher::new(
+    Runtime::new().expect("Failed to create Tokio runtime for default dispatcher"),
+    300,
+  )))
+});
 static DEFAULT_MAILBOX_PRODUCER: Lazy<MailboxProduceFunc> = Lazy::new(|| unbounded_mailbox_creator(vec![]));
 
 static DEFAULT_SPAWNER: Lazy<SpawnFunc> = Lazy::new(|| {
