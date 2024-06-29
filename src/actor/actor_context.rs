@@ -1129,17 +1129,13 @@ impl Supervisor for ActorContext {
     {
       println!(
         "[Supervision] Actor: {}, failed with message: {}, exception: {}",
-        self_pid,
-        message,
-        reason
+        self_pid, message, reason
       );
       P_LOG
         .error(
           &format!(
             "[Supervision] Actor: {}, failed with message: {}, exception: {}",
-            self_pid,
-            message,
-            reason
+            self_pid, message, reason
           ),
           vec![],
         )
