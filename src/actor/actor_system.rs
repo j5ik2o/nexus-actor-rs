@@ -76,10 +76,14 @@ impl ActorSystem {
     let mut system = Self {
       inner: Arc::new(Mutex::new(ActorSystemInner::new(config))),
     };
-    system.set_root(RootContext::new(system.clone(), EMPTY_MESSAGE_HEADER.clone(), &[])).await;
+    system
+      .set_root(RootContext::new(system.clone(), EMPTY_MESSAGE_HEADER.clone(), &[]))
+      .await;
     system.set_process_registry(ProcessRegistry::new(system.clone())).await;
     system.set_guardians(Guardians::new(system.clone())).await;
-    system.set_dead_letter(DeadLetterProcess::new(system.clone()).await).await;
+    system
+      .set_dead_letter(DeadLetterProcess::new(system.clone()).await)
+      .await;
 
     subscribe_supervision(&system).await;
 
