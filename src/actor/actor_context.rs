@@ -950,11 +950,11 @@ impl SpawnerPart for ActorContext {
     let result = match self.get_props().await.get_spawn_middleware_chain() {
       Some(chain) => {
         let sch = SpawnerContextHandle::new(self.clone());
-        chain.run(self.get_actor_system().await, id, props, sch).await
+        chain.run(self.get_actor_system().await, &id, props, sch).await
       }
       _ => {
         let sch = SpawnerContextHandle::new(self.clone());
-        props.spawn(self.get_actor_system().await, id, sch).await
+        props.spawn(self.get_actor_system().await, &id, sch).await
       }
     };
 

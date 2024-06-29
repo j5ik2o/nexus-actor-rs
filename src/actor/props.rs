@@ -79,7 +79,7 @@ impl SpawnFunc {
   pub async fn run(
     &self,
     actor_system: ActorSystem,
-    name: String,
+    name: &str,
     props: Props,
     parent_context: SpawnerContextHandle,
   ) -> Result<ExtendedPid, SpawnError> {
@@ -487,7 +487,7 @@ impl Props {
   pub async fn spawn(
     self,
     actor_system: ActorSystem,
-    name: String,
+    name: &str,
     parent_context: SpawnerContextHandle,
   ) -> Result<ExtendedPid, SpawnError> {
     self.get_spawner().run(actor_system, name, self, parent_context).await
