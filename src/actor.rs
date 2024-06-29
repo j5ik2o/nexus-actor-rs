@@ -56,7 +56,7 @@ impl Display for ReasonHandle {
 
 impl ReasonHandle {
   pub fn new(reason: Arc<dyn Reason>) -> Self {
-    ReasonHandle(reason)
+    Self(reason)
   }
 }
 

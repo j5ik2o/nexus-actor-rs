@@ -32,7 +32,7 @@ impl std::hash::Hash for ActorProcess {
 
 impl ActorProcess {
   pub fn new(mailbox: MailboxHandle) -> Self {
-    ActorProcess {
+    Self {
       mailbox,
       dead: Arc::new(AtomicBool::new(false)),
     }

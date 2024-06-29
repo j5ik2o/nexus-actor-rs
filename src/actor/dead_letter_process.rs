@@ -99,7 +99,7 @@ impl DeadLetterProcess {
               }
             }
           }
-        })
+        }
       }))
       .await;
 
