@@ -1,10 +1,12 @@
 use std::any::Any;
 use std::fmt::Debug;
+use std::future::Future;
 use std::sync::atomic::{AtomicI32, Ordering};
 use std::sync::Arc;
 
 use async_trait::async_trait;
 use futures::future::BoxFuture;
+use tokio::runtime::{Builder, Runtime};
 use tokio::sync::Mutex;
 
 use crate::actor::message::{Message, MessageHandle};
@@ -114,13 +116,14 @@ impl MessageInvoker for MessageInvokerHandle {
 
 // ---
 
-pub struct Runnable(Box<dyn FnOnce() -> BoxFuture<'static, ()> + Send>);
+pub struct Runnable(Box<dyn FnOnce() -> BoxFuture<'static, ()> + Send + 'static>);
 
 impl Runnable {
-  pub fn new<F>(f: F) -> Self
+  pub fn new<F, Fut>(f: F) -> Self
   where
-    F: FnOnce() -> BoxFuture<'static, ()> + Send + 'static, {
-    Runnable(Box::new(f))
+    F: FnOnce() -> Fut + Send + 'static,
+    Fut: Future<Output = ()> + Send + 'static, {
+    Runnable(Box::new(move || Box::pin(f()) as BoxFuture<'static, ()>))
   }
 
   pub fn run(self) -> BoxFuture<'static, ()> {
@@ -155,7 +158,8 @@ impl Dispatcher for DispatcherHandle {
   }
 }
 
-// TokioDispatcher implementation
+// --- TokioDispatcher implementation
+
 #[derive(Debug, Clone)]
 pub struct TokioDispatcher {
   throughput: Arc<AtomicI32>,

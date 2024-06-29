@@ -214,9 +214,9 @@ impl DefaultMailbox {
         dispatcher
           .schedule(Runnable::new(move || {
             let self_clone = self_clone.clone();
-            Box::pin(async move {
+            async move {
               self_clone.process_messages().await;
-            })
+            }
           }))
           .await;
       }
