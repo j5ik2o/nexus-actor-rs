@@ -162,12 +162,14 @@ impl Dispatcher for DispatcherHandle {
 
 #[derive(Debug, Clone)]
 pub struct TokioDispatcher {
+  runtime: Arc<Runtime>,
   throughput: Arc<AtomicI32>,
 }
 
 impl TokioDispatcher {
-  pub fn new(throughput: i32) -> Self {
+  pub fn new(runtime: Runtime, throughput: i32) -> Self {
     TokioDispatcher {
+      runtime: Arc::new(runtime),
       throughput: Arc::new(AtomicI32::new(throughput)),
     }
   }
@@ -176,13 +178,69 @@ impl TokioDispatcher {
 #[async_trait]
 impl Dispatcher for TokioDispatcher {
   async fn schedule(&self, runner: Runnable) {
-    tokio::spawn(async move {
+    self.runtime.spawn(runner.run());
+  }
+
+  async fn throughput(&self) -> i32 {
+    self.throughput.load(Ordering::Relaxed)
+  }
+}
+
+// --- SingleWorkerDispatcher implementation
+
+#[derive(Debug, Clone)]
+pub struct SingleWorkerDispatcher {
+  runtime: Arc<Runtime>,
+}
+
+impl SingleWorkerDispatcher {
+  pub fn new() -> Result<Self, std::io::Error> {
+    let runtime = Builder::new_multi_thread().worker_threads(1).enable_all().build()?;
+    Ok(Self {
+      runtime: Arc::new(runtime),
+    })
+  }
+}
+
+#[async_trait]
+impl Dispatcher for SingleWorkerDispatcher {
+  async fn schedule(&self, runner: Runnable) {
+    self.runtime.spawn(async move {
       runner.run().await;
     });
   }
 
   async fn throughput(&self) -> i32 {
-    self.throughput.load(Ordering::Relaxed)
+    1
+  }
+}
+
+// --- SynchronizedDispatcher implementation
+
+#[derive(Debug, Clone)]
+pub struct CurrentThreadDispatcher {
+  runtime: Arc<Runtime>,
+  throughput: i32,
+}
+
+impl CurrentThreadDispatcher {
+  pub fn new(throughput: i32) -> Result<Self, std::io::Error> {
+    let runtime = Builder::new_current_thread().enable_all().build()?;
+    Ok(Self {
+      runtime: Arc::new(runtime),
+      throughput,
+    })
+  }
+}
+
+#[async_trait]
+impl Dispatcher for CurrentThreadDispatcher {
+  async fn schedule(&self, runner: Runnable) {
+    self.runtime.block_on(runner.run());
+  }
+
+  async fn throughput(&self) -> i32 {
+    self.throughput
   }
 }
 
@@ -286,7 +344,7 @@ mod tests {
     let mut mailbox = DefaultMailbox::new(MpscUnboundedChannelQueue::new(), MpscUnboundedChannelQueue::new());
     let invoker = Arc::new(Mutex::new(TestMessageInvoker::new()));
     let invoker_handle = MessageInvokerHandle::new(invoker.clone());
-    let dispatcher = Arc::new(TokioDispatcher::new(10));
+    let dispatcher = Arc::new(SingleWorkerDispatcher::new().unwrap());
     let dispatcher_handle = DispatcherHandle::new(dispatcher.clone());
     mailbox
       .register_handlers(Some(invoker_handle.clone()), Some(dispatcher_handle.clone()))
