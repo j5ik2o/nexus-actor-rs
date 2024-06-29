@@ -132,6 +132,6 @@ pub async fn publish_to_stream(event_stream: &Arc<EventStream>, evt: Event) {
   event_stream.publish(evt).await;
 }
 
-pub async fn reset_event_stream(event_stream: &Arc<EventStream>) {
-  event_stream.clear().await;
+pub async fn reset_event_stream() {
+  EVENT_STREAM.clear().await;
 }

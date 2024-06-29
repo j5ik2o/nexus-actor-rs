@@ -1,5 +1,6 @@
 use std::any::Any;
 use std::collections::HashMap;
+use std::hash::Hash;
 use std::sync::Arc;
 
 use async_trait::async_trait;
