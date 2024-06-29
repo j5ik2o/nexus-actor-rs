@@ -22,22 +22,18 @@ pub struct DeadLetterProcess {
 impl DeadLetterProcess {
   pub async fn new(actor_system: ActorSystem) -> Self {
     let myself = Self { actor_system };
-    println!("dead_letter_process: new: myself: {:?}", myself);
-    println!("dead_letter_process: new: values-0");
     let dead_letter_throttle_count = myself
       .actor_system
       .get_config()
       .await
       .dead_letter_throttle_count
       .clone();
-    println!("dead_letter_process: new: values-1");
     let dead_letter_throttle_interval = myself
       .actor_system
       .get_config()
       .await
       .dead_letter_throttle_interval
       .clone();
-    println!("dead_letter_process: new: values-2");
     let func = ThrottleCallbackFunc::new(move |i: usize| {
       Box::pin(async move {
         P_LOG
@@ -48,7 +44,6 @@ impl DeadLetterProcess {
           .await;
       })
     });
-    println!("dead_letter_process: new: values-3");
     let throttle = Throttle::new(dead_letter_throttle_count, dead_letter_throttle_interval, func).await;
     println!("dead_letter_process: new: throttle: {:?}", throttle);
 
@@ -58,7 +53,6 @@ impl DeadLetterProcess {
       .get_process_registry()
       .await
       .add(ProcessHandle::new(myself.clone()), "deadletter");
-    println!("dead_letter_process: new: add");
     myself
       .actor_system
       .get_event_stream()
@@ -108,7 +102,6 @@ impl DeadLetterProcess {
         })
       }))
       .await;
-    println!("dead_letter_process: new: subscribe");
 
     let cloned_self = myself.clone();
     myself
@@ -138,7 +131,6 @@ impl DeadLetterProcess {
         })
       }))
       .await;
-    println!("dead_letter_process: new: subscribe-2");
 
     myself
   }
