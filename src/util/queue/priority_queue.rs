@@ -95,11 +95,13 @@ impl<E: PriorityMessage, Q: QueueReader<E> + QueueWriter<E>> QueueWriter<E> for 
 
 #[cfg(test)]
 mod tests {
-  use crate::actor::message::Message;
-  use crate::util::queue::mpsc_unbounded_channel_queue::MpscUnboundedChannelQueue;
-  use futures::StreamExt;
   use std::any::Any;
   use std::fmt::Debug;
+
+  use futures::StreamExt;
+
+  use crate::actor::message::Message;
+  use crate::util::queue::mpsc_unbounded_channel_queue::MpscUnboundedChannelQueue;
 
   use super::*;
 

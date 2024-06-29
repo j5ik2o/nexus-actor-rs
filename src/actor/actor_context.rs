@@ -17,13 +17,13 @@ use crate::actor::context::{
   ReceiverContextHandle, ReceiverPart, SenderContext, SenderContextHandle, SenderPart, SpawnerContext,
   SpawnerContextHandle, SpawnerPart, StopperPart,
 };
-use crate::actor::dispatcher::MessageInvoker;
 use crate::actor::future::Future;
 use crate::actor::log::P_LOG;
 use crate::actor::message::{
   Actor, ActorHandle, Message, MessageHandle, MessageHandles, ProducerFunc, ReceiverFunc, ResponseHandle, SenderFunc,
 };
 use crate::actor::message_envelope::{MessageEnvelope, MessageOrEnvelope, ReadonlyMessageHeadersHandle};
+use crate::actor::message_invoker::MessageInvoker;
 use crate::actor::messages::{
   AutoReceiveMessage, Continuation, Failure, MailboxMessage, NotInfluenceReceiveTimeoutHandle, ReceiveTimeout, Restart,
   Restarting, Started, Stopped, Stopping, SystemMessage,

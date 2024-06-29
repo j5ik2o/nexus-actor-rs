@@ -6,11 +6,10 @@ use async_trait::async_trait;
 use futures::future::BoxFuture;
 use tokio::sync::Mutex;
 
-use crate::actor::dispatcher::{
-  Dispatcher, DispatcherHandle, MailboxMiddleware, MailboxMiddlewareHandle, MessageInvoker, MessageInvokerHandle,
-  Runnable,
-};
+use crate::actor::dispatcher::{Dispatcher, DispatcherHandle, Runnable};
+use crate::actor::mailbox_middleware::{MailboxMiddleware, MailboxMiddlewareHandle};
 use crate::actor::message::{Message, MessageHandle};
+use crate::actor::message_invoker::{MessageInvoker, MessageInvokerHandle};
 use crate::actor::messages::MailboxMessage;
 use crate::util::queue::{QueueReader, QueueWriter};
 

@@ -1,10 +1,11 @@
-use super::*;
-use crate::actor::message::{Message, MessageHandle};
-use crate::event_stream::{EventStream, HandlerFunc, PredicateFunc};
 use std::any::Any;
 use std::sync::atomic::{AtomicI32, Ordering};
 use std::sync::Arc;
+
 use tokio::sync::Mutex;
+
+use crate::actor::message::{Message, MessageHandle};
+use crate::event_stream::{EventStream, HandlerFunc, PredicateFunc};
 
 #[derive(Debug)]
 pub struct TestString(pub String);

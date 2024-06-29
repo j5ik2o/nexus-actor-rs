@@ -1,7 +1,6 @@
 use std::any::Any;
 use std::fmt::Debug;
 use std::future::Future;
-use std::sync::atomic::{AtomicI32, Ordering};
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -11,110 +10,6 @@ use tokio::sync::Mutex;
 
 use crate::actor::message::{Message, MessageHandle};
 use crate::actor::{Reason, ReasonHandle};
-
-// MailboxMiddleware trait
-#[async_trait]
-pub trait MailboxMiddleware: Debug + Send + Sync {
-  async fn mailbox_started(&self);
-  async fn message_posted(&self, message: MessageHandle);
-  async fn message_received(&self, message: MessageHandle);
-  async fn mailbox_empty(&self);
-}
-
-#[derive(Debug, Clone)]
-pub struct MailboxMiddlewareHandle(Arc<dyn MailboxMiddleware>);
-
-impl PartialEq for MailboxMiddlewareHandle {
-  fn eq(&self, other: &Self) -> bool {
-    Arc::ptr_eq(&self.0, &other.0)
-  }
-}
-
-impl Eq for MailboxMiddlewareHandle {}
-
-impl std::hash::Hash for MailboxMiddlewareHandle {
-  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    (self.0.as_ref() as *const dyn MailboxMiddleware).hash(state);
-  }
-}
-
-impl MailboxMiddlewareHandle {
-  pub fn new(middleware: impl MailboxMiddleware + 'static) -> Self {
-    MailboxMiddlewareHandle(Arc::new(middleware))
-  }
-}
-
-#[async_trait]
-impl MailboxMiddleware for MailboxMiddlewareHandle {
-  async fn mailbox_started(&self) {
-    self.0.mailbox_started().await;
-  }
-
-  async fn message_posted(&self, message: MessageHandle) {
-    self.0.message_posted(message).await;
-  }
-
-  async fn message_received(&self, message: MessageHandle) {
-    self.0.message_received(message).await;
-  }
-
-  async fn mailbox_empty(&self) {
-    self.0.mailbox_empty().await;
-  }
-}
-
-// ---
-
-// MessageInvoker trait
-#[async_trait]
-pub trait MessageInvoker: Debug + Send + Sync {
-  async fn invoke_system_message(&mut self, message: MessageHandle);
-  async fn invoke_user_message(&mut self, message: MessageHandle);
-  async fn escalate_failure(&self, reason: ReasonHandle, message: MessageHandle);
-}
-
-#[derive(Debug, Clone)]
-pub struct MessageInvokerHandle(Arc<Mutex<dyn MessageInvoker>>);
-
-impl MessageInvokerHandle {
-  pub fn new(invoker: Arc<Mutex<dyn MessageInvoker>>) -> Self {
-    MessageInvokerHandle(invoker)
-  }
-}
-
-impl PartialEq for MessageInvokerHandle {
-  fn eq(&self, other: &Self) -> bool {
-    Arc::ptr_eq(&self.0, &other.0)
-  }
-}
-
-impl Eq for MessageInvokerHandle {}
-
-impl std::hash::Hash for MessageInvokerHandle {
-  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    (self.0.as_ref() as *const Mutex<dyn MessageInvoker>).hash(state);
-  }
-}
-
-#[async_trait]
-impl MessageInvoker for MessageInvokerHandle {
-  async fn invoke_system_message(&mut self, message: MessageHandle) {
-    let mut mg = self.0.lock().await;
-    mg.invoke_system_message(message).await;
-  }
-
-  async fn invoke_user_message(&mut self, message: MessageHandle) {
-    let mut mg = self.0.lock().await;
-    mg.invoke_user_message(message).await;
-  }
-
-  async fn escalate_failure(&self, reason: ReasonHandle, message: MessageHandle) {
-    let mg = self.0.lock().await;
-    mg.escalate_failure(reason, message).await;
-  }
-}
-
-// ---
 
 pub struct Runnable(Box<dyn FnOnce() -> BoxFuture<'static, ()> + Send + 'static>);
 
@@ -167,9 +62,7 @@ pub struct TokioRuntimeContextDispatcher {
 
 impl TokioRuntimeContextDispatcher {
   pub fn new(throughput: i32) -> Self {
-    Self {
-      throughput,
-    }
+    Self { throughput }
   }
 }
 
@@ -275,6 +168,7 @@ impl Dispatcher for CurrentThreadDispatcher {
 mod tests {
   use crate::actor::mailbox::{DefaultMailbox, Mailbox};
   use crate::actor::message::MessageHandle;
+  use crate::actor::message_invoker::{MessageInvoker, MessageInvokerHandle};
   use crate::actor::taks::Task;
   use crate::util::queue::mpsc_unbounded_channel_queue::MpscUnboundedChannelQueue;
 

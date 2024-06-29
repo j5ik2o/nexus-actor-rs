@@ -1,8 +1,9 @@
+use std::sync::{Arc, RwLock};
+
 use crate::log::event::Event;
 use crate::log::field::Field;
 use crate::log::log::{Level, Logger};
 use crate::log::stream::{publish_to_stream, subscribe_stream, unsubscribe_stream, EventStream};
-use std::sync::{Arc, RwLock};
 
 #[tokio::test]
 async fn test_logger_with() {
