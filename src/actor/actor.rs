@@ -1,8 +1,10 @@
-use crate::actor::context::ContextHandle;
-use crate::actor::supervisor_strategy::SupervisorStrategyHandle;
-use async_trait::async_trait;
 use std::fmt::Debug;
 use std::sync::Arc;
+
+use async_trait::async_trait;
+
+use crate::actor::context::ContextHandle;
+use crate::actor::supervisor_strategy::SupervisorStrategyHandle;
 
 include!(concat!(env!("OUT_DIR"), "/actor.rs"));
 

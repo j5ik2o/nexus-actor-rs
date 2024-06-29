@@ -1,9 +1,11 @@
 use std::sync::Arc;
 
-use super::*;
-use crate::actor::throttler::{Throttle, ThrottleCallbackFunc, Valve};
 use tokio::sync::Mutex;
 use tokio::time::Duration;
+
+use crate::actor::throttler::{Throttle, ThrottleCallbackFunc, Valve};
+
+use super::*;
 
 #[tokio::test]
 async fn test_throttler() {

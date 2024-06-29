@@ -1,7 +1,9 @@
-use crate::actor::dispatcher::{CurrentThreadDispatcher, DispatcherHandle, SingleWorkerDispatcher, TokioRuntimeContextDispatcher};
-use async_trait::async_trait;
 use std::any::Any;
+
+use async_trait::async_trait;
 use tokio::sync::Mutex;
+
+use crate::actor::dispatcher::{DispatcherHandle, TokioRuntimeContextDispatcher};
 // Tests
 use crate::actor::mailbox::{DefaultMailbox, Mailbox};
 use crate::actor::message::{Message, MessageHandle};

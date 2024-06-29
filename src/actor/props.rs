@@ -1,3 +1,13 @@
+use std::fmt::{Debug, Formatter};
+use std::future::Future;
+use std::sync::Arc;
+
+use async_trait::async_trait;
+use futures::future::BoxFuture;
+use once_cell::sync::Lazy;
+use thiserror::Error;
+use tokio::sync::Mutex;
+
 use crate::actor::actor::{Actor, ActorHandle};
 use crate::actor::actor_context::ActorContext;
 use crate::actor::actor_process::ActorProcess;
@@ -14,21 +24,8 @@ use crate::actor::middleware_chain::{
 };
 use crate::actor::pid::ExtendedPid;
 use crate::actor::process::ProcessHandle;
-use crate::actor::restart_statistics::RestartStatistics;
-use crate::actor::strategy_on_for_one::OneForOneStrategy;
-use crate::actor::supervisor_strategy::{
-  DeciderFunc, SupervisorHandle, SupervisorStrategy, SupervisorStrategyHandle, DEFAULT_SUPERVISION_STRATEGY,
-};
+use crate::actor::supervisor_strategy::{SupervisorStrategyHandle, DEFAULT_SUPERVISION_STRATEGY};
 use crate::actor::unbounded::unbounded_mailbox_creator_with_opts;
-use crate::actor::ReasonHandle;
-use async_trait::async_trait;
-use futures::future::BoxFuture;
-use once_cell::sync::Lazy;
-use std::fmt::{Debug, Formatter};
-use std::future::Future;
-use std::sync::Arc;
-use thiserror::Error;
-use tokio::sync::Mutex;
 
 #[derive(Debug, Clone, Error)]
 pub enum SpawnError {
@@ -281,7 +278,7 @@ unsafe impl Send for Props {}
 unsafe impl Sync for Props {}
 
 static DEFAULT_DISPATCHER: Lazy<DispatcherHandle> =
-  Lazy::new(|| DispatcherHandle::new(TokioRuntimeContextDispatcher::new(300)));
+  Lazy::new(|| DispatcherHandle::new(TokioRuntimeContextDispatcher::new(300).unwrap()));
 static DEFAULT_MAILBOX_PRODUCER: Lazy<MailboxProduceFunc> = Lazy::new(|| unbounded_mailbox_creator_with_opts(vec![]));
 
 static DEFAULT_SPAWNER: Lazy<SpawnFunc> = Lazy::new(|| {

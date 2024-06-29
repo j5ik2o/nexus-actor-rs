@@ -1,4 +1,3 @@
-use std::any::Any;
 use std::fmt::Debug;
 use std::future::Future;
 use std::sync::Arc;
@@ -6,10 +5,6 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use futures::future::BoxFuture;
 use tokio::runtime::{Builder, Runtime};
-use tokio::sync::Mutex;
-
-use crate::actor::message::{Message, MessageHandle};
-use crate::actor::{Reason, ReasonHandle};
 
 pub struct Runnable(Box<dyn FnOnce() -> BoxFuture<'static, ()> + Send + 'static>);
 
