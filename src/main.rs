@@ -69,25 +69,20 @@ pub async fn create_child_actor(ctx: ContextHandle) -> ActorHandle {
 #[tokio::main]
 async fn main() {
   env_logger::init();
-  println!("step-1");
   let system = ActorSystem::new(&[]).await;
   let mut root = system.get_root().await;
 
-  println!("step-1");
   let props = Props::from_producer_func(ProducerFunc::new(|ch| {
     Box::pin(async move { create_my_actor(ch).await })
   }))
   .await;
-  println!("step-2");
 
   let pid = root.spawn(props).await;
-  println!("step-3");
   for _ in 1..10 {
     root
       .send(pid.clone(), MessageHandle::new(Hello("hello-1".to_string())))
       .await;
   }
-  println!("step-4");
 
   sleep(std::time::Duration::from_secs(3));
 }

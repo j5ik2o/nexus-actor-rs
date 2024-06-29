@@ -75,7 +75,9 @@ impl ActorSystem {
     }
     {
       let mut inner_mg = system.inner.lock().await;
-      inner_mg.dead_letter = Some(DeadLetterProcess::new(system_cloned.clone()).await);
+      inner_mg.dead_letter = None;
+      // FIXME: Temporarily disable DeadLetterProcess due to problems with it.
+      // Some(DeadLetterProcess::new(system_cloned.clone()).await);
     }
 
     subscribe_supervision(&system).await;
@@ -235,10 +237,14 @@ mod tests {
     let actor = MyActor {};
     ActorHandle::new(Arc::new(actor))
   }
+  fn init() {
+    let _ = env_logger::builder().is_test(true).try_init();
+  }
+
   // spawn actor test
   #[tokio::test]
   async fn test_actor_system_spawn_actor() {
-    env_logger::init();
+    init();
     let system = ActorSystem::new(&[]).await;
     let mut root = system.get_root().await;
     log::debug!("root: {:?}", root);

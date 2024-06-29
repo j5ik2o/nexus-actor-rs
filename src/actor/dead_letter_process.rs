@@ -22,6 +22,7 @@ pub struct DeadLetterProcess {
 impl DeadLetterProcess {
   pub async fn new(actor_system: ActorSystem) -> Self {
     let myself = Self { actor_system };
+    println!("dead_letter_process: new: myself: {:?}", myself);
     let throttle = Throttle::new(
       myself
         .actor_system
@@ -47,6 +48,7 @@ impl DeadLetterProcess {
       }),
     )
     .await;
+      println!("dead_letter_process: new: throttle: {:?}", throttle);
 
     let cloned_self = myself.clone();
     myself
@@ -54,6 +56,7 @@ impl DeadLetterProcess {
       .get_process_registry()
       .await
       .add(ProcessHandle::new(myself.clone()), "deadletter");
+      println!("dead_letter_process: new: add");
     myself
       .actor_system
       .get_event_stream()
@@ -103,6 +106,7 @@ impl DeadLetterProcess {
         })
       }))
       .await;
+      println!("dead_letter_process: new: subscribe");
 
     let cloned_self = myself.clone();
     myself
@@ -132,6 +136,7 @@ impl DeadLetterProcess {
         })
       }))
       .await;
+      println!("dead_letter_process: new: subscribe-2");
 
     myself
   }

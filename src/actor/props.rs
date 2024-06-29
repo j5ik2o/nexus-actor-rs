@@ -21,7 +21,7 @@ use crate::actor::pid::ExtendedPid;
 use crate::actor::process::ProcessHandle;
 use crate::actor::restart_statistics::RestartStatistics;
 use crate::actor::supervisor_strategy::{SupervisorHandle, SupervisorStrategy, SupervisorStrategyHandle};
-use crate::actor::unbounded::unbounded_mailbox_creator;
+use crate::actor::unbounded::{unbounded_mailbox_creator, unbounded_mpsc_mailbox_creator};
 use crate::actor::ReasonHandle;
 
 #[derive(Debug, Clone, Error)]
@@ -276,7 +276,7 @@ unsafe impl Sync for Props {}
 
 static DEFAULT_DISPATCHER: Lazy<DispatcherHandle> =
   Lazy::new(|| DispatcherHandle::new(Arc::new(TokioDispatcher::new(300))));
-static DEFAULT_MAILBOX_PRODUCER: Lazy<MailboxProduceFunc> = Lazy::new(|| unbounded_mailbox_creator(vec![]));
+static DEFAULT_MAILBOX_PRODUCER: Lazy<MailboxProduceFunc> = Lazy::new(|| unbounded_mpsc_mailbox_creator(vec![]));
 
 static DEFAULT_SPAWNER: Lazy<SpawnFunc> = Lazy::new(|| {
   SpawnFunc::new(
