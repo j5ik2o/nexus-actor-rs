@@ -1,4 +1,4 @@
-use crate::actor::dispatcher::{DispatcherHandle, TokioRuntimeContextDispatcher};
+use crate::actor::dispatcher::{CurrentThreadDispatcher, DispatcherHandle, SingleWorkerDispatcher, TokioRuntimeContextDispatcher};
 use async_trait::async_trait;
 use std::any::Any;
 use tokio::sync::Mutex;
@@ -101,7 +101,7 @@ async fn test_mailbox_with_test_invoker() {
   let mut mailbox = DefaultMailbox::new(MpscUnboundedChannelQueue::new(), MpscUnboundedChannelQueue::new());
   let invoker = Arc::new(Mutex::new(TestMessageInvoker::new()));
   let invoker_handle = MessageInvokerHandle::new(invoker.clone());
-  let dispatcher = Arc::new(TokioRuntimeContextDispatcher::new(5));
+  let dispatcher = Arc::new(TokioRuntimeContextDispatcher::new(1).unwrap());
   let dispatcher_handle = DispatcherHandle::new_arc(dispatcher.clone());
   mailbox
     .register_handlers(Some(invoker_handle.clone()), Some(dispatcher_handle.clone()))

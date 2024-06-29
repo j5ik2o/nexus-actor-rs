@@ -65,8 +65,8 @@ pub struct TokioRuntimeContextDispatcher {
 }
 
 impl TokioRuntimeContextDispatcher {
-  pub fn new(throughput: i32) -> Self {
-    Self { throughput }
+  pub fn new(throughput: i32) -> Result<Self, std::io::Error> {
+    Ok(Self { throughput })
   }
 }
 
@@ -128,9 +128,7 @@ impl SingleWorkerDispatcher {
 #[async_trait]
 impl Dispatcher for SingleWorkerDispatcher {
   async fn schedule(&self, runner: Runnable) {
-    self.runtime.spawn(async move {
-      runner.run().await;
-    });
+    self.runtime.spawn(runner.run());
   }
 
   async fn throughput(&self) -> i32 {
@@ -159,7 +157,7 @@ impl CurrentThreadDispatcher {
 #[async_trait]
 impl Dispatcher for CurrentThreadDispatcher {
   async fn schedule(&self, runner: Runnable) {
-    self.runtime.block_on(runner.run());
+    self.runtime.spawn(runner.run());
   }
 
   async fn throughput(&self) -> i32 {
