@@ -430,7 +430,7 @@ impl ActorContext {
       }
     }
     let ch = ContextHandle::new(self.clone());
-    let actor = self.get_props().await.producer.as_ref().unwrap().run(ch).await;
+    let actor = self.get_props().await.get_producer().run(ch).await;
     self.set_actor(Some(actor)).await;
 
     // TODO: metrics

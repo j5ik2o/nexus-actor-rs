@@ -18,7 +18,7 @@ impl Message for TestString {
 #[tokio::test]
 async fn test_event_stream_subscribe() {
   let es = EventStream::new();
-  let s = es.subscribe(HandlerFunc::new(|_| Box::pin(async move {}))).await;
+  let s = es.subscribe(HandlerFunc::new(|_| async move {})).await;
   assert!(s.is_active());
   assert_eq!(es.length(), 1);
 }
@@ -34,9 +34,9 @@ async fn test_event_stream_unsubscribe() {
       let c1 = Arc::clone(&c1);
       move |_| {
         let c1 = c1.clone();
-        Box::pin(async move {
+        async move {
           c1.fetch_add(1, Ordering::SeqCst);
-        })
+        }
       }
     }))
     .await;
@@ -45,9 +45,9 @@ async fn test_event_stream_unsubscribe() {
       let c2 = Arc::clone(&c2);
       move |_| {
         let c2 = c2.clone();
-        Box::pin(async move {
+        async move {
           c2.fetch_add(1, Ordering::SeqCst);
-        })
+        }
       }
     }))
     .await;
@@ -80,11 +80,11 @@ async fn test_event_stream_publish() {
     } else {
       None
     };
-    Box::pin(async move {
+    async move {
       if let Some(val) = m_value {
         *v_clone.lock().await = val;
       }
-    })
+    }
   }))
   .await;
 
@@ -104,9 +104,9 @@ async fn test_event_stream_subscribe_with_predicate_is_called() {
   es.subscribe_with_predicate(
     HandlerFunc::new(move |_| {
       let called_clone = called_clone.clone();
-      Box::pin(async move {
+      async move {
         *called_clone.lock().await = true;
-      })
+      }
     }),
     PredicateFunc::new(|_| true),
   )
@@ -125,9 +125,9 @@ async fn test_event_stream_subscribe_with_predicate_is_not_called() {
   es.subscribe_with_predicate(
     HandlerFunc::new(move |_| {
       let called_clone = called_clone.clone();
-      Box::pin(async move {
+      async move {
         *called_clone.lock().await = true;
-      })
+      }
     }),
     PredicateFunc::new(|_: MessageHandle| false),
   )
@@ -164,11 +164,11 @@ async fn test_event_stream_performance() {
           } else {
             None
           };
-          Box::pin(async move {
+          async move {
             if let Some(evt_i) = evt_data {
               assert_eq!(evt_i, i, "expected i to be {} but its value is {}", i, evt_i);
             }
-          })
+          }
         }))
         .await;
       subs.push(sub);

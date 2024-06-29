@@ -34,15 +34,13 @@ impl DeadLetterProcess {
       .await
       .dead_letter_throttle_interval
       .clone();
-    let func = ThrottleCallbackFunc::new(move |i: usize| {
-      Box::pin(async move {
-        P_LOG
-          .info(
-            &format!("DeadLetterProcess: Throttling dead letters, count: {}", i),
-            vec![],
-          )
-          .await;
-      })
+    let func = ThrottleCallbackFunc::new(move |i: usize| async move {
+      P_LOG
+        .info(
+          &format!("DeadLetterProcess: Throttling dead letters, count: {}", i),
+          vec![],
+        )
+        .await;
     });
     let throttle = Throttle::new(dead_letter_throttle_count, dead_letter_throttle_interval, func).await;
     println!("dead_letter_process: new: throttle: {:?}", throttle);
@@ -111,7 +109,7 @@ impl DeadLetterProcess {
       .subscribe(HandlerFunc::new(move |msg| {
         let cloned_msg = msg.clone();
         let cloned_self = cloned_self.clone();
-        Box::pin(async move {
+        async move {
           if let Some(dle) = cloned_msg.as_any().downcast_ref::<DeadLetterEvent>() {
             if let Some(m) = dle.message.as_any().downcast_ref::<Watch>() {
               let actor_system = cloned_self.actor_system.clone();
@@ -128,7 +126,7 @@ impl DeadLetterProcess {
                 .await;
             }
           }
-        })
+        }
       }))
       .await;
 

@@ -38,7 +38,7 @@ impl Behavior {
 
   async fn clear(&mut self) {
     for i in 0..self.stack.len() {
-      self.stack[i] = ReceiveFunc::new(|_| Box::pin(async {}));
+      self.stack[i] = ReceiveFunc::new(|_| async {});
     }
     self.stack.clear();
   }

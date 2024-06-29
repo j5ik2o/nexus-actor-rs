@@ -55,32 +55,32 @@ impl<Q: QueueReader<MessageHandle> + QueueWriter<MessageHandle>> QueueWriter<Mes
 pub fn unbounded_mailbox_creator(mailbox_stats: Vec<MailboxMiddlewareHandle>) -> MailboxProduceFunc {
   MailboxProduceFunc::new(move || {
     let cloned_mailbox_stats = mailbox_stats.clone();
-    Box::pin(async move {
+    async move {
       let user_queue = UnboundedMailboxQueue::new(RingQueue::new(10));
       let system_queue = UnboundedMailboxQueue::new(MpscUnboundedChannelQueue::new());
       MailboxHandle::new(DefaultMailbox::new(user_queue, system_queue).with_middlewares(cloned_mailbox_stats.clone()))
-    })
+    }
   })
 }
 
 pub fn unbounded_priority_mailbox_creator(mailbox_stats: Vec<MailboxMiddlewareHandle>) -> MailboxProduceFunc {
   MailboxProduceFunc::new(move || {
     let cloned_mailbox_stats = mailbox_stats.clone();
-    Box::pin(async move {
+    async move {
       let user_queue = UnboundedMailboxQueue::new(PriorityQueue::new(|| RingQueue::new(10)));
       let system_queue = UnboundedMailboxQueue::new(MpscUnboundedChannelQueue::new());
       MailboxHandle::new(DefaultMailbox::new(user_queue, system_queue).with_middlewares(cloned_mailbox_stats.clone()))
-    })
+    }
   })
 }
 
 pub fn unbounded_mpsc_mailbox_creator(mailbox_stats: Vec<MailboxMiddlewareHandle>) -> MailboxProduceFunc {
   MailboxProduceFunc::new(move || {
     let cloned_mailbox_stats = mailbox_stats.clone();
-    Box::pin(async move {
+    async move {
       let user_queue = UnboundedMailboxQueue::new(MpscUnboundedChannelQueue::new());
       let system_queue = UnboundedMailboxQueue::new(MpscUnboundedChannelQueue::new());
       MailboxHandle::new(DefaultMailbox::new(user_queue, system_queue).with_middlewares(cloned_mailbox_stats.clone()))
-    })
+    }
   })
 }

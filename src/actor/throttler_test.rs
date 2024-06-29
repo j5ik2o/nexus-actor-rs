@@ -15,10 +15,10 @@ async fn test_throttler() {
     Duration::from_millis(100),
     ThrottleCallbackFunc::new(move |_| {
       let callback_called = callback_called_clone.clone();
-      Box::pin(async move {
+      async move {
         let mut called = callback_called.lock().await;
         *called = true;
-      })
+      }
     }),
   )
   .await;

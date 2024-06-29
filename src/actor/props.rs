@@ -21,6 +21,7 @@ use async_trait::async_trait;
 use futures::future::BoxFuture;
 use once_cell::sync::Lazy;
 use std::fmt::{Debug, Formatter};
+use std::future::Future;
 use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::Mutex;
@@ -68,13 +69,13 @@ impl std::hash::Hash for SpawnFunc {
 }
 
 impl SpawnFunc {
-  pub fn new(
-    f: impl Fn(ActorSystem, String, Props, SpawnerContextHandle) -> BoxFuture<'static, Result<ExtendedPid, SpawnError>>
-      + Send
-      + Sync
-      + 'static,
-  ) -> Self {
-    SpawnFunc(Arc::new(f))
+  pub fn new<F, Fut>(f: F) -> Self
+  where
+    F: Fn(ActorSystem, String, Props, SpawnerContextHandle) -> Fut + Send + Sync + 'static,
+    Fut: Future<Output = Result<ExtendedPid, SpawnError>> + Send + 'static, {
+    Self(Arc::new(move |s, name, p, sch| {
+      Box::pin(f(s, name, p, sch)) as BoxFuture<'static, Result<ExtendedPid, SpawnError>>
+    }))
   }
 
   pub async fn run(
@@ -256,7 +257,7 @@ impl ContextHandleFunc {
 #[derive(Debug, Clone)]
 pub struct Props {
   spawner: Option<SpawnFunc>,
-  pub(crate) producer: Option<ProducerFunc>,
+  producer: Option<ProducerFunc>,
   mailbox_producer: Option<MailboxProduceFunc>,
   guardian_strategy: Option<SupervisorStrategyHandle>,
   supervision_strategy: Option<SupervisorStrategyHandle>,
@@ -268,7 +269,7 @@ pub struct Props {
   sender_middleware_chain: Option<SenderFunc>,
   spawn_middleware_chain: Option<SpawnFunc>,
   context_decorator: Vec<ContextDecorator>,
-  pub(crate) context_decorator_chain: Option<ContextDecoratorFunc>,
+  context_decorator_chain: Option<ContextDecoratorFunc>,
   on_init: Vec<ContextHandleFunc>,
 }
 
@@ -284,7 +285,7 @@ static DEFAULT_MAILBOX_PRODUCER: Lazy<MailboxProduceFunc> = Lazy::new(|| unbound
 static DEFAULT_SPAWNER: Lazy<SpawnFunc> = Lazy::new(|| {
   SpawnFunc::new(
     |actor_system: ActorSystem, id: String, props: Props, parent_context: SpawnerContextHandle| {
-      Box::pin(async move {
+      async move {
         let mut ctx = ActorContext::new(actor_system.clone(), props.clone(), parent_context.get_self().await).await;
         let mut mb = props.produce_mailbox().await;
 
@@ -314,7 +315,7 @@ static DEFAULT_SPAWNER: Lazy<SpawnFunc> = Lazy::new(|| {
         mb.start().await;
 
         Ok(pid)
-      })
+      }
     },
   )
 });
@@ -385,6 +386,10 @@ impl Props {
 
   fn get_spawner(&self) -> SpawnFunc {
     self.spawner.clone().unwrap_or(DEFAULT_SPAWNER.clone())
+  }
+
+  pub fn get_producer(&self) -> ProducerFunc {
+    self.producer.clone().unwrap()
   }
 
   fn get_dispatcher(&self) -> DispatcherHandle {

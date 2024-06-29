@@ -36,7 +36,7 @@ impl RootContext {
         &sender_middleware,
         SenderFunc::new(move |_, target, envelope| {
           let actor_system = actor_system.clone();
-          Box::pin(async move { target.send_user_message(actor_system, envelope.message.clone()).await })
+          async move { target.send_user_message(actor_system, envelope.message.clone()).await }
         }),
       ),
       spawn_middleware: None,

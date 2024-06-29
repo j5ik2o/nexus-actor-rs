@@ -27,9 +27,9 @@ pub async fn subscribe_supervision(actor_system: &ActorSystem) -> Subscription {
   actor_system
     .get_event_stream()
     .await
-    .subscribe(HandlerFunc::new(|evt| {
+    .subscribe(HandlerFunc::new(move |evt| {
       let evt = evt.as_any().downcast_ref::<SupervisorEvent>().cloned().map(Arc::new);
-      Box::pin(async move {
+      async move {
         if let Some(supervisor_event) = evt {
           P_LOG
             .debug(
@@ -42,7 +42,7 @@ pub async fn subscribe_supervision(actor_system: &ActorSystem) -> Subscription {
             )
             .await;
         }
-      })
+      }
     }))
     .await
 }

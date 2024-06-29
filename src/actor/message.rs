@@ -192,8 +192,11 @@ impl std::hash::Hash for ReceiveFunc {
 }
 
 impl ReceiveFunc {
-  pub fn new(f: impl Fn(ContextHandle) -> BoxFuture<'static, ()> + Send + Sync + 'static) -> Self {
-    ReceiveFunc(Arc::new(f))
+  pub fn new<F, Fut>(f: F) -> Self
+  where
+    F: Fn(ContextHandle) -> Fut + Send + Sync + 'static,
+    Fut: Future<Output = ()> + Send + 'static, {
+    ReceiveFunc(Arc::new(move |ch| Box::pin(f(ch)) as BoxFuture<'static, ()>))
   }
 
   pub async fn run(&self, context: ContextHandle) {
@@ -226,10 +229,11 @@ impl std::hash::Hash for ReceiverFunc {
 }
 
 impl ReceiverFunc {
-  pub fn new(
-    f: impl Fn(ReceiverContextHandle, MessageEnvelope) -> BoxFuture<'static, ()> + Send + Sync + 'static,
-  ) -> Self {
-    ReceiverFunc(Arc::new(f))
+  pub fn new<F, Fut>(f: F) -> Self
+  where
+    F: Fn(ReceiverContextHandle, MessageEnvelope) -> Fut + Send + Sync + 'static,
+    Fut: Future<Output = ()> + Send + 'static, {
+    Self(Arc::new(move |rch, me| Box::pin(f(rch, me)) as BoxFuture<'static, ()>))
   }
 
   pub async fn run(&self, context: ReceiverContextHandle, envelope: MessageEnvelope) {
@@ -265,10 +269,13 @@ impl std::hash::Hash for SenderFunc {
 }
 
 impl SenderFunc {
-  pub fn new(
-    f: impl Fn(SenderContextHandle, ExtendedPid, MessageEnvelope) -> BoxFuture<'static, ()> + Send + Sync + 'static,
-  ) -> Self {
-    SenderFunc(Arc::new(f))
+  pub fn new<F, Fut>(f: F) -> Self
+  where
+    F: Fn(SenderContextHandle, ExtendedPid, MessageEnvelope) -> Fut + Send + Sync + 'static,
+    Fut: Future<Output = ()> + Send + 'static, {
+    Self(Arc::new(move |sch, ep, me| {
+      Box::pin(f(sch, ep, me)) as BoxFuture<'static, ()>
+    }))
   }
 
   pub async fn run(&self, context: SenderContextHandle, target: ExtendedPid, envelope: MessageEnvelope) {

@@ -1,4 +1,5 @@
 use std::fmt::Debug;
+use std::future::Future;
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
 use std::sync::Arc;
 
@@ -115,8 +116,11 @@ impl std::hash::Hash for MailboxProduceFunc {
 }
 
 impl MailboxProduceFunc {
-  pub fn new(f: impl Fn() -> BoxFuture<'static, MailboxHandle> + Send + Sync + 'static) -> Self {
-    MailboxProduceFunc(Arc::new(f))
+  pub fn new<F, Fut>(f: F) -> Self
+  where
+    F: Fn() -> Fut + Send + Sync + 'static,
+    Fut: Future<Output = MailboxHandle> + Send + 'static, {
+    Self(Arc::new(move || Box::pin(f()) as BoxFuture<'static, MailboxHandle>))
   }
 
   pub async fn run(&self) -> MailboxHandle {
