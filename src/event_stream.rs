@@ -1,4 +1,5 @@
 use std::fmt::{Debug, Formatter};
+use std::future::Future;
 use std::sync::atomic::{AtomicI32, AtomicU32, Ordering};
 use std::sync::Arc;
 
@@ -32,8 +33,11 @@ impl std::hash::Hash for HandlerFunc {
 }
 
 impl HandlerFunc {
-  pub fn new(f: impl Fn(MessageHandle) -> BoxFuture<'static, ()> + Send + Sync + 'static) -> Self {
-    HandlerFunc(Arc::new(f))
+  pub fn new<F, Fut>(f: F) -> Self
+  where
+    F: Fn(MessageHandle) -> Fut + Send + Sync + 'static,
+    Fut: Future<Output = ()> + Send + 'static, {
+    Self(Arc::new(move |mh| Box::pin(f(mh)) as BoxFuture<'static, ()>))
   }
 
   pub async fn run(&self, evt: MessageHandle) {

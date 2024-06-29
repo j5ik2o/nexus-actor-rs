@@ -61,7 +61,7 @@ impl DeadLetterProcess {
         let cloned_msg = msg.clone();
         let cloned_self = cloned_self.clone();
         let cloned_throttle = throttle.clone();
-        Box::pin(async move {
+        async move {
           if let Some(dead_letter) = cloned_msg.as_any().downcast_ref::<DeadLetterEvent>() {
             if let Some(sender) = &dead_letter.sender {
               cloned_self
