@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, RwLock};
 use uuid::Uuid;
 
 use crate::actor::dead_letter_process::DeadLetterProcess;
@@ -52,35 +52,37 @@ impl ActorSystem {
     Self::new_with_config(config).await
   }
 
+  async fn set_root(&self, root: RootContext) {
+    let mut inner_mg = self.inner.lock().await;
+    inner_mg.root = Some(root);
+  }
+
+  async fn set_process_registry(&self, process_registry: ProcessRegistry) {
+    let mut inner_mg = self.inner.lock().await;
+    inner_mg.process_registry = Some(process_registry);
+  }
+
+  async fn set_guardians(&self, guardians: Guardians) {
+    let mut inner_mg = self.inner.lock().await;
+    inner_mg.guardians = Some(guardians);
+  }
+
+  async fn set_dead_letter(&self, dead_letter: DeadLetterProcess) {
+    let mut inner_mg = self.inner.lock().await;
+    inner_mg.dead_letter = Some(dead_letter);
+  }
+
   pub async fn new_with_config(config: Config) -> Self {
     let mut system = Self {
       inner: Arc::new(Mutex::new(ActorSystemInner::new(config))),
     };
-    let system_cloned = system.clone();
-    {
-      let mut inner_mg = system.inner.lock().await;
-      inner_mg.root = Some(RootContext::new(
-        system_cloned.clone(),
-        EMPTY_MESSAGE_HEADER.clone(),
-        &[],
-      ));
-    }
-    {
-      let mut inner_mg = system.inner.lock().await;
-      inner_mg.process_registry = Some(ProcessRegistry::new(system_cloned.clone()));
-    }
-    {
-      let mut inner_mg = system.inner.lock().await;
-      inner_mg.guardians = Some(Guardians::new(system_cloned.clone()));
-    }
-    {
-      let mut inner_mg = system.inner.lock().await;
-      inner_mg.dead_letter = None;
-      // FIXME: Temporarily disable DeadLetterProcess due to problems with it.
-      // Some(DeadLetterProcess::new(system_cloned.clone()).await);
-    }
+    system.set_root(RootContext::new(system.clone(), EMPTY_MESSAGE_HEADER.clone(), &[])).await;
+    system.set_process_registry(ProcessRegistry::new(system.clone())).await;
+    system.set_guardians(Guardians::new(system.clone())).await;
+    system.set_dead_letter(DeadLetterProcess::new(system.clone()).await).await;
 
     subscribe_supervision(&system).await;
+
     // if let Some(metrics_provider) = &config.metrics_provider {
     //   system.extensions.register(Metrics::new(metrics_provider.clone()));
     // }
@@ -91,7 +93,7 @@ impl ActorSystem {
     // );
     // system.process_registry.add(event_stream_pid, "eventstream".to_string());
 
-    system_cloned
+    system
   }
 
   fn configure(options: &[ConfigOption]) -> Config {
