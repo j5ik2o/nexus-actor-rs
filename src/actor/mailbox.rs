@@ -146,7 +146,7 @@ struct DefaultMailboxInner {
 // DefaultMailbox implementation
 #[derive(Debug, Clone)]
 pub(crate) struct DefaultMailbox {
-  inner: Arc<DefaultMailboxInner>,
+  inner: Arc<Mutex<DefaultMailboxInner>>,
 }
 
 impl DefaultMailbox {
@@ -155,7 +155,7 @@ impl DefaultMailbox {
     system_mailbox: impl QueueWriter<MessageHandle> + QueueReader<MessageHandle> + Clone + 'static,
   ) -> Self {
     DefaultMailbox {
-      inner: Arc::new(DefaultMailboxInner {
+      inner: Arc::new(Mutex::new(DefaultMailboxInner {
         user_mailbox_sender: Arc::new(Mutex::new(user_mailbox.clone())),
         user_mailbox_receiver: Arc::new(Mutex::new(user_mailbox)),
         system_mailbox_sender: Arc::new(Mutex::new(system_mailbox.clone())),
@@ -167,113 +167,125 @@ impl DefaultMailbox {
         invoker_opt: Arc::new(Mutex::new(None)),
         dispatcher_opt: Arc::new(Mutex::new(None)),
         middlewares: vec![],
-      }),
+      })),
     }
   }
 
-  pub(crate) fn with_middlewares(mut self, middlewares: Vec<MailboxMiddlewareHandle>) -> Self {
-    DefaultMailbox {
-      inner: Arc::new(DefaultMailboxInner {
-        user_mailbox_sender: self.inner.user_mailbox_sender.clone(),
-        user_mailbox_receiver: self.inner.user_mailbox_receiver.clone(),
-        system_mailbox_sender: self.inner.system_mailbox_sender.clone(),
-        system_mailbox_receiver: self.inner.system_mailbox_receiver.clone(),
-        scheduler_status: Arc::new(AtomicBool::new(false)),
-        user_messages_count: Arc::new(AtomicI32::new(0)),
-        system_messages_count: Arc::new(AtomicI32::new(0)),
-        suspended: Arc::new(AtomicBool::new(false)),
-        invoker_opt: Arc::new(Mutex::new(None)),
-        dispatcher_opt: Arc::new(Mutex::new(None)),
-        middlewares,
-      }),
+  pub(crate) async fn with_middlewares(mut self, middlewares: Vec<MailboxMiddlewareHandle>) -> Self {
+    {
+        let mut inner_mg = self.inner.lock().await;
+        inner_mg.middlewares = middlewares;
     }
+    self
   }
 
   async fn get_message_invoker_opt(&self) -> Option<MessageInvokerHandle> {
-    self.inner.invoker_opt.lock().await.clone()
+    let inner_mg = self.inner.lock().await;
+    let mg = inner_mg.invoker_opt.lock().await;
+    mg.clone()
   }
 
   async fn set_message_invoker_opt(&mut self, message_invoker: Option<MessageInvokerHandle>) {
-    *self.inner.invoker_opt.lock().await = message_invoker;
+    let inner_mg = self.inner.lock().await;
+    let mut mg = inner_mg.invoker_opt.lock().await;
+    *mg = message_invoker;
   }
 
   async fn get_dispatcher_opt(&self) -> Option<DispatcherHandle> {
-    self.inner.dispatcher_opt.lock().await.clone()
+    let inner_mg = self.inner.lock().await;
+    let mg = inner_mg.dispatcher_opt.lock().await;
+    mg.clone()
   }
 
   async fn set_dispatcher_opt(&mut self, dispatcher_opt: Option<DispatcherHandle>) {
-    *self.inner.dispatcher_opt.lock().await = dispatcher_opt;
+    let inner_mg = self.inner.lock().await;
+    let mut mg = inner_mg.dispatcher_opt.lock().await;
+    *mg = dispatcher_opt;
   }
 
-  fn initialize_scheduler_status(&self) {
-    self.inner.scheduler_status.store(false, Ordering::SeqCst);
+ async fn initialize_scheduler_status(&self) {
+    let inner_mg = self.inner.lock().await;
+    inner_mg.scheduler_status.store(false, Ordering::SeqCst);
   }
 
-  fn compare_exchange_scheduler_status(&self, current: bool, new: bool) -> Result<bool, bool> {
-    self
-      .inner
+ async fn compare_exchange_scheduler_status(&self, current: bool, new: bool) -> Result<bool, bool> {
+    let mut inner_mg = self.inner.lock().await;
+      inner_mg
       .scheduler_status
       .compare_exchange(current, new, Ordering::SeqCst, Ordering::SeqCst)
   }
 
-  fn set_suspended(&self, suspended: bool) {
-    self.inner.suspended.store(suspended, Ordering::SeqCst);
+ async fn set_suspended(&self, suspended: bool) {
+    let mut inner_mg = self.inner.lock().await;
+    inner_mg.suspended.store(suspended, Ordering::SeqCst);
   }
 
-  fn is_suspended(&self) -> bool {
-    self.inner.suspended.load(Ordering::SeqCst)
+ async fn is_suspended(&self) -> bool {
+    let inner_mg = self.inner.lock().await;
+    inner_mg.suspended.load(Ordering::SeqCst)
   }
 
-  fn increment_system_messages_count(&self) {
-    self.inner.system_messages_count.fetch_add(1, Ordering::SeqCst);
+ async fn increment_system_messages_count(&self) {
+    let inner_mg = self.inner.lock().await;
+    inner_mg.system_messages_count.fetch_add(1, Ordering::SeqCst);
   }
 
-  fn decrement_system_messages_count(&self) {
-    self.inner.system_messages_count.fetch_sub(1, Ordering::SeqCst);
+  async fn decrement_system_messages_count(&self) {
+    let inner_mg = self.inner.lock().await;
+    inner_mg.system_messages_count.fetch_sub(1, Ordering::SeqCst);
   }
 
-  fn get_system_messages_count(&self) -> i32 {
-    self.inner.system_messages_count.load(Ordering::SeqCst)
+  async fn get_system_messages_count(&self) -> i32 {
+    let inner_mg = self.inner.lock().await;
+    inner_mg.system_messages_count.load(Ordering::SeqCst)
   }
 
-  fn increment_user_messages_count(&self) {
-    self.inner.user_messages_count.fetch_add(1, Ordering::SeqCst);
+ async fn increment_user_messages_count(&self) {
+    let inner_mg = self.inner.lock().await;
+    inner_mg.user_messages_count.fetch_add(1, Ordering::SeqCst);
   }
 
-  fn decrement_user_messages_count(&self) {
-    self.inner.user_messages_count.fetch_sub(1, Ordering::SeqCst);
+  async fn decrement_user_messages_count(&self) {
+    let inner_mg = self.inner.lock().await;
+    inner_mg.user_messages_count.fetch_sub(1, Ordering::SeqCst);
   }
 
-  fn get_user_messages_count(&self) -> i32 {
-    self.inner.user_messages_count.load(Ordering::SeqCst)
+  async fn get_user_messages_count(&self) -> i32 {
+    let inner_mg = self.inner.lock().await;
+    inner_mg.user_messages_count.load(Ordering::SeqCst)
   }
 
-  fn get_middlewares(&self) -> &Vec<MailboxMiddlewareHandle> {
-    &self.inner.middlewares
+  async fn get_middlewares(&self) -> Vec<MailboxMiddlewareHandle> {
+    let inner_mg = self.inner.lock().await;
+    inner_mg.middlewares.clone()
   }
 
   async fn poll_system_mailbox(&self) -> Result<Option<MessageHandle>, QueueError<MessageHandle>> {
-    let mut smr = self.inner.system_mailbox_receiver.lock().await;
-    smr.poll().await
+    let inner_mg = self.inner.lock().await;
+    let mut mg = inner_mg.system_mailbox_receiver.lock().await;
+    mg.poll().await
   }
 
   async fn poll_user_mailbox(&self) -> Result<Option<MessageHandle>, QueueError<MessageHandle>> {
-    let mut smr = self.inner.user_mailbox_receiver.lock().await;
-    smr.poll().await
+    let inner_mg = self.inner.lock().await;
+    let mut mg = inner_mg.user_mailbox_receiver.lock().await;
+    mg.poll().await
   }
 
   async fn offer_system_mailbox(&self, element: MessageHandle) -> Result<(), QueueError<MessageHandle>> {
-    let mut smr = self.inner.system_mailbox_sender.lock().await;
-    smr.offer(element).await
+    let inner_mg = self.inner.lock().await;
+    let mut mg = inner_mg.system_mailbox_sender.lock().await;
+    mg.offer(element).await
   }
 
   async fn offer_user_mailbox(&self, element: MessageHandle) -> Result<(), QueueError<MessageHandle>> {
-    let mut smr = self.inner.user_mailbox_sender.lock().await;
-    smr.offer(element).await
+    let inner_mg = self.inner.lock().await;
+    let mut mg = inner_mg.user_mailbox_sender.lock().await;
+    mg.offer(element).await
   }
 
   async fn schedule(&self) {
-    if self.compare_exchange_scheduler_status(false, true).is_ok() {
+    if self.compare_exchange_scheduler_status(false, true).await.is_ok() {
       if let Some(dispatcher) = self.get_dispatcher_opt().await {
         let self_clone = self.to_handle().await;
         dispatcher
@@ -309,33 +321,33 @@ impl DefaultMailbox {
       i += 1;
 
       if let Ok(Some(msg)) = self.poll_system_mailbox().await {
-        self.decrement_system_messages_count();
+        self.decrement_system_messages_count().await;
         let mailbox_message = msg.as_any().downcast_ref::<MailboxMessage>();
         match mailbox_message {
           Some(MailboxMessage::SuspendMailbox) => {
-            self.set_suspended(true);
+            self.set_suspended(true).await;
           }
           Some(MailboxMessage::ResumeMailbox) => {
-            self.set_suspended(false);
+            self.set_suspended(false).await;
           }
           _ => {
             message_invoker.invoke_system_message(msg.clone()).await;
           }
         }
-        for middleware in self.get_middlewares() {
+        for middleware in self.get_middlewares().await {
           middleware.message_received(msg.clone()).await;
         }
         continue;
       }
 
-      if self.is_suspended() {
+      if self.is_suspended().await {
         break;
       }
 
       if let Ok(Some(msg)) = self.poll_user_mailbox().await {
-        self.decrement_user_messages_count();
+        self.decrement_user_messages_count().await;
         message_invoker.invoke_user_message(msg.clone()).await;
-        for middleware in self.get_middlewares() {
+        for middleware in self.get_middlewares().await {
           middleware.message_received(msg.clone()).await;
         }
       } else {
@@ -351,12 +363,12 @@ impl Mailbox for DefaultMailbox {
     loop {
       self.run().await;
 
-      self.initialize_scheduler_status();
-      let sys = self.get_system_messages_count();
-      let user = self.get_user_messages_count();
+      self.initialize_scheduler_status().await;
+      let sys = self.get_system_messages_count().await;
+      let user = self.get_user_messages_count().await;
 
-      if sys > 0 || (!self.is_suspended() && user > 0) {
-        if self.compare_exchange_scheduler_status(false, true).is_ok() {
+      if sys > 0 || (!self.is_suspended().await && user > 0) {
+        if self.compare_exchange_scheduler_status(false, true).await.is_ok() {
           continue;
         }
       }
@@ -364,33 +376,33 @@ impl Mailbox for DefaultMailbox {
       break;
     }
 
-    for middleware in self.get_middlewares() {
+    for middleware in self.get_middlewares().await {
       middleware.mailbox_empty().await;
     }
   }
 
   async fn post_user_message(&self, message: MessageHandle) {
-    for middleware in self.get_middlewares() {
+    for middleware in self.get_middlewares().await {
       middleware.message_posted(message.clone()).await;
     }
 
     if let Err(e) = self.offer_user_mailbox(message).await {
       println!("Failed to send message: {:?}", e);
     } else {
-      self.increment_user_messages_count();
+      self.increment_user_messages_count().await;
       self.schedule().await;
     }
   }
 
   async fn post_system_message(&self, message: MessageHandle) {
-    for middleware in self.get_middlewares() {
+    for middleware in self.get_middlewares().await {
       middleware.message_posted(message.clone()).await;
     }
 
     if let Err(e) = self.offer_system_mailbox(message).await {
       println!("Failed to send message: {:?}", e);
     } else {
-      self.increment_system_messages_count();
+      self.increment_system_messages_count().await;
       self.schedule().await;
     }
   }
@@ -401,13 +413,13 @@ impl Mailbox for DefaultMailbox {
   }
 
   async fn start(&self) {
-    for middleware in self.get_middlewares() {
+    for middleware in self.get_middlewares().await {
       middleware.mailbox_started().await;
     }
   }
 
   async fn user_message_count(&self) -> i32 {
-    self.get_user_messages_count()
+    self.get_user_messages_count().await
   }
 
   async fn to_handle(&self) -> MailboxHandle {
