@@ -17,14 +17,14 @@ use crate::actor::ReasonHandle;
 use crate::log::field::Field;
 
 #[derive(Debug, Clone)]
-pub struct Guardians {
+pub struct GuardiansValue {
   actor_system: ActorSystem,
   guardians: Arc<Mutex<HashMap<SupervisorStrategyHandle, GuardianProcess>>>,
 }
 
-impl Guardians {
+impl GuardiansValue {
   pub fn new(actor_system: ActorSystem) -> Self {
-    Guardians {
+    GuardiansValue {
       actor_system,
       guardians: Arc::new(Mutex::new(HashMap::new())),
     }
@@ -47,7 +47,7 @@ impl Guardians {
         op
       }
       None => {
-        let guardian = GuardianProcess::new_guardian(Arc::new(self.clone()), s.clone()).await;
+        let guardian = GuardianProcess::new(Arc::new(self.clone()), s.clone()).await;
         {
           let mut guardians = self.guardians.lock().await;
           guardians.insert(s.clone(), guardian.clone());
@@ -67,13 +67,13 @@ impl Guardians {
 
 #[derive(Debug, Clone)]
 pub struct GuardianProcess {
-  guardians: Arc<Guardians>,
+  guardians: Arc<GuardiansValue>,
   pid: Arc<Option<ExtendedPid>>,
   strategy: SupervisorStrategyHandle,
 }
 
 impl GuardianProcess {
-  async fn new_guardian(guardians: Arc<Guardians>, s: SupervisorStrategyHandle) -> GuardianProcess {
+  async fn new(guardians: Arc<GuardiansValue>, s: SupervisorStrategyHandle) -> GuardianProcess {
     let mut guardian = GuardianProcess {
       strategy: s,
       guardians: guardians.clone(),

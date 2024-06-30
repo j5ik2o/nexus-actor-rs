@@ -14,7 +14,7 @@ pub mod dispatcher;
 #[cfg(test)]
 mod dispatcher_test;
 pub mod future;
-pub mod guardians_value;
+pub mod guardian;
 pub mod log;
 pub mod mailbox;
 mod mailbox_middleware;

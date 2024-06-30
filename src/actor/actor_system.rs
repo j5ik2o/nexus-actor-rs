@@ -4,7 +4,7 @@ use tokio::sync::Mutex;
 use uuid::Uuid;
 
 use crate::actor::dead_letter_process::DeadLetterProcess;
-use crate::actor::guardians_value::Guardians;
+use crate::actor::guardian::GuardiansValue;
 use crate::actor::message_envelope::EMPTY_MESSAGE_HEADER;
 use crate::actor::process::ProcessHandle;
 use crate::actor::process_registry::ProcessRegistry;
@@ -18,7 +18,7 @@ struct ActorSystemInner {
   process_registry: Option<ProcessRegistry>,
   root_context: Option<RootContext>,
   event_stream: Arc<EventStream>,
-  guardians: Option<Guardians>,
+  guardians: Option<GuardiansValue>,
   dead_letter: Option<DeadLetterProcess>,
   extensions: ContextExtensions,
   config: Config,
@@ -62,7 +62,7 @@ impl ActorSystem {
     inner_mg.process_registry = Some(process_registry);
   }
 
-  async fn set_guardians(&self, guardians: Guardians) {
+  async fn set_guardians(&self, guardians: GuardiansValue) {
     let mut inner_mg = self.inner.lock().await;
     inner_mg.guardians = Some(guardians);
   }
@@ -80,7 +80,7 @@ impl ActorSystem {
       .set_root_context(RootContext::new(system.clone(), EMPTY_MESSAGE_HEADER.clone(), &[]))
       .await;
     system.set_process_registry(ProcessRegistry::new(system.clone())).await;
-    system.set_guardians(Guardians::new(system.clone())).await;
+    system.set_guardians(GuardiansValue::new(system.clone())).await;
     system
       .set_dead_letter(DeadLetterProcess::new(system.clone()).await)
       .await;
@@ -134,7 +134,7 @@ impl ActorSystem {
     inner_mg.event_stream.clone()
   }
 
-  pub async fn get_guardians(&self) -> Guardians {
+  pub async fn get_guardians(&self) -> GuardiansValue {
     let inner_mg = self.inner.lock().await;
     inner_mg.guardians.as_ref().unwrap().clone()
   }
