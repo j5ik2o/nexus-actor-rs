@@ -12,7 +12,7 @@ use crate::actor::mailbox_middleware::{MailboxMiddleware, MailboxMiddlewareHandl
 use crate::actor::message::{Message, MessageHandle};
 use crate::actor::message_invoker::{MessageInvoker, MessageInvokerHandle};
 use crate::actor::messages::MailboxMessage;
-use crate::util::queue::{QueueReader, QueueWriter};
+use crate::util::queue::{QueueError, QueueReader, QueueWriter};
 
 // Mailbox trait
 #[async_trait]
@@ -209,14 +209,11 @@ impl DefaultMailbox {
     self.inner.scheduler_status.store(false, Ordering::SeqCst);
   }
 
-  fn compare_exchange_scheduler_status(&self, current: bool,
-                            new: bool,
-                            success: Ordering,
-                            failure: Ordering) -> Result<bool, bool> {
+  fn compare_exchange_scheduler_status(&self, current: bool, new: bool) -> Result<bool, bool> {
     self
-        .inner
-        .scheduler_status
-        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+      .inner
+      .scheduler_status
+      .compare_exchange(current, new, Ordering::SeqCst, Ordering::SeqCst)
   }
 
   fn set_suspended(&self, suspended: bool) {
@@ -227,15 +224,56 @@ impl DefaultMailbox {
     self.inner.suspended.load(Ordering::SeqCst)
   }
 
+  fn increment_system_messages_count(&self) {
+    self.inner.system_messages_count.fetch_add(1, Ordering::SeqCst);
+  }
+
+  fn decrement_system_messages_count(&self) {
+    self.inner.system_messages_count.fetch_sub(1, Ordering::SeqCst);
+  }
+
+  fn get_system_messages_count(&self) -> i32 {
+    self.inner.system_messages_count.load(Ordering::SeqCst)
+  }
+
+  fn increment_user_messages_count(&self) {
+    self.inner.user_messages_count.fetch_add(1, Ordering::SeqCst);
+  }
+
+  fn decrement_user_messages_count(&self) {
+    self.inner.user_messages_count.fetch_sub(1, Ordering::SeqCst);
+  }
+
+  fn get_user_messages_count(&self) -> i32 {
+    self.inner.user_messages_count.load(Ordering::SeqCst)
+  }
+
   fn get_middlewares(&self) -> &Vec<MailboxMiddlewareHandle> {
     &self.inner.middlewares
   }
 
+  async fn poll_system_mailbox(&self) -> Result<Option<MessageHandle>, QueueError<MessageHandle>> {
+    let mut smr = self.inner.system_mailbox_receiver.lock().await;
+    smr.poll().await
+  }
+
+  async fn poll_user_mailbox(&self) -> Result<Option<MessageHandle>, QueueError<MessageHandle>> {
+    let mut smr = self.inner.user_mailbox_receiver.lock().await;
+    smr.poll().await
+  }
+
+  async fn offer_system_mailbox(&self, element: MessageHandle) -> Result<(), QueueError<MessageHandle>> {
+    let mut smr = self.inner.system_mailbox_sender.lock().await;
+    smr.offer(element).await
+  }
+
+  async fn offer_user_mailbox(&self, element: MessageHandle) -> Result<(), QueueError<MessageHandle>> {
+    let mut smr = self.inner.user_mailbox_sender.lock().await;
+    smr.offer(element).await
+  }
+
   async fn schedule(&self) {
-    if self
-      .compare_exchange_scheduler_status(false, true, Ordering::SeqCst, Ordering::SeqCst)
-      .is_ok()
-    {
+    if self.compare_exchange_scheduler_status(false, true).is_ok() {
       if let Some(dispatcher) = self.get_dispatcher_opt().await {
         let self_clone = self.to_handle().await;
         dispatcher
@@ -270,11 +308,8 @@ impl DefaultMailbox {
 
       i += 1;
 
-      if let Ok(Some(msg)) = {
-        let mut smr = self.inner.system_mailbox_receiver.lock().await;
-        smr.poll().await
-      } {
-        self.inner.system_messages_count.fetch_sub(1, Ordering::SeqCst);
+      if let Ok(Some(msg)) = self.poll_system_mailbox().await {
+        self.decrement_system_messages_count();
         let mailbox_message = msg.as_any().downcast_ref::<MailboxMessage>();
         match mailbox_message {
           Some(MailboxMessage::SuspendMailbox) => {
@@ -297,11 +332,8 @@ impl DefaultMailbox {
         break;
       }
 
-      if let Ok(Some(msg)) = {
-        let mut umr = self.inner.user_mailbox_receiver.lock().await;
-        umr.poll().await
-      } {
-        self.inner.user_messages_count.fetch_sub(1, Ordering::SeqCst);
+      if let Ok(Some(msg)) = self.poll_user_mailbox().await {
+        self.decrement_user_messages_count();
         message_invoker.invoke_user_message(msg.clone()).await;
         for middleware in self.get_middlewares() {
           middleware.message_received(msg.clone()).await;
@@ -311,8 +343,6 @@ impl DefaultMailbox {
       }
     }
   }
-
-
 }
 
 #[async_trait]
@@ -322,14 +352,11 @@ impl Mailbox for DefaultMailbox {
       self.run().await;
 
       self.initialize_scheduler_status();
-      let sys = self.inner.system_messages_count.load(Ordering::SeqCst);
-      let user = self.inner.user_messages_count.load(Ordering::SeqCst);
+      let sys = self.get_system_messages_count();
+      let user = self.get_user_messages_count();
 
-      if sys > 0 || (!self.inner.suspended.load(Ordering::SeqCst) && user > 0) {
-        if self
-          .compare_exchange_scheduler_status(false, true, Ordering::SeqCst, Ordering::SeqCst)
-          .is_ok()
-        {
+      if sys > 0 || (!self.is_suspended() && user > 0) {
+        if self.compare_exchange_scheduler_status(false, true).is_ok() {
           continue;
         }
       }
@@ -347,13 +374,10 @@ impl Mailbox for DefaultMailbox {
       middleware.message_posted(message.clone()).await;
     }
 
-    if let Err(e) = {
-      let mut ums = self.inner.user_mailbox_sender.lock().await;
-      ums.offer(message).await
-    } {
+    if let Err(e) = self.offer_user_mailbox(message).await {
       println!("Failed to send message: {:?}", e);
     } else {
-      self.inner.user_messages_count.fetch_add(1, Ordering::SeqCst);
+      self.increment_user_messages_count();
       self.schedule().await;
     }
   }
@@ -363,13 +387,10 @@ impl Mailbox for DefaultMailbox {
       middleware.message_posted(message.clone()).await;
     }
 
-    if let Err(e) = {
-      let mut sms = self.inner.system_mailbox_sender.lock().await;
-      sms.offer(message).await
-    } {
+    if let Err(e) = self.offer_system_mailbox(message).await {
       println!("Failed to send message: {:?}", e);
     } else {
-      self.inner.system_messages_count.fetch_add(1, Ordering::SeqCst);
+      self.increment_system_messages_count();
       self.schedule().await;
     }
   }
@@ -386,7 +407,7 @@ impl Mailbox for DefaultMailbox {
   }
 
   async fn user_message_count(&self) -> i32 {
-    self.inner.user_messages_count.load(Ordering::SeqCst)
+    self.get_user_messages_count()
   }
 
   async fn to_handle(&self) -> MailboxHandle {
