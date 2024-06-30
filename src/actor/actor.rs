@@ -8,6 +8,7 @@ use backtrace::Backtrace;
 
 use crate::actor::context::ContextHandle;
 use crate::actor::supervisor::supervisor_strategy::SupervisorStrategyHandle;
+pub mod actor_process;
 pub mod behavior;
 pub mod pid;
 pub mod pid_set;
@@ -16,7 +17,6 @@ mod pid_set_test;
 pub mod props;
 pub mod restart_statistics;
 pub mod taks;
-pub mod actor_process;
 
 include!(concat!(env!("OUT_DIR"), "/actor.rs"));
 
