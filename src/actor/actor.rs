@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use backtrace::Backtrace;
 
 use crate::actor::context::ContextHandle;
-use crate::actor::supervisor_strategy::SupervisorStrategyHandle;
+use crate::actor::supervisor::supervisor_strategy::SupervisorStrategyHandle;
 
 include!(concat!(env!("OUT_DIR"), "/actor.rs"));
 

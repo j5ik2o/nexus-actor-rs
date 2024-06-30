@@ -17,7 +17,7 @@ use crate::actor::middleware_chain::make_sender_middleware_chain;
 use crate::actor::pid::ExtendedPid;
 use crate::actor::process::Process;
 use crate::actor::props::{Props, SenderMiddleware, SpawnError, SpawnFunc};
-use crate::actor::supervisor_strategy::SupervisorStrategyHandle;
+use crate::actor::supervisor::supervisor_strategy::SupervisorStrategyHandle;
 
 #[derive(Debug, Clone)]
 pub struct RootContext {

@@ -11,9 +11,9 @@ use crate::actor::directive::Directive;
 use crate::actor::message::MessageHandle;
 use crate::actor::pid::ExtendedPid;
 use crate::actor::restart_statistics::RestartStatistics;
-use crate::actor::strategy_on_for_one::OneForOneStrategy;
-use crate::actor::strategy_restarting::RestartingStrategy;
-use crate::actor::supervision_event::SupervisorEvent;
+use crate::actor::supervisor::strategy_on_for_one::OneForOneStrategy;
+use crate::actor::supervisor::strategy_restarting::RestartingStrategy;
+use crate::actor::supervisor::supervision_event::SupervisorEvent;
 
 #[derive(Clone)]
 pub struct DeciderFunc(Arc<dyn Fn(ActorInnerError) -> Directive + Send + Sync>);

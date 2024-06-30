@@ -4,7 +4,7 @@ use tokio::sync::Mutex;
 use uuid::Uuid;
 
 use crate::actor::actor::Pid;
-use crate::actor::dead_letter_process::DeadLetterProcess;
+use crate::actor::dispatch::dead_letter_process::DeadLetterProcess;
 use crate::actor::event_stream_process::EventStreamProcess;
 use crate::actor::guardian::GuardiansValue;
 use crate::actor::message_envelope::EMPTY_MESSAGE_HEADER;
@@ -12,7 +12,7 @@ use crate::actor::pid::ExtendedPid;
 use crate::actor::process::ProcessHandle;
 use crate::actor::process_registry::ProcessRegistry;
 use crate::actor::root_context::RootContext;
-use crate::actor::supervision_event::subscribe_supervision;
+use crate::actor::supervisor::supervision_event::subscribe_supervision;
 use crate::ctxext::extensions::ContextExtensions;
 use crate::event_stream::EventStream;
 
@@ -119,6 +119,10 @@ impl ActorSystem {
       option.apply(&mut config);
     }
     config
+  }
+
+  pub async fn get_address(&self) -> String {
+    self.get_process_registry().await.get_address()
   }
 
   pub async fn get_config(&self) -> Config {

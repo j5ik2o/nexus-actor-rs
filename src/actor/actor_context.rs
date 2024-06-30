@@ -25,7 +25,7 @@ use crate::actor::message::{
   Message, MessageHandle, MessageHandles, ProducerFunc, ReceiverFunc, ResponseHandle, SenderFunc,
 };
 use crate::actor::message_envelope::{MessageEnvelope, MessageOrEnvelope, ReadonlyMessageHeadersHandle};
-use crate::actor::message_invoker::MessageInvoker;
+use crate::actor::dispatch::message_invoker::MessageInvoker;
 use crate::actor::messages::{
   AutoReceiveMessage, Continuation, Failure, MailboxMessage, NotInfluenceReceiveTimeoutHandle, ReceiveTimeout, Restart,
   Restarting, Started, Stopped, Stopping, SystemMessage,
@@ -35,7 +35,7 @@ use crate::actor::pid_set::PidSet;
 use crate::actor::process::Process;
 use crate::actor::props::{Props, SpawnError};
 use crate::actor::restart_statistics::RestartStatistics;
-use crate::actor::supervisor_strategy::{
+use crate::actor::supervisor::supervisor_strategy::{
   Supervisor, SupervisorHandle, SupervisorStrategy, DEFAULT_SUPERVISION_STRATEGY,
 };
 use crate::ctxext::extensions::{ContextExtensionHandle, ContextExtensionId, ContextExtensions};

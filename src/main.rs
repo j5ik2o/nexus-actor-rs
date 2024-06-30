@@ -9,7 +9,7 @@ use nexus_rs::actor::context::{ContextHandle, MessagePart, SenderPart, SpawnerPa
 use nexus_rs::actor::message::{Message, MessageHandle, ProducerFunc};
 use nexus_rs::actor::messages::SystemMessage;
 use nexus_rs::actor::props::Props;
-use nexus_rs::actor::unbounded::unbounded_mpsc_mailbox_creator;
+use nexus_rs::actor::dispatch::unbounded::unbounded_mpsc_mailbox_creator;
 
 #[derive(Debug, Clone)]
 struct Hello(pub String);
