@@ -1,12 +1,12 @@
 use async_trait::async_trait;
 
+use crate::actor::actor::ActorInnerError;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::directive::Directive;
 use crate::actor::message::MessageHandle;
 use crate::actor::pid::ExtendedPid;
 use crate::actor::restart_statistics::RestartStatistics;
 use crate::actor::supervisor_strategy::{log_failure, DeciderFunc, Supervisor, SupervisorHandle, SupervisorStrategy};
-use crate::actor::ReasonHandle;
 
 #[derive(Debug, Clone)]
 pub struct OneForOneStrategy {
@@ -65,7 +65,7 @@ impl SupervisorStrategy for OneForOneStrategy {
     mut supervisor: SupervisorHandle,
     child: ExtendedPid,
     mut rs: RestartStatistics,
-    reason: ReasonHandle,
+    reason: ActorInnerError,
     message: MessageHandle,
   ) {
     let directive = self.decider.run(reason.clone());

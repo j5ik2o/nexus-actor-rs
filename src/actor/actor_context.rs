@@ -38,7 +38,6 @@ use crate::actor::restart_statistics::RestartStatistics;
 use crate::actor::supervisor_strategy::{
   Supervisor, SupervisorHandle, SupervisorStrategy, DEFAULT_SUPERVISION_STRATEGY,
 };
-use crate::actor::ReasonHandle;
 use crate::ctxext::extensions::{ContextExtensionHandle, ContextExtensionId, ContextExtensions};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, IntoPrimitive, TryFromPrimitive)]
@@ -1150,7 +1149,7 @@ impl Supervisor for ActorContext {
     self.get_extras().await.unwrap().get_children().await.to_vec().await
   }
 
-  async fn escalate_failure(&mut self, reason: ReasonHandle, message: MessageHandle) {
+  async fn escalate_failure(&mut self, reason: ActorInnerError, message: MessageHandle) {
     let self_pid = self.get_self().await.expect("Failed to retrieve self_pid");
     if self
       .get_actor_system()

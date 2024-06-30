@@ -1,19 +1,19 @@
 use std::any::Any;
 use std::sync::Arc;
 
+use crate::actor::actor::ActorInnerError;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::directive::Directive;
 use crate::actor::log::P_LOG;
 use crate::actor::message::Message;
 use crate::actor::pid::ExtendedPid;
-use crate::actor::ReasonHandle;
 use crate::event_stream::{HandlerFunc, Subscription};
 use crate::log::field::Field;
 
 #[derive(Debug, Clone)]
 pub struct SupervisorEvent {
   pub child: ExtendedPid,
-  pub reason: ReasonHandle,
+  pub reason: ActorInnerError,
   pub directive: Directive,
 }
 

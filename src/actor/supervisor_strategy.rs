@@ -5,6 +5,7 @@ use async_trait::async_trait;
 use once_cell::sync::Lazy;
 use tokio::sync::Mutex;
 
+use crate::actor::actor::ActorInnerError;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::directive::Directive;
 use crate::actor::message::MessageHandle;
@@ -13,10 +14,9 @@ use crate::actor::restart_statistics::RestartStatistics;
 use crate::actor::strategy_on_for_one::OneForOneStrategy;
 use crate::actor::strategy_restarting::RestartingStrategy;
 use crate::actor::supervision_event::SupervisorEvent;
-use crate::actor::ReasonHandle;
 
 #[derive(Clone)]
-pub struct DeciderFunc(Arc<dyn Fn(ReasonHandle) -> Directive + Send + Sync>);
+pub struct DeciderFunc(Arc<dyn Fn(ActorInnerError) -> Directive + Send + Sync>);
 
 impl Debug for DeciderFunc {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -34,16 +34,16 @@ impl Eq for DeciderFunc {}
 
 impl std::hash::Hash for DeciderFunc {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    (self.0.as_ref() as *const dyn Fn(ReasonHandle) -> Directive).hash(state);
+    (self.0.as_ref() as *const dyn Fn(ActorInnerError) -> Directive).hash(state);
   }
 }
 
 impl DeciderFunc {
-  pub fn new(f: impl Fn(ReasonHandle) -> Directive + Send + Sync + 'static) -> Self {
+  pub fn new(f: impl Fn(ActorInnerError) -> Directive + Send + Sync + 'static) -> Self {
     DeciderFunc(Arc::new(f))
   }
 
-  pub fn run(&self, reason: ReasonHandle) -> Directive {
+  pub fn run(&self, reason: ActorInnerError) -> Directive {
     (self.0)(reason)
   }
 }
@@ -56,7 +56,7 @@ pub trait SupervisorStrategy: Debug + Send + Sync {
     supervisor: SupervisorHandle,
     child: ExtendedPid,
     rs: RestartStatistics,
-    reason: ReasonHandle,
+    reason: ActorInnerError,
     message: MessageHandle,
   );
 }
@@ -96,7 +96,7 @@ impl SupervisorStrategy for SupervisorStrategyHandle {
     supervisor: SupervisorHandle,
     child: ExtendedPid,
     rs: RestartStatistics,
-    reason: ReasonHandle,
+    reason: ActorInnerError,
     message: MessageHandle,
   ) {
     self
@@ -109,7 +109,7 @@ impl SupervisorStrategy for SupervisorStrategyHandle {
 #[async_trait]
 pub trait Supervisor: Send + Sync + 'static {
   async fn get_children(&self) -> Vec<ExtendedPid>;
-  async fn escalate_failure(&mut self, reason: ReasonHandle, message: MessageHandle);
+  async fn escalate_failure(&mut self, reason: ActorInnerError, message: MessageHandle);
   async fn restart_children(&self, pids: &[ExtendedPid]);
   async fn stop_children(&self, pids: &[ExtendedPid]);
   async fn resume_children(&self, pids: &[ExtendedPid]);
@@ -148,7 +148,7 @@ impl Supervisor for SupervisorHandle {
     mg.get_children().await
   }
 
-  async fn escalate_failure(&mut self, reason: ReasonHandle, message: MessageHandle) {
+  async fn escalate_failure(&mut self, reason: ActorInnerError, message: MessageHandle) {
     let mut mg = self.0.lock().await;
     mg.escalate_failure(reason, message).await;
   }
@@ -169,7 +169,12 @@ impl Supervisor for SupervisorHandle {
   }
 }
 
-pub async fn log_failure(actor_system: &ActorSystem, child: &ExtendedPid, reason: ReasonHandle, directive: Directive) {
+pub async fn log_failure(
+  actor_system: &ActorSystem,
+  child: &ExtendedPid,
+  reason: ActorInnerError,
+  directive: Directive,
+) {
   actor_system
     .get_event_stream()
     .await
@@ -181,7 +186,7 @@ pub async fn log_failure(actor_system: &ActorSystem, child: &ExtendedPid, reason
     .await;
 }
 
-pub fn default_decider(_: ReasonHandle) -> Directive {
+pub fn default_decider(_: ActorInnerError) -> Directive {
   Directive::Restart
 }
 

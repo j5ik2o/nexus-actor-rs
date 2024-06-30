@@ -39,44 +39,6 @@ pub mod supervision_event;
 pub mod supervisor_strategy;
 pub mod taks;
 pub mod throttler;
+#[cfg(test)]
 mod throttler_test;
 pub mod unbounded;
-
-pub trait Reason: Debug + Display + Send + Sync + 'static {
-  fn as_any(&self) -> &dyn std::any::Any;
-}
-
-#[derive(Debug, Clone)]
-pub struct ReasonHandle(Arc<dyn Reason>);
-
-impl Display for ReasonHandle {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    write!(f, "{}", self.0.to_string())
-  }
-}
-
-impl ReasonHandle {
-  pub fn new(reason: Arc<dyn Reason>) -> Self {
-    Self(reason)
-  }
-}
-
-impl PartialEq for ReasonHandle {
-  fn eq(&self, other: &Self) -> bool {
-    Arc::ptr_eq(&self.0, &other.0)
-  }
-}
-
-impl Eq for ReasonHandle {}
-
-impl std::hash::Hash for ReasonHandle {
-  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    (self.0.as_ref() as *const dyn Reason).hash(state);
-  }
-}
-
-impl Reason for ReasonHandle {
-  fn as_any(&self) -> &dyn std::any::Any {
-    self.0.as_any()
-  }
-}

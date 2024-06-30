@@ -5,7 +5,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use tokio::sync::Mutex;
 
-use crate::actor::actor::Stop;
+use crate::actor::actor::{ActorInnerError, Stop};
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::log::P_LOG;
 use crate::actor::message::{Message, MessageHandle};
@@ -13,7 +13,6 @@ use crate::actor::messages::{Failure, MailboxMessage, Restart, SystemMessage};
 use crate::actor::pid::ExtendedPid;
 use crate::actor::process::{Process, ProcessHandle};
 use crate::actor::supervisor_strategy::{Supervisor, SupervisorHandle, SupervisorStrategy, SupervisorStrategyHandle};
-use crate::actor::ReasonHandle;
 use crate::log::field::Field;
 
 #[derive(Debug, Clone)]
@@ -140,7 +139,7 @@ impl Supervisor for GuardianProcess {
     panic!("guardian does not hold its children PIDs");
   }
 
-  async fn escalate_failure(&mut self, _reason: ReasonHandle, _message: MessageHandle) {
+  async fn escalate_failure(&mut self, _reason: ActorInnerError, _message: MessageHandle) {
     panic!("guardian cannot escalate failure");
   }
 

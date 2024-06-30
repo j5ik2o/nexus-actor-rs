@@ -1,9 +1,10 @@
 use std::fmt::Debug;
 
+use log::error;
+
 use crate::actor::actor::ActorError;
 use crate::actor::context::{ContextHandle, InfoPart};
 use crate::actor::message::ReceiveFunc;
-use log::error;
 
 #[derive(Debug, Clone)]
 pub struct Behavior {

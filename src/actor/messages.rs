@@ -4,11 +4,10 @@ use std::sync::Arc;
 
 use futures::future::BoxFuture;
 
-use crate::actor::actor::{PoisonPill, Stop};
+use crate::actor::actor::{ActorInnerError, PoisonPill, Stop};
 use crate::actor::message::{Message, MessageHandle};
 use crate::actor::pid::ExtendedPid;
 use crate::actor::restart_statistics::RestartStatistics;
-use crate::actor::ReasonHandle;
 
 #[derive(Debug, Clone)]
 pub enum MailboxMessage {
@@ -107,7 +106,7 @@ pub struct Restart {}
 #[derive(Debug, Clone)]
 pub struct Failure {
   pub who: ExtendedPid,
-  pub reason: ReasonHandle,
+  pub reason: ActorInnerError,
   pub restart_stats: RestartStatistics,
   pub message: MessageHandle,
 }
@@ -119,7 +118,12 @@ impl Message for Failure {
 }
 
 impl Failure {
-  pub fn new(who: ExtendedPid, reason: ReasonHandle, restart_stats: RestartStatistics, message: MessageHandle) -> Self {
+  pub fn new(
+    who: ExtendedPid,
+    reason: ActorInnerError,
+    restart_stats: RestartStatistics,
+    message: MessageHandle,
+  ) -> Self {
     Failure {
       who,
       reason,
