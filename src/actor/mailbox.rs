@@ -173,59 +173,59 @@ impl DefaultMailbox {
 
   pub(crate) async fn with_middlewares(mut self, middlewares: Vec<MailboxMiddlewareHandle>) -> Self {
     {
-        let mut inner_mg = self.inner.lock().await;
-        inner_mg.middlewares = middlewares;
+      let mut inner_mg = self.inner.lock().await;
+      inner_mg.middlewares = middlewares;
     }
     self
   }
 
   async fn get_message_invoker_opt(&self) -> Option<MessageInvokerHandle> {
     let inner_mg = self.inner.lock().await;
-    let mg = inner_mg.invoker_opt.lock().await;
-    mg.clone()
+    let invoker_opt_mg = inner_mg.invoker_opt.lock().await;
+    invoker_opt_mg.clone()
   }
 
   async fn set_message_invoker_opt(&mut self, message_invoker: Option<MessageInvokerHandle>) {
     let inner_mg = self.inner.lock().await;
-    let mut mg = inner_mg.invoker_opt.lock().await;
-    *mg = message_invoker;
+    let mut invoker_opt_mg = inner_mg.invoker_opt.lock().await;
+    *invoker_opt_mg = message_invoker;
   }
 
   async fn get_dispatcher_opt(&self) -> Option<DispatcherHandle> {
     let inner_mg = self.inner.lock().await;
-    let mg = inner_mg.dispatcher_opt.lock().await;
-    mg.clone()
+    let dispatcher_opt = inner_mg.dispatcher_opt.lock().await;
+    dispatcher_opt.clone()
   }
 
   async fn set_dispatcher_opt(&mut self, dispatcher_opt: Option<DispatcherHandle>) {
     let inner_mg = self.inner.lock().await;
-    let mut mg = inner_mg.dispatcher_opt.lock().await;
-    *mg = dispatcher_opt;
+    let mut dispatcher_opt_mg = inner_mg.dispatcher_opt.lock().await;
+    *dispatcher_opt_mg = dispatcher_opt;
   }
 
- async fn initialize_scheduler_status(&self) {
+  async fn initialize_scheduler_status(&self) {
     let inner_mg = self.inner.lock().await;
     inner_mg.scheduler_status.store(false, Ordering::SeqCst);
   }
 
- async fn compare_exchange_scheduler_status(&self, current: bool, new: bool) -> Result<bool, bool> {
+  async fn compare_exchange_scheduler_status(&self, current: bool, new: bool) -> Result<bool, bool> {
     let mut inner_mg = self.inner.lock().await;
-      inner_mg
+    inner_mg
       .scheduler_status
       .compare_exchange(current, new, Ordering::SeqCst, Ordering::SeqCst)
   }
 
- async fn set_suspended(&self, suspended: bool) {
+  async fn set_suspended(&self, suspended: bool) {
     let mut inner_mg = self.inner.lock().await;
     inner_mg.suspended.store(suspended, Ordering::SeqCst);
   }
 
- async fn is_suspended(&self) -> bool {
+  async fn is_suspended(&self) -> bool {
     let inner_mg = self.inner.lock().await;
     inner_mg.suspended.load(Ordering::SeqCst)
   }
 
- async fn increment_system_messages_count(&self) {
+  async fn increment_system_messages_count(&self) {
     let inner_mg = self.inner.lock().await;
     inner_mg.system_messages_count.fetch_add(1, Ordering::SeqCst);
   }
@@ -240,7 +240,7 @@ impl DefaultMailbox {
     inner_mg.system_messages_count.load(Ordering::SeqCst)
   }
 
- async fn increment_user_messages_count(&self) {
+  async fn increment_user_messages_count(&self) {
     let inner_mg = self.inner.lock().await;
     inner_mg.user_messages_count.fetch_add(1, Ordering::SeqCst);
   }
@@ -262,41 +262,40 @@ impl DefaultMailbox {
 
   async fn poll_system_mailbox(&self) -> Result<Option<MessageHandle>, QueueError<MessageHandle>> {
     let inner_mg = self.inner.lock().await;
-    let mut mg = inner_mg.system_mailbox_receiver.lock().await;
-    mg.poll().await
+    let mut system_mailbox_receiver_mg = inner_mg.system_mailbox_receiver.lock().await;
+    system_mailbox_receiver_mg.poll().await
   }
 
   async fn poll_user_mailbox(&self) -> Result<Option<MessageHandle>, QueueError<MessageHandle>> {
     let inner_mg = self.inner.lock().await;
-    let mut mg = inner_mg.user_mailbox_receiver.lock().await;
-    mg.poll().await
+    let mut user_mailbox_receiver_mg = inner_mg.user_mailbox_receiver.lock().await;
+    user_mailbox_receiver_mg.poll().await
   }
 
   async fn offer_system_mailbox(&self, element: MessageHandle) -> Result<(), QueueError<MessageHandle>> {
     let inner_mg = self.inner.lock().await;
-    let mut mg = inner_mg.system_mailbox_sender.lock().await;
-    mg.offer(element).await
+    let mut system_mailbox_sender_mg = inner_mg.system_mailbox_sender.lock().await;
+    system_mailbox_sender_mg.offer(element).await
   }
 
   async fn offer_user_mailbox(&self, element: MessageHandle) -> Result<(), QueueError<MessageHandle>> {
     let inner_mg = self.inner.lock().await;
-    let mut mg = inner_mg.user_mailbox_sender.lock().await;
-    mg.offer(element).await
+    let mut user_mailbox_sender_mg = inner_mg.user_mailbox_sender.lock().await;
+    user_mailbox_sender_mg.offer(element).await
   }
 
   async fn schedule(&self) {
     if self.compare_exchange_scheduler_status(false, true).await.is_ok() {
-      if let Some(dispatcher) = self.get_dispatcher_opt().await {
-        let self_clone = self.to_handle().await;
-        dispatcher
-          .schedule(Runnable::new(move || {
-            let self_clone = self_clone.clone();
-            async move {
-              self_clone.process_messages().await;
-            }
-          }))
-          .await;
-      }
+      let dispatcher = self.get_dispatcher_opt().await.expect("Dispatcher is not set");
+      let self_clone = self.to_handle().await;
+      dispatcher
+        .schedule(Runnable::new(move || {
+          let self_clone = self_clone.clone();
+          async move {
+            self_clone.process_messages().await;
+          }
+        }))
+        .await;
     }
   }
 
@@ -307,8 +306,8 @@ impl DefaultMailbox {
       return;
     }
 
-    let dispatcher = self.get_dispatcher_opt().await.unwrap().clone();
-    let mut message_invoker = self.get_message_invoker_opt().await.unwrap().clone();
+    let dispatcher = self.get_dispatcher_opt().await.clone().expect("Dispatcher is not set");
+    let mut message_invoker = self.get_message_invoker_opt().await.clone().expect("Message invoker is not set");
 
     let t = dispatcher.throughput().await;
 
@@ -364,10 +363,10 @@ impl Mailbox for DefaultMailbox {
       self.run().await;
 
       self.initialize_scheduler_status().await;
-      let sys = self.get_system_messages_count().await;
-      let user = self.get_user_messages_count().await;
+      let system_messages_count = self.get_system_messages_count().await;
+      let user_messages_count = self.get_user_messages_count().await;
 
-      if sys > 0 || (!self.is_suspended().await && user > 0) {
+      if system_messages_count > 0 || (!self.is_suspended().await && user_messages_count > 0) {
         if self.compare_exchange_scheduler_status(false, true).await.is_ok() {
           continue;
         }
