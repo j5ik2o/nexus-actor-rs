@@ -4,9 +4,9 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
+use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::dispatch::mailbox::{Mailbox, MailboxHandle};
 use crate::actor::message::{Message, MessageHandle};
-use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::process::Process;
 
 #[derive(Debug, Clone)]

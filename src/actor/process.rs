@@ -3,8 +3,8 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
-use crate::actor::message::MessageHandle;
 use crate::actor::actor::pid::ExtendedPid;
+use crate::actor::message::MessageHandle;
 
 #[async_trait]
 pub trait Process: Debug + Send + Sync + 'static {

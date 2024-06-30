@@ -8,6 +8,7 @@ use once_cell::sync::Lazy;
 use thiserror::Error;
 use tokio::sync::Mutex;
 
+use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::actor::{Actor, ActorError, ActorHandle};
 use crate::actor::actor_context::ActorContext;
 use crate::actor::actor_process::ActorProcess;
@@ -23,7 +24,6 @@ use crate::actor::middleware_chain::{
   make_context_decorator_chain, make_receiver_middleware_chain, make_sender_middleware_chain,
   make_spawn_middleware_chain,
 };
-use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::process::ProcessHandle;
 use crate::actor::supervisor::supervisor_strategy::{SupervisorStrategyHandle, DEFAULT_SUPERVISION_STRATEGY};
 

@@ -8,13 +8,13 @@ use backtrace::Backtrace;
 
 use crate::actor::context::ContextHandle;
 use crate::actor::supervisor::supervisor_strategy::SupervisorStrategyHandle;
-pub mod props;
-pub mod restart_statistics;
+pub mod behavior;
 pub mod pid;
 pub mod pid_set;
 #[cfg(test)]
 mod pid_set_test;
-pub mod behavior;
+pub mod props;
+pub mod restart_statistics;
 
 include!(concat!(env!("OUT_DIR"), "/actor.rs"));
 

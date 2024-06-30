@@ -2,6 +2,7 @@ use std::any::Any;
 
 use async_trait::async_trait;
 
+use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::actor::{DeadLetterResponse, Stop, Terminated, TerminatedReason, Watch};
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::SenderPart;
@@ -9,7 +10,6 @@ use crate::actor::log::P_LOG;
 use crate::actor::message::{Message, MessageHandle};
 use crate::actor::message_envelope::unwrap_envelope;
 use crate::actor::messages::{IgnoreDeadLetterLogging, SystemMessage};
-use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::process::{Process, ProcessHandle};
 use crate::actor::throttler::{Throttle, ThrottleCallbackFunc, Valve};
 use crate::event_stream::HandlerFunc;

@@ -1,19 +1,21 @@
 use std::any::Any;
 use std::error::Error;
 use std::pin::Pin;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU8, Ordering};
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use futures::future::BoxFuture;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use tokio::sync::Mutex;
 
+use crate::actor::actor::pid::ExtendedPid;
+use crate::actor::actor::pid_set::PidSet;
+use crate::actor::actor::props::{Props, SpawnError};
+use crate::actor::actor::restart_statistics::RestartStatistics;
 use crate::actor::actor::{
   Actor, ActorError, ActorHandle, ActorInnerError, PoisonPill, Stop, Terminated, Unwatch, Watch,
 };
-use crate::actor::actor::props::{Props, SpawnError};
-use crate::actor::actor::restart_statistics::RestartStatistics;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::auto_respond::{AutoRespond, AutoRespondHandle};
 use crate::actor::context::{
@@ -32,11 +34,9 @@ use crate::actor::messages::{
   AutoReceiveMessage, Continuation, Failure, MailboxMessage, NotInfluenceReceiveTimeoutHandle, ReceiveTimeout, Restart,
   Restarting, Started, Stopped, Stopping, SystemMessage,
 };
-use crate::actor::actor::pid::ExtendedPid;
-use crate::actor::actor::pid_set::PidSet;
 use crate::actor::process::Process;
 use crate::actor::supervisor::supervisor_strategy::{
-  DEFAULT_SUPERVISION_STRATEGY, Supervisor, SupervisorHandle, SupervisorStrategy,
+  Supervisor, SupervisorHandle, SupervisorStrategy, DEFAULT_SUPERVISION_STRATEGY,
 };
 use crate::ctxext::extensions::{ContextExtensionHandle, ContextExtensionId, ContextExtensions};
 
