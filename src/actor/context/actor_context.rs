@@ -395,21 +395,20 @@ impl ActorContext {
 
   async fn default_receive(&mut self) -> Result<(), ActorError> {
     let message = self.get_message().await.expect("Failed to retrieve message");
-    let any = message.as_any();
 
-    if any.is::<PoisonPill>() {
+    if message.as_any().is::<PoisonPill>() {
       let me = self.get_self().await.unwrap();
       self.stop(&me).await;
       Ok(())
     } else {
       let context = self.receive_with_context().await;
-      let actor = self.get_actor().await;
-      let actor_ref = actor.as_ref().unwrap();
+      let actor_opt = self.get_actor().await;
+      let actor = actor_opt.as_ref().unwrap();
 
-      let result = actor_ref.receive(context.clone()).await;
+      let result = actor.receive(context.clone()).await;
 
-      if result.is_ok() && any.is::<AutoRespondHandle>() {
-        let auto_respond = any
+      if result.is_ok() && message.as_any().is::<AutoRespondHandle>() {
+        let auto_respond = message.as_any()
           .downcast_ref::<AutoRespondHandle>()
           .expect("Failed to downcast to AutoRespondWrapper")
           .clone();
@@ -463,6 +462,24 @@ impl ActorContext {
     }
   }
 
+  async fn set_message_or_envelope(&mut self, message: MessageHandle) {
+    let mut inner_mg = self.inner.lock().await;
+    let message_or_envelope = &mut inner_mg.message_or_envelope;
+    match message_or_envelope {
+      None => {
+        *message_or_envelope = Some(MessageOrEnvelope::of_message(message));
+      }
+      Some(value) => {
+        *value = MessageOrEnvelope::of_message(message);
+      }
+    }
+  }
+
+  async fn reset_message_or_envelope(&mut self) {
+    let mut inner_mg = self.inner.lock().await;
+    inner_mg.message_or_envelope = None;
+  }
+
   async fn process_message(&mut self, message: MessageHandle) -> Result<(), ActorError> {
     let props = self.get_props().await;
     let has_receiver_middleware_chain = props.get_receiver_middleware_chain().is_some();
@@ -481,24 +498,9 @@ impl ActorContext {
         panic!("No middleware chain or context decorator chain found")
       }
     } else {
-      {
-        let mut inner_mg = self.inner.lock().await;
-        let message_or_envelope = &mut inner_mg.message_or_envelope;
-        match message_or_envelope {
-          None => {
-            *message_or_envelope = Some(MessageOrEnvelope::of_message(message));
-          }
-          Some(value) => {
-            *value = MessageOrEnvelope::of_message(message);
-          }
-        }
-      }
+      self.set_message_or_envelope(message).await;
       let result = self.default_receive().await;
-      {
-        let mut inner_mg = self.inner.lock().await;
-        let message_or_envelope = &mut inner_mg.message_or_envelope;
-        *message_or_envelope = None;
-      }
+      self.reset_message_or_envelope().await;
       result
     }
   }
