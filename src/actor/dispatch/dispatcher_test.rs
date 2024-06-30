@@ -8,7 +8,7 @@ use crate::actor::dispatch::dispatcher::{CurrentThreadDispatcher, DispatcherHand
 use crate::actor::dispatch::mailbox::{DefaultMailbox, Mailbox};
 use crate::actor::dispatch::message_invoker::{MessageInvoker, MessageInvokerHandle};
 use crate::actor::message::{Message, MessageHandle};
-use crate::actor::taks::Task;
+use crate::actor::actor::taks::Task;
 use crate::util::queue::mpsc_unbounded_channel_queue::MpscUnboundedChannelQueue;
 
 // TestMessageInvoker implementation

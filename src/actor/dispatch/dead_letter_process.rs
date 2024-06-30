@@ -11,7 +11,7 @@ use crate::actor::message::{Message, MessageHandle};
 use crate::actor::message_envelope::unwrap_envelope;
 use crate::actor::messages::{IgnoreDeadLetterLogging, SystemMessage};
 use crate::actor::process::{Process, ProcessHandle};
-use crate::actor::throttler::{Throttle, ThrottleCallbackFunc, Valve};
+use crate::actor::util::throttler::{Throttle, ThrottleCallbackFunc, Valve};
 use crate::event_stream::HandlerFunc;
 
 #[derive(Debug, Clone)]

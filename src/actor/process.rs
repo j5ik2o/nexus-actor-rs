@@ -6,6 +6,8 @@ use async_trait::async_trait;
 use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::message::MessageHandle;
 
+pub mod process_registry;
+
 #[async_trait]
 pub trait Process: Debug + Send + Sync + 'static {
   async fn send_user_message(&self, pid: Option<&ExtendedPid>, message: MessageHandle);
