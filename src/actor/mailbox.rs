@@ -307,7 +307,11 @@ impl DefaultMailbox {
     }
 
     let dispatcher = self.get_dispatcher_opt().await.clone().expect("Dispatcher is not set");
-    let mut message_invoker = self.get_message_invoker_opt().await.clone().expect("Message invoker is not set");
+    let mut message_invoker = self
+      .get_message_invoker_opt()
+      .await
+      .clone()
+      .expect("Message invoker is not set");
 
     let t = dispatcher.throughput().await;
 
