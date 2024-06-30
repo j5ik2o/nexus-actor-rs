@@ -294,7 +294,7 @@ static DEFAULT_SPAWNER: Lazy<SpawnFunc> = Lazy::new(|| {
         let proc = ActorProcess::new(mb.clone());
         let proc_handle = ProcessHandle::new(proc);
 
-        let (pid, absent) = actor_system.get_process_registry().await.add(proc_handle, &id);
+        let (pid, absent) = actor_system.get_process_registry().await.add_process(proc_handle, &id);
 
         if !absent {
           return Err(SpawnError::ErrNameExists(pid.clone()));

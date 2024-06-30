@@ -50,7 +50,7 @@ impl DeadLetterProcess {
       .actor_system
       .get_process_registry()
       .await
-      .add(ProcessHandle::new(myself.clone()), "deadletter");
+      .add_process(ProcessHandle::new(myself.clone()), "deadletter");
     myself
       .actor_system
       .get_event_stream()

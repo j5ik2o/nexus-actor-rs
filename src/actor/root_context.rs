@@ -139,20 +139,19 @@ impl SenderContext for RootContext {}
 #[async_trait]
 impl SpawnerPart for RootContext {
   async fn spawn(&mut self, props: Props) -> ExtendedPid {
-    let result = self
+    match self
       .spawn_named(
         props,
         &self.get_actor_system().await.get_process_registry().await.next_id(),
       )
-      .await;
-    match result {
+      .await {
       Ok(pid) => pid,
       Err(e) => panic!("Failed to spawn actor: {:?}", e),
     }
   }
 
   async fn spawn_prefix(&mut self, props: Props, prefix: &str) -> ExtendedPid {
-    let result = self
+    match self
       .spawn_named(
         props,
         &format!(
@@ -161,8 +160,7 @@ impl SpawnerPart for RootContext {
           self.get_actor_system().await.get_process_registry().await.next_id()
         ),
       )
-      .await;
-    match result {
+      .await {
       Ok(pid) => pid,
       Err(e) => panic!("Failed to spawn actor: {:?}", e),
     }
@@ -184,8 +182,7 @@ impl SpawnerPart for RootContext {
       _ => {}
     }
 
-    let sh = SpawnerContextHandle::new(root_context.clone());
-    props.clone().spawn(self.get_actor_system().await.clone(), id, sh).await
+    props.clone().spawn(self.get_actor_system().await.clone(), id, SpawnerContextHandle::new(root_context.clone())).await
   }
 }
 

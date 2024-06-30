@@ -107,7 +107,7 @@ impl ProcessRegistry {
     uint64_to_id(counter)
   }
 
-  pub fn add(&self, process: ProcessHandle, id: &str) -> (ExtendedPid, bool) {
+  pub fn add_process(&self, process: ProcessHandle, id: &str) -> (ExtendedPid, bool) {
     let bucket = self.local_pids.get_bucket(&id);
     let pid = Pid {
       address: self.address.clone(),
@@ -119,7 +119,7 @@ impl ProcessRegistry {
     (pid, inserted)
   }
 
-  pub fn remove(&self, pid: &ExtendedPid) {
+  pub fn remove_process(&self, pid: &ExtendedPid) {
     let bucket = self.local_pids.get_bucket(pid.id());
     if let Some((_, process)) = bucket.remove(pid.id()) {
       if let Some(actor_process) = process.as_any().downcast_ref::<ActorProcess>() {
@@ -128,7 +128,7 @@ impl ProcessRegistry {
     }
   }
 
-  pub async fn get(&self, pid: &ExtendedPid) -> Option<ProcessHandle> {
+  pub async fn get_process(&self, pid: &ExtendedPid) -> Option<ProcessHandle> {
     if pid.address() != LOCAL_ADDRESS && pid.address() != self.address {
       {
         let mg = self.remote_handlers.lock().await;
@@ -149,7 +149,7 @@ impl ProcessRegistry {
     }
   }
 
-  pub async fn get_local(&self, id: &str) -> Option<ProcessHandle> {
+  pub async fn get_local_process(&self, id: &str) -> Option<ProcessHandle> {
     let bucket = self.local_pids.get_bucket(id);
     let result = bucket.get(id);
     match result {

@@ -538,7 +538,7 @@ impl ActorContext {
       .await
       .get_process_registry()
       .await
-      .remove(&self.get_self().await.unwrap());
+      .remove_process(&self.get_self().await.unwrap());
     let result = self
       .invoke_user_message(MessageHandle::new(AutoReceiveMessage::Stopped(Stopped {})))
       .await;

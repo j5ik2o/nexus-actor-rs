@@ -86,7 +86,7 @@ impl GuardianProcess {
       .actor_system
       .get_process_registry()
       .await
-      .add(ph, &format!("guardian-{}", id));
+      .add_process(ph, &format!("guardian-{}", id));
     if !ok {
       P_LOG
         .error(

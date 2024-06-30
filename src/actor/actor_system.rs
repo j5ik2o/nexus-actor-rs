@@ -108,7 +108,7 @@ impl ActorSystem {
     system
       .get_process_registry()
       .await
-      .add(event_stream_process, "eventstream");
+      .add_process(event_stream_process, "eventstream");
 
     system
   }

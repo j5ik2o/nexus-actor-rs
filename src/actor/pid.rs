@@ -90,7 +90,7 @@ impl ExtendedPid {
       }
     }
 
-    if let Some(ref_) = actor_system.get_process_registry().await.get(self).await {
+    if let Some(ref_) = actor_system.get_process_registry().await.get_process(self).await {
       *mg = Some(ref_.clone());
       ref_
     } else {
