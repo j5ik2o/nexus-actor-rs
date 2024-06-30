@@ -1,15 +1,15 @@
 use std::any::Any;
 use std::error::Error;
 use std::pin::Pin;
-use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU8, Ordering};
 
 use async_trait::async_trait;
 use futures::future::BoxFuture;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use tokio::sync::Mutex;
 
-use crate::actor::actor::{Actor, ActorHandle, PoisonPill, Stop, Terminated, Unwatch, Watch};
+use crate::actor::actor::{Actor, ActorError, ActorHandle, PoisonPill, Stop, Terminated, Unwatch, Watch};
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::auto_respond::{AutoRespond, AutoRespondHandle};
 use crate::actor::context::{
@@ -32,11 +32,11 @@ use crate::actor::pid::ExtendedPid;
 use crate::actor::pid_set::PidSet;
 use crate::actor::process::Process;
 use crate::actor::props::{Props, SpawnError};
+use crate::actor::ReasonHandle;
 use crate::actor::restart_statistics::RestartStatistics;
 use crate::actor::supervisor_strategy::{
-  Supervisor, SupervisorHandle, SupervisorStrategy, DEFAULT_SUPERVISION_STRATEGY,
+  DEFAULT_SUPERVISION_STRATEGY, Supervisor, SupervisorHandle, SupervisorStrategy,
 };
-use crate::actor::ReasonHandle;
 use crate::ctxext::extensions::{ContextExtensionHandle, ContextExtensionId, ContextExtensions};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, IntoPrimitive, TryFromPrimitive)]
@@ -392,21 +392,22 @@ impl ActorContext {
     }
   }
 
-  async fn default_receive(&mut self) {
+  async fn default_receive(&mut self) -> Result<(), ActorError> {
     let message = self.get_message().await.expect("Failed to retrieve message");
     let any = message.as_any();
 
     if any.is::<PoisonPill>() {
       let me = self.get_self().await.unwrap();
       self.stop(&me).await;
+      Ok(())
     } else {
       let context = self.receive_with_context().await;
       let actor = self.get_actor().await;
       let actor_ref = actor.as_ref().unwrap();
 
-      actor_ref.receive(context.clone()).await;
+      let result = actor_ref.receive(context.clone()).await;
 
-      if any.is::<AutoRespondHandle>() {
+      if result.is_ok() && any.is::<AutoRespondHandle>() {
         let auto_respond = any
           .downcast_ref::<AutoRespondHandle>()
           .expect("Failed to downcast to AutoRespondWrapper")
@@ -414,6 +415,8 @@ impl ActorContext {
         let res = auto_respond.get_auto_response(context);
         self.respond(res).await
       }
+
+      result
     }
   }
 
@@ -459,7 +462,7 @@ impl ActorContext {
     }
   }
 
-  async fn process_message(&mut self, message: MessageHandle) {
+  async fn process_message(&mut self, message: MessageHandle) -> Result<(), ActorError> {
     let props = self.get_props().await;
     let has_receiver_middleware_chain = props.get_receiver_middleware_chain().is_some();
     let has_context_decorator_chain = props.get_context_decorator_chain().is_some();
@@ -470,9 +473,11 @@ impl ActorContext {
       let message_envelope = MessageEnvelope::new(message);
       if has_receiver_middleware_chain {
         let chain = props.get_receiver_middleware_chain().unwrap();
-        chain.run(receiver_context, message_envelope).await;
+        chain.run(receiver_context, message_envelope).await
       } else if has_context_decorator_chain {
-        receiver_context.receive(message_envelope).await;
+        receiver_context.receive(message_envelope).await
+      } else {
+        panic!("No middleware chain or context decorator chain found")
       }
     } else {
       {
@@ -487,12 +492,13 @@ impl ActorContext {
           }
         }
       }
-      self.default_receive().await;
+      let result = self.default_receive().await;
       {
         let mut inner_mg = self.inner.lock().await;
         let mut message_or_envelope = &mut inner_mg.message_or_envelope;
         *message_or_envelope = None;
       }
+      result
     }
   }
 
@@ -507,14 +513,20 @@ impl ActorContext {
         MessageHandle::new(MailboxMessage::ResumeMailbox),
       )
       .await;
-    self
+    let result = self
       .invoke_user_message(MessageHandle::new(SystemMessage::Started(Started {})))
       .await;
+    if result.is_err() {
+      P_LOG.error("Failed to handle Started message", vec![]).await;
+    }
 
     if let Some(mut extras) = self.get_extras().await {
       while !extras.get_stash().await.is_empty().await {
         let message = extras.get_stash().await.pop().await;
-        self.invoke_user_message(message.unwrap()).await;
+        let result = self.invoke_user_message(message.unwrap()).await;
+        if result.is_err() {
+          P_LOG.error("Failed to handle stashed message", vec![]).await;
+        }
       }
     }
   }
@@ -526,10 +538,12 @@ impl ActorContext {
       .get_process_registry()
       .await
       .remove(&self.get_self().await.unwrap());
-    self
+    let result = self
       .invoke_user_message(MessageHandle::new(AutoReceiveMessage::Stopped(Stopped {})))
       .await;
-
+    if result.is_err() {
+        P_LOG.error("Failed to handle Stopped message", vec![]).await;
+    }
     let other_stopped = MessageHandle::new(Terminated {
       who: self.get_self().await.map(|x| x.inner),
       why: 0,
@@ -597,7 +611,10 @@ impl ActorContext {
         .store(State::Stopping as u8, Ordering::SeqCst);
     }
     let mh = MessageHandle::new(AutoReceiveMessage::Stopping(Stopping {}));
-    self.invoke_user_message(mh).await;
+    let result= self.invoke_user_message(mh).await;
+    if result.is_err() {
+      P_LOG.error("Failed to handle Stopping message", vec![]).await;
+    }
     self.stop_all_children().await;
     self.try_restart_or_terminate().await;
   }
@@ -610,9 +627,12 @@ impl ActorContext {
         .unwrap()
         .store(State::Restarting as u8, Ordering::SeqCst);
     }
-    self
+    let result = self
       .invoke_user_message(MessageHandle::new(AutoReceiveMessage::Restarting(Restarting {})))
       .await;
+    if result.is_err() {
+        P_LOG.error("Failed to handle Restarting message", vec![]).await;
+    }
     self.stop_all_children().await;
     self.try_restart_or_terminate().await;
 
@@ -668,7 +688,10 @@ impl ActorContext {
       extras.remove_child(&pid).await;
     }
 
-    self.invoke_user_message(MessageHandle::new(terminated.clone())).await;
+    let result = self.invoke_user_message(MessageHandle::new(terminated.clone())).await;
+    if result.is_err() {
+        P_LOG.error("Failed to handle Terminated message", vec![]).await;
+    }
     self.try_restart_or_terminate().await;
   }
 
@@ -897,16 +920,17 @@ impl SenderPart for ActorContext {
 
 #[async_trait]
 impl ReceiverPart for ActorContext {
-  async fn receive(&mut self, envelope: MessageEnvelope) {
+  async fn receive(&mut self, envelope: MessageEnvelope) -> Result<(), ActorError> {
     {
       let mut inner_mg = self.inner.lock().await;
       inner_mg.message_or_envelope = Some(MessageOrEnvelope::of_envelope(envelope));
     }
-    self.default_receive().await;
+    let result =self.default_receive().await;
     {
       let mut inner_mg = self.inner.lock().await;
       inner_mg.message_or_envelope = None;
     }
+    result
   }
 }
 
@@ -1021,13 +1045,16 @@ impl Context for ActorContext {}
 
 #[async_trait]
 impl MessageInvoker for ActorContext {
-  async fn invoke_system_message(&mut self, message: MessageHandle) {
+  async fn invoke_system_message(&mut self, message: MessageHandle) -> Result<(), ActorError> {
     let self_pid = self.get_self().await.unwrap();
     let sm = message.as_any().downcast_ref::<SystemMessage>();
     if let Some(sm) = sm {
       match sm {
         SystemMessage::Started(_) => {
-          self.invoke_user_message(message.clone()).await;
+          let result = self.invoke_user_message(message.clone()).await;
+          if result.is_err() {
+            return result;
+          }
         }
         SystemMessage::Stop(_) => {
           self.handle_stop().await;
@@ -1057,15 +1084,16 @@ impl MessageInvoker for ActorContext {
     if let Some(t) = message.as_any().downcast_ref::<Terminated>() {
       self.handle_terminated(t).await;
     }
+    Ok(())
   }
 
-  async fn invoke_user_message(&mut self, message: MessageHandle) {
+  async fn invoke_user_message(&mut self, message: MessageHandle) -> Result<(), ActorError> {
     let state = {
       let inner_mg = self.inner.lock().await;
       inner_mg.state.clone()
     };
     if state.as_ref().as_ref().unwrap().load(Ordering::SeqCst) == State::Stopped as u8 {
-      return;
+      return Ok(());
     }
     let mut influence_timeout = true;
 
@@ -1088,7 +1116,7 @@ impl MessageInvoker for ActorContext {
       }
     }
 
-    self.process_message(message).await;
+    let result = self.process_message(message).await;
 
     let receive_timeout = {
       let inner_mg = self.inner.lock().await;
@@ -1101,6 +1129,8 @@ impl MessageInvoker for ActorContext {
         extras.reset_receive_timeout_timer(t).await;
       }
     }
+
+    result
   }
 
   async fn escalate_failure(&self, reason: ReasonHandle, message: MessageHandle) {

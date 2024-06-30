@@ -3,7 +3,7 @@ use std::thread::sleep;
 
 use async_trait::async_trait;
 
-use nexus_rs::actor::actor::{Actor, ActorHandle};
+use nexus_rs::actor::actor::{Actor, ActorError, ActorHandle};
 use nexus_rs::actor::actor_system::ActorSystem;
 use nexus_rs::actor::context::{ContextHandle, MessagePart, SenderPart, SpawnerPart};
 use nexus_rs::actor::message::{Message, MessageHandle, ProducerFunc};
@@ -25,9 +25,10 @@ struct ChildActor {}
 
 #[async_trait]
 impl Actor for ChildActor {
-  async fn receive(&self, ctx: ContextHandle) {
+  async fn receive(&self, ctx: ContextHandle)-> Result<(), ActorError> {
     let msg = ctx.get_message().await;
     println!("child_actor: msg = {:?}", msg);
+    Ok(())
   }
 }
 
@@ -36,7 +37,7 @@ struct MyActor {}
 
 #[async_trait]
 impl Actor for MyActor {
-  async fn receive(&self, mut ctx: ContextHandle) {
+  async fn receive(&self, mut ctx: ContextHandle) -> Result<(), ActorError> {
     let msg = ctx.get_message().await.unwrap();
     println!("my_actor: msg = {:?}", msg);
 
@@ -52,6 +53,7 @@ impl Actor for MyActor {
           .await;
       }
     }
+    Ok(())
   }
 }
 

@@ -8,7 +8,7 @@ use async_trait::async_trait;
 use futures::future::BoxFuture;
 use tokio::sync::Mutex;
 
-use crate::actor::actor::ActorHandle;
+use crate::actor::actor::{ActorError, ActorHandle};
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::future::Future;
 use crate::actor::message::{MessageHandle, ResponseHandle};
@@ -166,7 +166,7 @@ impl ReceiverContext for ContextHandle {}
 
 #[async_trait]
 impl ReceiverPart for ContextHandle {
-  async fn receive(&mut self, envelope: MessageEnvelope) {
+  async fn receive(&mut self, envelope: MessageEnvelope) -> Result<(), ActorError> {
     let mut mg = self.0.lock().await;
     mg.receive(envelope).await
   }
@@ -409,7 +409,7 @@ impl InfoPart for ReceiverContextHandle {
 
 #[async_trait]
 impl ReceiverPart for ReceiverContextHandle {
-  async fn receive(&mut self, envelope: MessageEnvelope) {
+  async fn receive(&mut self, envelope: MessageEnvelope) -> Result<(), ActorError> {
     let mut mg = self.0.lock().await;
     mg.receive(envelope).await
   }
@@ -613,7 +613,7 @@ pub trait SenderPart: Debug + Send + Sync + 'static {
 
 #[async_trait]
 pub trait ReceiverPart: Debug + Send + Sync + 'static {
-  async fn receive(&mut self, envelope: MessageEnvelope);
+  async fn receive(&mut self, envelope: MessageEnvelope) -> Result<(), ActorError>;
 }
 
 #[async_trait]

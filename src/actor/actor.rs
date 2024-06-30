@@ -208,7 +208,7 @@ impl Error for ActorError {
 
 #[async_trait]
 pub trait Actor: Debug + Send + Sync + 'static {
-  async fn receive(&self, c: ContextHandle);
+  async fn receive(&self, c: ContextHandle) -> Result<(), ActorError>;
   fn get_supervisor_strategy(&self) -> Option<SupervisorStrategyHandle> {
     None
   }
@@ -239,7 +239,7 @@ impl ActorHandle {
 
 #[async_trait]
 impl Actor for ActorHandle {
-  async fn receive(&self, c: ContextHandle) {
+  async fn receive(&self, c: ContextHandle) -> Result<(), ActorError>{
     self.0.receive(c).await
   }
 }

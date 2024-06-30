@@ -6,7 +6,7 @@ use std::sync::Arc;
 use futures::future::BoxFuture;
 use tokio::sync::Mutex;
 
-use crate::actor::actor::ActorHandle;
+use crate::actor::actor::{ActorError, ActorHandle};
 use crate::actor::context::{ContextHandle, ReceiverContextHandle, SenderContextHandle};
 use crate::actor::message_envelope::MessageEnvelope;
 use crate::actor::pid::ExtendedPid;
@@ -169,7 +169,7 @@ impl ProducerFunc {
 }
 
 #[derive(Clone)]
-pub struct ReceiveFunc(Arc<dyn Fn(ContextHandle) -> BoxFuture<'static, ()> + Send + Sync>);
+pub struct ReceiveFunc(Arc<dyn Fn(ContextHandle) -> BoxFuture<'static, Result<(), ActorError>> + Send + Sync>);
 
 impl Debug for ReceiveFunc {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -187,7 +187,7 @@ impl Eq for ReceiveFunc {}
 
 impl std::hash::Hash for ReceiveFunc {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    (self.0.as_ref() as *const dyn Fn(ContextHandle) -> BoxFuture<'static, ()>).hash(state);
+    (self.0.as_ref() as *const dyn Fn(ContextHandle) -> BoxFuture<'static, Result<(), ActorError>>).hash(state);
   }
 }
 
@@ -195,18 +195,18 @@ impl ReceiveFunc {
   pub fn new<F, Fut>(f: F) -> Self
   where
     F: Fn(ContextHandle) -> Fut + Send + Sync + 'static,
-    Fut: Future<Output = ()> + Send + 'static, {
-    ReceiveFunc(Arc::new(move |ch| Box::pin(f(ch)) as BoxFuture<'static, ()>))
+    Fut: Future<Output = Result<(), ActorError>> + Send + 'static, {
+    ReceiveFunc(Arc::new(move |ch| Box::pin(f(ch)) as BoxFuture<'static, Result<(), ActorError>>))
   }
 
-  pub async fn run(&self, context: ContextHandle) {
-    (self.0)(context).await;
+  pub async fn run(&self, context: ContextHandle) -> Result<(), ActorError> {
+    (self.0)(context).await
   }
 }
 
 // ReceiverFunc
 #[derive(Clone)]
-pub struct ReceiverFunc(Arc<dyn Fn(ReceiverContextHandle, MessageEnvelope) -> BoxFuture<'static, ()> + Send + Sync>);
+pub struct ReceiverFunc(Arc<dyn Fn(ReceiverContextHandle, MessageEnvelope) -> BoxFuture<'static, Result<(), ActorError>> + Send + Sync>);
 
 impl Debug for ReceiverFunc {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -224,7 +224,7 @@ impl Eq for ReceiverFunc {}
 
 impl std::hash::Hash for ReceiverFunc {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    (self.0.as_ref() as *const dyn Fn(ReceiverContextHandle, MessageEnvelope) -> BoxFuture<'static, ()>).hash(state);
+    (self.0.as_ref() as *const dyn Fn(ReceiverContextHandle, MessageEnvelope) -> BoxFuture<'static, Result<(), ActorError>>).hash(state);
   }
 }
 
@@ -232,12 +232,12 @@ impl ReceiverFunc {
   pub fn new<F, Fut>(f: F) -> Self
   where
     F: Fn(ReceiverContextHandle, MessageEnvelope) -> Fut + Send + Sync + 'static,
-    Fut: Future<Output = ()> + Send + 'static, {
-    Self(Arc::new(move |rch, me| Box::pin(f(rch, me)) as BoxFuture<'static, ()>))
+    Fut: Future<Output = Result<(), ActorError>> + Send + 'static, {
+    Self(Arc::new(move |rch, me| Box::pin(f(rch, me)) as BoxFuture<'static, Result<(), ActorError>>))
   }
 
-  pub async fn run(&self, context: ReceiverContextHandle, envelope: MessageEnvelope) {
-    self.0(context, envelope).await;
+  pub async fn run(&self, context: ReceiverContextHandle, envelope: MessageEnvelope) -> Result<(), ActorError> {
+    self.0(context, envelope).await
   }
 }
 

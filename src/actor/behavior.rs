@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use log::error;
-
+use crate::actor::actor::ActorError;
 use crate::actor::context::{ContextHandle, InfoPart};
 use crate::actor::message::ReceiveFunc;
 
@@ -28,17 +28,18 @@ impl Behavior {
     self.pop().await;
   }
 
-  pub async fn receive(&self, context: ContextHandle) {
+  pub async fn receive(&self, context: ContextHandle) -> Result<(), ActorError> {
     if let Some(behavior) = self.peek().await {
-      behavior.run(context).await;
+      behavior.run(context).await
     } else {
       error!("empty behavior called: pid = {}", context.get_self().await.unwrap());
+      Err(ActorError::ReceiveError("empty behavior called".into()))
     }
   }
 
   async fn clear(&mut self) {
     for i in 0..self.stack.len() {
-      self.stack[i] = ReceiveFunc::new(|_| async {});
+      self.stack[i] = ReceiveFunc::new(|_| async {Ok(())});
     }
     self.stack.clear();
   }

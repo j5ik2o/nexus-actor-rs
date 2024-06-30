@@ -12,6 +12,7 @@ use crate::actor::mailbox_middleware::{MailboxMiddleware, MailboxMiddlewareHandl
 use crate::actor::message::{Message, MessageHandle};
 use crate::actor::message_invoker::{MessageInvoker, MessageInvokerHandle};
 use crate::actor::messages::MailboxMessage;
+use crate::actor::ReasonHandle;
 use crate::util::queue::{QueueError, QueueReader, QueueWriter};
 
 // Mailbox trait
@@ -334,7 +335,12 @@ impl DefaultMailbox {
             self.set_suspended(false).await;
           }
           _ => {
-            message_invoker.invoke_system_message(msg.clone()).await;
+            let result = message_invoker.invoke_system_message(msg.clone()).await;
+            // FIXME: Handle error
+            if let Err(e) = result {
+              println!("Failed to invoke system message: {:?}", e);
+              // message_invoker.escalate_failure(ReasonHandle::new("failed to invoke system message"), msg.clone()).await;
+            }
           }
         }
         for middleware in self.get_middlewares().await {
@@ -349,7 +355,12 @@ impl DefaultMailbox {
 
       if let Ok(Some(msg)) = self.poll_user_mailbox().await {
         self.decrement_user_messages_count().await;
-        message_invoker.invoke_user_message(msg.clone()).await;
+        let result = message_invoker.invoke_user_message(msg.clone()).await;
+        // FIXME: Handle error
+        if let Err(e) = result {
+          println!("Failed to invoke system message: {:?}", e);
+          // message_invoker.escalate_failure(ReasonHandle::new("failed to invoke system message"), msg.clone()).await;
+        }
         for middleware in self.get_middlewares().await {
           middleware.message_received(msg.clone()).await;
         }

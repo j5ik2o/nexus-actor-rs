@@ -8,7 +8,7 @@ use once_cell::sync::Lazy;
 use thiserror::Error;
 use tokio::sync::Mutex;
 
-use crate::actor::actor::{Actor, ActorHandle};
+use crate::actor::actor::{Actor, ActorError, ActorHandle};
 use crate::actor::actor_context::ActorContext;
 use crate::actor::actor_process::ActorProcess;
 use crate::actor::actor_system::ActorSystem;
@@ -330,7 +330,7 @@ struct ReceiveFuncActor(ReceiveFunc);
 
 #[async_trait]
 impl Actor for ReceiveFuncActor {
-  async fn receive(&self, ctx: ContextHandle) {
+  async fn receive(&self, ctx: ContextHandle) -> Result<(), ActorError> {
     self.0.run(ctx).await
   }
 }
