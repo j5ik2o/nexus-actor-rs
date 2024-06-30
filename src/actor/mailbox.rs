@@ -171,7 +171,7 @@ impl DefaultMailbox {
     }
   }
 
-  pub(crate) async fn with_middlewares(mut self, middlewares: Vec<MailboxMiddlewareHandle>) -> Self {
+  pub(crate) async fn with_middlewares(self, middlewares: Vec<MailboxMiddlewareHandle>) -> Self {
     {
       let mut inner_mg = self.inner.lock().await;
       inner_mg.middlewares = middlewares;
@@ -209,14 +209,14 @@ impl DefaultMailbox {
   }
 
   async fn compare_exchange_scheduler_status(&self, current: bool, new: bool) -> Result<bool, bool> {
-    let mut inner_mg = self.inner.lock().await;
+    let inner_mg = self.inner.lock().await;
     inner_mg
       .scheduler_status
       .compare_exchange(current, new, Ordering::SeqCst, Ordering::SeqCst)
   }
 
   async fn set_suspended(&self, suspended: bool) {
-    let mut inner_mg = self.inner.lock().await;
+    let inner_mg = self.inner.lock().await;
     inner_mg.suspended.store(suspended, Ordering::SeqCst);
   }
 

@@ -1,6 +1,3 @@
-use std::fmt::{Debug, Display};
-use std::sync::Arc;
-
 pub mod actor;
 pub mod actor_context;
 pub mod actor_process;
@@ -14,6 +11,8 @@ pub mod dispatcher;
 #[cfg(test)]
 mod dispatcher_test;
 pub mod event_stream_process;
+#[cfg(test)]
+mod event_stream_process_test;
 pub mod future;
 pub mod guardian;
 pub mod log;

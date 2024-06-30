@@ -483,7 +483,7 @@ impl ActorContext {
     } else {
       {
         let mut inner_mg = self.inner.lock().await;
-        let mut message_or_envelope = &mut inner_mg.message_or_envelope;
+        let message_or_envelope = &mut inner_mg.message_or_envelope;
         match message_or_envelope {
           None => {
             *message_or_envelope = Some(MessageOrEnvelope::of_message(message));
@@ -496,7 +496,7 @@ impl ActorContext {
       let result = self.default_receive().await;
       {
         let mut inner_mg = self.inner.lock().await;
-        let mut message_or_envelope = &mut inner_mg.message_or_envelope;
+        let message_or_envelope = &mut inner_mg.message_or_envelope;
         *message_or_envelope = None;
       }
       result
@@ -521,7 +521,7 @@ impl ActorContext {
       P_LOG.error("Failed to handle Started message", vec![]).await;
     }
 
-    if let Some(mut extras) = self.get_extras().await {
+    if let Some(extras) = self.get_extras().await {
       while !extras.get_stash().await.is_empty().await {
         let message = extras.get_stash().await.pop().await;
         let result = self.invoke_user_message(message.unwrap()).await;
@@ -578,7 +578,7 @@ impl ActorContext {
 
   async fn try_restart_or_terminate(&mut self) {
     match self.get_extras().await {
-      Some(mut extras) if extras.get_children().await.is_empty().await => {
+      Some(extras) if extras.get_children().await.is_empty().await => {
         let state = {
           let mg = self.inner.lock().await;
           let num = mg.state.as_ref().unwrap().load(Ordering::SeqCst);
@@ -862,8 +862,8 @@ impl BasePart for ActorContext {
 
   async fn reenter_after(
     &self,
-    f: &Future,
-    continuation: Box<
+    _: &Future,
+    _: Box<
       dyn FnOnce(Result<Box<dyn Any + Send>, Box<dyn Error + Send + Sync>>) -> BoxFuture<'static, ()> + Send + 'static,
     >,
   ) {
@@ -1003,7 +1003,7 @@ impl StopperPart for ActorContext {
     pid.ref_process(inner_mg.actor_system.clone()).await.stop(&pid).await;
   }
 
-  async fn stop_future(&mut self, pid: &ExtendedPid) -> Future {
+  async fn stop_future(&mut self, _: &ExtendedPid) -> Future {
     todo!()
   }
 
@@ -1030,7 +1030,7 @@ impl ExtensionPart for ActorContext {
   }
 
   async fn set(&mut self, ext: ContextExtensionHandle) {
-    let mut extras = self.ensure_extras().await;
+    let extras = self.ensure_extras().await;
     extras.get_extensions().await.set(ext).await;
   }
 }
@@ -1063,7 +1063,6 @@ impl MessageInvoker for ActorContext {
         SystemMessage::Restart(_) => {
           self.handle_restart().await;
         }
-        _ => {}
       }
     }
     if let Some(c) = message.as_any().downcast_ref::<Continuation>() {

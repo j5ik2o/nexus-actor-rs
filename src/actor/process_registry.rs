@@ -98,6 +98,10 @@ impl ProcessRegistry {
     mg.push(handler);
   }
 
+  pub fn get_address(&self) -> String {
+    self.address.clone()
+  }
+
   pub fn next_id(&self) -> String {
     let counter = self.sequence_id.fetch_add(1, Ordering::SeqCst);
     uint64_to_id(counter)

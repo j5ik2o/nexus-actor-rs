@@ -3,9 +3,12 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
+use crate::actor::actor::Pid;
 use crate::actor::dead_letter_process::DeadLetterProcess;
+use crate::actor::event_stream_process::EventStreamProcess;
 use crate::actor::guardian::GuardiansValue;
 use crate::actor::message_envelope::EMPTY_MESSAGE_HEADER;
+use crate::actor::pid::ExtendedPid;
 use crate::actor::process::ProcessHandle;
 use crate::actor::process_registry::ProcessRegistry;
 use crate::actor::root_context::RootContext;
@@ -52,6 +55,16 @@ impl ActorSystem {
     Self::new_with_config(config).await
   }
 
+  pub async fn new_local_pid(&self, id: &str) -> ExtendedPid {
+    let pr = self.get_process_registry().await;
+    let pid = Pid {
+      id: id.to_string(),
+      address: pr.get_address(),
+      request_id: 0,
+    };
+    ExtendedPid::new(pid, self.clone())
+  }
+
   async fn set_root_context(&self, root: RootContext) {
     let mut inner_mg = self.inner.lock().await;
     inner_mg.root_context = Some(root);
@@ -73,7 +86,7 @@ impl ActorSystem {
   }
 
   pub async fn new_with_config(config: Config) -> Self {
-    let mut system = Self {
+    let system = Self {
       inner: Arc::new(Mutex::new(ActorSystemInner::new(config))),
     };
     system
@@ -91,11 +104,11 @@ impl ActorSystem {
     //   system.extensions.register(Metrics::new(metrics_provider.clone()));
     // }
 
-    // let event_stream_pid = system.process_registry.add(
-    //   EventStreamProcess::new(Arc::downgrade(&system)),
-    //   "eventstream".to_string(),
-    // );
-    // system.process_registry.add(event_stream_pid, "eventstream".to_string());
+    let event_stream_process = ProcessHandle::new(EventStreamProcess::new(system.clone()));
+    system
+      .get_process_registry()
+      .await
+      .add(event_stream_process, "eventstream");
 
     system
   }
@@ -239,7 +252,7 @@ mod tests {
     }
   }
 
-  pub async fn receive(ctx: ContextHandle) -> ActorHandle {
+  pub async fn receive(_: ContextHandle) -> ActorHandle {
     let actor = MyActor {};
     ActorHandle::new(Arc::new(actor))
   }

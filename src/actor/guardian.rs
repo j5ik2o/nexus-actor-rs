@@ -32,7 +32,7 @@ impl GuardiansValue {
   pub async fn get_guardian_pid(&self, s: SupervisorStrategyHandle) -> ExtendedPid {
     let handle = s.clone();
     match {
-      let mut guardians = self.guardians.lock().await;
+      let guardians = self.guardians.lock().await;
       guardians.get(&handle).cloned()
     } {
       Some(guardian) => {
@@ -100,11 +100,11 @@ impl GuardianProcess {
 
 #[async_trait]
 impl Process for GuardianProcess {
-  async fn send_user_message(&self, pid: Option<&ExtendedPid>, message: MessageHandle) {
+  async fn send_user_message(&self, _: Option<&ExtendedPid>, _: MessageHandle) {
     panic!("guardian actor cannot receive any user messages");
   }
 
-  async fn send_system_message(&self, _pid: &ExtendedPid, message: MessageHandle) {
+  async fn send_system_message(&self, _: &ExtendedPid, message: MessageHandle) {
     if let Some(failure) = message.as_any().downcast_ref::<Failure>() {
       self
         .strategy

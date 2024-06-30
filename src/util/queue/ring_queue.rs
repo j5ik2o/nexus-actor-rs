@@ -26,11 +26,11 @@ impl<E: Element> RingQueue<E> {
       head: Arc::new(AtomicUsize::new(0)),
       tail: Arc::new(AtomicUsize::new(0)),
       capacity: Arc::new(AtomicUsize::new(capacity + 1)), // 実際のバッファサイズは capacity + 1
-      dynamic: Arc::new(AtomicBool::new(false)),
+      dynamic: Arc::new(AtomicBool::new(true)),
     }
   }
 
-  pub fn with_dynamic(mut self, dynamic: bool) -> Self {
+  pub fn with_dynamic(self, dynamic: bool) -> Self {
     self.dynamic.store(dynamic, Ordering::Relaxed);
     self
   }
@@ -49,7 +49,7 @@ impl<E: Element> RingQueue<E> {
     new_buffer.resize_with(new_capacity + 1, || None);
 
     let head = self.head.load(Ordering::Relaxed);
-    let tail = self.tail.load(Ordering::Relaxed);
+    // let tail = self.tail.load(Ordering::Relaxed);
 
     for i in 0..self.len().await.to_usize() {
       let old_index = (head + i) % (old_capacity + 1);

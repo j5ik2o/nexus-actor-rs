@@ -98,8 +98,6 @@ mod tests {
   use std::any::Any;
   use std::fmt::Debug;
 
-  use futures::StreamExt;
-
   use crate::actor::message::Message;
   use crate::util::queue::mpsc_unbounded_channel_queue::MpscUnboundedChannelQueue;
 
@@ -227,52 +225,52 @@ mod tests {
     let mut q: PriorityQueue<TestMessageBaseHandle, MpscUnboundedChannelQueue<TestMessageBaseHandle>> =
       new_priority_ring_queue().await;
 
-    for i in 0..2 {
+    for _ in 0..2 {
       let msg = TestMessageBaseHandle::new(TestPriorityMessage::new("7 hello".to_string(), 7));
       q.offer(msg.clone()).await.unwrap();
     }
 
-    for i in 0..2 {
+    for _ in 0..2 {
       let msg = TestMessageBaseHandle::new(TestPriorityMessage::new("5 hello".to_string(), 5));
       q.offer(msg.clone()).await.unwrap();
     }
 
-    for i in 0..2 {
+    for _ in 0..2 {
       let msg = TestMessageBaseHandle::new(TestPriorityMessage::new("0 hello".to_string(), 0));
       q.offer(msg.clone()).await.unwrap();
     }
 
-    for i in 0..2 {
+    for _ in 0..2 {
       let msg = TestMessageBaseHandle::new(TestPriorityMessage::new("6 hello".to_string(), 6));
       q.offer(msg.clone()).await.unwrap();
     }
 
-    for i in 0..2 {
+    for _ in 0..2 {
       let msg = TestMessageBaseHandle::new(TestMessage::new("hello".to_string()));
       q.offer(msg.clone()).await.unwrap();
     }
 
-    for i in 0..2 {
+    for _ in 0..2 {
       let result = q.poll().await.unwrap();
       assert_eq!(result.unwrap().get_message(), "7 hello");
     }
 
-    for i in 0..2 {
+    for _ in 0..2 {
       let result = q.poll().await.unwrap();
       assert_eq!(result.unwrap().get_message(), "6 hello");
     }
 
-    for i in 0..2 {
+    for _ in 0..2 {
       let result = q.poll().await.unwrap();
       assert_eq!(result.unwrap().get_message(), "5 hello");
     }
 
-    for i in 0..2 {
+    for _ in 0..2 {
       let result = q.poll().await.unwrap();
       assert_eq!(result.unwrap().get_message(), "hello");
     }
 
-    for i in 0..2 {
+    for _ in 0..2 {
       let result = q.poll().await.unwrap();
       assert_eq!(result.unwrap().get_message(), "0 hello");
     }

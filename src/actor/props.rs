@@ -415,7 +415,7 @@ impl Props {
       props.sender_middleware.extend(middlewares.clone());
       props.sender_middleware_chain = make_sender_middleware_chain(
         &props.sender_middleware,
-        SenderFunc::new(|mut sch, target, me| async move {
+        SenderFunc::new(|sch, target, me| async move {
           target
             .send_user_message(sch.get_actor_system().await.clone(), MessageHandle::new(me))
             .await
@@ -431,7 +431,6 @@ impl Props {
   }
 
   pub fn with_receive_func(receive_func: ReceiveFunc) -> PropsOptionFunc {
-    let cloned_receive_func = receive_func.clone();
     PropsOptionFunc::new(move |props: &mut Props| {
       let receive_func = receive_func.clone();
       props.producer = Some(ProducerFunc::new(move |_| {
@@ -536,7 +535,7 @@ impl Props {
   }
 
   pub async fn from_receive_func_with_opts(f: ReceiveFunc, opts: Vec<PropsOptionFunc>) -> Props {
-    let producer = ProducerFunc::new(move |ctx: ContextHandle| {
+    let producer = ProducerFunc::new(move |_| {
       let cloned = f.clone();
       async move {
         let actor = ReceiveFuncActor(cloned);
