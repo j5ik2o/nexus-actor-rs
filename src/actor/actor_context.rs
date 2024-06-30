@@ -32,8 +32,8 @@ use crate::actor::messages::{
   AutoReceiveMessage, Continuation, Failure, MailboxMessage, NotInfluenceReceiveTimeoutHandle, ReceiveTimeout, Restart,
   Restarting, Started, Stopped, Stopping, SystemMessage,
 };
-use crate::actor::pid::ExtendedPid;
-use crate::actor::pid_set::PidSet;
+use crate::actor::actor::pid::ExtendedPid;
+use crate::actor::actor::pid_set::PidSet;
 use crate::actor::process::Process;
 use crate::actor::supervisor::supervisor_strategy::{
   DEFAULT_SUPERVISION_STRATEGY, Supervisor, SupervisorHandle, SupervisorStrategy,

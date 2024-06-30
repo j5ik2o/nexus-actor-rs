@@ -7,7 +7,7 @@ use futures::future::BoxFuture;
 use crate::actor::actor::{ActorInnerError, PoisonPill, Stop};
 use crate::actor::actor::restart_statistics::RestartStatistics;
 use crate::actor::message::{Message, MessageHandle};
-use crate::actor::pid::ExtendedPid;
+use crate::actor::actor::pid::ExtendedPid;
 
 #[derive(Debug, Clone)]
 pub enum MailboxMessage {

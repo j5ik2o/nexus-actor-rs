@@ -15,7 +15,7 @@ use crate::actor::message::{MessageHandle, SenderFunc};
 use crate::actor::message_envelope::{MessageEnvelope, MessageHeaders, ReadonlyMessageHeadersHandle};
 use crate::actor::messages::AutoReceiveMessage;
 use crate::actor::middleware_chain::make_sender_middleware_chain;
-use crate::actor::pid::ExtendedPid;
+use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::process::Process;
 use crate::actor::supervisor::supervisor_strategy::SupervisorStrategyHandle;
 

@@ -10,7 +10,7 @@ use crate::actor::actor_system::ActorSystem;
 use crate::actor::log::P_LOG;
 use crate::actor::message::{Message, MessageHandle};
 use crate::actor::messages::{Failure, MailboxMessage, Restart, SystemMessage};
-use crate::actor::pid::ExtendedPid;
+use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::process::{Process, ProcessHandle};
 use crate::actor::supervisor::supervisor_strategy::{
   Supervisor, SupervisorHandle, SupervisorStrategy, SupervisorStrategyHandle,

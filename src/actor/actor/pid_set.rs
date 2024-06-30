@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use tokio::sync::Mutex;
 
-use crate::actor::pid::ExtendedPid;
+use crate::actor::actor::pid::ExtendedPid;
 
 #[derive(Debug, Clone)]
 pub(crate) struct PidSet {

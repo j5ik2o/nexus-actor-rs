@@ -14,7 +14,7 @@ use crate::actor::actor_system::ActorSystem;
 use crate::actor::future::Future;
 use crate::actor::message::{MessageHandle, ResponseHandle};
 use crate::actor::message_envelope::{MessageEnvelope, ReadonlyMessageHeadersHandle};
-use crate::actor::pid::ExtendedPid;
+use crate::actor::actor::pid::ExtendedPid;
 use crate::ctxext::extensions::{ContextExtensionHandle, ContextExtensionId};
 
 pub trait HasAny: Debug + Send + Sync + 'static {

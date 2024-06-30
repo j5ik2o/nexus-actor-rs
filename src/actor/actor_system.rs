@@ -8,7 +8,7 @@ use crate::actor::dispatch::dead_letter_process::DeadLetterProcess;
 use crate::actor::event_stream_process::EventStreamProcess;
 use crate::actor::guardian::GuardiansValue;
 use crate::actor::message_envelope::EMPTY_MESSAGE_HEADER;
-use crate::actor::pid::ExtendedPid;
+use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::process::ProcessHandle;
 use crate::actor::process_registry::ProcessRegistry;
 use crate::actor::root_context::RootContext;

@@ -6,7 +6,7 @@ use crate::actor::actor_system::ActorSystem;
 use crate::actor::supervisor::directive::Directive;
 use crate::actor::log::P_LOG;
 use crate::actor::message::Message;
-use crate::actor::pid::ExtendedPid;
+use crate::actor::actor::pid::ExtendedPid;
 use crate::event_stream::{HandlerFunc, Subscription};
 use crate::log::field::Field;
 

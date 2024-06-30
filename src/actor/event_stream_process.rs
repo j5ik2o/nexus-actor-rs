@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::message::MessageHandle;
 use crate::actor::message_envelope::unwrap_envelope;
-use crate::actor::pid::ExtendedPid;
+use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::process::Process;
 
 #[derive(Debug, Clone)]

@@ -9,7 +9,7 @@ use tokio::sync::Mutex;
 use crate::actor::actor::{ActorError, ActorHandle};
 use crate::actor::context::{ContextHandle, ReceiverContextHandle, SenderContextHandle};
 use crate::actor::message_envelope::MessageEnvelope;
-use crate::actor::pid::ExtendedPid;
+use crate::actor::actor::pid::ExtendedPid;
 use crate::util::element::Element;
 use crate::util::queue::priority_queue::{PriorityMessage, DEFAULT_PRIORITY};
 
