@@ -144,7 +144,8 @@ impl SpawnerPart for RootContext {
         props,
         &self.get_actor_system().await.get_process_registry().await.next_id(),
       )
-      .await {
+      .await
+    {
       Ok(pid) => pid,
       Err(e) => panic!("Failed to spawn actor: {:?}", e),
     }
@@ -160,7 +161,8 @@ impl SpawnerPart for RootContext {
           self.get_actor_system().await.get_process_registry().await.next_id()
         ),
       )
-      .await {
+      .await
+    {
       Ok(pid) => pid,
       Err(e) => panic!("Failed to spawn actor: {:?}", e),
     }
@@ -182,7 +184,14 @@ impl SpawnerPart for RootContext {
       _ => {}
     }
 
-    props.clone().spawn(self.get_actor_system().await.clone(), id, SpawnerContextHandle::new(root_context.clone())).await
+    props
+      .clone()
+      .spawn(
+        self.get_actor_system().await.clone(),
+        id,
+        SpawnerContextHandle::new(root_context.clone()),
+      )
+      .await
   }
 }
 
