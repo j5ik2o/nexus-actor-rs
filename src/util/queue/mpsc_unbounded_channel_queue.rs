@@ -10,7 +10,7 @@ use crate::util::queue::{QueueBase, QueueError, QueueReader, QueueSize, QueueWri
 
 #[derive(Debug)]
 struct MpscUnboundedChannelQueueInner<E> {
-  rx: mpsc::UnboundedReceiver<E>,
+  receiver: mpsc::UnboundedReceiver<E>,
   count: usize,
 }
 
@@ -25,8 +25,27 @@ impl<T> MpscUnboundedChannelQueue<T> {
     let (sender, receiver) = mpsc::unbounded_channel();
     Self {
       sender,
-      inner: Arc::new(Mutex::new(MpscUnboundedChannelQueueInner { rx: receiver, count: 0 })),
+      inner: Arc::new(Mutex::new(MpscUnboundedChannelQueueInner { receiver, count: 0 })),
     }
+  }
+
+  async fn try_recv(&self) -> Result<T, TryRecvError> {
+    let mut inner_mg = self.inner.lock().await;
+    inner_mg.receiver.try_recv()
+  }
+
+  fn send(&self, element: T) -> Result<(), SendError<T>> {
+    self.sender.send(element)
+  }
+
+  async fn increment_count(&self) {
+    let mut inner_mg = self.inner.lock().await;
+    inner_mg.count += 1;
+  }
+
+  async fn decrement_count(&self) {
+    let mut inner_mg = self.inner.lock().await;
+    inner_mg.count = inner_mg.count.saturating_sub(1);
   }
 }
 
@@ -45,10 +64,9 @@ impl<E: Element> QueueBase<E> for MpscUnboundedChannelQueue<E> {
 #[async_trait]
 impl<E: Element> QueueWriter<E> for MpscUnboundedChannelQueue<E> {
   async fn offer(&mut self, element: E) -> Result<(), QueueError<E>> {
-    match self.sender.send(element) {
+    match self.send(element) {
       Ok(_) => {
-        let mut inner_mg = self.inner.lock().await;
-        inner_mg.count += 1;
+        self.increment_count().await;
         Ok(())
       }
       Err(SendError(err)) => Err(QueueError::OfferError(err)),
@@ -59,13 +77,9 @@ impl<E: Element> QueueWriter<E> for MpscUnboundedChannelQueue<E> {
 #[async_trait]
 impl<E: Element> QueueReader<E> for MpscUnboundedChannelQueue<E> {
   async fn poll(&mut self) -> Result<Option<E>, QueueError<E>> {
-    match {
-      let mut inner_mg = self.inner.lock().await;
-      inner_mg.rx.try_recv()
-    } {
+    match self.try_recv().await {
       Ok(element) => {
-        let mut inner_mg = self.inner.lock().await;
-        inner_mg.count = inner_mg.count.saturating_sub(1);
+        self.decrement_count().await;
         Ok(Some(element))
       }
       Err(TryRecvError::Empty) => Ok(None),
@@ -76,6 +90,6 @@ impl<E: Element> QueueReader<E> for MpscUnboundedChannelQueue<E> {
   async fn clean_up(&mut self) {
     let mut inner_mg = self.inner.lock().await;
     inner_mg.count = 0;
-    inner_mg.rx.close();
+    inner_mg.receiver.close();
   }
 }

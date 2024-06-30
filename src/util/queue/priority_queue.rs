@@ -38,11 +38,11 @@ impl<E: PriorityMessage, Q: Clone + QueueReader<E> + QueueWriter<E>> PriorityQue
 impl<E: PriorityMessage, Q: QueueReader<E> + QueueWriter<E>> QueueBase<E> for PriorityQueue<E, Q> {
   async fn len(&self) -> QueueSize {
     let queues_mg = self.priority_queues.lock().await;
-    let mut len = 0;
+    let mut len = QueueSize::Limited(0);
     for queue in queues_mg.iter() {
-      len += queue.len().await.to_usize();
+      len = len + queue.len().await;
     }
-    QueueSize::Limited(len)
+    len
   }
 
   async fn capacity(&self) -> QueueSize {
