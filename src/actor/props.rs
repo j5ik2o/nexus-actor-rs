@@ -13,7 +13,7 @@ use crate::actor::actor_context::ActorContext;
 use crate::actor::actor_process::ActorProcess;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::{ContextHandle, InfoPart, ReceiverPart, SpawnerContextHandle};
-use crate::actor::dispatcher::{DispatcherHandle, TokioRuntimeContextDispatcher};
+use crate::actor::dispatcher::*;
 use crate::actor::mailbox::{Mailbox, MailboxHandle, MailboxProduceFunc};
 use crate::actor::message::{ContextDecoratorFunc, MessageHandle, ProducerFunc, ReceiveFunc, ReceiverFunc, SenderFunc};
 use crate::actor::message_invoker::MessageInvokerHandle;
@@ -278,7 +278,7 @@ unsafe impl Send for Props {}
 unsafe impl Sync for Props {}
 
 static DEFAULT_DISPATCHER: Lazy<DispatcherHandle> =
-  Lazy::new(|| DispatcherHandle::new(TokioRuntimeContextDispatcher::new(300).unwrap()));
+  Lazy::new(|| DispatcherHandle::new(TokioRuntimeContextDispatcher::new().unwrap()));
 static DEFAULT_MAILBOX_PRODUCER: Lazy<MailboxProduceFunc> = Lazy::new(|| unbounded_mailbox_creator_with_opts(vec![]));
 
 static DEFAULT_SPAWNER: Lazy<SpawnFunc> = Lazy::new(|| {

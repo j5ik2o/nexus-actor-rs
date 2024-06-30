@@ -12,7 +12,6 @@ use crate::actor::mailbox_middleware::{MailboxMiddleware, MailboxMiddlewareHandl
 use crate::actor::message::{Message, MessageHandle};
 use crate::actor::message_invoker::{MessageInvoker, MessageInvokerHandle};
 use crate::actor::messages::MailboxMessage;
-use crate::actor::ReasonHandle;
 use crate::util::queue::{QueueError, QueueReader, QueueWriter};
 
 // Mailbox trait

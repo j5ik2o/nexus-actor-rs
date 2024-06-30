@@ -60,8 +60,13 @@ pub struct TokioRuntimeContextDispatcher {
 }
 
 impl TokioRuntimeContextDispatcher {
-  pub fn new(throughput: i32) -> Result<Self, std::io::Error> {
-    Ok(Self { throughput })
+  pub fn new() -> Result<Self, std::io::Error> {
+    Ok(Self { throughput: 300 })
+  }
+
+  pub fn with_throughput(mut self, throughput: i32) -> Self {
+    self.throughput = throughput;
+    self
   }
 }
 
@@ -85,11 +90,24 @@ pub struct TokioRuntimeDispatcher {
 }
 
 impl TokioRuntimeDispatcher {
-  pub fn new(runtime: Runtime, throughput: i32) -> Self {
-    Self {
-      runtime: Arc::new(runtime),
-      throughput,
+  pub fn new() -> Result<Self, std::io::Error> {
+    match Runtime::new() {
+      Ok(runtime) => Ok(Self {
+        runtime: Arc::new(runtime),
+        throughput: 300,
+      }),
+      Err(e) => Err(e),
     }
+  }
+
+  pub fn with_runtime(mut self, runtime: Runtime) -> Self {
+    self.runtime = Arc::new(runtime);
+    self
+  }
+
+  pub fn with_throughput(mut self, throughput: i32) -> Self {
+    self.throughput = throughput;
+    self
   }
 }
 
@@ -109,6 +127,7 @@ impl Dispatcher for TokioRuntimeDispatcher {
 #[derive(Debug, Clone)]
 pub struct SingleWorkerDispatcher {
   runtime: Arc<Runtime>,
+  throughput: i32,
 }
 
 impl SingleWorkerDispatcher {
@@ -116,7 +135,13 @@ impl SingleWorkerDispatcher {
     let runtime = Builder::new_multi_thread().worker_threads(1).enable_all().build()?;
     Ok(Self {
       runtime: Arc::new(runtime),
+      throughput: 300,
     })
+  }
+
+  pub fn with_throughput(mut self, throughput: i32) -> Self {
+    self.throughput = throughput;
+    self
   }
 }
 
@@ -127,7 +152,7 @@ impl Dispatcher for SingleWorkerDispatcher {
   }
 
   async fn throughput(&self) -> i32 {
-    1
+    self.throughput
   }
 }
 
@@ -135,24 +160,24 @@ impl Dispatcher for SingleWorkerDispatcher {
 
 #[derive(Debug, Clone)]
 pub struct CurrentThreadDispatcher {
-  runtime: Arc<Runtime>,
   throughput: i32,
 }
 
 impl CurrentThreadDispatcher {
-  pub fn new(throughput: i32) -> Result<Self, std::io::Error> {
-    let runtime = Builder::new_current_thread().enable_all().build()?;
-    Ok(Self {
-      runtime: Arc::new(runtime),
-      throughput,
-    })
+  pub fn new() -> Result<Self, std::io::Error> {
+    Ok(Self { throughput: 300 })
+  }
+
+  pub fn with_throughput(mut self, throughput: i32) -> Self {
+    self.throughput = throughput;
+    self
   }
 }
 
 #[async_trait]
 impl Dispatcher for CurrentThreadDispatcher {
   async fn schedule(&self, runner: Runnable) {
-    self.runtime.spawn(runner.run());
+    runner.run().await
   }
 
   async fn throughput(&self) -> i32 {

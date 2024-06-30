@@ -1,15 +1,14 @@
 use std::any::Any;
 
-use async_trait::async_trait;
-use tokio::sync::Mutex;
-
-use crate::actor::dispatcher::{DispatcherHandle, TokioRuntimeContextDispatcher};
-// Tests
+use crate::actor::actor::ActorError;
+use crate::actor::dispatcher::{CurrentThreadDispatcher, DispatcherHandle};
 use crate::actor::mailbox::{DefaultMailbox, Mailbox};
 use crate::actor::message::{Message, MessageHandle};
 use crate::actor::message_invoker::{MessageInvoker, MessageInvokerHandle};
 use crate::actor::taks::Task;
 use crate::util::queue::mpsc_unbounded_channel_queue::MpscUnboundedChannelQueue;
+use async_trait::async_trait;
+use tokio::sync::Mutex;
 
 use super::*;
 
@@ -41,16 +40,18 @@ impl TestMessageInvoker {
 
 #[async_trait]
 impl MessageInvoker for TestMessageInvoker {
-  async fn invoke_system_message(&mut self, _message: MessageHandle) {
+  async fn invoke_system_message(&mut self, _message: MessageHandle) -> Result<(), ActorError> {
     self.received.lock().await.push(ReceivedMessage::System);
+    Ok(())
   }
 
-  async fn invoke_user_message(&mut self, message: MessageHandle) {
+  async fn invoke_user_message(&mut self, message: MessageHandle) -> Result<(), ActorError> {
     if message.as_any().is::<TestTask>() {
       self.received.lock().await.push(ReceivedMessage::Task);
     } else {
       self.received.lock().await.push(ReceivedMessage::User);
     }
+    Ok(())
   }
 
   async fn escalate_failure(&self, reason: ReasonHandle, _message: MessageHandle) {
@@ -103,7 +104,7 @@ async fn test_mailbox_with_test_invoker() {
   let mut mailbox = DefaultMailbox::new(MpscUnboundedChannelQueue::new(), MpscUnboundedChannelQueue::new());
   let invoker = Arc::new(Mutex::new(TestMessageInvoker::new()));
   let invoker_handle = MessageInvokerHandle::new(invoker.clone());
-  let dispatcher = Arc::new(TokioRuntimeContextDispatcher::new(1).unwrap());
+  let dispatcher = Arc::new(CurrentThreadDispatcher::new().unwrap());
   let dispatcher_handle = DispatcherHandle::new_arc(dispatcher.clone());
   mailbox
     .register_handlers(Some(invoker_handle.clone()), Some(dispatcher_handle.clone()))
