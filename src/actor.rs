@@ -1,7 +1,6 @@
 pub mod actor;
 pub mod actor_system;
-pub mod any_message;
-mod auto_respond;
+pub mod auto_respond;
 pub mod context;
 pub mod dispatch;
 pub mod event_stream;
@@ -11,7 +10,7 @@ pub mod log;
 pub mod message;
 pub mod message_envelope;
 pub mod messages;
-mod middleware_chain;
+pub mod middleware_chain;
 pub mod process;
 pub mod supervisor;
 pub mod util;
