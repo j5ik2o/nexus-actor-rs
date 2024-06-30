@@ -13,6 +13,7 @@ pub mod directive;
 pub mod dispatcher;
 #[cfg(test)]
 mod dispatcher_test;
+pub mod event_stream_process;
 pub mod future;
 pub mod guardian;
 pub mod log;
@@ -42,4 +43,3 @@ pub mod throttler;
 #[cfg(test)]
 mod throttler_test;
 pub mod unbounded;
-pub mod event_stream_process;
