@@ -232,7 +232,7 @@ mod tests {
 
   #[async_trait]
   impl Actor for MyActor {
-    async fn receive(&self, ctx: ContextHandle)-> Result<(), ActorError> {
+    async fn receive(&self, ctx: ContextHandle) -> Result<(), ActorError> {
       let msg = ctx.get_message().await;
       println!("{:?}", msg);
       Ok(())

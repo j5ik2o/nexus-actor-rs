@@ -25,7 +25,7 @@ struct ChildActor {}
 
 #[async_trait]
 impl Actor for ChildActor {
-  async fn receive(&self, ctx: ContextHandle)-> Result<(), ActorError> {
+  async fn receive(&self, ctx: ContextHandle) -> Result<(), ActorError> {
     let msg = ctx.get_message().await;
     println!("child_actor: msg = {:?}", msg);
     Ok(())

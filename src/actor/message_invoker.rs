@@ -1,11 +1,11 @@
 use std::fmt::Debug;
 use std::sync::Arc;
 
-use async_trait::async_trait;
-use tokio::sync::Mutex;
 use crate::actor::actor::ActorError;
 use crate::actor::message::MessageHandle;
 use crate::actor::ReasonHandle;
+use async_trait::async_trait;
+use tokio::sync::Mutex;
 
 // MessageInvoker trait
 #[async_trait]

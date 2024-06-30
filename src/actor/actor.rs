@@ -239,7 +239,7 @@ impl ActorHandle {
 
 #[async_trait]
 impl Actor for ActorHandle {
-  async fn receive(&self, c: ContextHandle) -> Result<(), ActorError>{
+  async fn receive(&self, c: ContextHandle) -> Result<(), ActorError> {
     self.0.receive(c).await
   }
 }

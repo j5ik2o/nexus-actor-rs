@@ -1,9 +1,9 @@
 use std::fmt::Debug;
 
-use log::error;
 use crate::actor::actor::ActorError;
 use crate::actor::context::{ContextHandle, InfoPart};
 use crate::actor::message::ReceiveFunc;
+use log::error;
 
 #[derive(Debug, Clone)]
 pub struct Behavior {
@@ -39,7 +39,7 @@ impl Behavior {
 
   async fn clear(&mut self) {
     for i in 0..self.stack.len() {
-      self.stack[i] = ReceiveFunc::new(|_| async {Ok(())});
+      self.stack[i] = ReceiveFunc::new(|_| async { Ok(()) });
     }
     self.stack.clear();
   }

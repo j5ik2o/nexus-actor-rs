@@ -1,8 +1,8 @@
 use std::any::Any;
 use std::error::Error;
 use std::pin::Pin;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU8, Ordering};
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use futures::future::BoxFuture;
@@ -32,11 +32,11 @@ use crate::actor::pid::ExtendedPid;
 use crate::actor::pid_set::PidSet;
 use crate::actor::process::Process;
 use crate::actor::props::{Props, SpawnError};
-use crate::actor::ReasonHandle;
 use crate::actor::restart_statistics::RestartStatistics;
 use crate::actor::supervisor_strategy::{
-  DEFAULT_SUPERVISION_STRATEGY, Supervisor, SupervisorHandle, SupervisorStrategy,
+  Supervisor, SupervisorHandle, SupervisorStrategy, DEFAULT_SUPERVISION_STRATEGY,
 };
+use crate::actor::ReasonHandle;
 use crate::ctxext::extensions::{ContextExtensionHandle, ContextExtensionId, ContextExtensions};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, IntoPrimitive, TryFromPrimitive)]
@@ -542,7 +542,7 @@ impl ActorContext {
       .invoke_user_message(MessageHandle::new(AutoReceiveMessage::Stopped(Stopped {})))
       .await;
     if result.is_err() {
-        P_LOG.error("Failed to handle Stopped message", vec![]).await;
+      P_LOG.error("Failed to handle Stopped message", vec![]).await;
     }
     let other_stopped = MessageHandle::new(Terminated {
       who: self.get_self().await.map(|x| x.inner),
@@ -611,7 +611,7 @@ impl ActorContext {
         .store(State::Stopping as u8, Ordering::SeqCst);
     }
     let mh = MessageHandle::new(AutoReceiveMessage::Stopping(Stopping {}));
-    let result= self.invoke_user_message(mh).await;
+    let result = self.invoke_user_message(mh).await;
     if result.is_err() {
       P_LOG.error("Failed to handle Stopping message", vec![]).await;
     }
@@ -631,7 +631,7 @@ impl ActorContext {
       .invoke_user_message(MessageHandle::new(AutoReceiveMessage::Restarting(Restarting {})))
       .await;
     if result.is_err() {
-        P_LOG.error("Failed to handle Restarting message", vec![]).await;
+      P_LOG.error("Failed to handle Restarting message", vec![]).await;
     }
     self.stop_all_children().await;
     self.try_restart_or_terminate().await;
@@ -690,7 +690,7 @@ impl ActorContext {
 
     let result = self.invoke_user_message(MessageHandle::new(terminated.clone())).await;
     if result.is_err() {
-        P_LOG.error("Failed to handle Terminated message", vec![]).await;
+      P_LOG.error("Failed to handle Terminated message", vec![]).await;
     }
     self.try_restart_or_terminate().await;
   }
@@ -925,7 +925,7 @@ impl ReceiverPart for ActorContext {
       let mut inner_mg = self.inner.lock().await;
       inner_mg.message_or_envelope = Some(MessageOrEnvelope::of_envelope(envelope));
     }
-    let result =self.default_receive().await;
+    let result = self.default_receive().await;
     {
       let mut inner_mg = self.inner.lock().await;
       inner_mg.message_or_envelope = None;
