@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 use std::sync::Arc;
 
-use crate::actor::actor::ActorError;
+use crate::actor::actor::{ActorError, ActorInnerError};
 use crate::actor::message::MessageHandle;
 use crate::actor::ReasonHandle;
 use async_trait::async_trait;
@@ -12,7 +12,7 @@ use tokio::sync::Mutex;
 pub trait MessageInvoker: Debug + Send + Sync {
   async fn invoke_system_message(&mut self, message: MessageHandle) -> Result<(), ActorError>;
   async fn invoke_user_message(&mut self, message: MessageHandle) -> Result<(), ActorError>;
-  async fn escalate_failure(&self, reason: ReasonHandle, message: MessageHandle);
+  async fn escalate_failure(&self, reason: ActorInnerError, message: MessageHandle);
 }
 
 #[derive(Debug, Clone)]
@@ -50,7 +50,7 @@ impl MessageInvoker for MessageInvokerHandle {
     mg.invoke_user_message(message).await
   }
 
-  async fn escalate_failure(&self, reason: ReasonHandle, message: MessageHandle) {
+  async fn escalate_failure(&self, reason: ActorInnerError, message: MessageHandle) {
     let mg = self.0.lock().await;
     mg.escalate_failure(reason, message).await;
   }

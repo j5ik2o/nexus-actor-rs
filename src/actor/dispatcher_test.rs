@@ -1,6 +1,6 @@
 use std::any::Any;
 
-use crate::actor::actor::ActorError;
+use crate::actor::actor::{ActorError, ActorInnerError};
 use crate::actor::dispatcher::{CurrentThreadDispatcher, DispatcherHandle};
 use crate::actor::mailbox::{DefaultMailbox, Mailbox};
 use crate::actor::message::{Message, MessageHandle};
@@ -54,14 +54,21 @@ impl MessageInvoker for TestMessageInvoker {
     Ok(())
   }
 
-  async fn escalate_failure(&self, reason: ReasonHandle, _message: MessageHandle) {
-    let reason_msg = if let Some(error) = reason.as_any().downcast_ref::<&str>() {
-      error.to_string()
-    } else if let Some(error) = reason.as_any().downcast_ref::<String>() {
-      error.clone()
+  async fn escalate_failure(&self, reason: ActorInnerError, _message: MessageHandle) {
+    let reason_msg = if reason.is_type::<&str>() {
+      reason.clone().take::<&str>().unwrap().to_string()
+    } else if reason.is_type::<String>() {
+      reason.clone().take::<String>().unwrap()
     } else {
       "Unknown error".to_string()
     };
+    // let reason_msg = if let Some(error) = reason.as_any().downcast_ref::<&str>() {
+    //   error.to_string()
+    // } else if let Some(error) = reason.as_any().downcast_ref::<String>() {
+    //   error.clone()
+    // } else {
+    //   "Unknown error".to_string()
+    // };
     self.received.lock().await.push(ReceivedMessage::Failure(reason_msg));
   }
 }

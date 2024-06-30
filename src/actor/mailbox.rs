@@ -335,10 +335,11 @@ impl DefaultMailbox {
           }
           _ => {
             let result = message_invoker.invoke_system_message(msg.clone()).await;
-            // FIXME: Handle error
             if let Err(e) = result {
               println!("Failed to invoke system message: {:?}", e);
-              // message_invoker.escalate_failure(ReasonHandle::new("failed to invoke system message"), msg.clone()).await;
+              message_invoker
+                .escalate_failure(e.reason().cloned().unwrap(), msg.clone())
+                .await;
             }
           }
         }
@@ -355,10 +356,11 @@ impl DefaultMailbox {
       if let Ok(Some(msg)) = self.poll_user_mailbox().await {
         self.decrement_user_messages_count().await;
         let result = message_invoker.invoke_user_message(msg.clone()).await;
-        // FIXME: Handle error
         if let Err(e) = result {
           println!("Failed to invoke system message: {:?}", e);
-          // message_invoker.escalate_failure(ReasonHandle::new("failed to invoke system message"), msg.clone()).await;
+          message_invoker
+            .escalate_failure(e.reason().cloned().unwrap(), msg.clone())
+            .await;
         }
         for middleware in self.get_middlewares().await {
           middleware.message_received(msg.clone()).await;

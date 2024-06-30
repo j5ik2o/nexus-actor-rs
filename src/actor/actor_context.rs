@@ -9,7 +9,9 @@ use futures::future::BoxFuture;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use tokio::sync::Mutex;
 
-use crate::actor::actor::{Actor, ActorError, ActorHandle, PoisonPill, Stop, Terminated, Unwatch, Watch};
+use crate::actor::actor::{
+  Actor, ActorError, ActorHandle, ActorInnerError, PoisonPill, Stop, Terminated, Unwatch, Watch,
+};
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::auto_respond::{AutoRespond, AutoRespondHandle};
 use crate::actor::context::{
@@ -1133,7 +1135,7 @@ impl MessageInvoker for ActorContext {
     result
   }
 
-  async fn escalate_failure(&self, reason: ReasonHandle, message: MessageHandle) {
+  async fn escalate_failure(&self, reason: ActorInnerError, message: MessageHandle) {
     todo!()
   }
 }
