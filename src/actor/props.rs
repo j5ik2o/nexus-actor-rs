@@ -15,8 +15,9 @@ use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::{ContextHandle, InfoPart, ReceiverPart, SpawnerContextHandle};
 use crate::actor::dispatch::dispatcher::*;
 use crate::actor::dispatch::mailbox::{Mailbox, MailboxHandle, MailboxProduceFunc};
-use crate::actor::message::{ContextDecoratorFunc, MessageHandle, ProducerFunc, ReceiveFunc, ReceiverFunc, SenderFunc};
 use crate::actor::dispatch::message_invoker::MessageInvokerHandle;
+use crate::actor::dispatch::unbounded::unbounded_mailbox_creator_with_opts;
+use crate::actor::message::{ContextDecoratorFunc, MessageHandle, ProducerFunc, ReceiveFunc, ReceiverFunc, SenderFunc};
 use crate::actor::messages::{Started, SystemMessage};
 use crate::actor::middleware_chain::{
   make_context_decorator_chain, make_receiver_middleware_chain, make_sender_middleware_chain,
@@ -25,7 +26,6 @@ use crate::actor::middleware_chain::{
 use crate::actor::pid::ExtendedPid;
 use crate::actor::process::ProcessHandle;
 use crate::actor::supervisor::supervisor_strategy::{SupervisorStrategyHandle, DEFAULT_SUPERVISION_STRATEGY};
-use crate::actor::dispatch::unbounded::unbounded_mailbox_creator_with_opts;
 
 #[derive(Debug, Clone, Error)]
 pub enum SpawnError {

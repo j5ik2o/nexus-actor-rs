@@ -6,6 +6,7 @@ mod auto_respond;
 pub mod behavior;
 pub mod context;
 pub mod directive;
+mod dispatch;
 pub mod event_stream_process;
 #[cfg(test)]
 mod event_stream_process_test;
@@ -25,9 +26,8 @@ pub mod process_registry;
 pub mod props;
 pub mod restart_statistics;
 pub mod root_context;
+mod supervisor;
 pub mod taks;
 pub mod throttler;
 #[cfg(test)]
 mod throttler_test;
-mod dispatch;
-mod supervisor;
