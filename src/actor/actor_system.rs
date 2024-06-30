@@ -216,9 +216,9 @@ mod tests {
   use async_trait::async_trait;
 
   use crate::actor::actor::{Actor, ActorError, ActorHandle};
+  use crate::actor::actor::props::Props;
   use crate::actor::context::{ContextHandle, InfoPart, MessagePart, SenderPart, SpawnerPart};
   use crate::actor::message::{Message, MessageHandle, ProducerFunc};
-  use crate::actor::props::Props;
 
   use super::*;
 

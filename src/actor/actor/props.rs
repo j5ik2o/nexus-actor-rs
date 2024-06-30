@@ -283,7 +283,7 @@ static DEFAULT_MAILBOX_PRODUCER: Lazy<MailboxProduceFunc> = Lazy::new(|| unbound
 
 static DEFAULT_SPAWNER: Lazy<SpawnFunc> = Lazy::new(|| {
   SpawnFunc::new(
-    |actor_system: ActorSystem, id: String, props: Props, parent_context: SpawnerContextHandle| {
+    |actor_system: ActorSystem, name: String, props: Props, parent_context: SpawnerContextHandle| {
       async move {
         let mut ctx = ActorContext::new(actor_system.clone(), props.clone(), parent_context.get_self().await).await;
         let mut mb = props.produce_mailbox().await;
@@ -293,12 +293,13 @@ static DEFAULT_SPAWNER: Lazy<SpawnFunc> = Lazy::new(|| {
         let dp = props.get_dispatcher();
         let proc = ActorProcess::new(mb.clone());
         let proc_handle = ProcessHandle::new(proc);
+        let pr = actor_system.get_process_registry().await;
 
-        let (pid, absent) = actor_system.get_process_registry().await.add_process(proc_handle, &id);
-
+        let (pid, absent) = pr.add_process(proc_handle, &name);
         if !absent {
           return Err(SpawnError::ErrNameExists(pid.clone()));
         }
+
         ctx.set_self(pid.clone()).await;
 
         initialize(props, ctx.clone());

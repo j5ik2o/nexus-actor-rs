@@ -4,6 +4,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 
 use crate::actor::actor::{ActorHandle, PoisonPill};
+use crate::actor::actor::props::{Props, SenderMiddleware, SpawnError, SpawnFunc};
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::{
   InfoPart, MessagePart, SenderContext, SenderContextHandle, SenderPart, SpawnerContext, SpawnerContextHandle,
@@ -16,7 +17,6 @@ use crate::actor::messages::AutoReceiveMessage;
 use crate::actor::middleware_chain::make_sender_middleware_chain;
 use crate::actor::pid::ExtendedPid;
 use crate::actor::process::Process;
-use crate::actor::props::{Props, SenderMiddleware, SpawnError, SpawnFunc};
 use crate::actor::supervisor::supervisor_strategy::SupervisorStrategyHandle;
 
 #[derive(Debug, Clone)]

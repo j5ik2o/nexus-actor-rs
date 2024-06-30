@@ -6,11 +6,11 @@ use once_cell::sync::Lazy;
 use tokio::sync::Mutex;
 
 use crate::actor::actor::ActorInnerError;
+use crate::actor::actor::restart_statistics::RestartStatistics;
 use crate::actor::actor_system::ActorSystem;
-use crate::actor::directive::Directive;
+use crate::actor::supervisor::directive::Directive;
 use crate::actor::message::MessageHandle;
 use crate::actor::pid::ExtendedPid;
-use crate::actor::restart_statistics::RestartStatistics;
 use crate::actor::supervisor::strategy_on_for_one::OneForOneStrategy;
 use crate::actor::supervisor::strategy_restarting::RestartingStrategy;
 use crate::actor::supervisor::supervision_event::SupervisorEvent;

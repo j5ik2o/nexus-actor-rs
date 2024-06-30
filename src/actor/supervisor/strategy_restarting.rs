@@ -1,11 +1,11 @@
 use async_trait::async_trait;
 
 use crate::actor::actor::ActorInnerError;
+use crate::actor::actor::restart_statistics::RestartStatistics;
 use crate::actor::actor_system::ActorSystem;
-use crate::actor::directive::Directive;
+use crate::actor::supervisor::directive::Directive;
 use crate::actor::message::MessageHandle;
 use crate::actor::pid::ExtendedPid;
-use crate::actor::restart_statistics::RestartStatistics;
 use crate::actor::supervisor::supervisor_strategy::{log_failure, Supervisor, SupervisorHandle, SupervisorStrategy};
 
 #[derive(Debug, Clone)]

@@ -1,5 +1,5 @@
+use crate::actor::actor::props::{ContextDecorator, ReceiverMiddleware, SenderMiddleware, SpawnFunc, SpawnMiddleware};
 use crate::actor::message::{ContextDecoratorFunc, ReceiverFunc, SenderFunc};
-use crate::actor::props::{ContextDecorator, ReceiverMiddleware, SenderMiddleware, SpawnFunc, SpawnMiddleware};
 
 pub fn make_receiver_middleware_chain(
   receiver_middleware: &[ReceiverMiddleware],

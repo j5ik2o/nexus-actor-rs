@@ -5,7 +5,6 @@ pub mod actor_system;
 mod auto_respond;
 pub mod behavior;
 pub mod context;
-pub mod directive;
 mod dispatch;
 pub mod event_stream_process;
 #[cfg(test)]
@@ -23,8 +22,6 @@ pub mod pid_set;
 mod pid_set_test;
 pub mod process;
 pub mod process_registry;
-pub mod props;
-pub mod restart_statistics;
 pub mod root_context;
 mod supervisor;
 pub mod taks;
