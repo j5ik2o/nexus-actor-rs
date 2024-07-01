@@ -71,7 +71,7 @@ struct FutureInner {
   done: bool,
   result: Option<MessageHandle>,
   error: Option<FutureError>,
-  pipes: Vec<Arc<dyn Process>>,
+  pipes: Vec<ExtendedPid>,
   completions: Vec<CompletionFunc>,
 }
 
@@ -151,9 +151,9 @@ impl FutureProcess {
     !inner.done
   }
 
-  pub async fn pipe_to(&self, process: Arc<dyn Process>) {
+  pub async fn pipe_to(&self, pid: ExtendedPid) {
     let future_mg = self.future.lock().await.clone();
-    future_mg.pipe_to(process).await;
+    future_mg.pipe_to(pid).await;
   }
 
   pub async fn result(&self) -> Result<MessageHandle, FutureError> {
@@ -181,7 +181,9 @@ impl FutureProcess {
     let future = self.future.lock().await.clone();
     let mut inner = future.inner.lock().await;
     for pipe in &inner.pipes {
-      pipe.send_user_message(None, MessageHandle::new(error.clone())).await;
+      pipe
+        .send_user_message(inner.actor_system.clone(), MessageHandle::new(error.clone()))
+        .await;
     }
     inner.pipes.clear();
   }
@@ -251,9 +253,9 @@ impl Future {
     inner.pid.clone().unwrap()
   }
 
-  pub async fn pipe_to(&self, process: Arc<dyn Process>) {
+  pub async fn pipe_to(&self, pid: ExtendedPid) {
     let mut inner = self.inner.lock().await;
-    inner.pipes.push(process);
+    inner.pipes.push(pid);
     if inner.done {
       self.send_to_pipes(&mut inner).await;
     }
@@ -267,7 +269,9 @@ impl Future {
     };
 
     for process in &inner.pipes {
-      process.send_user_message(None, message.clone()).await;
+      process
+        .send_user_message(inner.actor_system.clone(), message.clone())
+        .await;
     }
 
     inner.pipes.clear();

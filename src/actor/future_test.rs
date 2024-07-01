@@ -1,8 +1,8 @@
+use anyhow::Context;
+use async_trait::async_trait;
 use std::any::Any;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-
-use async_trait::async_trait;
 use tokio::sync::{Mutex, Notify};
 use tokio::time::{sleep, Duration};
 
@@ -10,7 +10,7 @@ use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::future::{FutureError, FutureProcess};
 use crate::actor::message::{Message, MessageHandle};
-use crate::actor::process::Process;
+use crate::actor::process::{Process, ProcessHandle};
 
 #[derive(Clone)]
 struct AsyncBarrier {
@@ -38,11 +38,37 @@ impl AsyncBarrier {
   }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct MockProcess {
   name: String,
   received: Arc<AtomicBool>,
   notify: Arc<Notify>,
+  pid: Option<ExtendedPid>,
+}
+
+impl MockProcess {
+  async fn new(actor_system: ActorSystem, name: &str) -> Self {
+    let mut process = MockProcess {
+      name: name.to_string(),
+      received: Arc::new(AtomicBool::new(false)),
+      notify: Arc::new(Notify::new()),
+      pid: None,
+    };
+    let id = actor_system.get_process_registry().await.next_id();
+    let (pid, ok) = actor_system
+      .get_process_registry()
+      .await
+      .add_process(ProcessHandle::new(process.clone()), &format!("mock_{}", id));
+    if !ok {
+      panic!("failed to register mock process");
+    }
+    process.pid = Some(pid);
+    process
+  }
+
+  pub fn get_pid(&self) -> ExtendedPid {
+    self.pid.clone().unwrap()
+  }
 }
 
 #[async_trait]
@@ -67,29 +93,17 @@ impl Process for MockProcess {
 #[tokio::test]
 async fn test_future_pipe_to_message() {
   let system = ActorSystem::new(&[]).await;
-  let a1 = Arc::new(MockProcess {
-    name: "a1".to_string(),
-    received: Arc::new(AtomicBool::new(false)),
-    notify: Arc::new(Notify::new()),
-  });
-  let a2 = Arc::new(MockProcess {
-    name: "a2".to_string(),
-    received: Arc::new(AtomicBool::new(false)),
-    notify: Arc::new(Notify::new()),
-  });
-  let a3 = Arc::new(MockProcess {
-    name: "a3".to_string(),
-    received: Arc::new(AtomicBool::new(false)),
-    notify: Arc::new(Notify::new()),
-  });
+  let a1 = Arc::new(MockProcess::new(system.clone(), "a1").await);
+  let a2 = Arc::new(MockProcess::new(system.clone(), "a2").await);
+  let a3 = Arc::new(MockProcess::new(system.clone(), "a3").await);
 
   let barrier = AsyncBarrier::new(4);
 
   let future_process = FutureProcess::new(system, Duration::from_secs(1)).await;
 
-  future_process.pipe_to(a1.clone()).await;
-  future_process.pipe_to(a2.clone()).await;
-  future_process.pipe_to(a3.clone()).await;
+  future_process.pipe_to(a1.get_pid()).await;
+  future_process.pipe_to(a2.get_pid()).await;
+  future_process.pipe_to(a3.get_pid()).await;
 
   // モックプロセスにバリアを設定
   for process in [a1.clone(), a2.clone(), a3.clone()] {
@@ -105,7 +119,9 @@ async fn test_future_pipe_to_message() {
     .send_user_message(None, MessageHandle::new("hello".to_string()))
     .await;
 
-  barrier.wait().await;
+  // タイムアウト付きで待機
+  let timeout_result = tokio::time::timeout(Duration::from_secs(5), barrier.wait()).await;
+  assert!(timeout_result.is_ok(), "Test timed out waiting for all processes to receive the message");
 
   for process in [a1.clone(), a2.clone(), a3.clone()] {
     assert!(
@@ -115,38 +131,34 @@ async fn test_future_pipe_to_message() {
     );
   }
 
-  assert!(
-    !future_process.is_empty().await,
-    "future should not be empty after completion"
+  // FutureProcess の状態を確認
+  let is_empty = future_process.is_empty().await;
+  assert!(!is_empty, "future should not be empty after completion");
+
+  // FutureProcess の結果を確認
+  let result = future_process.result().await;
+  assert!(result.is_ok(), "Expected Ok result, got {:?}", result);
+  let message = result.unwrap();
+  assert_eq!(
+    message.as_any().downcast_ref::<String>().unwrap(),
+    "hello"
   );
 }
 
 #[tokio::test]
 async fn test_future_pipe_to_timeout_sends_error() {
   let system = ActorSystem::new(&[]).await;
-  let a1 = Arc::new(MockProcess {
-    name: "a1".to_string(),
-    received: Arc::new(AtomicBool::new(false)),
-    notify: Arc::new(Notify::new()),
-  });
-  let a2 = Arc::new(MockProcess {
-    name: "a2".to_string(),
-    received: Arc::new(AtomicBool::new(false)),
-    notify: Arc::new(Notify::new()),
-  });
-  let a3 = Arc::new(MockProcess {
-    name: "a3".to_string(),
-    received: Arc::new(AtomicBool::new(false)),
-    notify: Arc::new(Notify::new()),
-  });
+  let a1 = Arc::new(MockProcess::new(system.clone(), "a1").await);
+  let a2 = Arc::new(MockProcess::new(system.clone(), "a2").await);
+  let a3 = Arc::new(MockProcess::new(system.clone(), "a3").await);
 
   let barrier = AsyncBarrier::new(4);
 
   let future_process = FutureProcess::new(system, Duration::from_millis(100)).await;
 
-  future_process.pipe_to(a1.clone()).await;
-  future_process.pipe_to(a2.clone()).await;
-  future_process.pipe_to(a3.clone()).await;
+  future_process.pipe_to(a1.get_pid()).await;
+  future_process.pipe_to(a2.get_pid()).await;
+  future_process.pipe_to(a3.get_pid()).await;
 
   for process in [a1.clone(), a2.clone(), a3.clone()] {
     let barrier = barrier.clone();
