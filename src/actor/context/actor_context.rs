@@ -1050,7 +1050,6 @@ impl Context for ActorContext {}
 #[async_trait]
 impl MessageInvoker for ActorContext {
   async fn invoke_system_message(&mut self, message: MessageHandle) -> Result<(), ActorError> {
-    let self_pid = self.get_self().await.unwrap();
     let sm = message.as_any().downcast_ref::<SystemMessage>();
     if let Some(sm) = sm {
       match sm {

@@ -3,7 +3,6 @@ use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 use std::sync::Arc;
 
-use crate::actor::actor::props::ContextHandleFunc;
 use crate::actor::context::{ContextHandle, MessagePart};
 use crate::actor::message::{Message, MessageHandle};
 use crate::actor::messages::SystemMessage;
