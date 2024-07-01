@@ -88,8 +88,6 @@ impl ExtendedPid {
       } else {
         return process.clone();
       }
-    } else {
-      panic!("No process found for pid: {}", self)
     }
 
     let process_registry = actor_system.get_process_registry().await;
