@@ -331,8 +331,12 @@ struct ReceiveFuncActor(ReceiveFunc);
 
 #[async_trait]
 impl Actor for ReceiveFuncActor {
-  async fn receive(&self, ctx: ContextHandle) -> Result<(), ActorError> {
+  async fn handle(&self, ctx: ContextHandle) -> Result<(), ActorError> {
     self.0.run(ctx).await
+  }
+
+  async fn receive(&self, _: ContextHandle, _: MessageHandle) -> Result<(), ActorError> {
+    Ok(())
   }
 }
 

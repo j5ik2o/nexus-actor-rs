@@ -353,17 +353,17 @@ impl DefaultMailbox {
         break;
       }
 
-      if let Ok(Some(msg)) = self.poll_user_mailbox().await {
+      if let Ok(Some(message)) = self.poll_user_mailbox().await {
         self.decrement_user_messages_count().await;
-        let result = message_invoker.invoke_user_message(msg.clone()).await;
+        let result = message_invoker.invoke_user_message(message.clone()).await;
         if let Err(e) = result {
           println!("Failed to invoke system message: {:?}", e);
           message_invoker
-            .escalate_failure(e.reason().cloned().unwrap(), msg.clone())
+            .escalate_failure(e.reason().cloned().unwrap(), message.clone())
             .await;
         }
         for middleware in self.get_middlewares().await {
-          middleware.message_received(msg.clone()).await;
+          middleware.message_received(message.clone()).await;
         }
       } else {
         break;

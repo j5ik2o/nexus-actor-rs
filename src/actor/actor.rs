@@ -3,11 +3,13 @@ use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 use std::sync::Arc;
 
+use crate::actor::actor::props::ContextHandleFunc;
+use crate::actor::context::{ContextHandle, MessagePart};
+use crate::actor::message::{Message, MessageHandle};
+use crate::actor::messages::SystemMessage;
+use crate::actor::supervisor::supervisor_strategy::SupervisorStrategyHandle;
 use async_trait::async_trait;
 use backtrace::Backtrace;
-
-use crate::actor::context::ContextHandle;
-use crate::actor::supervisor::supervisor_strategy::SupervisorStrategyHandle;
 pub mod actor_process;
 pub mod behavior;
 pub mod pid;
@@ -217,7 +219,40 @@ impl Error for ActorError {
 
 #[async_trait]
 pub trait Actor: Debug + Send + Sync + 'static {
-  async fn receive(&self, c: ContextHandle) -> Result<(), ActorError>;
+  async fn handle(&self, context_handle: ContextHandle) -> Result<(), ActorError> {
+    let message = context_handle.get_message().await;
+    let any_message = message.as_ref().unwrap().as_any();
+    if let Some(msg) = any_message.downcast_ref::<SystemMessage>() {
+      match msg {
+        SystemMessage::Started(_) => self.post_start(context_handle).await,
+        SystemMessage::Stop(_) => self.pre_stop(context_handle).await,
+        SystemMessage::Restart(_) => self.pre_restart(context_handle).await,
+      }
+    } else if let Some(msg)  = any_message.downcast_ref::<Terminated>() {
+      self.on_child_terminated(context_handle, msg).await
+    } else {
+      self.receive(context_handle.clone(), context_handle.get_message().await.unwrap()).await
+    }
+  }
+
+  async fn receive(&self, c: ContextHandle, message_handle: MessageHandle) -> Result<(), ActorError>;
+
+  async fn post_start(&self, context_handle: ContextHandle) -> Result<(), ActorError> {
+    Ok(())
+  }
+
+  async fn pre_stop(&self, context_handle: ContextHandle) -> Result<(), ActorError> {
+    Ok(())
+  }
+
+  async fn pre_restart(&self, context_handle: ContextHandle) -> Result<(), ActorError> {
+    Ok(())
+  }
+
+  async fn on_child_terminated(&self, context_handle: ContextHandle, terminated: &Terminated) -> Result<(), ActorError> {
+    Ok(())
+  }
+
   fn get_supervisor_strategy(&self) -> Option<SupervisorStrategyHandle> {
     None
   }
@@ -244,6 +279,7 @@ impl ActorHandle {
   pub fn new_arc(actor: Arc<dyn Actor>) -> Self {
     ActorHandle(actor)
   }
+
   pub fn new(actor: impl Actor + 'static) -> Self {
     ActorHandle(Arc::new(actor))
   }
@@ -251,7 +287,11 @@ impl ActorHandle {
 
 #[async_trait]
 impl Actor for ActorHandle {
-  async fn receive(&self, c: ContextHandle) -> Result<(), ActorError> {
-    self.0.receive(c).await
+  async fn handle(&self, c: ContextHandle) -> Result<(), ActorError> {
+    self.0.handle(c).await
+  }
+
+  async fn receive(&self, c: ContextHandle, message_handle: MessageHandle) -> Result<(), ActorError> {
+    Ok(())
   }
 }

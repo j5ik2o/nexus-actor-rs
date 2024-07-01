@@ -405,10 +405,11 @@ impl ActorContext {
       let actor_opt = self.get_actor().await;
       let actor = actor_opt.as_ref().unwrap();
 
-      let result = actor.receive(context.clone()).await;
+      let result = actor.handle(context.clone()).await;
 
       if result.is_ok() && message.as_any().is::<AutoRespondHandle>() {
-        let auto_respond = message.as_any()
+        let auto_respond = message
+          .as_any()
           .downcast_ref::<AutoRespondHandle>()
           .expect("Failed to downcast to AutoRespondWrapper")
           .clone();

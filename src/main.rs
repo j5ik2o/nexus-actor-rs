@@ -25,46 +25,47 @@ struct ChildActor {}
 
 #[async_trait]
 impl Actor for ChildActor {
-  async fn receive(&self, ctx: ContextHandle) -> Result<(), ActorError> {
-    let msg = ctx.get_message().await;
-    println!("child_actor: msg = {:?}", msg);
+  async fn post_start(&self, _: ContextHandle) -> Result<(), ActorError> {
+    println!("ChildActor::post_start");
+    Ok(())
+  }
+
+  async fn receive(&self, _: ContextHandle, message_handle: MessageHandle) -> Result<(), ActorError> {
+    println!("ChildActor::receive: msg = {:?}", message_handle);
     Ok(())
   }
 }
 
 #[derive(Debug)]
-struct MyActor {}
+struct TopActor {}
 
 #[async_trait]
-impl Actor for MyActor {
-  async fn receive(&self, mut ctx: ContextHandle) -> Result<(), ActorError> {
-    let msg = ctx.get_message().await.unwrap();
-    println!("my_actor: msg = {:?}", msg);
+impl Actor for TopActor {
+  async fn post_start(&self, mut context_handle: ContextHandle) -> Result<(), ActorError> {
+    println!("TopActor::post_start");
+    let props = Props::from_producer_func(ProducerFunc::new(create_child_actor)).await;
 
-    if let Some(sm) = msg.as_any().downcast_ref::<SystemMessage>() {
-      println!("string = {:?}", sm);
-      let props = Props::from_producer_func(ProducerFunc::new(create_child_actor)).await;
-
-      let pid = ctx.spawn(props).await;
-      println!("child = {}", pid);
-      for _ in 1..10 {
-        ctx
-          .send(pid.clone(), MessageHandle::new(Hello("hello-2".to_string())))
-          .await;
-      }
+    let pid = context_handle.spawn(props).await;
+    for _ in 1..10 {
+      context_handle
+        .send(pid.clone(), MessageHandle::new(Hello("hello-2".to_string())))
+        .await;
     }
+    Ok(())
+  }
+
+  async fn receive(&self, _: ContextHandle, message_handle: MessageHandle) -> Result<(), ActorError> {
+    println!("TopActor::receive: msg = {:?}", message_handle);
     Ok(())
   }
 }
 
 pub async fn create_my_actor(ctx: ContextHandle) -> ActorHandle {
-  let actor = MyActor {};
-  ActorHandle::new(Arc::new(actor))
+  ActorHandle::new(TopActor {})
 }
 
 pub async fn create_child_actor(ctx: ContextHandle) -> ActorHandle {
-  let actor = ChildActor {};
-  ActorHandle::new(Arc::new(actor))
+  ActorHandle::new(ChildActor {})
 }
 
 #[tokio::main]
