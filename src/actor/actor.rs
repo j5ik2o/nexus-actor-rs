@@ -220,16 +220,16 @@ impl Error for ActorError {
 #[async_trait]
 pub trait Actor: Debug + Send + Sync + 'static {
   async fn handle(&self, context_handle: ContextHandle) -> Result<(), ActorError> {
-    let message = context_handle.get_message().await;
-    let any_message = message.as_ref().unwrap().as_any();
-    if let Some(msg) = any_message.downcast_ref::<SystemMessage>() {
-      match msg {
+    let message_handle_opt = context_handle.get_message().await;
+    let any_message = message_handle_opt.as_ref().unwrap().as_any();
+    if let Some(system_message) = any_message.downcast_ref::<SystemMessage>() {
+      match system_message {
         SystemMessage::Started(_) => self.post_start(context_handle).await,
         SystemMessage::Stop(_) => self.pre_stop(context_handle).await,
         SystemMessage::Restart(_) => self.pre_restart(context_handle).await,
       }
-    } else if let Some(msg)  = any_message.downcast_ref::<Terminated>() {
-      self.on_child_terminated(context_handle, msg).await
+    } else if let Some(terminated)  = any_message.downcast_ref::<Terminated>() {
+      self.on_child_terminated(context_handle, terminated).await
     } else {
       self.receive(context_handle.clone(), context_handle.get_message().await.unwrap()).await
     }

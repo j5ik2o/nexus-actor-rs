@@ -34,7 +34,7 @@ impl std::fmt::Display for Pid {
 pub struct ExtendedPid {
   pub inner: Pid,
   actor_system: ActorSystem,
-  p: Arc<Mutex<Option<ProcessHandle>>>,
+  process_handle: Arc<Mutex<Option<ProcessHandle>>>,
 }
 
 impl PartialEq for ExtendedPid {
@@ -59,7 +59,7 @@ impl ExtendedPid {
     Self {
       inner: pid,
       actor_system,
-      p: Arc::new(Mutex::new(None)),
+      process_handle: Arc::new(Mutex::new(None)),
     }
   }
 
@@ -77,22 +77,25 @@ impl ExtendedPid {
 
   pub(crate) async fn ref_process(&self, actor_system: ActorSystem) -> ProcessHandle {
     log::debug!("Ref process: {}", self);
-    let mut mg = self.p.lock().await;
-    if let Some(process) = mg.as_ref() {
+    let mut process_handle_opt = self.process_handle.lock().await.clone();
+    if let Some(process) = process_handle_opt.as_ref() {
       if let Some(actor_process) = process.as_any().downcast_ref::<ActorProcess>() {
         if actor_process.is_dead() {
-          *mg = None;
+          *process_handle_opt = None;
         } else {
           return process.clone();
         }
       } else {
         return process.clone();
       }
+    } else {
+      panic!("No process found for pid: {}", self)
     }
 
-    if let Some(ref_) = actor_system.get_process_registry().await.get_process(self).await {
-      *mg = Some(ref_.clone());
-      ref_
+    let process_registry = actor_system.get_process_registry().await;
+    if let Some(process_handle) = process_registry.get_process(self).await {
+      *process_handle_opt = Some(process_handle.clone());
+      process_handle
     } else {
       panic!("No process found for pid: {}", self)
     }
