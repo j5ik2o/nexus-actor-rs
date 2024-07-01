@@ -5,13 +5,13 @@ use async_trait::async_trait;
 
 use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::actor::props::{Props, SenderMiddleware, SpawnError, SpawnFunc};
-use crate::actor::actor::{ActorHandle, PoisonPill};
+use crate::actor::actor::{ActorHandle, PoisonPill, Watch};
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::{
   InfoPart, MessagePart, SenderContext, SenderContextHandle, SenderPart, SpawnerContext, SpawnerContextHandle,
   SpawnerPart, StopperPart,
 };
-use crate::actor::future::Future;
+use crate::actor::future::{Future, FutureProcess};
 use crate::actor::message::{MessageHandle, SenderFunc};
 use crate::actor::message_envelope::{MessageEnvelope, MessageHeaders, ReadonlyMessageHeadersHandle};
 use crate::actor::messages::AutoReceiveMessage;
@@ -118,8 +118,12 @@ impl SenderPart for RootContext {
       .await
   }
 
-  async fn request_future(&self, _pid: ExtendedPid, _message: MessageHandle, _timeout: &Duration) -> Future {
-    todo!()
+  async fn request_future(&self, pid: ExtendedPid, message: MessageHandle, timeout: &tokio::time::Duration) -> Future {
+    let future_process = FutureProcess::new(self.get_actor_system().await, timeout.clone()).await;
+    let future_pid = future_process.get_pid().await;
+    let moe = MessageEnvelope::new(message).with_sender(future_pid.clone());
+    self.send_user_message(pid, MessageHandle::new(moe)).await;
+    future_process.get_future().await
   }
 }
 
@@ -203,8 +207,21 @@ impl StopperPart for RootContext {
     pid.ref_process(self.get_actor_system().await).await.stop(pid).await
   }
 
-  async fn stop_future(&mut self, _: &ExtendedPid) -> Future {
-    todo!()
+  async fn stop_future(&mut self, pid: &ExtendedPid) -> Future {
+    let future_process = FutureProcess::new(self.get_actor_system().await, tokio::time::Duration::from_secs(10)).await;
+
+    let future_pid = future_process.get_pid().await.clone();
+    pid
+      .send_system_message(
+        self.get_actor_system().await.clone(),
+        MessageHandle::new(Watch {
+          watcher: Some(future_pid.inner),
+        }),
+      )
+      .await;
+    self.stop(pid).await;
+
+    future_process.get_future().await
   }
 
   async fn poison(&mut self, pid: &ExtendedPid) {
@@ -217,6 +234,19 @@ impl StopperPart for RootContext {
   }
 
   async fn poison_future(&mut self, pid: &ExtendedPid) -> Future {
-    todo!()
+    let future_process = FutureProcess::new(self.get_actor_system().await, tokio::time::Duration::from_secs(10)).await;
+
+    let future_pid = future_process.get_pid().await.clone();
+    pid
+      .send_system_message(
+        self.get_actor_system().await.clone(),
+        MessageHandle::new(Watch {
+          watcher: Some(future_pid.inner),
+        }),
+      )
+      .await;
+    self.poison(pid).await;
+
+    future_process.get_future().await
   }
 }

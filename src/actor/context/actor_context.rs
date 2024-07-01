@@ -4,11 +4,6 @@ use std::pin::Pin;
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::Arc;
 
-use async_trait::async_trait;
-use futures::future::BoxFuture;
-use num_enum::{IntoPrimitive, TryFromPrimitive};
-use tokio::sync::Mutex;
-
 use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::actor::pid_set::PidSet;
 use crate::actor::actor::props::{Props, SpawnError};
@@ -24,7 +19,7 @@ use crate::actor::context::{
   SpawnerContextHandle, SpawnerPart, StopperPart,
 };
 use crate::actor::dispatch::message_invoker::MessageInvoker;
-use crate::actor::future::Future;
+use crate::actor::future::FutureProcess;
 use crate::actor::log::P_LOG;
 use crate::actor::message::{
   Message, MessageHandle, MessageHandles, ProducerFunc, ReceiverFunc, ResponseHandle, SenderFunc,
@@ -39,6 +34,11 @@ use crate::actor::supervisor::supervisor_strategy::{
   Supervisor, SupervisorHandle, SupervisorStrategy, DEFAULT_SUPERVISION_STRATEGY,
 };
 use crate::ctxext::extensions::{ContextExtensionHandle, ContextExtensionId, ContextExtensions};
+use async_trait::async_trait;
+use futures::future::BoxFuture;
+use num_enum::{IntoPrimitive, TryFromPrimitive};
+use tokio::sync::Mutex;
+use uuid::Variant::Future;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, IntoPrimitive, TryFromPrimitive)]
 #[repr(u8)]
@@ -865,7 +865,7 @@ impl BasePart for ActorContext {
 
   async fn reenter_after(
     &self,
-    _: &Future,
+    _: &crate::actor::future::Future,
     _: Box<
       dyn FnOnce(Result<Box<dyn Any + Send>, Box<dyn Error + Send + Sync>>) -> BoxFuture<'static, ()> + Send + 'static,
     >,
@@ -917,8 +917,17 @@ impl SenderPart for ActorContext {
     self.send_user_message(pid, message_handle).await;
   }
 
-  async fn request_future(&self, _: ExtendedPid, _: MessageHandle, _: &tokio::time::Duration) -> Future {
-    todo!()
+  async fn request_future(
+    &self,
+    pid: ExtendedPid,
+    message: MessageHandle,
+    timeout: &tokio::time::Duration,
+  ) -> crate::actor::future::Future {
+    let future_process = FutureProcess::new(self.get_actor_system().await, timeout.clone()).await;
+    let future_pid = future_process.get_pid().await;
+    let moe = MessageEnvelope::new(message).with_sender(future_pid);
+    self.send_user_message(pid, MessageHandle::new(moe)).await;
+    future_process.get_future().await
   }
 }
 
@@ -1006,8 +1015,20 @@ impl StopperPart for ActorContext {
     pid.ref_process(inner_mg.actor_system.clone()).await.stop(&pid).await;
   }
 
-  async fn stop_future(&mut self, _: &ExtendedPid) -> Future {
-    todo!()
+  async fn stop_future(&mut self, pid: &ExtendedPid) -> crate::actor::future::Future {
+    let future_process = FutureProcess::new(self.get_actor_system().await, tokio::time::Duration::from_secs(10)).await;
+
+    pid
+      .send_system_message(
+        self.get_actor_system().await,
+        MessageHandle::new(Watch {
+          watcher: Some(future_process.get_pid().await.inner),
+        }),
+      )
+      .await;
+    self.stop(pid).await;
+
+    future_process.get_future().await
   }
 
   async fn poison(&mut self, pid: &ExtendedPid) {
@@ -1020,8 +1041,20 @@ impl StopperPart for ActorContext {
       .await;
   }
 
-  async fn poison_future(&mut self, pid: &ExtendedPid) -> Future {
-    todo!()
+  async fn poison_future(&mut self, pid: &ExtendedPid) -> crate::actor::future::Future {
+    let future_process = FutureProcess::new(self.get_actor_system().await, tokio::time::Duration::from_secs(10)).await;
+
+    pid
+      .send_system_message(
+        self.get_actor_system().await,
+        MessageHandle::new(Watch {
+          watcher: Some(future_process.get_pid().await.inner),
+        }),
+      )
+      .await;
+    self.poison(pid).await;
+
+    future_process.get_future().await
   }
 }
 
