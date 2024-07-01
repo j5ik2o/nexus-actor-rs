@@ -4,9 +4,9 @@ use std::sync::Arc;
 
 use futures::future::BoxFuture;
 
+use crate::actor::actor::{ActorInnerError, PoisonPill, Stop};
 use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::actor::restart_statistics::RestartStatistics;
-use crate::actor::actor::{ActorInnerError, PoisonPill, Stop};
 use crate::actor::message::{Message, MessageHandle};
 
 #[derive(Debug, Clone)]

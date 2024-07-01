@@ -9,7 +9,7 @@ use crate::log::caller::CallerInfo;
 use crate::log::encoder::Encoder;
 use crate::log::event::Event;
 use crate::log::log::Level;
-use crate::log::stream::{unsubscribe_stream, Subscription, EVENT_STREAM};
+use crate::log::stream::{EVENT_STREAM, Subscription, unsubscribe_stream};
 
 pub struct IoLogger {
   sender: mpsc::Sender<Event>,

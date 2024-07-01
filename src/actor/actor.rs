@@ -3,12 +3,14 @@ use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 use std::sync::Arc;
 
+use async_trait::async_trait;
+use backtrace::Backtrace;
+
 use crate::actor::context::{ContextHandle, MessagePart};
 use crate::actor::message::{Message, MessageHandle};
 use crate::actor::messages::SystemMessage;
 use crate::actor::supervisor::supervisor_strategy::SupervisorStrategyHandle;
-use async_trait::async_trait;
-use backtrace::Backtrace;
+
 pub mod actor_process;
 pub mod behavior;
 pub mod pid;
