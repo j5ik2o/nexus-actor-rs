@@ -5,6 +5,8 @@ pub mod context;
 pub mod dispatch;
 pub mod event_stream;
 pub mod future;
+#[cfg(test)]
+mod future_test;
 pub mod guardian;
 pub mod log;
 pub mod message;
@@ -14,5 +16,3 @@ pub mod middleware_chain;
 pub mod process;
 pub mod supervisor;
 pub mod util;
-#[cfg(test)]
-mod future_test;

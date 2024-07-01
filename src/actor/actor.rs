@@ -227,10 +227,12 @@ pub trait Actor: Debug + Send + Sync + 'static {
         SystemMessage::Stop(_) => self.pre_stop(context_handle).await,
         SystemMessage::Restart(_) => self.pre_restart(context_handle).await,
       }
-    } else if let Some(terminated)  = any_message.downcast_ref::<Terminated>() {
+    } else if let Some(terminated) = any_message.downcast_ref::<Terminated>() {
       self.on_child_terminated(context_handle, terminated).await
     } else {
-      self.receive(context_handle.clone(), context_handle.get_message().await.unwrap()).await
+      self
+        .receive(context_handle.clone(), context_handle.get_message().await.unwrap())
+        .await
     }
   }
 
@@ -248,7 +250,11 @@ pub trait Actor: Debug + Send + Sync + 'static {
     Ok(())
   }
 
-  async fn on_child_terminated(&self, context_handle: ContextHandle, terminated: &Terminated) -> Result<(), ActorError> {
+  async fn on_child_terminated(
+    &self,
+    context_handle: ContextHandle,
+    terminated: &Terminated,
+  ) -> Result<(), ActorError> {
     Ok(())
   }
 
