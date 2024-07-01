@@ -5,8 +5,8 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use tokio::sync::Mutex;
 
-use crate::actor::actor::{ActorInnerError, Stop};
 use crate::actor::actor::pid::ExtendedPid;
+use crate::actor::actor::{ActorInnerError, Stop};
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::log::P_LOG;
 use crate::actor::message::{Message, MessageHandle};

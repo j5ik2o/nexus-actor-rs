@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 use std::future::Future;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use futures::future::BoxFuture;

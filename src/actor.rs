@@ -16,3 +16,6 @@ pub mod middleware_chain;
 pub mod process;
 pub mod supervisor;
 pub mod util;
+
+#[cfg(test)]
+mod spawn_test;

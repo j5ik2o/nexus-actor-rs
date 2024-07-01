@@ -2,8 +2,8 @@ use std::any::Any;
 
 use async_trait::async_trait;
 
-use crate::actor::actor::{DeadLetterResponse, Stop, Terminated, TerminatedReason, Watch};
 use crate::actor::actor::pid::ExtendedPid;
+use crate::actor::actor::{DeadLetterResponse, Stop, Terminated, TerminatedReason, Watch};
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::SenderPart;
 use crate::actor::log::P_LOG;

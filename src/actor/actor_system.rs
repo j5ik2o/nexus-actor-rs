@@ -3,8 +3,8 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
-use crate::actor::actor::Pid;
 use crate::actor::actor::pid::ExtendedPid;
+use crate::actor::actor::Pid;
 use crate::actor::context::root_context::RootContext;
 use crate::actor::dispatch::dead_letter_process::DeadLetterProcess;
 use crate::actor::event_stream::event_stream_process::EventStreamProcess;
@@ -215,8 +215,8 @@ mod tests {
 
   use async_trait::async_trait;
 
-  use crate::actor::actor::{Actor, ActorError, ActorHandle};
   use crate::actor::actor::props::Props;
+  use crate::actor::actor::{Actor, ActorError, ActorHandle};
   use crate::actor::context::{ContextHandle, InfoPart, MessagePart, SenderPart, SpawnerPart};
   use crate::actor::message::{Message, MessageHandle, ProducerFunc};
 

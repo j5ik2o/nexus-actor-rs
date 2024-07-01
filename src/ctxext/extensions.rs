@@ -1,6 +1,6 @@
 use std::fmt::Debug;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicI32, Ordering};
+use std::sync::Arc;
 
 use tokio::sync::Mutex;
 
