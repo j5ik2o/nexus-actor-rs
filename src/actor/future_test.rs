@@ -121,7 +121,10 @@ async fn test_future_pipe_to_message() {
 
   // タイムアウト付きで待機
   let timeout_result = tokio::time::timeout(Duration::from_secs(5), barrier.wait()).await;
-  assert!(timeout_result.is_ok(), "Test timed out waiting for all processes to receive the message");
+  assert!(
+    timeout_result.is_ok(),
+    "Test timed out waiting for all processes to receive the message"
+  );
 
   for process in [a1.clone(), a2.clone(), a3.clone()] {
     assert!(
@@ -139,10 +142,7 @@ async fn test_future_pipe_to_message() {
   let result = future_process.result().await;
   assert!(result.is_ok(), "Expected Ok result, got {:?}", result);
   let message = result.unwrap();
-  assert_eq!(
-    message.as_any().downcast_ref::<String>().unwrap(),
-    "hello"
-  );
+  assert_eq!(message.as_any().downcast_ref::<String>().unwrap(), "hello");
 }
 
 #[tokio::test]
