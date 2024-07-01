@@ -43,7 +43,6 @@ impl DeadLetterProcess {
         .await;
     });
     let throttle = Throttle::new(dead_letter_throttle_count, dead_letter_throttle_interval, func).await;
-    println!("dead_letter_process: new: throttle: {:?}", throttle);
 
     let cloned_self = myself.clone();
     myself
