@@ -7,6 +7,7 @@ use tokio::sync::{Mutex, Notify};
 use tokio::time::{sleep, Duration};
 
 use crate::actor::actor::pid::ExtendedPid;
+use crate::actor::actor_system::ActorSystem;
 use crate::actor::future::{FutureError, FutureProcess};
 use crate::actor::message::{Message, MessageHandle};
 use crate::actor::process::Process;
@@ -65,6 +66,7 @@ impl Process for MockProcess {
 
 #[tokio::test]
 async fn test_future_pipe_to_message() {
+  let system = ActorSystem::new(&[]).await;
   let a1 = Arc::new(MockProcess {
     name: "a1".to_string(),
     received: Arc::new(AtomicBool::new(false)),
@@ -83,7 +85,7 @@ async fn test_future_pipe_to_message() {
 
   let barrier = AsyncBarrier::new(4);
 
-  let future_process = FutureProcess::new(Duration::from_secs(1));
+  let future_process = FutureProcess::new(system, Duration::from_secs(1)).await;
 
   future_process.pipe_to(a1.clone()).await;
   future_process.pipe_to(a2.clone()).await;
@@ -121,6 +123,7 @@ async fn test_future_pipe_to_message() {
 
 #[tokio::test]
 async fn test_future_pipe_to_timeout_sends_error() {
+  let system = ActorSystem::new(&[]).await;
   let a1 = Arc::new(MockProcess {
     name: "a1".to_string(),
     received: Arc::new(AtomicBool::new(false)),
@@ -139,7 +142,7 @@ async fn test_future_pipe_to_timeout_sends_error() {
 
   let barrier = AsyncBarrier::new(4);
 
-  let future_process = FutureProcess::new(Duration::from_millis(100));
+  let future_process = FutureProcess::new(system, Duration::from_millis(100)).await;
 
   future_process.pipe_to(a1.clone()).await;
   future_process.pipe_to(a2.clone()).await;
@@ -176,7 +179,8 @@ async fn test_future_pipe_to_timeout_sends_error() {
 
 #[tokio::test]
 async fn test_new_future_timeout_no_race() {
-  let future_process = FutureProcess::new(Duration::from_millis(200));
+  let system = ActorSystem::new(&[]).await;
+  let future_process = FutureProcess::new(system, Duration::from_millis(200)).await;
   let barrier = AsyncBarrier::new(2);
 
   tokio::spawn({
@@ -204,7 +208,8 @@ async fn assert_future_success(future_process: &FutureProcess) -> MessageHandle 
 
 #[tokio::test]
 async fn test_future_result_dead_letter_response() {
-  let future_process = FutureProcess::new(Duration::from_secs(1));
+  let system = ActorSystem::new(&[]).await;
+  let future_process = FutureProcess::new(system, Duration::from_secs(1)).await;
   future_process.fail(FutureError::DeadLetter).await;
 
   let result = future_process.result().await;
@@ -213,7 +218,8 @@ async fn test_future_result_dead_letter_response() {
 
 #[tokio::test]
 async fn test_future_result_timeout() {
-  let future_process = FutureProcess::new(Duration::from_millis(50));
+  let system = ActorSystem::new(&[]).await;
+  let future_process = FutureProcess::new(system, Duration::from_millis(50)).await;
 
   sleep(Duration::from_millis(100)).await;
 
@@ -223,7 +229,8 @@ async fn test_future_result_timeout() {
 
 #[tokio::test]
 async fn test_future_result_success() {
-  let future_process = FutureProcess::new(Duration::from_secs(1));
+  let system = ActorSystem::new(&[]).await;
+  let future_process = FutureProcess::new(system, Duration::from_secs(1)).await;
   future_process
     .complete(MessageHandle::new("response".to_string()))
     .await;

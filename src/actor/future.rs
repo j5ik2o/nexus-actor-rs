@@ -1,7 +1,7 @@
 use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::actor::DeadLetterResponse;
 use crate::actor::message::{Message, MessageHandle};
-use crate::actor::process::Process;
+use crate::actor::process::{Process, ProcessHandle};
 use async_trait::async_trait;
 use std::any::Any;
 use std::fmt::Debug;
@@ -9,6 +9,9 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{Mutex, Notify};
 use tokio::time::timeout;
+use crate::actor::actor_system::ActorSystem;
+use crate::actor::log::P_LOG;
+use crate::log::field::Field;
 
 #[derive(Debug, Clone)]
 pub enum FutureError {
@@ -39,6 +42,8 @@ pub struct Future {
   notify: Arc<Notify>,
 }
 
+
+
 struct CompletionFunc(Box<dyn Fn(Option<MessageHandle>, Option<&FutureError>) + Send>);
 
 impl CompletionFunc {
@@ -61,6 +66,8 @@ impl Debug for CompletionFunc {
 
 #[derive(Debug)]
 struct FutureInner {
+  actor_system: ActorSystem,
+  pid: Option<ExtendedPid>,
   done: bool,
   result: Option<MessageHandle>,
   error: Option<FutureError>,
@@ -70,12 +77,14 @@ struct FutureInner {
 
 #[derive(Debug)]
 pub struct FutureProcess {
-  future: Future,
+  future: Arc<Mutex<Future>>,
 }
 
 impl FutureProcess {
-  pub fn new(duration: Duration) -> Arc<Self> {
+  pub async fn new(system: ActorSystem, duration: Duration) -> Arc<Self> {
     let inner = Arc::new(Mutex::new(FutureInner {
+      actor_system: system.clone(),
+      pid: None,
       done: false,
       result: None,
       error: None,
@@ -86,13 +95,23 @@ impl FutureProcess {
 
     let future = Future { inner, notify };
 
-    let future_process = Arc::new(FutureProcess { future: future.clone() });
+    let mut future_process = Arc::new(FutureProcess { future: Arc::new(Mutex::new(future.clone())) });
+
+    let process_registry= system.get_process_registry().await;
+    let id = process_registry.next_id();
+
+    let (pid, ok) = process_registry.add_process(ProcessHandle::new_arc(future_process.clone()), &format!("future_{}",id));
+    if !ok {
+      P_LOG.error("failed to register future process", vec![Field::stringer("pid", pid.to_string())]).await;
+    }
+    future_process.set_pid(pid).await;
 
     if duration > Duration::from_secs(0) {
       let future_process_clone = Arc::clone(&future_process);
 
       tokio::spawn(async move {
-        if timeout(duration, future_process_clone.future.notify.notified())
+        let future = future_process_clone.get_future().await;
+        if timeout(duration, future.notify.notified())
           .await
           .is_err()
         {
@@ -104,32 +123,56 @@ impl FutureProcess {
     future_process
   }
 
+  pub async fn set_pid(&self, pid: ExtendedPid) {
+    self.future.lock().await.set_pid(pid).await;
+  }
+
+  pub async fn get_pid(&self) -> ExtendedPid {
+    let future = self.future.lock().await.clone();
+    future.inner.lock().await.pid.as_ref().unwrap().clone()
+  }
+
+  pub async fn get_future(&self) -> Future {
+    let future_mg = self.future.lock().await;
+    future_mg.clone()
+  }
+
+
   pub async fn is_empty(&self) -> bool {
-    let inner = self.future.inner.lock().await;
+    let future_mg = self.future.lock().await.clone();
+    let inner = future_mg.inner.lock().await;
     !inner.done
   }
 
   pub async fn pipe_to(&self, process: Arc<dyn Process>) {
-    self.future.pipe_to(process).await;
+    let future_mg = self.future.lock().await.clone();
+    future_mg.pipe_to(process).await;
   }
 
   pub async fn result(&self) -> Result<MessageHandle, FutureError> {
-    self.future.result().await
+    let future_mg = self.future.lock().await.clone();
+    future_mg.result().await
   }
 
   pub async fn complete(&self, result: MessageHandle) {
-    self.future.complete(result).await;
+    let future_mg = self.future.lock().await.clone();
+    future_mg.complete(result).await;
   }
 
   pub async fn fail(&self, error: FutureError) {
-    self.future.fail(error).await;
+    let future_mg = self.future.lock().await.clone();
+    future_mg.fail(error).await;
   }
 
   async fn handle_timeout(&self) {
     let error = FutureError::Timeout;
-    self.future.fail(error.clone()).await;
+    {
+      let future_mg = self.future.lock().await;
+      future_mg.fail(error.clone()).await;
+    }
 
-    let mut inner = self.future.inner.lock().await;
+    let future = self.future.lock().await.clone();
+    let mut inner = future.inner.lock().await;
     for pipe in &inner.pipes {
       pipe.send_user_message(None, MessageHandle::new(error.clone())).await;
     }
@@ -140,22 +183,28 @@ impl FutureProcess {
 #[async_trait]
 impl Process for FutureProcess {
   async fn send_user_message(&self, _: Option<&ExtendedPid>, message: MessageHandle) {
-    let future = self.future.clone();
-    tokio::spawn(async move {
-      if message.as_any().downcast_ref::<DeadLetterResponse>().is_some() {
-        future.fail(FutureError::DeadLetter).await;
-      } else {
-        future.complete(message).await;
+    let future = self.future.lock().await.clone();
+    tokio::spawn({
+      let future = future.clone();
+      async move {
+        if message.as_any().downcast_ref::<DeadLetterResponse>().is_some() {
+          future.fail(FutureError::DeadLetter).await;
+        } else {
+          future.complete(message).await;
+        }
+        future.instrument().await;
       }
-      future.instrument().await;
     });
   }
 
   async fn send_system_message(&self, _pid: &ExtendedPid, message: MessageHandle) {
-    let future = self.future.clone();
-    tokio::spawn(async move {
-      future.complete(message).await;
-      future.instrument().await;
+    let future = self.future.lock().await.clone();
+    tokio::spawn({
+      let future = future.clone();
+      async move {
+        future.complete(message).await;
+        future.instrument().await;
+      }
     });
   }
 
@@ -183,6 +232,11 @@ impl Future {
       }
       self.notify.notified().await;
     }
+  }
+
+  pub async fn set_pid(&mut self, pid: ExtendedPid) {
+    let mut inner = self.inner.lock().await;
+    inner.pid = Some(pid);
   }
 
   pub async fn pipe_to(&self, process: Arc<dyn Process>) {
