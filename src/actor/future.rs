@@ -44,7 +44,8 @@ struct CompletionFunc(Box<dyn Fn(Option<MessageHandle>, Option<&FutureError>) + 
 impl CompletionFunc {
   fn new<F>(f: F) -> Self
   where
-    F: Fn(Option<MessageHandle>, Option<&FutureError>) + Send + 'static, {
+      F: Fn(Option<MessageHandle>, Option<&FutureError>) + Send + 'static,
+  {
     Self(Box::new(f))
   }
 
@@ -73,39 +74,8 @@ pub struct FutureProcess {
   future: Future,
 }
 
-#[async_trait]
-impl Process for FutureProcess {
-  async fn send_user_message(&self, _: Option<&ExtendedPid>, message: MessageHandle) {
-    let future = self.future.clone();
-    tokio::spawn(async move {
-      if message.as_any().downcast_ref::<DeadLetterResponse>().is_some() {
-        future.fail(FutureError::DeadLetter).await;
-      } else {
-        future.complete(message).await;
-      }
-      future.instrument().await;
-    });
-  }
-
-  async fn send_system_message(&self, pid: &ExtendedPid, message: MessageHandle) {
-    let future = self.future.clone();
-    tokio::spawn(async move {
-      future.complete(message).await;
-      future.instrument().await;
-    });
-  }
-
-  async fn stop(&self, pid: &ExtendedPid) {}
-
-  fn set_dead(&self) {}
-
-  fn as_any(&self) -> &dyn Any {
-    self
-  }
-}
-
-impl Future {
-  pub fn new(duration: Duration) -> Arc<FutureProcess> {
+impl FutureProcess {
+  pub fn new(duration: Duration) -> Arc<Self> {
     let inner = Arc::new(Mutex::new(FutureInner {
       done: false,
       result: None,
@@ -120,19 +90,11 @@ impl Future {
     let future_process = Arc::new(FutureProcess { future: future.clone() });
 
     if duration > Duration::from_secs(0) {
-      let inner_clone = Arc::clone(&future.inner);
-      let notify_clone = Arc::clone(&future.notify);
       let future_process_clone = Arc::clone(&future_process);
 
       tokio::spawn(async move {
-        if timeout(duration, notify_clone.notified()).await.is_err() {
-          let mut inner = inner_clone.lock().await;
-          if !inner.done {
-            inner.error = Some(FutureError::Timeout);
-            inner.done = true;
-            drop(inner);
-            future_process_clone.future.notify.notify_waiters();
-          }
+        if timeout(duration, future_process_clone.future.notify.notified()).await.is_err() {
+          future_process_clone.handle_timeout().await;
         }
       });
     }
@@ -140,6 +102,71 @@ impl Future {
     future_process
   }
 
+  pub async fn is_empty(&self) -> bool {
+    let inner = self.future.inner.lock().await;
+    !inner.done
+  }
+
+  pub async fn pipe_to(&self, process: Arc<dyn Process>) {
+    self.future.pipe_to(process).await;
+  }
+
+  pub async fn result(&self) -> Result<MessageHandle, FutureError> {
+    self.future.result().await
+  }
+
+  pub async fn complete(&self, result: MessageHandle) {
+    self.future.complete(result).await;
+  }
+
+  pub async fn fail(&self, error: FutureError) {
+    self.future.fail(error).await;
+  }
+
+  async fn handle_timeout(&self) {
+    let error = FutureError::Timeout;
+    self.future.fail(error.clone()).await;
+
+    let mut inner = self.future.inner.lock().await;
+    for pipe in &inner.pipes {
+      pipe.send_user_message(None, MessageHandle::new(error.clone())).await;
+    }
+    inner.pipes.clear();
+  }
+}
+
+#[async_trait]
+impl Process for FutureProcess {
+  async fn send_user_message(&self, _: Option<&ExtendedPid>, message: MessageHandle) {
+    let future = self.future.clone();
+    tokio::spawn(async move {
+      if message.as_any().downcast_ref::<DeadLetterResponse>().is_some() {
+        future.fail(FutureError::DeadLetter).await;
+      } else {
+        future.complete(message).await;
+      }
+      future.instrument().await;
+    });
+  }
+
+  async fn send_system_message(&self, _pid: &ExtendedPid, message: MessageHandle) {
+    let future = self.future.clone();
+    tokio::spawn(async move {
+      future.complete(message).await;
+      future.instrument().await;
+    });
+  }
+
+  async fn stop(&self, _pid: &ExtendedPid) {}
+
+  fn set_dead(&self) {}
+
+  fn as_any(&self) -> &dyn Any {
+    self
+  }
+}
+
+impl Future {
   pub async fn result(&self) -> Result<MessageHandle, FutureError> {
     loop {
       {
@@ -202,7 +229,8 @@ impl Future {
 
   pub async fn continue_with<F>(&self, continuation: F)
   where
-    F: Fn(Option<MessageHandle>, Option<&FutureError>) + Send + 'static, {
+      F: Fn(Option<MessageHandle>, Option<&FutureError>) + Send + 'static,
+  {
     let mut inner = self.inner.lock().await;
     if inner.done {
       continuation(inner.result.clone(), inner.error.as_ref());
