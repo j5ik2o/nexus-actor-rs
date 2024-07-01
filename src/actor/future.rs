@@ -251,11 +251,4 @@ impl Future {
     // This is a placeholder for the actual implementation
     println!("Future completed");
   }
-
-  pub fn clone(&self) -> Self {
-    Future {
-      inner: Arc::clone(&self.inner),
-      notify: Arc::clone(&self.notify),
-    }
-  }
 }
