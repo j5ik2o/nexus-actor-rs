@@ -241,8 +241,11 @@ impl std::hash::Hash for ActorHandle {
 }
 
 impl ActorHandle {
-  pub fn new(actor: Arc<dyn Actor>) -> Self {
+  pub fn new_arc(actor: Arc<dyn Actor>) -> Self {
     ActorHandle(actor)
+  }
+  pub fn new(actor: impl Actor + 'static) -> Self {
+    ActorHandle(Arc::new(actor))
   }
 }
 

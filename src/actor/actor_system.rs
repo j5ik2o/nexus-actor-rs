@@ -258,7 +258,7 @@ mod tests {
 
   pub async fn receive(_: ContextHandle) -> ActorHandle {
     let actor = MyActor {};
-    ActorHandle::new(Arc::new(actor))
+    ActorHandle::new(actor)
   }
   fn init() {
     let _ = env_logger::builder().is_test(true).try_init();

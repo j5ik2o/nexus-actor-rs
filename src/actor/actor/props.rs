@@ -438,7 +438,7 @@ impl Props {
         let cloned = receive_func.clone();
         async move {
           let actor = ReceiveFuncActor(cloned.clone());
-          ActorHandle::new(Arc::new(actor))
+          ActorHandle::new(actor)
         }
       }));
     })
@@ -540,7 +540,7 @@ impl Props {
       let cloned = f.clone();
       async move {
         let actor = ReceiveFuncActor(cloned);
-        ActorHandle::new(Arc::new(actor))
+        ActorHandle::new(actor)
       }
     });
     Props::from_producer_func_with_opts(producer, opts).await
