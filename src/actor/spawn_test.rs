@@ -30,7 +30,7 @@ impl Actor for MyActor {
 
 #[tokio::test]
 async fn test_example() {
-  let system = ActorSystem::new(&[]).await;
+  let system = ActorSystem::new().await;
 
   let actor = MyActor {
     is_started: Arc::new(AtomicBool::new(false)),

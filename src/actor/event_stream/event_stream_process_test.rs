@@ -24,7 +24,7 @@ async fn test_sends_messages_to_event_stream() {
   ];
 
   for (_, message) in test_cases {
-    let system = ActorSystem::new(&[]).await;
+    let system = ActorSystem::new().await;
     let (tx, mut rx) = mpsc::channel(5);
     let event_stream = system.get_event_stream().await;
 

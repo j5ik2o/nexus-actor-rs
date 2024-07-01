@@ -50,39 +50,13 @@ pub struct ActorSystem {
 }
 
 impl ActorSystem {
-  pub async fn new(options: &[ConfigOption]) -> Self {
+  pub async fn new() -> Self {
+    Self::new_config_options(&[]).await
+  }
+
+  pub async fn new_config_options(options: &[ConfigOption]) -> Self {
     let config = Self::configure(options);
     Self::new_with_config(config).await
-  }
-
-  pub async fn new_local_pid(&self, id: &str) -> ExtendedPid {
-    let pr = self.get_process_registry().await;
-    let pid = Pid {
-      id: id.to_string(),
-      address: pr.get_address(),
-      request_id: 0,
-    };
-    ExtendedPid::new(pid, self.clone())
-  }
-
-  async fn set_root_context(&self, root: RootContext) {
-    let mut inner_mg = self.inner.lock().await;
-    inner_mg.root_context = Some(root);
-  }
-
-  async fn set_process_registry(&self, process_registry: ProcessRegistry) {
-    let mut inner_mg = self.inner.lock().await;
-    inner_mg.process_registry = Some(process_registry);
-  }
-
-  async fn set_guardians(&self, guardians: GuardiansValue) {
-    let mut inner_mg = self.inner.lock().await;
-    inner_mg.guardians = Some(guardians);
-  }
-
-  async fn set_dead_letter(&self, dead_letter: DeadLetterProcess) {
-    let mut inner_mg = self.inner.lock().await;
-    inner_mg.dead_letter = Some(dead_letter);
   }
 
   pub async fn new_with_config(config: Config) -> Self {
@@ -113,12 +87,14 @@ impl ActorSystem {
     system
   }
 
-  fn configure(options: &[ConfigOption]) -> Config {
-    let mut config = Config::default();
-    for option in options {
-      option.apply(&mut config);
-    }
-    config
+  pub async fn new_local_pid(&self, id: &str) -> ExtendedPid {
+    let pr = self.get_process_registry().await;
+    let pid = Pid {
+      id: id.to_string(),
+      address: pr.get_address(),
+      request_id: 0,
+    };
+    ExtendedPid::new(pid, self.clone())
   }
 
   pub async fn get_address(&self) -> String {
@@ -155,6 +131,35 @@ impl ActorSystem {
     let inner_mg = self.inner.lock().await;
     inner_mg.guardians.as_ref().unwrap().clone()
   }
+
+  fn configure(options: &[ConfigOption]) -> Config {
+    let mut config = Config::default();
+    for option in options {
+      option.apply(&mut config);
+    }
+    config
+  }
+
+  async fn set_root_context(&self, root: RootContext) {
+    let mut inner_mg = self.inner.lock().await;
+    inner_mg.root_context = Some(root);
+  }
+
+  async fn set_process_registry(&self, process_registry: ProcessRegistry) {
+    let mut inner_mg = self.inner.lock().await;
+    inner_mg.process_registry = Some(process_registry);
+  }
+
+  async fn set_guardians(&self, guardians: GuardiansValue) {
+    let mut inner_mg = self.inner.lock().await;
+    inner_mg.guardians = Some(guardians);
+  }
+
+  async fn set_dead_letter(&self, dead_letter: DeadLetterProcess) {
+    let mut inner_mg = self.inner.lock().await;
+    inner_mg.dead_letter = Some(dead_letter);
+  }
+
 }
 
 #[derive(Debug, Clone)]
@@ -224,7 +229,7 @@ mod tests {
 
   #[tokio::test]
   async fn test_actor_system_new() {
-    let system = ActorSystem::new(&[]).await;
+    let system = ActorSystem::new().await;
     let root = system.get_root_context().await;
     assert_eq!(root.get_self().await, None);
   }
@@ -272,7 +277,7 @@ mod tests {
   #[tokio::test]
   async fn test_actor_system_spawn_actor() {
     init();
-    let system = ActorSystem::new(&[]).await;
+    let system = ActorSystem::new().await;
     let mut root = system.get_root_context().await;
     log::debug!("root: {:?}", root);
     let props = Props::from_producer_func_with_opts(ProducerFunc::new(receive), vec![]).await;

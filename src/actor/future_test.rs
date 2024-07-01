@@ -92,7 +92,7 @@ impl Process for MockProcess {
 
 #[tokio::test]
 async fn test_future_pipe_to_message() {
-  let system = ActorSystem::new(&[]).await;
+  let system = ActorSystem::new().await;
   let a1 = Arc::new(MockProcess::new(system.clone(), "a1").await);
   let a2 = Arc::new(MockProcess::new(system.clone(), "a2").await);
   let a3 = Arc::new(MockProcess::new(system.clone(), "a3").await);
@@ -147,7 +147,7 @@ async fn test_future_pipe_to_message() {
 
 #[tokio::test]
 async fn test_future_pipe_to_timeout_sends_error() {
-  let system = ActorSystem::new(&[]).await;
+  let system = ActorSystem::new().await;
   let a1 = Arc::new(MockProcess::new(system.clone(), "a1").await);
   let a2 = Arc::new(MockProcess::new(system.clone(), "a2").await);
   let a3 = Arc::new(MockProcess::new(system.clone(), "a3").await);
@@ -191,7 +191,7 @@ async fn test_future_pipe_to_timeout_sends_error() {
 
 #[tokio::test]
 async fn test_new_future_timeout_no_race() {
-  let system = ActorSystem::new(&[]).await;
+  let system = ActorSystem::new().await;
   let future_process = FutureProcess::new(system, Duration::from_millis(200)).await;
   let barrier = AsyncBarrier::new(2);
 
@@ -220,7 +220,7 @@ async fn assert_future_success(future_process: &FutureProcess) -> MessageHandle 
 
 #[tokio::test]
 async fn test_future_result_dead_letter_response() {
-  let system = ActorSystem::new(&[]).await;
+  let system = ActorSystem::new().await;
   let future_process = FutureProcess::new(system, Duration::from_secs(1)).await;
   future_process.fail(FutureError::DeadLetter).await;
 
@@ -230,7 +230,7 @@ async fn test_future_result_dead_letter_response() {
 
 #[tokio::test]
 async fn test_future_result_timeout() {
-  let system = ActorSystem::new(&[]).await;
+  let system = ActorSystem::new().await;
   let future_process = FutureProcess::new(system, Duration::from_millis(50)).await;
 
   sleep(Duration::from_millis(100)).await;
@@ -241,7 +241,7 @@ async fn test_future_result_timeout() {
 
 #[tokio::test]
 async fn test_future_result_success() {
-  let system = ActorSystem::new(&[]).await;
+  let system = ActorSystem::new().await;
   let future_process = FutureProcess::new(system, Duration::from_secs(1)).await;
   future_process
     .complete(MessageHandle::new("response".to_string()))

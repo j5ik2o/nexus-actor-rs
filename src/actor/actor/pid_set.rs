@@ -16,7 +16,11 @@ impl PidSet {
     format!("{}:{}", pid.address(), pid.id())
   }
 
-  pub(crate) async fn new(pids: &[ExtendedPid]) -> Self {
+  pub(crate) async fn new() -> Self {
+    Self::new_with_pids(&[]).await
+  }
+
+  pub(crate) async fn new_with_pids(pids: &[ExtendedPid]) -> Self {
     let mut set = PidSet {
       pids: Arc::new(Mutex::new(Vec::new())),
       lookup: Arc::new(Mutex::new(HashMap::new())),

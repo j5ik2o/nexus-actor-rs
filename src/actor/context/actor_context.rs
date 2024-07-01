@@ -63,11 +63,11 @@ pub struct ActorContextExtrasInner {
 impl ActorContextExtrasInner {
   pub async fn new(context: ContextHandle) -> Self {
     ActorContextExtrasInner {
-      children: PidSet::new(&[]).await,
+      children: PidSet::new().await,
       receive_timeout_timer: None,
       rs: Arc::new(Mutex::new(None)),
       stash: MessageHandles::new(vec![]),
-      watchers: PidSet::new(&[]).await,
+      watchers: PidSet::new().await,
       context,
       extensions: ContextExtensions::new(),
     }

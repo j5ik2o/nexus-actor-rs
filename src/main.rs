@@ -69,7 +69,7 @@ pub async fn create_child_actor(ctx: ContextHandle) -> ActorHandle {
 #[tokio::main]
 async fn main() {
   env_logger::init();
-  let system = ActorSystem::new(&[]).await;
+  let system = ActorSystem::new().await;
   let mut root = system.get_root_context().await;
 
   let props = Props::from_producer_func_with_opts(

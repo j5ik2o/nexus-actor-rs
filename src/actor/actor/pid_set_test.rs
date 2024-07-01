@@ -14,14 +14,14 @@ async fn new_pid(system: ActorSystem, address: &str, id: &str, request_id: u32) 
 
 #[tokio::test]
 async fn test_pid_set_empty() {
-  let s = PidSet::new(&[]).await;
+  let s = PidSet::new().await;
   assert!(s.is_empty().await);
 }
 
 #[tokio::test]
 async fn test_pid_set_clear() {
-  let system = ActorSystem::new(&[]).await;
-  let mut s = PidSet::new(&[]).await;
+  let system = ActorSystem::new().await;
+  let mut s = PidSet::new().await;
   s.add(new_pid(system.clone(), "local", "p1", 0).await).await;
   s.add(new_pid(system.clone(), "local", "p2", 0).await).await;
   s.add(new_pid(system.clone(), "local", "p3", 0).await).await;
@@ -33,8 +33,8 @@ async fn test_pid_set_clear() {
 
 #[tokio::test]
 async fn test_pid_set_add_small() {
-  let system = ActorSystem::new(&[]).await;
-  let mut s = PidSet::new(&[]).await;
+  let system = ActorSystem::new().await;
+  let mut s = PidSet::new().await;
   let p1 = new_pid(system.clone(), "local", "p1", 0).await;
   s.add(p1).await;
   assert!(!s.is_empty().await);
@@ -45,8 +45,8 @@ async fn test_pid_set_add_small() {
 
 #[tokio::test]
 async fn test_pid_set_values() {
-  let system = ActorSystem::new(&[]).await;
-  let mut s = PidSet::new(&[]).await;
+  let system = ActorSystem::new().await;
+  let mut s = PidSet::new().await;
   s.add(new_pid(system.clone(), "local", "p1", 0).await).await;
   s.add(new_pid(system.clone(), "local", "p2", 0).await).await;
   s.add(new_pid(system.clone(), "local", "p3", 0).await).await;
@@ -58,8 +58,8 @@ async fn test_pid_set_values() {
 
 #[tokio::test]
 async fn test_pid_set_add_map() {
-  let system = ActorSystem::new(&[]).await;
-  let mut s = PidSet::new(&[]).await;
+  let system = ActorSystem::new().await;
+  let mut s = PidSet::new().await;
   let p1 = new_pid(system.clone(), "local", "p1", 0).await;
   s.add(p1).await;
   assert!(!s.is_empty().await);
@@ -70,14 +70,14 @@ async fn test_pid_set_add_map() {
 
 #[tokio::test]
 async fn test_pid_set_add_remove() {
-  let system = ActorSystem::new(&[]).await;
+  let system = ActorSystem::new().await;
   let mut pids = vec![];
   for i in 0..1000 {
     let pid = new_pid(system.clone(), "local", &format!("p{}", i), 0).await;
     pids.push(pid);
   }
 
-  let mut s = PidSet::new(&[]).await;
+  let mut s = PidSet::new().await;
   for pid in &pids {
     s.add(pid.clone()).await;
   }
