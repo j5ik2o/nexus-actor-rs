@@ -16,14 +16,14 @@ struct MyActor {
 
 #[async_trait]
 impl Actor for MyActor {
-  async fn post_start(&self, context_handle: ContextHandle) -> Result<(), ActorError> {
+  async fn post_start(&self, _: ContextHandle) -> Result<(), ActorError> {
     println!("MyActor started");
-    self.is_started.store(true, std::sync::atomic::Ordering::SeqCst);
+    self.is_started.store(true, Ordering::SeqCst);
     self.received.notify_one();
     Ok(())
   }
 
-  async fn receive(&self, c: ContextHandle, message_handle: MessageHandle) -> Result<(), ActorError> {
+  async fn receive(&self, _: ContextHandle, _: MessageHandle) -> Result<(), ActorError> {
     Ok(())
   }
 }
