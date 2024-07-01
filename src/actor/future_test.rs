@@ -41,6 +41,7 @@ impl AsyncBarrier {
 struct MockProcess {
   name: String,
   received: Arc<AtomicBool>,
+  notify: Arc<Notify>,
 }
 
 #[async_trait]
@@ -48,6 +49,7 @@ impl Process for MockProcess {
   async fn send_user_message(&self, _: Option<&ExtendedPid>, message: MessageHandle) {
     println!("MockProcess {} received message", self.name); // デバッグログ
     self.received.store(true, Ordering::SeqCst);
+    self.notify.notify_one();
   }
 
   async fn send_system_message(&self, _: &ExtendedPid, _: MessageHandle) {}
@@ -66,14 +68,17 @@ async fn test_future_pipe_to_message() {
   let a1 = Arc::new(MockProcess {
     name: "a1".to_string(),
     received: Arc::new(AtomicBool::new(false)),
+    notify: Arc::new(Notify::new()),
   });
   let a2 = Arc::new(MockProcess {
     name: "a2".to_string(),
     received: Arc::new(AtomicBool::new(false)),
+    notify: Arc::new(Notify::new()),
   });
   let a3 = Arc::new(MockProcess {
     name: "a3".to_string(),
     received: Arc::new(AtomicBool::new(false)),
+    notify: Arc::new(Notify::new()),
   });
 
   let barrier = AsyncBarrier::new(4);
@@ -87,10 +92,9 @@ async fn test_future_pipe_to_message() {
   // モックプロセスにバリアを設定
   for process in [a1.clone(), a2.clone(), a3.clone()] {
     let barrier = barrier.clone();
+    let received = process.notify.clone();
     tokio::spawn(async move {
-      while !process.received.load(Ordering::SeqCst) {
-        tokio::time::sleep(Duration::from_millis(10)).await;
-      }
+      received.notified().await;
       barrier.wait().await;
     });
   }
@@ -101,9 +105,13 @@ async fn test_future_pipe_to_message() {
 
   barrier.wait().await;
 
-  assert!(a1.received.load(Ordering::SeqCst));
-  assert!(a2.received.load(Ordering::SeqCst));
-  assert!(a3.received.load(Ordering::SeqCst));
+  for process in [a1.clone(), a2.clone(), a3.clone()] {
+    assert!(
+      process.received.load(Ordering::SeqCst),
+      "{} did not receive message",
+      process.name
+    );
+  }
 
   assert!(
     !future_process.is_empty().await,
@@ -116,14 +124,17 @@ async fn test_future_pipe_to_timeout_sends_error() {
   let a1 = Arc::new(MockProcess {
     name: "a1".to_string(),
     received: Arc::new(AtomicBool::new(false)),
+    notify: Arc::new(Notify::new()),
   });
   let a2 = Arc::new(MockProcess {
     name: "a2".to_string(),
     received: Arc::new(AtomicBool::new(false)),
+    notify: Arc::new(Notify::new()),
   });
   let a3 = Arc::new(MockProcess {
     name: "a3".to_string(),
     received: Arc::new(AtomicBool::new(false)),
+    notify: Arc::new(Notify::new()),
   });
 
   let barrier = AsyncBarrier::new(4);
@@ -136,10 +147,9 @@ async fn test_future_pipe_to_timeout_sends_error() {
 
   for process in [a1.clone(), a2.clone(), a3.clone()] {
     let barrier = barrier.clone();
+    let received = process.notify.clone();
     tokio::spawn(async move {
-      while !process.received.load(Ordering::SeqCst) {
-        tokio::time::sleep(Duration::from_millis(10)).await;
-      }
+      received.notified().await;
       barrier.wait().await;
     });
   }
@@ -148,19 +158,15 @@ async fn test_future_pipe_to_timeout_sends_error() {
   assert!(err.is_err());
   assert!(matches!(err.unwrap_err(), FutureError::Timeout));
 
-  // パイプ処理の完了を待つ
-  for _ in 0..10 {
-    if a1.received.load(Ordering::SeqCst) && a2.received.load(Ordering::SeqCst) && a3.received.load(Ordering::SeqCst) {
-      break;
-    }
-    tokio::time::sleep(Duration::from_millis(50)).await;
-  }
-
   barrier.wait().await;
 
-  assert!(a1.received.load(Ordering::SeqCst), "a1 did not receive message");
-  assert!(a2.received.load(Ordering::SeqCst), "a2 did not receive message");
-  assert!(a3.received.load(Ordering::SeqCst), "a3 did not receive message");
+  for process in [a1.clone(), a2.clone(), a3.clone()] {
+    assert!(
+      process.received.load(Ordering::SeqCst),
+      "{} did not receive message",
+      process.name
+    );
+  }
 
   assert!(
     !future_process.is_empty().await,
@@ -171,17 +177,19 @@ async fn test_future_pipe_to_timeout_sends_error() {
 #[tokio::test]
 async fn test_new_future_timeout_no_race() {
   let future_process = FutureProcess::new(Duration::from_millis(200));
+  let barrier = AsyncBarrier::new(2);
 
   tokio::spawn({
     let future = future_process.clone();
+    let barrier = barrier.clone();
     async move {
       sleep(Duration::from_millis(100)).await;
       future.complete(MessageHandle::new("response".to_string())).await;
+      barrier.wait().await;
     }
   });
 
-  // 完了を待つ
-  tokio::time::sleep(Duration::from_millis(150)).await;
+  barrier.wait().await;
 
   let result = future_process.result().await;
   assert!(result.is_ok(), "Expected Ok, got {:?}", result);
