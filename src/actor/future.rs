@@ -44,8 +44,7 @@ struct CompletionFunc(Box<dyn Fn(Option<MessageHandle>, Option<&FutureError>) + 
 impl CompletionFunc {
   fn new<F>(f: F) -> Self
   where
-      F: Fn(Option<MessageHandle>, Option<&FutureError>) + Send + 'static,
-  {
+    F: Fn(Option<MessageHandle>, Option<&FutureError>) + Send + 'static, {
     Self(Box::new(f))
   }
 
@@ -93,7 +92,10 @@ impl FutureProcess {
       let future_process_clone = Arc::clone(&future_process);
 
       tokio::spawn(async move {
-        if timeout(duration, future_process_clone.future.notify.notified()).await.is_err() {
+        if timeout(duration, future_process_clone.future.notify.notified())
+          .await
+          .is_err()
+        {
           future_process_clone.handle_timeout().await;
         }
       });
@@ -229,8 +231,7 @@ impl Future {
 
   pub async fn continue_with<F>(&self, continuation: F)
   where
-      F: Fn(Option<MessageHandle>, Option<&FutureError>) + Send + 'static,
-  {
+    F: Fn(Option<MessageHandle>, Option<&FutureError>) + Send + 'static, {
     let mut inner = self.inner.lock().await;
     if inner.done {
       continuation(inner.result.clone(), inner.error.as_ref());
