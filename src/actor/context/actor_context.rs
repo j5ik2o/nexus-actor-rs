@@ -22,7 +22,7 @@ use crate::actor::dispatch::message_invoker::MessageInvoker;
 use crate::actor::future::FutureProcess;
 use crate::actor::log::P_LOG;
 use crate::actor::message::{Message, MessageHandle, ProducerFunc, ReceiverFunc, ResponseHandle, SenderFunc};
-use crate::actor::message_envelope::{MessageEnvelope, MessageOrEnvelope, ReadonlyMessageHeadersHandle, wrap_envelope};
+use crate::actor::message_envelope::{wrap_envelope, MessageEnvelope, MessageOrEnvelope, ReadonlyMessageHeadersHandle};
 use crate::actor::messages::{
   AutoReceiveMessage, Continuation, ContinuationFunc, Failure, MailboxMessage, NotInfluenceReceiveTimeoutHandle,
   ReceiveTimeout, Restart, Restarting, Started, Stopped, Stopping, SystemMessage,
@@ -250,7 +250,7 @@ impl ActorContext {
       tracing::debug!("ActorContext::process_message: get_receiver_middleware_chain");
       let extras = self.ensure_extras().await;
       let receiver_context = extras.get_receiver_context().await;
-      let message_envelope =  wrap_envelope(message.clone());
+      let message_envelope = wrap_envelope(message.clone());
       let chain = props.get_receiver_middleware_chain().unwrap();
       return chain.run(receiver_context, message_envelope).await;
     }

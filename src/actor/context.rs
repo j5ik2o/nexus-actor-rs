@@ -420,7 +420,7 @@ impl MessagePart for ReceiverContextHandle {
     tracing::debug!("ReceiverContextHandle::get_message:0");
     let mg = self.0.lock().await;
     tracing::debug!("ReceiverContextHandle::get_message:1");
-    let result= mg.get_message().await;
+    let result = mg.get_message().await;
     tracing::debug!("ReceiverContextHandle::get_message:2");
     result
   }

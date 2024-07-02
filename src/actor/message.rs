@@ -101,7 +101,7 @@ impl PriorityMessage for MessageHandle {
 
 impl Message for MessageHandle {
   fn eq_message(&self, other: &dyn Message) -> bool {
-      self.0.eq_message(other)
+    self.0.eq_message(other)
   }
 
   fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {

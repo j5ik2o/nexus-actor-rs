@@ -65,11 +65,11 @@ impl Message for AutoReceiveMessage {
   fn eq_message(&self, other: &dyn Message) -> bool {
     let msg = other.as_any().downcast_ref::<AutoReceiveMessage>();
     match (self, msg) {
-        (AutoReceiveMessage::Restarting(_), Some(&AutoReceiveMessage::Restarting(_))) => true,
-        (AutoReceiveMessage::Stopping(_), Some(&AutoReceiveMessage::Stopping(_))) => true,
-        (AutoReceiveMessage::Stopped(_), Some(&AutoReceiveMessage::Stopped(_))) => true,
-        (AutoReceiveMessage::PoisonPill(_), Some(&AutoReceiveMessage::PoisonPill(_))) => true,
-        _ => false
+      (AutoReceiveMessage::Restarting(_), Some(&AutoReceiveMessage::Restarting(_))) => true,
+      (AutoReceiveMessage::Stopping(_), Some(&AutoReceiveMessage::Stopping(_))) => true,
+      (AutoReceiveMessage::Stopped(_), Some(&AutoReceiveMessage::Stopped(_))) => true,
+      (AutoReceiveMessage::PoisonPill(_), Some(&AutoReceiveMessage::PoisonPill(_))) => true,
+      _ => false,
     }
   }
 
@@ -110,7 +110,7 @@ impl Message for SystemMessage {
       (SystemMessage::Restart(_), Some(&SystemMessage::Restart(_))) => true,
       (SystemMessage::Started(_), Some(&SystemMessage::Started(_))) => true,
       (SystemMessage::Stop(_), Some(&SystemMessage::Stop(_))) => true,
-      _ => false
+      _ => false,
     }
   }
 

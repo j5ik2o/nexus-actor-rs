@@ -13,7 +13,7 @@ use crate::actor::messages::{AutoReceiveMessage, Restart, Started, SystemMessage
 use crate::actor::supervisor::supervisor_strategy::{SupervisorHandle, SupervisorStrategy, SupervisorStrategyHandle};
 use async_trait::async_trait;
 use tokio::sync::{mpsc, Mutex, Notify};
-use tokio::time::{Instant, timeout};
+use tokio::time::{timeout, Instant};
 use tracing_subscriber::EnvFilter;
 
 #[derive(Debug, Clone)]
@@ -32,7 +32,6 @@ impl PartialEq for StringMessage {
     self.0 == other.0
   }
 }
-
 
 impl Message for StringMessage {
   fn eq_message(&self, other: &dyn Message) -> bool {
@@ -168,11 +167,15 @@ impl Actor for ObserverActor {
 
 // Helper methods for testing
 impl ObserverActor {
-  async fn expect_message(&mut self, expected: &MessageHandle, timeout: tokio::time::Duration) -> Result<(), TestError> {
+  async fn expect_message(
+    &mut self,
+    expected: &MessageHandle,
+    timeout: tokio::time::Duration,
+  ) -> Result<(), TestError> {
     let deadline = Instant::now() + timeout;
     while Instant::now() < deadline {
       let mut vec = self.received_messages.lock().await.clone();
-      if let Some(msg) ={ vec.front() }{
+      if let Some(msg) = { vec.front() } {
         if msg == expected {
           let mut mg = self.received_messages.lock().await;
           mg.pop_front();
@@ -184,7 +187,11 @@ impl ObserverActor {
     Err(TestError::TimeoutError)
   }
 
-  async fn expect_messages(&mut self, expected: &[MessageHandle], timeout: tokio::time::Duration) -> Result<(), TestError> {
+  async fn expect_messages(
+    &mut self,
+    expected: &[MessageHandle],
+    timeout: tokio::time::Duration,
+  ) -> Result<(), TestError> {
     for exp in expected {
       self.expect_message(exp, timeout).await?;
     }

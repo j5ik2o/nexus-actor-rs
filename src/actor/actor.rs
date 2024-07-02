@@ -3,13 +3,13 @@ use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 use std::sync::Arc;
 
-use async_trait::async_trait;
-use backtrace::Backtrace;
-use tokio::sync::Mutex;
 use crate::actor::context::{ContextHandle, InfoPart, MessagePart};
 use crate::actor::message::{Message, MessageHandle};
 use crate::actor::messages::SystemMessage;
 use crate::actor::supervisor::supervisor_strategy::SupervisorStrategyHandle;
+use async_trait::async_trait;
+use backtrace::Backtrace;
+use tokio::sync::Mutex;
 
 pub mod actor_process;
 pub mod behavior;
@@ -306,11 +306,11 @@ impl Actor for ActorHandle {
 
   async fn receive(&mut self, c: ContextHandle, m: MessageHandle) -> Result<(), ActorError> {
     let mut mg = self.0.lock().await;
-        mg.receive(c, m).await
+    mg.receive(c, m).await
   }
 
   async fn get_supervisor_strategy(&self) -> Option<SupervisorStrategyHandle> {
     let mg = self.0.lock().await;
-        mg.get_supervisor_strategy().await
+    mg.get_supervisor_strategy().await
   }
 }
