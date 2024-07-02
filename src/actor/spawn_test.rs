@@ -1,12 +1,14 @@
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+
+use async_trait::async_trait;
+use tokio::sync::Notify;
+
 use crate::actor::actor::props::Props;
 use crate::actor::actor::{Actor, ActorError, ActorHandle};
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::{ContextHandle, SpawnerPart};
 use crate::actor::message::{MessageHandle, ProducerFunc};
-use async_trait::async_trait;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
-use tokio::sync::Notify;
 
 #[derive(Debug, Clone)]
 struct MyActor {

@@ -1,6 +1,6 @@
+use std::mem;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
-use std::mem;
 
 use async_trait::async_trait;
 use tokio::sync::Mutex;
@@ -100,7 +100,9 @@ impl<E: Element> QueueReader<E> for RingQueue<E> {
 
     let mut buffer = self.buffer.lock().await;
     let item = buffer[head].take();
-    self.head.store((head + 1) % self.capacity.load(Ordering::Relaxed), Ordering::Relaxed);
+    self
+      .head
+      .store((head + 1) % self.capacity.load(Ordering::Relaxed), Ordering::Relaxed);
     Ok(item)
   }
 
@@ -126,7 +128,9 @@ impl<E: Element> QueueWriter<E> for RingQueue<E> {
     let mut buffer = self.buffer.lock().await;
     let tail = self.tail.load(Ordering::Relaxed);
     buffer[tail] = Some(element);
-    self.tail.store((tail + 1) % self.capacity.load(Ordering::Relaxed), Ordering::Relaxed);
+    self
+      .tail
+      .store((tail + 1) % self.capacity.load(Ordering::Relaxed), Ordering::Relaxed);
     Ok(())
   }
 }
@@ -161,14 +165,14 @@ mod tests {
     assert!(queue.offer(2).await.is_ok());
     assert!(queue.offer(3).await.is_ok());
     assert!(queue.offer(4).await.is_ok());
-    assert!(queue.offer(5).await.is_ok());  // This should trigger resize
+    assert!(queue.offer(5).await.is_ok()); // This should trigger resize
     assert_eq!(queue.capacity().await.to_usize(), 9);
 
     // Add more elements to test the new capacity
     assert!(queue.offer(6).await.is_ok());
     assert!(queue.offer(7).await.is_ok());
     assert!(queue.offer(8).await.is_ok());
-    assert!(queue.offer(9).await.is_ok());  // This should trigger another resize
+    assert!(queue.offer(9).await.is_ok()); // This should trigger another resize
     assert_eq!(queue.capacity().await.to_usize(), 19);
   }
 

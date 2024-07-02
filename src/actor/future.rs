@@ -4,6 +4,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
+use futures::future::BoxFuture;
 use tokio::sync::{Mutex, Notify};
 use tokio::time::timeout;
 
@@ -44,17 +45,26 @@ pub struct Future {
   notify: Arc<Notify>,
 }
 
-struct CompletionFunc(Box<dyn Fn(Option<MessageHandle>, Option<&FutureError>) + Send>);
+static_assertions::assert_impl_all!(Future: Send, Sync);
 
+#[derive(Clone)]
+struct CompletionFunc(Arc<dyn Fn(Option<MessageHandle>, Option<&FutureError>) -> BoxFuture<'static, ()> + Send>);
+
+unsafe impl Send for CompletionFunc {}
+
+unsafe impl Sync for CompletionFunc {}
 impl CompletionFunc {
-  fn new<F>(f: F) -> Self
+  fn new<F, Fut>(f: F) -> Self
   where
-    F: Fn(Option<MessageHandle>, Option<&FutureError>) + Send + 'static, {
-    Self(Box::new(f))
+    F: Fn(Option<MessageHandle>, Option<&FutureError>) -> Fut + Send + 'static,
+    Fut: core::future::Future<Output = ()> + Send + 'static, {
+    Self(Arc::new(move |message, error| {
+      Box::pin(f(message, error)) as BoxFuture<'static, ()>
+    }))
   }
 
-  fn run(&self, result: Option<MessageHandle>, error: Option<&FutureError>) {
-    (self.0)(result, error);
+  async fn run(&self, result: Option<MessageHandle>, error: Option<&FutureError>) {
+    (self.0)(result, error).await
   }
 }
 
@@ -74,6 +84,8 @@ struct FutureInner {
   pipes: Vec<ExtendedPid>,
   completions: Vec<CompletionFunc>,
 }
+
+static_assertions::assert_impl_all!(FutureInner: Send, Sync);
 
 #[derive(Debug)]
 pub struct FutureProcess {
@@ -95,7 +107,7 @@ impl FutureProcess {
 
     let future = Future { inner, notify };
 
-    let mut future_process = Arc::new(FutureProcess {
+    let future_process = Arc::new(FutureProcess {
       future: Arc::new(Mutex::new(future.clone())),
     });
 
@@ -283,7 +295,7 @@ impl Future {
       inner.result = Some(result);
       inner.done = true;
       self.send_to_pipes(&mut inner).await;
-      self.run_completions(&mut inner);
+      self.run_completions(&mut inner).await;
       self.notify.notify_waiters();
     }
   }
@@ -294,25 +306,26 @@ impl Future {
       inner.error = Some(error);
       inner.done = true;
       self.send_to_pipes(&mut inner).await;
-      self.run_completions(&mut inner);
+      self.run_completions(&mut inner).await;
       self.notify.notify_waiters();
     }
   }
 
-  pub async fn continue_with<F>(&self, continuation: F)
+  pub async fn continue_with<F, Fut>(&self, continuation: F)
   where
-    F: Fn(Option<MessageHandle>, Option<&FutureError>) + Send + 'static, {
+    F: Fn(Option<MessageHandle>, Option<&FutureError>) -> Fut + Send + Sync + 'static,
+    Fut: core::future::Future<Output = ()> + Send + 'static, {
     let mut inner = self.inner.lock().await;
     if inner.done {
-      continuation(inner.result.clone(), inner.error.as_ref());
+      continuation(inner.result.clone(), inner.error.as_ref()).await;
     } else {
       inner.completions.push(CompletionFunc::new(continuation));
     }
   }
 
-  fn run_completions(&self, inner: &mut FutureInner) {
+  async fn run_completions(&self, inner: &mut FutureInner) {
     for completion in inner.completions.drain(..) {
-      completion.run(inner.result.clone(), inner.error.as_ref());
+      completion.run(inner.result.clone(), inner.error.as_ref()).await;
     }
   }
 

@@ -159,7 +159,6 @@ impl ActorSystem {
     let mut inner_mg = self.inner.lock().await;
     inner_mg.dead_letter = Some(dead_letter);
   }
-
 }
 
 #[derive(Debug, Clone)]

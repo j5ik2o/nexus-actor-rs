@@ -1,8 +1,8 @@
-use anyhow::Context;
-use async_trait::async_trait;
 use std::any::Any;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+
+use async_trait::async_trait;
 use tokio::sync::{Mutex, Notify};
 use tokio::time::{sleep, Duration};
 

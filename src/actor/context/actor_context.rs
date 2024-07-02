@@ -1,11 +1,8 @@
-use std::any::Any;
-use std::error::Error;
 use std::pin::Pin;
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use futures::future::BoxFuture;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use tokio::sync::Mutex;
 
@@ -31,8 +28,8 @@ use crate::actor::message::{
 };
 use crate::actor::message_envelope::{MessageEnvelope, MessageOrEnvelope, ReadonlyMessageHeadersHandle};
 use crate::actor::messages::{
-  AutoReceiveMessage, Continuation, Failure, MailboxMessage, NotInfluenceReceiveTimeoutHandle, ReceiveTimeout, Restart,
-  Restarting, Started, Stopped, Stopping, SystemMessage,
+  AutoReceiveMessage, Continuation, ContinuationFunc, Failure, MailboxMessage, NotInfluenceReceiveTimeoutHandle,
+  ReceiveTimeout, Restart, Restarting, Started, Stopped, Stopping, SystemMessage,
 };
 use crate::actor::process::Process;
 use crate::actor::supervisor::supervisor_strategy::{
@@ -463,6 +460,11 @@ impl ActorContext {
     }
   }
 
+  async fn get_message_or_envelop(&self) -> MessageOrEnvelope {
+    let inner_mg = self.inner.lock().await;
+    inner_mg.message_or_envelope.clone().unwrap()
+  }
+
   async fn set_message_or_envelope(&mut self, message: MessageHandle) {
     let mut inner_mg = self.inner.lock().await;
     let message_or_envelope = &mut inner_mg.message_or_envelope;
@@ -863,14 +865,38 @@ impl BasePart for ActorContext {
     }
   }
 
-  async fn reenter_after(
-    &self,
-    _: &crate::actor::future::Future,
-    _: Box<
-      dyn FnOnce(Result<Box<dyn Any + Send>, Box<dyn Error + Send + Sync>>) -> BoxFuture<'static, ()> + Send + 'static,
-    >,
-  ) {
-    todo!()
+  async fn reenter_after(&self, f: crate::actor::future::Future, continuation: ContinuationFunc) {
+    let message = self.get_message_or_envelop().await;
+    let f_clone = f.clone();
+    let system = self.get_actor_system().await;
+    let self_ref = self.get_self().await.unwrap();
+
+    f.continue_with(move |_, _| {
+      let f = f_clone.clone();
+      let message = message.clone();
+      let continuation = continuation.clone();
+      let system = system.clone();
+      let self_ref = self_ref.clone(); // ActorRefを複製
+
+      async move {
+        let result_message = f.result().await.ok();
+        let result_error = f.result().await.err();
+        self_ref
+          .send_system_message(
+            system,
+            MessageHandle::new(Continuation::new(message.get_value(), move || {
+              let continuation = continuation.clone();
+              let result_message = result_message.clone();
+              let result_error = result_error.clone();
+              async move {
+                continuation.run(result_message, result_error).await;
+              }
+            })),
+          )
+          .await
+      }
+    })
+    .await
   }
 }
 
@@ -1104,7 +1130,7 @@ impl MessageInvoker for ActorContext {
       let mut mg = self.inner.lock().await;
       let moe = MessageOrEnvelope::of_message(c.message.clone());
       mg.message_or_envelope = Some(moe);
-      (c.f)().await;
+      (c.f).run().await;
       mg.message_or_envelope = None;
     }
     if let Some(w) = message.as_any().downcast_ref::<Watch>() {

@@ -1,11 +1,9 @@
 use std::any::Any;
-use std::error::Error;
 use std::fmt::Debug;
 use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use futures::future::BoxFuture;
 use tokio::sync::Mutex;
 
 use crate::actor::actor::pid::ExtendedPid;
@@ -15,6 +13,7 @@ use crate::actor::actor_system::ActorSystem;
 use crate::actor::future::Future;
 use crate::actor::message::{MessageHandle, ResponseHandle};
 use crate::actor::message_envelope::{MessageEnvelope, ReadonlyMessageHeadersHandle};
+use crate::actor::messages::ContinuationFunc;
 use crate::ctxext::extensions::{ContextExtensionHandle, ContextExtensionId};
 
 pub mod actor_context;
@@ -242,13 +241,7 @@ impl BasePart for ContextHandle {
     mg.forward(pid).await
   }
 
-  async fn reenter_after(
-    &self,
-    f: &Future,
-    continuation: Box<
-      dyn FnOnce(Result<Box<dyn Any + Send>, Box<dyn Error + Send + Sync>>) -> BoxFuture<'static, ()> + Send + 'static,
-    >,
-  ) {
+  async fn reenter_after(&self, f: Future, continuation: ContinuationFunc) {
     let mg = self.0.lock().await;
     mg.reenter_after(f, continuation).await
   }
@@ -578,13 +571,7 @@ pub trait BasePart: Debug + Send + Sync + 'static {
   // Forward forwards current message to the given PID
   async fn forward(&self, pid: &ExtendedPid);
 
-  async fn reenter_after(
-    &self,
-    f: &Future,
-    continuation: Box<
-      dyn FnOnce(Result<Box<dyn Any + Send>, Box<dyn Error + Send + Sync>>) -> BoxFuture<'static, ()> + Send + 'static,
-    >,
-  );
+  async fn reenter_after(&self, f: Future, continuation: ContinuationFunc);
 }
 
 #[async_trait]
