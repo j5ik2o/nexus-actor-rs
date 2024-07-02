@@ -35,7 +35,7 @@ impl RootContext {
         &sender_middleware,
         SenderFunc::new(move |_, target, envelope| {
           let actor_system = actor_system.clone();
-          async move { target.send_user_message(actor_system, envelope.message.clone()).await }
+          async move { target.send_user_message(actor_system, envelope.get_message().clone()).await }
         }),
       ),
       spawn_middleware: None,

@@ -417,8 +417,12 @@ impl ReceiverPart for ReceiverContextHandle {
 #[async_trait]
 impl MessagePart for ReceiverContextHandle {
   async fn get_message(&self) -> Option<MessageHandle> {
+    tracing::debug!("ReceiverContextHandle::get_message:0");
     let mg = self.0.lock().await;
-    mg.get_message().await
+    tracing::debug!("ReceiverContextHandle::get_message:1");
+    let result= mg.get_message().await;
+    tracing::debug!("ReceiverContextHandle::get_message:2");
+    result
   }
 
   async fn get_message_header(&self) -> ReadonlyMessageHeadersHandle {

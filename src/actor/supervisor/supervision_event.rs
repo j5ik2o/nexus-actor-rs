@@ -18,6 +18,10 @@ pub struct SupervisorEvent {
 }
 
 impl Message for SupervisorEvent {
+  fn eq_message(&self, other: &dyn Message) -> bool {
+    other.as_any().is::<SupervisorEvent>()
+  }
+
   fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
     self
   }

@@ -334,15 +334,15 @@ struct ReceiveFuncActor(ReceiveFunc);
 
 #[async_trait]
 impl Actor for ReceiveFuncActor {
-  async fn handle(&self, ctx: ContextHandle) -> Result<(), ActorError> {
+  async fn handle(&mut self, ctx: ContextHandle) -> Result<(), ActorError> {
     self.0.run(ctx).await
   }
 
-  async fn receive(&self, _: ContextHandle, _: MessageHandle) -> Result<(), ActorError> {
+  async fn receive(&mut self, _: ContextHandle, _: MessageHandle) -> Result<(), ActorError> {
     Ok(())
   }
 
-  fn get_supervisor_strategy(&self) -> Option<SupervisorStrategyHandle> {
+  async fn get_supervisor_strategy(&self) -> Option<SupervisorStrategyHandle> {
     None
   }
 }
@@ -414,6 +414,7 @@ impl Props {
 
   pub fn with_receiver_middleware(middlewares: Vec<ReceiverMiddleware>) -> PropsOptionFunc {
     PropsOptionFunc::new(move |props: &mut Props| {
+      tracing::debug!("with_receiver_middleware");
       props.receiver_middleware.extend(middlewares.clone());
       props.receiver_middleware_chain = make_receiver_middleware_chain(
         &props.receiver_middleware,

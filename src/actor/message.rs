@@ -13,7 +13,9 @@ use crate::actor::message_envelope::MessageEnvelope;
 use crate::util::element::Element;
 use crate::util::queue::priority_queue::{PriorityMessage, DEFAULT_PRIORITY};
 
-pub trait Response: Message + Debug + Send + Sync + 'static {}
+pub trait Response: Message + Debug + Send + Sync + 'static {
+  fn eq_response(&self, other: &dyn Response) -> bool;
+}
 
 #[derive(Debug, Clone)]
 pub struct ResponseHandle(Arc<dyn Response>);
@@ -24,22 +26,50 @@ impl ResponseHandle {
   }
 }
 
+impl PartialEq for ResponseHandle {
+  fn eq(&self, other: &Self) -> bool {
+    self.0.eq_response(other.0.as_ref())
+  }
+}
+
 impl Message for ResponseHandle {
+  fn eq_message(&self, other: &dyn Message) -> bool {
+    match (
+      self.0.as_any().downcast_ref::<ResponseHandle>(),
+      other.as_any().downcast_ref::<ResponseHandle>(),
+    ) {
+      (Some(self_msg), Some(other_msg)) => self_msg == other_msg,
+      _ => false,
+    }
+  }
+
   fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
     self.0.as_any()
   }
 }
 
-impl Response for ResponseHandle {}
+impl Response for ResponseHandle {
+  fn eq_response(&self, other: &dyn Response) -> bool {
+    self.0.eq_response(other)
+  }
+}
 
 pub trait Message: Debug + Send + Sync + 'static {
   fn get_priority(&self) -> i8 {
     DEFAULT_PRIORITY
   }
+  fn eq_message(&self, other: &dyn Message) -> bool;
   fn as_any(&self) -> &(dyn Any + Send + Sync + 'static);
 }
 
-impl<T: prost::Message + 'static> Message for T {
+impl<T: prost::Message + PartialEq + 'static> Message for T {
+  fn eq_message(&self, other: &dyn Message) -> bool {
+    match (self.as_any().downcast_ref::<T>(), other.as_any().downcast_ref::<T>()) {
+      (Some(self_msg), Some(other_msg)) => self_msg == other_msg,
+      _ => false,
+    }
+  }
+
   fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
     self
   }
@@ -70,6 +100,10 @@ impl PriorityMessage for MessageHandle {
 }
 
 impl Message for MessageHandle {
+  fn eq_message(&self, other: &dyn Message) -> bool {
+      self.0.eq_message(other)
+  }
+
   fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
     self.0.as_any()
   }
@@ -77,7 +111,7 @@ impl Message for MessageHandle {
 
 impl PartialEq for MessageHandle {
   fn eq(&self, other: &Self) -> bool {
-    Arc::ptr_eq(&self.0, &other.0)
+    self.0.eq_message(&*other.0)
   }
 }
 
@@ -245,7 +279,10 @@ impl ReceiverFunc {
   }
 
   pub async fn run(&self, context: ReceiverContextHandle, envelope: MessageEnvelope) -> Result<(), ActorError> {
-    self.0(context, envelope).await
+    tracing::debug!("ReceiverFunc::run: before");
+    let result = self.0(context, envelope).await;
+    tracing::debug!("ReceiverFunc::run: after");
+    result
   }
 }
 

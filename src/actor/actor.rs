@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use backtrace::Backtrace;
-
+use tokio::sync::Mutex;
 use crate::actor::context::{ContextHandle, InfoPart, MessagePart};
 use crate::actor::message::{Message, MessageHandle};
 use crate::actor::messages::SystemMessage;
@@ -220,7 +220,7 @@ impl Error for ActorError {
 
 #[async_trait]
 pub trait Actor: Debug + Send + Sync + 'static {
-  async fn handle(&self, context_handle: ContextHandle) -> Result<(), ActorError> {
+  async fn handle(&mut self, context_handle: ContextHandle) -> Result<(), ActorError> {
     let id = context_handle.get_self().await.unwrap().id().to_string();
     tracing::debug!("Actor::handle: id = {}, context_handle = {:?}", id, context_handle);
     let message_handle_opt = context_handle.get_message().await;
@@ -247,35 +247,31 @@ pub trait Actor: Debug + Send + Sync + 'static {
     }
   }
 
-  async fn receive(&self, c: ContextHandle, message_handle: MessageHandle) -> Result<(), ActorError>;
+  async fn receive(&mut self, c: ContextHandle, message_handle: MessageHandle) -> Result<(), ActorError>;
 
-  async fn post_start(&self, context_handle: ContextHandle) -> Result<(), ActorError> {
+  async fn post_start(&self, _: ContextHandle) -> Result<(), ActorError> {
     Ok(())
   }
 
-  async fn pre_stop(&self, context_handle: ContextHandle) -> Result<(), ActorError> {
+  async fn pre_stop(&self, _: ContextHandle) -> Result<(), ActorError> {
     Ok(())
   }
 
-  async fn pre_restart(&self, context_handle: ContextHandle) -> Result<(), ActorError> {
+  async fn pre_restart(&self, _: ContextHandle) -> Result<(), ActorError> {
     Ok(())
   }
 
-  async fn on_child_terminated(
-    &self,
-    context_handle: ContextHandle,
-    terminated: &Terminated,
-  ) -> Result<(), ActorError> {
+  async fn on_child_terminated(&self, _: ContextHandle, _: &Terminated) -> Result<(), ActorError> {
     Ok(())
   }
 
-  fn get_supervisor_strategy(&self) -> Option<SupervisorStrategyHandle> {
+  async fn get_supervisor_strategy(&self) -> Option<SupervisorStrategyHandle> {
     None
   }
 }
 
 #[derive(Debug, Clone)]
-pub struct ActorHandle(Arc<dyn Actor>);
+pub struct ActorHandle(Arc<Mutex<dyn Actor>>);
 
 impl PartialEq for ActorHandle {
   fn eq(&self, other: &Self) -> bool {
@@ -287,31 +283,34 @@ impl Eq for ActorHandle {}
 
 impl std::hash::Hash for ActorHandle {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    (self.0.as_ref() as *const dyn Actor).hash(state);
+    (self.0.as_ref() as *const Mutex<dyn Actor>).hash(state);
   }
 }
 
 impl ActorHandle {
-  pub fn new_arc(actor: Arc<dyn Actor>) -> Self {
+  pub fn new_arc(actor: Arc<Mutex<dyn Actor>>) -> Self {
     ActorHandle(actor)
   }
 
   pub fn new(actor: impl Actor + 'static) -> Self {
-    ActorHandle(Arc::new(actor))
+    ActorHandle(Arc::new(Mutex::new(actor)))
   }
 }
 
 #[async_trait]
 impl Actor for ActorHandle {
-  async fn handle(&self, c: ContextHandle) -> Result<(), ActorError> {
-    self.0.handle(c).await
+  async fn handle(&mut self, c: ContextHandle) -> Result<(), ActorError> {
+    let mut mg = self.0.lock().await;
+    mg.handle(c).await
   }
 
-  async fn receive(&self, c: ContextHandle, message_handle: MessageHandle) -> Result<(), ActorError> {
-    Ok(())
+  async fn receive(&mut self, c: ContextHandle, m: MessageHandle) -> Result<(), ActorError> {
+    let mut mg = self.0.lock().await;
+        mg.receive(c, m).await
   }
 
-  fn get_supervisor_strategy(&self) -> Option<SupervisorStrategyHandle> {
-    self.0.get_supervisor_strategy()
+  async fn get_supervisor_strategy(&self) -> Option<SupervisorStrategyHandle> {
+    let mg = self.0.lock().await;
+        mg.get_supervisor_strategy().await
   }
 }

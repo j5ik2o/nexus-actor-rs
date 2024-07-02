@@ -124,6 +124,14 @@ mod tests {
   }
 
   impl Message for TestPriorityMessage {
+    fn eq_message(&self, other: &dyn Message) -> bool {
+      if let Some(other) = other.as_any().downcast_ref::<Self>() {
+        self.message == other.message
+      } else {
+        false
+      }
+    }
+
     fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
       self
     }
@@ -143,6 +151,14 @@ mod tests {
   impl Element for TestMessage {}
 
   impl Message for TestMessage {
+    fn eq_message(&self, other: &dyn Message) -> bool {
+      if let Some(other) = other.as_any().downcast_ref::<Self>() {
+        self.message == other.message
+      } else {
+        false
+      }
+    }
+
     fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
       self
     }

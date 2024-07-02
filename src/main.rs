@@ -14,6 +14,14 @@ use tracing_subscriber::EnvFilter;
 struct Hello(pub String);
 
 impl Message for Hello {
+  fn eq_message(&self, other: &dyn Message) -> bool {
+    let other = other.as_any().downcast_ref::<Hello>();
+    match other {
+      Some(other) => self.0 == other.0,
+      None => false,
+    }
+  }
+
   fn as_any(&self) -> &(dyn std::any::Any + Send + Sync + 'static) {
     self
   }
@@ -29,7 +37,7 @@ impl Actor for ChildActor {
     Ok(())
   }
 
-  async fn receive(&self, _: ContextHandle, message_handle: MessageHandle) -> Result<(), ActorError> {
+  async fn receive(&mut self, _: ContextHandle, message_handle: MessageHandle) -> Result<(), ActorError> {
     println!("ChildActor::receive: msg = {:?}", message_handle);
     Ok(())
   }
@@ -53,7 +61,7 @@ impl Actor for TopActor {
     Ok(())
   }
 
-  async fn receive(&self, _: ContextHandle, message_handle: MessageHandle) -> Result<(), ActorError> {
+  async fn receive(&mut self, _: ContextHandle, message_handle: MessageHandle) -> Result<(), ActorError> {
     println!("TopActor::receive: msg = {:?}", message_handle);
     Ok(())
   }

@@ -10,6 +10,10 @@ use crate::event_stream::{EventStream, HandlerFunc, PredicateFunc};
 #[derive(Debug)]
 pub struct TestString(pub String);
 impl Message for TestString {
+  fn eq_message(&self, other: &dyn Message) -> bool {
+    other.as_any().is::<TestString>()
+  }
+
   fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
     self
   }
@@ -143,6 +147,10 @@ struct Event {
 }
 
 impl Message for Event {
+  fn eq_message(&self, other: &dyn Message) -> bool {
+    self.i == other.as_any().downcast_ref::<Event>().unwrap().i
+  }
+
   fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
     self
   }

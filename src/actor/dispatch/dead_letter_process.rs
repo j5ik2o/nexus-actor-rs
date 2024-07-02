@@ -184,7 +184,22 @@ pub struct DeadLetterEvent {
   pub sender: Option<ExtendedPid>,
 }
 
+impl PartialEq for DeadLetterEvent {
+  fn eq(&self, other: &Self) -> bool {
+    self.pid == other.pid && self.message == other.message && self.sender == other.sender
+  }
+}
+
+impl Eq for DeadLetterEvent {}
+
 impl Message for DeadLetterEvent {
+  fn eq_message(&self, other: &dyn Message) -> bool {
+    match other.as_any().downcast_ref::<DeadLetterEvent>() {
+      Some(a) => self == a,
+      None => false,
+    }
+  }
+
   fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
     self
   }

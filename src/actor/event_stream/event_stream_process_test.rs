@@ -11,6 +11,10 @@ use crate::event_stream::HandlerFunc;
 struct EsTestMsg;
 
 impl Message for EsTestMsg {
+  fn eq_message(&self, other: &dyn Message) -> bool {
+    other.as_any().is::<EsTestMsg>()
+  }
+
   fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
     self
   }

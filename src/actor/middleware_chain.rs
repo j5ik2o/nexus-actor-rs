@@ -6,14 +6,17 @@ pub fn make_receiver_middleware_chain(
   last_receiver: ReceiverFunc,
 ) -> Option<ReceiverFunc> {
   if receiver_middleware.is_empty() {
+    tracing::debug!("make_receiver_middleware_chain: receiver_middleware is empty");
     return None;
   }
 
   let mut h = receiver_middleware.last().unwrap().run(last_receiver);
   for middleware in receiver_middleware.iter().rev().skip(1) {
+    tracing::debug!("+");
     h = middleware.run(h);
   }
 
+  tracing::debug!("make_receiver_middleware_chain: receiver_middleware is not empty");
   Some(h)
 }
 

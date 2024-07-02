@@ -13,6 +13,14 @@ pub struct MessageHeaders {
   inner: HashMap<String, String>,
 }
 
+impl PartialEq for MessageHeaders {
+  fn eq(&self, other: &Self) -> bool {
+    self.inner == other.inner
+  }
+}
+
+impl Eq for MessageHeaders {}
+
 impl MessageHeaders {
   pub fn new() -> Self {
     Self { inner: HashMap::new() }
@@ -84,11 +92,25 @@ impl ReadonlyMessageHeaders for MessageHeaders {
 #[derive(Debug, Clone)]
 pub struct MessageEnvelope {
   header: Option<MessageHeaders>,
-  pub(crate) message: MessageHandle,
+  message: MessageHandle,
   sender: Option<ExtendedPid>,
 }
 
+impl PartialEq for MessageEnvelope {
+  fn eq(&self, other: &Self) -> bool {
+    self.header == other.header && self.message == other.message && self.sender == other.sender
+  }
+}
+
 impl Message for MessageEnvelope {
+  fn eq_message(&self, other: &dyn Message) -> bool {
+    if let Some(other) = other.as_any().downcast_ref::<Self>() {
+      self.header == other.header && self.message == other.message && self.sender == other.sender
+    } else {
+      false
+    }
+  }
+
   fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
     self
   }
@@ -113,6 +135,10 @@ impl MessageEnvelope {
     self
   }
 
+  pub fn get_message(&self) -> MessageHandle {
+    self.message.clone()
+  }
+
   pub fn get_header_value(&self, key: &str) -> Option<String> {
     self.header.as_ref().and_then(|h| h.get(key).cloned())
   }
@@ -131,11 +157,11 @@ impl MessageEnvelope {
   }
 }
 
-pub fn wrap_envelope(message: MessageHandle) -> Arc<MessageEnvelope> {
+pub fn wrap_envelope(message: MessageHandle) -> MessageEnvelope {
   if let Some(envelope) = message.as_any().downcast_ref::<MessageEnvelope>() {
-    Arc::new(envelope.clone())
+    envelope.clone()
   } else {
-    Arc::new(MessageEnvelope::new(message))
+    MessageEnvelope::new(message)
   }
 }
 
@@ -182,7 +208,21 @@ pub struct MessageOrEnvelope {
   sender: Option<ExtendedPid>,
 }
 
+impl PartialEq for MessageOrEnvelope {
+  fn eq(&self, other: &Self) -> bool {
+    self.message == other.message && self.envelope == other.envelope && self.sender == other.sender
+  }
+}
+
 impl Message for MessageOrEnvelope {
+  fn eq_message(&self, other: &dyn Message) -> bool {
+    if let Some(other) = other.as_any().downcast_ref::<Self>() {
+      self.message == other.message && self.envelope == other.envelope && self.sender == other.sender
+    } else {
+      false
+    }
+  }
+
   fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
     self
   }

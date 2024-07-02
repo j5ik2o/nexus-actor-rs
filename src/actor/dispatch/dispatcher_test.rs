@@ -78,6 +78,10 @@ impl MessageInvoker for TestMessageInvoker {
 struct TestSystemMessage;
 
 impl Message for TestSystemMessage {
+  fn eq_message(&self, other: &dyn Message) -> bool {
+    other.as_any().is::<TestSystemMessage>()
+  }
+
   fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
     self
   }
@@ -87,6 +91,10 @@ impl Message for TestSystemMessage {
 struct TestUserMessage;
 
 impl Message for TestUserMessage {
+  fn eq_message(&self, other: &dyn Message) -> bool {
+    other.as_any().is::<TestUserMessage>()
+  }
+
   fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
     self
   }
@@ -96,6 +104,10 @@ impl Message for TestUserMessage {
 struct TestTask;
 
 impl Message for TestTask {
+  fn eq_message(&self, other: &dyn Message) -> bool {
+    other.as_any().is::<TestTask>()
+  }
+
   fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
     self
   }

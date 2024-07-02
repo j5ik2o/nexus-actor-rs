@@ -26,11 +26,11 @@ impl Actor for MyActor {
     Ok(())
   }
 
-  async fn receive(&self, _: ContextHandle, _: MessageHandle) -> Result<(), ActorError> {
+  async fn receive(&mut self, _: ContextHandle, _: MessageHandle) -> Result<(), ActorError> {
     Ok(())
   }
 
-  fn get_supervisor_strategy(&self) -> Option<SupervisorStrategyHandle> {
+  async fn get_supervisor_strategy(&self) -> Option<SupervisorStrategyHandle> {
     None
   }
 }

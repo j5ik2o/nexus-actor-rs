@@ -243,6 +243,10 @@ mod tests {
   #[derive(Debug, Clone)]
   struct Hello(pub String);
   impl Message for Hello {
+    fn eq_message(&self, other: &dyn Message) -> bool {
+      self.0 == other.as_any().downcast_ref::<Hello>().unwrap().0
+    }
+
     fn as_any(&self) -> &(dyn std::any::Any + Send + Sync + 'static) {
       self
     }
@@ -253,17 +257,17 @@ mod tests {
 
   #[async_trait]
   impl Actor for MyActor {
-    async fn handle(&self, ctx: ContextHandle) -> Result<(), ActorError> {
+    async fn handle(&mut self, ctx: ContextHandle) -> Result<(), ActorError> {
       let msg = ctx.get_message().await;
       println!("{:?}", msg);
       Ok(())
     }
 
-    async fn receive(&self, c: ContextHandle, message_handle: MessageHandle) -> Result<(), ActorError> {
+    async fn receive(&mut self, c: ContextHandle, message_handle: MessageHandle) -> Result<(), ActorError> {
       Ok(())
     }
 
-    fn get_supervisor_strategy(&self) -> Option<SupervisorStrategyHandle> {
+    async fn get_supervisor_strategy(&self) -> Option<SupervisorStrategyHandle> {
       None
     }
   }

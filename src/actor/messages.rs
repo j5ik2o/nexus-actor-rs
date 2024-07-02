@@ -18,6 +18,10 @@ pub enum MailboxMessage {
 }
 
 impl Message for MailboxMessage {
+  fn eq_message(&self, other: &dyn Message) -> bool {
+    other.as_any().is::<MailboxMessage>()
+  }
+
   fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
     self
   }
@@ -27,6 +31,10 @@ impl Message for MailboxMessage {
 pub struct ReceiveTimeout {}
 
 impl Message for ReceiveTimeout {
+  fn eq_message(&self, other: &dyn Message) -> bool {
+    other.as_any().is::<ReceiveTimeout>()
+  }
+
   fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
     self
   }
@@ -36,6 +44,10 @@ impl Message for ReceiveTimeout {
 pub struct IgnoreDeadLetterLogging {}
 
 impl Message for IgnoreDeadLetterLogging {
+  fn eq_message(&self, other: &dyn Message) -> bool {
+    other.as_any().is::<IgnoreDeadLetterLogging>()
+  }
+
   fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
     self
   }
@@ -50,8 +62,25 @@ pub enum AutoReceiveMessage {
 }
 
 impl Message for AutoReceiveMessage {
+  fn eq_message(&self, other: &dyn Message) -> bool {
+    let msg = other.as_any().downcast_ref::<AutoReceiveMessage>();
+    match (self, msg) {
+        (AutoReceiveMessage::Restarting(_), Some(&AutoReceiveMessage::Restarting(_))) => true,
+        (AutoReceiveMessage::Stopping(_), Some(&AutoReceiveMessage::Stopping(_))) => true,
+        (AutoReceiveMessage::Stopped(_), Some(&AutoReceiveMessage::Stopped(_))) => true,
+        (AutoReceiveMessage::PoisonPill(_), Some(&AutoReceiveMessage::PoisonPill(_))) => true,
+        _ => false
+    }
+  }
+
   fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
     self
+  }
+}
+
+impl PartialEq for AutoReceiveMessage {
+  fn eq(&self, other: &Self) -> bool {
+    self.eq_message(other)
   }
 }
 
@@ -75,6 +104,16 @@ pub enum SystemMessage {
 }
 
 impl Message for SystemMessage {
+  fn eq_message(&self, other: &dyn Message) -> bool {
+    let msg = other.as_any().downcast_ref::<SystemMessage>();
+    match (self, msg) {
+      (SystemMessage::Restart(_), Some(&SystemMessage::Restart(_))) => true,
+      (SystemMessage::Started(_), Some(&SystemMessage::Started(_))) => true,
+      (SystemMessage::Stop(_), Some(&SystemMessage::Stop(_))) => true,
+      _ => false
+    }
+  }
+
   fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
     self
   }
@@ -114,6 +153,10 @@ pub struct Failure {
 }
 
 impl Message for Failure {
+  fn eq_message(&self, other: &dyn Message) -> bool {
+    other.as_any().is::<Failure>()
+  }
+
   fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
     self
   }
@@ -185,6 +228,10 @@ impl Debug for Continuation {
 }
 
 impl Message for Continuation {
+  fn eq_message(&self, other: &dyn Message) -> bool {
+    other.as_any().is::<Continuation>()
+  }
+
   fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
     self
   }

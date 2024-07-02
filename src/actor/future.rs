@@ -23,6 +23,10 @@ pub enum FutureError {
 }
 
 impl Message for FutureError {
+  fn eq_message(&self, other: &dyn Message) -> bool {
+    other.as_any().is::<FutureError>()
+  }
+
   fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
     self
   }

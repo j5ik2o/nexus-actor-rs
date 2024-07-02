@@ -22,7 +22,7 @@ use crate::actor::dispatch::message_invoker::MessageInvoker;
 use crate::actor::future::FutureProcess;
 use crate::actor::log::P_LOG;
 use crate::actor::message::{Message, MessageHandle, ProducerFunc, ReceiverFunc, ResponseHandle, SenderFunc};
-use crate::actor::message_envelope::{MessageEnvelope, MessageOrEnvelope, ReadonlyMessageHeadersHandle};
+use crate::actor::message_envelope::{MessageEnvelope, MessageOrEnvelope, ReadonlyMessageHeadersHandle, wrap_envelope};
 use crate::actor::messages::{
   AutoReceiveMessage, Continuation, ContinuationFunc, Failure, MailboxMessage, NotInfluenceReceiveTimeoutHandle,
   ReceiveTimeout, Restart, Restarting, Started, Stopped, Stopping, SystemMessage,
@@ -159,8 +159,8 @@ impl ActorContext {
     } else {
       tracing::debug!("Received message: {:?}", message);
       let context = self.receive_with_context().await;
-      let actor_opt = self.get_actor().await;
-      let actor = actor_opt.as_ref().unwrap();
+      let mut actor_opt = self.get_actor().await;
+      let actor = actor_opt.as_mut().unwrap();
 
       let result = actor.handle(context.clone()).await;
 
@@ -245,27 +245,29 @@ impl ActorContext {
 
   async fn process_message(&mut self, message: MessageHandle) -> Result<(), ActorError> {
     let props = self.get_props().await;
-    let has_receiver_middleware_chain = props.get_receiver_middleware_chain().is_some();
-    let has_context_decorator_chain = props.get_context_decorator_chain().is_some();
 
-    if has_context_decorator_chain || has_receiver_middleware_chain {
+    if props.get_receiver_middleware_chain().is_some() {
+      tracing::debug!("ActorContext::process_message: get_receiver_middleware_chain");
+      let extras = self.ensure_extras().await;
+      let receiver_context = extras.get_receiver_context().await;
+      let message_envelope =  wrap_envelope(message.clone());
+      let chain = props.get_receiver_middleware_chain().unwrap();
+      return chain.run(receiver_context, message_envelope).await;
+    }
+
+    if props.get_context_decorator_chain().is_some() {
+      tracing::debug!("ActorContext::process_message: get_context_decorator_chain");
       let extras = self.ensure_extras().await;
       let mut receiver_context = extras.get_receiver_context().await;
-      let message_envelope = MessageEnvelope::new(message);
-      if has_receiver_middleware_chain {
-        let chain = props.get_receiver_middleware_chain().unwrap();
-        chain.run(receiver_context, message_envelope).await
-      } else if has_context_decorator_chain {
-        receiver_context.receive(message_envelope).await
-      } else {
-        panic!("No middleware chain or context decorator chain found")
-      }
-    } else {
-      self.set_message_or_envelope(message).await;
-      let result = self.default_receive().await;
-      self.reset_message_or_envelope().await;
-      result
+      let message_envelope = wrap_envelope(message.clone());
+      return receiver_context.receive(message_envelope).await;
     }
+
+    tracing::debug!("ActorContext::process_message: default_receive");
+    self.set_message_or_envelope(message).await;
+    let result = self.default_receive().await;
+    self.reset_message_or_envelope().await;
+    result
   }
 
   async fn restart(&mut self) {
@@ -425,7 +427,7 @@ impl ActorContext {
   async fn handle_failure(&mut self, f: &Failure) {
     tracing::debug!("ActorContext::handle_failure: {:?}", f.who);
     let actor = self.get_actor().await.unwrap();
-    let ss = actor.get_supervisor_strategy();
+    let ss = actor.get_supervisor_strategy().await;
     tracing::debug!("ActorContext::handle_failure: SupervisorStrategy = {:?}", ss);
     if let Some(s) = ss {
       tracing::debug!("ActorContext::handle_failure: SupervisorStrategy");
@@ -675,8 +677,12 @@ impl BasePart for ActorContext {
 impl MessagePart for ActorContext {
   async fn get_message(&self) -> Option<MessageHandle> {
     let inner_mg = self.inner.lock().await;
-    let message_or_envelope = inner_mg.message_or_envelope.as_ref().unwrap().clone();
-    Some(message_or_envelope.get_value())
+    let result = if let Some(moe) = &inner_mg.message_or_envelope {
+      Some(moe.get_value())
+    } else {
+      None
+    };
+    result
   }
 
   async fn get_message_header(&self) -> ReadonlyMessageHeadersHandle {

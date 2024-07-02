@@ -72,6 +72,10 @@ impl Process for ActorProcess {
 struct StopMessage;
 
 impl Message for StopMessage {
+  fn eq_message(&self, other: &dyn Message) -> bool {
+    other.as_any().is::<StopMessage>()
+  }
+
   fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
     self
   }
