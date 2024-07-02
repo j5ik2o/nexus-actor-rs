@@ -4,8 +4,8 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use tokio::sync::Mutex;
 
-use crate::actor::actor::{ActorError, ActorInnerError};
 use crate::actor::actor::taks::Task;
+use crate::actor::actor::{ActorError, ActorInnerError};
 use crate::actor::dispatch::dispatcher::{CurrentThreadDispatcher, DispatcherHandle};
 use crate::actor::dispatch::mailbox::{DefaultMailbox, Mailbox};
 use crate::actor::dispatch::message_invoker::{MessageInvoker, MessageInvokerHandle};
@@ -54,7 +54,7 @@ impl MessageInvoker for TestMessageInvoker {
     Ok(())
   }
 
-  async fn escalate_failure(&self, reason: ActorInnerError, _message: MessageHandle) {
+  async fn escalate_failure(&mut self, reason: ActorInnerError, _message: MessageHandle) {
     let reason_msg = if reason.is_type::<&str>() {
       reason.clone().take::<&str>().unwrap().to_string()
     } else if reason.is_type::<String>() {

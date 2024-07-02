@@ -1,6 +1,6 @@
 use std::fmt::{Debug, Formatter};
-use std::sync::{Arc, Weak};
 use std::sync::atomic::{AtomicI32, AtomicUsize, Ordering};
+use std::sync::{Arc, Weak};
 
 use once_cell::sync::Lazy;
 use tokio::sync::RwLock;

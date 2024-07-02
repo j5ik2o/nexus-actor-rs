@@ -8,12 +8,12 @@ use once_cell::sync::Lazy;
 use thiserror::Error;
 use tokio::sync::Mutex;
 
-use crate::actor::actor::{Actor, ActorError, ActorHandle};
 use crate::actor::actor::actor_process::ActorProcess;
 use crate::actor::actor::pid::ExtendedPid;
+use crate::actor::actor::{Actor, ActorError, ActorHandle};
 use crate::actor::actor_system::ActorSystem;
-use crate::actor::context::{ContextHandle, InfoPart, ReceiverPart, SpawnerContextHandle};
 use crate::actor::context::actor_context::ActorContext;
+use crate::actor::context::{ContextHandle, InfoPart, ReceiverPart, SpawnerContextHandle};
 use crate::actor::dispatch::dispatcher::*;
 use crate::actor::dispatch::mailbox::{Mailbox, MailboxHandle, MailboxProduceFunc};
 use crate::actor::dispatch::message_invoker::MessageInvokerHandle;
@@ -21,11 +21,11 @@ use crate::actor::dispatch::unbounded::unbounded_mailbox_creator_with_opts;
 use crate::actor::message::{ContextDecoratorFunc, MessageHandle, ProducerFunc, ReceiveFunc, ReceiverFunc, SenderFunc};
 use crate::actor::messages::{Started, SystemMessage};
 use crate::actor::middleware_chain::{
-    make_context_decorator_chain, make_receiver_middleware_chain, make_sender_middleware_chain,
-    make_spawn_middleware_chain,
+  make_context_decorator_chain, make_receiver_middleware_chain, make_sender_middleware_chain,
+  make_spawn_middleware_chain,
 };
 use crate::actor::process::ProcessHandle;
-use crate::actor::supervisor::supervisor_strategy::{DEFAULT_SUPERVISION_STRATEGY, SupervisorStrategyHandle};
+use crate::actor::supervisor::supervisor_strategy::{SupervisorStrategyHandle, DEFAULT_SUPERVISION_STRATEGY};
 
 #[derive(Debug, Clone, Error)]
 pub enum SpawnError {
@@ -285,9 +285,9 @@ static DEFAULT_SPAWNER: Lazy<SpawnFunc> = Lazy::new(|| {
   SpawnFunc::new(
     |actor_system: ActorSystem, name: String, props: Props, parent_context: SpawnerContextHandle| {
       async move {
+        tracing::debug!("Spawn actor: {}", name);
         let mut ctx = ActorContext::new(actor_system.clone(), props.clone(), parent_context.get_self().await).await;
         let mut mb = props.produce_mailbox().await;
-
         // prepare the mailbox number counter
 
         let dp = props.get_dispatcher();
@@ -309,10 +309,13 @@ static DEFAULT_SPAWNER: Lazy<SpawnFunc> = Lazy::new(|| {
           Some(dp.clone()),
         )
         .await;
+        tracing::debug!("mailbox handlers registered: {}", name);
 
         mb.post_system_message(MessageHandle::new(SystemMessage::Started(Started)))
           .await;
+        tracing::debug!("post_system_message: started: {}", name);
         mb.start().await;
+        tracing::debug!("mailbox started: {}", name);
 
         Ok(pid)
       }
@@ -337,6 +340,10 @@ impl Actor for ReceiveFuncActor {
 
   async fn receive(&self, _: ContextHandle, _: MessageHandle) -> Result<(), ActorError> {
     Ok(())
+  }
+
+  fn get_supervisor_strategy(&self) -> Option<SupervisorStrategyHandle> {
+    None
   }
 }
 

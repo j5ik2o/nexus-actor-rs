@@ -1,14 +1,15 @@
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use tokio::sync::Notify;
 
-use crate::actor::actor::{Actor, ActorError, ActorHandle};
 use crate::actor::actor::props::Props;
+use crate::actor::actor::{Actor, ActorError, ActorHandle};
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::{ContextHandle, SpawnerPart};
 use crate::actor::message::{MessageHandle, ProducerFunc};
+use crate::actor::supervisor::supervisor_strategy::SupervisorStrategyHandle;
 
 #[derive(Debug, Clone)]
 struct MyActor {
@@ -27,6 +28,10 @@ impl Actor for MyActor {
 
   async fn receive(&self, _: ContextHandle, _: MessageHandle) -> Result<(), ActorError> {
     Ok(())
+  }
+
+  fn get_supervisor_strategy(&self) -> Option<SupervisorStrategyHandle> {
+    None
   }
 }
 

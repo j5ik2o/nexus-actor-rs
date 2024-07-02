@@ -1,10 +1,10 @@
 use std::future::Future;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 
 use futures::future::BoxFuture;
 use tokio::sync::Mutex;
-use tokio::time::{Duration, interval};
+use tokio::time::{interval, Duration};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Valve {

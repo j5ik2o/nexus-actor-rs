@@ -12,7 +12,7 @@ use crate::actor::message::MessageHandle;
 pub trait MessageInvoker: Debug + Send + Sync {
   async fn invoke_system_message(&mut self, message: MessageHandle) -> Result<(), ActorError>;
   async fn invoke_user_message(&mut self, message: MessageHandle) -> Result<(), ActorError>;
-  async fn escalate_failure(&self, reason: ActorInnerError, message: MessageHandle);
+  async fn escalate_failure(&mut self, reason: ActorInnerError, message: MessageHandle);
 }
 
 #[derive(Debug, Clone)]
@@ -50,8 +50,8 @@ impl MessageInvoker for MessageInvokerHandle {
     mg.invoke_user_message(message).await
   }
 
-  async fn escalate_failure(&self, reason: ActorInnerError, message: MessageHandle) {
-    let mg = self.0.lock().await;
+  async fn escalate_failure(&mut self, reason: ActorInnerError, message: MessageHandle) {
+    let mut mg = self.0.lock().await;
     mg.escalate_failure(reason, message).await;
   }
 }

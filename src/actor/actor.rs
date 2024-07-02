@@ -6,7 +6,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use backtrace::Backtrace;
 
-use crate::actor::context::{ContextHandle, MessagePart};
+use crate::actor::context::{ContextHandle, InfoPart, MessagePart};
 use crate::actor::message::{Message, MessageHandle};
 use crate::actor::messages::SystemMessage;
 use crate::actor::supervisor::supervisor_strategy::SupervisorStrategyHandle;
@@ -221,17 +221,26 @@ impl Error for ActorError {
 #[async_trait]
 pub trait Actor: Debug + Send + Sync + 'static {
   async fn handle(&self, context_handle: ContextHandle) -> Result<(), ActorError> {
+    let id = context_handle.get_self().await.unwrap().id().to_string();
+    tracing::debug!("Actor::handle: id = {}, context_handle = {:?}", id, context_handle);
     let message_handle_opt = context_handle.get_message().await;
     let any_message = message_handle_opt.as_ref().unwrap().as_any();
     if let Some(system_message) = any_message.downcast_ref::<SystemMessage>() {
+      tracing::debug!("Actor::handle: id = {}, system_message = {:?}", id, system_message);
       match system_message {
         SystemMessage::Started(_) => self.post_start(context_handle).await,
         SystemMessage::Stop(_) => self.pre_stop(context_handle).await,
         SystemMessage::Restart(_) => self.pre_restart(context_handle).await,
       }
     } else if let Some(terminated) = any_message.downcast_ref::<Terminated>() {
+      tracing::debug!("Actor::handle: id = {}, terminated = {:?}", id, terminated);
       self.on_child_terminated(context_handle, terminated).await
     } else {
+      tracing::debug!(
+        "Actor::handle: id = {}, other = {:?}",
+        id,
+        context_handle.get_message().await.unwrap()
+      );
       self
         .receive(context_handle.clone(), context_handle.get_message().await.unwrap())
         .await
@@ -300,5 +309,9 @@ impl Actor for ActorHandle {
 
   async fn receive(&self, c: ContextHandle, message_handle: MessageHandle) -> Result<(), ActorError> {
     Ok(())
+  }
+
+  fn get_supervisor_strategy(&self) -> Option<SupervisorStrategyHandle> {
+    self.0.get_supervisor_strategy()
   }
 }

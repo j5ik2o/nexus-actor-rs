@@ -1,10 +1,10 @@
 use std::any::Any;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use tokio::sync::{Mutex, Notify};
-use tokio::time::{Duration, sleep};
+use tokio::time::{sleep, Duration};
 
 use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::actor_system::ActorSystem;

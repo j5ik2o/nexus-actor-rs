@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 use std::future::Future;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use futures::future::BoxFuture;
@@ -336,7 +336,7 @@ impl DefaultMailbox {
           _ => {
             let result = message_invoker.invoke_system_message(msg.clone()).await;
             if let Err(e) = result {
-              println!("Failed to invoke system message: {:?}", e);
+              tracing::debug!("Failed to invoke system message");
               message_invoker
                 .escalate_failure(e.reason().cloned().unwrap(), msg.clone())
                 .await;
@@ -357,7 +357,7 @@ impl DefaultMailbox {
         self.decrement_user_messages_count().await;
         let result = message_invoker.invoke_user_message(message.clone()).await;
         if let Err(e) = result {
-          println!("Failed to invoke system message: {:?}", e);
+          tracing::debug!("Failed to invoke system message");
           message_invoker
             .escalate_failure(e.reason().cloned().unwrap(), message.clone())
             .await;

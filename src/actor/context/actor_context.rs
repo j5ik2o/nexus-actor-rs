@@ -1,4 +1,3 @@
-use std::pin::Pin;
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::Arc;
 
@@ -153,10 +152,12 @@ impl ActorContext {
     let message = self.get_message().await.expect("Failed to retrieve message");
 
     if message.as_any().is::<PoisonPill>() {
+      tracing::debug!("PoisonPill received");
       let me = self.get_self().await.unwrap();
       self.stop(&me).await;
       Ok(())
     } else {
+      tracing::debug!("Received message: {:?}", message);
       let context = self.receive_with_context().await;
       let actor_opt = self.get_actor().await;
       let actor = actor_opt.as_ref().unwrap();
@@ -341,6 +342,7 @@ impl ActorContext {
   }
 
   async fn try_restart_or_terminate(&mut self) {
+    tracing::debug!("ActorContext::try_restart_or_terminate");
     match self.get_extras().await {
       Some(extras) if extras.get_children().await.is_empty().await => {
         let state = {
@@ -365,6 +367,7 @@ impl ActorContext {
   }
 
   async fn handle_stop(&mut self) {
+    tracing::debug!("ActorContext::handle_stop");
     {
       let mg = self.inner.lock().await;
       if mg.state.as_ref().unwrap().load(Ordering::SeqCst) >= State::Stopping as u8 {
@@ -385,6 +388,7 @@ impl ActorContext {
   }
 
   async fn handle_restart(&mut self) {
+    tracing::debug!("ActorContext::handle_restart");
     {
       let mut mg = self.inner.lock().await;
       mg.state
@@ -405,20 +409,26 @@ impl ActorContext {
   }
 
   async fn handle_watch(&mut self, watch: &Watch) {
+    tracing::debug!("ActorContext::handle_watch: {:?}", watch);
     let extras = self.ensure_extras().await;
     let pid = ExtendedPid::new(watch.clone().watcher.unwrap(), self.get_actor_system().await);
     extras.get_watchers().await.add(pid).await;
   }
 
   async fn handle_unwatch(&mut self, unwatch: &Unwatch) {
+    tracing::debug!("ActorContext::handle_unwatch: {:?}", unwatch);
     let extras = self.ensure_extras().await;
     let pid = ExtendedPid::new(unwatch.clone().watcher.unwrap(), self.get_actor_system().await);
     extras.get_watchers().await.remove(&pid).await;
   }
 
   async fn handle_failure(&mut self, f: &Failure) {
+    tracing::debug!("ActorContext::handle_failure: {:?}", f.who);
     let actor = self.get_actor().await.unwrap();
-    if let Some(s) = actor.get_supervisor_strategy() {
+    let ss = actor.get_supervisor_strategy();
+    tracing::debug!("ActorContext::handle_failure: SupervisorStrategy = {:?}", ss);
+    if let Some(s) = ss {
+      tracing::debug!("ActorContext::handle_failure: SupervisorStrategy");
       let sh = SupervisorHandle::new(self.clone());
       s.handle_failure(
         &self.get_actor_system().await,
@@ -448,6 +458,7 @@ impl ActorContext {
   }
 
   async fn handle_terminated(&mut self, terminated: &Terminated) {
+    tracing::debug!("ActorContext::handle_terminated: {:?}", terminated);
     if let Some(mut extras) = self.get_extras().await {
       let pid = ExtendedPid::new(terminated.clone().who.unwrap(), self.get_actor_system().await);
       extras.remove_child(&pid).await;
@@ -461,6 +472,7 @@ impl ActorContext {
   }
 
   async fn handle_root_failure(&self, failure: &Failure) {
+    tracing::debug!("ActorContext::handle_root_failure: {:?}", failure);
     DEFAULT_SUPERVISION_STRATEGY
       .handle_failure(
         &self.get_actor_system().await,
@@ -868,6 +880,7 @@ impl Context for ActorContext {}
 #[async_trait]
 impl MessageInvoker for ActorContext {
   async fn invoke_system_message(&mut self, message: MessageHandle) -> Result<(), ActorError> {
+    tracing::debug!("invoke_system_message: message = {:?}", self.get_self().await);
     let sm = message.as_any().downcast_ref::<SystemMessage>();
     if let Some(sm) = sm {
       match sm {
@@ -908,6 +921,7 @@ impl MessageInvoker for ActorContext {
   }
 
   async fn invoke_user_message(&mut self, message: MessageHandle) -> Result<(), ActorError> {
+    tracing::debug!("invoke_user_message: message = {:?}", message);
     let state = {
       let inner_mg = self.inner.lock().await;
       inner_mg.state.clone()
@@ -953,8 +967,36 @@ impl MessageInvoker for ActorContext {
     result
   }
 
-  async fn escalate_failure(&self, reason: ActorInnerError, message: MessageHandle) {
-    todo!()
+  async fn escalate_failure(&mut self, reason: ActorInnerError, message: MessageHandle) {
+    // TODO: Metrics
+
+    let failure = Failure::new(
+      self.get_self().await.unwrap(),
+      reason,
+      self.ensure_extras().await.restart_stats().await,
+      message,
+    );
+
+    tracing::debug!("send failure to self");
+    self
+      .get_self()
+      .await
+      .unwrap()
+      .send_system_message(self.get_actor_system().await, MessageHandle::new(failure.clone()))
+      .await;
+
+    if self.get_parent().await.is_none() {
+      tracing::debug!("Escalating failure to root");
+      self.handle_root_failure(&failure).await
+    } else {
+      tracing::debug!("Escalating failure to parent");
+      self
+        .get_parent()
+        .await
+        .unwrap()
+        .send_system_message(self.get_actor_system().await, MessageHandle::new(failure))
+        .await;
+    }
   }
 }
 
@@ -969,6 +1011,7 @@ impl Supervisor for ActorContext {
   }
 
   async fn escalate_failure(&mut self, reason: ActorInnerError, message: MessageHandle) {
+    tracing::debug!("ActorContext::escalate_failure: reason = {:?}", reason);
     let self_pid = self.get_self().await.expect("Failed to retrieve self_pid");
     if self
       .get_actor_system()
@@ -977,9 +1020,11 @@ impl Supervisor for ActorContext {
       .await
       .developer_supervision_logging
     {
-      println!(
+      tracing::info!(
         "[Supervision] Actor: {}, failed with message: {}, exception: {}",
-        self_pid, message, reason
+        self_pid,
+        message,
+        reason
       );
       P_LOG
         .error(
@@ -1007,8 +1052,10 @@ impl Supervisor for ActorContext {
       .await;
 
     if self.get_parent().await.is_none() {
+      tracing::debug!("Escalating failure to root");
       self.handle_root_failure(&failure).await
     } else {
+      tracing::debug!("Escalating failure to parent");
       self
         .get_parent()
         .await

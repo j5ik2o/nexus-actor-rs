@@ -1,13 +1,13 @@
 use async_trait::async_trait;
 
-use crate::actor::actor::ActorInnerError;
 use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::actor::restart_statistics::RestartStatistics;
+use crate::actor::actor::ActorInnerError;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::message::MessageHandle;
 use crate::actor::supervisor::directive::Directive;
 use crate::actor::supervisor::supervisor_strategy::{
-    DeciderFunc, log_failure, Supervisor, SupervisorHandle, SupervisorStrategy,
+  log_failure, DeciderFunc, Supervisor, SupervisorHandle, SupervisorStrategy,
 };
 
 #[derive(Debug, Clone)]
@@ -70,14 +70,32 @@ impl SupervisorStrategy for OneForOneStrategy {
     reason: ActorInnerError,
     message: MessageHandle,
   ) {
+    tracing::debug!(
+      "OneForOneStrategy::handle_failure: child = {:?}, rs = {:?}, message = {:?}",
+      child,
+      rs,
+      message
+    );
     let directive = self.decider.run(reason.clone());
     match directive {
       Directive::Resume => {
         // resume the failing child
+        tracing::debug!(
+          "OneForOneStrategy::handle_failure: Resume: child = {:?}, rs = {:?}, message = {:?}",
+          child,
+          rs,
+          message
+        );
         log_failure(actor_system, &child, reason, directive).await;
         supervisor.resume_children(&[child]).await
       }
       Directive::Restart => {
+        tracing::debug!(
+          "OneForOneStrategy::handle_failure: Restart: child = {:?}, rs = {:?}, message = {:?}",
+          child,
+          rs,
+          message
+        );
         // try restart the failing child
         if self.should_stop(&mut rs) {
           log_failure(actor_system, &child, reason, Directive::Stop).await;
@@ -88,11 +106,23 @@ impl SupervisorStrategy for OneForOneStrategy {
         }
       }
       Directive::Stop => {
+        tracing::debug!(
+          "OneForOneStrategy::handle_failure: Stop: child = {:?}, rs = {:?}, message = {:?}",
+          child,
+          rs,
+          message
+        );
         // stop the failing child, no need to involve the crs
         log_failure(actor_system, &child, reason, directive).await;
         supervisor.stop_children(&[child]).await
       }
       Directive::Escalate => {
+        tracing::debug!(
+          "OneForOneStrategy::handle_failure: Escalate: child = {:?}, rs = {:?}, message = {:?}",
+          child,
+          rs,
+          message
+        );
         // send failure to parent
         // supervisor mailbox
         // do not log here, log in the parent handling the error

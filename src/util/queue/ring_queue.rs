@@ -1,6 +1,6 @@
 use std::mem;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use tokio::sync::Mutex;
@@ -137,9 +137,9 @@ impl<E: Element> QueueWriter<E> for RingQueue<E> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+  use super::*;
 
-    #[tokio::test]
+  #[tokio::test]
   async fn test_push_pop() {
     let mut queue = RingQueue::new(5);
     assert!(queue.offer(1).await.is_ok());

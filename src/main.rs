@@ -1,13 +1,14 @@
+use std::env;
 use std::thread::sleep;
 
 use async_trait::async_trait;
-
-use nexus_rs::actor::actor::{Actor, ActorError, ActorHandle};
 use nexus_rs::actor::actor::props::Props;
+use nexus_rs::actor::actor::{Actor, ActorError, ActorHandle};
 use nexus_rs::actor::actor_system::ActorSystem;
 use nexus_rs::actor::context::{ContextHandle, SenderPart, SpawnerPart};
 use nexus_rs::actor::dispatch::unbounded::unbounded_mpsc_mailbox_creator;
 use nexus_rs::actor::message::{Message, MessageHandle, ProducerFunc};
+use tracing_subscriber::EnvFilter;
 
 #[derive(Debug, Clone)]
 struct Hello(pub String);
@@ -58,7 +59,7 @@ impl Actor for TopActor {
   }
 }
 
-pub async fn create_my_actor(ctx: ContextHandle) -> ActorHandle {
+pub async fn create_top_actor(ctx: ContextHandle) -> ActorHandle {
   ActorHandle::new(TopActor {})
 }
 
@@ -68,12 +69,15 @@ pub async fn create_child_actor(ctx: ContextHandle) -> ActorHandle {
 
 #[tokio::main]
 async fn main() {
-  env_logger::init();
+  let _ = env::set_var("RUST_LOG", "debug");
+  tracing_subscriber::fmt()
+    .with_env_filter(EnvFilter::from_default_env())
+    .init();
   let system = ActorSystem::new().await;
   let mut root = system.get_root_context().await;
 
   let props = Props::from_producer_func_with_opts(
-    ProducerFunc::new(create_my_actor),
+    ProducerFunc::new(create_top_actor),
     vec![Props::with_mailbox(unbounded_mpsc_mailbox_creator())],
   )
   .await;

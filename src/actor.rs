@@ -19,3 +19,4 @@ pub mod util;
 
 #[cfg(test)]
 mod spawn_test;
+mod supervision_test;

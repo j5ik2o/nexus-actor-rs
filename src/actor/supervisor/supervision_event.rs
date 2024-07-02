@@ -1,8 +1,8 @@
 use std::any::Any;
 use std::sync::Arc;
 
-use crate::actor::actor::ActorInnerError;
 use crate::actor::actor::pid::ExtendedPid;
+use crate::actor::actor::ActorInnerError;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::log::P_LOG;
 use crate::actor::message::Message;
