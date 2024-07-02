@@ -95,15 +95,15 @@ impl<E: PriorityMessage, Q: QueueReader<E> + QueueWriter<E>> QueueWriter<E> for 
 
 #[cfg(test)]
 mod tests {
-  use std::any::Any;
-  use std::fmt::Debug;
+    use std::any::Any;
+    use std::fmt::Debug;
 
-  use crate::actor::message::Message;
-  use crate::util::queue::mpsc_unbounded_channel_queue::MpscUnboundedChannelQueue;
+    use crate::actor::message::Message;
+    use crate::util::queue::mpsc_unbounded_channel_queue::MpscUnboundedChannelQueue;
 
-  use super::*;
+    use super::*;
 
-  #[derive(Debug, Clone, PartialEq, Eq)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
   struct TestPriorityMessage {
     message: String,
     priority: i8,

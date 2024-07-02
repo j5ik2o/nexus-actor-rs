@@ -6,12 +6,12 @@ use std::sync::Arc;
 use futures::future::BoxFuture;
 use tokio::sync::Mutex;
 
-use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::actor::{ActorError, ActorHandle};
+use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::context::{ContextHandle, ReceiverContextHandle, SenderContextHandle};
 use crate::actor::message_envelope::MessageEnvelope;
 use crate::util::element::Element;
-use crate::util::queue::priority_queue::{PriorityMessage, DEFAULT_PRIORITY};
+use crate::util::queue::priority_queue::{DEFAULT_PRIORITY, PriorityMessage};
 
 pub trait Response: Message + Debug + Send + Sync + 'static {}
 

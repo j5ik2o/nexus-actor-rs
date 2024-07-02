@@ -8,12 +8,12 @@ use once_cell::sync::Lazy;
 use thiserror::Error;
 use tokio::sync::Mutex;
 
+use crate::actor::actor::{Actor, ActorError, ActorHandle};
 use crate::actor::actor::actor_process::ActorProcess;
 use crate::actor::actor::pid::ExtendedPid;
-use crate::actor::actor::{Actor, ActorError, ActorHandle};
 use crate::actor::actor_system::ActorSystem;
-use crate::actor::context::actor_context::ActorContext;
 use crate::actor::context::{ContextHandle, InfoPart, ReceiverPart, SpawnerContextHandle};
+use crate::actor::context::actor_context::ActorContext;
 use crate::actor::dispatch::dispatcher::*;
 use crate::actor::dispatch::mailbox::{Mailbox, MailboxHandle, MailboxProduceFunc};
 use crate::actor::dispatch::message_invoker::MessageInvokerHandle;
@@ -21,11 +21,11 @@ use crate::actor::dispatch::unbounded::unbounded_mailbox_creator_with_opts;
 use crate::actor::message::{ContextDecoratorFunc, MessageHandle, ProducerFunc, ReceiveFunc, ReceiverFunc, SenderFunc};
 use crate::actor::messages::{Started, SystemMessage};
 use crate::actor::middleware_chain::{
-  make_context_decorator_chain, make_receiver_middleware_chain, make_sender_middleware_chain,
-  make_spawn_middleware_chain,
+    make_context_decorator_chain, make_receiver_middleware_chain, make_sender_middleware_chain,
+    make_spawn_middleware_chain,
 };
 use crate::actor::process::ProcessHandle;
-use crate::actor::supervisor::supervisor_strategy::{SupervisorStrategyHandle, DEFAULT_SUPERVISION_STRATEGY};
+use crate::actor::supervisor::supervisor_strategy::{DEFAULT_SUPERVISION_STRATEGY, SupervisorStrategyHandle};
 
 #[derive(Debug, Clone, Error)]
 pub enum SpawnError {

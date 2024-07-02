@@ -1,7 +1,7 @@
 use std::fmt::{Debug, Formatter};
 use std::future::Future;
-use std::sync::atomic::{AtomicI32, AtomicU32, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicI32, AtomicU32, Ordering};
 
 use futures::future::BoxFuture;
 use tokio::sync::RwLock;

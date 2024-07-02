@@ -2,8 +2,8 @@ use std::fmt::Debug;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use tokio::sync::mpsc::error::{SendError, TryRecvError};
 use tokio::sync::{mpsc, Mutex};
+use tokio::sync::mpsc::error::{SendError, TryRecvError};
 
 use crate::util::element::Element;
 use crate::util::queue::{QueueBase, QueueError, QueueReader, QueueSize, QueueWriter};
