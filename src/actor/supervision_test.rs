@@ -1,6 +1,13 @@
 use std::any::Any;
+use std::collections::VecDeque;
 use std::env;
 use std::sync::Arc;
+
+use async_trait::async_trait;
+use thiserror::Error;
+use tokio::sync::{mpsc, Mutex, Notify};
+use tokio::time::{sleep, timeout, Instant};
+use tracing_subscriber::EnvFilter;
 
 use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::actor::props::{Props, ReceiverMiddleware};
@@ -10,11 +17,8 @@ use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::{ContextHandle, MessagePart, ReceiverContextHandle, SenderPart, SpawnerPart};
 use crate::actor::message::{Message, MessageHandle, ProducerFunc, ReceiverFunc};
 use crate::actor::messages::{AutoReceiveMessage, Restart, Started, SystemMessage};
+use crate::actor::supervisor::strategy_one_for_one::OneForOneStrategy;
 use crate::actor::supervisor::supervisor_strategy::{SupervisorHandle, SupervisorStrategy, SupervisorStrategyHandle};
-use async_trait::async_trait;
-use tokio::sync::{mpsc, Mutex, Notify};
-use tokio::time::{sleep, timeout, Instant};
-use tracing_subscriber::EnvFilter;
 
 #[derive(Debug, Clone)]
 struct ActorWithSupervisor {
@@ -136,8 +140,6 @@ async fn test_actor_with_own_supervisor_can_handle_failure() {
   tracing::info!("pid = {:?}", pid);
   notify.notified().await;
 }
-use std::collections::VecDeque;
-use thiserror::Error;
 
 #[derive(Debug, Error)]
 enum TestError {
@@ -182,14 +184,12 @@ async fn test_actor_stops_after_x_restarts() {
   tracing_subscriber::fmt()
     .with_env_filter(EnvFilter::from_default_env())
     .init();
-  let mut observer = Observer::new();
+  let observer = Observer::new();
   let system = ActorSystem::new().await;
   let mut root_context = system.get_root_context().await;
 
   let cloned_observer = observer.clone();
-  let root_context_clone = root_context.clone(); // クローンを作成
   let middles = ReceiverMiddleware::new(move |next| {
-    let root_context = root_context_clone.clone(); // クローンを使用
     let cloned_observer = cloned_observer.clone();
     ReceiverFunc::new(move |ctx, moe| {
       let next = next.clone();
@@ -206,45 +206,50 @@ async fn test_actor_stops_after_x_restarts() {
       }
     })
   });
-  let props = Props::from_producer_func(ProducerFunc::new(|_| async { ActorHandle::new(FailingChildActor) })).await;
-  // let props = Props::from_producer_func_with_opts(
-  //   ProducerFunc::new(|_| async { ActorHandle::new(FailingChildActor) }),
-  //   vec![Props::with_receiver_middleware(vec![middles])],
-  // )
-  // .await;
+
+  let props = Props::from_producer_func_with_opts(
+    ProducerFunc::new(|_| async { ActorHandle::new(FailingChildActor) }),
+    vec![
+      Props::with_receiver_middleware(vec![middles]),
+      Props::with_supervisor_strategy(SupervisorStrategyHandle::new(OneForOneStrategy::new(
+        10,
+        tokio::time::Duration::from_secs(10),
+        None,
+      ))),
+    ],
+  )
+  .await;
 
   let child = root_context.spawn(props).await;
   let fail = MessageHandle::new(StringMessage("fail".to_string()));
   let d = tokio::time::Duration::from_secs(10);
-  // let _ = observer
-  //   .expect_message(MessageHandle::new(SystemMessage::Started(Started {})), d)
-  //   .await;
+  let _ = observer
+    .expect_message(MessageHandle::new(SystemMessage::Started(Started {})), d)
+    .await;
 
-  for i in 0..6 {
+  for i in 0..10 {
     tracing::debug!("Sending fail message: {}", i);
     root_context.send(child.clone(), fail.clone()).await;
-    // observer.expect_message(fail.clone(), d).await.unwrap();
-    // observer
-    //   .expect_message(
-    //     MessageHandle::new(AutoReceiveMessage::Restarting(crate::actor::messages::Restarting {})),
-    //     d,
-    //   )
-    //   .await
-    //   .unwrap();
-    // observer
-    //   .expect_message(MessageHandle::new(SystemMessage::Started(Started {})), d)
-    //   .await
-    //   .unwrap();
+    observer.expect_message(fail.clone(), d).await.unwrap();
+    observer
+      .expect_message(
+        MessageHandle::new(AutoReceiveMessage::Restarting(crate::actor::messages::Restarting {})),
+        d,
+      )
+      .await
+      .unwrap();
+    observer
+      .expect_message(MessageHandle::new(SystemMessage::Started(Started {})), d)
+      .await
+      .unwrap();
   }
-  // root_context.send(child, fail.clone()).await;
-  // observer.expect_message(fail.clone(), d).await.unwrap();
-  // observer
-  //   .expect_message(
-  //     MessageHandle::new(AutoReceiveMessage::Stopping(crate::actor::messages::Stopping {})),
-  //     d,
-  //   )
-  //   .await
-  //   .unwrap();
-
-  sleep(std::time::Duration::from_secs(60)).await;
+  root_context.send(child, fail.clone()).await;
+  observer.expect_message(fail.clone(), d).await.unwrap();
+  observer
+    .expect_message(
+      MessageHandle::new(AutoReceiveMessage::Stopping(crate::actor::messages::Stopping {})),
+      d,
+    )
+    .await
+    .unwrap();
 }

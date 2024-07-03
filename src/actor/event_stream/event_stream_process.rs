@@ -21,12 +21,12 @@ impl EventStreamProcess {
 
 #[async_trait]
 impl Process for EventStreamProcess {
-  async fn send_user_message(&self, pid: Option<&ExtendedPid>, message: MessageHandle) {
+  async fn send_user_message(&self, _: Option<&ExtendedPid>, message: MessageHandle) {
     let (_, msg, _) = unwrap_envelope(message);
     self.system.get_event_stream().await.publish(msg).await;
   }
 
-  async fn send_system_message(&self, pid: &ExtendedPid, message: MessageHandle) {}
+  async fn send_system_message(&self, _: &ExtendedPid, _: MessageHandle) {}
 
   async fn stop(&self, pid: &ExtendedPid) {}
 

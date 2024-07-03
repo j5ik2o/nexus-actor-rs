@@ -406,7 +406,7 @@ impl Props {
     })
   }
 
-  pub fn with_supervisor(supervisor: SupervisorStrategyHandle) -> PropsOptionFunc {
+  pub fn with_supervisor_strategy(supervisor: SupervisorStrategyHandle) -> PropsOptionFunc {
     PropsOptionFunc::new(move |props: &mut Props| {
       props.supervisor_strategy = Some(supervisor.clone());
     })

@@ -270,7 +270,7 @@ impl ActorContext {
     result
   }
 
-  async fn restart(&mut self) {
+  async fn restart(&mut self) -> Result<(), ActorError> {
     self.incarnate_actor().await;
     self
       .get_self()
@@ -286,31 +286,34 @@ impl ActorContext {
       .await;
     if result.is_err() {
       P_LOG.error("Failed to handle Started message", vec![]).await;
+      return result;
     }
 
     if let Some(extras) = self.get_extras().await {
       while !extras.get_stash().await.is_empty().await {
-        let message = extras.get_stash().await.pop().await;
-        let result = self.invoke_user_message(message.unwrap()).await;
+        let msg = extras.get_stash().await.pop().await.unwrap();
+        let result = self.invoke_user_message(msg).await;
         if result.is_err() {
           P_LOG.error("Failed to handle stashed message", vec![]).await;
+          return result;
         }
       }
     }
+    Ok(())
   }
 
-  async fn finalize_stop(&mut self) {
+  async fn finalize_stop(&mut self) -> Result<(), ActorError> {
     self
       .get_actor_system()
       .await
       .get_process_registry()
       .await
       .remove_process(&self.get_self().await.unwrap());
-    let result = self
-      .invoke_user_message(MessageHandle::new(AutoReceiveMessage::Stopped(Stopped {})))
-      .await;
+    let msg = MessageHandle::new(AutoReceiveMessage::Stopped(Stopped {}));
+    let result = self.invoke_user_message(msg).await;
     if result.is_err() {
       P_LOG.error("Failed to handle Stopped message", vec![]).await;
+      return result;
     }
     let other_stopped = MessageHandle::new(Terminated {
       who: self.get_self().await.map(|x| x.inner),
@@ -329,6 +332,7 @@ impl ActorContext {
           .await;
       }
     }
+    Ok(())
   }
 
   async fn stop_all_children(&mut self) {
@@ -343,7 +347,7 @@ impl ActorContext {
     }
   }
 
-  async fn try_restart_or_terminate(&mut self) {
+  async fn try_restart_or_terminate(&mut self) -> Result<(), ActorError> {
     // tracing::debug!("ActorContext::try_restart_or_terminate");
     match self.get_extras().await {
       Some(extras) if extras.get_children().await.is_empty().await => {
@@ -355,41 +359,56 @@ impl ActorContext {
         match state {
           State::Restarting => {
             self.cancel_receive_timeout().await;
-            self.restart().await;
+            let result = self.restart().await;
+            if result.is_err() {
+              P_LOG.error("Failed to restart actor", vec![]).await;
+              return result;
+            }
           }
           State::Stopping => {
             self.cancel_receive_timeout().await;
-            self.finalize_stop().await;
+            let result = self.finalize_stop().await;
+            if result.is_err() {
+              P_LOG.error("Failed to finalize stop", vec![]).await;
+              return result;
+            }
           }
           _ => {}
         }
       }
       _ => {}
     }
+    Ok(())
   }
 
-  async fn handle_stop(&mut self) {
-    // tracing::debug!("ActorContext::handle_stop");
+  async fn handle_stop(&mut self) -> Result<(), ActorError> {
+    tracing::debug!("ActorContext::handle_stop: start");
     {
       let mg = self.inner.lock().await;
       if mg.state.as_ref().unwrap().load(Ordering::SeqCst) >= State::Stopping as u8 {
-        return;
+        return Ok(());
       }
       mg.state
         .as_ref()
         .unwrap()
         .store(State::Stopping as u8, Ordering::SeqCst);
     }
-    let mh = MessageHandle::new(AutoReceiveMessage::Stopping(Stopping {}));
-    let result = self.invoke_user_message(mh).await;
-    if result.is_err() {
+    let msg = MessageHandle::new(AutoReceiveMessage::Stopping(Stopping {}));
+    if let result = self.invoke_user_message(msg).await {
       P_LOG.error("Failed to handle Stopping message", vec![]).await;
+      return result;
     }
     self.stop_all_children().await;
-    self.try_restart_or_terminate().await;
+    let result = self.try_restart_or_terminate().await;
+    if result.is_err() {
+      P_LOG.error("Failed to try_restart_or_terminate", vec![]).await;
+      return result;
+    }
+    tracing::debug!("ActorContext::handle_stop: finished");
+    Ok(())
   }
 
-  async fn handle_restart(&mut self) {
+  async fn handle_restart(&mut self) -> Result<(), ActorError> {
     tracing::debug!("ActorContext::handle_restart");
     {
       let mut mg = self.inner.lock().await;
@@ -398,16 +417,21 @@ impl ActorContext {
         .unwrap()
         .store(State::Restarting as u8, Ordering::SeqCst);
     }
-    let result = self
-      .invoke_user_message(MessageHandle::new(AutoReceiveMessage::Restarting(Restarting {})))
-      .await;
+    let msg = MessageHandle::new(AutoReceiveMessage::Restarting(Restarting {}));
+    let result = self.invoke_user_message(msg).await;
     if result.is_err() {
       P_LOG.error("Failed to handle Restarting message", vec![]).await;
+      return result;
     }
     self.stop_all_children().await;
-    self.try_restart_or_terminate().await;
+    let result = self.try_restart_or_terminate().await;
+    if result.is_err() {
+      P_LOG.error("Failed to try_restart_or_terminate", vec![]).await;
+      return result;
+    }
 
     // TODO: Metrics
+    Ok(())
   }
 
   async fn handle_watch(&mut self, watch: &Watch) {
@@ -458,21 +482,28 @@ impl ActorContext {
     tracing::debug!("ActorContext::handle_child_failure: finished: self = {}", self_pid,);
   }
 
-  async fn handle_terminated(&mut self, terminated: &Terminated) {
+  async fn handle_terminated(&mut self, terminated: &Terminated) -> Result<(), ActorError> {
     // tracing::debug!("ActorContext::handle_terminated: {:?}", terminated);
     if let Some(mut extras) = self.get_extras().await {
       let pid = ExtendedPid::new(terminated.clone().who.unwrap(), self.get_actor_system().await);
       extras.remove_child(&pid).await;
     }
 
-    let result = self.invoke_user_message(MessageHandle::new(terminated.clone())).await;
+    let msg = MessageHandle::new(terminated.clone());
+    let result = self.invoke_user_message(msg.clone()).await;
     if result.is_err() {
       P_LOG.error("Failed to handle Terminated message", vec![]).await;
+      return result;
     }
-    self.try_restart_or_terminate().await;
+    let result = self.try_restart_or_terminate().await;
+    if result.is_err() {
+      P_LOG.error("Failed to try_restart_or_terminate", vec![]).await;
+      return result;
+    }
+    Ok(())
   }
 
-  async fn handle_root_failure(&self, failure: &Failure) {
+  async fn handle_root_failure(&mut self, failure: &Failure) {
     tracing::debug!("ActorContext::handle_root_failure: start");
     DEFAULT_SUPERVISION_STRATEGY
       .handle_child_failure(
@@ -886,21 +917,30 @@ impl Context for ActorContext {}
 #[async_trait]
 impl MessageInvoker for ActorContext {
   async fn invoke_system_message(&mut self, message: MessageHandle) -> Result<(), ActorError> {
-    // tracing::debug!("invoke_system_message: message = {:?}", self.get_self().await);
+    tracing::debug!("invoke_system_message: message = {:?}", message);
     let sm = message.as_any().downcast_ref::<SystemMessage>();
     if let Some(sm) = sm {
       match sm {
         SystemMessage::Started(_) => {
           let result = self.invoke_user_message(message.clone()).await;
           if result.is_err() {
+            tracing::debug!("Failed to handle Started message: {:?}", result);
             return result;
           }
         }
         SystemMessage::Stop(_) => {
-          self.handle_stop().await;
+          let result = self.handle_stop().await;
+          if result.is_err() {
+            tracing::debug!("Failed to handle Stop message: {:?}", result);
+            return result;
+          }
         }
         SystemMessage::Restart(_) => {
-          self.handle_restart().await;
+          let result = self.handle_restart().await;
+          if result.is_err() {
+            tracing::debug!("Failed to handle Restart message: {:?}", result);
+            return result;
+          }
         }
       }
     }
@@ -921,7 +961,11 @@ impl MessageInvoker for ActorContext {
       self.handle_child_failure(f).await;
     }
     if let Some(t) = message.as_any().downcast_ref::<Terminated>() {
-      self.handle_terminated(t).await;
+      let result = self.handle_terminated(t).await;
+      if result.is_err() {
+        tracing::debug!("Failed to handle Terminated message: {:?}", result);
+        return result;
+      }
     }
     Ok(())
   }
@@ -978,9 +1022,9 @@ impl MessageInvoker for ActorContext {
 
     let failure = Failure::new(
       self.get_self().await.unwrap(),
-      reason,
+      reason.clone(),
       self.ensure_extras().await.restart_stats().await,
-      message,
+      message.clone(),
     );
 
     let self_pid = self.get_self().await.unwrap();
@@ -990,7 +1034,10 @@ impl MessageInvoker for ActorContext {
       self_pid
     );
     self_pid
-      .send_system_message(self.get_actor_system().await, MessageHandle::new(failure.clone()))
+      .send_system_message(
+        self.get_actor_system().await,
+        MessageHandle::new(MailboxMessage::SuspendMailbox),
+      )
       .await;
     tracing::debug!(
       "MessageInvoker::escalate_failure: send failure message: finished: from = {}, to = {}",
@@ -1076,7 +1123,7 @@ impl Supervisor for ActorContext {
 
     if self.get_parent().await.is_none() {
       tracing::debug!("Escalating failure to root");
-      self.handle_root_failure(&failure).await
+      cloned_self.handle_root_failure(&failure).await
     } else {
       tracing::debug!("Escalating failure to parent");
       self

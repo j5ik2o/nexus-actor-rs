@@ -1,3 +1,7 @@
+use std::sync::Arc;
+
+use tokio::sync::Mutex;
+
 use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::actor::pid_set::PidSet;
 use crate::actor::actor::restart_statistics::RestartStatistics;
@@ -6,8 +10,6 @@ use crate::actor::context::receive_timeout_timer::ReceiveTimeoutTimer;
 use crate::actor::context::{ContextHandle, ReceiverContextHandle, SenderContextHandle};
 use crate::actor::message::MessageHandles;
 use crate::ctxext::extensions::ContextExtensions;
-use std::sync::Arc;
-use tokio::sync::Mutex;
 
 #[derive(Debug, Clone)]
 pub struct ActorContextExtrasInner {

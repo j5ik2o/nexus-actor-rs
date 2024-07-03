@@ -219,12 +219,13 @@ mod tests {
 
   use async_trait::async_trait;
 
-  use super::*;
   use crate::actor::actor::props::Props;
   use crate::actor::actor::{Actor, ActorError, ActorHandle};
   use crate::actor::context::{ContextHandle, InfoPart, MessagePart, SenderPart, SpawnerPart};
   use crate::actor::message::{Message, MessageHandle, ProducerFunc};
   use crate::actor::supervisor::supervisor_strategy::SupervisorStrategyHandle;
+
+  use super::*;
 
   #[tokio::test]
   async fn test_actor_system_new() {

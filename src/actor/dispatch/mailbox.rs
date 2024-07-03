@@ -10,6 +10,7 @@ use tokio::sync::Mutex;
 use crate::actor::dispatch::dispatcher::{Dispatcher, DispatcherHandle, Runnable};
 use crate::actor::dispatch::mailbox_middleware::{MailboxMiddleware, MailboxMiddlewareHandle};
 use crate::actor::dispatch::message_invoker::{MessageInvoker, MessageInvokerHandle};
+use crate::actor::log::P_LOG;
 use crate::actor::message::{Message, MessageHandle};
 use crate::actor::messages::MailboxMessage;
 use crate::util::queue::{QueueError, QueueReader, QueueWriter};
@@ -334,11 +335,10 @@ impl DefaultMailbox {
             self.set_suspended(false).await;
           }
           _ => {
-            let result = message_invoker.invoke_system_message(msg.clone()).await;
-            if let Err(e) = result {
+            if let Err(err) = message_invoker.invoke_system_message(msg.clone()).await {
               tracing::debug!("----- DefaultMailbox::run: Failed to invoke system message ----->>>>>");
               message_invoker
-                .escalate_failure(e.reason().cloned().unwrap(), msg.clone())
+                .escalate_failure(err.reason().cloned().unwrap(), msg.clone())
                 .await;
               tracing::debug!("<<<<<----- DefaultMailbox::run: Failed to invoke system message -----");
             }

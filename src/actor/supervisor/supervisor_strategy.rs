@@ -162,7 +162,7 @@ impl Supervisor for SupervisorHandle {
   }
 
   async fn escalate_failure(&self, reason: ActorInnerError, message: MessageHandle) {
-    let mut mg = self.0.lock().await;
+    let mg = self.0.lock().await;
     mg.escalate_failure(reason, message).await;
   }
 
@@ -205,7 +205,7 @@ pub fn default_decider(_: ActorInnerError) -> Directive {
 
 pub static DEFAULT_SUPERVISION_STRATEGY: Lazy<SupervisorStrategyHandle> = Lazy::new(|| {
   SupervisorStrategyHandle::new(OneForOneStrategy::new(
-    1,
+    10,
     tokio::time::Duration::from_secs(10),
     Some(DeciderFunc::new(default_decider)),
   ))

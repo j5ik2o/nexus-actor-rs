@@ -1,5 +1,6 @@
-use async_trait::async_trait;
 use std::any::Any;
+
+use async_trait::async_trait;
 
 use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::actor::restart_statistics::RestartStatistics;
