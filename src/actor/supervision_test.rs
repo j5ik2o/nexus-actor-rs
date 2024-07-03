@@ -49,7 +49,7 @@ impl Message for StringMessage {
 
 #[async_trait]
 impl Actor for ActorWithSupervisor {
-  async fn post_start(&self, mut ctx: ContextHandle) -> Result<(), ActorError> {
+  async fn started(&self, mut ctx: ContextHandle) -> Result<(), ActorError> {
     tracing::debug!("ActorWithSupervisor::post_start");
     let props = Props::from_producer_func(ProducerFunc::new(|ctx| async { ActorHandle::new(FailingChildActor) })).await;
     let child = ctx.spawn(props).await;
@@ -92,7 +92,7 @@ impl SupervisorStrategy for ActorWithSupervisor {
 
 #[async_trait]
 impl Actor for FailingChildActor {
-  async fn post_start(&self, _: ContextHandle) -> Result<(), ActorError> {
+  async fn started(&self, _: ContextHandle) -> Result<(), ActorError> {
     tracing::debug!("FailingChildActor::post_start");
     Ok(())
   }

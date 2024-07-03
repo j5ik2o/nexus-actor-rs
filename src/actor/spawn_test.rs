@@ -19,7 +19,7 @@ struct MyActor {
 
 #[async_trait]
 impl Actor for MyActor {
-  async fn post_start(&self, _: ContextHandle) -> Result<(), ActorError> {
+  async fn started(&self, _: ContextHandle) -> Result<(), ActorError> {
     println!("MyActor started");
     self.is_started.store(true, Ordering::SeqCst);
     self.received.notify_one();
