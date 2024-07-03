@@ -27,8 +27,12 @@ impl RestartStatistics {
   }
 
   pub async fn fail(&mut self) {
+    self.push(Instant::now()).await;
+  }
+
+  pub async fn push(&mut self, time: Instant) {
     let mut mg = self.failure_times.lock().await;
-    mg.push(Instant::now());
+    mg.push(time);
   }
 
   pub async fn reset(&mut self) {

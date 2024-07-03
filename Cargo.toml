@@ -31,5 +31,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 [dev-dependencies]
 mockall = "0.12.1"
+rstest = "0.21.0"
+
 [build-dependencies]
 prost-build = { version = "0.12.6" }

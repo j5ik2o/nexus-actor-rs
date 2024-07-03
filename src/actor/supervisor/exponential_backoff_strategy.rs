@@ -15,18 +15,18 @@ use crate::actor::supervisor::supervisor_strategy::{log_failure, Supervisor, Sup
 #[derive(Debug)]
 pub struct ExponentialBackoffStrategy {
   backoff_window: Duration,
-  initial_backoff: Duration,
+  initial_backoff: Option<Duration>,
 }
 
 impl ExponentialBackoffStrategy {
-  pub fn new(backoff_window: Duration, initial_backoff: Duration) -> Self {
+  pub fn new(backoff_window: Duration, initial_backoff: Option<Duration>) -> Self {
     Self {
       backoff_window,
       initial_backoff,
     }
   }
 
-  async fn set_failure_count(&self, rs: &mut RestartStatistics) {
+  pub(crate) async fn set_failure_count(&self, rs: &mut RestartStatistics) {
     if rs.number_of_failures(self.backoff_window).await == 0 {
       rs.reset().await;
     }
@@ -47,7 +47,7 @@ impl SupervisorStrategy for ExponentialBackoffStrategy {
   ) {
     self.set_failure_count(&mut rs).await;
 
-    let backoff = rs.failure_count().await as u64 * self.initial_backoff.as_nanos() as u64;
+    let backoff = rs.failure_count().await as u64 * self.initial_backoff.map(|v| v.as_nanos()).unwrap_or(0) as u64;
     let noise = rand::thread_rng().gen_range(0..500);
     let dur = Duration::from_nanos(backoff + noise);
 
