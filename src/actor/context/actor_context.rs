@@ -452,7 +452,7 @@ impl ActorContext {
     let self_pid = self.get_self().await.unwrap();
     tracing::debug!("ActorContext::handle_child_failure: start: self = {}", self_pid,);
     let actor = self.get_actor().await.unwrap();
-    if let Some(mut s) = actor.get_supervisor_strategy().await {
+    if let Some(s) = actor.get_supervisor_strategy().await {
       tracing::debug!("ActorContext::handle_child_failure: actor side get_supervisor_strategy");
       s.handle_child_failure(
         &self.get_actor_system().await,

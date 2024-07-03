@@ -11,32 +11,7 @@ use crate::actor::actor_system::ActorSystem;
 use crate::actor::future::{FutureError, FutureProcess};
 use crate::actor::message::{Message, MessageHandle};
 use crate::actor::process::{Process, ProcessHandle};
-
-#[derive(Clone)]
-struct AsyncBarrier {
-  notify: Arc<Notify>,
-  count: Arc<Mutex<usize>>,
-}
-
-impl AsyncBarrier {
-  fn new(count: usize) -> Self {
-    AsyncBarrier {
-      notify: Arc::new(Notify::new()),
-      count: Arc::new(Mutex::new(count)),
-    }
-  }
-
-  async fn wait(&self) {
-    let mut count = self.count.lock().await;
-    *count -= 1;
-    if *count == 0 {
-      self.notify.notify_waiters();
-    } else {
-      drop(count);
-      self.notify.notified().await;
-    }
-  }
-}
+use crate::actor::util::async_barrier::AsyncBarrier;
 
 #[derive(Debug, Clone)]
 struct MockProcess {
