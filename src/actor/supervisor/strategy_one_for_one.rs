@@ -14,20 +14,29 @@ use crate::actor::supervisor::supervisor_strategy::{
   log_failure, DeciderFunc, Supervisor, SupervisorHandle, SupervisorStrategy,
 };
 
+pub fn default_decider(_: ActorInnerError) -> Directive {
+  Directive::Restart
+}
+
 #[derive(Debug, Clone)]
 pub struct OneForOneStrategy {
   max_nr_of_retries: u32,
   pub(crate) within_duration: tokio::time::Duration,
-  decider_opt: Arc<Option<DeciderFunc>>,
+  decider_opt: Arc<DeciderFunc>,
 }
 
 impl OneForOneStrategy {
-  pub fn new(max_nr_of_retries: u32, within_duration: tokio::time::Duration, decider_opt: Option<DeciderFunc>) -> Self {
+  pub fn new(max_nr_of_retries: u32, within_duration: tokio::time::Duration) -> Self {
     OneForOneStrategy {
       max_nr_of_retries,
       within_duration,
-      decider_opt: Arc::new(decider_opt),
+      decider_opt: Arc::new(DeciderFunc::new(default_decider)),
     }
+  }
+
+  pub fn with_decider(mut self, decider: impl Fn(ActorInnerError) -> Directive + Send + Sync + 'static) -> Self {
+    self.decider_opt = Arc::new(DeciderFunc::new(decider));
+    self
   }
 
   pub(crate) async fn should_stop(&self, rs: &mut RestartStatistics) -> bool {
@@ -88,10 +97,7 @@ impl SupervisorStrategy for OneForOneStrategy {
       rs,
       message
     );
-    let directive = (&*self.decider_opt)
-      .clone()
-      .unwrap_or(DeciderFunc::new(|_| Directive::Restart))
-      .run(reason.clone());
+    let directive = self.decider_opt.run(reason.clone());
     match directive {
       Directive::Resume => {
         // resume the failing child

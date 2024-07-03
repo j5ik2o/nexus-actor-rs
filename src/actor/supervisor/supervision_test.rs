@@ -214,7 +214,6 @@ async fn test_actor_stops_after_x_restarts() {
       Props::with_supervisor_strategy(SupervisorStrategyHandle::new(OneForOneStrategy::new(
         10,
         tokio::time::Duration::from_secs(10),
-        None,
       ))),
     ],
   )

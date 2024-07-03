@@ -120,7 +120,7 @@ impl SupervisorStrategy for SupervisorStrategyHandle {
 }
 
 #[async_trait]
-pub trait Supervisor: Send + Sync + 'static {
+pub trait Supervisor: Debug + Send + Sync + 'static {
   async fn get_children(&self) -> Vec<ExtendedPid>;
   async fn escalate_failure(&self, reason: ActorInnerError, message: MessageHandle);
   async fn restart_children(&self, pids: &[ExtendedPid]);
@@ -128,6 +128,7 @@ pub trait Supervisor: Send + Sync + 'static {
   async fn resume_children(&self, pids: &[ExtendedPid]);
 }
 
+#[derive(Debug, Clone)]
 pub struct SupervisorHandle(Arc<Mutex<dyn Supervisor>>);
 
 impl SupervisorHandle {
@@ -199,17 +200,8 @@ pub async fn log_failure(
     .await;
 }
 
-pub fn default_decider(_: ActorInnerError) -> Directive {
-  Directive::Restart
-}
-
-pub static DEFAULT_SUPERVISION_STRATEGY: Lazy<SupervisorStrategyHandle> = Lazy::new(|| {
-  SupervisorStrategyHandle::new(OneForOneStrategy::new(
-    10,
-    tokio::time::Duration::from_secs(10),
-    Some(DeciderFunc::new(default_decider)),
-  ))
-});
+pub static DEFAULT_SUPERVISION_STRATEGY: Lazy<SupervisorStrategyHandle> =
+  Lazy::new(|| SupervisorStrategyHandle::new(OneForOneStrategy::new(10, tokio::time::Duration::from_secs(10))));
 
 pub static RESTARTING_SUPERVISION_STRATEGY: Lazy<SupervisorStrategyHandle> =
   Lazy::new(|| SupervisorStrategyHandle::new(RestartingStrategy::new()));
