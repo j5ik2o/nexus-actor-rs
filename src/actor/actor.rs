@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use crate::actor::context::{ContextHandle, InfoPart, MessagePart};
 use crate::actor::message::{Message, MessageHandle};
-use crate::actor::messages::SystemMessage;
+use crate::actor::messages::{AutoReceiveMessage, SystemMessage};
 use crate::actor::supervisor::supervisor_strategy::SupervisorStrategyHandle;
 use async_trait::async_trait;
 use backtrace::Backtrace;
@@ -228,14 +228,22 @@ pub trait Actor: Debug + Send + Sync + 'static {
     if let Some(system_message) = any_message.downcast_ref::<SystemMessage>() {
       tracing::debug!("Actor::handle: id = {}, system_message = {:?}", id, system_message);
       match system_message {
-        SystemMessage::Started(_) => self.post_start(context_handle).await,
-        SystemMessage::Stop(_) => self.pre_stop(context_handle).await,
-        SystemMessage::Restart(_) => self.pre_restart(context_handle).await,
+        SystemMessage::Started(_) => self.started(context_handle).await,
+        SystemMessage::Stop(_) => self.stop(context_handle).await,
+        SystemMessage::Restart(_) => self.restart(context_handle).await,
       }
     } else if let Some(terminated) = any_message.downcast_ref::<Terminated>() {
       tracing::debug!("Actor::handle: id = {}, terminated = {:?}", id, terminated);
       self.on_child_terminated(context_handle, terminated).await
-    } else {
+    } else if let Some(auto_receive_message) = any_message.downcast_ref::<AutoReceiveMessage>() {
+      tracing::debug!("Actor::handle: id = {}, auto_receive_message = {:?}", id, auto_receive_message);
+      match auto_receive_message {
+        AutoReceiveMessage::Restarting(_) => self.restarting(context_handle).await,
+        AutoReceiveMessage::Stopping(_) => self.stopping(context_handle).await,
+        AutoReceiveMessage::Stopped(_) => self.stopped(context_handle).await,
+        AutoReceiveMessage::PoisonPill(_) => {Ok(())}
+      }
+    }else {
       tracing::debug!(
         "Actor::handle: id = {}, other = {:?}",
         id,
@@ -249,15 +257,27 @@ pub trait Actor: Debug + Send + Sync + 'static {
 
   async fn receive(&mut self, c: ContextHandle, message_handle: MessageHandle) -> Result<(), ActorError>;
 
-  async fn post_start(&self, _: ContextHandle) -> Result<(), ActorError> {
+  async fn started(&self, _: ContextHandle) -> Result<(), ActorError> {
     Ok(())
   }
 
-  async fn pre_stop(&self, _: ContextHandle) -> Result<(), ActorError> {
+  async fn stop(&self, _: ContextHandle) -> Result<(), ActorError> {
     Ok(())
   }
 
-  async fn pre_restart(&self, _: ContextHandle) -> Result<(), ActorError> {
+  async fn restart(&self, _: ContextHandle) -> Result<(), ActorError> {
+    Ok(())
+  }
+
+  async fn restarting(&self, _: ContextHandle) -> Result<(), ActorError> {
+    Ok(())
+  }
+
+  async fn stopping(&self, _: ContextHandle) -> Result<(), ActorError> {
+    Ok(())
+  }
+
+  async fn stopped(&self, _: ContextHandle) -> Result<(), ActorError> {
     Ok(())
   }
 
