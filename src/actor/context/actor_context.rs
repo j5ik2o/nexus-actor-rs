@@ -480,7 +480,7 @@ impl ActorContext {
         &self.get_actor_system().await,
         SupervisorHandle::new(self.clone()),
         self.get_self().await.unwrap(),
-        RestartStatistics::new(),
+        failure.restart_stats.clone(),
         failure.reason.clone(),
         failure.message.clone(),
       )

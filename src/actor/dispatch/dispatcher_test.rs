@@ -62,13 +62,6 @@ impl MessageInvoker for TestMessageInvoker {
     } else {
       "Unknown error".to_string()
     };
-    // let reason_msg = if let Some(error) = reason.as_any().downcast_ref::<&str>() {
-    //   error.to_string()
-    // } else if let Some(error) = reason.as_any().downcast_ref::<String>() {
-    //   error.clone()
-    // } else {
-    //   "Unknown error".to_string()
-    // };
     self.received.lock().await.push(ReceivedMessage::Failure(reason_msg));
   }
 }

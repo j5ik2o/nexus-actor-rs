@@ -26,13 +26,13 @@ impl OneForOneStrategy {
     }
   }
 
-  fn should_stop(&self, rs: &mut RestartStatistics) -> bool {
+  async fn should_stop(&self, rs: &mut RestartStatistics) -> bool {
     if self.max_retries == 0 {
       true
     } else {
-      rs.fail();
-      if rs.number_of_failures(self.within_duration) > self.max_retries {
-        rs.reset();
+      rs.fail().await;
+      if rs.number_of_failures(self.within_duration).await > self.max_retries {
+        rs.reset().await;
         true
       } else {
         false
@@ -97,7 +97,7 @@ impl SupervisorStrategy for OneForOneStrategy {
           message
         );
         // try restart the failing child
-        if self.should_stop(&mut rs) {
+        if self.should_stop(&mut rs).await {
           log_failure(actor_system, &child, reason, Directive::Stop).await;
           supervisor.stop_children(&[child]).await;
         } else {

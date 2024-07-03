@@ -1,37 +1,43 @@
+use std::sync::Arc;
 use std::time::{Duration, Instant};
+use tokio::sync::Mutex;
 
 #[derive(Debug, Clone)]
 pub struct RestartStatistics {
-  failure_times: Vec<Instant>,
+  failure_times: Arc<Mutex<Vec<Instant>>>,
 }
 
 impl RestartStatistics {
   pub fn new() -> Self {
     RestartStatistics {
-      failure_times: Vec::new(),
+      failure_times: Arc::new(Mutex::new(vec![])),
     }
   }
 
-  pub fn failure_count(&self) -> usize {
-    self.failure_times.len()
+  pub async fn failure_count(&self) -> usize {
+    let mg = self.failure_times.lock().await;
+    mg.len()
   }
 
-  pub fn fail(&mut self) {
-    self.failure_times.push(Instant::now());
+  pub async fn fail(&mut self) {
+    let mut mg = self.failure_times.lock().await;
+    mg.push(Instant::now());
   }
 
-  pub fn reset(&mut self) {
-    self.failure_times.clear();
+  pub async fn reset(&mut self) {
+    let mut mg = self.failure_times.lock().await;
+    mg.clear();
   }
 
-  pub fn number_of_failures(&self, within_duration: Duration) -> u32 {
+  pub async fn number_of_failures(&self, within_duration: Duration) -> u32 {
     if within_duration == Duration::ZERO {
-      return self.failure_times.len() as u32;
+      let mg = self.failure_times.lock().await;
+      return mg.len() as u32;
     }
 
     let curr_time = Instant::now();
-    self
-      .failure_times
+    let mg = self.failure_times.lock().await;
+    mg
       .iter()
       .filter(|&&t| curr_time.duration_since(t) < within_duration)
       .count() as u32
