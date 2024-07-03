@@ -14,6 +14,12 @@ impl RestartStatistics {
     }
   }
 
+  pub fn with_values(failure_times: Vec<Instant>) -> Self {
+    RestartStatistics {
+      failure_times: Arc::new(Mutex::new(failure_times)),
+    }
+  }
+
   pub async fn failure_count(&self) -> usize {
     let mg = self.failure_times.lock().await;
     mg.len()
@@ -37,8 +43,7 @@ impl RestartStatistics {
 
     let curr_time = Instant::now();
     let mg = self.failure_times.lock().await;
-    mg
-      .iter()
+    mg.iter()
       .filter(|&&t| curr_time.duration_since(t) < within_duration)
       .count() as u32
   }

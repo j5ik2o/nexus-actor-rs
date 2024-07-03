@@ -261,7 +261,7 @@ pub struct Props {
   producer: Option<ProducerFunc>,
   mailbox_producer: Option<MailboxProduceFunc>,
   guardian_strategy: Option<SupervisorStrategyHandle>,
-  supervision_strategy: Option<SupervisorStrategyHandle>,
+  supervisor_strategy: Option<SupervisorStrategyHandle>,
   dispatcher: Option<DispatcherHandle>,
   receiver_middleware: Vec<ReceiverMiddleware>,
   sender_middleware: Vec<SenderMiddleware>,
@@ -408,7 +408,7 @@ impl Props {
 
   pub fn with_supervisor(supervisor: SupervisorStrategyHandle) -> PropsOptionFunc {
     PropsOptionFunc::new(move |props: &mut Props| {
-      props.supervision_strategy = Some(supervisor.clone());
+      props.supervisor_strategy = Some(supervisor.clone());
     })
   }
 
@@ -488,7 +488,7 @@ impl Props {
 
   pub fn get_supervisor_strategy(&self) -> SupervisorStrategyHandle {
     self
-      .supervision_strategy
+      .supervisor_strategy
       .clone()
       .unwrap_or_else(|| DEFAULT_SUPERVISION_STRATEGY.clone())
   }
@@ -529,7 +529,7 @@ impl Props {
       mailbox_producer: None,
       context_decorator: Vec::new(),
       guardian_strategy: None,
-      supervision_strategy: None,
+      supervisor_strategy: None,
       receiver_middleware: Vec::new(),
       sender_middleware: Vec::new(),
       spawner: None,

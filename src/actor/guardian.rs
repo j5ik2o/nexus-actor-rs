@@ -110,7 +110,7 @@ impl Process for GuardianProcess {
     if let Some(failure) = message.as_any().downcast_ref::<Failure>() {
       self
         .strategy
-        .handle_failure(
+        .handle_child_failure(
           &self.guardians.actor_system,
           SupervisorHandle::new(self.clone()),
           failure.who.clone(),
@@ -141,7 +141,7 @@ impl Supervisor for GuardianProcess {
     panic!("guardian does not hold its children PIDs");
   }
 
-  async fn escalate_failure(&mut self, _reason: ActorInnerError, _message: MessageHandle) {
+  async fn escalate_failure(&self, _reason: ActorInnerError, _message: MessageHandle) {
     panic!("guardian cannot escalate failure");
   }
 

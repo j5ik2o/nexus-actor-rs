@@ -1,3 +1,4 @@
+use std::any::Any;
 use std::fmt::Debug;
 use std::sync::Arc;
 
@@ -11,7 +12,7 @@ use crate::actor::actor::ActorInnerError;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::message::MessageHandle;
 use crate::actor::supervisor::directive::Directive;
-use crate::actor::supervisor::strategy_on_for_one::OneForOneStrategy;
+use crate::actor::supervisor::strategy_one_for_one::OneForOneStrategy;
 use crate::actor::supervisor::strategy_restarting::RestartingStrategy;
 use crate::actor::supervisor::supervision_event::SupervisorEvent;
 
@@ -50,7 +51,7 @@ impl DeciderFunc {
 
 #[async_trait]
 pub trait SupervisorStrategy: Debug + Send + Sync {
-  async fn handle_failure(
+  async fn handle_child_failure(
     &self,
     actor_system: &ActorSystem,
     supervisor: SupervisorHandle,
@@ -59,6 +60,8 @@ pub trait SupervisorStrategy: Debug + Send + Sync {
     reason: ActorInnerError,
     message: MessageHandle,
   );
+
+  fn as_any(&self) -> &dyn std::any::Any;
 }
 
 #[derive(Debug, Clone)]
@@ -80,17 +83,23 @@ impl std::hash::Hash for SupervisorStrategyHandle {
 
 impl SupervisorStrategyHandle {
   pub fn new_arc(s: Arc<dyn SupervisorStrategy>) -> Self {
-    SupervisorStrategyHandle(s)
+    if s.as_any().downcast_ref::<SupervisorStrategyHandle>().is_some() {
+      panic!("SupervisorStrategyHandle can't be used as a strategy, {:?}", s)
+    }
+    Self(s)
   }
 
   pub fn new(s: impl SupervisorStrategy + 'static) -> Self {
-    SupervisorStrategyHandle(Arc::new(s))
+    if s.as_any().downcast_ref::<SupervisorStrategyHandle>().is_some() {
+      panic!("SupervisorStrategyHandle can't be used as a strategy, {:?}", s)
+    }
+    Self(Arc::new(s))
   }
 }
 
 #[async_trait]
 impl SupervisorStrategy for SupervisorStrategyHandle {
-  async fn handle_failure(
+  async fn handle_child_failure(
     &self,
     actor_system: &ActorSystem,
     supervisor: SupervisorHandle,
@@ -101,15 +110,19 @@ impl SupervisorStrategy for SupervisorStrategyHandle {
   ) {
     self
       .0
-      .handle_failure(actor_system, supervisor, child, rs, reason, message)
-      .await;
+      .handle_child_failure(actor_system, supervisor, child, rs, reason, message)
+      .await
+  }
+
+  fn as_any(&self) -> &dyn Any {
+    self
   }
 }
 
 #[async_trait]
 pub trait Supervisor: Send + Sync + 'static {
   async fn get_children(&self) -> Vec<ExtendedPid>;
-  async fn escalate_failure(&mut self, reason: ActorInnerError, message: MessageHandle);
+  async fn escalate_failure(&self, reason: ActorInnerError, message: MessageHandle);
   async fn restart_children(&self, pids: &[ExtendedPid]);
   async fn stop_children(&self, pids: &[ExtendedPid]);
   async fn resume_children(&self, pids: &[ExtendedPid]);
@@ -148,7 +161,7 @@ impl Supervisor for SupervisorHandle {
     mg.get_children().await
   }
 
-  async fn escalate_failure(&mut self, reason: ActorInnerError, message: MessageHandle) {
+  async fn escalate_failure(&self, reason: ActorInnerError, message: MessageHandle) {
     let mut mg = self.0.lock().await;
     mg.escalate_failure(reason, message).await;
   }
@@ -192,9 +205,9 @@ pub fn default_decider(_: ActorInnerError) -> Directive {
 
 pub static DEFAULT_SUPERVISION_STRATEGY: Lazy<SupervisorStrategyHandle> = Lazy::new(|| {
   SupervisorStrategyHandle::new(OneForOneStrategy::new(
-    10,
+    1,
     tokio::time::Duration::from_secs(10),
-    DeciderFunc::new(default_decider),
+    Some(DeciderFunc::new(default_decider)),
   ))
 });
 

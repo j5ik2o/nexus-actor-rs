@@ -6,7 +6,6 @@ use tokio::sync::Mutex;
 
 use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::actor::props::{Props, SpawnError};
-use crate::actor::actor::restart_statistics::RestartStatistics;
 use crate::actor::actor::{
   Actor, ActorError, ActorHandle, ActorInnerError, PoisonPill, Stop, Terminated, Unwatch, Watch,
 };
@@ -152,25 +151,26 @@ impl ActorContext {
     let message = self.get_message().await.expect("Failed to retrieve message");
 
     if message.as_any().is::<PoisonPill>() {
-      tracing::debug!("PoisonPill received");
+      // tracing::debug!("PoisonPill received");
       let me = self.get_self().await.unwrap();
       self.stop(&me).await;
       Ok(())
     } else {
-      tracing::debug!("Received message: {:?}", message);
+      // tracing::debug!("Received message: {:?}", message);
       let context = self.receive_with_context().await;
       let mut actor_opt = self.get_actor().await;
       let actor = actor_opt.as_mut().unwrap();
 
       let result = actor.handle(context.clone()).await;
 
-      if result.is_ok() && message.as_any().is::<AutoRespondHandle>() {
+      if message.as_any().is::<AutoRespondHandle>() {
         let auto_respond = message
           .as_any()
           .downcast_ref::<AutoRespondHandle>()
           .expect("Failed to downcast to AutoRespondWrapper")
           .clone();
         let res = auto_respond.get_auto_response(context);
+        tracing::debug!("auto_response: res = {:?}", res);
         self.respond(res).await
       }
 
@@ -247,7 +247,7 @@ impl ActorContext {
     let props = self.get_props().await;
 
     if props.get_receiver_middleware_chain().is_some() {
-      tracing::debug!("ActorContext::process_message: get_receiver_middleware_chain");
+      // tracing::debug!("ActorContext::process_message: get_receiver_middleware_chain");
       let extras = self.ensure_extras().await;
       let receiver_context = extras.get_receiver_context().await;
       let message_envelope = wrap_envelope(message.clone());
@@ -256,14 +256,14 @@ impl ActorContext {
     }
 
     if props.get_context_decorator_chain().is_some() {
-      tracing::debug!("ActorContext::process_message: get_context_decorator_chain");
+      // tracing::debug!("ActorContext::process_message: get_context_decorator_chain");
       let extras = self.ensure_extras().await;
       let mut receiver_context = extras.get_receiver_context().await;
       let message_envelope = wrap_envelope(message.clone());
       return receiver_context.receive(message_envelope).await;
     }
 
-    tracing::debug!("ActorContext::process_message: default_receive");
+    // tracing::debug!("ActorContext::process_message: default_receive");
     self.set_message_or_envelope(message).await;
     let result = self.default_receive().await;
     self.reset_message_or_envelope().await;
@@ -344,7 +344,7 @@ impl ActorContext {
   }
 
   async fn try_restart_or_terminate(&mut self) {
-    tracing::debug!("ActorContext::try_restart_or_terminate");
+    // tracing::debug!("ActorContext::try_restart_or_terminate");
     match self.get_extras().await {
       Some(extras) if extras.get_children().await.is_empty().await => {
         let state = {
@@ -369,7 +369,7 @@ impl ActorContext {
   }
 
   async fn handle_stop(&mut self) {
-    tracing::debug!("ActorContext::handle_stop");
+    // tracing::debug!("ActorContext::handle_stop");
     {
       let mg = self.inner.lock().await;
       if mg.state.as_ref().unwrap().load(Ordering::SeqCst) >= State::Stopping as u8 {
@@ -411,56 +411,55 @@ impl ActorContext {
   }
 
   async fn handle_watch(&mut self, watch: &Watch) {
-    tracing::debug!("ActorContext::handle_watch: {:?}", watch);
+    // tracing::debug!("ActorContext::handle_watch: {:?}", watch);
     let extras = self.ensure_extras().await;
     let pid = ExtendedPid::new(watch.clone().watcher.unwrap(), self.get_actor_system().await);
     extras.get_watchers().await.add(pid).await;
   }
 
   async fn handle_unwatch(&mut self, unwatch: &Unwatch) {
-    tracing::debug!("ActorContext::handle_unwatch: {:?}", unwatch);
+    // tracing::debug!("ActorContext::handle_unwatch: {:?}", unwatch);
     let extras = self.ensure_extras().await;
     let pid = ExtendedPid::new(unwatch.clone().watcher.unwrap(), self.get_actor_system().await);
     extras.get_watchers().await.remove(&pid).await;
   }
 
-  async fn handle_failure(&mut self, f: &Failure) {
-    tracing::debug!("ActorContext::handle_failure: {:?}", f.who);
+  async fn handle_child_failure(&mut self, f: &Failure) {
+    let self_pid = self.get_self().await.unwrap();
+    tracing::debug!("ActorContext::handle_child_failure: start: self = {}", self_pid,);
     let actor = self.get_actor().await.unwrap();
-    let ss = actor.get_supervisor_strategy().await;
-    tracing::debug!("ActorContext::handle_failure: SupervisorStrategy = {:?}", ss);
-    if let Some(s) = ss {
-      tracing::debug!("ActorContext::handle_failure: SupervisorStrategy");
-      let sh = SupervisorHandle::new(self.clone());
-      s.handle_failure(
+    if let Some(mut s) = actor.get_supervisor_strategy().await {
+      tracing::debug!("ActorContext::handle_child_failure: actor side get_supervisor_strategy");
+      s.handle_child_failure(
         &self.get_actor_system().await,
-        sh,
+        SupervisorHandle::new(self.clone()),
         f.who.clone(),
         f.restart_stats.clone(),
         f.reason.clone(),
         f.message.clone(),
       )
       .await;
-    } else {
-      let sh = SupervisorHandle::new(self.clone());
-      self
-        .get_props()
-        .await
-        .get_supervisor_strategy()
-        .handle_failure(
-          &self.get_actor_system().await,
-          sh,
-          f.who.clone(),
-          f.restart_stats.clone(),
-          f.reason.clone(),
-          f.message.clone(),
-        )
-        .await;
+      return;
     }
+    tracing::debug!("ActorContext::handle_child_failure: props side get_supervisor_strategy: DEFAULT");
+    self
+      .get_props()
+      .await
+      .get_supervisor_strategy()
+      .handle_child_failure(
+        &self.get_actor_system().await,
+        SupervisorHandle::new(self.clone()),
+        f.who.clone(),
+        f.restart_stats.clone(),
+        f.reason.clone(),
+        f.message.clone(),
+      )
+      .await;
+    tracing::debug!("ActorContext::handle_child_failure: finished: self = {}", self_pid,);
   }
 
   async fn handle_terminated(&mut self, terminated: &Terminated) {
-    tracing::debug!("ActorContext::handle_terminated: {:?}", terminated);
+    // tracing::debug!("ActorContext::handle_terminated: {:?}", terminated);
     if let Some(mut extras) = self.get_extras().await {
       let pid = ExtendedPid::new(terminated.clone().who.unwrap(), self.get_actor_system().await);
       extras.remove_child(&pid).await;
@@ -474,9 +473,9 @@ impl ActorContext {
   }
 
   async fn handle_root_failure(&self, failure: &Failure) {
-    tracing::debug!("ActorContext::handle_root_failure: {:?}", failure);
+    tracing::debug!("ActorContext::handle_root_failure: start");
     DEFAULT_SUPERVISION_STRATEGY
-      .handle_failure(
+      .handle_child_failure(
         &self.get_actor_system().await,
         SupervisorHandle::new(self.clone()),
         self.get_self().await.unwrap(),
@@ -485,6 +484,7 @@ impl ActorContext {
         failure.message.clone(),
       )
       .await;
+    tracing::debug!("ActorContext::handle_root_failure: finished");
   }
 }
 
@@ -886,7 +886,7 @@ impl Context for ActorContext {}
 #[async_trait]
 impl MessageInvoker for ActorContext {
   async fn invoke_system_message(&mut self, message: MessageHandle) -> Result<(), ActorError> {
-    tracing::debug!("invoke_system_message: message = {:?}", self.get_self().await);
+    // tracing::debug!("invoke_system_message: message = {:?}", self.get_self().await);
     let sm = message.as_any().downcast_ref::<SystemMessage>();
     if let Some(sm) = sm {
       match sm {
@@ -918,7 +918,7 @@ impl MessageInvoker for ActorContext {
       self.handle_unwatch(uw).await;
     }
     if let Some(f) = message.as_any().downcast_ref::<Failure>() {
-      self.handle_failure(f).await;
+      self.handle_child_failure(f).await;
     }
     if let Some(t) = message.as_any().downcast_ref::<Terminated>() {
       self.handle_terminated(t).await;
@@ -927,7 +927,7 @@ impl MessageInvoker for ActorContext {
   }
 
   async fn invoke_user_message(&mut self, message: MessageHandle) -> Result<(), ActorError> {
-    tracing::debug!("invoke_user_message: message = {:?}", message);
+    // tracing::debug!("invoke_user_message: message = {:?}", message);
     let state = {
       let inner_mg = self.inner.lock().await;
       inner_mg.state.clone()
@@ -983,25 +983,40 @@ impl MessageInvoker for ActorContext {
       message,
     );
 
-    tracing::debug!("send failure to self");
-    self
-      .get_self()
-      .await
-      .unwrap()
+    let self_pid = self.get_self().await.unwrap();
+    tracing::debug!(
+      "MessageInvoker::escalate_failure: send failure message: start: from = {}, to = {}",
+      self_pid,
+      self_pid
+    );
+    self_pid
       .send_system_message(self.get_actor_system().await, MessageHandle::new(failure.clone()))
       .await;
+    tracing::debug!(
+      "MessageInvoker::escalate_failure: send failure message: finished: from = {}, to = {}",
+      self_pid,
+      self_pid
+    );
 
     if self.get_parent().await.is_none() {
-      tracing::debug!("Escalating failure to root");
-      self.handle_root_failure(&failure).await
+      tracing::debug!("----- MessageInvoker::escalate_failure: parent is none: handle_root_failure ----->>>>>");
+      self.handle_root_failure(&failure).await;
+      tracing::debug!("<<<<<----- MessageInvoker::escalate_failure: parent is none: handle_root_failure -----");
     } else {
-      tracing::debug!("Escalating failure to parent");
-      self
-        .get_parent()
-        .await
-        .unwrap()
+      let parent_pid = self.get_parent().await.unwrap();
+      tracing::debug!(
+        "MessageInvoker::escalate_failure: send failure message: start: from = {}, to = {}",
+        self_pid,
+        parent_pid
+      );
+      parent_pid
         .send_system_message(self.get_actor_system().await, MessageHandle::new(failure))
         .await;
+      tracing::debug!(
+        "MessageInvoker::escalate_failure: send failure message: finished: from = {}, to = {}",
+        self_pid,
+        parent_pid
+      );
     }
   }
 }
@@ -1016,7 +1031,7 @@ impl Supervisor for ActorContext {
     self.get_extras().await.unwrap().get_children().await.to_vec().await
   }
 
-  async fn escalate_failure(&mut self, reason: ActorInnerError, message: MessageHandle) {
+  async fn escalate_failure(&self, reason: ActorInnerError, message: MessageHandle) {
     tracing::debug!("ActorContext::escalate_failure: reason = {:?}", reason);
     let self_pid = self.get_self().await.expect("Failed to retrieve self_pid");
     if self
@@ -1043,10 +1058,12 @@ impl Supervisor for ActorContext {
         .await;
     }
 
+    let mut cloned_self = self.clone();
+
     let failure = Failure::new(
       self_pid,
       reason,
-      self.ensure_extras().await.restart_stats().await,
+      cloned_self.ensure_extras().await.restart_stats().await,
       message,
     );
 

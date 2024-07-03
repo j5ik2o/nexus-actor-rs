@@ -336,10 +336,11 @@ impl DefaultMailbox {
           _ => {
             let result = message_invoker.invoke_system_message(msg.clone()).await;
             if let Err(e) = result {
-              tracing::debug!("Failed to invoke system message");
+              tracing::debug!("----- DefaultMailbox::run: Failed to invoke system message ----->>>>>");
               message_invoker
                 .escalate_failure(e.reason().cloned().unwrap(), msg.clone())
                 .await;
+              tracing::debug!("<<<<<----- DefaultMailbox::run: Failed to invoke system message -----");
             }
           }
         }
@@ -357,10 +358,11 @@ impl DefaultMailbox {
         self.decrement_user_messages_count().await;
         let result = message_invoker.invoke_user_message(message.clone()).await;
         if let Err(e) = result {
-          tracing::debug!("Failed to invoke system message");
+          tracing::debug!("----- DefaultMailbox::run: Failed to invoke user message ----->>>>>");
           message_invoker
             .escalate_failure(e.reason().cloned().unwrap(), message.clone())
             .await;
+          tracing::debug!("<<<<<----- DefaultMailbox::run: Failed to invoke user message -----");
         }
         for middleware in self.get_middlewares().await {
           middleware.message_received(message.clone()).await;

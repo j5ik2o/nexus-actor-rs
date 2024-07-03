@@ -72,7 +72,7 @@ impl InfoPart for RootContext {
 
   async fn get_self(&self) -> Option<ExtendedPid> {
     if self.guardian_strategy.is_some() {
-      let ssh = SupervisorStrategyHandle::new(self.guardian_strategy.clone().unwrap());
+      let ssh = self.guardian_strategy.clone().unwrap();
       Some(
         self
           .get_actor_system()

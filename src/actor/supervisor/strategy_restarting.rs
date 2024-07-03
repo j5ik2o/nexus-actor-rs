@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use std::any::Any;
 
 use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::actor::restart_statistics::RestartStatistics;
@@ -33,7 +34,7 @@ impl std::hash::Hash for RestartingStrategy {
 
 #[async_trait]
 impl SupervisorStrategy for RestartingStrategy {
-  async fn handle_failure(
+  async fn handle_child_failure(
     &self,
     actor_system: &ActorSystem,
     supervisor: SupervisorHandle,
@@ -45,5 +46,9 @@ impl SupervisorStrategy for RestartingStrategy {
     // always restart
     log_failure(actor_system, &child, reason, Directive::Restart).await;
     supervisor.restart_children(&[child]).await
+  }
+
+  fn as_any(&self) -> &dyn Any {
+    self
   }
 }

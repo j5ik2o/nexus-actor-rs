@@ -279,10 +279,7 @@ impl ReceiverFunc {
   }
 
   pub async fn run(&self, context: ReceiverContextHandle, envelope: MessageEnvelope) -> Result<(), ActorError> {
-    tracing::debug!("ReceiverFunc::run: before");
-    let result = self.0(context, envelope).await;
-    tracing::debug!("ReceiverFunc::run: after");
-    result
+    self.0(context, envelope).await
   }
 }
 

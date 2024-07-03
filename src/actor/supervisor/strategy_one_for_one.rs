@@ -1,40 +1,54 @@
-use async_trait::async_trait;
+use std::any::Any;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
+use async_trait::async_trait;
+use backtrace::Backtrace;
+
+use crate::actor::actor::ActorInnerError;
 use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::actor::restart_statistics::RestartStatistics;
-use crate::actor::actor::ActorInnerError;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::message::MessageHandle;
 use crate::actor::supervisor::directive::Directive;
 use crate::actor::supervisor::supervisor_strategy::{
-  log_failure, DeciderFunc, Supervisor, SupervisorHandle, SupervisorStrategy,
+  DeciderFunc, log_failure, Supervisor, SupervisorHandle, SupervisorStrategy,
 };
 
 #[derive(Debug, Clone)]
 pub struct OneForOneStrategy {
-  max_retries: u32,
-  within_duration: tokio::time::Duration,
-  decider: DeciderFunc,
+  max_nr_of_retries: u32,
+  pub(crate) within_duration: tokio::time::Duration,
+  decider: Arc<Option<DeciderFunc>>,
+  cb: Arc<AtomicBool>,
 }
 
 impl OneForOneStrategy {
-  pub fn new(max_retries: u32, within_duration: tokio::time::Duration, decider: DeciderFunc) -> Self {
+  pub fn new(max_nr_of_retries: u32, within_duration: tokio::time::Duration, decider_opt: Option<DeciderFunc>) -> Self {
     OneForOneStrategy {
-      max_retries,
+      max_nr_of_retries,
       within_duration,
-      decider,
+      decider: Arc::new(decider_opt),
+      cb: Arc::new(AtomicBool::new(false)),
     }
   }
 
-  async fn should_stop(&self, rs: &mut RestartStatistics) -> bool {
-    if self.max_retries == 0 {
+  pub(crate) async fn should_stop(&self, rs: &mut RestartStatistics) -> bool {
+    tracing::debug!(
+      "OneForOneStrategy::should_stop: max_retries = {}",
+      self.max_nr_of_retries
+    );
+    if self.max_nr_of_retries == 0 {
+      tracing::debug!("OneForOneStrategy::should_stop: non-stop!!!");
       true
     } else {
       rs.fail().await;
-      if rs.number_of_failures(self.within_duration).await > self.max_retries {
+      if rs.number_of_failures(self.within_duration).await > self.max_nr_of_retries {
+        tracing::debug!("OneForOneStrategy::should_stop: stop!!!");
         rs.reset().await;
         true
       } else {
+        tracing::debug!("OneForOneStrategy::should_stop: non-stop!!!");
         false
       }
     }
@@ -43,7 +57,7 @@ impl OneForOneStrategy {
 
 impl PartialEq for OneForOneStrategy {
   fn eq(&self, other: &Self) -> bool {
-    self.max_retries == other.max_retries
+    self.max_nr_of_retries == other.max_nr_of_retries
       && self.within_duration == other.within_duration
       && self.decider == other.decider
   }
@@ -53,7 +67,7 @@ impl Eq for OneForOneStrategy {}
 
 impl std::hash::Hash for OneForOneStrategy {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    self.max_retries.hash(state);
+    self.max_nr_of_retries.hash(state);
     self.within_duration.hash(state);
     self.decider.hash(state);
   }
@@ -61,28 +75,28 @@ impl std::hash::Hash for OneForOneStrategy {
 
 #[async_trait]
 impl SupervisorStrategy for OneForOneStrategy {
-  async fn handle_failure(
+  async fn handle_child_failure(
     &self,
     actor_system: &ActorSystem,
-    mut supervisor: SupervisorHandle,
+    supervisor: SupervisorHandle,
     child: ExtendedPid,
     mut rs: RestartStatistics,
     reason: ActorInnerError,
     message: MessageHandle,
   ) {
     tracing::debug!(
-      "OneForOneStrategy::handle_failure: child = {:?}, rs = {:?}, message = {:?}",
-      child,
+      "OneForOneStrategy::handle_child_failure: child = {:?}, rs = {:?}, message = {:?}",
+      child.id(),
       rs,
       message
     );
-    let directive = self.decider.run(reason.clone());
+    let directive = (&*self.decider).clone().unwrap().run(reason.clone());
     match directive {
       Directive::Resume => {
         // resume the failing child
         tracing::debug!(
-          "OneForOneStrategy::handle_failure: Resume: child = {:?}, rs = {:?}, message = {:?}",
-          child,
+          "OneForOneStrategy::handle_child_failure: Resume: child = {:?}, rs = {:?}, message = {:?}",
+          child.id(),
           rs,
           message
         );
@@ -91,8 +105,8 @@ impl SupervisorStrategy for OneForOneStrategy {
       }
       Directive::Restart => {
         tracing::debug!(
-          "OneForOneStrategy::handle_failure: Restart: child = {:?}, rs = {:?}, message = {:?}",
-          child,
+          "OneForOneStrategy::handle_child_failure: Restart: child = {:?}, rs = {:?}, message = {:?}",
+          child.id(),
           rs,
           message
         );
@@ -107,8 +121,8 @@ impl SupervisorStrategy for OneForOneStrategy {
       }
       Directive::Stop => {
         tracing::debug!(
-          "OneForOneStrategy::handle_failure: Stop: child = {:?}, rs = {:?}, message = {:?}",
-          child,
+          "OneForOneStrategy::handle_child_failure: Stop: child = {:?}, rs = {:?}, message = {:?}",
+          child.id(),
           rs,
           message
         );
@@ -118,8 +132,8 @@ impl SupervisorStrategy for OneForOneStrategy {
       }
       Directive::Escalate => {
         tracing::debug!(
-          "OneForOneStrategy::handle_failure: Escalate: child = {:?}, rs = {:?}, message = {:?}",
-          child,
+          "OneForOneStrategy::handle_child_failure: Escalate: child = {:?}, rs = {:?}, message = {:?}",
+          child.id(),
           rs,
           message
         );
@@ -129,5 +143,9 @@ impl SupervisorStrategy for OneForOneStrategy {
         supervisor.escalate_failure(reason, message).await
       }
     }
+  }
+
+  fn as_any(&self) -> &dyn Any {
+    self
   }
 }
