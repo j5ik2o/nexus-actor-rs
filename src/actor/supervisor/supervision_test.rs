@@ -20,6 +20,106 @@ use crate::actor::messages::{AutoReceiveMessage, Restart, Started, SystemMessage
 use crate::actor::supervisor::strategy_one_for_one::OneForOneStrategy;
 use crate::actor::supervisor::supervisor_strategy::{SupervisorHandle, SupervisorStrategy, SupervisorStrategyHandle};
 
+#[tokio::test]
+async fn test_actor_with_own_supervisor_can_handle_failure() {
+  let _ = env::set_var("RUST_LOG", "debug");
+  let _ = tracing_subscriber::fmt()
+    .with_env_filter(EnvFilter::from_default_env())
+    .try_init();
+
+  let system = ActorSystem::new().await;
+  let mut root = system.get_root_context().await;
+  let notify = Arc::new(Notify::new());
+  let cloned_notify = notify.clone();
+  let props = Props::from_producer_func(ProducerFunc::new(move |_| {
+    let cloned_notify = cloned_notify.clone();
+    async move {
+      ActorHandle::new(ActorWithSupervisor {
+        notify: cloned_notify.clone(),
+      })
+    }
+  }))
+  .await;
+  let pid = root.spawn(props).await;
+  tracing::info!("pid = {:?}", pid);
+  notify.notified().await;
+}
+
+#[tokio::test]
+async fn test_actor_stops_after_x_restarts() {
+  let _ = env::set_var("RUST_LOG", "debug");
+  let _ = tracing_subscriber::fmt()
+    .with_env_filter(EnvFilter::from_default_env())
+    .try_init();
+  let observer = Observer::new();
+  let system = ActorSystem::new().await;
+  let mut root_context = system.get_root_context().await;
+
+  let cloned_observer = observer.clone();
+  let middles = ReceiverMiddleware::new(move |next| {
+    let cloned_observer = cloned_observer.clone();
+    ReceiverFunc::new(move |ctx, moe| {
+      let next = next.clone();
+      let cloned_observer = cloned_observer.clone();
+      async move {
+        tracing::debug!("ReceiverMiddleware: moe = {:?}", moe);
+        let msg = moe.get_message();
+        tracing::debug!(">>>> msg = {:?}", msg);
+        let result = cloned_observer.receive(ctx.clone(), msg.clone()).await;
+        if result.is_err() {
+          return result;
+        }
+        next.run(ctx, moe).await
+      }
+    })
+  });
+
+  let props = Props::from_producer_func_with_opts(
+    ProducerFunc::new(|_| async { ActorHandle::new(FailingChildActor) }),
+    vec![
+      Props::with_receiver_middleware(vec![middles]),
+      Props::with_supervisor_strategy(SupervisorStrategyHandle::new(OneForOneStrategy::new(
+        10,
+        tokio::time::Duration::from_secs(10),
+      ))),
+    ],
+  )
+  .await;
+
+  let child = root_context.spawn(props).await;
+  let fail = MessageHandle::new(StringMessage("fail".to_string()));
+  let d = tokio::time::Duration::from_secs(10);
+  let _ = observer
+    .expect_message(MessageHandle::new(SystemMessage::Started(Started {})), d)
+    .await;
+
+  for i in 0..10 {
+    tracing::debug!("Sending fail message: {}", i);
+    root_context.send(child.clone(), fail.clone()).await;
+    observer.expect_message(fail.clone(), d).await.unwrap();
+    observer
+      .expect_message(
+        MessageHandle::new(AutoReceiveMessage::Restarting(crate::actor::messages::Restarting {})),
+        d,
+      )
+      .await
+      .unwrap();
+    observer
+      .expect_message(MessageHandle::new(SystemMessage::Started(Started {})), d)
+      .await
+      .unwrap();
+  }
+  root_context.send(child, fail.clone()).await;
+  observer.expect_message(fail.clone(), d).await.unwrap();
+  observer
+    .expect_message(
+      MessageHandle::new(AutoReceiveMessage::Stopping(crate::actor::messages::Stopping {})),
+      d,
+    )
+    .await
+    .unwrap();
+}
+
 #[derive(Debug, Clone)]
 struct ActorWithSupervisor {
   notify: Arc<Notify>,
@@ -115,32 +215,6 @@ impl Actor for FailingChildActor {
     }
   }
 }
-
-#[tokio::test]
-async fn test_actor_with_own_supervisor_can_handle_failure() {
-  let _ = env::set_var("RUST_LOG", "debug");
-  tracing_subscriber::fmt()
-    .with_env_filter(EnvFilter::from_default_env())
-    .init();
-
-  let system = ActorSystem::new().await;
-  let mut root = system.get_root_context().await;
-  let notify = Arc::new(Notify::new());
-  let cloned_notify = notify.clone();
-  let props = Props::from_producer_func(ProducerFunc::new(move |_| {
-    let cloned_notify = cloned_notify.clone();
-    async move {
-      ActorHandle::new(ActorWithSupervisor {
-        notify: cloned_notify.clone(),
-      })
-    }
-  }))
-  .await;
-  let pid = root.spawn(props).await;
-  tracing::info!("pid = {:?}", pid);
-  notify.notified().await;
-}
-
 #[derive(Debug, Error)]
 enum TestError {
   #[error("Timeout")]
@@ -176,79 +250,4 @@ impl Observer {
     }
     Err(TestError::TimeoutError)
   }
-}
-
-#[tokio::test]
-async fn test_actor_stops_after_x_restarts() {
-  let _ = env::set_var("RUST_LOG", "debug");
-  tracing_subscriber::fmt()
-    .with_env_filter(EnvFilter::from_default_env())
-    .init();
-  let observer = Observer::new();
-  let system = ActorSystem::new().await;
-  let mut root_context = system.get_root_context().await;
-
-  let cloned_observer = observer.clone();
-  let middles = ReceiverMiddleware::new(move |next| {
-    let cloned_observer = cloned_observer.clone();
-    ReceiverFunc::new(move |ctx, moe| {
-      let next = next.clone();
-      let cloned_observer = cloned_observer.clone();
-      async move {
-        tracing::debug!("ReceiverMiddleware: moe = {:?}", moe);
-        let msg = moe.get_message();
-        tracing::debug!(">>>> msg = {:?}", msg);
-        let result = cloned_observer.receive(ctx.clone(), msg.clone()).await;
-        if result.is_err() {
-          return result;
-        }
-        next.run(ctx, moe).await
-      }
-    })
-  });
-
-  let props = Props::from_producer_func_with_opts(
-    ProducerFunc::new(|_| async { ActorHandle::new(FailingChildActor) }),
-    vec![
-      Props::with_receiver_middleware(vec![middles]),
-      Props::with_supervisor_strategy(SupervisorStrategyHandle::new(OneForOneStrategy::new(
-        10,
-        tokio::time::Duration::from_secs(10),
-      ))),
-    ],
-  )
-  .await;
-
-  let child = root_context.spawn(props).await;
-  let fail = MessageHandle::new(StringMessage("fail".to_string()));
-  let d = tokio::time::Duration::from_secs(10);
-  let _ = observer
-    .expect_message(MessageHandle::new(SystemMessage::Started(Started {})), d)
-    .await;
-
-  for i in 0..10 {
-    tracing::debug!("Sending fail message: {}", i);
-    root_context.send(child.clone(), fail.clone()).await;
-    observer.expect_message(fail.clone(), d).await.unwrap();
-    observer
-      .expect_message(
-        MessageHandle::new(AutoReceiveMessage::Restarting(crate::actor::messages::Restarting {})),
-        d,
-      )
-      .await
-      .unwrap();
-    observer
-      .expect_message(MessageHandle::new(SystemMessage::Started(Started {})), d)
-      .await
-      .unwrap();
-  }
-  root_context.send(child, fail.clone()).await;
-  observer.expect_message(fail.clone(), d).await.unwrap();
-  observer
-    .expect_message(
-      MessageHandle::new(AutoReceiveMessage::Stopping(crate::actor::messages::Stopping {})),
-      d,
-    )
-    .await
-    .unwrap();
 }
