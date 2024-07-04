@@ -32,6 +32,5 @@ async fn example() {
     .await;
   sleep(Duration::from_secs(1)).await;
 
-  let future = root_context.stop_future(&pid).await;
-  future.result().await.unwrap();
+  root_context.stop_future(&pid).await.result().await.unwrap();
 }
