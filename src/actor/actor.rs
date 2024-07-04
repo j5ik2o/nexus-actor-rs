@@ -257,11 +257,12 @@ pub trait Actor: Debug + Send + Sync + 'static {
           AutoReceiveMessage::Stopped(_) => self.stopped(context_handle).await,
           AutoReceiveMessage::PoisonPill(_) => Ok(()),
         },
-        _ => Err(ActorError::ReceiveError(ActorInnerError::new(
-          "Unknown message type".to_string(),
-        ))),
+        _ => {
+          self.receive(context_handle.clone(), message_handle).await
+        },
       }
     } else {
+      tracing::error!("No message found");
       Err(ActorError::ReceiveError(ActorInnerError::new(
         "No message found".to_string(),
       )))
