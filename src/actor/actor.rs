@@ -8,17 +8,20 @@ use backtrace::Backtrace;
 use tokio::sync::Mutex;
 
 use crate::actor::context::{ContextHandle, InfoPart, MessagePart};
-use crate::actor::message::{Message, MessageHandle};
-use crate::actor::messages::{AutoReceiveMessage, SystemMessage};
+use crate::actor::message::auto_receive_message::AutoReceiveMessage;
+use crate::actor::message::message_handle::{Message, MessageHandle};
+use crate::actor::message::system_message::SystemMessage;
 use crate::actor::supervisor::supervisor_strategy::SupervisorStrategyHandle;
 
 pub mod actor_process;
+pub mod actor_produce_func;
 pub mod behavior;
 pub mod pid;
 pub mod pid_set;
 #[cfg(test)]
 mod pid_set_test;
 pub mod props;
+pub mod receive_func;
 pub mod restart_statistics;
 pub mod taks;
 

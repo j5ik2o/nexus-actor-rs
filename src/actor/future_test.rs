@@ -3,13 +3,13 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use tokio::sync::{Mutex, Notify};
+use tokio::sync::Notify;
 use tokio::time::{sleep, Duration};
 
 use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::future::{FutureError, FutureProcess};
-use crate::actor::message::{Message, MessageHandle};
+use crate::actor::message::message_handle::{Message, MessageHandle};
 use crate::actor::process::{Process, ProcessHandle};
 use crate::actor::util::async_barrier::AsyncBarrier;
 

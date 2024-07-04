@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use tokio::sync::Mutex;
 
-use crate::actor::message::{Message, MessageHandle};
+use crate::actor::message::message_handle::{Message, MessageHandle};
 use crate::event_stream::{EventStream, HandlerFunc, PredicateFunc};
 
 #[derive(Debug)]

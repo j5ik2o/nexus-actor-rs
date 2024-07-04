@@ -8,11 +8,10 @@ use futures::future::BoxFuture;
 use tokio::sync::Mutex;
 
 use crate::actor::dispatch::dispatcher::{Dispatcher, DispatcherHandle, Runnable};
+use crate::actor::dispatch::mailbox_message::MailboxMessage;
 use crate::actor::dispatch::mailbox_middleware::{MailboxMiddleware, MailboxMiddlewareHandle};
 use crate::actor::dispatch::message_invoker::{MessageInvoker, MessageInvokerHandle};
-use crate::actor::log::P_LOG;
-use crate::actor::message::{Message, MessageHandle};
-use crate::actor::messages::MailboxMessage;
+use crate::actor::message::message_handle::{Message, MessageHandle};
 use crate::util::queue::{QueueError, QueueReader, QueueWriter};
 
 // Mailbox trait

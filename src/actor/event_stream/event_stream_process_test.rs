@@ -4,7 +4,7 @@ use tokio::sync::mpsc;
 
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::SenderPart;
-use crate::actor::message::{Message, MessageHandle};
+use crate::actor::message::message_handle::{Message, MessageHandle};
 use crate::event_stream::HandlerFunc;
 
 #[derive(Debug, Clone)]

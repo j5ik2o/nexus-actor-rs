@@ -8,7 +8,7 @@ use crate::actor::actor::restart_statistics::RestartStatistics;
 use crate::actor::context::actor_context::ActorContext;
 use crate::actor::context::receive_timeout_timer::ReceiveTimeoutTimer;
 use crate::actor::context::{ContextHandle, ReceiverContextHandle, SenderContextHandle};
-use crate::actor::message::MessageHandles;
+use crate::actor::message::message_handles::MessageHandles;
 use crate::ctxext::extensions::ContextExtensions;
 
 #[derive(Debug, Clone)]

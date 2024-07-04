@@ -2,11 +2,12 @@ use std::thread::sleep;
 
 use async_trait::async_trait;
 
+use crate::actor::actor::actor_produce_func::ActorProduceFunc;
 use crate::actor::actor::props::Props;
 use crate::actor::actor::{Actor, ActorError, ActorHandle};
 use crate::actor::actor_system::{ActorSystem, Config};
 use crate::actor::context::{ContextHandle, InfoPart, MessagePart, SenderPart, SpawnerPart};
-use crate::actor::message::{Message, MessageHandle, ProducerFunc};
+use crate::actor::message::message_handle::{Message, MessageHandle};
 use crate::actor::supervisor::supervisor_strategy::SupervisorStrategyHandle;
 
 #[tokio::test]
@@ -70,7 +71,7 @@ async fn test_actor_system_spawn_actor() {
   let system = ActorSystem::new().await;
   let mut root = system.get_root_context().await;
   log::debug!("root: {:?}", root);
-  let props = Props::from_producer_func_with_opts(ProducerFunc::new(receive), vec![]).await;
+  let props = Props::from_producer_func_with_opts(ActorProduceFunc::new(receive), vec![]).await;
   log::debug!("props: {:?}", props);
   let pid = root.spawn(props).await;
   log::debug!("pid: {:?}", pid);

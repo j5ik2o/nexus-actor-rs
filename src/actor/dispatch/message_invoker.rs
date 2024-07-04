@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use tokio::sync::Mutex;
 
 use crate::actor::actor::{ActorError, ActorInnerError};
-use crate::actor::message::MessageHandle;
+use crate::actor::message::message_handle::MessageHandle;
 
 // MessageInvoker trait
 #[async_trait]

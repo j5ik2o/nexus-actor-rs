@@ -9,7 +9,9 @@ use thiserror::Error;
 use tokio::sync::Mutex;
 
 use crate::actor::actor::actor_process::ActorProcess;
+use crate::actor::actor::actor_produce_func::ActorProduceFunc;
 use crate::actor::actor::pid::ExtendedPid;
+use crate::actor::actor::receive_func::ReceiveFunc;
 use crate::actor::actor::{Actor, ActorError, ActorHandle};
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::actor_context::ActorContext;
@@ -18,8 +20,10 @@ use crate::actor::dispatch::dispatcher::*;
 use crate::actor::dispatch::mailbox::{Mailbox, MailboxHandle, MailboxProduceFunc};
 use crate::actor::dispatch::message_invoker::MessageInvokerHandle;
 use crate::actor::dispatch::unbounded::unbounded_mailbox_creator_with_opts;
-use crate::actor::message::{ContextDecoratorFunc, MessageHandle, ProducerFunc, ReceiveFunc, ReceiverFunc, SenderFunc};
-use crate::actor::messages::{Started, SystemMessage};
+use crate::actor::message::message_handle::MessageHandle;
+use crate::actor::message::system_message::SystemMessage;
+use crate::actor::message::{ContextDecoratorFunc, ReceiverFunc, SenderFunc};
+use crate::actor::messages::Started;
 use crate::actor::middleware_chain::{
   make_context_decorator_chain, make_receiver_middleware_chain, make_sender_middleware_chain,
   make_spawn_middleware_chain,
@@ -258,7 +262,7 @@ impl ContextHandleFunc {
 #[derive(Debug, Clone)]
 pub struct Props {
   spawner: Option<SpawnFunc>,
-  producer: Option<ProducerFunc>,
+  producer: Option<ActorProduceFunc>,
   mailbox_producer: Option<MailboxProduceFunc>,
   guardian_strategy: Option<SupervisorStrategyHandle>,
   supervisor_strategy: Option<SupervisorStrategyHandle>,
@@ -368,7 +372,7 @@ impl Props {
     })
   }
 
-  pub fn with_producer(producer: ProducerFunc) -> PropsOptionFunc {
+  pub fn with_producer(producer: ActorProduceFunc) -> PropsOptionFunc {
     PropsOptionFunc::new(move |props: &mut Props| {
       props.producer = Some(producer.clone());
     })
@@ -446,7 +450,7 @@ impl Props {
   pub fn with_receive_func(receive_func: ReceiveFunc) -> PropsOptionFunc {
     PropsOptionFunc::new(move |props: &mut Props| {
       let receive_func = receive_func.clone();
-      props.producer = Some(ProducerFunc::new(move |_| {
+      props.producer = Some(ActorProduceFunc::new(move |_| {
         let cloned = receive_func.clone();
         async move {
           let actor = ReceiveFuncActor(cloned.clone());
@@ -478,7 +482,7 @@ impl Props {
     self.spawner.clone().unwrap_or(DEFAULT_SPAWNER.clone())
   }
 
-  pub fn get_producer(&self) -> ProducerFunc {
+  pub fn get_producer(&self) -> ActorProduceFunc {
     self.producer.clone().unwrap()
   }
 
@@ -521,7 +525,7 @@ impl Props {
     }
   }
 
-  pub async fn from_producer_func_with_opts(producer: ProducerFunc, opts: Vec<PropsOptionFunc>) -> Props {
+  pub async fn from_producer_func_with_opts(producer: ActorProduceFunc, opts: Vec<PropsOptionFunc>) -> Props {
     let mut props = Props {
       on_init: Vec::new(),
       producer: Some(producer),
@@ -543,12 +547,12 @@ impl Props {
     props
   }
 
-  pub async fn from_producer_func(producer: ProducerFunc) -> Props {
+  pub async fn from_producer_func(producer: ActorProduceFunc) -> Props {
     Props::from_producer_func_with_opts(producer, vec![]).await
   }
 
   pub async fn from_receive_func_with_opts(f: ReceiveFunc, opts: Vec<PropsOptionFunc>) -> Props {
-    let producer = ProducerFunc::new(move |_| {
+    let producer = ActorProduceFunc::new(move |_| {
       let cloned = f.clone();
       async move {
         let actor = ReceiveFuncActor(cloned);

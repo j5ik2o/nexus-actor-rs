@@ -4,7 +4,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 
 use crate::actor::actor::pid::ExtendedPid;
-use crate::actor::message::MessageHandle;
+use crate::actor::message::message_handle::MessageHandle;
 
 pub mod process_registry;
 

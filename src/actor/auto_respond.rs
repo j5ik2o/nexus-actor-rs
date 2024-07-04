@@ -2,7 +2,7 @@ use std::fmt::Debug;
 use std::sync::Arc;
 
 use crate::actor::context::ContextHandle;
-use crate::actor::message::ResponseHandle;
+use crate::actor::message::response::ResponseHandle;
 
 pub trait AutoRespond: Debug + Send + Sync + 'static {
   fn get_auto_response(&self, context: ContextHandle) -> ResponseHandle;

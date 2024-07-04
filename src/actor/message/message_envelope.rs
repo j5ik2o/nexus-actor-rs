@@ -6,7 +6,7 @@ use std::sync::Arc;
 use once_cell::sync::Lazy;
 
 use crate::actor::actor::pid::ExtendedPid;
-use crate::actor::message::{Message, MessageHandle};
+use crate::actor::message::message_handle::{Message, MessageHandle};
 
 #[derive(Debug, Default, Clone)]
 pub struct MessageHeaders {

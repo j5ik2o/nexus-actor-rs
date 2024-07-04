@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
-use crate::actor::message::MessageHandle;
+use crate::actor::message::message_handle::MessageHandle;
 
 // MailboxMiddleware trait
 #[async_trait]

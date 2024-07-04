@@ -2,7 +2,7 @@ use async_trait::async_trait;
 
 use crate::actor::dispatch::mailbox::{DefaultMailbox, MailboxHandle, MailboxProduceFunc};
 use crate::actor::dispatch::mailbox_middleware::MailboxMiddlewareHandle;
-use crate::actor::message::MessageHandle;
+use crate::actor::message::message_handle::MessageHandle;
 use crate::util::queue::mpsc_unbounded_channel_queue::MpscUnboundedChannelQueue;
 use crate::util::queue::priority_queue::PriorityQueue;
 use crate::util::queue::ring_queue::RingQueue;

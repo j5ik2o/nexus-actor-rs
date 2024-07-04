@@ -11,9 +11,10 @@ use crate::actor::context::{
   SpawnerPart, StopperPart,
 };
 use crate::actor::future::{Future, FutureProcess};
-use crate::actor::message::{MessageHandle, SenderFunc};
-use crate::actor::message_envelope::{MessageEnvelope, MessageHeaders, ReadonlyMessageHeadersHandle};
-use crate::actor::messages::AutoReceiveMessage;
+use crate::actor::message::auto_receive_message::AutoReceiveMessage;
+use crate::actor::message::message_envelope::{MessageEnvelope, MessageHeaders, ReadonlyMessageHeadersHandle};
+use crate::actor::message::message_handle::MessageHandle;
+use crate::actor::message::SenderFunc;
 use crate::actor::middleware_chain::make_sender_middleware_chain;
 use crate::actor::process::Process;
 use crate::actor::supervisor::supervisor_strategy::SupervisorStrategyHandle;

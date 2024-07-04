@@ -6,7 +6,7 @@ use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::actor::restart_statistics::RestartStatistics;
 use crate::actor::actor::ActorInnerError;
 use crate::actor::actor_system::ActorSystem;
-use crate::actor::message::MessageHandle;
+use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::supervisor::directive::Directive;
 use crate::actor::supervisor::supervisor_strategy::{log_failure, Supervisor, SupervisorHandle, SupervisorStrategy};
 
@@ -40,9 +40,9 @@ impl SupervisorStrategy for RestartingStrategy {
     actor_system: &ActorSystem,
     supervisor: SupervisorHandle,
     child: ExtendedPid,
-    rs: RestartStatistics,
+    _: RestartStatistics,
     reason: ActorInnerError,
-    message: MessageHandle,
+    _: MessageHandle,
   ) {
     // always restart
     log_failure(actor_system, &child, reason, Directive::Restart).await;

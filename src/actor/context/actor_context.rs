@@ -4,6 +4,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use tokio::sync::Mutex;
 
+use crate::actor::actor::actor_produce_func::ActorProduceFunc;
 use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::actor::props::{Props, SpawnError};
 use crate::actor::actor::{
@@ -17,15 +18,22 @@ use crate::actor::context::{
   BasePart, Context, ContextHandle, ExtensionContext, ExtensionPart, InfoPart, MessagePart, ReceiverContext,
   ReceiverPart, SenderContext, SenderPart, SpawnerContext, SpawnerContextHandle, SpawnerPart, StopperPart,
 };
+use crate::actor::dispatch::mailbox_message::MailboxMessage;
 use crate::actor::dispatch::message_invoker::MessageInvoker;
 use crate::actor::future::FutureProcess;
 use crate::actor::log::P_LOG;
-use crate::actor::message::{Message, MessageHandle, ProducerFunc, ReceiverFunc, ResponseHandle, SenderFunc};
-use crate::actor::message_envelope::{wrap_envelope, MessageEnvelope, MessageOrEnvelope, ReadonlyMessageHeadersHandle};
-use crate::actor::messages::{
-  AutoReceiveMessage, Continuation, ContinuationFunc, Failure, MailboxMessage, NotInfluenceReceiveTimeoutHandle,
-  ReceiveTimeout, Restart, Restarting, Started, Stopped, Stopping, SystemMessage,
+use crate::actor::message::auto_receive_message::AutoReceiveMessage;
+use crate::actor::message::failure::Failure;
+use crate::actor::message::message_envelope::{
+  wrap_envelope, MessageEnvelope, MessageOrEnvelope, ReadonlyMessageHeadersHandle,
 };
+use crate::actor::message::message_handle::{Message, MessageHandle};
+use crate::actor::message::not_influence_receive_timeout::NotInfluenceReceiveTimeoutHandle;
+use crate::actor::message::receive_timeout::ReceiveTimeout;
+use crate::actor::message::response::ResponseHandle;
+use crate::actor::message::system_message::SystemMessage;
+use crate::actor::message::{ReceiverFunc, SenderFunc};
+use crate::actor::messages::{Continuation, ContinuationFunc, Restart, Restarting, Started, Stopped, Stopping};
 use crate::actor::process::Process;
 use crate::actor::supervisor::supervisor_strategy::{
   Supervisor, SupervisorHandle, SupervisorStrategy, DEFAULT_SUPERVISION_STRATEGY,
@@ -41,7 +49,7 @@ pub struct ActorContextInner {
   parent: Option<ExtendedPid>,
   self_pid: Option<ExtendedPid>,
   receive_timeout: Option<tokio::time::Duration>,
-  producer: Option<ProducerFunc>,
+  producer: Option<ActorProduceFunc>,
   message_or_envelope: Option<MessageOrEnvelope>,
   state: Option<Arc<AtomicU8>>,
 }

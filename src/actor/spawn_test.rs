@@ -4,11 +4,12 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use tokio::sync::Notify;
 
+use crate::actor::actor::actor_produce_func::ActorProduceFunc;
 use crate::actor::actor::props::Props;
 use crate::actor::actor::{Actor, ActorError, ActorHandle};
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::{ContextHandle, SpawnerPart};
-use crate::actor::message::{MessageHandle, ProducerFunc};
+use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::supervisor::supervisor_strategy::SupervisorStrategyHandle;
 
 #[derive(Debug, Clone)]
@@ -44,7 +45,7 @@ async fn test_example() {
     received: Arc::new(Notify::new()),
   };
 
-  let producer_func = ProducerFunc::new({
+  let producer_func = ActorProduceFunc::new({
     let actor = actor.clone();
     move |ctx| {
       let actor = actor.clone();

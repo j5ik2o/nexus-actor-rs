@@ -98,7 +98,7 @@ mod tests {
   use std::any::Any;
   use std::fmt::Debug;
 
-  use crate::actor::message::Message;
+  use crate::actor::message::message_handle::Message;
   use crate::util::queue::mpsc_unbounded_channel_queue::MpscUnboundedChannelQueue;
 
   use super::*;

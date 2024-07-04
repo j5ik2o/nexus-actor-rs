@@ -6,7 +6,7 @@ use std::sync::Arc;
 use futures::future::BoxFuture;
 use tokio::sync::RwLock;
 
-use crate::actor::message::MessageHandle;
+use crate::actor::message::message_handle::MessageHandle;
 
 // Handler defines a callback function that must be passed when subscribing.
 #[derive(Clone)]

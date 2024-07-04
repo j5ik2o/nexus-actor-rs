@@ -9,14 +9,18 @@ use tokio::sync::{mpsc, Mutex, Notify};
 use tokio::time::{sleep, timeout, Instant};
 use tracing_subscriber::EnvFilter;
 
+use crate::actor::actor::actor_produce_func::ActorProduceFunc;
 use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::actor::props::{Props, ReceiverMiddleware};
 use crate::actor::actor::restart_statistics::RestartStatistics;
 use crate::actor::actor::{Actor, ActorError, ActorHandle, ActorInnerError, Stop};
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::{ContextHandle, MessagePart, ReceiverContextHandle, SenderPart, SpawnerPart};
-use crate::actor::message::{Message, MessageHandle, ProducerFunc, ReceiverFunc};
-use crate::actor::messages::{AutoReceiveMessage, Restart, Started, SystemMessage};
+use crate::actor::message::auto_receive_message::AutoReceiveMessage;
+use crate::actor::message::message_handle::{Message, MessageHandle};
+use crate::actor::message::system_message::SystemMessage;
+use crate::actor::message::ReceiverFunc;
+use crate::actor::messages::Started;
 use crate::actor::supervisor::strategy_one_for_one::OneForOneStrategy;
 use crate::actor::supervisor::supervisor_strategy::{SupervisorHandle, SupervisorStrategy, SupervisorStrategyHandle};
 
@@ -31,7 +35,7 @@ async fn test_actor_with_own_supervisor_can_handle_failure() {
   let mut root = system.get_root_context().await;
   let notify = Arc::new(Notify::new());
   let cloned_notify = notify.clone();
-  let props = Props::from_producer_func(ProducerFunc::new(move |_| {
+  let props = Props::from_producer_func(ActorProduceFunc::new(move |_| {
     let cloned_notify = cloned_notify.clone();
     async move {
       ActorHandle::new(ActorWithSupervisor {
@@ -75,7 +79,7 @@ async fn test_actor_stops_after_x_restarts() {
   });
 
   let props = Props::from_producer_func_with_opts(
-    ProducerFunc::new(|_| async { ActorHandle::new(FailingChildActor) }),
+    ActorProduceFunc::new(|_| async { ActorHandle::new(FailingChildActor) }),
     vec![
       Props::with_receiver_middleware(vec![middles]),
       Props::with_supervisor_strategy(SupervisorStrategyHandle::new(OneForOneStrategy::new(
@@ -155,7 +159,10 @@ impl Message for StringMessage {
 impl Actor for ActorWithSupervisor {
   async fn started(&self, mut ctx: ContextHandle) -> Result<(), ActorError> {
     tracing::debug!("ActorWithSupervisor::post_start");
-    let props = Props::from_producer_func(ProducerFunc::new(|ctx| async { ActorHandle::new(FailingChildActor) })).await;
+    let props = Props::from_producer_func(ActorProduceFunc::new(|ctx| async {
+      ActorHandle::new(FailingChildActor)
+    }))
+    .await;
     let child = ctx.spawn(props).await;
     ctx
       .send(child, MessageHandle::new(StringMessage("fail".to_string())))
