@@ -1,10 +1,8 @@
 use std::any::Any;
 use std::env;
 use std::time::Duration;
-
 use tokio::time::sleep;
 use tracing_subscriber::EnvFilter;
-
 use crate::actor::actor::props::Props;
 use crate::actor::actor::receive_func::ReceiveFunc;
 use crate::actor::actor_system::ActorSystem;

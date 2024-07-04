@@ -8,7 +8,7 @@ use backtrace::Backtrace;
 use tokio::sync::Mutex;
 
 use crate::actor::context::context_handle::ContextHandle;
-use crate::actor::context::{InfoPart, MessagePart};
+use crate::actor::context::{MessagePart};
 use crate::actor::message::auto_receive_message::AutoReceiveMessage;
 use crate::actor::message::message_handle::{Message, MessageHandle};
 use crate::actor::message::message_or_envelope::{unwrap_envelope_message, MessageEnvelope};

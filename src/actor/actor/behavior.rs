@@ -62,7 +62,7 @@ impl Behavior {
     self.stack.pop()
   }
 
-  fn len(&self) -> usize {
+  pub(crate) fn len(&self) -> usize {
     self.stack.len()
   }
 }

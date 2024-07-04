@@ -25,7 +25,7 @@ async fn example_root_context_spawn_named() {
     let cloned_b = cloned_b.clone();
     async move {
       let msg = ctx.get_message().await.unwrap();
-      if let Some(SystemMessage::Started(sm)) = msg.as_any().downcast_ref::<SystemMessage>() {
+      if let Some(SystemMessage::Started(_)) = msg.as_any().downcast_ref::<SystemMessage>() {
         println!("Hello World!");
         cloned_b.wait().await;
       }

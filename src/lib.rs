@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 pub mod actor;
 pub mod ctxext;
 pub mod event_stream;

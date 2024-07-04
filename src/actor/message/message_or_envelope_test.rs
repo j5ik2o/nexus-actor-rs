@@ -2,7 +2,6 @@ use std::any::Any;
 use std::env;
 use std::time::Duration;
 
-use tokio::time::sleep;
 use tracing_subscriber::EnvFilter;
 
 use crate::actor::actor::props::Props;
