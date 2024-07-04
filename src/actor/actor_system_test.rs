@@ -12,6 +12,7 @@ use crate::actor::context::context_handle::ContextHandle;
 use crate::actor::context::{InfoPart, MessagePart, SenderPart, SpawnerPart};
 use crate::actor::message::message_handle::{Message, MessageHandle};
 use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
+use crate::actor::util::async_barrier::AsyncBarrier;
 
 #[tokio::test]
 async fn test_actor_system_new() {
@@ -40,17 +41,16 @@ impl Message for Hello {
 }
 
 #[derive(Debug)]
-struct MyActor {}
+struct MyActor {
+  b: AsyncBarrier,
+}
 
 #[async_trait]
 impl Actor for MyActor {
-  async fn handle(&mut self, ctx: ContextHandle) -> Result<(), ActorError> {
-    let msg = ctx.get_message().await;
-    println!("{:?}", msg);
-    Ok(())
-  }
 
-  async fn receive(&mut self, _: ContextHandle, _: MessageHandle) -> Result<(), ActorError> {
+  async fn receive(&mut self, _: ContextHandle, msg: MessageHandle) -> Result<(), ActorError> {
+    println!("{:?}", msg);
+    self.b.wait().await;
     Ok(())
   }
 
@@ -66,15 +66,22 @@ async fn test_actor_system_spawn_actor() {
     .with_env_filter(EnvFilter::from_default_env())
     .try_init();
 
+  let b = AsyncBarrier::new(2);
+  let cloned_b = b.clone();
   let system = ActorSystem::new().await;
-  let mut root = system.get_root_context().await;
-  let props = Props::from_producer_func_with_opts(
-    ActorProduceFunc::new(move |_| async { ActorHandle::new(MyActor {}) }),
-    vec![],
+  let mut root_context = system.get_root_context().await;
+
+  let props = Props::from_producer_func(
+    ActorProduceFunc::new(move |_| {
+      let cloned_b = b.clone();
+      async move { ActorHandle::new(MyActor {b: cloned_b.clone() }) }
+    })
   )
   .await;
-  let pid = root.spawn(props).await;
-  root.send(pid, MessageHandle::new(Hello("hello".to_string()))).await;
 
-  sleep(Duration::from_secs(3)).await;
+  let pid = root_context.spawn(props).await;
+  root_context.send(pid, MessageHandle::new(Hello("hello".to_string()))).await;
+
+  cloned_b.wait().await;
+
 }
