@@ -12,8 +12,12 @@ pub trait Response: Message + Debug + Send + Sync + 'static {
 pub struct ResponseHandle(Arc<dyn Response>);
 
 impl ResponseHandle {
-  pub fn new(response: Arc<dyn Response>) -> Self {
+  pub fn new_arc(response: Arc<dyn Response>) -> Self {
     ResponseHandle(response)
+  }
+
+  pub fn new(response: impl Response + 'static) -> Self {
+    ResponseHandle(Arc::new(response))
   }
 }
 

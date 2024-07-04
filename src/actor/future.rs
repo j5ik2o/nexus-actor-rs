@@ -248,14 +248,19 @@ impl Future {
       {
         let inner = self.inner.lock().await;
         if inner.done {
+          tracing::debug!("Future completed");
           return if let Some(error) = &inner.error {
+            tracing::debug!("Future error: {:?}", error);
             Err(error.clone())
           } else {
+            tracing::debug!("Future result: {:?}", inner.result.as_ref().unwrap());
             Ok(inner.result.as_ref().unwrap().clone())
           };
         }
       }
+      tracing::debug!("Future not completed");
       self.notify.notified().await;
+      tracing::debug!("Future notified");
     }
   }
 
