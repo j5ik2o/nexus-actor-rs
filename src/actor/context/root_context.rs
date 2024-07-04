@@ -21,7 +21,7 @@ use crate::actor::message::message_envelope::{MessageEnvelope, MessageHeaders, R
 use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::middleware_chain::make_sender_middleware_chain;
 use crate::actor::process::Process;
-use crate::actor::supervisor::supervisor_strategy::SupervisorStrategyHandle;
+use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
 
 #[derive(Debug, Clone)]
 pub struct RootContext {

@@ -19,11 +19,16 @@ pub struct ExponentialBackoffStrategy {
 }
 
 impl ExponentialBackoffStrategy {
-  pub fn new(backoff_window: Duration, initial_backoff: Option<Duration>) -> Self {
+  pub fn new(backoff_window: Duration) -> Self {
     Self {
       backoff_window,
-      initial_backoff,
+      initial_backoff: None,
     }
+  }
+
+  pub fn with_initial_backoff(mut self, initial_backoff: Duration) -> Self {
+    self.initial_backoff = Some(initial_backoff);
+    self
   }
 
   pub(crate) async fn set_failure_count(&self, rs: &mut RestartStatistics) {

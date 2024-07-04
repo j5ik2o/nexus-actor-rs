@@ -8,7 +8,8 @@ use nexus_rs::actor::actor::actor_produce_func::ActorProduceFunc;
 use nexus_rs::actor::actor::props::Props;
 use nexus_rs::actor::actor::{Actor, ActorError, ActorHandle};
 use nexus_rs::actor::actor_system::ActorSystem;
-use nexus_rs::actor::context::{ContextHandle, SenderPart, SpawnerPart};
+use nexus_rs::actor::context::context_handle::ContextHandle;
+use nexus_rs::actor::context::{SenderPart, SpawnerPart};
 use nexus_rs::actor::dispatch::unbounded::unbounded_mpsc_mailbox_creator;
 use nexus_rs::actor::message::message_handle::{Message, MessageHandle};
 
@@ -69,11 +70,11 @@ impl Actor for TopActor {
   }
 }
 
-pub async fn create_top_actor(ctx: ContextHandle) -> ActorHandle {
+pub async fn create_top_actor(_: ContextHandle) -> ActorHandle {
   ActorHandle::new(TopActor {})
 }
 
-pub async fn create_child_actor(ctx: ContextHandle) -> ActorHandle {
+pub async fn create_child_actor(_: ContextHandle) -> ActorHandle {
   ActorHandle::new(ChildActor {})
 }
 

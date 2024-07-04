@@ -37,5 +37,5 @@ impl PartialEq for AutoReceiveMessage {
 }
 
 impl AutoReceiveMessage {
-  pub fn auto_receive_message(&self, pid: &ExtendedPid, message: MessageHandle) {}
+  pub fn auto_receive_message(&self, _: &ExtendedPid, _: MessageHandle) {}
 }

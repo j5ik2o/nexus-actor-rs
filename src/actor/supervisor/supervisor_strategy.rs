@@ -1,4 +1,3 @@
-use std::any::Any;
 use std::fmt::Debug;
 use std::sync::Arc;
 
@@ -15,6 +14,7 @@ use crate::actor::supervisor::directive::Directive;
 use crate::actor::supervisor::strategy_one_for_one::OneForOneStrategy;
 use crate::actor::supervisor::strategy_restarting::RestartingStrategy;
 use crate::actor::supervisor::supervision_event::SupervisorEvent;
+use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
 
 #[derive(Clone)]
 pub struct DeciderFunc(Arc<dyn Fn(ActorInnerError) -> Directive + Send + Sync>);
@@ -62,61 +62,6 @@ pub trait SupervisorStrategy: Debug + Send + Sync {
   );
 
   fn as_any(&self) -> &dyn std::any::Any;
-}
-
-#[derive(Debug, Clone)]
-pub struct SupervisorStrategyHandle(Arc<dyn SupervisorStrategy>);
-
-impl PartialEq for SupervisorStrategyHandle {
-  fn eq(&self, other: &Self) -> bool {
-    Arc::ptr_eq(&self.0, &other.0)
-  }
-}
-
-impl Eq for SupervisorStrategyHandle {}
-
-impl std::hash::Hash for SupervisorStrategyHandle {
-  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    (self.0.as_ref() as *const dyn SupervisorStrategy).hash(state);
-  }
-}
-
-impl SupervisorStrategyHandle {
-  pub fn new_arc(s: Arc<dyn SupervisorStrategy>) -> Self {
-    if s.as_any().downcast_ref::<SupervisorStrategyHandle>().is_some() {
-      panic!("SupervisorStrategyHandle can't be used as a strategy, {:?}", s)
-    }
-    Self(s)
-  }
-
-  pub fn new(s: impl SupervisorStrategy + 'static) -> Self {
-    if s.as_any().downcast_ref::<SupervisorStrategyHandle>().is_some() {
-      panic!("SupervisorStrategyHandle can't be used as a strategy, {:?}", s)
-    }
-    Self(Arc::new(s))
-  }
-}
-
-#[async_trait]
-impl SupervisorStrategy for SupervisorStrategyHandle {
-  async fn handle_child_failure(
-    &self,
-    actor_system: &ActorSystem,
-    supervisor: SupervisorHandle,
-    child: ExtendedPid,
-    rs: RestartStatistics,
-    reason: ActorInnerError,
-    message: MessageHandle,
-  ) {
-    self
-      .0
-      .handle_child_failure(actor_system, supervisor, child, rs, reason, message)
-      .await
-  }
-
-  fn as_any(&self) -> &dyn Any {
-    self
-  }
 }
 
 #[async_trait]

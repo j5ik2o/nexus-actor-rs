@@ -408,7 +408,8 @@ impl ActorContext {
         .store(State::Stopping as u8, Ordering::SeqCst);
     }
     let msg = MessageHandle::new(AutoReceiveMessage::Stopping(Stopping {}));
-    if let result = self.invoke_user_message(msg).await {
+    let result = self.invoke_user_message(msg).await;
+    if result.is_err() {
       P_LOG.error("Failed to handle Stopping message", vec![]).await;
       return result;
     }

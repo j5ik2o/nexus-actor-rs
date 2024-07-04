@@ -15,9 +15,8 @@ use crate::actor::message::message_handle::{Message, MessageHandle};
 use crate::actor::message::messages::Restart;
 use crate::actor::message::system_message::SystemMessage;
 use crate::actor::process::{Process, ProcessHandle};
-use crate::actor::supervisor::supervisor_strategy::{
-  Supervisor, SupervisorHandle, SupervisorStrategy, SupervisorStrategyHandle,
-};
+use crate::actor::supervisor::supervisor_strategy::{Supervisor, SupervisorHandle, SupervisorStrategy};
+use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
 use crate::log::field::Field;
 
 #[derive(Debug, Clone)]

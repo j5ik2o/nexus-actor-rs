@@ -12,7 +12,7 @@ use crate::actor::context::{InfoPart, MessagePart};
 use crate::actor::message::auto_receive_message::AutoReceiveMessage;
 use crate::actor::message::message_handle::{Message, MessageHandle};
 use crate::actor::message::system_message::SystemMessage;
-use crate::actor::supervisor::supervisor_strategy::SupervisorStrategyHandle;
+use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
 
 pub mod actor_process;
 pub mod actor_produce_func;
@@ -236,7 +236,7 @@ impl Error for ActorError {
 #[async_trait]
 pub trait Actor: Debug + Send + Sync + 'static {
   async fn handle(&mut self, context_handle: ContextHandle) -> Result<(), ActorError> {
-    let id = context_handle.get_self().await.unwrap().id().to_string();
+    let _id = context_handle.get_self().await.unwrap().id().to_string();
     // tracing::debug!("Actor::handle: id = {}, context_handle = {:?}", id, context_handle);
     let message_handle_opt = context_handle.get_message().await;
     let any_message = message_handle_opt.as_ref().unwrap().as_any();
@@ -270,7 +270,7 @@ pub trait Actor: Debug + Send + Sync + 'static {
     }
   }
 
-  async fn receive(&mut self, c: ContextHandle, message_handle: MessageHandle) -> Result<(), ActorError>;
+  async fn receive(&mut self, context_handle: ContextHandle, message_handle: MessageHandle) -> Result<(), ActorError>;
 
   async fn started(&self, _: ContextHandle) -> Result<(), ActorError> {
     Ok(())

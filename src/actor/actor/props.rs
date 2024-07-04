@@ -1,11 +1,8 @@
-use std::fmt::{Debug, Formatter};
-use std::future::Future;
+use std::fmt::Debug;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use futures::future::BoxFuture;
 use once_cell::sync::Lazy;
-use thiserror::Error;
 use tokio::sync::Mutex;
 
 use crate::actor::actor::actor_process::ActorProcess;
@@ -39,7 +36,8 @@ use crate::actor::middleware_chain::{
   make_spawn_middleware_chain,
 };
 use crate::actor::process::ProcessHandle;
-use crate::actor::supervisor::supervisor_strategy::{SupervisorStrategyHandle, DEFAULT_SUPERVISION_STRATEGY};
+use crate::actor::supervisor::supervisor_strategy::DEFAULT_SUPERVISION_STRATEGY;
+use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
 
 #[derive(Debug, Clone)]
 pub struct Props {

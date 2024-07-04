@@ -11,7 +11,7 @@ use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::context_handle::ContextHandle;
 use crate::actor::context::SpawnerPart;
 use crate::actor::message::message_handle::MessageHandle;
-use crate::actor::supervisor::supervisor_strategy::SupervisorStrategyHandle;
+use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
 
 #[derive(Debug, Clone)]
 struct MyActor {
@@ -48,7 +48,7 @@ async fn test_example() {
 
   let producer_func = ActorProduceFunc::new({
     let actor = actor.clone();
-    move |ctx| {
+    move |_| {
       let actor = actor.clone();
       async move { ActorHandle::new(actor.clone()) }
     }

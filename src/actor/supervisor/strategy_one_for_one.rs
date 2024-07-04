@@ -1,5 +1,4 @@
 use std::any::Any;
-use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -22,7 +21,7 @@ pub fn default_decider(_: ActorInnerError) -> Directive {
 pub struct OneForOneStrategy {
   max_nr_of_retries: u32,
   pub(crate) within_duration: tokio::time::Duration,
-  decider_opt: Arc<DeciderFunc>,
+  decider: Arc<DeciderFunc>,
 }
 
 impl OneForOneStrategy {
@@ -30,12 +29,12 @@ impl OneForOneStrategy {
     OneForOneStrategy {
       max_nr_of_retries,
       within_duration,
-      decider_opt: Arc::new(DeciderFunc::new(default_decider)),
+      decider: Arc::new(DeciderFunc::new(default_decider)),
     }
   }
 
   pub fn with_decider(mut self, decider: impl Fn(ActorInnerError) -> Directive + Send + Sync + 'static) -> Self {
-    self.decider_opt = Arc::new(DeciderFunc::new(decider));
+    self.decider = Arc::new(DeciderFunc::new(decider));
     self
   }
 
@@ -66,7 +65,7 @@ impl PartialEq for OneForOneStrategy {
   fn eq(&self, other: &Self) -> bool {
     self.max_nr_of_retries == other.max_nr_of_retries
       && self.within_duration == other.within_duration
-      && self.decider_opt == other.decider_opt
+      && self.decider == other.decider
   }
 }
 
@@ -76,7 +75,7 @@ impl std::hash::Hash for OneForOneStrategy {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
     self.max_nr_of_retries.hash(state);
     self.within_duration.hash(state);
-    self.decider_opt.hash(state);
+    self.decider.hash(state);
   }
 }
 
@@ -97,7 +96,7 @@ impl SupervisorStrategy for OneForOneStrategy {
       rs,
       message
     );
-    let directive = self.decider_opt.run(reason.clone());
+    let directive = self.decider.run(reason.clone());
     match directive {
       Directive::Resume => {
         // resume the failing child

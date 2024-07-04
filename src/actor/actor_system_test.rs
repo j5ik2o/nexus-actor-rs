@@ -9,7 +9,7 @@ use crate::actor::actor_system::{ActorSystem, Config};
 use crate::actor::context::context_handle::ContextHandle;
 use crate::actor::context::{InfoPart, MessagePart, SenderPart, SpawnerPart};
 use crate::actor::message::message_handle::{Message, MessageHandle};
-use crate::actor::supervisor::supervisor_strategy::SupervisorStrategyHandle;
+use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
 
 #[tokio::test]
 async fn test_actor_system_new() {
@@ -48,7 +48,7 @@ impl Actor for MyActor {
     Ok(())
   }
 
-  async fn receive(&mut self, c: ContextHandle, message_handle: MessageHandle) -> Result<(), ActorError> {
+  async fn receive(&mut self, _: ContextHandle, _: MessageHandle) -> Result<(), ActorError> {
     Ok(())
   }
 

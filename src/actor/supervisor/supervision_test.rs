@@ -5,8 +5,8 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use thiserror::Error;
-use tokio::sync::{mpsc, Mutex, Notify};
-use tokio::time::{sleep, timeout, Instant};
+use tokio::sync::{Mutex, Notify};
+use tokio::time::Instant;
 use tracing_subscriber::EnvFilter;
 
 use crate::actor::actor::actor_produce_func::ActorProduceFunc;
@@ -15,17 +15,18 @@ use crate::actor::actor::props::Props;
 use crate::actor::actor::receiver_middleware_chain_func::ReceiverMiddlewareChainFunc;
 use crate::actor::actor::receiver_middleware_func::ReceiverMiddlewareFunc;
 use crate::actor::actor::restart_statistics::RestartStatistics;
-use crate::actor::actor::{Actor, ActorError, ActorHandle, ActorInnerError, Stop};
+use crate::actor::actor::{Actor, ActorError, ActorHandle, ActorInnerError};
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::context_handle::ContextHandle;
 use crate::actor::context::receiver_context_handle::ReceiverContextHandle;
-use crate::actor::context::{MessagePart, SenderPart, SpawnerPart};
+use crate::actor::context::{SenderPart, SpawnerPart};
 use crate::actor::message::auto_receive_message::AutoReceiveMessage;
 use crate::actor::message::message_handle::{Message, MessageHandle};
 use crate::actor::message::messages::Started;
 use crate::actor::message::system_message::SystemMessage;
 use crate::actor::supervisor::strategy_one_for_one::OneForOneStrategy;
-use crate::actor::supervisor::supervisor_strategy::{SupervisorHandle, SupervisorStrategy, SupervisorStrategyHandle};
+use crate::actor::supervisor::supervisor_strategy::{SupervisorHandle, SupervisorStrategy};
+use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
 
 #[tokio::test]
 async fn test_actor_with_own_supervisor_can_handle_failure() {
@@ -166,10 +167,8 @@ impl Message for StringMessage {
 impl Actor for ActorWithSupervisor {
   async fn started(&self, mut ctx: ContextHandle) -> Result<(), ActorError> {
     tracing::debug!("ActorWithSupervisor::post_start");
-    let props = Props::from_producer_func(ActorProduceFunc::new(|ctx| async {
-      ActorHandle::new(FailingChildActor)
-    }))
-    .await;
+    let props =
+      Props::from_producer_func(ActorProduceFunc::new(|_| async { ActorHandle::new(FailingChildActor) })).await;
     let child = ctx.spawn(props).await;
     ctx
       .send(child, MessageHandle::new(StringMessage("fail".to_string())))
@@ -219,7 +218,7 @@ impl Actor for FailingChildActor {
     Ok(())
   }
 
-  async fn receive(&mut self, c: ContextHandle, message_handle: MessageHandle) -> Result<(), ActorError> {
+  async fn receive(&mut self, _: ContextHandle, message_handle: MessageHandle) -> Result<(), ActorError> {
     tracing::debug!("FailingChildActor::receive: msg = {:?}", message_handle);
     if let Some(StringMessage(msg)) = message_handle.as_any().downcast_ref::<StringMessage>() {
       tracing::debug!("FailingChildActor::receive: msg = {:?}", msg);

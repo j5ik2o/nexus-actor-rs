@@ -28,7 +28,7 @@ impl Process for EventStreamProcess {
 
   async fn send_system_message(&self, _: &ExtendedPid, _: MessageHandle) {}
 
-  async fn stop(&self, pid: &ExtendedPid) {}
+  async fn stop(&self, _: &ExtendedPid) {}
 
   fn set_dead(&self) {}
 
