@@ -47,7 +47,6 @@ struct MyActor {
 
 #[async_trait]
 impl Actor for MyActor {
-
   async fn receive(&mut self, _: ContextHandle, msg: MessageHandle) -> Result<(), ActorError> {
     println!("{:?}", msg);
     self.b.wait().await;
@@ -71,17 +70,16 @@ async fn test_actor_system_spawn_actor() {
   let system = ActorSystem::new().await;
   let mut root_context = system.get_root_context().await;
 
-  let props = Props::from_producer_func(
-    ActorProduceFunc::new(move |_| {
-      let cloned_b = b.clone();
-      async move { ActorHandle::new(MyActor {b: cloned_b.clone() }) }
-    })
-  )
+  let props = Props::from_producer_func(ActorProduceFunc::new(move |_| {
+    let cloned_b = b.clone();
+    async move { ActorHandle::new(MyActor { b: cloned_b.clone() }) }
+  }))
   .await;
 
   let pid = root_context.spawn(props).await;
-  root_context.send(pid, MessageHandle::new(Hello("hello".to_string()))).await;
+  root_context
+    .send(pid, MessageHandle::new(Hello("hello".to_string())))
+    .await;
 
   cloned_b.wait().await;
-
 }

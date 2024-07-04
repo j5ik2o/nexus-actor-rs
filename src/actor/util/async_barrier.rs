@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use tokio::sync::{Mutex, Notify};
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct AsyncBarrier {
   notify: Arc<Notify>,
   count: Arc<Mutex<usize>>,
