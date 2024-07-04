@@ -1,13 +1,15 @@
+use std::env;
 use std::thread::sleep;
 
 use async_trait::async_trait;
+use tracing_subscriber::EnvFilter;
 
+use crate::actor::actor::{Actor, ActorError, ActorHandle};
 use crate::actor::actor::actor_produce_func::ActorProduceFunc;
 use crate::actor::actor::props::Props;
-use crate::actor::actor::{Actor, ActorError, ActorHandle};
 use crate::actor::actor_system::{ActorSystem, Config};
-use crate::actor::context::context_handle::ContextHandle;
 use crate::actor::context::{InfoPart, MessagePart, SenderPart, SpawnerPart};
+use crate::actor::context::context_handle::ContextHandle;
 use crate::actor::message::message_handle::{Message, MessageHandle};
 use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
 
@@ -61,14 +63,15 @@ pub async fn receive(_: ContextHandle) -> ActorHandle {
   let actor = MyActor {};
   ActorHandle::new(actor)
 }
-fn init() {
-  let _ = env_logger::builder().is_test(true).try_init();
-}
 
 // spawn actor test
 #[tokio::test]
 async fn test_actor_system_spawn_actor() {
-  init();
+  let _ = env::set_var("RUST_LOG", "debug");
+  let _ = tracing_subscriber::fmt()
+      .with_env_filter(EnvFilter::from_default_env())
+      .try_init();
+
   let system = ActorSystem::new().await;
   let mut root = system.get_root_context().await;
   log::debug!("root: {:?}", root);

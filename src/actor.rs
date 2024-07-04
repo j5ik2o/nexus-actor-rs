@@ -17,5 +17,6 @@ pub mod util;
 
 #[cfg(test)]
 mod actor_system_test;
+mod spawn_example_test;
 #[cfg(test)]
 mod spawn_test;

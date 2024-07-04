@@ -1,9 +1,10 @@
+use std::env;
 use std::time::Duration;
 
 use async_trait::async_trait;
 use tokio::sync::mpsc;
 use tokio::time::sleep;
-
+use tracing_subscriber::EnvFilter;
 use crate::actor::actor::actor_produce_func::ActorProduceFunc;
 use crate::actor::actor::props::Props;
 use crate::actor::actor::{Actor, ActorError, ActorHandle, ActorInnerError};
@@ -34,7 +35,12 @@ impl Actor for PanicActor {
 }
 
 #[tokio::test]
-async fn test_supervisor_event_handle_from_eventstream() {
+async fn test_supervisor_event_handle_from_event_stream() {
+  let _ = env::set_var("RUST_LOG", "debug");
+  let _ = tracing_subscriber::fmt()
+      .with_env_filter(EnvFilter::from_default_env())
+      .try_init();
+
   let supervisors = vec![
     (
       "all_for_one",
