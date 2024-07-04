@@ -4,7 +4,8 @@ use log::error;
 
 use crate::actor::actor::receive_func::ReceiveFunc;
 use crate::actor::actor::ActorError;
-use crate::actor::context::{ContextHandle, InfoPart};
+use crate::actor::context::context_handle::ContextHandle;
+use crate::actor::context::InfoPart;
 
 #[derive(Debug, Clone)]
 pub struct Behavior {

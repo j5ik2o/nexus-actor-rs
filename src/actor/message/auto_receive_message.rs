@@ -1,8 +1,9 @@
+use std::any::Any;
+
 use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::actor::PoisonPill;
 use crate::actor::message::message_handle::{Message, MessageHandle};
-use crate::actor::messages::{Restarting, Stopped, Stopping};
-use std::any::Any;
+use crate::actor::message::messages::{Restarting, Stopped, Stopping};
 
 #[derive(Debug, Clone)]
 pub enum AutoReceiveMessage {

@@ -12,8 +12,8 @@ use crate::actor::dispatch::mailbox_message::MailboxMessage;
 use crate::actor::log::P_LOG;
 use crate::actor::message::failure::Failure;
 use crate::actor::message::message_handle::{Message, MessageHandle};
+use crate::actor::message::messages::Restart;
 use crate::actor::message::system_message::SystemMessage;
-use crate::actor::messages::Restart;
 use crate::actor::process::{Process, ProcessHandle};
 use crate::actor::supervisor::supervisor_strategy::{
   Supervisor, SupervisorHandle, SupervisorStrategy, SupervisorStrategyHandle,

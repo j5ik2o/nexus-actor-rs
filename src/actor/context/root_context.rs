@@ -3,18 +3,22 @@ use std::sync::Arc;
 use async_trait::async_trait;
 
 use crate::actor::actor::pid::ExtendedPid;
-use crate::actor::actor::props::{Props, SenderMiddleware, SpawnError, SpawnFunc};
+use crate::actor::actor::props::Props;
+use crate::actor::actor::sender_middleware_chain_func::SenderMiddlewareChainFunc;
+use crate::actor::actor::sender_middleware_func::SenderMiddlewareFunc;
+use crate::actor::actor::spawn_func::SpawnError;
+use crate::actor::actor::spawn_func::SpawnFunc;
 use crate::actor::actor::{ActorHandle, PoisonPill, Watch};
 use crate::actor::actor_system::ActorSystem;
+use crate::actor::context::sender_context_handle::SenderContextHandle;
+use crate::actor::context::spawner_context_handle::SpawnerContextHandle;
 use crate::actor::context::{
-  InfoPart, MessagePart, SenderContext, SenderContextHandle, SenderPart, SpawnerContext, SpawnerContextHandle,
-  SpawnerPart, StopperPart,
+  InfoPart, MessagePart, SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart,
 };
 use crate::actor::future::{Future, FutureProcess};
 use crate::actor::message::auto_receive_message::AutoReceiveMessage;
 use crate::actor::message::message_envelope::{MessageEnvelope, MessageHeaders, ReadonlyMessageHeadersHandle};
 use crate::actor::message::message_handle::MessageHandle;
-use crate::actor::message::SenderFunc;
 use crate::actor::middleware_chain::make_sender_middleware_chain;
 use crate::actor::process::Process;
 use crate::actor::supervisor::supervisor_strategy::SupervisorStrategyHandle;
@@ -22,19 +26,23 @@ use crate::actor::supervisor::supervisor_strategy::SupervisorStrategyHandle;
 #[derive(Debug, Clone)]
 pub struct RootContext {
   actor_system: ActorSystem,
-  sender_middleware: Option<SenderFunc>,
+  sender_middleware: Option<SenderMiddlewareChainFunc>,
   spawn_middleware: Option<SpawnFunc>,
   headers: Arc<MessageHeaders>,
   guardian_strategy: Option<SupervisorStrategyHandle>,
 }
 
 impl RootContext {
-  pub fn new(actor_system: ActorSystem, headers: Arc<MessageHeaders>, sender_middleware: &[SenderMiddleware]) -> Self {
+  pub fn new(
+    actor_system: ActorSystem,
+    headers: Arc<MessageHeaders>,
+    sender_middleware: &[SenderMiddlewareFunc],
+  ) -> Self {
     Self {
       actor_system: actor_system.clone(),
       sender_middleware: make_sender_middleware_chain(
         &sender_middleware,
-        SenderFunc::new(move |_, target, envelope| {
+        SenderMiddlewareChainFunc::new(move |_, target, envelope| {
           let actor_system = actor_system.clone();
           async move {
             target

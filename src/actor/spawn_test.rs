@@ -8,7 +8,8 @@ use crate::actor::actor::actor_produce_func::ActorProduceFunc;
 use crate::actor::actor::props::Props;
 use crate::actor::actor::{Actor, ActorError, ActorHandle};
 use crate::actor::actor_system::ActorSystem;
-use crate::actor::context::{ContextHandle, SpawnerPart};
+use crate::actor::context::context_handle::ContextHandle;
+use crate::actor::context::SpawnerPart;
 use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::supervisor::supervisor_strategy::SupervisorStrategyHandle;
 

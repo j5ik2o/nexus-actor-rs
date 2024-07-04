@@ -1,10 +1,16 @@
-use crate::actor::actor::props::{ContextDecorator, ReceiverMiddleware, SenderMiddleware, SpawnFunc, SpawnMiddleware};
-use crate::actor::message::{ContextDecoratorFunc, ReceiverFunc, SenderFunc};
+use crate::actor::actor::context_decorator_chain_func::ContextDecoratorChainFunc;
+use crate::actor::actor::context_decorator_func::ContextDecoratorFunc;
+use crate::actor::actor::receiver_middleware_chain_func::ReceiverMiddlewareChainFunc;
+use crate::actor::actor::receiver_middleware_func::ReceiverMiddlewareFunc;
+use crate::actor::actor::sender_middleware_chain_func::SenderMiddlewareChainFunc;
+use crate::actor::actor::sender_middleware_func::SenderMiddlewareFunc;
+use crate::actor::actor::spawn_func::SpawnFunc;
+use crate::actor::actor::spawn_middleware_func::SpawnMiddlewareFunc;
 
 pub fn make_receiver_middleware_chain(
-  receiver_middleware: &[ReceiverMiddleware],
-  last_receiver: ReceiverFunc,
-) -> Option<ReceiverFunc> {
+  receiver_middleware: &[ReceiverMiddlewareFunc],
+  last_receiver: ReceiverMiddlewareChainFunc,
+) -> Option<ReceiverMiddlewareChainFunc> {
   if receiver_middleware.is_empty() {
     tracing::debug!("make_receiver_middleware_chain: receiver_middleware is empty");
     return None;
@@ -22,9 +28,9 @@ pub fn make_receiver_middleware_chain(
 
 // SenderMiddlewareChain
 pub fn make_sender_middleware_chain(
-  sender_middleware: &[SenderMiddleware],
-  last_sender: SenderFunc,
-) -> Option<SenderFunc> {
+  sender_middleware: &[SenderMiddlewareFunc],
+  last_sender: SenderMiddlewareChainFunc,
+) -> Option<SenderMiddlewareChainFunc> {
   if sender_middleware.is_empty() {
     return None;
   }
@@ -39,9 +45,9 @@ pub fn make_sender_middleware_chain(
 
 // ContextDecoratorChain
 pub fn make_context_decorator_chain(
-  decorator: &[ContextDecorator],
-  last_decorator: ContextDecoratorFunc,
-) -> Option<ContextDecoratorFunc> {
+  decorator: &[ContextDecoratorFunc],
+  last_decorator: ContextDecoratorChainFunc,
+) -> Option<ContextDecoratorChainFunc> {
   if decorator.is_empty() {
     return None;
   }
@@ -55,7 +61,10 @@ pub fn make_context_decorator_chain(
 }
 
 // SpawnMiddlewareChain
-pub fn make_spawn_middleware_chain(spawn_middleware: &[SpawnMiddleware], last_spawn: SpawnFunc) -> Option<SpawnFunc> {
+pub fn make_spawn_middleware_chain(
+  spawn_middleware: &[SpawnMiddlewareFunc],
+  last_spawn: SpawnFunc,
+) -> Option<SpawnFunc> {
   if spawn_middleware.is_empty() {
     return None;
   }

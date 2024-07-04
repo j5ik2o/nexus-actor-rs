@@ -5,35 +5,41 @@ use async_trait::async_trait;
 use tokio::sync::Mutex;
 
 use crate::actor::actor::actor_produce_func::ActorProduceFunc;
+use crate::actor::actor::continuation_func::ContinuationFunc;
 use crate::actor::actor::pid::ExtendedPid;
-use crate::actor::actor::props::{Props, SpawnError};
+use crate::actor::actor::props::Props;
+use crate::actor::actor::receiver_middleware_chain_func::ReceiverMiddlewareChainFunc;
+use crate::actor::actor::sender_middleware_chain_func::SenderMiddlewareChainFunc;
+use crate::actor::actor::spawn_func::SpawnError;
 use crate::actor::actor::{
   Actor, ActorError, ActorHandle, ActorInnerError, PoisonPill, Stop, Terminated, Unwatch, Watch,
 };
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::auto_respond::{AutoRespond, AutoRespondHandle};
 use crate::actor::context::actor_context_extras::ActorContextExtras;
+use crate::actor::context::context_handle::ContextHandle;
+use crate::actor::context::spawner_context_handle::SpawnerContextHandle;
 use crate::actor::context::state::State;
 use crate::actor::context::{
-  BasePart, Context, ContextHandle, ExtensionContext, ExtensionPart, InfoPart, MessagePart, ReceiverContext,
-  ReceiverPart, SenderContext, SenderPart, SpawnerContext, SpawnerContextHandle, SpawnerPart, StopperPart,
+  BasePart, Context, ExtensionContext, ExtensionPart, InfoPart, MessagePart, ReceiverContext, ReceiverPart,
+  SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart,
 };
 use crate::actor::dispatch::mailbox_message::MailboxMessage;
 use crate::actor::dispatch::message_invoker::MessageInvoker;
 use crate::actor::future::FutureProcess;
 use crate::actor::log::P_LOG;
 use crate::actor::message::auto_receive_message::AutoReceiveMessage;
+use crate::actor::message::continuation::Continuation;
 use crate::actor::message::failure::Failure;
 use crate::actor::message::message_envelope::{
   wrap_envelope, MessageEnvelope, MessageOrEnvelope, ReadonlyMessageHeadersHandle,
 };
 use crate::actor::message::message_handle::{Message, MessageHandle};
+use crate::actor::message::messages::{Restart, Restarting, Started, Stopped, Stopping};
 use crate::actor::message::not_influence_receive_timeout::NotInfluenceReceiveTimeoutHandle;
 use crate::actor::message::receive_timeout::ReceiveTimeout;
 use crate::actor::message::response::ResponseHandle;
 use crate::actor::message::system_message::SystemMessage;
-use crate::actor::message::{ReceiverFunc, SenderFunc};
-use crate::actor::messages::{Continuation, ContinuationFunc, Restart, Restarting, Started, Stopped, Stopping};
 use crate::actor::process::Process;
 use crate::actor::supervisor::supervisor_strategy::{
   Supervisor, SupervisorHandle, SupervisorStrategy, DEFAULT_SUPERVISION_STRATEGY,
@@ -205,12 +211,12 @@ impl ActorContext {
     // TODO: metrics
   }
 
-  async fn get_receiver_middleware_chain(&self) -> Option<ReceiverFunc> {
+  async fn get_receiver_middleware_chain(&self) -> Option<ReceiverMiddlewareChainFunc> {
     let mg = self.inner.lock().await;
     mg.props.get_receiver_middleware_chain().clone()
   }
 
-  async fn get_sender_middleware_chain(&self) -> Option<SenderFunc> {
+  async fn get_sender_middleware_chain(&self) -> Option<SenderMiddlewareChainFunc> {
     let mg = self.inner.lock().await;
     mg.props.get_sender_middleware_chain().clone()
   }
@@ -677,7 +683,7 @@ impl BasePart for ActorContext {
     }
   }
 
-  async fn reenter_after(&self, f: crate::actor::future::Future, continuation: ContinuationFunc) {
+  async fn reenter_after(&self, f: crate::actor::future::Future, continuation_func: ContinuationFunc) {
     let message = self.get_message_or_envelop().await;
     let f_clone = f.clone();
     let system = self.get_actor_system().await;
@@ -686,9 +692,9 @@ impl BasePart for ActorContext {
     f.continue_with(move |_, _| {
       let f = f_clone.clone();
       let message = message.clone();
-      let continuation = continuation.clone();
+      let continuation = continuation_func.clone();
       let system = system.clone();
-      let self_ref = self_ref.clone(); // ActorRefを複製
+      let self_ref = self_ref.clone();
 
       async move {
         let result_message = f.result().await.ok();

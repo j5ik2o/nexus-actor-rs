@@ -5,7 +5,7 @@ use std::sync::Arc;
 use futures::future::BoxFuture;
 
 use crate::actor::actor::ActorError;
-use crate::actor::context::ContextHandle;
+use crate::actor::context::context_handle::ContextHandle;
 
 #[derive(Clone)]
 pub struct ReceiveFunc(Arc<dyn Fn(ContextHandle) -> BoxFuture<'static, Result<(), ActorError>> + Send + Sync>);

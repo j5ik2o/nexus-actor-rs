@@ -10,254 +10,36 @@ use tokio::sync::Mutex;
 
 use crate::actor::actor::actor_process::ActorProcess;
 use crate::actor::actor::actor_produce_func::ActorProduceFunc;
+use crate::actor::actor::context_decorator_chain_func::ContextDecoratorChainFunc;
+use crate::actor::actor::context_decorator_func::ContextDecoratorFunc;
+use crate::actor::actor::context_handler_func::ContextHandleFunc;
 use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::actor::receive_func::ReceiveFunc;
+use crate::actor::actor::receiver_middleware_chain_func::ReceiverMiddlewareChainFunc;
+use crate::actor::actor::receiver_middleware_func::ReceiverMiddlewareFunc;
+use crate::actor::actor::sender_middleware_chain_func::SenderMiddlewareChainFunc;
+use crate::actor::actor::sender_middleware_func::SenderMiddlewareFunc;
+use crate::actor::actor::spawn_func::{SpawnError, SpawnFunc};
+use crate::actor::actor::spawn_middleware_func::SpawnMiddlewareFunc;
 use crate::actor::actor::{Actor, ActorError, ActorHandle};
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::actor_context::ActorContext;
-use crate::actor::context::{ContextHandle, InfoPart, ReceiverPart, SpawnerContextHandle};
+use crate::actor::context::context_handle::ContextHandle;
+use crate::actor::context::spawner_context_handle::SpawnerContextHandle;
+use crate::actor::context::{InfoPart, ReceiverPart};
 use crate::actor::dispatch::dispatcher::*;
 use crate::actor::dispatch::mailbox::{Mailbox, MailboxHandle, MailboxProduceFunc};
 use crate::actor::dispatch::message_invoker::MessageInvokerHandle;
 use crate::actor::dispatch::unbounded::unbounded_mailbox_creator_with_opts;
 use crate::actor::message::message_handle::MessageHandle;
+use crate::actor::message::messages::Started;
 use crate::actor::message::system_message::SystemMessage;
-use crate::actor::message::{ContextDecoratorFunc, ReceiverFunc, SenderFunc};
-use crate::actor::messages::Started;
 use crate::actor::middleware_chain::{
   make_context_decorator_chain, make_receiver_middleware_chain, make_sender_middleware_chain,
   make_spawn_middleware_chain,
 };
 use crate::actor::process::ProcessHandle;
 use crate::actor::supervisor::supervisor_strategy::{SupervisorStrategyHandle, DEFAULT_SUPERVISION_STRATEGY};
-
-#[derive(Debug, Clone, Error)]
-pub enum SpawnError {
-  #[error("Name already exists: {0}")]
-  ErrNameExists(ExtendedPid),
-}
-
-#[derive(Clone)]
-pub struct SpawnFunc(
-  Arc<
-    dyn Fn(ActorSystem, String, Props, SpawnerContextHandle) -> BoxFuture<'static, Result<ExtendedPid, SpawnError>>
-      + Send
-      + Sync,
-  >,
-);
-
-impl Debug for SpawnFunc {
-  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "SpawnFunc")
-  }
-}
-
-impl PartialEq for SpawnFunc {
-  fn eq(&self, _other: &Self) -> bool {
-    Arc::ptr_eq(&self.0, &_other.0)
-  }
-}
-
-impl Eq for SpawnFunc {}
-
-impl std::hash::Hash for SpawnFunc {
-  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    (self.0.as_ref()
-      as *const dyn Fn(
-        ActorSystem,
-        String,
-        Props,
-        SpawnerContextHandle,
-      ) -> BoxFuture<'static, Result<ExtendedPid, SpawnError>>)
-      .hash(state);
-  }
-}
-
-impl SpawnFunc {
-  pub fn new<F, Fut>(f: F) -> Self
-  where
-    F: Fn(ActorSystem, String, Props, SpawnerContextHandle) -> Fut + Send + Sync + 'static,
-    Fut: Future<Output = Result<ExtendedPid, SpawnError>> + Send + 'static, {
-    Self(Arc::new(move |s, name, p, sch| {
-      Box::pin(f(s, name, p, sch)) as BoxFuture<'static, Result<ExtendedPid, SpawnError>>
-    }))
-  }
-
-  pub async fn run(
-    &self,
-    actor_system: ActorSystem,
-    name: &str,
-    props: Props,
-    parent_context: SpawnerContextHandle,
-  ) -> Result<ExtendedPid, SpawnError> {
-    (self.0)(actor_system, name.to_string(), props, parent_context).await
-  }
-}
-
-#[derive(Clone)]
-pub struct ReceiverMiddleware(Arc<dyn Fn(ReceiverFunc) -> ReceiverFunc + Send + Sync>);
-
-impl Debug for ReceiverMiddleware {
-  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "ReceiverMiddleware")
-  }
-}
-
-impl PartialEq for ReceiverMiddleware {
-  fn eq(&self, _other: &Self) -> bool {
-    Arc::ptr_eq(&self.0, &_other.0)
-  }
-}
-
-impl Eq for ReceiverMiddleware {}
-
-impl std::hash::Hash for ReceiverMiddleware {
-  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    (self.0.as_ref() as *const dyn Fn(ReceiverFunc) -> ReceiverFunc).hash(state);
-  }
-}
-
-impl ReceiverMiddleware {
-  pub fn new(f: impl Fn(ReceiverFunc) -> ReceiverFunc + Send + Sync + 'static) -> Self {
-    ReceiverMiddleware(Arc::new(f))
-  }
-
-  pub fn run(&self, next: ReceiverFunc) -> ReceiverFunc {
-    (self.0)(next)
-  }
-}
-
-#[derive(Clone)]
-pub struct SenderMiddleware(Arc<dyn Fn(SenderFunc) -> SenderFunc + Send + Sync>);
-
-impl Debug for SenderMiddleware {
-  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "SenderMiddleware")
-  }
-}
-
-impl PartialEq for SenderMiddleware {
-  fn eq(&self, _other: &Self) -> bool {
-    Arc::ptr_eq(&self.0, &_other.0)
-  }
-}
-
-impl Eq for SenderMiddleware {}
-
-impl std::hash::Hash for SenderMiddleware {
-  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    (self.0.as_ref() as *const dyn Fn(SenderFunc) -> SenderFunc).hash(state);
-  }
-}
-
-impl SenderMiddleware {
-  pub fn new(f: impl Fn(SenderFunc) -> SenderFunc + Send + Sync + 'static) -> Self {
-    SenderMiddleware(Arc::new(f))
-  }
-
-  pub fn run(&self, next: SenderFunc) -> SenderFunc {
-    (self.0)(next)
-  }
-}
-
-#[derive(Clone)]
-pub struct ContextDecorator(Arc<dyn Fn(ContextDecoratorFunc) -> ContextDecoratorFunc + Send + Sync>);
-
-impl Debug for ContextDecorator {
-  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "ContextDecorator")
-  }
-}
-
-impl PartialEq for ContextDecorator {
-  fn eq(&self, _other: &Self) -> bool {
-    Arc::ptr_eq(&self.0, &_other.0)
-  }
-}
-
-impl Eq for ContextDecorator {}
-
-impl std::hash::Hash for ContextDecorator {
-  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    (self.0.as_ref() as *const dyn Fn(ContextDecoratorFunc) -> ContextDecoratorFunc).hash(state);
-  }
-}
-
-impl ContextDecorator {
-  pub fn new(f: impl Fn(ContextDecoratorFunc) -> ContextDecoratorFunc + Send + Sync + 'static) -> Self {
-    ContextDecorator(Arc::new(f))
-  }
-
-  pub fn run(&self, next: ContextDecoratorFunc) -> ContextDecoratorFunc {
-    (self.0)(next)
-  }
-}
-
-#[derive(Clone)]
-pub struct SpawnMiddleware(Arc<dyn Fn(SpawnFunc) -> SpawnFunc + Send + Sync>);
-
-impl Debug for SpawnMiddleware {
-  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "SpawnMiddleware")
-  }
-}
-
-impl PartialEq for SpawnMiddleware {
-  fn eq(&self, _other: &Self) -> bool {
-    Arc::ptr_eq(&self.0, &_other.0)
-  }
-}
-
-impl Eq for SpawnMiddleware {}
-
-impl std::hash::Hash for SpawnMiddleware {
-  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    (self.0.as_ref() as *const dyn Fn(SpawnFunc) -> SpawnFunc).hash(state);
-  }
-}
-
-impl SpawnMiddleware {
-  pub fn new(f: impl Fn(SpawnFunc) -> SpawnFunc + Send + Sync + 'static) -> Self {
-    SpawnMiddleware(Arc::new(f))
-  }
-
-  pub fn run(&self, next: SpawnFunc) -> SpawnFunc {
-    self.0(next)
-  }
-}
-
-#[derive(Clone)]
-pub struct ContextHandleFunc(Arc<dyn Fn(ContextHandle) + Send + Sync>);
-
-impl Debug for ContextHandleFunc {
-  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "ContextHandleFunc")
-  }
-}
-
-impl PartialEq for ContextHandleFunc {
-  fn eq(&self, _other: &Self) -> bool {
-    Arc::ptr_eq(&self.0, &_other.0)
-  }
-}
-
-impl Eq for ContextHandleFunc {}
-
-impl std::hash::Hash for ContextHandleFunc {
-  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    (self.0.as_ref() as *const dyn Fn(ContextHandle)).hash(state);
-  }
-}
-
-impl ContextHandleFunc {
-  pub fn new(f: impl Fn(ContextHandle) + Send + Sync + 'static) -> Self {
-    ContextHandleFunc(Arc::new(f))
-  }
-
-  pub fn run(&self, ctx: ContextHandle) {
-    self.0(ctx)
-  }
-}
 
 #[derive(Debug, Clone)]
 pub struct Props {
@@ -267,14 +49,14 @@ pub struct Props {
   guardian_strategy: Option<SupervisorStrategyHandle>,
   supervisor_strategy: Option<SupervisorStrategyHandle>,
   dispatcher: Option<DispatcherHandle>,
-  receiver_middleware: Vec<ReceiverMiddleware>,
-  sender_middleware: Vec<SenderMiddleware>,
-  spawn_middleware: Vec<SpawnMiddleware>,
-  receiver_middleware_chain: Option<ReceiverFunc>,
-  sender_middleware_chain: Option<SenderFunc>,
+  receiver_middleware: Vec<ReceiverMiddlewareFunc>,
+  sender_middleware: Vec<SenderMiddlewareFunc>,
+  spawn_middleware: Vec<SpawnMiddlewareFunc>,
+  receiver_middleware_chain: Option<ReceiverMiddlewareChainFunc>,
+  sender_middleware_chain: Option<SenderMiddlewareChainFunc>,
   spawn_middleware_chain: Option<SpawnFunc>,
-  context_decorator: Vec<ContextDecorator>,
-  context_decorator_chain: Option<ContextDecoratorFunc>,
+  context_decorator: Vec<ContextDecoratorFunc>,
+  context_decorator_chain: Option<ContextDecoratorChainFunc>,
   on_init: Vec<ContextHandleFunc>,
 }
 
@@ -390,13 +172,13 @@ impl Props {
     })
   }
 
-  pub fn with_context_decorator(decorators: Vec<ContextDecorator>) -> PropsOptionFunc {
+  pub fn with_context_decorator(decorators: Vec<ContextDecoratorFunc>) -> PropsOptionFunc {
     PropsOptionFunc::new(move |props: &mut Props| {
       let cloned_decorators = decorators.clone();
       props.context_decorator.extend(cloned_decorators.clone());
       props.context_decorator_chain = make_context_decorator_chain(
         &props.context_decorator,
-        ContextDecoratorFunc::new(move |ch| {
+        ContextDecoratorChainFunc::new(move |ch| {
           let cloned_ch = ch.clone();
           async move { cloned_ch.clone() }
         }),
@@ -416,23 +198,22 @@ impl Props {
     })
   }
 
-  pub fn with_receiver_middleware(middlewares: Vec<ReceiverMiddleware>) -> PropsOptionFunc {
+  pub fn with_receiver_middleware_func(middlewares: Vec<ReceiverMiddlewareFunc>) -> PropsOptionFunc {
     PropsOptionFunc::new(move |props: &mut Props| {
-      tracing::debug!("with_receiver_middleware");
       props.receiver_middleware.extend(middlewares.clone());
       props.receiver_middleware_chain = make_receiver_middleware_chain(
         &props.receiver_middleware,
-        ReceiverFunc::new(|mut rch, me| async move { rch.receive(me).await }),
+        ReceiverMiddlewareChainFunc::new(|mut rch, me| async move { rch.receive(me).await }),
       );
     })
   }
 
-  pub fn with_sender_middleware(middlewares: Vec<SenderMiddleware>) -> PropsOptionFunc {
+  pub fn with_sender_middleware_func(middlewares: Vec<SenderMiddlewareFunc>) -> PropsOptionFunc {
     PropsOptionFunc::new(move |props: &mut Props| {
       props.sender_middleware.extend(middlewares.clone());
       props.sender_middleware_chain = make_sender_middleware_chain(
         &props.sender_middleware,
-        SenderFunc::new(|sch, target, me| async move {
+        SenderMiddlewareChainFunc::new(|sch, target, me| async move {
           target
             .send_user_message(sch.get_actor_system().await.clone(), MessageHandle::new(me))
             .await
@@ -460,7 +241,7 @@ impl Props {
     })
   }
 
-  pub fn with_spawn_middleware(spawn_middlewares: Vec<SpawnMiddleware>) -> PropsOptionFunc {
+  pub fn with_spawn_middleware_func(spawn_middlewares: Vec<SpawnMiddlewareFunc>) -> PropsOptionFunc {
     PropsOptionFunc::new(move |props: &mut Props| {
       props.spawn_middleware.extend(spawn_middlewares.clone());
       props.spawn_middleware_chain = make_spawn_middleware_chain(
@@ -475,8 +256,6 @@ impl Props {
       );
     })
   }
-
-  // WithSpawnMiddleware
 
   fn get_spawner(&self) -> SpawnFunc {
     self.spawner.clone().unwrap_or(DEFAULT_SPAWNER.clone())
@@ -505,15 +284,15 @@ impl Props {
     self.guardian_strategy.clone()
   }
 
-  pub(crate) fn get_sender_middleware_chain(&self) -> Option<SenderFunc> {
+  pub(crate) fn get_sender_middleware_chain(&self) -> Option<SenderMiddlewareChainFunc> {
     self.sender_middleware_chain.clone()
   }
 
-  pub(crate) fn get_receiver_middleware_chain(&self) -> Option<ReceiverFunc> {
+  pub(crate) fn get_receiver_middleware_chain(&self) -> Option<ReceiverMiddlewareChainFunc> {
     self.receiver_middleware_chain.clone()
   }
 
-  pub(crate) fn get_context_decorator_chain(&self) -> Option<ContextDecoratorFunc> {
+  pub(crate) fn get_context_decorator_chain(&self) -> Option<ContextDecoratorChainFunc> {
     self.context_decorator_chain.clone()
   }
 

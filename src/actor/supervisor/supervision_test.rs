@@ -11,16 +11,19 @@ use tracing_subscriber::EnvFilter;
 
 use crate::actor::actor::actor_produce_func::ActorProduceFunc;
 use crate::actor::actor::pid::ExtendedPid;
-use crate::actor::actor::props::{Props, ReceiverMiddleware};
+use crate::actor::actor::props::Props;
+use crate::actor::actor::receiver_middleware_chain_func::ReceiverMiddlewareChainFunc;
+use crate::actor::actor::receiver_middleware_func::ReceiverMiddlewareFunc;
 use crate::actor::actor::restart_statistics::RestartStatistics;
 use crate::actor::actor::{Actor, ActorError, ActorHandle, ActorInnerError, Stop};
 use crate::actor::actor_system::ActorSystem;
-use crate::actor::context::{ContextHandle, MessagePart, ReceiverContextHandle, SenderPart, SpawnerPart};
+use crate::actor::context::context_handle::ContextHandle;
+use crate::actor::context::receiver_context_handle::ReceiverContextHandle;
+use crate::actor::context::{MessagePart, SenderPart, SpawnerPart};
 use crate::actor::message::auto_receive_message::AutoReceiveMessage;
 use crate::actor::message::message_handle::{Message, MessageHandle};
+use crate::actor::message::messages::Started;
 use crate::actor::message::system_message::SystemMessage;
-use crate::actor::message::ReceiverFunc;
-use crate::actor::messages::Started;
 use crate::actor::supervisor::strategy_one_for_one::OneForOneStrategy;
 use crate::actor::supervisor::supervisor_strategy::{SupervisorHandle, SupervisorStrategy, SupervisorStrategyHandle};
 
@@ -60,9 +63,9 @@ async fn test_actor_stops_after_x_restarts() {
   let mut root_context = system.get_root_context().await;
 
   let cloned_observer = observer.clone();
-  let middles = ReceiverMiddleware::new(move |next| {
+  let middles = ReceiverMiddlewareFunc::new(move |next| {
     let cloned_observer = cloned_observer.clone();
-    ReceiverFunc::new(move |ctx, moe| {
+    ReceiverMiddlewareChainFunc::new(move |ctx, moe| {
       let next = next.clone();
       let cloned_observer = cloned_observer.clone();
       async move {
@@ -81,7 +84,7 @@ async fn test_actor_stops_after_x_restarts() {
   let props = Props::from_producer_func_with_opts(
     ActorProduceFunc::new(|_| async { ActorHandle::new(FailingChildActor) }),
     vec![
-      Props::with_receiver_middleware(vec![middles]),
+      Props::with_receiver_middleware_func(vec![middles]),
       Props::with_supervisor_strategy(SupervisorStrategyHandle::new(OneForOneStrategy::new(
         10,
         tokio::time::Duration::from_secs(10),
@@ -103,7 +106,9 @@ async fn test_actor_stops_after_x_restarts() {
     observer.expect_message(fail.clone(), d).await.unwrap();
     observer
       .expect_message(
-        MessageHandle::new(AutoReceiveMessage::Restarting(crate::actor::messages::Restarting {})),
+        MessageHandle::new(AutoReceiveMessage::Restarting(
+          crate::actor::message::messages::Restarting {},
+        )),
         d,
       )
       .await
@@ -117,7 +122,9 @@ async fn test_actor_stops_after_x_restarts() {
   observer.expect_message(fail.clone(), d).await.unwrap();
   observer
     .expect_message(
-      MessageHandle::new(AutoReceiveMessage::Stopping(crate::actor::messages::Stopping {})),
+      MessageHandle::new(AutoReceiveMessage::Stopping(
+        crate::actor::message::messages::Stopping {},
+      )),
       d,
     )
     .await

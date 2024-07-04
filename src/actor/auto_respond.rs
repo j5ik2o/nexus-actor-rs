@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 use std::sync::Arc;
 
-use crate::actor::context::ContextHandle;
+use crate::actor::context::context_handle::ContextHandle;
 use crate::actor::message::response::ResponseHandle;
 
 pub trait AutoRespond: Debug + Send + Sync + 'static {
@@ -13,7 +13,7 @@ pub struct AutoRespondHandle(Arc<dyn AutoRespond>);
 
 impl AutoRespondHandle {
   pub fn new(auto_respond: Arc<dyn AutoRespond>) -> Self {
-    AutoRespondHandle(auto_respond)
+    Self(auto_respond)
   }
 }
 

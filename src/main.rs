@@ -4,9 +4,9 @@ use std::thread::sleep;
 use async_trait::async_trait;
 use tracing_subscriber::EnvFilter;
 
+use nexus_rs::actor::actor::actor_produce_func::ActorProduceFunc;
 use nexus_rs::actor::actor::props::Props;
 use nexus_rs::actor::actor::{Actor, ActorError, ActorHandle};
-use nexus_rs::actor::actor::actor_produce_func::ActorProduceFunc;
 use nexus_rs::actor::actor_system::ActorSystem;
 use nexus_rs::actor::context::{ContextHandle, SenderPart, SpawnerPart};
 use nexus_rs::actor::dispatch::unbounded::unbounded_mpsc_mailbox_creator;
