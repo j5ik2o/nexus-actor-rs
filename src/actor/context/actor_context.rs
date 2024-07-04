@@ -32,7 +32,9 @@ use crate::actor::message::auto_receive_message::AutoReceiveMessage;
 use crate::actor::message::continuation::Continuation;
 use crate::actor::message::failure::Failure;
 use crate::actor::message::message_handle::{Message, MessageHandle};
-use crate::actor::message::message_or_envelope::{wrap_envelope, MessageEnvelope, ReadonlyMessageHeadersHandle, unwrap_envelope_header, unwrap_envelope_sender};
+use crate::actor::message::message_or_envelope::{
+  unwrap_envelope_header, unwrap_envelope_sender, wrap_envelope, MessageEnvelope, ReadonlyMessageHeadersHandle,
+};
 use crate::actor::message::messages::{Restart, Restarting, Started, Stopped, Stopping};
 use crate::actor::message::not_influence_receive_timeout::NotInfluenceReceiveTimeoutHandle;
 use crate::actor::message::receive_timeout::ReceiveTimeout;
@@ -242,10 +244,10 @@ impl ActorContext {
     let message_or_envelope = &mut inner_mg.message_or_envelope_opt;
     match message_or_envelope {
       None => {
-          *message_or_envelope = Some(message);
+        *message_or_envelope = Some(message);
       }
       Some(value) => {
-          *value = message;
+        *value = message;
       }
     }
   }
@@ -276,7 +278,10 @@ impl ActorContext {
       return receiver_context.receive(message_envelope).await;
     }
 
-    tracing::debug!("ActorContext::process_message: default_receive: message = {:?}", message);
+    tracing::debug!(
+      "ActorContext::process_message: default_receive: message = {:?}",
+      message
+    );
     self.set_message_or_envelope(message).await;
     let result = self.default_receive().await;
     self.reset_message_or_envelope().await;
@@ -681,7 +686,9 @@ impl BasePart for ActorContext {
       if let Some(sm) = message_or_envelope.as_any().downcast_ref::<SystemMessage>() {
         panic!("SystemMessage cannot be forwarded: {:?}", sm);
       } else {
-        pid.send_user_message(self.get_actor_system().await, message_or_envelope.clone()).await;
+        pid
+          .send_user_message(self.get_actor_system().await, message_or_envelope.clone())
+          .await;
       }
     }
   }

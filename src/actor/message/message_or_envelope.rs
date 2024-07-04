@@ -3,6 +3,7 @@ use std::backtrace::Backtrace;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::Arc;
+
 use anyhow::anyhow;
 use once_cell::sync::Lazy;
 
@@ -125,7 +126,7 @@ impl Message for MessageEnvelope {
 impl MessageEnvelope {
   pub fn new(message: MessageHandle) -> Self {
     if message.as_any().is::<SystemMessage>() {
-        tracing::warn!("SystemMessage can't be used as a message, {:?}", message);
+      tracing::warn!("SystemMessage can't be used as a message, {:?}", message);
     }
     Self {
       header: None,
@@ -196,7 +197,10 @@ pub fn unwrap_envelope(message: MessageHandle) -> (Option<MessageHeaders>, Messa
 
 pub fn unwrap_envelope_header(message: MessageHandle) -> Option<MessageHeaders> {
   if let Some(envelope) = message.as_any().downcast_ref::<MessageEnvelope>() {
-    envelope.header.clone().map(|h| MessageHeaders::with_values(h.inner.clone()))
+    envelope
+      .header
+      .clone()
+      .map(|h| MessageHeaders::with_values(h.inner.clone()))
   } else {
     None
   }
@@ -218,9 +222,6 @@ pub fn unwrap_envelope_sender(message: MessageHandle) -> Option<ExtendedPid> {
   }
 }
 
-
-
-//
 // #[derive(Debug, Clone)]
 // pub struct MessageOrEnvelope {
 //   message: Option<MessageHandle>,

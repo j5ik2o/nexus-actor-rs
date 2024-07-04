@@ -10,6 +10,7 @@ use crate::actor::actor::receive_func::ReceiveFunc;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::{BasePart, MessagePart, SenderPart, SpawnerPart, StopperPart};
 use crate::actor::message::message_handle::{Message, MessageHandle};
+use crate::actor::message::message_or_envelope::MessageEnvelope;
 use crate::actor::message::response::{Response, ResponseHandle};
 use crate::actor::message::system_message::SystemMessage;
 use crate::actor::util::async_barrier::AsyncBarrier;
@@ -70,12 +71,12 @@ impl Response for Reply {
   }
 }
 
-#[ignore]
+#[tokio::test]
 async fn example_synchronous() {
   let _ = env::set_var("RUST_LOG", "debug");
   let _ = tracing_subscriber::fmt()
-      .with_env_filter(EnvFilter::from_default_env())
-      .try_init();
+    .with_env_filter(EnvFilter::from_default_env())
+    .try_init();
 
   let b = AsyncBarrier::new(2);
   let cloned_b = b.clone();
@@ -85,13 +86,14 @@ async fn example_synchronous() {
 
   let callee_props = Props::from_receive_func(ReceiveFunc::new(move |ctx| async move {
     let msg = ctx.get_message().await.unwrap();
-    if let Some(msg) = msg.as_any().downcast_ref::<Request>() {
+    tracing::debug!("callee msg = {:?}", msg);
+    if let Some(msg) = msg.as_any().downcast_ref::<MessageEnvelope>() {
       tracing::debug!("{:?}", msg);
       ctx.respond(ResponseHandle::new(Reply("PONG".to_string()))).await
     }
     Ok(())
   }))
-      .await;
+  .await;
   let callee_pid = root_context.spawn(callee_props).await;
   let cloned_callee_pid = callee_pid.clone();
 
@@ -100,24 +102,25 @@ async fn example_synchronous() {
     let cloned_callee_pid = cloned_callee_pid.clone();
     async move {
       let msg = ctx.get_message().await.unwrap();
+      tracing::debug!("caller msg = {:?}", msg);
       if let Some(msg) = msg.as_any().downcast_ref::<SystemMessage>() {
         if let SystemMessage::Started(_) = msg {
-          ctx.send(cloned_callee_pid, MessageHandle::new(Request("PING".to_string()))).await;
+          ctx
+            .request(cloned_callee_pid, MessageHandle::new(Request("PING".to_string())))
+            .await;
         }
       }
-      if let Some(msg) = msg.as_any().downcast_ref::<Request>() {
+      if let Some(msg) = msg.as_any().downcast_ref::<Reply>() {
         tracing::debug!("{:?}", msg);
         cloned_b.wait().await;
       }
       Ok(())
     }
   }))
-      .await;
+  .await;
   let caller_pid = root_context.spawn(caller_props).await;
 
   b.wait().await;
   root_context.stop_future(&callee_pid).await.result().await.unwrap();
   root_context.stop_future(&caller_pid).await.result().await.unwrap();
-
-
 }

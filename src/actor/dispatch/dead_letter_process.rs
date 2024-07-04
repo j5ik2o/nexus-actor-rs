@@ -154,7 +154,7 @@ impl Process for DeadLetterProcess {
         sender,
       }))
       .await;
-   tracing::debug!("DeadLetterProcess: send_user_message: msg = {:?}", message);
+    tracing::debug!("DeadLetterProcess: send_user_message: msg = {:?}", message);
   }
 
   async fn send_system_message(&self, pid: &ExtendedPid, message: MessageHandle) {
@@ -168,7 +168,7 @@ impl Process for DeadLetterProcess {
         sender: None,
       }))
       .await;
-      tracing::debug!("DeadLetterProcess: send_system_message: msg = {:?}", message);
+    tracing::debug!("DeadLetterProcess: send_system_message: msg = {:?}", message);
   }
 
   async fn stop(&self, pid: &ExtendedPid) {
