@@ -15,8 +15,8 @@ use crate::actor::context::{
   SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart,
 };
 use crate::actor::future::Future;
-use crate::actor::message::message_envelope::{MessageEnvelope, ReadonlyMessageHeadersHandle};
 use crate::actor::message::message_handle::MessageHandle;
+use crate::actor::message::message_or_envelope::{MessageEnvelope, ReadonlyMessageHeadersHandle};
 use crate::actor::message::response::ResponseHandle;
 use crate::ctxext::extensions::{ContextExtensionHandle, ContextExtensionId};
 

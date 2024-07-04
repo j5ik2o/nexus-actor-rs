@@ -7,8 +7,8 @@ use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::actor::{ActorError, ActorHandle};
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::{ExtensionPart, InfoPart, MessagePart, ReceiverContext, ReceiverPart};
-use crate::actor::message::message_envelope::{MessageEnvelope, ReadonlyMessageHeadersHandle};
 use crate::actor::message::message_handle::MessageHandle;
+use crate::actor::message::message_or_envelope::{MessageEnvelope, ReadonlyMessageHeadersHandle};
 use crate::ctxext::extensions::{ContextExtensionHandle, ContextExtensionId};
 
 #[derive(Debug, Clone)]

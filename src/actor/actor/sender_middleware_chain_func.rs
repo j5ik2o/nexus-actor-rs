@@ -6,7 +6,7 @@ use futures::future::BoxFuture;
 
 use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::context::sender_context_handle::SenderContextHandle;
-use crate::actor::message::message_envelope::MessageEnvelope;
+use crate::actor::message::message_or_envelope::MessageEnvelope;
 
 // SenderFunc
 #[derive(Clone)]

@@ -9,8 +9,8 @@ use crate::actor::actor::spawn_func::SpawnError;
 use crate::actor::actor::{ActorError, ActorHandle};
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::future::Future;
-use crate::actor::message::message_envelope::{MessageEnvelope, ReadonlyMessageHeadersHandle};
 use crate::actor::message::message_handle::MessageHandle;
+use crate::actor::message::message_or_envelope::{MessageEnvelope, ReadonlyMessageHeadersHandle};
 use crate::actor::message::response::ResponseHandle;
 use crate::ctxext::extensions::{ContextExtensionHandle, ContextExtensionId};
 

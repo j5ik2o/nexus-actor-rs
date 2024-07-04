@@ -6,7 +6,7 @@ use futures::future::BoxFuture;
 
 use crate::actor::actor::ActorError;
 use crate::actor::context::receiver_context_handle::ReceiverContextHandle;
-use crate::actor::message::message_envelope::MessageEnvelope;
+use crate::actor::message::message_or_envelope::MessageEnvelope;
 
 // ReceiverFunc
 #[derive(Clone)]

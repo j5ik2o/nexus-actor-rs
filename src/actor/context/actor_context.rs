@@ -31,10 +31,10 @@ use crate::actor::log::P_LOG;
 use crate::actor::message::auto_receive_message::AutoReceiveMessage;
 use crate::actor::message::continuation::Continuation;
 use crate::actor::message::failure::Failure;
-use crate::actor::message::message_envelope::{
+use crate::actor::message::message_handle::{Message, MessageHandle};
+use crate::actor::message::message_or_envelope::{
   wrap_envelope, MessageEnvelope, MessageOrEnvelope, ReadonlyMessageHeadersHandle,
 };
-use crate::actor::message::message_handle::{Message, MessageHandle};
 use crate::actor::message::messages::{Restart, Restarting, Started, Stopped, Stopping};
 use crate::actor::message::not_influence_receive_timeout::NotInfluenceReceiveTimeoutHandle;
 use crate::actor::message::receive_timeout::ReceiveTimeout;

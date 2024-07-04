@@ -1,15 +1,15 @@
 use std::any::Any;
 use std::env;
 use std::time::Duration;
-
+use tokio::time::sleep;
 use tracing_subscriber::EnvFilter;
 
 use crate::actor::actor::props::Props;
 use crate::actor::actor::receive_func::ReceiveFunc;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::{BasePart, MessagePart, SenderPart, SpawnerPart};
-use crate::actor::message::message_envelope::ReadonlyMessageHeaders;
 use crate::actor::message::message_handle::{Message, MessageHandle};
+use crate::actor::message::message_or_envelope::ReadonlyMessageHeaders;
 use crate::actor::message::response::{Response, ResponseHandle};
 
 #[derive(Debug)]
@@ -46,6 +46,7 @@ async fn test_normal_message_gives_empty_message_headers() {
     if let Some(msg) = msg.as_any().downcast_ref::<String>() {
       tracing::debug!("msg = {:?}", msg);
       let l = ctx.get_message_header().await.map(|v| v.keys().len()).unwrap_or(0);
+      sleep(Duration::from_secs(1)).await;
       ctx.respond(ResponseHandle::new(Length(l))).await
     }
     Ok(())
@@ -55,12 +56,11 @@ async fn test_normal_message_gives_empty_message_headers() {
   let mut root_context = system.get_root_context().await;
   let pid = root_context.spawn(props).await;
 
-  let d = Duration::from_secs(0);
+  let d = Duration::from_secs(10);
 
   let f = root_context
     .request_future(pid, MessageHandle::new("Hello".to_string()), &d)
     .await;
 
-  let r = f.result().await.unwrap();
-  tracing::debug!("r = {:?}", r);
+  let _ = f.result().await.unwrap();
 }

@@ -135,10 +135,16 @@ impl FutureProcess {
 
       tokio::spawn(async move {
         let future = future_process_clone.get_future().await;
-        tracing::debug!("Future timeout: {:?}", duration.as_secs());
-        if timeout(duration, future.notify.notified()).await.is_err() {
-          tracing::debug!("Future not timed out");
-          future_process_clone.handle_timeout().await;
+        tracing::debug!("Starting Future timeout: {:?}", duration);
+
+        tokio::select! {
+            _ = future.notify.notified() => {
+                tracing::debug!("Future completed before timeout");
+            }
+            _ = tokio::time::sleep(duration) => {
+                tracing::debug!("Future timed out");
+                future_process_clone.handle_timeout().await;
+            }
         }
       });
     }

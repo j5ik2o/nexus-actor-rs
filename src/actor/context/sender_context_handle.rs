@@ -9,8 +9,8 @@ use crate::actor::actor::ActorHandle;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::{InfoPart, MessagePart, SenderContext, SenderPart};
 use crate::actor::future::Future;
-use crate::actor::message::message_envelope::ReadonlyMessageHeadersHandle;
 use crate::actor::message::message_handle::MessageHandle;
+use crate::actor::message::message_or_envelope::ReadonlyMessageHeadersHandle;
 
 #[derive(Debug, Clone)]
 pub struct SenderContextHandle(Arc<Mutex<dyn SenderContext>>);
