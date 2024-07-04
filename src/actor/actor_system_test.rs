@@ -1,7 +1,6 @@
-use async_trait::async_trait;
 use std::env;
-use std::time::Duration;
-use tokio::time::sleep;
+
+use async_trait::async_trait;
 use tracing_subscriber::EnvFilter;
 
 use crate::actor::actor::actor_produce_func::ActorProduceFunc;
@@ -9,7 +8,7 @@ use crate::actor::actor::props::Props;
 use crate::actor::actor::{Actor, ActorError, ActorHandle};
 use crate::actor::actor_system::{ActorSystem, Config};
 use crate::actor::context::context_handle::ContextHandle;
-use crate::actor::context::{InfoPart, MessagePart, SenderPart, SpawnerPart};
+use crate::actor::context::{InfoPart, SenderPart, SpawnerPart};
 use crate::actor::message::message_handle::{Message, MessageHandle};
 use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
 use crate::actor::util::async_barrier::AsyncBarrier;

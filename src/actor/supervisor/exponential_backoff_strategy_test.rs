@@ -1,10 +1,11 @@
 use std::env;
 use std::time::{Duration, Instant};
 
-use crate::actor::actor::restart_statistics::RestartStatistics;
-use crate::actor::supervisor::exponential_backoff_strategy::ExponentialBackoffStrategy;
 use rstest::*;
 use tracing_subscriber::EnvFilter;
+
+use crate::actor::actor::restart_statistics::RestartStatistics;
+use crate::actor::supervisor::exponential_backoff_strategy::ExponentialBackoffStrategy;
 
 #[rstest(ft, fc, expected)]
 #[case(11, 10, 1)]

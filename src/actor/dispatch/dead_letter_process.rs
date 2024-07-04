@@ -88,7 +88,11 @@ impl DeadLetterProcess {
                     &format!(
                       "DeadLetterProcess: Message from {} to {} was not delivered, message: {:?}",
                       dead_letter.sender.as_ref().unwrap(),
-                      dead_letter.pid,
+                      dead_letter
+                        .pid
+                        .as_ref()
+                        .map(|v| v.to_string())
+                        .unwrap_or("None".to_string()),
                       is_ignore_dead_letter,
                     ),
                     vec![],
@@ -145,7 +149,7 @@ impl Process for DeadLetterProcess {
       .get_event_stream()
       .await
       .publish(MessageHandle::new(DeadLetterEvent {
-        pid: pid.unwrap().clone(),
+        pid: pid.cloned(),
         message: msg,
         sender,
       }))
@@ -158,7 +162,7 @@ impl Process for DeadLetterProcess {
       .get_event_stream()
       .await
       .publish(MessageHandle::new(DeadLetterEvent {
-        pid: pid.clone(),
+        pid: Some(pid.clone()),
         message,
         sender: None,
       }))
@@ -180,7 +184,7 @@ impl Process for DeadLetterProcess {
 
 #[derive(Debug, Clone)]
 pub struct DeadLetterEvent {
-  pub pid: ExtendedPid,
+  pub pid: Option<ExtendedPid>,
   pub message: MessageHandle,
   pub sender: Option<ExtendedPid>,
 }

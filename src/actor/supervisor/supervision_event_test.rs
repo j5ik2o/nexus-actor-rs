@@ -1,6 +1,11 @@
 use std::env;
 use std::time::Duration;
 
+use async_trait::async_trait;
+use tokio::sync::mpsc;
+use tokio::time::sleep;
+use tracing_subscriber::EnvFilter;
+
 use crate::actor::actor::actor_produce_func::ActorProduceFunc;
 use crate::actor::actor::props::Props;
 use crate::actor::actor::{Actor, ActorError, ActorHandle, ActorInnerError};
@@ -15,10 +20,6 @@ use crate::actor::supervisor::strategy_restarting::RestartingStrategy;
 use crate::actor::supervisor::supervision_event::SupervisorEvent;
 use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
 use crate::event_stream::HandlerFunc;
-use async_trait::async_trait;
-use tokio::sync::mpsc;
-use tokio::time::sleep;
-use tracing_subscriber::EnvFilter;
 
 #[derive(Debug)]
 struct PanicActor;

@@ -118,10 +118,8 @@ impl FutureProcess {
     let process_registry = system.get_process_registry().await;
     let id = process_registry.next_id();
 
-    let (pid, ok) = process_registry.add_process(
-      ProcessHandle::new_arc(future_process.clone()),
-      &format!("future_{}", id),
-    );
+    let (pid, ok) =
+      process_registry.add_process(ProcessHandle::new_arc(future_process.clone()), &format!("future{}", id));
     if !ok {
       P_LOG
         .error(
@@ -137,7 +135,9 @@ impl FutureProcess {
 
       tokio::spawn(async move {
         let future = future_process_clone.get_future().await;
+        tracing::debug!("Future timeout: {:?}", duration.as_secs());
         if timeout(duration, future.notify.notified()).await.is_err() {
+          tracing::debug!("Future not timed out");
           future_process_clone.handle_timeout().await;
         }
       });
@@ -188,6 +188,7 @@ impl FutureProcess {
   }
 
   async fn handle_timeout(&self) {
+    tracing::debug!("Future timeout");
     let error = FutureError::Timeout;
     {
       let future_mg = self.future.lock().await;
@@ -208,27 +209,79 @@ impl FutureProcess {
 #[async_trait]
 impl Process for FutureProcess {
   async fn send_user_message(&self, _: Option<&ExtendedPid>, message: MessageHandle) {
+    tracing::debug!(
+      "FutureProcess send_user_message: start: {:?}",
+      message.as_any().type_id()
+    );
     let future = self.future.lock().await.clone();
+    tracing::debug!(
+      "FutureProcess send_user_message: finish: {:?}",
+      message.as_any().type_id()
+    );
     tokio::spawn({
+      tracing::debug!(
+        "FutureProcess send_user_message: spawn: {:?}",
+        message.as_any().type_id()
+      );
       let future = future.clone();
       async move {
+        tracing::debug!(
+          "FutureProcess send_user_message: async: start {:?}",
+          message.as_any().type_id()
+        );
         if message.as_any().downcast_ref::<DeadLetterResponse>().is_some() {
+          tracing::debug!(
+            "FutureProcess send_user_message: async: fail {:?}",
+            message.as_any().type_id()
+          );
           future.fail(FutureError::DeadLetter).await;
         } else {
-          future.complete(message).await;
+          tracing::debug!(
+            "FutureProcess send_user_message: async: complete {:?}",
+            message.as_any().type_id()
+          );
+          future.complete(message.clone()).await;
         }
         future.instrument().await;
+        tracing::debug!(
+          "FutureProcess send_user_message: async: finish {:?}",
+          message.as_any().type_id()
+        );
       }
     });
   }
 
   async fn send_system_message(&self, _pid: &ExtendedPid, message: MessageHandle) {
+    tracing::debug!(
+      "FutureProcess send_system_message: start: {:?}",
+      message.as_any().type_id()
+    );
     let future = self.future.lock().await.clone();
+    tracing::debug!(
+      "FutureProcess send_system_message: finish: {:?}",
+      message.as_any().type_id()
+    );
     tokio::spawn({
+      tracing::debug!(
+        "FutureProcess send_system_message: spawn: {:?}",
+        message.as_any().type_id()
+      );
       let future = future.clone();
       async move {
-        future.complete(message).await;
+        tracing::debug!(
+          "FutureProcess send_system_message: async: start {:?}",
+          message.as_any().type_id()
+        );
+        future.complete(message.clone()).await;
+        tracing::debug!(
+          "FutureProcess send_system_message: async: instrument {:?}",
+          message.as_any().type_id()
+        );
         future.instrument().await;
+        tracing::debug!(
+          "FutureProcess send_system_message: async: finish {:?}",
+          message.as_any().type_id()
+        );
       }
     });
   }
@@ -248,19 +301,14 @@ impl Future {
       {
         let inner = self.inner.lock().await;
         if inner.done {
-          tracing::debug!("Future completed");
           return if let Some(error) = &inner.error {
-            tracing::debug!("Future error: {:?}", error);
             Err(error.clone())
           } else {
-            tracing::debug!("Future result: {:?}", inner.result.as_ref().unwrap());
             Ok(inner.result.as_ref().unwrap().clone())
           };
         }
       }
-      tracing::debug!("Future not completed");
       self.notify.notified().await;
-      tracing::debug!("Future notified");
     }
   }
 
@@ -341,6 +389,6 @@ impl Future {
   async fn instrument(&self) {
     // Here you would implement your metrics logging
     // This is a placeholder for the actual implementation
-    println!("Future completed");
+    tracing::debug!("Future completed");
   }
 }

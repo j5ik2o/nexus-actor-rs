@@ -145,8 +145,8 @@ impl MessagePart for RootContext {
     None
   }
 
-  async fn get_message_header(&self) -> ReadonlyMessageHeadersHandle {
-    ReadonlyMessageHeadersHandle::new_arc(self.headers.clone())
+  async fn get_message_header(&self) -> Option<ReadonlyMessageHeadersHandle> {
+    Some(ReadonlyMessageHeadersHandle::new_arc(self.headers.clone()))
   }
 }
 

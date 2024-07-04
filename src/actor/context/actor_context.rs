@@ -244,10 +244,22 @@ impl ActorContext {
     let message_or_envelope = &mut inner_mg.message_or_envelope;
     match message_or_envelope {
       None => {
-        *message_or_envelope = Some(MessageOrEnvelope::of_message(message));
+        let me_opt = message.as_any().downcast_ref::<MessageEnvelope>();
+        tracing::debug!("set_message_or_envelope: me_opt = {:?}", me_opt);
+        if let Some(me) = me_opt {
+          *message_or_envelope = Some(MessageOrEnvelope::of_envelope(me.clone()));
+        } else {
+          *message_or_envelope = Some(MessageOrEnvelope::of_message(message));
+        }
       }
       Some(value) => {
-        *value = MessageOrEnvelope::of_message(message);
+        let me_opt = message.as_any().downcast_ref::<MessageEnvelope>();
+        tracing::debug!("set_message_or_envelope: me_opt = {:?}", me_opt);
+        if let Some(me) = me_opt {
+          *value = MessageOrEnvelope::of_envelope(me.clone());
+        } else {
+          *value = MessageOrEnvelope::of_message(message);
+        }
       }
     }
   }
@@ -586,8 +598,12 @@ impl BasePart for ActorContext {
   }
 
   async fn respond(&self, response: ResponseHandle) {
+    tracing::debug!("ActorContext::respond: response = {:?}", response);
     let mh = MessageHandle::new(response);
-    if self.get_sender().await.is_none() {
+    tracing::debug!("ActorContext::respond: response = {:?}", mh);
+    let sender = self.get_sender().await;
+    tracing::debug!("ActorContext::respond: response = {:?}", sender);
+    if sender.is_none() {
       self
         .get_actor_system()
         .await
@@ -597,8 +613,9 @@ impl BasePart for ActorContext {
         .await;
     } else {
       let mut cloned = self.clone();
-      let pid = self.get_sender().await.unwrap();
-      cloned.send(pid, mh).await
+      let pid = self.get_sender().await;
+      tracing::debug!("ActorContext::respond: pid = {:?}", pid);
+      cloned.send(pid.unwrap(), mh).await
     }
   }
 
@@ -731,11 +748,22 @@ impl MessagePart for ActorContext {
     result
   }
 
-  async fn get_message_header(&self) -> ReadonlyMessageHeadersHandle {
+  async fn get_message_header(&self) -> Option<ReadonlyMessageHeadersHandle> {
     let inner_mg = self.inner.lock().await;
-    let message_or_envelope = inner_mg.message_or_envelope.as_ref().unwrap().clone();
-    let message_headers = message_or_envelope.get_envelope().unwrap().get_headers().unwrap();
-    ReadonlyMessageHeadersHandle::new(message_headers)
+    match &inner_mg.message_or_envelope {
+      Some(moe) => {
+        let message_or_envelope = moe.clone();
+        tracing::debug!("get_message_header: message_or_envelope = {:?}", message_or_envelope);
+        match &message_or_envelope.get_envelope() {
+          Some(envelope) => match &envelope.get_headers() {
+            Some(message_headers) => Some(ReadonlyMessageHeadersHandle::new(message_headers.clone())),
+            None => None,
+          },
+          None => None,
+        }
+      }
+      None => None,
+    }
   }
 }
 
@@ -747,6 +775,7 @@ impl SenderPart for ActorContext {
       .message_or_envelope
       .as_ref()
       .expect("Failed to retrieve message_or_envelope");
+    tracing::debug!("get_sender: message_or_envelope = {:?}", message_or_envelope);
     message_or_envelope.get_sender().clone()
   }
 

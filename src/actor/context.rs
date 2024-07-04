@@ -109,7 +109,7 @@ pub trait MessagePart: Debug + Send + Sync + 'static {
   async fn get_message(&self) -> Option<MessageHandle>;
 
   // MessageHeader returns the meta information for the currently processed message
-  async fn get_message_header(&self) -> ReadonlyMessageHeadersHandle;
+  async fn get_message_header(&self) -> Option<ReadonlyMessageHeadersHandle>;
 }
 
 #[async_trait]

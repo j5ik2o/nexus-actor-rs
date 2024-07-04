@@ -1,3 +1,7 @@
+use std::env;
+
+use tracing_subscriber::EnvFilter;
+
 use crate::actor::actor::props::Props;
 use crate::actor::actor::receive_func::ReceiveFunc;
 use crate::actor::actor_system::ActorSystem;
@@ -5,8 +9,6 @@ use crate::actor::context::{MessagePart, SpawnerPart};
 use crate::actor::message::message_handle::Message;
 use crate::actor::message::system_message::SystemMessage;
 use crate::actor::util::async_barrier::AsyncBarrier;
-use std::env;
-use tracing_subscriber::EnvFilter;
 
 #[tokio::test]
 async fn example_root_context_spawn() {

@@ -204,8 +204,8 @@ pub fn unwrap_envelope_sender(message: MessageHandle) -> Option<ExtendedPid> {
 #[derive(Debug, Clone)]
 pub struct MessageOrEnvelope {
   message: Option<MessageHandle>,
-  envelope: Option<MessageEnvelope>,
   sender: Option<ExtendedPid>,
+  envelope: Option<MessageEnvelope>,
 }
 
 impl PartialEq for MessageOrEnvelope {
@@ -230,18 +230,25 @@ impl Message for MessageOrEnvelope {
 
 impl MessageOrEnvelope {
   pub fn of_message(message: MessageHandle) -> Self {
+    tracing::debug!(">>> MessageOrEnvelope::of_message: message = {:?}", message);
+    if message.as_any().downcast_ref::<MessageOrEnvelope>().is_some() {
+      panic!("MessageOrEnvelope can't be used as a message, {:?}", message);
+    }
+    if message.as_any().downcast_ref::<MessageHandle>().is_some() {
+      panic!("MessageOrEnvelope can't be used as a message, {:?}", message);
+    }
     Self {
       message: Some(message),
-      envelope: None,
       sender: None,
+      envelope: None,
     }
   }
 
   pub fn of_envelope(envelope: MessageEnvelope) -> Self {
     Self {
       message: None,
-      envelope: Some(envelope),
       sender: None,
+      envelope: Some(envelope),
     }
   }
 
@@ -267,6 +274,10 @@ impl MessageOrEnvelope {
   }
 
   pub fn get_sender(&self) -> Option<ExtendedPid> {
-    self.sender.clone()
+    match (self.sender.clone(), self.envelope.clone()) {
+      (Some(sender), None) => Some(sender),
+      (None, Some(MessageEnvelope { sender, .. })) => sender.clone(),
+      _ => panic!("MessageOrEnvelope is empty"),
+    }
   }
 }

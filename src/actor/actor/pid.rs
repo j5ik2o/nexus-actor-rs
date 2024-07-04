@@ -37,6 +37,12 @@ pub struct ExtendedPid {
   process_handle: Arc<Mutex<Option<ProcessHandle>>>,
 }
 
+impl Display for ExtendedPid {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", self.inner)
+  }
+}
+
 impl PartialEq for ExtendedPid {
   fn eq(&self, other: &Self) -> bool {
     self.inner == other.inner
@@ -44,12 +50,6 @@ impl PartialEq for ExtendedPid {
 }
 
 impl Eq for ExtendedPid {}
-
-impl Display for ExtendedPid {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    write!(f, "{}", self.inner)
-  }
-}
 
 unsafe impl Send for ExtendedPid {}
 unsafe impl Sync for ExtendedPid {}
