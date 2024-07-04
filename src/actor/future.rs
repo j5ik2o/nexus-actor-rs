@@ -318,6 +318,10 @@ impl Future {
     }
   }
 
+  pub async fn wait(&self) -> Option<FutureError> {
+    self.result().await.err()
+  }
+
   pub async fn set_pid(&mut self, pid: ExtendedPid) {
     let mut inner = self.inner.lock().await;
     inner.pid = Some(pid);

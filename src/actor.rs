@@ -15,6 +15,7 @@ pub mod process;
 pub mod supervisor;
 pub mod util;
 
+mod actor_example_test;
 #[cfg(test)]
 mod actor_system_test;
 mod spawn_example_test;

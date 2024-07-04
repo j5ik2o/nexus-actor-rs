@@ -5,8 +5,10 @@ use std::sync::Arc;
 use async_trait::async_trait;
 
 use crate::actor::actor::pid::ExtendedPid;
+use crate::actor::actor::Stop;
 use crate::actor::dispatch::mailbox::{Mailbox, MailboxHandle};
-use crate::actor::message::message_handle::{Message, MessageHandle};
+use crate::actor::message::message_handle::MessageHandle;
+use crate::actor::message::system_message::SystemMessage;
 use crate::actor::process::Process;
 
 #[derive(Debug, Clone)]
@@ -55,7 +57,7 @@ impl Process for ActorProcess {
 
   async fn stop(&self, pid: &ExtendedPid) {
     self.set_dead();
-    let stop_message = MessageHandle::new(StopMessage);
+    let stop_message = MessageHandle::new(SystemMessage::Stop(Stop {}));
     self.send_system_message(pid, stop_message).await;
   }
 
@@ -64,19 +66,6 @@ impl Process for ActorProcess {
   }
 
   fn as_any(&self) -> &dyn Any {
-    self
-  }
-}
-
-#[derive(Debug, Clone)]
-struct StopMessage;
-
-impl Message for StopMessage {
-  fn eq_message(&self, other: &dyn Message) -> bool {
-    other.as_any().is::<StopMessage>()
-  }
-
-  fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
     self
   }
 }
