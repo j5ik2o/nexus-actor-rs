@@ -1,15 +1,15 @@
+use crate::actor::actor::restart_statistics::RestartStatistics;
+use crate::actor::supervisor::strategy_one_for_one::OneForOneStrategy;
 use std::env;
 use std::time::{Duration, Instant};
 use tracing_subscriber::EnvFilter;
-use crate::actor::actor::restart_statistics::RestartStatistics;
-use crate::actor::supervisor::strategy_one_for_one::OneForOneStrategy;
 
 #[tokio::test]
 async fn test_one_for_one_strategy_request_restart_permission() {
   let _ = env::set_var("RUST_LOG", "debug");
   let _ = tracing_subscriber::fmt()
-      .with_env_filter(EnvFilter::from_default_env())
-      .try_init();
+    .with_env_filter(EnvFilter::from_default_env())
+    .try_init();
 
   let cases = vec![
     (

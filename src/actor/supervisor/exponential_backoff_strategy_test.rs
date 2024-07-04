@@ -1,10 +1,10 @@
 use std::env;
 use std::time::{Duration, Instant};
 
-use rstest::*;
-use tracing_subscriber::EnvFilter;
 use crate::actor::actor::restart_statistics::RestartStatistics;
 use crate::actor::supervisor::exponential_backoff_strategy::ExponentialBackoffStrategy;
+use rstest::*;
+use tracing_subscriber::EnvFilter;
 
 #[rstest(ft, fc, expected)]
 #[case(11, 10, 1)]
@@ -13,8 +13,8 @@ use crate::actor::supervisor::exponential_backoff_strategy::ExponentialBackoffSt
 async fn test_exponential_backoff_strategy_set_failure_count(ft: u64, fc: usize, expected: usize) {
   let _ = env::set_var("RUST_LOG", "debug");
   let _ = tracing_subscriber::fmt()
-      .with_env_filter(EnvFilter::from_default_env())
-      .try_init();
+    .with_env_filter(EnvFilter::from_default_env())
+    .try_init();
 
   let s = ExponentialBackoffStrategy::new(Duration::from_secs(10));
   let mut rs = RestartStatistics::new();
@@ -30,8 +30,8 @@ async fn test_exponential_backoff_strategy_set_failure_count(ft: u64, fc: usize,
 async fn test_exponential_backoff_strategy_increments_failure_count() {
   let _ = env::set_var("RUST_LOG", "debug");
   let _ = tracing_subscriber::fmt()
-      .with_env_filter(EnvFilter::from_default_env())
-      .try_init();
+    .with_env_filter(EnvFilter::from_default_env())
+    .try_init();
 
   let mut rs = RestartStatistics::new();
   let s = ExponentialBackoffStrategy::new(Duration::from_secs(10));
@@ -47,8 +47,8 @@ async fn test_exponential_backoff_strategy_increments_failure_count() {
 async fn test_exponential_backoff_strategy_resets_failure_count() {
   let _ = env::set_var("RUST_LOG", "debug");
   let _ = tracing_subscriber::fmt()
-      .with_env_filter(EnvFilter::from_default_env())
-      .try_init();
+    .with_env_filter(EnvFilter::from_default_env())
+    .try_init();
 
   let mut rs = RestartStatistics::new();
   for _ in 0..10 {
