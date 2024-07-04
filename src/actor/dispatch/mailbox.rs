@@ -324,6 +324,7 @@ impl DefaultMailbox {
       i += 1;
 
       if let Ok(Some(msg)) = self.poll_system_mailbox().await {
+        tracing::debug!("DefaultMailbox::run: system msg = {:?}", msg);
         self.decrement_system_messages_count().await;
         let mailbox_message = msg.as_any().downcast_ref::<MailboxMessage>();
         match mailbox_message {
@@ -354,6 +355,7 @@ impl DefaultMailbox {
       }
 
       if let Ok(Some(message)) = self.poll_user_mailbox().await {
+        tracing::debug!("DefaultMailbox::run: user msg = {:?}", message);
         self.decrement_user_messages_count().await;
         let result = message_invoker.invoke_user_message(message.clone()).await;
         if let Err(e) = result {

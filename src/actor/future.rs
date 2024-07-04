@@ -6,7 +6,6 @@ use std::time::Duration;
 use async_trait::async_trait;
 use futures::future::BoxFuture;
 use tokio::sync::{Mutex, Notify};
-use tokio::time::timeout;
 
 use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::actor::DeadLetterResponse;

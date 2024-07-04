@@ -5,7 +5,7 @@ use tracing_subscriber::EnvFilter;
 use crate::actor::actor::props::Props;
 use crate::actor::actor::receive_func::ReceiveFunc;
 use crate::actor::actor_system::ActorSystem;
-use crate::actor::context::{MessagePart, SpawnerPart};
+use crate::actor::context::MessagePart;
 use crate::actor::message::message_handle::Message;
 use crate::actor::message::system_message::SystemMessage;
 use crate::actor::util::async_barrier::AsyncBarrier;
@@ -25,7 +25,7 @@ async fn example_root_context_spawn() {
     let b = cloned_b.clone();
     async move {
       let msg = ctx.get_message().await.unwrap();
-      if let Some(SystemMessage::Started(sm)) = msg.as_any().downcast_ref::<SystemMessage>() {
+      if let Some(SystemMessage::Started(_)) = msg.as_any().downcast_ref::<SystemMessage>() {
         println!("Hello World!");
         b.wait().await;
       }

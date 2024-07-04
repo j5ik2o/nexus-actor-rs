@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -10,13 +11,13 @@ pub struct RestartStatistics {
 
 impl RestartStatistics {
   pub fn new() -> Self {
-    RestartStatistics {
+    Self {
       failure_times: Arc::new(Mutex::new(vec![])),
     }
   }
 
   pub fn with_values(failure_times: Vec<Instant>) -> Self {
-    RestartStatistics {
+    Self {
       failure_times: Arc::new(Mutex::new(failure_times)),
     }
   }
@@ -51,6 +52,12 @@ impl RestartStatistics {
     mg.iter()
       .filter(|&&t| curr_time.duration_since(t) < within_duration)
       .count() as u32
+  }
+}
+
+impl Display for RestartStatistics {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "RestartStatistics")
   }
 }
 

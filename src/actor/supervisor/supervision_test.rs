@@ -198,7 +198,7 @@ impl SupervisorStrategy for ActorWithSupervisor {
     message: MessageHandle,
   ) {
     tracing::debug!(
-      "ActorWithSupervisor::handle_failure: child = {:?}, rs = {:?}, message = {:?}",
+      "ActorWithSupervisor::handle_failure: child = {}, rs = {}, message = {:?}",
       child,
       rs,
       message
@@ -214,7 +214,7 @@ impl SupervisorStrategy for ActorWithSupervisor {
 #[async_trait]
 impl Actor for FailingChildActor {
   async fn started(&self, _: ContextHandle) -> Result<(), ActorError> {
-    tracing::debug!("FailingChildActor::post_start");
+    tracing::debug!("FailingChildActor::started");
     Ok(())
   }
 
@@ -255,6 +255,7 @@ impl Observer {
     let start = Instant::now();
     while start.elapsed() <= timeout {
       if let Some(received) = self.received.lock().await.pop_front() {
+        tracing::debug!("expected = {:?}, received = {:?}", expected, received);
         if expected == received {
           return Ok(());
         }

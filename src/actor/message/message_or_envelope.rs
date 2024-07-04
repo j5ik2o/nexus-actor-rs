@@ -1,12 +1,14 @@
 use std::any::Any;
+use std::backtrace::Backtrace;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::Arc;
-
+use anyhow::anyhow;
 use once_cell::sync::Lazy;
 
 use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::message::message_handle::{Message, MessageHandle};
+use crate::actor::message::system_message::SystemMessage;
 
 #[derive(Debug, Default, Clone)]
 pub struct MessageHeaders {
@@ -24,6 +26,10 @@ impl Eq for MessageHeaders {}
 impl MessageHeaders {
   pub fn new() -> Self {
     Self { inner: HashMap::new() }
+  }
+
+  pub fn with_values(values: HashMap<String, String>) -> Self {
+    Self { inner: values }
   }
 
   pub fn set(&mut self, key: String, value: String) {
@@ -118,6 +124,9 @@ impl Message for MessageEnvelope {
 
 impl MessageEnvelope {
   pub fn new(message: MessageHandle) -> Self {
+    if message.as_any().is::<SystemMessage>() {
+        tracing::warn!("SystemMessage can't be used as a message, {:?}", message);
+    }
     Self {
       header: None,
       message,
@@ -137,6 +146,14 @@ impl MessageEnvelope {
 
   pub fn get_message(&self) -> MessageHandle {
     self.message.clone()
+  }
+
+  pub fn get_sender(&self) -> Option<ExtendedPid> {
+    self.sender.clone()
+  }
+
+  pub fn get_header(&self) -> Option<MessageHeaders> {
+    self.header.clone()
   }
 
   pub fn get_header_value(&self, key: &str) -> Option<String> {
@@ -179,7 +196,7 @@ pub fn unwrap_envelope(message: MessageHandle) -> (Option<MessageHeaders>, Messa
 
 pub fn unwrap_envelope_header(message: MessageHandle) -> Option<MessageHeaders> {
   if let Some(envelope) = message.as_any().downcast_ref::<MessageEnvelope>() {
-    envelope.header.clone()
+    envelope.header.clone().map(|h| MessageHeaders::with_values(h.inner.clone()))
   } else {
     None
   }
@@ -201,83 +218,85 @@ pub fn unwrap_envelope_sender(message: MessageHandle) -> Option<ExtendedPid> {
   }
 }
 
-#[derive(Debug, Clone)]
-pub struct MessageOrEnvelope {
-  message: Option<MessageHandle>,
-  sender: Option<ExtendedPid>,
-  envelope: Option<MessageEnvelope>,
-}
 
-impl PartialEq for MessageOrEnvelope {
-  fn eq(&self, other: &Self) -> bool {
-    self.message == other.message && self.envelope == other.envelope && self.sender == other.sender
-  }
-}
 
-impl Message for MessageOrEnvelope {
-  fn eq_message(&self, other: &dyn Message) -> bool {
-    if let Some(other) = other.as_any().downcast_ref::<Self>() {
-      self.message == other.message && self.envelope == other.envelope && self.sender == other.sender
-    } else {
-      false
-    }
-  }
-
-  fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-    self
-  }
-}
-
-impl MessageOrEnvelope {
-  pub fn of_message(message: MessageHandle) -> Self {
-    tracing::debug!(">>> MessageOrEnvelope::of_message: message = {:?}", message);
-    if message.as_any().downcast_ref::<MessageOrEnvelope>().is_some() {
-      panic!("MessageOrEnvelope can't be used as a message, {:?}", message);
-    }
-    if message.as_any().downcast_ref::<MessageHandle>().is_some() {
-      panic!("MessageOrEnvelope can't be used as a message, {:?}", message);
-    }
-    Self {
-      message: Some(message),
-      sender: None,
-      envelope: None,
-    }
-  }
-
-  pub fn of_envelope(envelope: MessageEnvelope) -> Self {
-    Self {
-      message: None,
-      sender: None,
-      envelope: Some(envelope),
-    }
-  }
-
-  pub fn with_sender(mut self, sender: Option<ExtendedPid>) -> Self {
-    self.sender = sender;
-    self
-  }
-
-  pub fn get_value(&self) -> MessageHandle {
-    match (self.message.clone(), self.envelope.clone()) {
-      (Some(msg), _) => msg,
-      (_, Some(env)) => env.message.clone(),
-      _ => panic!("MessageOrEnvelope is empty"),
-    }
-  }
-
-  pub fn get_message(&self) -> Option<MessageHandle> {
-    self.message.clone()
-  }
-
-  pub fn get_envelope(&self) -> Option<MessageEnvelope> {
-    self.envelope.clone()
-  }
-
-  pub fn get_sender(&self) -> Option<ExtendedPid> {
-    match (self.sender.clone(), self.envelope.clone()) {
-      (Some(sender), None) => Some(sender),
-      (None, Some(MessageEnvelope { sender, .. })) => sender.clone(),
-      _ => panic!("MessageOrEnvelope is empty"),
-    }
-  }
-}
+//
+// #[derive(Debug, Clone)]
+// pub struct MessageOrEnvelope {
+//   message: Option<MessageHandle>,
+//   sender: Option<ExtendedPid>,
+//   envelope: Option<MessageEnvelope>,
+// }
+//
+// impl PartialEq for MessageOrEnvelope {
+//   fn eq(&self, other: &Self) -> bool {
+//     self.message == other.message && self.envelope == other.envelope && self.sender == other.sender
+//   }
+// }
+//
+// impl Message for MessageOrEnvelope {
+//   fn eq_message(&self, other: &dyn Message) -> bool {
+//     if let Some(other) = other.as_any().downcast_ref::<Self>() {
+//       self.message == other.message && self.envelope == other.envelope && self.sender == other.sender
+//     } else {
+//       false
+//     }
+//   }
+//
+//   fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
+//     self
+//   }
+// }
+//
+// impl MessageOrEnvelope {
+//   pub fn of_message(message: MessageHandle) -> Self {
+//     tracing::debug!(">>> MessageOrEnvelope::of_message: message = {:?}", message);
+//     if message.as_any().downcast_ref::<MessageOrEnvelope>().is_some() {
+//       panic!("MessageOrEnvelope can't be used as a message, {:?}", message);
+//     }
+//     if message.as_any().downcast_ref::<MessageHandle>().is_some() {
+//       panic!("MessageOrEnvelope can't be used as a message, {:?}", message);
+//     }
+//     Self {
+//       message: Some(message),
+//       sender: None,
+//       envelope: None,
+//     }
+//   }
+//
+//   pub fn of_envelope(envelope: MessageEnvelope) -> Self {
+//     Self {
+//       message: None,
+//       sender: None,
+//       envelope: Some(envelope),
+//     }
+//   }
+//
+//   pub fn with_sender(mut self, sender: Option<ExtendedPid>) -> Self {
+//     self.sender = sender;
+//     self
+//   }
+//
+//   pub fn get_value(&self) -> MessageHandle {
+//     match (self.message.clone(), self.envelope.clone()) {
+//       (Some(msg), _) => msg,
+//       (_, Some(env)) => env.message.clone(),
+//       _ => panic!("MessageOrEnvelope is empty"),
+//     }
+//   }
+//
+//   pub fn get_message(&self) -> Option<MessageHandle> {
+//     self.message.clone()
+//   }
+//
+//   pub fn get_envelope(&self) -> Option<MessageEnvelope> {
+//     self.envelope.clone()
+//   }
+//
+//   pub fn get_sender(&self) -> Option<ExtendedPid> {
+//     match (self.sender.clone(), self.envelope.clone()) {
+//       (Some(sender), None) => Some(sender),
+//       (None, Some(MessageEnvelope { sender, .. })) => sender.clone(),
+//       _ => None, }
+//   }
+// }

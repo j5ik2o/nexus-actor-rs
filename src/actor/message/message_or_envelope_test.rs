@@ -10,7 +10,7 @@ use crate::actor::actor::receive_func::ReceiveFunc;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::{BasePart, MessagePart, SenderPart, SpawnerPart};
 use crate::actor::message::message_handle::{Message, MessageHandle};
-use crate::actor::message::message_or_envelope::ReadonlyMessageHeaders;
+use crate::actor::message::message_or_envelope::{MessageEnvelope, ReadonlyMessageHeaders};
 use crate::actor::message::response::{Response, ResponseHandle};
 
 #[derive(Debug)]
@@ -44,10 +44,9 @@ async fn test_normal_message_gives_empty_message_headers() {
   let props = Props::from_receive_func(ReceiveFunc::new(move |ctx| async move {
     let msg = ctx.get_message().await.unwrap();
     tracing::debug!("msg = {:?}", msg);
-    if let Some(msg) = msg.as_any().downcast_ref::<String>() {
+    if let Some(msg) = msg.as_any().downcast_ref::<MessageEnvelope>() {
       tracing::debug!("msg = {:?}", msg);
       let l = ctx.get_message_header().await.map(|v| v.keys().len()).unwrap_or(0);
-      sleep(Duration::from_secs(1)).await;
       ctx.respond(ResponseHandle::new(Length(l))).await
     }
     Ok(())
@@ -57,7 +56,7 @@ async fn test_normal_message_gives_empty_message_headers() {
   let mut root_context = system.get_root_context().await;
   let pid = root_context.spawn(props).await;
 
-  let d = Duration::from_secs(10);
+  let d = Duration::from_secs(1);
 
   let f = root_context
     .request_future(pid, MessageHandle::new("Hello".to_string()), &d)

@@ -143,7 +143,7 @@ impl Process for DeadLetterProcess {
   async fn send_user_message(&self, pid: Option<&ExtendedPid>, message: MessageHandle) {
     // TODO: Metrics
 
-    let (_, msg, sender) = unwrap_envelope(message);
+    let (_, msg, sender) = unwrap_envelope(message.clone());
     self
       .actor_system
       .get_event_stream()
@@ -154,6 +154,7 @@ impl Process for DeadLetterProcess {
         sender,
       }))
       .await;
+   tracing::debug!("DeadLetterProcess: send_user_message: msg = {:?}", message);
   }
 
   async fn send_system_message(&self, pid: &ExtendedPid, message: MessageHandle) {
@@ -163,10 +164,11 @@ impl Process for DeadLetterProcess {
       .await
       .publish(MessageHandle::new(DeadLetterEvent {
         pid: Some(pid.clone()),
-        message,
+        message: message.clone(),
         sender: None,
       }))
       .await;
+      tracing::debug!("DeadLetterProcess: send_system_message: msg = {:?}", message);
   }
 
   async fn stop(&self, pid: &ExtendedPid) {

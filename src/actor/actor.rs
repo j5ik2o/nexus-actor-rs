@@ -11,6 +11,7 @@ use crate::actor::context::context_handle::ContextHandle;
 use crate::actor::context::{InfoPart, MessagePart};
 use crate::actor::message::auto_receive_message::AutoReceiveMessage;
 use crate::actor::message::message_handle::{Message, MessageHandle};
+use crate::actor::message::message_or_envelope::{MessageEnvelope, unwrap_envelope_message};
 use crate::actor::message::system_message::SystemMessage;
 use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
 
@@ -236,38 +237,77 @@ impl Error for ActorError {
 #[async_trait]
 pub trait Actor: Debug + Send + Sync + 'static {
   async fn handle(&mut self, context_handle: ContextHandle) -> Result<(), ActorError> {
-    let _id = context_handle.get_self().await.unwrap().id().to_string();
-    // tracing::debug!("Actor::handle: id = {}, context_handle = {:?}", id, context_handle);
-    let message_handle_opt = context_handle.get_message().await;
-    let any_message = message_handle_opt.as_ref().unwrap().as_any();
-    if let Some(system_message) = any_message.downcast_ref::<SystemMessage>() {
-      // tracing::debug!("Actor::handle: id = {}, system_message = {:?}", id, system_message);
-      match system_message {
-        SystemMessage::Started(_) => self.started(context_handle).await,
-        SystemMessage::Stop(_) => self.stop(context_handle).await,
-        SystemMessage::Restart(_) => self.restart(context_handle).await,
-      }
-    } else if let Some(terminated) = any_message.downcast_ref::<Terminated>() {
-      // tracing::debug!("Actor::handle: id = {}, terminated = {:?}", id, terminated);
-      self.on_child_terminated(context_handle, terminated).await
-    } else if let Some(auto_receive_message) = any_message.downcast_ref::<AutoReceiveMessage>() {
-      // tracing::debug!("Actor::handle: id = {}, auto_receive_message = {:?}", id, auto_receive_message);
-      match auto_receive_message {
-        AutoReceiveMessage::Restarting(_) => self.restarting(context_handle).await,
-        AutoReceiveMessage::Stopping(_) => self.stopping(context_handle).await,
-        AutoReceiveMessage::Stopped(_) => self.stopped(context_handle).await,
-        AutoReceiveMessage::PoisonPill(_) => Ok(()),
+    if let Some(message_handle) = context_handle.get_message().await {
+      let me = message_handle.as_any().downcast_ref::<MessageEnvelope>();
+      let sm = message_handle.as_any().downcast_ref::<SystemMessage>();
+      let arm = message_handle.as_any().downcast_ref::<AutoReceiveMessage>();
+      match (me, sm, arm) {
+        (Some(_), None, None) => {
+          let message = unwrap_envelope_message(message_handle.clone());
+          self.receive(context_handle.clone(), message).await
+        }
+        (None, Some(sm), None) => match sm {
+          SystemMessage::Started(_) => self.started(context_handle).await,
+          SystemMessage::Stop(_) => self.stop(context_handle).await,
+          SystemMessage::Restart(_) => self.restart(context_handle).await,
+        },
+        (None, None, Some(arm)) => match arm {
+          AutoReceiveMessage::Restarting(_) => self.restarting(context_handle).await,
+          AutoReceiveMessage::Stopping(_) => self.stopping(context_handle).await,
+          AutoReceiveMessage::Stopped(_) => self.stopped(context_handle).await,
+          AutoReceiveMessage::PoisonPill(_) => Ok(()),
+        },
+        _ => Err(ActorError::ReceiveError(ActorInnerError::new(
+          "Unknown message type".to_string(),
+        ))),
       }
     } else {
-      // tracing::debug!(
-      //   "Actor::handle: id = {}, other = {:?}",
-      //   id,
-      //   context_handle.get_message().await.unwrap()
-      // );
-      self
-        .receive(context_handle.clone(), context_handle.get_message().await.unwrap())
-        .await
+      Err(ActorError::ReceiveError(ActorInnerError::new(
+        "No message found".to_string(),
+      )))
     }
+
+
+
+
+
+    // let id = context_handle.get_self().await.unwrap().id().to_string();
+    // let message_handle_opt = context_handle.get_message().await;
+    // tracing::debug!("Actor::handle: id = {}, message_handle_opt = {:?}", id, message_handle_opt);
+    // let any_message =  message_handle_opt.as_ref().unwrap().as_any();
+    // let any_message = if let Some(moe) = any_message.downcast_ref::<MessageEnvelope>() {
+    //   unwrap_envelope_message(message_handle_opt.as_ref().unwrap().clone()).as_any()
+    // } else {
+    //   any_message
+    // };
+    // if let Some(system_message) = any_message.downcast_ref::<SystemMessage>() {
+    //   // tracing::debug!("Actor::handle: id = {}, system_message = {:?}", id, system_message);
+    //   match system_message {
+    //     SystemMessage::Started(_) => self.started(context_handle).await,
+    //     SystemMessage::Stop(_) => self.stop(context_handle).await,
+    //     SystemMessage::Restart(_) => self.restart(context_handle).await,
+    //   }
+    // } else if let Some(terminated) = any_message.downcast_ref::<Terminated>() {
+    //   // tracing::debug!("Actor::handle: id = {}, terminated = {:?}", id, terminated);
+    //   self.on_child_terminated(context_handle, terminated).await
+    // } else if let Some(auto_receive_message) = any_message.downcast_ref::<AutoReceiveMessage>() {
+    //   // tracing::debug!("Actor::handle: id = {}, auto_receive_message = {:?}", id, auto_receive_message);
+    //   match auto_receive_message {
+    //     AutoReceiveMessage::Restarting(_) => self.restarting(context_handle).await,
+    //     AutoReceiveMessage::Stopping(_) => self.stopping(context_handle).await,
+    //     AutoReceiveMessage::Stopped(_) => self.stopped(context_handle).await,
+    //     AutoReceiveMessage::PoisonPill(_) => Ok(()),
+    //   }
+    // } else {
+    //   // tracing::debug!(
+    //   //   "Actor::handle: id = {}, other = {:?}",
+    //   //   id,
+    //   //   context_handle.get_message().await.unwrap()
+    //   // );
+    //   self
+    //     .receive(context_handle.clone(), context_handle.get_message().await.unwrap())
+    //     .await
+    // }
   }
 
   async fn receive(&mut self, context_handle: ContextHandle, message_handle: MessageHandle) -> Result<(), ActorError>;
