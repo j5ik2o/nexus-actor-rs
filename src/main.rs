@@ -55,7 +55,7 @@ struct TopActor {}
 impl Actor for TopActor {
   async fn started(&self, mut context_handle: ContextHandle) -> Result<(), ActorError> {
     println!("TopActor::post_start");
-    let props = Props::from_producer_func(ActorProduceFunc::new(create_child_actor)).await;
+    let props = Props::from_actor_produce_func(ActorProduceFunc::new(create_child_actor)).await;
 
     let pid = context_handle.spawn(props).await;
     for _ in 1..10 {
@@ -89,7 +89,7 @@ async fn main() {
   let system = ActorSystem::new().await;
   let mut root = system.get_root_context().await;
 
-  let props = Props::from_producer_func_with_opts(
+  let props = Props::from_actor_produce_func_with_opts(
     ActorProduceFunc::new(create_top_actor),
     vec![Props::with_mailbox(unbounded_mpsc_mailbox_creator())],
   )

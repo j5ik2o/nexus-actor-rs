@@ -76,7 +76,7 @@ mod tests {
     let system = ActorSystem::new().await;
     let mut root_context = system.get_root_context().await;
 
-    let props = Props::from_producer_func(ActorProduceFunc::new(move |_| {
+    let props = Props::from_actor_produce_func(ActorProduceFunc::new(move |_| {
       let cloned_b = b.clone();
       async move { ActorHandle::new(MyActor { b: cloned_b.clone() }) }
     }))

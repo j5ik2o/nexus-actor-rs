@@ -9,7 +9,7 @@ pub mod pid;
 pub mod pid_set;
 mod pid_set_test;
 pub mod props;
-pub mod receive_func;
+pub mod actor_receive_func;
 pub mod receiver_middleware_chain_func;
 pub mod receiver_middleware_func;
 pub mod restart_statistics;

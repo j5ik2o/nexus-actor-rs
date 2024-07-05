@@ -45,7 +45,7 @@ mod test {
     let mut root = system.get_root_context().await;
     let notify = Arc::new(Notify::new());
     let cloned_notify = notify.clone();
-    let props = Props::from_producer_func(ActorProduceFunc::new(move |_| {
+    let props = Props::from_actor_produce_func(ActorProduceFunc::new(move |_| {
       let cloned_notify = cloned_notify.clone();
       async move {
         ActorHandle::new(ActorWithSupervisor {
@@ -88,7 +88,7 @@ mod test {
       })
     });
 
-    let props = Props::from_producer_func_with_opts(
+    let props = Props::from_actor_produce_func_with_opts(
       ActorProduceFunc::new(|_| async { ActorHandle::new(FailingChildActor) }),
       vec![
         Props::with_receiver_middleware_func(vec![middles]),
@@ -174,7 +174,7 @@ mod test {
     async fn started(&self, mut ctx: ContextHandle) -> Result<(), ActorError> {
       tracing::debug!("ActorWithSupervisor::post_start");
       let props =
-          Props::from_producer_func(ActorProduceFunc::new(|_| async { ActorHandle::new(FailingChildActor) })).await;
+          Props::from_actor_produce_func(ActorProduceFunc::new(|_| async { ActorHandle::new(FailingChildActor) })).await;
       let child = ctx.spawn(props).await;
       ctx
           .send(child, MessageHandle::new(StringMessage("fail".to_string())))

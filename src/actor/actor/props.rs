@@ -11,7 +11,7 @@ use crate::actor::actor::context_decorator_chain_func::ContextDecoratorChainFunc
 use crate::actor::actor::context_decorator_func::ContextDecoratorFunc;
 use crate::actor::actor::context_handler_func::ContextHandleFunc;
 use crate::actor::actor::pid::ExtendedPid;
-use crate::actor::actor::receive_func::ReceiveFunc;
+use crate::actor::actor::actor_receive_func::ActorReceiveFunc;
 use crate::actor::actor::receiver_middleware_chain_func::ReceiverMiddlewareChainFunc;
 use crate::actor::actor::receiver_middleware_func::ReceiverMiddlewareFunc;
 use crate::actor::actor::sender_middleware_chain_func::SenderMiddlewareChainFunc;
@@ -116,7 +116,7 @@ fn initialize(props: Props, ctx: ActorContext) {
 }
 
 #[derive(Debug, Clone)]
-struct ReceiveFuncActor(ReceiveFunc);
+struct ReceiveFuncActor(ActorReceiveFunc);
 
 #[async_trait]
 impl Actor for ReceiveFuncActor {
@@ -228,7 +228,7 @@ impl Props {
     })
   }
 
-  pub fn with_receive_func(receive_func: ReceiveFunc) -> PropsOptionFunc {
+  pub fn with_receive_func(receive_func: ActorReceiveFunc) -> PropsOptionFunc {
     PropsOptionFunc::new(move |props: &mut Props| {
       let receive_func = receive_func.clone();
       props.producer = Some(ActorProduceFunc::new(move |_| {
@@ -304,7 +304,7 @@ impl Props {
     }
   }
 
-  pub async fn from_producer_func_with_opts(producer: ActorProduceFunc, opts: Vec<PropsOptionFunc>) -> Props {
+  pub async fn from_actor_produce_func_with_opts(producer: ActorProduceFunc, opts: Vec<PropsOptionFunc>) -> Props {
     let mut props = Props {
       on_init: Vec::new(),
       producer: Some(producer),
@@ -326,11 +326,11 @@ impl Props {
     props
   }
 
-  pub async fn from_producer_func(producer: ActorProduceFunc) -> Props {
-    Props::from_producer_func_with_opts(producer, vec![]).await
+  pub async fn from_actor_produce_func(producer: ActorProduceFunc) -> Props {
+    Props::from_actor_produce_func_with_opts(producer, vec![]).await
   }
 
-  pub async fn from_receive_func_with_opts(f: ReceiveFunc, opts: Vec<PropsOptionFunc>) -> Props {
+  pub async fn from_actor_receive_func_with_opts(f: ActorReceiveFunc, opts: Vec<PropsOptionFunc>) -> Props {
     let producer = ActorProduceFunc::new(move |_| {
       let cloned = f.clone();
       async move {
@@ -338,11 +338,11 @@ impl Props {
         ActorHandle::new(actor)
       }
     });
-    Props::from_producer_func_with_opts(producer, opts).await
+    Props::from_actor_produce_func_with_opts(producer, opts).await
   }
 
-  pub async fn from_receive_func(f: ReceiveFunc) -> Props {
-    Props::from_receive_func_with_opts(f, vec![]).await
+  pub async fn from_actor_receive_func(f: ActorReceiveFunc) -> Props {
+    Props::from_actor_receive_func_with_opts(f, vec![]).await
   }
 
   pub async fn spawn(

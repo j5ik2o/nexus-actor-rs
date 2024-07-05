@@ -81,7 +81,7 @@ mod test {
           }))
           .await;
 
-      let props = Props::from_producer_func_with_opts(
+      let props = Props::from_actor_produce_func_with_opts(
         ActorProduceFunc::new(move |_| async { ActorHandle::new(PanicActor) }),
         vec![Props::with_supervisor_strategy(strategy.clone())],
       )

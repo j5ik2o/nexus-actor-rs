@@ -66,7 +66,7 @@ mod tests {
       }
     });
 
-    let props = Props::from_producer_func(producer_func).await;
+    let props = Props::from_actor_produce_func(producer_func).await;
 
     system.get_root_context().await.spawn(props).await;
 

@@ -8,7 +8,7 @@ mod tests {
   use tracing_subscriber::EnvFilter;
 
   use crate::actor::actor::props::Props;
-  use crate::actor::actor::receive_func::ReceiveFunc;
+  use crate::actor::actor::actor_receive_func::ActorReceiveFunc;
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::context::{BasePart, MessagePart, SenderPart, SpawnerPart, StopperPart};
   use crate::actor::message::message::Message;
@@ -28,7 +28,7 @@ mod tests {
     let system = ActorSystem::new().await;
     let mut root_context = system.get_root_context().await;
 
-    let props = Props::from_receive_func(ReceiveFunc::new(move |ctx| async move {
+    let props = Props::from_actor_receive_func(ActorReceiveFunc::new(move |ctx| async move {
       tracing::debug!("msg = {:?}", ctx.get_message().await.unwrap());
       Ok(())
     }))
@@ -87,7 +87,7 @@ mod tests {
     let system = ActorSystem::new().await;
     let mut root_context = system.get_root_context().await;
 
-    let callee_props = Props::from_receive_func(ReceiveFunc::new(move |ctx| async move {
+    let callee_props = Props::from_actor_receive_func(ActorReceiveFunc::new(move |ctx| async move {
       let msg = ctx.get_message().await.unwrap();
       tracing::debug!("callee msg = {:?}", msg);
       if let Some(msg) = msg.as_any().downcast_ref::<MessageEnvelope>() {
@@ -100,7 +100,7 @@ mod tests {
     let callee_pid = root_context.spawn(callee_props).await;
     let cloned_callee_pid = callee_pid.clone();
 
-    let caller_props = Props::from_receive_func(ReceiveFunc::new(move |mut ctx| {
+    let caller_props = Props::from_actor_receive_func(ActorReceiveFunc::new(move |mut ctx| {
       let cloned_b = cloned_b.clone();
       let cloned_callee_pid = cloned_callee_pid.clone();
       async move {

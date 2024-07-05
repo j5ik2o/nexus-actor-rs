@@ -7,7 +7,7 @@ mod test {
   use tracing_subscriber::EnvFilter;
 
   use crate::actor::actor::props::Props;
-  use crate::actor::actor::receive_func::ReceiveFunc;
+  use crate::actor::actor::actor_receive_func::ActorReceiveFunc;
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::context::{BasePart, MessagePart, SenderPart, SpawnerPart};
   use crate::actor::message::message::Message;
@@ -44,7 +44,7 @@ mod test {
 
     let system = ActorSystem::new().await;
 
-    let props = Props::from_receive_func(ReceiveFunc::new(move |ctx| async move {
+    let props = Props::from_actor_receive_func(ActorReceiveFunc::new(move |ctx| async move {
       let msg = ctx.get_message().await.unwrap();
       tracing::debug!("msg = {:?}", msg);
       if let Some(msg) = msg.as_any().downcast_ref::<MessageEnvelope>() {
