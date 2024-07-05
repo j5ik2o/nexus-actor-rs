@@ -28,6 +28,7 @@ jobs:
     needs: lint
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+      - uses: arduino/setup-protoc@v3
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
