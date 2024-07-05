@@ -20,7 +20,7 @@ jobs:
         with:
           toolchain: nightly
           components: rustfmt
-      - run: cargo fmt -- --check
+      - run: cargo +nightly fmt -- --check
   test:
     runs-on: ubuntu-latest
     needs: lint
