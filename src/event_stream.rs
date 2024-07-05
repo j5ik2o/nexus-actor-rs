@@ -94,31 +94,34 @@ impl EventStream {
   }
 
   pub async fn subscribe(&self, handler: HandlerFunc) -> Subscription {
-    let sub = Subscription {
+    let subscription = Subscription {
       id: self.counter.fetch_add(1, Ordering::SeqCst),
       handler: Arc::new(handler),
       predicate: None,
       active: Arc::new(AtomicU32::new(1)),
     };
-
     let mut subscriptions = self.subscriptions.write().await;
-    subscriptions.push(sub.clone());
+    subscriptions.push(subscription.clone());
+    subscription
+  }
 
-    sub
+  pub async fn subscribe_f<F, Fut>(&self, f: F) -> Subscription
+  where
+    F: Fn(MessageHandle) -> Fut + Send + Sync + 'static,
+    Fut: Future<Output = ()> + Send + 'static, {
+    self.subscribe(HandlerFunc::new(f)).await
   }
 
   pub async fn subscribe_with_predicate(&self, handler: HandlerFunc, predicate: PredicateFunc) -> Subscription {
-    let sub = Subscription {
+    let subscription = Subscription {
       id: self.counter.fetch_add(1, Ordering::SeqCst),
       handler: Arc::new(handler),
       predicate: Some(predicate),
       active: Arc::new(AtomicU32::new(1)),
     };
-
     let mut subscriptions = self.subscriptions.write().await;
-    subscriptions.push(sub.clone());
-
-    sub
+    subscriptions.push(subscription.clone());
+    subscription
   }
 
   pub async fn unsubscribe(&self, sub: Subscription) {

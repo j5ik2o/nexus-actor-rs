@@ -2,7 +2,6 @@
 pub mod actor;
 pub mod ctxext;
 pub mod event_stream;
-#[cfg(test)]
 mod event_stream_test;
 pub mod log;
 pub mod util;

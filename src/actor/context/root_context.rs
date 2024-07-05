@@ -26,9 +26,9 @@ use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHand
 #[derive(Debug, Clone)]
 pub struct RootContext {
   actor_system: ActorSystem,
-  sender_middleware: Option<SenderMiddlewareChainFunc>,
-  spawn_middleware: Option<SpawnFunc>,
-  headers: Arc<MessageHeaders>,
+  sender_middleware_chain_func: Option<SenderMiddlewareChainFunc>,
+  spawn_middleware_func: Option<SpawnFunc>,
+  message_headers: Arc<MessageHeaders>,
   guardian_strategy: Option<SupervisorStrategyHandle>,
 }
 
@@ -40,7 +40,7 @@ impl RootContext {
   ) -> Self {
     Self {
       actor_system: actor_system.clone(),
-      sender_middleware: make_sender_middleware_chain(
+      sender_middleware_chain_func: make_sender_middleware_chain(
         &sender_middleware,
         SenderMiddlewareChainFunc::new(move |_, target, envelope| {
           let actor_system = actor_system.clone();
@@ -51,10 +51,15 @@ impl RootContext {
           }
         }),
       ),
-      spawn_middleware: None,
-      headers,
+      spawn_middleware_func: None,
+      message_headers: headers,
       guardian_strategy: None,
     }
+  }
+
+  pub fn with_actor_system(mut self, actor_system: ActorSystem) -> Self {
+    self.actor_system = actor_system;
+    self
   }
 
   pub fn with_guardian(mut self, strategy: SupervisorStrategyHandle) -> Self {
@@ -62,11 +67,21 @@ impl RootContext {
     self
   }
 
+  pub fn with_headers(mut self, headers: Arc<MessageHeaders>) -> Self {
+    self.message_headers = headers;
+    self
+  }
+
   async fn send_user_message(&self, pid: ExtendedPid, message: MessageHandle) {
-    if self.sender_middleware.is_some() {
+    if self.sender_middleware_chain_func.is_some() {
       let sch = SenderContextHandle::new(self.clone());
       let me = MessageEnvelope::new(message);
-      self.sender_middleware.clone().unwrap().run(sch, pid, me).await;
+      self
+        .sender_middleware_chain_func
+        .clone()
+        .unwrap()
+        .run(sch, pid, me)
+        .await;
     } else {
       pid.send_user_message(self.actor_system.clone(), message).await;
     }
@@ -146,7 +161,7 @@ impl MessagePart for RootContext {
   }
 
   async fn get_message_header(&self) -> Option<ReadonlyMessageHeadersHandle> {
-    Some(ReadonlyMessageHeadersHandle::new_arc(self.headers.clone()))
+    Some(ReadonlyMessageHeadersHandle::new_arc(self.message_headers.clone()))
   }
 }
 
@@ -190,7 +205,7 @@ impl SpawnerPart for RootContext {
       root_context = root_context.with_guardian(self.guardian_strategy.clone().unwrap());
     }
 
-    match &root_context.spawn_middleware {
+    match &root_context.spawn_middleware_func {
       Some(sm) => {
         let sh = SpawnerContextHandle::new(root_context.clone());
         return sm

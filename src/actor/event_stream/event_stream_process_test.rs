@@ -1,54 +1,55 @@
-use std::any::Any;
+#[cfg(test)]
+mod tests {
+  use crate::actor::actor_system::ActorSystem;
+  use crate::actor::context::SenderPart;
+  use crate::actor::message::message_handle::{Message, MessageHandle};
+  use crate::event_stream::HandlerFunc;
+  use std::any::Any;
+  use tokio::sync::mpsc;
 
-use tokio::sync::mpsc;
+  #[derive(Debug, Clone)]
+  struct EsTestMsg;
 
-use crate::actor::actor_system::ActorSystem;
-use crate::actor::context::SenderPart;
-use crate::actor::message::message_handle::{Message, MessageHandle};
-use crate::event_stream::HandlerFunc;
+  impl Message for EsTestMsg {
+    fn eq_message(&self, other: &dyn Message) -> bool {
+      other.as_any().is::<EsTestMsg>()
+    }
 
-#[derive(Debug, Clone)]
-struct EsTestMsg;
-
-impl Message for EsTestMsg {
-  fn eq_message(&self, other: &dyn Message) -> bool {
-    other.as_any().is::<EsTestMsg>()
+    fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
+      self
+    }
   }
 
-  fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-    self
-  }
-}
+  #[tokio::test]
+  async fn test_sends_messages_to_event_stream() {
+    let test_cases = vec![
+      ("plain", MessageHandle::new(EsTestMsg)),
+      ("envelope", MessageHandle::new(EsTestMsg)),
+    ];
 
-#[tokio::test]
-async fn test_sends_messages_to_event_stream() {
-  let test_cases = vec![
-    ("plain", MessageHandle::new(EsTestMsg)),
-    ("envelope", MessageHandle::new(EsTestMsg)),
-  ];
+    for (_, message) in test_cases {
+      let system = ActorSystem::new().await;
+      let (tx, mut rx) = mpsc::channel(5);
+      let event_stream = system.get_event_stream().await;
 
-  for (_, message) in test_cases {
-    let system = ActorSystem::new().await;
-    let (tx, mut rx) = mpsc::channel(5);
-    let event_stream = system.get_event_stream().await;
-
-    let subscription = event_stream
-      .subscribe(HandlerFunc::new(move |evt| {
-        let cloned_tx = tx.clone();
-        async move {
-          if evt.as_any().is::<EsTestMsg>() {
-            cloned_tx.send(()).await.unwrap();
+      let subscription = event_stream
+        .subscribe(HandlerFunc::new(move |evt| {
+          let cloned_tx = tx.clone();
+          async move {
+            if evt.as_any().is::<EsTestMsg>() {
+              cloned_tx.send(()).await.unwrap();
+            }
           }
-        }
-      }))
-      .await;
+        }))
+        .await;
 
-    let pid = system.new_local_pid("eventstream").await;
+      let pid = system.new_local_pid("eventstream").await;
 
-    system.get_root_context().await.send(pid, message).await;
+      system.get_root_context().await.send(pid, message).await;
 
-    rx.recv().await.unwrap();
+      rx.recv().await.unwrap();
 
-    event_stream.unsubscribe(subscription).await;
+      event_stream.unsubscribe(subscription).await;
+    }
   }
 }
