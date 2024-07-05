@@ -1,8 +1,7 @@
 use std::any::Any;
 use std::fmt::Debug;
 use std::sync::Arc;
-
-use crate::actor::message::message_handle::Message;
+use crate::actor::message::message::Message;
 
 pub trait Response: Message + Debug + Send + Sync + 'static {
   fn eq_response(&self, other: &dyn Response) -> bool;

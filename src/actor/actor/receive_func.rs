@@ -3,12 +3,29 @@ use std::future::Future;
 use std::sync::Arc;
 
 use futures::future::BoxFuture;
-
-use crate::actor::actor::ActorError;
+use crate::actor::actor::actor_error::ActorError;
 use crate::actor::context::context_handle::ContextHandle;
 
 #[derive(Clone)]
 pub struct ReceiveFunc(Arc<dyn Fn(ContextHandle) -> BoxFuture<'static, Result<(), ActorError>> + Send + Sync>);
+
+unsafe impl Send for ReceiveFunc {}
+unsafe impl Sync for ReceiveFunc {}
+
+impl ReceiveFunc {
+  pub fn new<F, Fut>(f: F) -> Self
+  where
+      F: Fn(ContextHandle) -> Fut + Send + Sync + 'static,
+      Fut: Future<Output = Result<(), ActorError>> + Send + 'static, {
+    ReceiveFunc(Arc::new(move |ch| {
+      Box::pin(f(ch)) as BoxFuture<'static, Result<(), ActorError>>
+    }))
+  }
+
+  pub async fn run(&self, context: ContextHandle) -> Result<(), ActorError> {
+    (self.0)(context).await
+  }
+}
 
 impl Debug for ReceiveFunc {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -30,17 +47,3 @@ impl std::hash::Hash for ReceiveFunc {
   }
 }
 
-impl ReceiveFunc {
-  pub fn new<F, Fut>(f: F) -> Self
-  where
-    F: Fn(ContextHandle) -> Fut + Send + Sync + 'static,
-    Fut: Future<Output = Result<(), ActorError>> + Send + 'static, {
-    ReceiveFunc(Arc::new(move |ch| {
-      Box::pin(f(ch)) as BoxFuture<'static, Result<(), ActorError>>
-    }))
-  }
-
-  pub async fn run(&self, context: ContextHandle) -> Result<(), ActorError> {
-    (self.0)(context).await
-  }
-}

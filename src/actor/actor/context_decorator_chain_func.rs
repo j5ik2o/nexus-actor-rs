@@ -10,6 +10,22 @@ use crate::actor::context::context_handle::ContextHandle;
 #[derive(Clone)]
 pub struct ContextDecoratorChainFunc(Arc<dyn Fn(ContextHandle) -> BoxFuture<'static, ContextHandle> + Send + Sync>);
 
+unsafe impl Send for ContextDecoratorChainFunc {}
+unsafe impl Sync for ContextDecoratorChainFunc {}
+
+impl ContextDecoratorChainFunc {
+  pub fn new<F, Fut>(f: F) -> Self
+  where
+      F: Fn(ContextHandle) -> Fut + Send + Sync + 'static,
+      Fut: Future<Output = ContextHandle> + Send + 'static, {
+    Self(Arc::new(move |ch| Box::pin(f(ch)) as BoxFuture<'static, ContextHandle>))
+  }
+
+  pub async fn run(&self, context: ContextHandle) -> ContextHandle {
+    (self.0)(context).await
+  }
+}
+
 impl Debug for ContextDecoratorChainFunc {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "ContextDecoratorFunc")
@@ -30,15 +46,4 @@ impl std::hash::Hash for ContextDecoratorChainFunc {
   }
 }
 
-impl ContextDecoratorChainFunc {
-  pub fn new<F, Fut>(f: F) -> Self
-  where
-    F: Fn(ContextHandle) -> Fut + Send + Sync + 'static,
-    Fut: Future<Output = ContextHandle> + Send + 'static, {
-    Self(Arc::new(move |ch| Box::pin(f(ch)) as BoxFuture<'static, ContextHandle>))
-  }
 
-  pub async fn run(&self, context: ContextHandle) -> ContextHandle {
-    (self.0)(context).await
-  }
-}

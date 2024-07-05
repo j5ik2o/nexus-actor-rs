@@ -10,8 +10,10 @@ mod test {
   use crate::actor::actor::receive_func::ReceiveFunc;
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::context::{BasePart, MessagePart, SenderPart, SpawnerPart};
-  use crate::actor::message::message_handle::{Message, MessageHandle};
-  use crate::actor::message::message_or_envelope::{MessageEnvelope, ReadonlyMessageHeaders};
+  use crate::actor::message::message::Message;
+  use crate::actor::message::message_handle::{MessageHandle};
+  use crate::actor::message::message_or_envelope::{MessageEnvelope, };
+  use crate::actor::message::readonly_message_headers::ReadonlyMessageHeaders;
   use crate::actor::message::response::{Response, ResponseHandle};
 
   #[derive(Debug)]

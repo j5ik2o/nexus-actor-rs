@@ -3,12 +3,27 @@ use std::future::Future;
 use std::sync::Arc;
 
 use futures::future::BoxFuture;
-
-use crate::actor::actor::ActorHandle;
+use crate::actor::actor::actor_handle::ActorHandle;
 use crate::actor::context::context_handle::ContextHandle;
 
 #[derive(Clone)]
 pub struct ActorProduceFunc(Arc<dyn Fn(ContextHandle) -> BoxFuture<'static, ActorHandle> + Send + Sync>);
+
+unsafe impl Send for ActorProduceFunc {}
+unsafe impl Sync for ActorProduceFunc {}
+
+impl ActorProduceFunc {
+  pub fn new<F, Fut>(f: F) -> Self
+  where
+      F: Fn(ContextHandle) -> Fut + Send + Sync + 'static,
+      Fut: Future<Output = ActorHandle> + Send + 'static, {
+    Self(Arc::new(move |ch| Box::pin(f(ch)) as BoxFuture<'static, ActorHandle>))
+  }
+
+  pub async fn run(&self, c: ContextHandle) -> ActorHandle {
+    (self.0)(c).await
+  }
+}
 
 impl Debug for ActorProduceFunc {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -30,15 +45,3 @@ impl std::hash::Hash for ActorProduceFunc {
   }
 }
 
-impl ActorProduceFunc {
-  pub fn new<F, Fut>(f: F) -> Self
-  where
-    F: Fn(ContextHandle) -> Fut + Send + Sync + 'static,
-    Fut: Future<Output = ActorHandle> + Send + 'static, {
-    Self(Arc::new(move |ch| Box::pin(f(ch)) as BoxFuture<'static, ActorHandle>))
-  }
-
-  pub async fn run(&self, c: ContextHandle) -> ActorHandle {
-    (self.0)(c).await
-  }
-}

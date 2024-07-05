@@ -18,7 +18,9 @@ use crate::actor::actor::sender_middleware_chain_func::SenderMiddlewareChainFunc
 use crate::actor::actor::sender_middleware_func::SenderMiddlewareFunc;
 use crate::actor::actor::spawn_func::{SpawnError, SpawnFunc};
 use crate::actor::actor::spawn_middleware_func::SpawnMiddlewareFunc;
-use crate::actor::actor::{Actor, ActorError, ActorHandle};
+use crate::actor::actor::actor::Actor;
+use crate::actor::actor::actor_error::ActorError;
+use crate::actor::actor::actor_handle::ActorHandle;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::actor_context::ActorContext;
 use crate::actor::context::context_handle::ContextHandle;

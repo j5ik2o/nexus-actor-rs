@@ -10,7 +10,9 @@ mod tests {
 
   use crate::actor::actor::actor_produce_func::ActorProduceFunc;
   use crate::actor::actor::props::Props;
-  use crate::actor::actor::{Actor, ActorError, ActorHandle};
+  use crate::actor::actor::actor::Actor;
+  use crate::actor::actor::actor_error::ActorError;
+  use crate::actor::actor::actor_handle::ActorHandle;
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::context::context_handle::ContextHandle;
   use crate::actor::context::SpawnerPart;

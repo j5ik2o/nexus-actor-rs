@@ -12,8 +12,12 @@ use crate::actor::actor::receiver_middleware_chain_func::ReceiverMiddlewareChain
 use crate::actor::actor::sender_middleware_chain_func::SenderMiddlewareChainFunc;
 use crate::actor::actor::spawn_func::SpawnError;
 use crate::actor::actor::{
-  Actor, ActorError, ActorHandle, ActorInnerError, PoisonPill, Stop, Terminated, Unwatch, Watch,
+  PoisonPill, Stop, Terminated, Unwatch, Watch,
 };
+use crate::actor::actor::actor::Actor;
+use crate::actor::actor::actor_error::ActorError;
+use crate::actor::actor::actor_handle::ActorHandle;
+use crate::actor::actor::actor_inner_error::ActorInnerError;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::auto_respond::{AutoRespond, AutoRespondHandle};
 use crate::actor::context::actor_context_extras::ActorContextExtras;
@@ -31,12 +35,14 @@ use crate::actor::log::P_LOG;
 use crate::actor::message::auto_receive_message::AutoReceiveMessage;
 use crate::actor::message::continuation::Continuation;
 use crate::actor::message::failure::Failure;
-use crate::actor::message::message_handle::{Message, MessageHandle};
+use crate::actor::message::message::Message;
+use crate::actor::message::message_handle::{MessageHandle};
 use crate::actor::message::message_or_envelope::{
-  unwrap_envelope_header, unwrap_envelope_sender, wrap_envelope, MessageEnvelope, ReadonlyMessageHeadersHandle,
+  unwrap_envelope_header, unwrap_envelope_sender, wrap_envelope, MessageEnvelope,
 };
 use crate::actor::message::messages::{Restart, Restarting, Started, Stopped, Stopping};
 use crate::actor::message::not_influence_receive_timeout::NotInfluenceReceiveTimeoutHandle;
+use crate::actor::message::readonly_message_headers::ReadonlyMessageHeadersHandle;
 use crate::actor::message::receive_timeout::ReceiveTimeout;
 use crate::actor::message::response::ResponseHandle;
 use crate::actor::message::system_message::SystemMessage;

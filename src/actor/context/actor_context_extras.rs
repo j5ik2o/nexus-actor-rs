@@ -14,7 +14,7 @@ use crate::actor::message::message_handles::MessageHandles;
 use crate::ctxext::extensions::ContextExtensions;
 
 #[derive(Debug, Clone)]
-pub struct ActorContextExtrasInner {
+struct ActorContextExtrasInner {
   children: PidSet,
   pub(crate) receive_timeout_timer: Option<ReceiveTimeoutTimer>,
   rs: Arc<Mutex<Option<RestartStatistics>>>,

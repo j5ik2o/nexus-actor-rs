@@ -3,8 +3,8 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use tokio::sync::Mutex;
-
-use crate::actor::actor::{ActorError, ActorInnerError};
+use crate::actor::actor::actor_error::ActorError;
+use crate::actor::actor::actor_inner_error::ActorInnerError;
 use crate::actor::message::message_handle::MessageHandle;
 
 // MessageInvoker trait

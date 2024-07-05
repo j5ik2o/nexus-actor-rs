@@ -1,9 +1,9 @@
 use std::any::Any;
-
+use crate::actor::actor::actor_inner_error::ActorInnerError;
 use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::actor::restart_statistics::RestartStatistics;
-use crate::actor::actor::ActorInnerError;
-use crate::actor::message::message_handle::{Message, MessageHandle};
+use crate::actor::message::message::Message;
+use crate::actor::message::message_handle::{MessageHandle};
 
 #[derive(Debug, Clone)]
 pub struct Failure {

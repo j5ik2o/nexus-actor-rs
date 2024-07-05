@@ -9,7 +9,7 @@ use crate::actor::context::root_context::RootContext;
 use crate::actor::dispatch::dead_letter_process::DeadLetterProcess;
 use crate::actor::event_stream::event_stream_process::EventStreamProcess;
 use crate::actor::guardian::GuardiansValue;
-use crate::actor::message::message_or_envelope::EMPTY_MESSAGE_HEADER;
+use crate::actor::message::message_headers::EMPTY_MESSAGE_HEADER;
 use crate::actor::process::process_registry::ProcessRegistry;
 use crate::actor::process::ProcessHandle;
 use crate::actor::supervisor::supervision_event::subscribe_supervision;

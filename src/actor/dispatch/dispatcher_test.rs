@@ -5,13 +5,14 @@ mod test {
 
   use async_trait::async_trait;
   use tokio::sync::Mutex;
-
+  use crate::actor::actor::actor_error::ActorError;
   use crate::actor::actor::taks::Task;
-  use crate::actor::actor::{ActorError, ActorInnerError};
+  use crate::actor::actor::actor_inner_error::ActorInnerError;
   use crate::actor::dispatch::dispatcher::{CurrentThreadDispatcher, DispatcherHandle};
   use crate::actor::dispatch::mailbox::{DefaultMailbox, Mailbox};
   use crate::actor::dispatch::message_invoker::{MessageInvoker, MessageInvokerHandle};
-  use crate::actor::message::message_handle::{Message, MessageHandle};
+  use crate::actor::message::message::Message;
+  use crate::actor::message::message_handle::{ MessageHandle};
   use crate::util::queue::mpsc_unbounded_channel_queue::MpscUnboundedChannelQueue;
 
   // TestMessageInvoker implementation

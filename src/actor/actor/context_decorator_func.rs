@@ -6,6 +6,19 @@ use crate::actor::actor::context_decorator_chain_func::ContextDecoratorChainFunc
 #[derive(Clone)]
 pub struct ContextDecoratorFunc(Arc<dyn Fn(ContextDecoratorChainFunc) -> ContextDecoratorChainFunc + Send + Sync>);
 
+unsafe impl Send for ContextDecoratorFunc {}
+unsafe impl Sync for ContextDecoratorFunc {}
+
+impl ContextDecoratorFunc {
+  pub fn new(f: impl Fn(ContextDecoratorChainFunc) -> ContextDecoratorChainFunc + Send + Sync + 'static) -> Self {
+    ContextDecoratorFunc(Arc::new(f))
+  }
+
+  pub fn run(&self, next: ContextDecoratorChainFunc) -> ContextDecoratorChainFunc {
+    (self.0)(next)
+  }
+}
+
 impl Debug for ContextDecoratorFunc {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "ContextDecorator")
@@ -26,12 +39,3 @@ impl std::hash::Hash for ContextDecoratorFunc {
   }
 }
 
-impl ContextDecoratorFunc {
-  pub fn new(f: impl Fn(ContextDecoratorChainFunc) -> ContextDecoratorChainFunc + Send + Sync + 'static) -> Self {
-    ContextDecoratorFunc(Arc::new(f))
-  }
-
-  pub fn run(&self, next: ContextDecoratorChainFunc) -> ContextDecoratorChainFunc {
-    (self.0)(next)
-  }
-}

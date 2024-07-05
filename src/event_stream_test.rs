@@ -5,8 +5,8 @@ mod tests {
   use std::sync::atomic::{AtomicI32, Ordering};
 
   use tokio::sync::Mutex;
-
-  use crate::actor::message::message_handle::{Message, MessageHandle};
+  use crate::actor::message::message::Message;
+  use crate::actor::message::message_handle::{MessageHandle};
   use crate::event_stream::{EventStream, HandlerFunc, PredicateFunc};
 
   #[derive(Debug)]

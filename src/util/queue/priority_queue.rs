@@ -97,8 +97,7 @@ impl<E: PriorityMessage, Q: QueueReader<E> + QueueWriter<E>> QueueWriter<E> for 
 mod tests {
   use std::any::Any;
   use std::fmt::Debug;
-
-  use crate::actor::message::message_handle::Message;
+  use crate::actor::message::message::Message;
   use crate::util::queue::mpsc_unbounded_channel_queue::MpscUnboundedChannelQueue;
 
   use super::*;

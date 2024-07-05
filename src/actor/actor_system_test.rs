@@ -7,11 +7,14 @@ mod tests {
 
   use crate::actor::actor::actor_produce_func::ActorProduceFunc;
   use crate::actor::actor::props::Props;
-  use crate::actor::actor::{Actor, ActorError, ActorHandle};
+  use crate::actor::actor::actor::Actor;
+  use crate::actor::actor::actor_error::ActorError;
+  use crate::actor::actor::actor_handle::ActorHandle;
   use crate::actor::actor_system::{ActorSystem, Config};
   use crate::actor::context::context_handle::ContextHandle;
   use crate::actor::context::{InfoPart, SenderPart, SpawnerPart};
-  use crate::actor::message::message_handle::{Message, MessageHandle};
+  use crate::actor::message::message::Message;
+  use crate::actor::message::message_handle::{MessageHandle};
   use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
 
   use crate::actor::util::async_barrier::AsyncBarrier;
@@ -32,6 +35,7 @@ mod tests {
 
   #[derive(Debug, Clone)]
   struct Hello(pub String);
+
   impl Message for Hello {
     fn eq_message(&self, other: &dyn Message) -> bool {
       self.0 == other.as_any().downcast_ref::<Hello>().unwrap().0

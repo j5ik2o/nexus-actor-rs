@@ -3,12 +3,12 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use tokio::sync::Mutex;
-
+use crate::actor::actor::actor_error::ActorError;
 use crate::actor::actor::continuation_func::ContinuationFunc;
 use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::actor::props::Props;
 use crate::actor::actor::spawn_func::SpawnError;
-use crate::actor::actor::{ActorError, ActorHandle};
+use crate::actor::actor::actor_handle::ActorHandle;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::{
   BasePart, Context, ExtensionContext, ExtensionPart, InfoPart, MessagePart, ReceiverContext, ReceiverPart,
@@ -16,7 +16,8 @@ use crate::actor::context::{
 };
 use crate::actor::future::Future;
 use crate::actor::message::message_handle::MessageHandle;
-use crate::actor::message::message_or_envelope::{MessageEnvelope, ReadonlyMessageHeadersHandle};
+use crate::actor::message::message_or_envelope::{MessageEnvelope};
+use crate::actor::message::readonly_message_headers::ReadonlyMessageHeadersHandle;
 use crate::actor::message::response::ResponseHandle;
 use crate::ctxext::extensions::{ContextExtensionHandle, ContextExtensionId};
 

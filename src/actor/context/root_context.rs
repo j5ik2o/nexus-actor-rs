@@ -8,7 +8,8 @@ use crate::actor::actor::sender_middleware_chain_func::SenderMiddlewareChainFunc
 use crate::actor::actor::sender_middleware_func::SenderMiddlewareFunc;
 use crate::actor::actor::spawn_func::SpawnError;
 use crate::actor::actor::spawn_func::SpawnFunc;
-use crate::actor::actor::{ActorHandle, PoisonPill, Watch};
+use crate::actor::actor::{PoisonPill, Watch};
+use crate::actor::actor::actor_handle::ActorHandle;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::sender_context_handle::SenderContextHandle;
 use crate::actor::context::spawner_context_handle::SpawnerContextHandle;
@@ -18,7 +19,9 @@ use crate::actor::context::{
 use crate::actor::future::{Future, FutureProcess};
 use crate::actor::message::auto_receive_message::AutoReceiveMessage;
 use crate::actor::message::message_handle::MessageHandle;
-use crate::actor::message::message_or_envelope::{MessageEnvelope, MessageHeaders, ReadonlyMessageHeadersHandle};
+use crate::actor::message::message_headers::MessageHeaders;
+use crate::actor::message::message_or_envelope::{MessageEnvelope};
+use crate::actor::message::readonly_message_headers::ReadonlyMessageHeadersHandle;
 use crate::actor::middleware_chain::make_sender_middleware_chain;
 use crate::actor::process::Process;
 use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;

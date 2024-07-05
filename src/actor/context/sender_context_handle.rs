@@ -3,14 +3,13 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use tokio::sync::Mutex;
-
+use crate::actor::actor::actor_handle::ActorHandle;
 use crate::actor::actor::pid::ExtendedPid;
-use crate::actor::actor::ActorHandle;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::{InfoPart, MessagePart, SenderContext, SenderPart};
 use crate::actor::future::Future;
 use crate::actor::message::message_handle::MessageHandle;
-use crate::actor::message::message_or_envelope::ReadonlyMessageHeadersHandle;
+use crate::actor::message::readonly_message_headers::ReadonlyMessageHeadersHandle;
 
 #[derive(Debug, Clone)]
 pub struct SenderContextHandle(Arc<Mutex<dyn SenderContext>>);

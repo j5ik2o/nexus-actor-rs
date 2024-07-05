@@ -11,7 +11,8 @@ mod tests {
   use crate::actor::actor::pid::ExtendedPid;
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::future::{FutureError, FutureProcess};
-  use crate::actor::message::message_handle::{Message, MessageHandle};
+  use crate::actor::message::message::Message;
+  use crate::actor::message::message_handle::{MessageHandle};
   use crate::actor::process::{Process, ProcessHandle};
   use crate::actor::util::async_barrier::AsyncBarrier;
 

@@ -3,8 +3,7 @@ use std::future::Future;
 use std::sync::Arc;
 
 use futures::future::BoxFuture;
-
-use crate::actor::actor::ActorError;
+use crate::actor::actor::actor_error::ActorError;
 use crate::actor::context::receiver_context_handle::ReceiverContextHandle;
 use crate::actor::message::message_or_envelope::MessageEnvelope;
 
@@ -13,6 +12,24 @@ use crate::actor::message::message_or_envelope::MessageEnvelope;
 pub struct ReceiverMiddlewareChainFunc(
   Arc<dyn Fn(ReceiverContextHandle, MessageEnvelope) -> BoxFuture<'static, Result<(), ActorError>> + Send + Sync>,
 );
+
+unsafe impl Send for ReceiverMiddlewareChainFunc {}
+unsafe impl Sync for ReceiverMiddlewareChainFunc {}
+
+impl ReceiverMiddlewareChainFunc {
+  pub fn new<F, Fut>(f: F) -> Self
+  where
+      F: Fn(ReceiverContextHandle, MessageEnvelope) -> Fut + Send + Sync + 'static,
+      Fut: Future<Output = Result<(), ActorError>> + Send + 'static, {
+    Self(Arc::new(move |rch, me| {
+      Box::pin(f(rch, me)) as BoxFuture<'static, Result<(), ActorError>>
+    }))
+  }
+
+  pub async fn run(&self, context: ReceiverContextHandle, envelope: MessageEnvelope) -> Result<(), ActorError> {
+    self.0(context, envelope).await
+  }
+}
 
 impl Debug for ReceiverMiddlewareChainFunc {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -36,17 +53,4 @@ impl std::hash::Hash for ReceiverMiddlewareChainFunc {
   }
 }
 
-impl ReceiverMiddlewareChainFunc {
-  pub fn new<F, Fut>(f: F) -> Self
-  where
-    F: Fn(ReceiverContextHandle, MessageEnvelope) -> Fut + Send + Sync + 'static,
-    Fut: Future<Output = Result<(), ActorError>> + Send + 'static, {
-    Self(Arc::new(move |rch, me| {
-      Box::pin(f(rch, me)) as BoxFuture<'static, Result<(), ActorError>>
-    }))
-  }
 
-  pub async fn run(&self, context: ReceiverContextHandle, envelope: MessageEnvelope) -> Result<(), ActorError> {
-    self.0(context, envelope).await
-  }
-}

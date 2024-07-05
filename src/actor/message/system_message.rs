@@ -1,7 +1,7 @@
 use std::any::Any;
 
 use crate::actor::actor::Stop;
-use crate::actor::message::message_handle::Message;
+use crate::actor::message::message::Message;
 use crate::actor::message::messages::{Restart, Started};
 
 #[derive(Debug, Clone)]

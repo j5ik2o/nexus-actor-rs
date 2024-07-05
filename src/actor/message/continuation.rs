@@ -4,8 +4,8 @@ use std::future::Future;
 use std::sync::Arc;
 
 use futures::future::BoxFuture;
-
-use crate::actor::message::message_handle::{Message, MessageHandle};
+use crate::actor::message::message::Message;
+use crate::actor::message::message_handle::{MessageHandle};
 
 #[derive(Clone)]
 pub(crate) struct Continuation {
@@ -25,8 +25,7 @@ impl Continuation {
   }
 }
 
-unsafe impl Send for Continuation {}
-unsafe impl Sync for Continuation {}
+static_assertions::assert_impl_all!(Continuation: Send, Sync);
 
 impl Debug for Continuation {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

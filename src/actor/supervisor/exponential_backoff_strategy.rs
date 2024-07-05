@@ -3,10 +3,9 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use rand::Rng;
-
+use crate::actor::actor::actor_inner_error::ActorInnerError;
 use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::actor::restart_statistics::RestartStatistics;
-use crate::actor::actor::ActorInnerError;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::supervisor::directive::Directive;
