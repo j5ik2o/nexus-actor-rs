@@ -4,7 +4,6 @@ use crate::actor::actor::actor_error::ActorError;
 use crate::actor::actor::actor_receiver::ActorReceiver;
 use crate::actor::context::context_handle::ContextHandle;
 use crate::actor::context::InfoPart;
-use log::error;
 
 #[derive(Debug, Clone)]
 pub struct Behavior {
@@ -33,7 +32,7 @@ impl Behavior {
     if let Some(behavior) = self.peek().await {
       behavior.run(context).await
     } else {
-      error!("empty behavior called: pid = {}", context.get_self().await.unwrap());
+      tracing::error!("empty behavior called: pid = {}", context.get_self().await.unwrap());
       Err(ActorError::ReceiveError("empty behavior called".into()))
     }
   }

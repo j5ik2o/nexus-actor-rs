@@ -76,7 +76,6 @@ impl ExtendedPid {
   }
 
   pub(crate) async fn ref_process(&self, actor_system: ActorSystem) -> ProcessHandle {
-    // log::debug!("Ref process: {}", self);
     let mut process_handle_opt = self.process_handle.lock().await;
     if let Some(process) = process_handle_opt.as_ref() {
       if let Some(actor_process) = process.as_any().downcast_ref::<ActorProcess>() {
@@ -100,7 +99,6 @@ impl ExtendedPid {
   }
 
   pub async fn send_user_message(&self, actor_system: ActorSystem, message: MessageHandle) {
-    log::debug!("Sending user message: {:?}", message);
     self
       .ref_process(actor_system)
       .await
