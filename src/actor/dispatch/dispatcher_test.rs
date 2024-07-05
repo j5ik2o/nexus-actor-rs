@@ -3,17 +3,18 @@ mod test {
   use std::any::Any;
   use std::sync::Arc;
 
-  use async_trait::async_trait;
-  use tokio::sync::Mutex;
   use crate::actor::actor::actor_error::ActorError;
-  use crate::actor::actor::taks::Task;
   use crate::actor::actor::actor_inner_error::ActorInnerError;
+  use crate::actor::actor::taks::Task;
+  use crate::actor::dispatch::default_mailbox::DefaultMailbox;
   use crate::actor::dispatch::dispatcher::{CurrentThreadDispatcher, DispatcherHandle};
-  use crate::actor::dispatch::mailbox::{DefaultMailbox, Mailbox};
+  use crate::actor::dispatch::mailbox::Mailbox;
   use crate::actor::dispatch::message_invoker::{MessageInvoker, MessageInvokerHandle};
   use crate::actor::message::message::Message;
-  use crate::actor::message::message_handle::{ MessageHandle};
+  use crate::actor::message::message_handle::MessageHandle;
   use crate::util::queue::mpsc_unbounded_channel_queue::MpscUnboundedChannelQueue;
+  use async_trait::async_trait;
+  use tokio::sync::Mutex;
 
   // TestMessageInvoker implementation
   #[derive(Debug, Clone, PartialEq)]
@@ -122,8 +123,8 @@ mod test {
     let dispatcher = Arc::new(CurrentThreadDispatcher::new().unwrap());
     let dispatcher_handle = DispatcherHandle::new_arc(dispatcher.clone());
     mailbox
-        .register_handlers(Some(invoker_handle.clone()), Some(dispatcher_handle.clone()))
-        .await;
+      .register_handlers(Some(invoker_handle.clone()), Some(dispatcher_handle.clone()))
+      .await;
 
     let system_message = MessageHandle::new(TestSystemMessage);
     let user_message = MessageHandle::new(TestUserMessage);

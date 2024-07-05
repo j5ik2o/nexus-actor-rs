@@ -1,5 +1,3 @@
-use std::any::Any;
-use std::sync::Arc;
 use crate::actor::actor::actor_inner_error::ActorInnerError;
 use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::actor_system::ActorSystem;
@@ -8,6 +6,8 @@ use crate::actor::message::message::Message;
 use crate::actor::supervisor::directive::Directive;
 use crate::event_stream::{HandlerFunc, Subscription};
 use crate::log::field::Field;
+use std::any::Any;
+use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct SupervisorEvent {

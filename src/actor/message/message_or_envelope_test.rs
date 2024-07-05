@@ -6,13 +6,13 @@ mod test {
 
   use tracing_subscriber::EnvFilter;
 
+  use crate::actor::actor::actor_receiver::ActorReceiver;
   use crate::actor::actor::props::Props;
-  use crate::actor::actor::actor_receive_func::ActorReceiveFunc;
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::context::{BasePart, MessagePart, SenderPart, SpawnerPart};
   use crate::actor::message::message::Message;
-  use crate::actor::message::message_handle::{MessageHandle};
-  use crate::actor::message::message_or_envelope::{MessageEnvelope, };
+  use crate::actor::message::message_handle::MessageHandle;
+  use crate::actor::message::message_or_envelope::MessageEnvelope;
   use crate::actor::message::readonly_message_headers::ReadonlyMessageHeaders;
   use crate::actor::message::response::{Response, ResponseHandle};
 
@@ -39,12 +39,12 @@ mod test {
   async fn test_normal_message_gives_empty_message_headers() {
     let _ = env::set_var("RUST_LOG", "debug");
     let _ = tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
-        .try_init();
+      .with_env_filter(EnvFilter::from_default_env())
+      .try_init();
 
     let system = ActorSystem::new().await;
 
-    let props = Props::from_actor_receive_func(ActorReceiveFunc::new(move |ctx| async move {
+    let props = Props::from_actor_receiver(ActorReceiver::new(move |ctx| async move {
       let msg = ctx.get_message().await.unwrap();
       tracing::debug!("msg = {:?}", msg);
       if let Some(msg) = msg.as_any().downcast_ref::<MessageEnvelope>() {
@@ -54,7 +54,7 @@ mod test {
       }
       Ok(())
     }))
-        .await;
+    .await;
 
     let mut root_context = system.get_root_context().await;
     let pid = root_context.spawn(props).await;
@@ -62,8 +62,8 @@ mod test {
     let d = Duration::from_secs(1);
 
     let f = root_context
-        .request_future(pid, MessageHandle::new("Hello".to_string()), &d)
-        .await;
+      .request_future(pid, MessageHandle::new("Hello".to_string()), &d)
+      .await;
 
     let _ = f.result().await.unwrap();
   }

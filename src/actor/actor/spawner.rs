@@ -17,7 +17,7 @@ pub enum SpawnError {
 }
 
 #[derive(Clone)]
-pub struct SpawnFunc(
+pub struct Spawner(
   Arc<
     dyn Fn(ActorSystem, String, Props, SpawnerContextHandle) -> BoxFuture<'static, Result<ExtendedPid, SpawnError>>
       + Send
@@ -25,21 +25,21 @@ pub struct SpawnFunc(
   >,
 );
 
-impl Debug for SpawnFunc {
+impl Debug for Spawner {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "SpawnFunc")
   }
 }
 
-impl PartialEq for SpawnFunc {
+impl PartialEq for Spawner {
   fn eq(&self, _other: &Self) -> bool {
     Arc::ptr_eq(&self.0, &_other.0)
   }
 }
 
-impl Eq for SpawnFunc {}
+impl Eq for Spawner {}
 
-impl std::hash::Hash for SpawnFunc {
+impl std::hash::Hash for Spawner {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
     (self.0.as_ref()
       as *const dyn Fn(
@@ -52,7 +52,7 @@ impl std::hash::Hash for SpawnFunc {
   }
 }
 
-impl SpawnFunc {
+impl Spawner {
   pub fn new<F, Fut>(f: F) -> Self
   where
     F: Fn(ActorSystem, String, Props, SpawnerContextHandle) -> Fut + Send + Sync + 'static,

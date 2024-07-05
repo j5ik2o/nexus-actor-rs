@@ -5,16 +5,16 @@ mod tests {
   use async_trait::async_trait;
   use tracing_subscriber::EnvFilter;
 
-  use crate::actor::actor::actor_produce_func::ActorProduceFunc;
-  use crate::actor::actor::props::Props;
   use crate::actor::actor::actor::Actor;
   use crate::actor::actor::actor_error::ActorError;
   use crate::actor::actor::actor_handle::ActorHandle;
+  use crate::actor::actor::actor_producer::ActorProducer;
+  use crate::actor::actor::props::Props;
   use crate::actor::actor_system::{ActorSystem, Config};
   use crate::actor::context::context_handle::ContextHandle;
   use crate::actor::context::{InfoPart, SenderPart, SpawnerPart};
   use crate::actor::message::message::Message;
-  use crate::actor::message::message_handle::{MessageHandle};
+  use crate::actor::message::message_handle::MessageHandle;
   use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
 
   use crate::actor::util::async_barrier::AsyncBarrier;
@@ -68,24 +68,24 @@ mod tests {
   async fn test_actor_system_spawn_actor() {
     let _ = env::set_var("RUST_LOG", "debug");
     let _ = tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
-        .try_init();
+      .with_env_filter(EnvFilter::from_default_env())
+      .try_init();
 
     let b = AsyncBarrier::new(2);
     let cloned_b = b.clone();
     let system = ActorSystem::new().await;
     let mut root_context = system.get_root_context().await;
 
-    let props = Props::from_actor_produce_func(ActorProduceFunc::new(move |_| {
+    let props = Props::from_actor_producer(ActorProducer::new(move |_| {
       let cloned_b = b.clone();
       async move { ActorHandle::new(MyActor { b: cloned_b.clone() }) }
     }))
-        .await;
+    .await;
 
     let pid = root_context.spawn(props).await;
     root_context
-        .send(pid, MessageHandle::new(Hello("hello".to_string())))
-        .await;
+      .send(pid, MessageHandle::new(Hello("hello".to_string())))
+      .await;
 
     cloned_b.wait().await;
   }

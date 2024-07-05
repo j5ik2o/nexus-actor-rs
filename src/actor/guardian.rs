@@ -5,15 +5,15 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use tokio::sync::Mutex;
 
-use crate::actor::actor::pid::ExtendedPid;
-use crate::actor::actor::{Stop};
 use crate::actor::actor::actor_inner_error::ActorInnerError;
+use crate::actor::actor::pid::ExtendedPid;
+use crate::actor::actor::Stop;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::dispatch::mailbox_message::MailboxMessage;
 use crate::actor::log::P_LOG;
 use crate::actor::message::failure::Failure;
 use crate::actor::message::message::Message;
-use crate::actor::message::message_handle::{MessageHandle};
+use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::message::messages::Restart;
 use crate::actor::message::system_message::SystemMessage;
 use crate::actor::process::{Process, ProcessHandle};

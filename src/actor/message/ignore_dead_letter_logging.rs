@@ -1,6 +1,6 @@
+use crate::actor::message::message::Message;
 use std::any::Any;
 use std::fmt::Display;
-use crate::actor::message::message::Message;
 
 #[derive(Debug, Clone)]
 pub struct IgnoreDeadLetterLogging {}
@@ -9,7 +9,6 @@ impl IgnoreDeadLetterLogging {
   pub fn new() -> Self {
     Self {}
   }
-
 }
 
 static_assertions::assert_impl_all!(IgnoreDeadLetterLogging: Send, Sync);
@@ -37,4 +36,3 @@ impl Message for IgnoreDeadLetterLogging {
     self
   }
 }
-

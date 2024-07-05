@@ -2,11 +2,11 @@
 mod tests {
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::context::SenderPart;
-  use crate::actor::message::message_handle::{MessageHandle};
+  use crate::actor::message::message::Message;
+  use crate::actor::message::message_handle::MessageHandle;
   use crate::event_stream::HandlerFunc;
   use std::any::Any;
   use tokio::sync::mpsc;
-  use crate::actor::message::message::Message;
 
   #[derive(Debug, Clone)]
   struct EsTestMsg;

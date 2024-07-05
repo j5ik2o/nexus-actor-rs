@@ -5,29 +5,31 @@ use async_trait::async_trait;
 use once_cell::sync::Lazy;
 use tokio::sync::Mutex;
 
-use crate::actor::actor::actor_process::ActorProcess;
-use crate::actor::actor::actor_produce_func::ActorProduceFunc;
-use crate::actor::actor::context_decorator_chain_func::ContextDecoratorChainFunc;
-use crate::actor::actor::context_decorator_func::ContextDecoratorFunc;
-use crate::actor::actor::context_handler_func::ContextHandleFunc;
-use crate::actor::actor::pid::ExtendedPid;
-use crate::actor::actor::actor_receive_func::ActorReceiveFunc;
-use crate::actor::actor::receiver_middleware_chain_func::ReceiverMiddlewareChainFunc;
-use crate::actor::actor::receiver_middleware_func::ReceiverMiddlewareFunc;
-use crate::actor::actor::sender_middleware_chain_func::SenderMiddlewareChainFunc;
-use crate::actor::actor::sender_middleware_func::SenderMiddlewareFunc;
-use crate::actor::actor::spawn_func::{SpawnError, SpawnFunc};
-use crate::actor::actor::spawn_middleware_func::SpawnMiddlewareFunc;
 use crate::actor::actor::actor::Actor;
 use crate::actor::actor::actor_error::ActorError;
 use crate::actor::actor::actor_handle::ActorHandle;
+use crate::actor::actor::actor_process::ActorProcess;
+use crate::actor::actor::actor_producer::ActorProducer;
+use crate::actor::actor::actor_receiver::ActorReceiver;
+use crate::actor::actor::context_decorator::ContextDecorator;
+use crate::actor::actor::context_decorator_chain::ContextDecoratorChain;
+use crate::actor::actor::context_handler::ContextHandler;
+use crate::actor::actor::pid::ExtendedPid;
+use crate::actor::actor::receiver_middleware::ReceiverMiddleware;
+use crate::actor::actor::receiver_middleware_chain::ReceiverMiddlewareChain;
+use crate::actor::actor::sender_middleware::SenderMiddleware;
+use crate::actor::actor::sender_middleware_chain::SenderMiddlewareChain;
+use crate::actor::actor::spawn_middleware::SpawnMiddleware;
+use crate::actor::actor::spawner::{SpawnError, Spawner};
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::actor_context::ActorContext;
 use crate::actor::context::context_handle::ContextHandle;
 use crate::actor::context::spawner_context_handle::SpawnerContextHandle;
 use crate::actor::context::{InfoPart, ReceiverPart};
 use crate::actor::dispatch::dispatcher::*;
-use crate::actor::dispatch::mailbox::{Mailbox, MailboxHandle, MailboxProduceFunc};
+use crate::actor::dispatch::mailbox::Mailbox;
+use crate::actor::dispatch::mailbox_handle::MailboxHandle;
+use crate::actor::dispatch::mailbox_producer::MailboxProducer;
 use crate::actor::dispatch::message_invoker::MessageInvokerHandle;
 use crate::actor::dispatch::unbounded::unbounded_mailbox_creator_with_opts;
 use crate::actor::message::message_handle::MessageHandle;
@@ -43,21 +45,21 @@ use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHand
 
 #[derive(Debug, Clone)]
 pub struct Props {
-  spawner: Option<SpawnFunc>,
-  producer: Option<ActorProduceFunc>,
-  mailbox_producer: Option<MailboxProduceFunc>,
+  spawner: Option<Spawner>,
+  producer: Option<ActorProducer>,
+  mailbox_producer: Option<MailboxProducer>,
   guardian_strategy: Option<SupervisorStrategyHandle>,
   supervisor_strategy: Option<SupervisorStrategyHandle>,
   dispatcher: Option<DispatcherHandle>,
-  receiver_middleware: Vec<ReceiverMiddlewareFunc>,
-  sender_middleware: Vec<SenderMiddlewareFunc>,
-  spawn_middleware: Vec<SpawnMiddlewareFunc>,
-  receiver_middleware_chain: Option<ReceiverMiddlewareChainFunc>,
-  sender_middleware_chain: Option<SenderMiddlewareChainFunc>,
-  spawn_middleware_chain: Option<SpawnFunc>,
-  context_decorator: Vec<ContextDecoratorFunc>,
-  context_decorator_chain: Option<ContextDecoratorChainFunc>,
-  on_init: Vec<ContextHandleFunc>,
+  receiver_middleware: Vec<ReceiverMiddleware>,
+  sender_middleware: Vec<SenderMiddleware>,
+  spawn_middleware: Vec<SpawnMiddleware>,
+  receiver_middleware_chain: Option<ReceiverMiddlewareChain>,
+  sender_middleware_chain: Option<SenderMiddlewareChain>,
+  spawn_middleware_chain: Option<Spawner>,
+  context_decorator: Vec<ContextDecorator>,
+  context_decorator_chain: Option<ContextDecoratorChain>,
+  on_init: Vec<ContextHandler>,
 }
 
 unsafe impl Send for Props {}
@@ -65,10 +67,10 @@ unsafe impl Sync for Props {}
 
 static DEFAULT_DISPATCHER: Lazy<DispatcherHandle> =
   Lazy::new(|| DispatcherHandle::new(TokioRuntimeContextDispatcher::new().unwrap()));
-static DEFAULT_MAILBOX_PRODUCER: Lazy<MailboxProduceFunc> = Lazy::new(|| unbounded_mailbox_creator_with_opts(vec![]));
+static DEFAULT_MAILBOX_PRODUCER: Lazy<MailboxProducer> = Lazy::new(|| unbounded_mailbox_creator_with_opts(vec![]));
 
-static DEFAULT_SPAWNER: Lazy<SpawnFunc> = Lazy::new(|| {
-  SpawnFunc::new(
+static DEFAULT_SPAWNER: Lazy<Spawner> = Lazy::new(|| {
+  Spawner::new(
     |actor_system: ActorSystem, name: String, props: Props, parent_context: SpawnerContextHandle| {
       async move {
         tracing::debug!("Spawn actor: {}", name);
@@ -116,7 +118,7 @@ fn initialize(props: Props, ctx: ActorContext) {
 }
 
 #[derive(Debug, Clone)]
-struct ReceiveFuncActor(ActorReceiveFunc);
+struct ReceiveFuncActor(ActorReceiver);
 
 #[async_trait]
 impl Actor for ReceiveFuncActor {
@@ -148,15 +150,28 @@ impl PropsOptionFunc {
 }
 
 impl Props {
-  pub fn with_on_init(mut init: Vec<ContextHandleFunc>) -> PropsOptionFunc {
+  pub fn with_on_init(mut init: Vec<ContextHandler>) -> PropsOptionFunc {
     PropsOptionFunc::new(move |props: &mut Props| {
       props.on_init.append(&mut init);
     })
   }
 
-  pub fn with_producer(producer: ActorProduceFunc) -> PropsOptionFunc {
+  pub fn with_actor_producer(producer: ActorProducer) -> PropsOptionFunc {
     PropsOptionFunc::new(move |props: &mut Props| {
       props.producer = Some(producer.clone());
+    })
+  }
+
+  pub fn with_actor_receiver(actor_receiver: ActorReceiver) -> PropsOptionFunc {
+    PropsOptionFunc::new(move |props: &mut Props| {
+      let actor_receiver = actor_receiver.clone();
+      props.producer = Some(ActorProducer::new(move |_| {
+        let actor_receiver = actor_receiver.clone();
+        async move {
+          let actor = ReceiveFuncActor(actor_receiver.clone());
+          ActorHandle::new(actor)
+        }
+      }));
     })
   }
 
@@ -166,19 +181,19 @@ impl Props {
     })
   }
 
-  pub fn with_mailbox(mailbox_produce_func: MailboxProduceFunc) -> PropsOptionFunc {
+  pub fn with_mailbox_producer(mailbox_producer: MailboxProducer) -> PropsOptionFunc {
     PropsOptionFunc::new(move |props: &mut Props| {
-      props.mailbox_producer = Some(mailbox_produce_func.clone());
+      props.mailbox_producer = Some(mailbox_producer.clone());
     })
   }
 
-  pub fn with_context_decorator(decorators: Vec<ContextDecoratorFunc>) -> PropsOptionFunc {
+  pub fn with_context_decorators(decorators: Vec<ContextDecorator>) -> PropsOptionFunc {
     PropsOptionFunc::new(move |props: &mut Props| {
       let cloned_decorators = decorators.clone();
       props.context_decorator.extend(cloned_decorators.clone());
       props.context_decorator_chain = make_context_decorator_chain(
         &props.context_decorator,
-        ContextDecoratorChainFunc::new(move |ch| {
+        ContextDecoratorChain::new(move |ch| {
           let cloned_ch = ch.clone();
           async move { cloned_ch.clone() }
         }),
@@ -198,22 +213,22 @@ impl Props {
     })
   }
 
-  pub fn with_receiver_middleware_func(middlewares: Vec<ReceiverMiddlewareFunc>) -> PropsOptionFunc {
+  pub fn with_receiver_middlewares(middlewares: Vec<ReceiverMiddleware>) -> PropsOptionFunc {
     PropsOptionFunc::new(move |props: &mut Props| {
       props.receiver_middleware.extend(middlewares.clone());
       props.receiver_middleware_chain = make_receiver_middleware_chain(
         &props.receiver_middleware,
-        ReceiverMiddlewareChainFunc::new(|mut rch, me| async move { rch.receive(me).await }),
+        ReceiverMiddlewareChain::new(|mut rch, me| async move { rch.receive(me).await }),
       );
     })
   }
 
-  pub fn with_sender_middleware_func(middlewares: Vec<SenderMiddlewareFunc>) -> PropsOptionFunc {
+  pub fn with_sender_middlewares(middlewares: Vec<SenderMiddleware>) -> PropsOptionFunc {
     PropsOptionFunc::new(move |props: &mut Props| {
       props.sender_middleware.extend(middlewares.clone());
       props.sender_middleware_chain = make_sender_middleware_chain(
         &props.sender_middleware,
-        SenderMiddlewareChainFunc::new(|sch, target, me| async move {
+        SenderMiddlewareChain::new(|sch, target, me| async move {
           target
             .send_user_message(sch.get_actor_system().await.clone(), MessageHandle::new(me))
             .await
@@ -222,31 +237,18 @@ impl Props {
     })
   }
 
-  pub fn with_spawn_func(spawn_func: SpawnFunc) -> PropsOptionFunc {
+  pub fn with_spawner(spawner: Spawner) -> PropsOptionFunc {
     PropsOptionFunc::new(move |props: &mut Props| {
-      props.spawner = Some(spawn_func.clone());
+      props.spawner = Some(spawner.clone());
     })
   }
 
-  pub fn with_receive_func(receive_func: ActorReceiveFunc) -> PropsOptionFunc {
-    PropsOptionFunc::new(move |props: &mut Props| {
-      let receive_func = receive_func.clone();
-      props.producer = Some(ActorProduceFunc::new(move |_| {
-        let cloned = receive_func.clone();
-        async move {
-          let actor = ReceiveFuncActor(cloned.clone());
-          ActorHandle::new(actor)
-        }
-      }));
-    })
-  }
-
-  pub fn with_spawn_middleware_func(spawn_middlewares: Vec<SpawnMiddlewareFunc>) -> PropsOptionFunc {
+  pub fn with_spawn_middleware(spawn_middlewares: Vec<SpawnMiddleware>) -> PropsOptionFunc {
     PropsOptionFunc::new(move |props: &mut Props| {
       props.spawn_middleware.extend(spawn_middlewares.clone());
       props.spawn_middleware_chain = make_spawn_middleware_chain(
         &props.spawn_middleware,
-        SpawnFunc::new(move |s, id, p, sch| async move {
+        Spawner::new(move |s, id, p, sch| async move {
           if let Some(spawner) = &p.spawner {
             spawner.run(s, &id, p.clone(), sch).await
           } else {
@@ -257,11 +259,11 @@ impl Props {
     })
   }
 
-  fn get_spawner(&self) -> SpawnFunc {
+  fn get_spawner(&self) -> Spawner {
     self.spawner.clone().unwrap_or(DEFAULT_SPAWNER.clone())
   }
 
-  pub fn get_producer(&self) -> ActorProduceFunc {
+  pub fn get_producer(&self) -> ActorProducer {
     self.producer.clone().unwrap()
   }
 
@@ -276,7 +278,7 @@ impl Props {
       .unwrap_or_else(|| DEFAULT_SUPERVISION_STRATEGY.clone())
   }
 
-  pub(crate) fn get_spawn_middleware_chain(&self) -> Option<SpawnFunc> {
+  pub(crate) fn get_spawn_middleware_chain(&self) -> Option<Spawner> {
     self.spawn_middleware_chain.clone()
   }
 
@@ -284,15 +286,15 @@ impl Props {
     self.guardian_strategy.clone()
   }
 
-  pub(crate) fn get_sender_middleware_chain(&self) -> Option<SenderMiddlewareChainFunc> {
+  pub(crate) fn get_sender_middleware_chain(&self) -> Option<SenderMiddlewareChain> {
     self.sender_middleware_chain.clone()
   }
 
-  pub(crate) fn get_receiver_middleware_chain(&self) -> Option<ReceiverMiddlewareChainFunc> {
+  pub(crate) fn get_receiver_middleware_chain(&self) -> Option<ReceiverMiddlewareChain> {
     self.receiver_middleware_chain.clone()
   }
 
-  pub(crate) fn get_context_decorator_chain(&self) -> Option<ContextDecoratorChainFunc> {
+  pub(crate) fn get_context_decorator_chain(&self) -> Option<ContextDecoratorChain> {
     self.context_decorator_chain.clone()
   }
 
@@ -304,7 +306,7 @@ impl Props {
     }
   }
 
-  pub async fn from_actor_produce_func_with_opts(producer: ActorProduceFunc, opts: Vec<PropsOptionFunc>) -> Props {
+  pub async fn from_actor_producer_with_opts(producer: ActorProducer, opts: Vec<PropsOptionFunc>) -> Props {
     let mut props = Props {
       on_init: Vec::new(),
       producer: Some(producer),
@@ -326,23 +328,23 @@ impl Props {
     props
   }
 
-  pub async fn from_actor_produce_func(producer: ActorProduceFunc) -> Props {
-    Props::from_actor_produce_func_with_opts(producer, vec![]).await
+  pub async fn from_actor_producer(actor_producer: ActorProducer) -> Props {
+    Props::from_actor_producer_with_opts(actor_producer, vec![]).await
   }
 
-  pub async fn from_actor_receive_func_with_opts(f: ActorReceiveFunc, opts: Vec<PropsOptionFunc>) -> Props {
-    let producer = ActorProduceFunc::new(move |_| {
-      let cloned = f.clone();
+  pub async fn from_actor_receiver_with_opts(actor_receiver: ActorReceiver, opts: Vec<PropsOptionFunc>) -> Props {
+    let producer = ActorProducer::new(move |_| {
+      let cloned = actor_receiver.clone();
       async move {
         let actor = ReceiveFuncActor(cloned);
         ActorHandle::new(actor)
       }
     });
-    Props::from_actor_produce_func_with_opts(producer, opts).await
+    Props::from_actor_producer_with_opts(producer, opts).await
   }
 
-  pub async fn from_actor_receive_func(f: ActorReceiveFunc) -> Props {
-    Props::from_actor_receive_func_with_opts(f, vec![]).await
+  pub async fn from_actor_receiver(f: ActorReceiver) -> Props {
+    Props::from_actor_receiver_with_opts(f, vec![]).await
   }
 
   pub async fn spawn(

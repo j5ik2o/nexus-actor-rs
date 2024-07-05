@@ -7,12 +7,12 @@ mod tests {
   use tokio::time::sleep;
   use tracing_subscriber::EnvFilter;
 
+  use crate::actor::actor::actor_receiver::ActorReceiver;
   use crate::actor::actor::props::Props;
-  use crate::actor::actor::actor_receive_func::ActorReceiveFunc;
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::context::{BasePart, MessagePart, SenderPart, SpawnerPart, StopperPart};
   use crate::actor::message::message::Message;
-  use crate::actor::message::message_handle::{MessageHandle};
+  use crate::actor::message::message_handle::MessageHandle;
   use crate::actor::message::message_or_envelope::MessageEnvelope;
   use crate::actor::message::response::{Response, ResponseHandle};
   use crate::actor::message::system_message::SystemMessage;
@@ -22,22 +22,22 @@ mod tests {
   async fn example() {
     let _ = env::set_var("RUST_LOG", "debug");
     let _ = tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
-        .try_init();
+      .with_env_filter(EnvFilter::from_default_env())
+      .try_init();
 
     let system = ActorSystem::new().await;
     let mut root_context = system.get_root_context().await;
 
-    let props = Props::from_actor_receive_func(ActorReceiveFunc::new(move |ctx| async move {
+    let props = Props::from_actor_receiver(ActorReceiver::new(move |ctx| async move {
       tracing::debug!("msg = {:?}", ctx.get_message().await.unwrap());
       Ok(())
     }))
-        .await;
+    .await;
 
     let pid = root_context.spawn(props).await;
     root_context
-        .send(pid.clone(), MessageHandle::new("Hello World".to_string()))
-        .await;
+      .send(pid.clone(), MessageHandle::new("Hello World".to_string()))
+      .await;
     sleep(Duration::from_secs(1)).await;
 
     root_context.stop_future(&pid).await.result().await.unwrap();
@@ -78,8 +78,8 @@ mod tests {
   async fn example_synchronous() {
     let _ = env::set_var("RUST_LOG", "debug");
     let _ = tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
-        .try_init();
+      .with_env_filter(EnvFilter::from_default_env())
+      .try_init();
 
     let b = AsyncBarrier::new(2);
     let cloned_b = b.clone();
@@ -87,7 +87,7 @@ mod tests {
     let system = ActorSystem::new().await;
     let mut root_context = system.get_root_context().await;
 
-    let callee_props = Props::from_actor_receive_func(ActorReceiveFunc::new(move |ctx| async move {
+    let callee_props = Props::from_actor_receiver(ActorReceiver::new(move |ctx| async move {
       let msg = ctx.get_message().await.unwrap();
       tracing::debug!("callee msg = {:?}", msg);
       if let Some(msg) = msg.as_any().downcast_ref::<MessageEnvelope>() {
@@ -96,11 +96,11 @@ mod tests {
       }
       Ok(())
     }))
-        .await;
+    .await;
     let callee_pid = root_context.spawn(callee_props).await;
     let cloned_callee_pid = callee_pid.clone();
 
-    let caller_props = Props::from_actor_receive_func(ActorReceiveFunc::new(move |mut ctx| {
+    let caller_props = Props::from_actor_receiver(ActorReceiver::new(move |mut ctx| {
       let cloned_b = cloned_b.clone();
       let cloned_callee_pid = cloned_callee_pid.clone();
       async move {
@@ -109,8 +109,8 @@ mod tests {
         if let Some(msg) = msg.as_any().downcast_ref::<SystemMessage>() {
           if let SystemMessage::Started(_) = msg {
             ctx
-                .request(cloned_callee_pid, MessageHandle::new(Request("PING".to_string())))
-                .await;
+              .request(cloned_callee_pid, MessageHandle::new(Request("PING".to_string())))
+              .await;
           }
         }
         if let Some(msg) = msg.as_any().downcast_ref::<Reply>() {
@@ -120,7 +120,7 @@ mod tests {
         Ok(())
       }
     }))
-        .await;
+    .await;
     let caller_pid = root_context.spawn(caller_props).await;
 
     b.wait().await;

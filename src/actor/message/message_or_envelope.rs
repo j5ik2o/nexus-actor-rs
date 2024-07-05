@@ -3,11 +3,10 @@ use std::fmt::Debug;
 
 use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::message::message::Message;
-use crate::actor::message::message_handle::{MessageHandle};
+use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::message::message_headers::MessageHeaders;
 use crate::actor::message::readonly_message_headers::ReadonlyMessageHeaders;
 use crate::actor::message::system_message::SystemMessage;
-
 
 #[derive(Debug, Clone)]
 pub struct MessageEnvelope {
@@ -110,10 +109,7 @@ pub fn unwrap_envelope(message: MessageHandle) -> (Option<MessageHeaders>, Messa
 
 pub fn unwrap_envelope_header(message: MessageHandle) -> Option<MessageHeaders> {
   if let Some(envelope) = message.as_any().downcast_ref::<MessageEnvelope>() {
-    envelope
-      .header
-      .clone()
-      .map(|h| MessageHeaders::with_values(h.to_map()))
+    envelope.header.clone().map(|h| MessageHeaders::with_values(h.to_map()))
   } else {
     None
   }

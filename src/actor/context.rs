@@ -1,19 +1,19 @@
 use std::fmt::Debug;
 
-use async_trait::async_trait;
 use crate::actor::actor::actor_error::ActorError;
-use crate::actor::actor::continuation_func::ContinuationFunc;
+use crate::actor::actor::actor_handle::ActorHandle;
+use crate::actor::actor::continuer::Continuer;
 use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::actor::props::Props;
-use crate::actor::actor::spawn_func::SpawnError;
-use crate::actor::actor::actor_handle::ActorHandle;
+use crate::actor::actor::spawner::SpawnError;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::future::Future;
 use crate::actor::message::message_handle::MessageHandle;
-use crate::actor::message::message_or_envelope::{MessageEnvelope, };
+use crate::actor::message::message_or_envelope::MessageEnvelope;
 use crate::actor::message::readonly_message_headers::ReadonlyMessageHeadersHandle;
 use crate::actor::message::response::ResponseHandle;
 use crate::ctxext::extensions::{ContextExtensionHandle, ContextExtensionId};
+use async_trait::async_trait;
 
 pub mod actor_context;
 mod actor_context_extras;
@@ -101,7 +101,7 @@ pub trait BasePart: Debug + Send + Sync + 'static {
   // Forward forwards current message to the given PID
   async fn forward(&self, pid: &ExtendedPid);
 
-  async fn reenter_after(&self, f: Future, continuation: ContinuationFunc);
+  async fn reenter_after(&self, f: Future, continuation: Continuer);
 }
 
 #[async_trait]

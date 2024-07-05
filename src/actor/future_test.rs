@@ -12,7 +12,7 @@ mod tests {
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::future::{FutureError, FutureProcess};
   use crate::actor::message::message::Message;
-  use crate::actor::message::message_handle::{MessageHandle};
+  use crate::actor::message::message_handle::MessageHandle;
   use crate::actor::process::{Process, ProcessHandle};
   use crate::actor::util::async_barrier::AsyncBarrier;
 
@@ -34,9 +34,9 @@ mod tests {
       };
       let id = actor_system.get_process_registry().await.next_id();
       let (pid, ok) = actor_system
-          .get_process_registry()
-          .await
-          .add_process(ProcessHandle::new(process.clone()), &format!("mock_{}", id));
+        .get_process_registry()
+        .await
+        .add_process(ProcessHandle::new(process.clone()), &format!("mock_{}", id));
       if !ok {
         panic!("failed to register mock process");
       }
@@ -94,8 +94,8 @@ mod tests {
     }
 
     future_process
-        .send_user_message(None, MessageHandle::new("hello".to_string()))
-        .await;
+      .send_user_message(None, MessageHandle::new("hello".to_string()))
+      .await;
 
     // タイムアウト付きで待機
     let timeout_result = tokio::time::timeout(Duration::from_secs(5), barrier.wait()).await;
@@ -222,8 +222,8 @@ mod tests {
     let system = ActorSystem::new().await;
     let future_process = FutureProcess::new(system, Duration::from_secs(1)).await;
     future_process
-        .complete(MessageHandle::new("response".to_string()))
-        .await;
+      .complete(MessageHandle::new("response".to_string()))
+      .await;
 
     let result = assert_future_success(&future_process).await;
     assert_eq!(result.as_any().downcast_ref::<String>().unwrap(), "response");

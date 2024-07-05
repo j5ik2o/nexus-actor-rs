@@ -24,7 +24,7 @@ mod tests {
     let event_stream = Arc::new(EventStream::new());
     let l = Logger::new(event_stream, Level::Min, "", vec![]);
     l.debug("foo", vec![Field::int("bar", 32), Field::bool("fum", false)])
-        .await;
+      .await;
   }
 
   #[tokio::test]
@@ -82,7 +82,7 @@ mod tests {
     let sub = subscribe_stream(&event_stream, move |evt: Event| {
       received_clone.write().unwrap().push(evt.message.clone());
     })
-        .await;
+    .await;
 
     publish_to_stream(&event_stream, Event::new(Level::Info, "Test message".to_string())).await;
 
@@ -101,8 +101,8 @@ mod tests {
     let sub = subscribe_stream(&event_stream, move |evt: Event| {
       received_clone.write().unwrap().push(evt.message.clone());
     })
-        .await
-        .with_min_level(Level::Warn);
+    .await
+    .with_min_level(Level::Warn);
 
     publish_to_stream(&event_stream, Event::new(Level::Info, "Info message".to_string())).await;
     publish_to_stream(&event_stream, Event::new(Level::Warn, "Warn message".to_string())).await;

@@ -1,10 +1,10 @@
-use std::any::Any;
-use std::fmt::Display;
 use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::actor::PoisonPill;
 use crate::actor::message::message::Message;
-use crate::actor::message::message_handle::{MessageHandle};
+use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::message::messages::{Restarting, Stopped, Stopping};
+use std::any::Any;
+use std::fmt::Display;
 
 #[derive(Debug, Clone)]
 pub enum AutoReceiveMessage {
@@ -55,6 +55,3 @@ impl Message for AutoReceiveMessage {
     self
   }
 }
-
-
-

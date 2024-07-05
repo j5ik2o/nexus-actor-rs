@@ -1,14 +1,12 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use async_trait::async_trait;
-use tokio::sync::Mutex;
 use crate::actor::actor::actor_error::ActorError;
-use crate::actor::actor::continuation_func::ContinuationFunc;
+use crate::actor::actor::actor_handle::ActorHandle;
+use crate::actor::actor::continuer::Continuer;
 use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::actor::props::Props;
-use crate::actor::actor::spawn_func::SpawnError;
-use crate::actor::actor::actor_handle::ActorHandle;
+use crate::actor::actor::spawner::SpawnError;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::{
   BasePart, Context, ExtensionContext, ExtensionPart, InfoPart, MessagePart, ReceiverContext, ReceiverPart,
@@ -16,10 +14,12 @@ use crate::actor::context::{
 };
 use crate::actor::future::Future;
 use crate::actor::message::message_handle::MessageHandle;
-use crate::actor::message::message_or_envelope::{MessageEnvelope};
+use crate::actor::message::message_or_envelope::MessageEnvelope;
 use crate::actor::message::readonly_message_headers::ReadonlyMessageHeadersHandle;
 use crate::actor::message::response::ResponseHandle;
 use crate::ctxext::extensions::{ContextExtensionHandle, ContextExtensionId};
+use async_trait::async_trait;
+use tokio::sync::Mutex;
 
 #[derive(Debug, Clone)]
 pub struct ContextHandle(Arc<Mutex<dyn Context>>);
@@ -197,7 +197,7 @@ impl BasePart for ContextHandle {
     mg.forward(pid).await
   }
 
-  async fn reenter_after(&self, f: Future, continuation: ContinuationFunc) {
+  async fn reenter_after(&self, f: Future, continuation: Continuer) {
     let mg = self.0.lock().await;
     mg.reenter_after(f, continuation).await
   }

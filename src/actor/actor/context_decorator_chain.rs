@@ -8,16 +8,16 @@ use crate::actor::context::context_handle::ContextHandle;
 
 // ContextDecoratorFunc
 #[derive(Clone)]
-pub struct ContextDecoratorChainFunc(Arc<dyn Fn(ContextHandle) -> BoxFuture<'static, ContextHandle> + Send + Sync>);
+pub struct ContextDecoratorChain(Arc<dyn Fn(ContextHandle) -> BoxFuture<'static, ContextHandle> + Send + Sync>);
 
-unsafe impl Send for ContextDecoratorChainFunc {}
-unsafe impl Sync for ContextDecoratorChainFunc {}
+unsafe impl Send for ContextDecoratorChain {}
+unsafe impl Sync for ContextDecoratorChain {}
 
-impl ContextDecoratorChainFunc {
+impl ContextDecoratorChain {
   pub fn new<F, Fut>(f: F) -> Self
   where
-      F: Fn(ContextHandle) -> Fut + Send + Sync + 'static,
-      Fut: Future<Output = ContextHandle> + Send + 'static, {
+    F: Fn(ContextHandle) -> Fut + Send + Sync + 'static,
+    Fut: Future<Output = ContextHandle> + Send + 'static, {
     Self(Arc::new(move |ch| Box::pin(f(ch)) as BoxFuture<'static, ContextHandle>))
   }
 
@@ -26,24 +26,22 @@ impl ContextDecoratorChainFunc {
   }
 }
 
-impl Debug for ContextDecoratorChainFunc {
+impl Debug for ContextDecoratorChain {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "ContextDecoratorFunc")
   }
 }
 
-impl PartialEq for ContextDecoratorChainFunc {
+impl PartialEq for ContextDecoratorChain {
   fn eq(&self, other: &Self) -> bool {
     Arc::ptr_eq(&self.0, &other.0)
   }
 }
 
-impl Eq for ContextDecoratorChainFunc {}
+impl Eq for ContextDecoratorChain {}
 
-impl std::hash::Hash for ContextDecoratorChainFunc {
+impl std::hash::Hash for ContextDecoratorChain {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
     (self.0.as_ref() as *const dyn Fn(ContextHandle) -> BoxFuture<'static, ContextHandle>).hash(state);
   }
 }
-
-

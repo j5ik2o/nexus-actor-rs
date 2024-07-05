@@ -4,14 +4,14 @@ use std::sync::Arc;
 use crate::actor::context::context_handle::ContextHandle;
 
 #[derive(Clone)]
-pub struct ContextHandleFunc(Arc<dyn Fn(ContextHandle) + Send + Sync>);
+pub struct ContextHandler(Arc<dyn Fn(ContextHandle) + Send + Sync>);
 
-unsafe impl Send for ContextHandleFunc {}
-unsafe impl Sync for ContextHandleFunc {}
+unsafe impl Send for ContextHandler {}
+unsafe impl Sync for ContextHandler {}
 
-impl ContextHandleFunc {
+impl ContextHandler {
   pub fn new(f: impl Fn(ContextHandle) + Send + Sync + 'static) -> Self {
-    ContextHandleFunc(Arc::new(f))
+    ContextHandler(Arc::new(f))
   }
 
   pub fn run(&self, ctx: ContextHandle) {
@@ -19,23 +19,22 @@ impl ContextHandleFunc {
   }
 }
 
-impl Debug for ContextHandleFunc {
+impl Debug for ContextHandler {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "ContextHandleFunc")
   }
 }
 
-impl PartialEq for ContextHandleFunc {
+impl PartialEq for ContextHandler {
   fn eq(&self, _other: &Self) -> bool {
     Arc::ptr_eq(&self.0, &_other.0)
   }
 }
 
-impl Eq for ContextHandleFunc {}
+impl Eq for ContextHandler {}
 
-impl std::hash::Hash for ContextHandleFunc {
+impl std::hash::Hash for ContextHandler {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
     (self.0.as_ref() as *const dyn Fn(ContextHandle)).hash(state);
   }
 }
-

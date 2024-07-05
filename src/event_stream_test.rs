@@ -1,13 +1,13 @@
 #[cfg(test)]
 mod tests {
   use std::any::Any;
-  use std::sync::Arc;
   use std::sync::atomic::{AtomicI32, Ordering};
+  use std::sync::Arc;
 
-  use tokio::sync::Mutex;
   use crate::actor::message::message::Message;
-  use crate::actor::message::message_handle::{MessageHandle};
+  use crate::actor::message::message_handle::MessageHandle;
   use crate::event_stream::{EventStream, HandlerFunc, PredicateFunc};
+  use tokio::sync::Mutex;
 
   #[derive(Debug)]
   pub struct TestString(pub String);
@@ -36,27 +36,27 @@ mod tests {
     let c2 = Arc::new(AtomicI32::new(0));
 
     let s1 = es
-        .subscribe(HandlerFunc::new({
-          let c1 = Arc::clone(&c1);
-          move |_| {
-            let c1 = c1.clone();
-            async move {
-              c1.fetch_add(1, Ordering::SeqCst);
-            }
+      .subscribe(HandlerFunc::new({
+        let c1 = Arc::clone(&c1);
+        move |_| {
+          let c1 = c1.clone();
+          async move {
+            c1.fetch_add(1, Ordering::SeqCst);
           }
-        }))
-        .await;
+        }
+      }))
+      .await;
     let s2 = es
-        .subscribe(HandlerFunc::new({
-          let c2 = Arc::clone(&c2);
-          move |_| {
-            let c2 = c2.clone();
-            async move {
-              c2.fetch_add(1, Ordering::SeqCst);
-            }
+      .subscribe(HandlerFunc::new({
+        let c2 = Arc::clone(&c2);
+        move |_| {
+          let c2 = c2.clone();
+          async move {
+            c2.fetch_add(1, Ordering::SeqCst);
           }
-        }))
-        .await;
+        }
+      }))
+      .await;
     assert_eq!(es.length(), 2);
 
     es.unsubscribe(s2).await;
@@ -92,7 +92,7 @@ mod tests {
         }
       }
     }))
-        .await;
+    .await;
 
     es.publish(MessageHandle::new(1)).await;
     assert_eq!(*v.lock().await, 1);
@@ -116,7 +116,7 @@ mod tests {
       }),
       PredicateFunc::new(|_| true),
     )
-        .await;
+    .await;
     es.publish(MessageHandle::new(TestString("".to_string()))).await;
 
     assert!(*called.lock().await);
@@ -137,7 +137,7 @@ mod tests {
       }),
       PredicateFunc::new(|_: MessageHandle| false),
     )
-        .await;
+    .await;
     es.publish(MessageHandle::new(TestString("".to_string()))).await;
 
     assert!(!*called.lock().await);
@@ -167,20 +167,20 @@ mod tests {
       // Reduced iterations for faster test
       for _ in 0..10 {
         let sub = es
-            .subscribe(HandlerFunc::new(move |evt| {
-              let i = i; // Capture i by value
-              let evt_data = if let Some(e) = evt.as_any().downcast_ref::<Event>() {
-                Some(e.i)
-              } else {
-                None
-              };
-              async move {
-                if let Some(evt_i) = evt_data {
-                  assert_eq!(evt_i, i, "expected i to be {} but its value is {}", i, evt_i);
-                }
+          .subscribe(HandlerFunc::new(move |evt| {
+            let i = i; // Capture i by value
+            let evt_data = if let Some(e) = evt.as_any().downcast_ref::<Event>() {
+              Some(e.i)
+            } else {
+              None
+            };
+            async move {
+              if let Some(evt_i) = evt_data {
+                assert_eq!(evt_i, i, "expected i to be {} but its value is {}", i, evt_i);
               }
-            }))
-            .await;
+            }
+          }))
+          .await;
         subs.push(sub);
       }
 

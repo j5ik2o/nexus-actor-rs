@@ -2,11 +2,10 @@ use std::env;
 use std::thread::sleep;
 
 use async_trait::async_trait;
-use tracing_subscriber::EnvFilter;
 use nexus_rs::actor::actor::actor::Actor;
 use nexus_rs::actor::actor::actor_error::ActorError;
 use nexus_rs::actor::actor::actor_handle::ActorHandle;
-use nexus_rs::actor::actor::actor_produce_func::ActorProduceFunc;
+use nexus_rs::actor::actor::actor_producer::ActorProducer;
 use nexus_rs::actor::actor::props::Props;
 use nexus_rs::actor::actor_system::ActorSystem;
 use nexus_rs::actor::context::context_handle::ContextHandle;
@@ -14,6 +13,7 @@ use nexus_rs::actor::context::{SenderPart, SpawnerPart};
 use nexus_rs::actor::dispatch::unbounded::unbounded_mpsc_mailbox_creator;
 use nexus_rs::actor::message::message::Message;
 use nexus_rs::actor::message::message_handle::MessageHandle;
+use tracing_subscriber::EnvFilter;
 
 #[derive(Debug, Clone)]
 struct Hello(pub String);
@@ -55,7 +55,7 @@ struct TopActor {}
 impl Actor for TopActor {
   async fn started(&self, mut context_handle: ContextHandle) -> Result<(), ActorError> {
     println!("TopActor::post_start");
-    let props = Props::from_actor_produce_func(ActorProduceFunc::new(create_child_actor)).await;
+    let props = Props::from_actor_producer(ActorProducer::new(create_child_actor)).await;
 
     let pid = context_handle.spawn(props).await;
     for _ in 1..10 {
@@ -89,9 +89,9 @@ async fn main() {
   let system = ActorSystem::new().await;
   let mut root = system.get_root_context().await;
 
-  let props = Props::from_actor_produce_func_with_opts(
-    ActorProduceFunc::new(create_top_actor),
-    vec![Props::with_mailbox(unbounded_mpsc_mailbox_creator())],
+  let props = Props::from_actor_producer_with_opts(
+    ActorProducer::new(create_top_actor),
+    vec![Props::with_mailbox_producer(unbounded_mpsc_mailbox_creator())],
   )
   .await;
 

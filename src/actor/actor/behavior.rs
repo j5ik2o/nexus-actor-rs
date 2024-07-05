@@ -1,14 +1,14 @@
 use std::fmt::Debug;
 
-use log::error;
 use crate::actor::actor::actor_error::ActorError;
-use crate::actor::actor::actor_receive_func::ActorReceiveFunc;
+use crate::actor::actor::actor_receiver::ActorReceiver;
 use crate::actor::context::context_handle::ContextHandle;
 use crate::actor::context::InfoPart;
+use log::error;
 
 #[derive(Debug, Clone)]
 pub struct Behavior {
-  stack: Vec<ActorReceiveFunc>,
+  stack: Vec<ActorReceiver>,
 }
 
 impl Behavior {
@@ -16,12 +16,12 @@ impl Behavior {
     Behavior { stack: vec![] }
   }
 
-  pub async fn context_become(&mut self, receive: ActorReceiveFunc) {
+  pub async fn context_become(&mut self, receive: ActorReceiver) {
     self.clear().await;
     self.push(receive).await;
   }
 
-  pub async fn context_become_stacked(&mut self, receive: ActorReceiveFunc) {
+  pub async fn context_become_stacked(&mut self, receive: ActorReceiver) {
     self.push(receive).await;
   }
 
@@ -40,12 +40,12 @@ impl Behavior {
 
   async fn clear(&mut self) {
     for i in 0..self.stack.len() {
-      self.stack[i] = ActorReceiveFunc::new(|_| async { Ok(()) });
+      self.stack[i] = ActorReceiver::new(|_| async { Ok(()) });
     }
     self.stack.clear();
   }
 
-  async fn peek(&self) -> Option<ActorReceiveFunc> {
+  async fn peek(&self) -> Option<ActorReceiver> {
     if let Some(last) = self.stack.last() {
       Some(last.clone())
     } else {
@@ -53,11 +53,11 @@ impl Behavior {
     }
   }
 
-  async fn push(&mut self, v: ActorReceiveFunc) {
+  async fn push(&mut self, v: ActorReceiver) {
     self.stack.push(v);
   }
 
-  async fn pop(&mut self) -> Option<ActorReceiveFunc> {
+  async fn pop(&mut self) -> Option<ActorReceiver> {
     self.stack.pop()
   }
 

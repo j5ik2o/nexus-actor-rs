@@ -23,7 +23,7 @@ mod tests {
         }
       }),
     )
-        .await;
+    .await;
 
     assert_eq!(throttle.should_throttle(), Valve::Open);
     assert_eq!(throttle.should_throttle(), Valve::Open);

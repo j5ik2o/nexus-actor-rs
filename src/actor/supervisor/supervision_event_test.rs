@@ -8,17 +8,17 @@ mod test {
   use tokio::time::sleep;
   use tracing_subscriber::EnvFilter;
 
-  use crate::actor::actor::actor_produce_func::ActorProduceFunc;
-  use crate::actor::actor::props::Props;
   use crate::actor::actor::actor::Actor;
   use crate::actor::actor::actor_error::ActorError;
   use crate::actor::actor::actor_handle::ActorHandle;
   use crate::actor::actor::actor_inner_error::ActorInnerError;
+  use crate::actor::actor::actor_producer::ActorProducer;
+  use crate::actor::actor::props::Props;
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::context::context_handle::ContextHandle;
   use crate::actor::context::{SenderPart, SpawnerPart};
   use crate::actor::message::message::Message;
-  use crate::actor::message::message_handle::{MessageHandle};
+  use crate::actor::message::message_handle::MessageHandle;
   use crate::actor::supervisor::exponential_backoff_strategy::ExponentialBackoffStrategy;
   use crate::actor::supervisor::strategy_all_for_one::AllForOneStrategy;
   use crate::actor::supervisor::strategy_one_for_one::OneForOneStrategy;
@@ -45,8 +45,8 @@ mod test {
   async fn test_supervisor_event_handle_from_event_stream() {
     let _ = env::set_var("RUST_LOG", "debug");
     let _ = tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
-        .try_init();
+      .with_env_filter(EnvFilter::from_default_env())
+      .try_init();
 
     let supervisors = vec![
       (
@@ -69,23 +69,23 @@ mod test {
       let (tx, mut rx) = mpsc::channel(100);
 
       system
-          .get_event_stream()
-          .await
-          .subscribe(HandlerFunc::new(move |evt| {
-            let tx = tx.clone();
-            async move {
-              if evt.as_any().downcast_ref::<SupervisorEvent>().is_some() {
-                tx.try_send(()).unwrap();
-              }
+        .get_event_stream()
+        .await
+        .subscribe(HandlerFunc::new(move |evt| {
+          let tx = tx.clone();
+          async move {
+            if evt.as_any().downcast_ref::<SupervisorEvent>().is_some() {
+              tx.try_send(()).unwrap();
             }
-          }))
-          .await;
+          }
+        }))
+        .await;
 
-      let props = Props::from_actor_produce_func_with_opts(
-        ActorProduceFunc::new(move |_| async { ActorHandle::new(PanicActor) }),
+      let props = Props::from_actor_producer_with_opts(
+        ActorProducer::new(move |_| async { ActorHandle::new(PanicActor) }),
         vec![Props::with_supervisor_strategy(strategy.clone())],
       )
-          .await;
+      .await;
 
       let mut root_context = system.get_root_context().await;
       let pid = root_context.spawn(props).await;
@@ -93,11 +93,11 @@ mod test {
       root_context.send(pid, MessageHandle::new("Fail!".to_string())).await;
 
       tokio::select! {
-        _ = rx.recv() => {},
-        _ = sleep(Duration::from_secs(5)) => {
-            panic!("Timeout waiting for SupervisorEvent");
-        }
-    }
+          _ = rx.recv() => {},
+          _ = sleep(Duration::from_secs(5)) => {
+              panic!("Timeout waiting for SupervisorEvent");
+          }
+      }
     }
   }
 }

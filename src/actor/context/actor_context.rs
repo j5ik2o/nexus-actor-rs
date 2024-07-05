@@ -4,20 +4,18 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use tokio::sync::Mutex;
 
-use crate::actor::actor::actor_produce_func::ActorProduceFunc;
-use crate::actor::actor::continuation_func::ContinuationFunc;
-use crate::actor::actor::pid::ExtendedPid;
-use crate::actor::actor::props::Props;
-use crate::actor::actor::receiver_middleware_chain_func::ReceiverMiddlewareChainFunc;
-use crate::actor::actor::sender_middleware_chain_func::SenderMiddlewareChainFunc;
-use crate::actor::actor::spawn_func::SpawnError;
-use crate::actor::actor::{
-  PoisonPill, Stop, Terminated, Unwatch, Watch,
-};
 use crate::actor::actor::actor::Actor;
 use crate::actor::actor::actor_error::ActorError;
 use crate::actor::actor::actor_handle::ActorHandle;
 use crate::actor::actor::actor_inner_error::ActorInnerError;
+use crate::actor::actor::actor_producer::ActorProducer;
+use crate::actor::actor::continuer::Continuer;
+use crate::actor::actor::pid::ExtendedPid;
+use crate::actor::actor::props::Props;
+use crate::actor::actor::receiver_middleware_chain::ReceiverMiddlewareChain;
+use crate::actor::actor::sender_middleware_chain::SenderMiddlewareChain;
+use crate::actor::actor::spawner::SpawnError;
+use crate::actor::actor::{PoisonPill, Stop, Terminated, Unwatch, Watch};
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::auto_respond::{AutoRespond, AutoRespondHandle};
 use crate::actor::context::actor_context_extras::ActorContextExtras;
@@ -36,7 +34,7 @@ use crate::actor::message::auto_receive_message::AutoReceiveMessage;
 use crate::actor::message::continuation::Continuation;
 use crate::actor::message::failure::Failure;
 use crate::actor::message::message::Message;
-use crate::actor::message::message_handle::{MessageHandle};
+use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::message::message_or_envelope::{
   unwrap_envelope_header, unwrap_envelope_sender, wrap_envelope, MessageEnvelope,
 };
@@ -61,7 +59,7 @@ pub struct ActorContextInner {
   parent: Option<ExtendedPid>,
   self_pid: Option<ExtendedPid>,
   receive_timeout: Option<tokio::time::Duration>,
-  producer: Option<ActorProduceFunc>,
+  producer: Option<ActorProducer>,
   message_or_envelope_opt: Option<MessageHandle>,
   state: Option<Arc<AtomicU8>>,
 }
@@ -217,12 +215,12 @@ impl ActorContext {
     // TODO: metrics
   }
 
-  async fn get_receiver_middleware_chain(&self) -> Option<ReceiverMiddlewareChainFunc> {
+  async fn get_receiver_middleware_chain(&self) -> Option<ReceiverMiddlewareChain> {
     let mg = self.inner.lock().await;
     mg.props.get_receiver_middleware_chain().clone()
   }
 
-  async fn get_sender_middleware_chain(&self) -> Option<SenderMiddlewareChainFunc> {
+  async fn get_sender_middleware_chain(&self) -> Option<SenderMiddlewareChain> {
     let mg = self.inner.lock().await;
     mg.props.get_sender_middleware_chain().clone()
   }
@@ -699,7 +697,7 @@ impl BasePart for ActorContext {
     }
   }
 
-  async fn reenter_after(&self, f: crate::actor::future::Future, continuation_func: ContinuationFunc) {
+  async fn reenter_after(&self, f: crate::actor::future::Future, continuer: Continuer) {
     let message = self.get_message_or_envelop().await;
     let f_clone = f.clone();
     let system = self.get_actor_system().await;
@@ -708,7 +706,7 @@ impl BasePart for ActorContext {
     f.continue_with(move |_, _| {
       let f = f_clone.clone();
       let message = message.clone();
-      let continuation = continuation_func.clone();
+      let continuation = continuer.clone();
       let system = system.clone();
       let self_ref = self_ref.clone();
 

@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
-use async_trait::async_trait;
-use tokio::sync::Mutex;
 use crate::actor::actor::actor_handle::ActorHandle;
 use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::actor::props::Props;
-use crate::actor::actor::spawn_func::SpawnError;
+use crate::actor::actor::spawner::SpawnError;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::{InfoPart, SpawnerContext, SpawnerPart};
+use async_trait::async_trait;
+use tokio::sync::Mutex;
 
 #[derive(Debug, Clone)]
 pub struct SpawnerContextHandle(Arc<Mutex<dyn SpawnerContext>>);

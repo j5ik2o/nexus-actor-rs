@@ -6,7 +6,8 @@ use async_trait::async_trait;
 
 use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::actor::Stop;
-use crate::actor::dispatch::mailbox::{Mailbox, MailboxHandle};
+use crate::actor::dispatch::mailbox::Mailbox;
+use crate::actor::dispatch::mailbox_handle::MailboxHandle;
 use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::message::system_message::SystemMessage;
 use crate::actor::process::Process;

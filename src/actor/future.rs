@@ -12,7 +12,7 @@ use crate::actor::actor::DeadLetterResponse;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::log::P_LOG;
 use crate::actor::message::message::Message;
-use crate::actor::message::message_handle::{MessageHandle};
+use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::process::{Process, ProcessHandle};
 use crate::log::field::Field;
 

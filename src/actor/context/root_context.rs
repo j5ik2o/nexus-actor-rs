@@ -2,14 +2,14 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
+use crate::actor::actor::actor_handle::ActorHandle;
 use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::actor::props::Props;
-use crate::actor::actor::sender_middleware_chain_func::SenderMiddlewareChainFunc;
-use crate::actor::actor::sender_middleware_func::SenderMiddlewareFunc;
-use crate::actor::actor::spawn_func::SpawnError;
-use crate::actor::actor::spawn_func::SpawnFunc;
+use crate::actor::actor::sender_middleware::SenderMiddleware;
+use crate::actor::actor::sender_middleware_chain::SenderMiddlewareChain;
+use crate::actor::actor::spawner::SpawnError;
+use crate::actor::actor::spawner::Spawner;
 use crate::actor::actor::{PoisonPill, Watch};
-use crate::actor::actor::actor_handle::ActorHandle;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::sender_context_handle::SenderContextHandle;
 use crate::actor::context::spawner_context_handle::SpawnerContextHandle;
@@ -20,7 +20,7 @@ use crate::actor::future::{Future, FutureProcess};
 use crate::actor::message::auto_receive_message::AutoReceiveMessage;
 use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::message::message_headers::MessageHeaders;
-use crate::actor::message::message_or_envelope::{MessageEnvelope};
+use crate::actor::message::message_or_envelope::MessageEnvelope;
 use crate::actor::message::readonly_message_headers::ReadonlyMessageHeadersHandle;
 use crate::actor::middleware_chain::make_sender_middleware_chain;
 use crate::actor::process::Process;
@@ -29,23 +29,19 @@ use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHand
 #[derive(Debug, Clone)]
 pub struct RootContext {
   actor_system: ActorSystem,
-  sender_middleware_chain_func: Option<SenderMiddlewareChainFunc>,
-  spawn_middleware_func: Option<SpawnFunc>,
+  sender_middleware_chain: Option<SenderMiddlewareChain>,
+  spawn_middleware: Option<Spawner>,
   message_headers: Arc<MessageHeaders>,
   guardian_strategy: Option<SupervisorStrategyHandle>,
 }
 
 impl RootContext {
-  pub fn new(
-    actor_system: ActorSystem,
-    headers: Arc<MessageHeaders>,
-    sender_middleware: &[SenderMiddlewareFunc],
-  ) -> Self {
+  pub fn new(actor_system: ActorSystem, headers: Arc<MessageHeaders>, sender_middleware: &[SenderMiddleware]) -> Self {
     Self {
       actor_system: actor_system.clone(),
-      sender_middleware_chain_func: make_sender_middleware_chain(
+      sender_middleware_chain: make_sender_middleware_chain(
         &sender_middleware,
-        SenderMiddlewareChainFunc::new(move |_, target, envelope| {
+        SenderMiddlewareChain::new(move |_, target, envelope| {
           let actor_system = actor_system.clone();
           async move {
             target
@@ -54,7 +50,7 @@ impl RootContext {
           }
         }),
       ),
-      spawn_middleware_func: None,
+      spawn_middleware: None,
       message_headers: headers,
       guardian_strategy: None,
     }
@@ -76,15 +72,10 @@ impl RootContext {
   }
 
   async fn send_user_message(&self, pid: ExtendedPid, message: MessageHandle) {
-    if self.sender_middleware_chain_func.is_some() {
+    if self.sender_middleware_chain.is_some() {
       let sch = SenderContextHandle::new(self.clone());
       let me = MessageEnvelope::new(message);
-      self
-        .sender_middleware_chain_func
-        .clone()
-        .unwrap()
-        .run(sch, pid, me)
-        .await;
+      self.sender_middleware_chain.clone().unwrap().run(sch, pid, me).await;
     } else {
       pid.send_user_message(self.actor_system.clone(), message).await;
     }
@@ -208,7 +199,7 @@ impl SpawnerPart for RootContext {
       root_context = root_context.with_guardian(self.guardian_strategy.clone().unwrap());
     }
 
-    match &root_context.spawn_middleware_func {
+    match &root_context.spawn_middleware {
       Some(sm) => {
         let sh = SpawnerContextHandle::new(root_context.clone());
         return sm

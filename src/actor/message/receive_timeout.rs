@@ -1,5 +1,5 @@
-use std::any::Any;
 use crate::actor::message::message::Message;
+use std::any::Any;
 
 #[derive(Debug, Clone)]
 pub struct ReceiveTimeout {}

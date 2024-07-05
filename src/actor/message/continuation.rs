@@ -3,9 +3,9 @@ use std::fmt::Debug;
 use std::future::Future;
 use std::sync::Arc;
 
-use futures::future::BoxFuture;
 use crate::actor::message::message::Message;
-use crate::actor::message::message_handle::{MessageHandle};
+use crate::actor::message::message_handle::MessageHandle;
+use futures::future::BoxFuture;
 
 #[derive(Clone)]
 pub(crate) struct Continuation {

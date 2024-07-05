@@ -1,6 +1,5 @@
 use std::any::Any;
 
-use async_trait::async_trait;
 use crate::actor::actor::actor_inner_error::ActorInnerError;
 use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::actor::restart_statistics::RestartStatistics;
@@ -8,6 +7,7 @@ use crate::actor::actor_system::ActorSystem;
 use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::supervisor::directive::Directive;
 use crate::actor::supervisor::supervisor_strategy::{log_failure, Supervisor, SupervisorHandle, SupervisorStrategy};
+use async_trait::async_trait;
 
 #[derive(Debug, Clone)]
 pub struct RestartingStrategy {}
