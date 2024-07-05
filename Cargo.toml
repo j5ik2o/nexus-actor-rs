@@ -1,8 +1,14 @@
 [package]
-name = "nexus-rs"
-version = "0.1.0"
+name = "nexus-acto-rs"
+version = "0.0.1"
 edition = "2021"
 build = "build.rs"
+description = "A Rust crate for Actors"
+license = "MIT OR Apache-2.0"
+keywords = [ "actors", "actor-model", "async", "tokio" ]
+categories = [ "concurrency", "asynchronous", "network-programming" ]
+readme = "README.md"
+repository = "https://github.com/j5ik2o/NEXUS-ACTo-rs"
 
 [dependencies]
 prost = "0.12.6"
@@ -12,9 +18,7 @@ futures = "0.3.30"
 tokio = { version = "1.37.0" , features = ["full"] }
 tokio-condvar = "0.3.0"
 thiserror = "1.0.61"
-anyhow = "1.0.45"
 oni-comb-uri-rs = "0.2.1"
-log = "0.4.21"
 rand = "0.9.0-alpha.1"
 base64-string-rs = "0.0.1"
 time = "0.3.36"
@@ -24,13 +28,11 @@ num_enum = "0.7.2"
 dashmap = "6.0.0-rc.1"
 siphasher = "1.0.1"
 uuid = { version = "1.9.0", features = ["v4"] }
-env_logger = "0.11.3"
 static_assertions = "1.1.0"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 [dev-dependencies]
-mockall = "0.12.1"
 rstest = "0.21.0"
 
 [build-dependencies]
