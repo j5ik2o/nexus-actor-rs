@@ -2,17 +2,17 @@ use std::env;
 use std::thread::sleep;
 
 use async_trait::async_trait;
-use nexus_rs::actor::actor::actor::Actor;
-use nexus_rs::actor::actor::actor_error::ActorError;
-use nexus_rs::actor::actor::actor_handle::ActorHandle;
-use nexus_rs::actor::actor::actor_producer::ActorProducer;
-use nexus_rs::actor::actor::props::Props;
-use nexus_rs::actor::actor_system::ActorSystem;
-use nexus_rs::actor::context::context_handle::ContextHandle;
-use nexus_rs::actor::context::{SenderPart, SpawnerPart};
-use nexus_rs::actor::dispatch::unbounded::unbounded_mpsc_mailbox_creator;
-use nexus_rs::actor::message::message::Message;
-use nexus_rs::actor::message::message_handle::MessageHandle;
+use nexus_acto_rs::actor::actor::actor::Actor;
+use nexus_acto_rs::actor::actor::actor_error::ActorError;
+use nexus_acto_rs::actor::actor::actor_handle::ActorHandle;
+use nexus_acto_rs::actor::actor::actor_producer::ActorProducer;
+use nexus_acto_rs::actor::actor::props::Props;
+use nexus_acto_rs::actor::actor_system::ActorSystem;
+use nexus_acto_rs::actor::context::context_handle::ContextHandle;
+use nexus_acto_rs::actor::context::{SenderPart, SpawnerPart};
+use nexus_acto_rs::actor::dispatch::unbounded::unbounded_mpsc_mailbox_creator;
+use nexus_acto_rs::actor::message::message::Message;
+use nexus_acto_rs::actor::message::message_handle::MessageHandle;
 use tracing_subscriber::EnvFilter;
 
 #[derive(Debug, Clone)]
