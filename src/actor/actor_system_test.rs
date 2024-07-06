@@ -54,7 +54,7 @@ mod tests {
   #[async_trait]
   impl Actor for MyActor {
     async fn receive(&mut self, _: ContextHandle, msg: MessageHandle) -> Result<(), ActorError> {
-      println!("{:?}", msg);
+      tracing::debug!("MyActor::receive: msg = {:?}", msg);
       self.b.wait().await;
       Ok(())
     }

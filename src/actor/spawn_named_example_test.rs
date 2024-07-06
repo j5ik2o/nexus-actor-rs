@@ -19,6 +19,7 @@ mod tests {
     let _ = tracing_subscriber::fmt()
       .with_env_filter(EnvFilter::from_default_env())
       .try_init();
+
     let b = AsyncBarrier::new(2);
 
     let system = ActorSystem::new().await;
@@ -29,7 +30,7 @@ mod tests {
       async move {
         let msg = ctx.get_message().await.unwrap();
         if let Some(SystemMessage::Started(_)) = msg.as_any().downcast_ref::<SystemMessage>() {
-          println!("Hello World!");
+          tracing::debug!("Hello World!");
           cloned_b.wait().await;
         }
         Ok(())
@@ -37,8 +38,7 @@ mod tests {
     }))
     .await;
 
-    let result = system.get_root_context().await.spawn_named(props, "my-actor").await;
-    if let Err(err) = result {
+    if let Err(err) = system.get_root_context().await.spawn_named(props, "my-actor").await {
       panic!("Failed to spawn actor: {:?}", err);
     }
 

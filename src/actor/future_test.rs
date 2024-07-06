@@ -52,7 +52,7 @@ mod tests {
   #[async_trait]
   impl Process for MockProcess {
     async fn send_user_message(&self, _: Option<&ExtendedPid>, _: MessageHandle) {
-      println!("MockProcess {} received message", self.name); // デバッグログ
+      tracing::debug!("MockProcess {} received message", self.name); // デバッグログ
       self.received.store(true, Ordering::SeqCst);
       self.notify.notify_one();
     }
