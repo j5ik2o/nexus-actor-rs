@@ -14,7 +14,7 @@ mod tests {
   use crate::actor::message::message::Message;
   use crate::actor::message::message_handle::MessageHandle;
   use crate::actor::message::message_or_envelope::MessageEnvelope;
-  use crate::actor::message::response::{Response, ResponseHandle};
+  use crate::actor::message::response::ResponseHandle;
   use crate::actor::message::system_message::SystemMessage;
   use crate::actor::util::async_barrier::AsyncBarrier;
 
@@ -68,11 +68,11 @@ mod tests {
     }
   }
 
-  impl Response for Reply {
-    fn eq_response(&self, other: &dyn Response) -> bool {
-      self.0 == other.as_any().downcast_ref::<Reply>().unwrap().0
-    }
-  }
+  // impl Response for Reply {
+  //   fn eq_response(&self, other: &dyn Response) -> bool {
+  //     self.0 == other.as_any().downcast_ref::<Reply>().unwrap().0
+  //   }
+  // }
 
   #[tokio::test]
   async fn example_synchronous() {

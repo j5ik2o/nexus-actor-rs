@@ -124,9 +124,12 @@ pub fn unwrap_envelope_message(message: MessageHandle) -> MessageHandle {
 }
 
 pub fn unwrap_envelope_sender(message: MessageHandle) -> Option<ExtendedPid> {
+  tracing::debug!("unwrap_envelope_sender: message = {:?}", message);
   if let Some(envelope) = message.as_any().downcast_ref::<MessageEnvelope>() {
+    tracing::debug!("unwrap_envelope_sender: envelope.sender = {:?}", envelope.sender);
     envelope.sender.clone()
   } else {
+    tracing::debug!("unwrap_envelope_sender: None");
     None
   }
 }

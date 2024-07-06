@@ -1,4 +1,5 @@
 use std::fmt::Debug;
+use std::future::Future;
 use std::sync::Arc;
 
 use futures::future::BoxFuture;
@@ -15,10 +16,11 @@ unsafe impl Send for Continuer {}
 unsafe impl Sync for Continuer {}
 
 impl Continuer {
-  pub fn new<F>(f: F) -> Self
+  pub fn new<F, Fut>(f: F) -> Self
   where
-    F: Fn(Option<MessageHandle>, Option<FutureError>) -> BoxFuture<'static, ()> + Send + Sync + 'static, {
-    Self(Arc::new(f))
+    F: Fn(Option<MessageHandle>, Option<FutureError>) -> Fut + Send + Sync + 'static,
+    Fut: Future<Output = ()> + Send + 'static, {
+    Self(Arc::new(move |m, e| Box::pin(f(m, e))))
   }
 
   pub async fn run(&self, result: Option<MessageHandle>, error: Option<FutureError>) {

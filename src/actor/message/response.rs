@@ -7,6 +7,12 @@ pub trait Response: Message + Debug + Send + Sync + 'static {
   fn eq_response(&self, other: &dyn Response) -> bool;
 }
 
+impl<T: Message + 'static> Response for T {
+  fn eq_response(&self, other: &dyn Response) -> bool {
+    other.eq_message(self)
+  }
+}
+
 #[derive(Debug, Clone)]
 pub struct ResponseHandle(Arc<dyn Response>);
 
@@ -42,8 +48,8 @@ impl Message for ResponseHandle {
   }
 }
 
-impl Response for ResponseHandle {
-  fn eq_response(&self, other: &dyn Response) -> bool {
-    self.0.eq_response(other)
-  }
-}
+// impl Response for ResponseHandle {
+//   fn eq_response(&self, other: &dyn Response) -> bool {
+//     self.0.eq_response(other)
+//   }
+// }
