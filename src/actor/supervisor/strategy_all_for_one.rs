@@ -9,7 +9,7 @@ use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::supervisor::directive::Directive;
 use crate::actor::supervisor::strategy_one_for_one::default_decider;
 use crate::actor::supervisor::supervisor_strategy::{
-    log_failure, Decider, Supervisor, SupervisorHandle, SupervisorStrategy,
+  log_failure, Decider, Supervisor, SupervisorHandle, SupervisorStrategy,
 };
 use async_trait::async_trait;
 use tokio::time::Duration;

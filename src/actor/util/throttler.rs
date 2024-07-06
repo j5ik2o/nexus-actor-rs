@@ -38,11 +38,7 @@ impl ThrottleCallback {
 }
 
 impl Throttle {
-  pub async fn new(
-    max_events_in_period: usize,
-    period: Duration,
-    throttled_callback: ThrottleCallback,
-  ) -> Arc<Self> {
+  pub async fn new(max_events_in_period: usize, period: Duration, throttled_callback: ThrottleCallback) -> Arc<Self> {
     let throttle = Arc::new(Self {
       current_events: Arc::new(AtomicUsize::new(0)),
       max_events_in_period,

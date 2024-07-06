@@ -13,9 +13,9 @@ mod tests {
     let callback_called_clone = Arc::clone(&callback_called);
 
     let throttle = Throttle::new(
-        10,
-        Duration::from_millis(100),
-        ThrottleCallback::new(move |_| {
+      10,
+      Duration::from_millis(100),
+      ThrottleCallback::new(move |_| {
         let callback_called = callback_called_clone.clone();
         async move {
           let mut called = callback_called.lock().await;
