@@ -29,7 +29,7 @@ mod tests {
     let mut root_context = system.get_root_context().await;
 
     let props = Props::from_actor_receiver(ActorReceiver::new(move |ctx| async move {
-      tracing::debug!("msg = {:?}", ctx.get_message().await.unwrap());
+      tracing::debug!("msg = {:?}", ctx.get_message_opt().await.unwrap());
       Ok(())
     }))
     .await;
@@ -88,7 +88,7 @@ mod tests {
     let mut root_context = system.get_root_context().await;
 
     let callee_props = Props::from_actor_receiver(ActorReceiver::new(move |ctx| async move {
-      let msg = ctx.get_message().await.unwrap();
+      let msg = ctx.get_message().await;
       tracing::debug!("callee msg = {:?}", msg);
       if let Some(msg) = msg.as_any().downcast_ref::<MessageEnvelope>() {
         tracing::debug!("{:?}", msg);
@@ -104,7 +104,7 @@ mod tests {
       let cloned_b = cloned_b.clone();
       let cloned_callee_pid = cloned_callee_pid.clone();
       async move {
-        let msg = ctx.get_message().await.unwrap();
+        let msg = ctx.get_message().await;
         tracing::debug!("caller msg = {:?}", msg);
         if let Some(msg) = msg.as_any().downcast_ref::<SystemMessage>() {
           if let SystemMessage::Started(_) = msg {

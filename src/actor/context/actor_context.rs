@@ -1,7 +1,7 @@
+use async_trait::async_trait;
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::Arc;
-
-use async_trait::async_trait;
+use std::time::Duration;
 use tokio::sync::Mutex;
 
 use crate::actor::actor::actor::Actor;
@@ -136,7 +136,10 @@ impl ActorContext {
       if extras.get_receive_timeout_timer().await.is_some() {
         self.cancel_receive_timeout().await;
         self
-          .send(self.get_self().await.unwrap(), MessageHandle::new(ReceiveTimeout {}))
+          .send(
+            self.get_self_opt().await.unwrap(),
+            MessageHandle::new(ReceiveTimeout {}),
+          )
           .await;
       }
     }
@@ -165,11 +168,11 @@ impl ActorContext {
   }
 
   async fn default_receive(&mut self) -> Result<(), ActorError> {
-    let message = self.get_message().await.expect("Failed to retrieve message");
+    let message = self.get_message_opt().await.expect("Failed to retrieve message");
     tracing::debug!("ActorContext::default_receive: message = {:?}", message);
     if message.as_any().is::<PoisonPill>() {
       // tracing::debug!("PoisonPill received");
-      let me = self.get_self().await.unwrap();
+      let me = self.get_self_opt().await.unwrap();
       self.stop(&me).await;
       Ok(())
     } else {
@@ -289,7 +292,7 @@ impl ActorContext {
   async fn restart(&mut self) -> Result<(), ActorError> {
     self.incarnate_actor().await;
     self
-      .get_self()
+      .get_self_opt()
       .await
       .unwrap()
       .send_system_message(
@@ -324,7 +327,7 @@ impl ActorContext {
       .await
       .get_process_registry()
       .await
-      .remove_process(&self.get_self().await.unwrap());
+      .remove_process(&self.get_self_opt().await.unwrap());
     let msg = MessageHandle::new(AutoReceiveMessage::Stopped(Stopped {}));
     let result = self.invoke_user_message(msg).await;
     if result.is_err() {
@@ -332,7 +335,7 @@ impl ActorContext {
       return result;
     }
     let other_stopped = MessageHandle::new(Terminated {
-      who: self.get_self().await.map(|x| x.inner),
+      who: self.get_self_opt().await.map(|x| x.inner_pid),
       why: 0,
     });
     if let Some(extras) = self.get_extras().await {
@@ -466,7 +469,7 @@ impl ActorContext {
   }
 
   async fn handle_child_failure(&mut self, f: &Failure) {
-    let self_pid = self.get_self().await.unwrap();
+    let self_pid = self.get_self_opt().await.unwrap();
     tracing::debug!("ActorContext::handle_child_failure: start: self = {}", self_pid,);
     let actor = self.get_actor().await.unwrap();
     if let Some(s) = actor.get_supervisor_strategy().await {
@@ -526,7 +529,7 @@ impl ActorContext {
       .handle_child_failure(
         &self.get_actor_system().await,
         SupervisorHandle::new(self.clone()),
-        self.get_self().await.unwrap(),
+        self.get_self_opt().await.unwrap(),
         failure.restart_stats.clone(),
         failure.reason.clone(),
         failure.message.clone(),
@@ -543,7 +546,7 @@ impl InfoPart for ActorContext {
     mg.parent.clone()
   }
 
-  async fn get_self(&self) -> Option<ExtendedPid> {
+  async fn get_self_opt(&self) -> Option<ExtendedPid> {
     let mg = self.inner.lock().await;
     mg.self_pid.clone()
   }
@@ -612,11 +615,11 @@ impl BasePart for ActorContext {
   async fn stash(&mut self) {
     let extra = self.ensure_extras().await;
     let mut stash = extra.get_stash().await;
-    stash.push(self.get_message().await.unwrap()).await;
+    stash.push(self.get_message_opt().await.unwrap()).await;
   }
 
   async fn watch(&mut self, pid: &ExtendedPid) {
-    let id = self.get_self().await.unwrap().inner;
+    let id = self.get_self_opt().await.unwrap().inner_pid;
     pid
       .send_system_message(
         self.get_actor_system().await,
@@ -626,7 +629,7 @@ impl BasePart for ActorContext {
   }
 
   async fn unwatch(&mut self, pid: &ExtendedPid) {
-    let id = self.get_self().await.unwrap().inner;
+    let id = self.get_self_opt().await.unwrap().inner_pid;
     pid
       .send_system_message(
         self.get_actor_system().await,
@@ -692,47 +695,41 @@ impl BasePart for ActorContext {
     }
   }
 
-  async fn reenter_after(&self, f: crate::actor::future::Future, continuer: Continuer) {
-    tracing::debug!("reenter_after: start");
+  async fn reenter_after(&self, future: crate::actor::future::Future, continuer: Continuer) {
     let message = self.get_message_or_envelop().await;
-    let f_clone = f.clone();
     let system = self.get_actor_system().await;
-    let self_ref = self.get_self().await.unwrap();
+    let self_ref = self.get_self_opt().await.unwrap();
 
-    f.continue_with(move |result_message, result_error| {
-      tracing::debug!("reenter_after: continue_with: start");
-      let f = f_clone.clone();
-      let message = message.clone();
-      let continuation = continuer.clone();
-      let system = system.clone();
-      let self_ref = self_ref.clone();
+    future
+      .continue_with(move |result_message, result_error| {
+        let message = message.clone();
+        let continuation = continuer.clone();
+        let system = system.clone();
+        let self_ref = self_ref.clone();
 
-      async move {
-        tracing::debug!("reenter_after: continue_with: f = {:?}", f);
-        tracing::debug!("reenter_after: continue_with: result_message = {:?}", result_message);
-        tracing::debug!("reenter_after: continue_with: result_error = {:?}", result_error);
-        self_ref
-          .send_system_message(
-            system,
-            MessageHandle::new(Continuation::new(message, move || {
-              let continuation = continuation.clone();
-              let result_message = result_message.clone();
-              let result_error = result_error.clone();
-              async move {
-                continuation.run(result_message, result_error).await;
-              }
-            })),
-          )
-          .await
-      }
-    })
-    .await
+        async move {
+          self_ref
+            .send_system_message(
+              system,
+              MessageHandle::new(Continuation::new(message, move || {
+                let continuation = continuation.clone();
+                let result_message = result_message.clone();
+                let result_error = result_error.clone();
+                async move {
+                  continuation.run(result_message, result_error).await;
+                }
+              })),
+            )
+            .await
+        }
+      })
+      .await
   }
 }
 
 #[async_trait]
 impl MessagePart for ActorContext {
-  async fn get_message(&self) -> Option<MessageHandle> {
+  async fn get_message_opt(&self) -> Option<MessageHandle> {
     let inner_mg = self.inner.lock().await;
     let mg = inner_mg.message_or_envelope_opt.lock().await;
     let result = if let Some(message_or_envelope) = &*mg {
@@ -757,17 +754,11 @@ impl MessagePart for ActorContext {
 #[async_trait]
 impl SenderPart for ActorContext {
   async fn get_sender(&self) -> Option<ExtendedPid> {
-    tracing::debug!("ActorContext::get_sender: start");
     let inner_mg = self.inner.lock().await;
     let mg = inner_mg.message_or_envelope_opt.lock().await;
-    tracing::debug!("ActorContext::get_sender: inner_mg = {:?}", inner_mg);
-    tracing::debug!("ActorContext::get_sender: self_pid = {:?}", inner_mg.self_pid);
-    tracing::debug!("ActorContext::get_sender: message_or_envelope_opt = {:?}", mg);
     if let Some(message_or_envelope) = &*mg {
-      tracing::debug!("get_sender: message_or_envelope = {:?}", message_or_envelope);
       unwrap_envelope_sender(message_or_envelope.clone())
     } else {
-      tracing::debug!("get_sender: None");
       None
     }
   }
@@ -777,7 +768,7 @@ impl SenderPart for ActorContext {
   }
 
   async fn request(&mut self, pid: ExtendedPid, message: MessageHandle) {
-    let env = MessageEnvelope::new(message).with_sender(self.get_self().await.unwrap());
+    let env = MessageEnvelope::new(message).with_sender(self.get_self_opt().await.unwrap());
     let message_handle = MessageHandle::new(env);
     self.send_user_message(pid, message_handle).await;
   }
@@ -792,7 +783,7 @@ impl SenderPart for ActorContext {
     &self,
     pid: ExtendedPid,
     message: MessageHandle,
-    timeout: &tokio::time::Duration,
+    timeout: Duration,
   ) -> crate::actor::future::Future {
     let future_process = FutureProcess::new(self.get_actor_system().await, timeout.clone()).await;
     let future_pid = future_process.get_pid().await;
@@ -805,17 +796,9 @@ impl SenderPart for ActorContext {
 #[async_trait]
 impl ReceiverPart for ActorContext {
   async fn receive(&mut self, envelope: MessageEnvelope) -> Result<(), ActorError> {
-    {
-      let inner_mg = self.inner.lock().await;
-      let mut mg = inner_mg.message_or_envelope_opt.lock().await;
-      *mg = Some(MessageHandle::new(envelope));
-    }
+    self.set_message_or_envelope(MessageHandle::new(envelope)).await;
     let result = self.default_receive().await;
-    {
-      let inner_mg = self.inner.lock().await;
-      let mut mg = inner_mg.message_or_envelope_opt.lock().await;
-      *mg = None;
-    }
+    self.reset_message_or_envelope().await;
     result
   }
 }
@@ -856,7 +839,7 @@ impl SpawnerPart for ActorContext {
     if props.get_guardian_strategy().is_some() {
       panic!("props used to spawn child cannot have GuardianStrategy")
     }
-    let id = format!("{}/{}", self.get_self().await.unwrap().id(), id);
+    let id = format!("{}/{}", self.get_self_opt().await.unwrap().id(), id);
     let result = match self.get_props().await.get_spawn_middleware_chain() {
       Some(chain) => {
         let sch = SpawnerContextHandle::new(self.clone());
@@ -890,17 +873,15 @@ impl StopperPart for ActorContext {
 
   async fn stop_future(&mut self, pid: &ExtendedPid) -> crate::actor::future::Future {
     let future_process = FutureProcess::new(self.get_actor_system().await, tokio::time::Duration::from_secs(10)).await;
-
     pid
       .send_system_message(
         self.get_actor_system().await,
         MessageHandle::new(Watch {
-          watcher: Some(future_process.get_pid().await.inner),
+          watcher: Some(future_process.get_pid().await.inner_pid),
         }),
       )
       .await;
     self.stop(pid).await;
-
     future_process.get_future().await
   }
 
@@ -921,7 +902,7 @@ impl StopperPart for ActorContext {
       .send_system_message(
         self.get_actor_system().await,
         MessageHandle::new(Watch {
-          watcher: Some(future_process.get_pid().await.inner),
+          watcher: Some(future_process.get_pid().await.inner_pid),
         }),
       )
       .await;
@@ -985,27 +966,9 @@ impl MessageInvoker for ActorContext {
       }
     }
     if let Some(c) = message.as_any().downcast_ref::<Continuation>() {
-      tracing::debug!("Continuation message received: msg = {:?}", c.message);
-      {
-        tracing::debug!("Continuation message received: start: c.message = {:?}", c.message);
-        let inner_mg = self.inner.lock().await;
-        let mut mg = inner_mg.message_or_envelope_opt.lock().await;
-        tracing::debug!(
-          "Continuation message received: start: mg.message_or_envelope_opt = {:?}",
-          mg
-        );
-        *mg = Some(c.message.clone());
-        tracing::debug!(
-          "Continuation message received: finished: mg.message_or_envelope_opt = {:?}",
-          mg
-        );
-      }
+      self.set_message_or_envelope(c.message.clone()).await;
       (c.f).run().await;
-      {
-        let inner_mg = self.inner.lock().await.clone();
-        let mut mg = inner_mg.message_or_envelope_opt.lock().await;
-        *mg = None;
-      }
+      self.reset_message_or_envelope().await;
     }
     if let Some(w) = message.as_any().downcast_ref::<Watch>() {
       self.handle_watch(w).await;
@@ -1077,13 +1040,13 @@ impl MessageInvoker for ActorContext {
     // TODO: Metrics
 
     let failure = Failure::new(
-      self.get_self().await.unwrap(),
+      self.get_self_opt().await.unwrap(),
       reason.clone(),
       self.ensure_extras().await.restart_stats().await,
       message.clone(),
     );
 
-    let self_pid = self.get_self().await.unwrap();
+    let self_pid = self.get_self_opt().await.unwrap();
     tracing::debug!(
       "MessageInvoker::escalate_failure: send failure message: start: from = {}, to = {}",
       self_pid,
@@ -1136,7 +1099,7 @@ impl Supervisor for ActorContext {
 
   async fn escalate_failure(&self, reason: ActorInnerError, message: MessageHandle) {
     tracing::debug!("ActorContext::escalate_failure: reason = {:?}", reason);
-    let self_pid = self.get_self().await.expect("Failed to retrieve self_pid");
+    let self_pid = self.get_self_opt().await.expect("Failed to retrieve self_pid");
     if self
       .get_actor_system()
       .await
@@ -1171,7 +1134,7 @@ impl Supervisor for ActorContext {
     );
 
     self
-      .get_self()
+      .get_self_opt()
       .await
       .unwrap()
       .send_system_message(self.get_actor_system().await, MessageHandle::new(failure.clone()))

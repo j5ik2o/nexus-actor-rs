@@ -73,7 +73,7 @@ static DEFAULT_SPAWNER: Lazy<Spawner> = Lazy::new(|| {
     |actor_system: ActorSystem, name: String, props: Props, parent_context: SpawnerContextHandle| {
       async move {
         tracing::debug!("Spawn actor: {}", name);
-        let mut ctx = ActorContext::new(actor_system.clone(), props.clone(), parent_context.get_self().await).await;
+        let mut ctx = ActorContext::new(actor_system.clone(), props.clone(), parent_context.get_self_opt().await).await;
         let mut mb = props.produce_mailbox().await;
         // prepare the mailbox number counter
 

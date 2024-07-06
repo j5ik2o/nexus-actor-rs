@@ -23,14 +23,14 @@ mod tests {
   async fn test_actor_system_new() {
     let system = ActorSystem::new().await;
     let root = system.get_root_context().await;
-    assert_eq!(root.get_self().await, None);
+    assert_eq!(root.get_self_opt().await, None);
   }
 
   #[tokio::test]
   async fn test_actor_system_new_with_config() {
     let system = ActorSystem::new_with_config(Config::default()).await;
     let root = system.get_root_context().await;
-    assert_eq!(root.get_self().await, None);
+    assert_eq!(root.get_self_opt().await, None);
   }
 
   #[derive(Debug, Clone)]

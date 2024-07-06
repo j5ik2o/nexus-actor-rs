@@ -58,9 +58,9 @@ impl InfoPart for ContextHandle {
     mg.get_parent().await
   }
 
-  async fn get_self(&self) -> Option<ExtendedPid> {
+  async fn get_self_opt(&self) -> Option<ExtendedPid> {
     let mg = self.0.lock().await;
-    mg.get_self().await
+    mg.get_self_opt().await
   }
 
   async fn set_self(&mut self, pid: ExtendedPid) {
@@ -101,7 +101,7 @@ impl SenderPart for ContextHandle {
     mg.request_with_custom_sender(pid, message, sender).await
   }
 
-  async fn request_future(&self, pid: ExtendedPid, message: MessageHandle, timeout: &Duration) -> Future {
+  async fn request_future(&self, pid: ExtendedPid, message: MessageHandle, timeout: Duration) -> Future {
     let mg = self.0.lock().await;
     mg.request_future(pid, message, timeout).await
   }
@@ -109,9 +109,9 @@ impl SenderPart for ContextHandle {
 
 #[async_trait]
 impl MessagePart for ContextHandle {
-  async fn get_message(&self) -> Option<MessageHandle> {
+  async fn get_message_opt(&self) -> Option<MessageHandle> {
     let mg = self.0.lock().await;
-    mg.get_message().await
+    mg.get_message_opt().await
   }
 
   async fn get_message_header(&self) -> Option<ReadonlyMessageHeadersHandle> {

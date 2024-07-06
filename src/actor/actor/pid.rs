@@ -32,20 +32,20 @@ impl std::fmt::Display for Pid {
 
 #[derive(Debug, Clone)]
 pub struct ExtendedPid {
-  pub inner: Pid,
+  pub(crate) inner_pid: Pid,
   actor_system: ActorSystem,
   process_handle: Arc<Mutex<Option<ProcessHandle>>>,
 }
 
 impl Display for ExtendedPid {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    write!(f, "{}", self.inner)
+    write!(f, "{}", self.inner_pid)
   }
 }
 
 impl PartialEq for ExtendedPid {
   fn eq(&self, other: &Self) -> bool {
-    self.inner == other.inner
+    self.inner_pid == other.inner_pid
   }
 }
 
@@ -56,22 +56,22 @@ static_assertions::assert_impl_all!(ExtendedPid: Send, Sync);
 impl ExtendedPid {
   pub fn new(pid: Pid, actor_system: ActorSystem) -> Self {
     Self {
-      inner: pid,
+      inner_pid: pid,
       actor_system,
       process_handle: Arc::new(Mutex::new(None)),
     }
   }
 
   pub fn address(&self) -> &str {
-    &self.inner.address
+    &self.inner_pid.address
   }
 
   pub fn id(&self) -> &str {
-    &self.inner.id
+    &self.inner_pid.id
   }
 
   pub fn request_id(&self) -> u32 {
-    self.inner.request_id
+    self.inner_pid.request_id
   }
 
   pub(crate) async fn ref_process(&self, actor_system: ActorSystem) -> ProcessHandle {
