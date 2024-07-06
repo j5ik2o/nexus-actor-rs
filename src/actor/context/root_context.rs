@@ -3,6 +3,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use crate::actor::actor::actor_handle::ActorHandle;
+use crate::actor::actor::middleware_chain::make_sender_middleware_chain;
 use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::actor::props::Props;
 use crate::actor::actor::sender_middleware::SenderMiddleware;
@@ -22,7 +23,6 @@ use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::message::message_headers::MessageHeaders;
 use crate::actor::message::message_or_envelope::MessageEnvelope;
 use crate::actor::message::readonly_message_headers::ReadonlyMessageHeadersHandle;
-use crate::actor::middleware_chain::make_sender_middleware_chain;
 use crate::actor::process::Process;
 use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
 

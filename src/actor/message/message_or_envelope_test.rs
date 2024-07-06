@@ -40,7 +40,7 @@ mod test {
 
     let props = Props::from_actor_receiver(ActorReceiver::new(move |ctx| async move {
       let msg = ctx.get_message().await;
-      if let Some(msg) = msg.as_any().downcast_ref::<MessageEnvelope>() {
+      if let Some(_) = msg.as_any().downcast_ref::<MessageEnvelope>() {
         let l = ctx.get_message_header().await.map(|v| v.keys().len()).unwrap_or(0);
         ctx.respond(ResponseHandle::new(Length(l))).await
       }

@@ -14,6 +14,10 @@ use crate::actor::actor::actor_receiver::ActorReceiver;
 use crate::actor::actor::context_decorator::ContextDecorator;
 use crate::actor::actor::context_decorator_chain::ContextDecoratorChain;
 use crate::actor::actor::context_handler::ContextHandler;
+use crate::actor::actor::middleware_chain::{
+  make_context_decorator_chain, make_receiver_middleware_chain, make_sender_middleware_chain,
+  make_spawn_middleware_chain,
+};
 use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::actor::receiver_middleware::ReceiverMiddleware;
 use crate::actor::actor::receiver_middleware_chain::ReceiverMiddlewareChain;
@@ -35,10 +39,6 @@ use crate::actor::dispatch::unbounded::unbounded_mailbox_creator_with_opts;
 use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::message::messages::Started;
 use crate::actor::message::system_message::SystemMessage;
-use crate::actor::middleware_chain::{
-  make_context_decorator_chain, make_receiver_middleware_chain, make_sender_middleware_chain,
-  make_spawn_middleware_chain,
-};
 use crate::actor::process::ProcessHandle;
 use crate::actor::supervisor::supervisor_strategy::DEFAULT_SUPERVISION_STRATEGY;
 use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
