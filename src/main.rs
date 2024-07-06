@@ -1,7 +1,6 @@
 use std::env;
 
 use async_trait::async_trait;
-use tokio::time::sleep;
 use nexus_acto_rs::actor::actor::actor::Actor;
 use nexus_acto_rs::actor::actor::actor_error::ActorError;
 use nexus_acto_rs::actor::actor::actor_handle::ActorHandle;
@@ -13,6 +12,7 @@ use nexus_acto_rs::actor::context::{SenderPart, SpawnerPart};
 use nexus_acto_rs::actor::dispatch::unbounded::unbounded_mpsc_mailbox_creator;
 use nexus_acto_rs::actor::message::message::Message;
 use nexus_acto_rs::actor::message::message_handle::MessageHandle;
+use tokio::time::sleep;
 use tracing_subscriber::EnvFilter;
 
 #[derive(Debug, Clone)]
