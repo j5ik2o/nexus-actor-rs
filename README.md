@@ -25,3 +25,5 @@ NEXUS-ACTo-rs embodies the essence of the Actor Model, cleverly combining "NEXUS
 NEXUS-ACTo-rs integrates the core characteristics of the Actor Model—distribution, interaction, modularity, and resilience—into a single, memorable concept. It represents not just the essence of the system's structure and behavior, but also embodies the creative spirit of the Rust community.
 
 This name serves as a nexus itself, connecting the theoretical underpinnings of the Actor Model with the practical implementation in Rust, all while engaging the community with its clever wordplay.
+
+---
