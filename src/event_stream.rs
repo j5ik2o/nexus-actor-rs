@@ -161,8 +161,7 @@ pub struct Subscription {
   active: Arc<AtomicU32>,
 }
 
-unsafe impl Send for Subscription {}
-unsafe impl Sync for Subscription {}
+static_assertions::assert_impl_all!(Subscription: Send, Sync);
 
 impl PartialEq for Subscription {
   fn eq(&self, other: &Self) -> bool {

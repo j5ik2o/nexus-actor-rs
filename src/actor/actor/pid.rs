@@ -51,8 +51,7 @@ impl PartialEq for ExtendedPid {
 
 impl Eq for ExtendedPid {}
 
-unsafe impl Send for ExtendedPid {}
-unsafe impl Sync for ExtendedPid {}
+static_assertions::assert_impl_all!(ExtendedPid: Send, Sync);
 
 impl ExtendedPid {
   pub fn new(pid: Pid, actor_system: ActorSystem) -> Self {

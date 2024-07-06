@@ -83,8 +83,7 @@ impl std::hash::Hash for ActorContext {
   }
 }
 
-unsafe impl Send for ActorContext {}
-unsafe impl Sync for ActorContext {}
+static_assertions::assert_impl_all!(ActorContext: Send, Sync);
 
 impl ActorContext {
   pub async fn new(actor_system: ActorSystem, props: Props, parent: Option<ExtendedPid>) -> Self {

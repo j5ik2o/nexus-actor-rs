@@ -10,7 +10,7 @@ unsafe impl Send for ReceiverMiddleware {}
 unsafe impl Sync for ReceiverMiddleware {}
 
 impl ReceiverMiddleware {
-  pub fn new(f: impl Fn(ReceiverMiddlewareChain) -> ReceiverMiddlewareChain + Send + Sync + 'static) -> Self {
+  pub fn new<F>(f: F) -> Self where F: Fn(ReceiverMiddlewareChain) -> ReceiverMiddlewareChain + Send + Sync + 'static {
     ReceiverMiddleware(Arc::new(f))
   }
 

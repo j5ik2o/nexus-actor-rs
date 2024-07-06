@@ -62,8 +62,7 @@ pub struct Props {
   on_init: Vec<ContextHandler>,
 }
 
-unsafe impl Send for Props {}
-unsafe impl Sync for Props {}
+static_assertions::assert_impl_all!(Props: Send, Sync);
 
 static DEFAULT_DISPATCHER: Lazy<DispatcherHandle> =
   Lazy::new(|| DispatcherHandle::new(TokioRuntimeContextDispatcher::new().unwrap()));
