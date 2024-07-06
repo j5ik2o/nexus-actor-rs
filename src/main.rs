@@ -1,5 +1,4 @@
 use std::env;
-use std::thread::sleep;
 
 use async_trait::async_trait;
 use nexus_acto_rs::actor::actor::actor::Actor;
@@ -13,6 +12,7 @@ use nexus_acto_rs::actor::context::{SenderPart, SpawnerPart};
 use nexus_acto_rs::actor::dispatch::unbounded::unbounded_mpsc_mailbox_creator;
 use nexus_acto_rs::actor::message::message::Message;
 use nexus_acto_rs::actor::message::message_handle::MessageHandle;
+use tokio::time::sleep;
 use tracing_subscriber::EnvFilter;
 
 #[derive(Debug, Clone)]
@@ -38,12 +38,12 @@ struct ChildActor {}
 #[async_trait]
 impl Actor for ChildActor {
   async fn started(&self, _: ContextHandle) -> Result<(), ActorError> {
-    println!("ChildActor::post_start");
+    tracing::debug!("ChildActor::started");
     Ok(())
   }
 
   async fn receive(&mut self, _: ContextHandle, message_handle: MessageHandle) -> Result<(), ActorError> {
-    println!("ChildActor::receive: msg = {:?}", message_handle);
+    tracing::debug!("ChildActor::receive: msg = {:?}", message_handle);
     Ok(())
   }
 }
@@ -54,7 +54,7 @@ struct TopActor {}
 #[async_trait]
 impl Actor for TopActor {
   async fn started(&self, mut context_handle: ContextHandle) -> Result<(), ActorError> {
-    println!("TopActor::post_start");
+    tracing::debug!("TopActor::post_start");
     let props = Props::from_actor_producer(ActorProducer::new(create_child_actor)).await;
 
     let pid = context_handle.spawn(props).await;
@@ -67,7 +67,7 @@ impl Actor for TopActor {
   }
 
   async fn receive(&mut self, _: ContextHandle, message_handle: MessageHandle) -> Result<(), ActorError> {
-    println!("TopActor::receive: msg = {:?}", message_handle);
+    tracing::debug!("TopActor::receive: msg = {:?}", message_handle);
     Ok(())
   }
 }
@@ -102,5 +102,5 @@ async fn main() {
       .await;
   }
 
-  sleep(std::time::Duration::from_secs(3));
+  sleep(std::time::Duration::from_secs(3)).await;
 }

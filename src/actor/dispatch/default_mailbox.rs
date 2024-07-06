@@ -289,7 +289,7 @@ impl Mailbox for DefaultMailbox {
     }
 
     if let Err(e) = self.offer_user_mailbox(message).await {
-      println!("Failed to send message: {:?}", e);
+      tracing::error!("Failed to send message: {:?}", e);
     } else {
       self.increment_user_messages_count().await;
       self.schedule().await;
@@ -302,7 +302,7 @@ impl Mailbox for DefaultMailbox {
     }
 
     if let Err(e) = self.offer_system_mailbox(message).await {
-      println!("Failed to send message: {:?}", e);
+      tracing::error!("Failed to send message: {:?}", e);
     } else {
       self.increment_system_messages_count().await;
       self.schedule().await;

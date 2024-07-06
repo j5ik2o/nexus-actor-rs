@@ -1,5 +1,15 @@
 # NEXUS-ACTo-rs
 
+[![Workflow Status](https://github.com/j5ik2o/NEXUS-ACTo-rs/workflows/ci/badge.svg)](https://github.com/j5ik2o/NEXUS-ACTo-rs/actions?query=workflow%3A%22ci%22)
+[![crates.io](https://img.shields.io/crates/v/NEXUS-ACTo-rs.svg)](https://crates.io/crates/NEXUS-ACTo-rs)
+[![docs.rs](https://docs.rs/NEXUS-ACTo-rs/badge.svg)](https://docs.rs/NEXUS-ACTo-rs)
+[![Renovate](https://img.shields.io/badge/renovate-enabled-brightgreen.svg)](https://renovatebot.com)
+[![dependency status](https://deps.rs/repo/github/j5ik2o/NEXUS-ACTo-rs/status.svg)](https://deps.rs/repo/github/j5ik2o/NEXUS-ACTo-rs)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![License](https://img.shields.io/badge/License-APACHE2.0-blue.svg)](https://opensource.org/licenses/apache-2-0)
+[![](https://tokei.rs/b1/github/j5ik2o/NEXUS-ACTo-rs)](https://github.com/XAMPPRocky/tokei)
+
+
 NEXUS-ACTo-rs embodies the essence of the Actor Model, cleverly combining "NEXUS" (connection, linkage, or center) with "ACTo-rs" (a play on "actors" and the Rust programming language suffix "rs"). This name represents the core principles of our project for the following reasons:
 
 - *Connection and Interaction*: NEXUS symbolizes the central point where various elements connect, reflecting the communication and interaction concepts in the Actor Model. The "ACTo" part emphasizes the active nature of these connections.

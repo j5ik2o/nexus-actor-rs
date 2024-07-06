@@ -29,7 +29,7 @@ mod tests {
         let msg = ctx.get_message().await.unwrap();
         tracing::debug!("msg = {:?}", msg);
         if let Some(SystemMessage::Started(_)) = msg.as_any().downcast_ref::<SystemMessage>() {
-          println!("Hello World!");
+          tracing::debug!("Hello World!");
           b.wait().await;
         }
         Ok(())
