@@ -5,7 +5,7 @@ mod tests {
   use tokio::sync::Mutex;
   use tokio::time::Duration;
 
-  use crate::actor::util::throttler::{Throttle, ThrottleCallbackFunc, Valve};
+  use crate::actor::util::throttler::{Throttle, ThrottleCallback, Valve};
 
   #[tokio::test]
   async fn test_throttler() {
@@ -15,7 +15,7 @@ mod tests {
     let throttle = Throttle::new(
       10,
       Duration::from_millis(100),
-      ThrottleCallbackFunc::new(move |_| {
+      ThrottleCallback::new(move |_| {
         let callback_called = callback_called_clone.clone();
         async move {
           let mut called = callback_called.lock().await;

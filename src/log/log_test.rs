@@ -42,7 +42,7 @@ mod tests {
   #[tokio::test]
   async fn test_debug_level_only_context_one_subscriber() {
     let event_stream = Arc::new(EventStream::new());
-    let _s1 = subscribe_stream(&event_stream, |_: Event| {}).await;
+    let _s1 = subscribe_stream(&event_stream, |_: Event| async {}).await;
 
     let l = Logger::new(
       event_stream,
@@ -58,8 +58,8 @@ mod tests {
   #[tokio::test]
   async fn test_debug_level_only_context_multiple_subscribers() {
     let event_stream = Arc::new(EventStream::new());
-    let _s1 = subscribe_stream(&event_stream, |_: Event| {}).await;
-    let _s2 = subscribe_stream(&event_stream, |_: Event| {}).await;
+    let _s1 = subscribe_stream(&event_stream, |_: Event| async {}).await;
+    let _s2 = subscribe_stream(&event_stream, |_: Event| async {}).await;
 
     let l = Logger::new(
       event_stream,
@@ -80,7 +80,10 @@ mod tests {
     let received_clone = Arc::clone(&received);
 
     let sub = subscribe_stream(&event_stream, move |evt: Event| {
-      received_clone.write().unwrap().push(evt.message.clone());
+      let received_clone = received_clone.clone();
+      async move {
+        received_clone.write().unwrap().push(evt.message.clone());
+      }
     })
     .await;
 
@@ -99,7 +102,10 @@ mod tests {
     let received_clone = Arc::clone(&received);
 
     let sub = subscribe_stream(&event_stream, move |evt: Event| {
-      received_clone.write().unwrap().push(evt.message.clone());
+      let received_clone = received_clone.clone();
+      async move {
+        received_clone.write().unwrap().push(evt.message.clone());
+      }
     })
     .await
     .with_min_level(Level::Warn);

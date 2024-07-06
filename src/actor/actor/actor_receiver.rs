@@ -29,7 +29,7 @@ impl ActorReceiver {
 
 impl Debug for ActorReceiver {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "ReceiveFunc")
+    write!(f, "ActorReceiver")
   }
 }
 

@@ -1,8 +1,8 @@
+use futures::future::BoxFuture;
+use once_cell::sync::Lazy;
 use std::fmt::{Debug, Formatter};
 use std::sync::atomic::{AtomicI32, AtomicUsize, Ordering};
 use std::sync::{Arc, Weak};
-
-use once_cell::sync::Lazy;
 use tokio::sync::RwLock;
 
 use crate::log::event::Event;
@@ -25,14 +25,15 @@ impl EventStream {
     }
   }
 
-  pub async fn subscribe<F>(self: &Arc<Self>, f: F) -> Arc<Subscription>
+  pub async fn subscribe<F, Fut>(self: &Arc<Self>, f: F) -> Arc<Subscription>
   where
-    F: Fn(Event) + Send + Sync + 'static, {
+    F: Fn(Event) -> Fut + Send + Sync + 'static,
+    Fut: futures::Future<Output = ()> + Send + 'static, {
     let mut subscriptions = self.subscriptions.write().await;
     let sub = Arc::new(Subscription {
       event_stream: Arc::downgrade(&self.clone()),
       index: Arc::new(AtomicUsize::new(subscriptions.len())),
-      func: EventFunc::new(f),
+      func: EventHandler::new(f),
       min_level: Arc::new(AtomicI32::new(Level::Min as i32)),
     });
     subscriptions.push(Arc::clone(&sub));
@@ -55,7 +56,7 @@ impl EventStream {
     let subscriptions = self.subscriptions.read().await;
     for sub in subscriptions.iter() {
       if evt.level >= Level::try_from(sub.min_level.load(Ordering::Relaxed)).unwrap() {
-        sub.func.clone().run(evt.clone());
+        sub.func.clone().run(evt.clone()).await;
       }
     }
   }
@@ -67,37 +68,38 @@ impl EventStream {
 }
 
 #[derive(Clone)]
-pub struct EventFunc(Arc<dyn Fn(Event) + Send + Sync>);
+pub struct EventHandler(Arc<dyn Fn(Event) -> BoxFuture<'static, ()> + Send + Sync>);
 
-impl Debug for EventFunc {
+impl EventHandler {
+  pub fn new<F, Fut>(f: F) -> Self
+  where
+    F: Fn(Event) -> Fut + Send + Sync + 'static,
+    Fut: futures::Future<Output = ()> + Send + 'static, {
+    Self(Arc::new(move |evt| Box::pin(f(evt))))
+  }
+
+  pub async fn run(self, event: Event) {
+    self.0(event).await
+  }
+}
+
+impl Debug for EventHandler {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "EventFunc")
   }
 }
 
-impl PartialEq for EventFunc {
+impl PartialEq for EventHandler {
   fn eq(&self, _other: &Self) -> bool {
     true
   }
 }
 
-impl Eq for EventFunc {}
+impl Eq for EventHandler {}
 
-impl std::hash::Hash for EventFunc {
+impl std::hash::Hash for EventHandler {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    (self.0.as_ref() as *const dyn Fn(Event)).hash(state);
-  }
-}
-
-impl EventFunc {
-  pub fn new<F>(f: F) -> Self
-  where
-    F: Fn(Event) + Send + Sync + 'static, {
-    EventFunc(Arc::new(f))
-  }
-
-  pub fn run(self, event: Event) {
-    self.0(event)
+    (self.0.as_ref() as *const dyn Fn(Event) -> BoxFuture<'static, ()>).hash(state);
   }
 }
 
@@ -105,7 +107,7 @@ impl EventFunc {
 pub struct Subscription {
   event_stream: Weak<EventStream>,
   index: Arc<AtomicUsize>,
-  func: EventFunc,
+  func: EventHandler,
   min_level: Arc<AtomicI32>,
 }
 
@@ -116,9 +118,10 @@ impl Subscription {
   }
 }
 
-pub async fn subscribe_stream<F>(event_stream: &Arc<EventStream>, f: F) -> Arc<Subscription>
+pub async fn subscribe_stream<F, Fut>(event_stream: &Arc<EventStream>, f: F) -> Arc<Subscription>
 where
-  F: Fn(Event) + Send + Sync + 'static, {
+  F: Fn(Event) -> Fut + Send + Sync + 'static,
+  Fut: futures::Future<Output = ()> + Send + 'static, {
   event_stream.subscribe(f).await
 }
 

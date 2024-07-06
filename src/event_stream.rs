@@ -10,29 +10,29 @@ use crate::actor::message::message_handle::MessageHandle;
 
 // Handler defines a callback function that must be passed when subscribing.
 #[derive(Clone)]
-pub struct HandlerFunc(Arc<dyn Fn(MessageHandle) -> BoxFuture<'static, ()> + Send + Sync + 'static>);
+pub struct Handler(Arc<dyn Fn(MessageHandle) -> BoxFuture<'static, ()> + Send + Sync + 'static>);
 
-impl Debug for HandlerFunc {
+impl Debug for Handler {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "Handler")
   }
 }
 
-impl PartialEq for HandlerFunc {
+impl PartialEq for Handler {
   fn eq(&self, _other: &Self) -> bool {
     Arc::ptr_eq(&self.0, &_other.0)
   }
 }
 
-impl Eq for HandlerFunc {}
+impl Eq for Handler {}
 
-impl std::hash::Hash for HandlerFunc {
+impl std::hash::Hash for Handler {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
     (self.0.as_ref() as *const dyn Fn(MessageHandle) -> BoxFuture<'static, ()>).hash(state);
   }
 }
 
-impl HandlerFunc {
+impl Handler {
   pub fn new<F, Fut>(f: F) -> Self
   where
     F: Fn(MessageHandle) -> Fut + Send + Sync + 'static,
@@ -47,31 +47,31 @@ impl HandlerFunc {
 
 // Predicate is a function used to filter messages before being forwarded to a subscriber
 #[derive(Clone)]
-pub struct PredicateFunc(Arc<dyn Fn(MessageHandle) -> bool + Send + Sync>);
+pub struct Predicate(Arc<dyn Fn(MessageHandle) -> bool + Send + Sync>);
 
-impl Debug for PredicateFunc {
+impl Debug for Predicate {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "Predicate")
   }
 }
 
-impl PartialEq for PredicateFunc {
+impl PartialEq for Predicate {
   fn eq(&self, _other: &Self) -> bool {
     Arc::ptr_eq(&self.0, &_other.0)
   }
 }
 
-impl Eq for PredicateFunc {}
+impl Eq for Predicate {}
 
-impl std::hash::Hash for PredicateFunc {
+impl std::hash::Hash for Predicate {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
     (self.0.as_ref() as *const dyn Fn(MessageHandle) -> bool).hash(state);
   }
 }
 
-impl PredicateFunc {
+impl Predicate {
   pub fn new(f: impl Fn(MessageHandle) -> bool + Send + Sync + 'static) -> Self {
-    PredicateFunc(Arc::new(f))
+    Predicate(Arc::new(f))
   }
 
   pub fn run(&self, evt: MessageHandle) -> bool {
@@ -93,7 +93,7 @@ impl EventStream {
     }
   }
 
-  pub async fn subscribe(&self, handler: HandlerFunc) -> Subscription {
+  pub async fn subscribe(&self, handler: Handler) -> Subscription {
     let subscription = Subscription {
       id: self.counter.fetch_add(1, Ordering::SeqCst),
       handler: Arc::new(handler),
@@ -109,10 +109,10 @@ impl EventStream {
   where
     F: Fn(MessageHandle) -> Fut + Send + Sync + 'static,
     Fut: Future<Output = ()> + Send + 'static, {
-    self.subscribe(HandlerFunc::new(f)).await
+    self.subscribe(Handler::new(f)).await
   }
 
-  pub async fn subscribe_with_predicate(&self, handler: HandlerFunc, predicate: PredicateFunc) -> Subscription {
+  pub async fn subscribe_with_predicate(&self, handler: Handler, predicate: Predicate) -> Subscription {
     let subscription = Subscription {
       id: self.counter.fetch_add(1, Ordering::SeqCst),
       handler: Arc::new(handler),
@@ -156,8 +156,8 @@ impl EventStream {
 #[derive(Debug, Clone)]
 pub struct Subscription {
   id: i32,
-  handler: Arc<HandlerFunc>,
-  predicate: Option<PredicateFunc>,
+  handler: Arc<Handler>,
+  predicate: Option<Predicate>,
   active: Arc<AtomicU32>,
 }
 

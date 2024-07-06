@@ -118,10 +118,10 @@ fn initialize(props: Props, ctx: ActorContext) {
 }
 
 #[derive(Debug, Clone)]
-struct ReceiveFuncActor(ActorReceiver);
+struct ActorReceiverActor(ActorReceiver);
 
 #[async_trait]
-impl Actor for ReceiveFuncActor {
+impl Actor for ActorReceiverActor {
   async fn handle(&mut self, ctx: ContextHandle) -> Result<(), ActorError> {
     self.0.run(ctx).await
   }
@@ -136,11 +136,11 @@ impl Actor for ReceiveFuncActor {
 }
 
 #[derive(Clone)]
-pub struct PropsOptionFunc(Arc<Mutex<dyn FnMut(&mut Props) + Send + Sync + 'static>>);
+pub struct PropsOption(Arc<Mutex<dyn FnMut(&mut Props) + Send + Sync + 'static>>);
 
-impl PropsOptionFunc {
+impl PropsOption {
   pub fn new(f: impl FnMut(&mut Props) + Send + Sync + 'static) -> Self {
-    PropsOptionFunc(Arc::new(Mutex::new(f)))
+    Self(Arc::new(Mutex::new(f)))
   }
 
   pub async fn run(&self, props: &mut Props) {
@@ -150,45 +150,45 @@ impl PropsOptionFunc {
 }
 
 impl Props {
-  pub fn with_on_init(mut init: Vec<ContextHandler>) -> PropsOptionFunc {
-    PropsOptionFunc::new(move |props: &mut Props| {
+  pub fn with_on_init(mut init: Vec<ContextHandler>) -> PropsOption {
+    PropsOption::new(move |props: &mut Props| {
       props.on_init.append(&mut init);
     })
   }
 
-  pub fn with_actor_producer(producer: ActorProducer) -> PropsOptionFunc {
-    PropsOptionFunc::new(move |props: &mut Props| {
+  pub fn with_actor_producer(producer: ActorProducer) -> PropsOption {
+    PropsOption::new(move |props: &mut Props| {
       props.producer = Some(producer.clone());
     })
   }
 
-  pub fn with_actor_receiver(actor_receiver: ActorReceiver) -> PropsOptionFunc {
-    PropsOptionFunc::new(move |props: &mut Props| {
+  pub fn with_actor_receiver(actor_receiver: ActorReceiver) -> PropsOption {
+    PropsOption::new(move |props: &mut Props| {
       let actor_receiver = actor_receiver.clone();
       props.producer = Some(ActorProducer::new(move |_| {
         let actor_receiver = actor_receiver.clone();
         async move {
-          let actor = ReceiveFuncActor(actor_receiver.clone());
+          let actor = ActorReceiverActor(actor_receiver.clone());
           ActorHandle::new(actor)
         }
       }));
     })
   }
 
-  pub fn with_dispatcher(dispatcher: DispatcherHandle) -> PropsOptionFunc {
-    PropsOptionFunc::new(move |props: &mut Props| {
+  pub fn with_dispatcher(dispatcher: DispatcherHandle) -> PropsOption {
+    PropsOption::new(move |props: &mut Props| {
       props.dispatcher = Some(dispatcher.clone());
     })
   }
 
-  pub fn with_mailbox_producer(mailbox_producer: MailboxProducer) -> PropsOptionFunc {
-    PropsOptionFunc::new(move |props: &mut Props| {
+  pub fn with_mailbox_producer(mailbox_producer: MailboxProducer) -> PropsOption {
+    PropsOption::new(move |props: &mut Props| {
       props.mailbox_producer = Some(mailbox_producer.clone());
     })
   }
 
-  pub fn with_context_decorators(decorators: Vec<ContextDecorator>) -> PropsOptionFunc {
-    PropsOptionFunc::new(move |props: &mut Props| {
+  pub fn with_context_decorators(decorators: Vec<ContextDecorator>) -> PropsOption {
+    PropsOption::new(move |props: &mut Props| {
       let cloned_decorators = decorators.clone();
       props.context_decorator.extend(cloned_decorators.clone());
       props.context_decorator_chain = make_context_decorator_chain(
@@ -201,20 +201,20 @@ impl Props {
     })
   }
 
-  pub fn with_guardian(guardian: SupervisorStrategyHandle) -> PropsOptionFunc {
-    PropsOptionFunc::new(move |props: &mut Props| {
+  pub fn with_guardian(guardian: SupervisorStrategyHandle) -> PropsOption {
+    PropsOption::new(move |props: &mut Props| {
       props.guardian_strategy = Some(guardian.clone());
     })
   }
 
-  pub fn with_supervisor_strategy(supervisor: SupervisorStrategyHandle) -> PropsOptionFunc {
-    PropsOptionFunc::new(move |props: &mut Props| {
+  pub fn with_supervisor_strategy(supervisor: SupervisorStrategyHandle) -> PropsOption {
+    PropsOption::new(move |props: &mut Props| {
       props.supervisor_strategy = Some(supervisor.clone());
     })
   }
 
-  pub fn with_receiver_middlewares(middlewares: Vec<ReceiverMiddleware>) -> PropsOptionFunc {
-    PropsOptionFunc::new(move |props: &mut Props| {
+  pub fn with_receiver_middlewares(middlewares: Vec<ReceiverMiddleware>) -> PropsOption {
+    PropsOption::new(move |props: &mut Props| {
       props.receiver_middleware.extend(middlewares.clone());
       props.receiver_middleware_chain = make_receiver_middleware_chain(
         &props.receiver_middleware,
@@ -223,8 +223,8 @@ impl Props {
     })
   }
 
-  pub fn with_sender_middlewares(middlewares: Vec<SenderMiddleware>) -> PropsOptionFunc {
-    PropsOptionFunc::new(move |props: &mut Props| {
+  pub fn with_sender_middlewares(middlewares: Vec<SenderMiddleware>) -> PropsOption {
+    PropsOption::new(move |props: &mut Props| {
       props.sender_middleware.extend(middlewares.clone());
       props.sender_middleware_chain = make_sender_middleware_chain(
         &props.sender_middleware,
@@ -237,14 +237,14 @@ impl Props {
     })
   }
 
-  pub fn with_spawner(spawner: Spawner) -> PropsOptionFunc {
-    PropsOptionFunc::new(move |props: &mut Props| {
+  pub fn with_spawner(spawner: Spawner) -> PropsOption {
+    PropsOption::new(move |props: &mut Props| {
       props.spawner = Some(spawner.clone());
     })
   }
 
-  pub fn with_spawn_middleware(spawn_middlewares: Vec<SpawnMiddleware>) -> PropsOptionFunc {
-    PropsOptionFunc::new(move |props: &mut Props| {
+  pub fn with_spawn_middleware(spawn_middlewares: Vec<SpawnMiddleware>) -> PropsOption {
+    PropsOption::new(move |props: &mut Props| {
       props.spawn_middleware.extend(spawn_middlewares.clone());
       props.spawn_middleware_chain = make_spawn_middleware_chain(
         &props.spawn_middleware,
@@ -306,7 +306,7 @@ impl Props {
     }
   }
 
-  pub async fn from_actor_producer_with_opts(producer: ActorProducer, opts: Vec<PropsOptionFunc>) -> Props {
+  pub async fn from_actor_producer_with_opts(producer: ActorProducer, opts: Vec<PropsOption>) -> Props {
     let mut props = Props {
       on_init: Vec::new(),
       producer: Some(producer),
@@ -332,11 +332,11 @@ impl Props {
     Props::from_actor_producer_with_opts(actor_producer, vec![]).await
   }
 
-  pub async fn from_actor_receiver_with_opts(actor_receiver: ActorReceiver, opts: Vec<PropsOptionFunc>) -> Props {
+  pub async fn from_actor_receiver_with_opts(actor_receiver: ActorReceiver, opts: Vec<PropsOption>) -> Props {
     let producer = ActorProducer::new(move |_| {
       let cloned = actor_receiver.clone();
       async move {
-        let actor = ReceiveFuncActor(cloned);
+        let actor = ActorReceiverActor(cloned);
         ActorHandle::new(actor)
       }
     });
@@ -356,7 +356,7 @@ impl Props {
     self.get_spawner().run(actor_system, name, self, parent_context).await
   }
 
-  async fn configure(&mut self, opts: &[PropsOptionFunc]) -> &mut Self {
+  async fn configure(&mut self, opts: &[PropsOption]) -> &mut Self {
     for opt in opts {
       opt.run(self).await;
     }

@@ -6,7 +6,7 @@ use futures::future::BoxFuture;
 
 use crate::actor::context::context_handle::ContextHandle;
 
-// ContextDecoratorFunc
+// ContextDecoratorChain
 #[derive(Clone)]
 pub struct ContextDecoratorChain(Arc<dyn Fn(ContextHandle) -> BoxFuture<'static, ContextHandle> + Send + Sync>);
 
@@ -28,7 +28,7 @@ impl ContextDecoratorChain {
 
 impl Debug for ContextDecoratorChain {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "ContextDecoratorFunc")
+    write!(f, "ContextDecoratorChain")
   }
 }
 

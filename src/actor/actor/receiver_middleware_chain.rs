@@ -7,7 +7,7 @@ use crate::actor::context::receiver_context_handle::ReceiverContextHandle;
 use crate::actor::message::message_or_envelope::MessageEnvelope;
 use futures::future::BoxFuture;
 
-// ReceiverFunc
+// ReceiverMiddlewareChain
 #[derive(Clone)]
 pub struct ReceiverMiddlewareChain(
   Arc<dyn Fn(ReceiverContextHandle, MessageEnvelope) -> BoxFuture<'static, Result<(), ActorError>> + Send + Sync>,
@@ -33,7 +33,7 @@ impl ReceiverMiddlewareChain {
 
 impl Debug for ReceiverMiddlewareChain {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "ReceiverFunc")
+    write!(f, "ReceiverMiddlewareChain")
   }
 }
 

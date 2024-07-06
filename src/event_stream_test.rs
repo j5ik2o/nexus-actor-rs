@@ -6,7 +6,7 @@ mod tests {
 
   use crate::actor::message::message::Message;
   use crate::actor::message::message_handle::MessageHandle;
-  use crate::event_stream::{EventStream, HandlerFunc, PredicateFunc};
+  use crate::event_stream::{EventStream, Handler, Predicate};
   use tokio::sync::Mutex;
 
   #[derive(Debug)]
@@ -24,7 +24,7 @@ mod tests {
   #[tokio::test]
   async fn test_event_stream_subscribe() {
     let es = EventStream::new();
-    let s = es.subscribe(HandlerFunc::new(|_| async move {})).await;
+    let s = es.subscribe(Handler::new(|_| async move {})).await;
     assert!(s.is_active());
     assert_eq!(es.length(), 1);
   }
@@ -36,7 +36,7 @@ mod tests {
     let c2 = Arc::new(AtomicI32::new(0));
 
     let s1 = es
-      .subscribe(HandlerFunc::new({
+      .subscribe(Handler::new({
         let c1 = Arc::clone(&c1);
         move |_| {
           let c1 = c1.clone();
@@ -47,7 +47,7 @@ mod tests {
       }))
       .await;
     let s2 = es
-      .subscribe(HandlerFunc::new({
+      .subscribe(Handler::new({
         let c2 = Arc::clone(&c2);
         move |_| {
           let c2 = c2.clone();
@@ -79,7 +79,7 @@ mod tests {
     let v = Arc::new(Mutex::new(0));
 
     let v_clone = Arc::clone(&v);
-    es.subscribe(HandlerFunc::new(move |m| {
+    es.subscribe(Handler::new(move |m| {
       let v_clone = v_clone.clone();
       let m_value = if let Some(val) = m.as_any().downcast_ref::<i32>() {
         Some(*val)
@@ -108,13 +108,13 @@ mod tests {
 
     let called_clone = Arc::clone(&called);
     es.subscribe_with_predicate(
-      HandlerFunc::new(move |_| {
+      Handler::new(move |_| {
         let called_clone = called_clone.clone();
         async move {
           *called_clone.lock().await = true;
         }
       }),
-      PredicateFunc::new(|_| true),
+      Predicate::new(|_| true),
     )
     .await;
     es.publish(MessageHandle::new(TestString("".to_string()))).await;
@@ -129,13 +129,13 @@ mod tests {
 
     let called_clone = Arc::clone(&called);
     es.subscribe_with_predicate(
-      HandlerFunc::new(move |_| {
+      Handler::new(move |_| {
         let called_clone = called_clone.clone();
         async move {
           *called_clone.lock().await = true;
         }
       }),
-      PredicateFunc::new(|_: MessageHandle| false),
+      Predicate::new(|_: MessageHandle| false),
     )
     .await;
     es.publish(MessageHandle::new(TestString("".to_string()))).await;
@@ -167,7 +167,7 @@ mod tests {
       // Reduced iterations for faster test
       for _ in 0..10 {
         let sub = es
-          .subscribe(HandlerFunc::new(move |evt| {
+          .subscribe(Handler::new(move |evt| {
             let i = i; // Capture i by value
             let evt_data = if let Some(e) = evt.as_any().downcast_ref::<Event>() {
               Some(e.i)

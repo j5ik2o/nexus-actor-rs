@@ -19,9 +19,9 @@ pub struct Throttle {
   max_events_in_period: usize,
 }
 
-pub struct ThrottleCallbackFunc(Arc<Mutex<dyn FnMut(usize) -> BoxFuture<'static, ()> + Send + 'static>>);
+pub struct ThrottleCallback(Arc<Mutex<dyn FnMut(usize) -> BoxFuture<'static, ()> + Send + 'static>>);
 
-impl ThrottleCallbackFunc {
+impl ThrottleCallback {
   pub fn new<F, Fut>(f: F) -> Self
   where
     F: Fn(usize) -> Fut + Send + 'static,
@@ -38,11 +38,7 @@ impl ThrottleCallbackFunc {
 }
 
 impl Throttle {
-  pub async fn new(
-    max_events_in_period: usize,
-    period: Duration,
-    throttled_callback: ThrottleCallbackFunc,
-  ) -> Arc<Self> {
+  pub async fn new(max_events_in_period: usize, period: Duration, throttled_callback: ThrottleCallback) -> Arc<Self> {
     let throttle = Arc::new(Self {
       current_events: Arc::new(AtomicUsize::new(0)),
       max_events_in_period,

@@ -21,7 +21,7 @@ impl ContextHandler {
 
 impl Debug for ContextHandler {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "ContextHandleFunc")
+    write!(f, "ContextHandler")
   }
 }
 
