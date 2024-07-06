@@ -1,5 +1,3 @@
-use std::fmt::Debug;
-
 use crate::actor::actor::actor_error::ActorError;
 use crate::actor::actor::actor_handle::ActorHandle;
 use crate::actor::actor::continuer::Continuer;
@@ -14,6 +12,8 @@ use crate::actor::message::readonly_message_headers::ReadonlyMessageHeadersHandl
 use crate::actor::message::response::ResponseHandle;
 use crate::ctxext::extensions::{ContextExtensionHandle, ContextExtensionId};
 use async_trait::async_trait;
+use std::fmt::Debug;
+use std::time::Duration;
 
 pub mod actor_context;
 mod actor_context_extras;
@@ -59,7 +59,10 @@ pub trait InfoPart: Debug + Send + Sync + 'static {
   async fn get_parent(&self) -> Option<ExtendedPid>;
 
   // Self returns the PID for the current actor
-  async fn get_self(&self) -> Option<ExtendedPid>;
+  async fn get_self_opt(&self) -> Option<ExtendedPid>;
+  async fn get_self(&self) -> ExtendedPid {
+    self.get_self_opt().await.expect("self pid not found")
+  }
 
   async fn set_self(&mut self, pid: ExtendedPid);
 
@@ -108,7 +111,11 @@ pub trait BasePart: Debug + Send + Sync + 'static {
 #[async_trait]
 pub trait MessagePart: Debug + Send + Sync + 'static {
   // Message returns the current message to be processed
-  async fn get_message(&self) -> Option<MessageHandle>;
+  async fn get_message_opt(&self) -> Option<MessageHandle>;
+
+  async fn get_message(&self) -> MessageHandle {
+    self.get_message_opt().await.expect("message not found")
+  }
 
   // MessageHeader returns the meta information for the currently processed message
   async fn get_message_header(&self) -> Option<ReadonlyMessageHeadersHandle>;
@@ -129,7 +136,7 @@ pub trait SenderPart: Debug + Send + Sync + 'static {
   async fn request_with_custom_sender(&mut self, pid: ExtendedPid, message: MessageHandle, sender: ExtendedPid);
 
   // RequestFuture sends a message to a given PID and returns a Future
-  async fn request_future(&self, pid: ExtendedPid, message: MessageHandle, timeout: &tokio::time::Duration) -> Future;
+  async fn request_future(&self, pid: ExtendedPid, message: MessageHandle, timeout: Duration) -> Future;
 }
 
 #[async_trait]

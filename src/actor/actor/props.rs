@@ -14,6 +14,10 @@ use crate::actor::actor::actor_receiver::ActorReceiver;
 use crate::actor::actor::context_decorator::ContextDecorator;
 use crate::actor::actor::context_decorator_chain::ContextDecoratorChain;
 use crate::actor::actor::context_handler::ContextHandler;
+use crate::actor::actor::middleware_chain::{
+  make_context_decorator_chain, make_receiver_middleware_chain, make_sender_middleware_chain,
+  make_spawn_middleware_chain,
+};
 use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::actor::receiver_middleware::ReceiverMiddleware;
 use crate::actor::actor::receiver_middleware_chain::ReceiverMiddlewareChain;
@@ -35,10 +39,6 @@ use crate::actor::dispatch::unbounded::unbounded_mailbox_creator_with_opts;
 use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::message::messages::Started;
 use crate::actor::message::system_message::SystemMessage;
-use crate::actor::middleware_chain::{
-  make_context_decorator_chain, make_receiver_middleware_chain, make_sender_middleware_chain,
-  make_spawn_middleware_chain,
-};
 use crate::actor::process::ProcessHandle;
 use crate::actor::supervisor::supervisor_strategy::DEFAULT_SUPERVISION_STRATEGY;
 use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
@@ -73,7 +73,7 @@ static DEFAULT_SPAWNER: Lazy<Spawner> = Lazy::new(|| {
     |actor_system: ActorSystem, name: String, props: Props, parent_context: SpawnerContextHandle| {
       async move {
         tracing::debug!("Spawn actor: {}", name);
-        let mut ctx = ActorContext::new(actor_system.clone(), props.clone(), parent_context.get_self().await).await;
+        let mut ctx = ActorContext::new(actor_system.clone(), props.clone(), parent_context.get_self_opt().await).await;
         let mut mb = props.produce_mailbox().await;
         // prepare the mailbox number counter
 

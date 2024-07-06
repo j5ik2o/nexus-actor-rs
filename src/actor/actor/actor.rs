@@ -15,7 +15,7 @@ use std::fmt::Debug;
 #[async_trait]
 pub trait Actor: Debug + Send + Sync + 'static {
   async fn handle(&mut self, context_handle: ContextHandle) -> Result<(), ActorError> {
-    if let Some(message_handle) = context_handle.get_message().await {
+    if let Some(message_handle) = context_handle.get_message_opt().await {
       tracing::debug!("Actor::handle: message_handle = {:?}", message_handle);
       let me = message_handle.as_any().downcast_ref::<MessageEnvelope>();
       let sm = message_handle.as_any().downcast_ref::<SystemMessage>();

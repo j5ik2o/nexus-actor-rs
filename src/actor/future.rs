@@ -135,7 +135,6 @@ impl FutureProcess {
 
       tokio::spawn(async move {
         let future = future_process_clone.get_future().await;
-        tracing::debug!("Starting Future timeout: {:?}", duration);
 
         tokio::select! {
             _ = future.notify.notified() => {

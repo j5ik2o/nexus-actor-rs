@@ -10,6 +10,7 @@ pub mod context_decorator;
 pub mod context_decorator_chain;
 pub mod context_handler;
 pub mod continuer;
+pub mod middleware_chain;
 pub mod pid;
 pub mod pid_set;
 mod pid_set_test;

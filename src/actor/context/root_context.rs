@@ -1,8 +1,9 @@
-use std::sync::Arc;
-
 use async_trait::async_trait;
+use std::sync::Arc;
+use std::time::Duration;
 
 use crate::actor::actor::actor_handle::ActorHandle;
+use crate::actor::actor::middleware_chain::make_sender_middleware_chain;
 use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::actor::props::Props;
 use crate::actor::actor::sender_middleware::SenderMiddleware;
@@ -22,7 +23,6 @@ use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::message::message_headers::MessageHeaders;
 use crate::actor::message::message_or_envelope::MessageEnvelope;
 use crate::actor::message::readonly_message_headers::ReadonlyMessageHeadersHandle;
-use crate::actor::middleware_chain::make_sender_middleware_chain;
 use crate::actor::process::Process;
 use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
 
@@ -88,7 +88,7 @@ impl InfoPart for RootContext {
     None
   }
 
-  async fn get_self(&self) -> Option<ExtendedPid> {
+  async fn get_self_opt(&self) -> Option<ExtendedPid> {
     if self.guardian_strategy.is_some() {
       let ssh = self.guardian_strategy.clone().unwrap();
       Some(
@@ -139,8 +139,8 @@ impl SenderPart for RootContext {
       .await
   }
 
-  async fn request_future(&self, pid: ExtendedPid, message: MessageHandle, timeout: &tokio::time::Duration) -> Future {
-    let future_process = FutureProcess::new(self.get_actor_system().await, timeout.clone()).await;
+  async fn request_future(&self, pid: ExtendedPid, message: MessageHandle, timeout: Duration) -> Future {
+    let future_process = FutureProcess::new(self.get_actor_system().await, timeout).await;
     let future_pid = future_process.get_pid().await;
     let moe = MessageEnvelope::new(message).with_sender(future_pid.clone());
     self.send_user_message(pid, MessageHandle::new(moe)).await;
@@ -150,7 +150,7 @@ impl SenderPart for RootContext {
 
 #[async_trait]
 impl MessagePart for RootContext {
-  async fn get_message(&self) -> Option<MessageHandle> {
+  async fn get_message_opt(&self) -> Option<MessageHandle> {
     None
   }
 
@@ -236,7 +236,7 @@ impl StopperPart for RootContext {
       .send_system_message(
         self.get_actor_system().await.clone(),
         MessageHandle::new(Watch {
-          watcher: Some(future_pid.inner),
+          watcher: Some(future_pid.inner_pid),
         }),
       )
       .await;
@@ -262,7 +262,7 @@ impl StopperPart for RootContext {
       .send_system_message(
         self.get_actor_system().await.clone(),
         MessageHandle::new(Watch {
-          watcher: Some(future_pid.inner),
+          watcher: Some(future_pid.inner_pid),
         }),
       )
       .await;

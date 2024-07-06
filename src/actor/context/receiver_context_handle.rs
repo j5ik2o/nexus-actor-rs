@@ -32,9 +32,9 @@ impl InfoPart for ReceiverContextHandle {
     mg.get_parent().await
   }
 
-  async fn get_self(&self) -> Option<ExtendedPid> {
+  async fn get_self_opt(&self) -> Option<ExtendedPid> {
     let mg = self.0.lock().await;
-    mg.get_self().await
+    mg.get_self_opt().await
   }
 
   async fn set_self(&mut self, pid: ExtendedPid) {
@@ -63,9 +63,9 @@ impl ReceiverPart for ReceiverContextHandle {
 
 #[async_trait]
 impl MessagePart for ReceiverContextHandle {
-  async fn get_message(&self) -> Option<MessageHandle> {
+  async fn get_message_opt(&self) -> Option<MessageHandle> {
     let mg = self.0.lock().await;
-    let result = mg.get_message().await;
+    let result = mg.get_message_opt().await;
     result
   }
 

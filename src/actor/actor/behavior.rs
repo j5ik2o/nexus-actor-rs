@@ -32,7 +32,7 @@ impl Behavior {
     if let Some(behavior) = self.peek().await {
       behavior.run(context).await
     } else {
-      tracing::error!("empty behavior called: pid = {}", context.get_self().await.unwrap());
+      tracing::error!("empty behavior called: pid = {}", context.get_self().await);
       Err(ActorError::ReceiveError("empty behavior called".into()))
     }
   }
