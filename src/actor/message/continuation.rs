@@ -10,7 +10,7 @@ use futures::future::BoxFuture;
 #[derive(Clone)]
 pub(crate) struct Continuation {
   pub(crate) message: MessageHandle,
-  pub(crate) f: ContinuationCallbackFunc,
+  pub(crate) f: ContinuationCallback,
 }
 
 impl Continuation {
@@ -20,7 +20,7 @@ impl Continuation {
     Fut: Future<Output = ()> + Send + 'static, {
     Continuation {
       message,
-      f: ContinuationCallbackFunc::new(move || Box::pin(f()) as BoxFuture<'static, ()>),
+      f: ContinuationCallback::new(move || Box::pin(f()) as BoxFuture<'static, ()>),
     }
   }
 }
@@ -48,9 +48,9 @@ impl Message for Continuation {
 }
 
 #[derive(Clone)]
-pub struct ContinuationCallbackFunc(pub Arc<dyn Fn() -> BoxFuture<'static, ()> + Send + Sync>);
+pub struct ContinuationCallback(Arc<dyn Fn() -> BoxFuture<'static, ()> + Send + Sync>);
 
-impl ContinuationCallbackFunc {
+impl ContinuationCallback {
   pub fn new<F, Fut>(f: F) -> Self
   where
     F: Fn() -> Fut + Send + Sync + 'static,
@@ -63,7 +63,7 @@ impl ContinuationCallbackFunc {
   }
 }
 
-impl Debug for ContinuationCallbackFunc {
+impl Debug for ContinuationCallback {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     write!(f, "ContinuationHandler")
   }

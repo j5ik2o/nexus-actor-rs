@@ -16,7 +16,7 @@ pub struct SenderMiddlewareChain(
 
 impl Debug for SenderMiddlewareChain {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "SenderFunc")
+    write!(f, "SenderMiddlewareChain")
   }
 }
 

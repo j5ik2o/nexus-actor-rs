@@ -8,7 +8,7 @@ use crate::actor::actor_system::ActorSystem;
 use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::supervisor::directive::Directive;
 use crate::actor::supervisor::supervisor_strategy::{
-  log_failure, DeciderFunc, Supervisor, SupervisorHandle, SupervisorStrategy,
+    log_failure, Decider, Supervisor, SupervisorHandle, SupervisorStrategy,
 };
 use async_trait::async_trait;
 
@@ -20,7 +20,7 @@ pub fn default_decider(_: ActorInnerError) -> Directive {
 pub struct OneForOneStrategy {
   max_nr_of_retries: u32,
   pub(crate) within_duration: tokio::time::Duration,
-  decider: Arc<DeciderFunc>,
+  decider: Arc<Decider>,
 }
 
 impl OneForOneStrategy {
@@ -28,12 +28,12 @@ impl OneForOneStrategy {
     OneForOneStrategy {
       max_nr_of_retries,
       within_duration,
-      decider: Arc::new(DeciderFunc::new(default_decider)),
+      decider: Arc::new(Decider::new(default_decider)),
     }
   }
 
   pub fn with_decider(mut self, decider: impl Fn(ActorInnerError) -> Directive + Send + Sync + 'static) -> Self {
-    self.decider = Arc::new(DeciderFunc::new(decider));
+    self.decider = Arc::new(Decider::new(decider));
     self
   }
 

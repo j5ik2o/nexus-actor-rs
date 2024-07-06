@@ -52,12 +52,12 @@ pub struct Future {
 static_assertions::assert_impl_all!(Future: Send, Sync);
 
 #[derive(Clone)]
-struct CompletionFunc(Arc<dyn Fn(Option<MessageHandle>, Option<&FutureError>) -> BoxFuture<'static, ()> + Send>);
+struct Completion(Arc<dyn Fn(Option<MessageHandle>, Option<&FutureError>) -> BoxFuture<'static, ()> + Send>);
 
-unsafe impl Send for CompletionFunc {}
+unsafe impl Send for Completion {}
 
-unsafe impl Sync for CompletionFunc {}
-impl CompletionFunc {
+unsafe impl Sync for Completion {}
+impl Completion {
   fn new<F, Fut>(f: F) -> Self
   where
     F: Fn(Option<MessageHandle>, Option<&FutureError>) -> Fut + Send + 'static,
@@ -72,9 +72,9 @@ impl CompletionFunc {
   }
 }
 
-impl Debug for CompletionFunc {
+impl Debug for Completion {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    write!(f, "CompletionFunc")
+    write!(f, "Completion")
   }
 }
 
@@ -86,7 +86,7 @@ struct FutureInner {
   result: Option<MessageHandle>,
   error: Option<FutureError>,
   pipes: Vec<ExtendedPid>,
-  completions: Vec<CompletionFunc>,
+  completions: Vec<Completion>,
 }
 
 static_assertions::assert_impl_all!(FutureInner: Send, Sync);
@@ -386,7 +386,7 @@ impl Future {
     if inner.done {
       continuation(inner.result.clone(), inner.error.as_ref()).await;
     } else {
-      inner.completions.push(CompletionFunc::new(continuation));
+      inner.completions.push(Completion::new(continuation));
     }
   }
 

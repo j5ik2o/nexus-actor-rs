@@ -11,8 +11,8 @@ use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::message::message_or_envelope::unwrap_envelope;
 use crate::actor::message::system_message::SystemMessage;
 use crate::actor::process::{Process, ProcessHandle};
-use crate::actor::util::throttler::{Throttle, ThrottleCallbackFunc, Valve};
-use crate::event_stream::HandlerFunc;
+use crate::actor::util::throttler::{Throttle, ThrottleCallback, Valve};
+use crate::event_stream::Handler;
 use async_trait::async_trait;
 
 #[derive(Debug, Clone)]
@@ -35,7 +35,7 @@ impl DeadLetterProcess {
       .await
       .dead_letter_throttle_interval
       .clone();
-    let func = ThrottleCallbackFunc::new(move |i: usize| async move {
+    let func = ThrottleCallback::new(move |i: usize| async move {
       P_LOG
         .info(
           &format!("DeadLetterProcess: Throttling dead letters, count: {}", i),
@@ -55,7 +55,7 @@ impl DeadLetterProcess {
       .actor_system
       .get_event_stream()
       .await
-      .subscribe(HandlerFunc::new(move |msg| {
+      .subscribe(Handler::new(move |msg| {
         let cloned_msg = msg.clone();
         let cloned_self = cloned_self.clone();
         let cloned_throttle = throttle.clone();
@@ -110,7 +110,7 @@ impl DeadLetterProcess {
       .actor_system
       .get_event_stream()
       .await
-      .subscribe(HandlerFunc::new(move |msg| {
+      .subscribe(Handler::new(move |msg| {
         let cloned_msg = msg.clone();
         let cloned_self = cloned_self.clone();
         async move {

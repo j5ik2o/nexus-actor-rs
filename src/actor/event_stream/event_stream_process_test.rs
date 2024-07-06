@@ -4,7 +4,7 @@ mod tests {
   use crate::actor::context::SenderPart;
   use crate::actor::message::message::Message;
   use crate::actor::message::message_handle::MessageHandle;
-  use crate::event_stream::HandlerFunc;
+  use crate::event_stream::Handler;
   use std::any::Any;
   use tokio::sync::mpsc;
 
@@ -34,7 +34,7 @@ mod tests {
       let event_stream = system.get_event_stream().await;
 
       let subscription = event_stream
-        .subscribe(HandlerFunc::new(move |evt| {
+        .subscribe(Handler::new(move |evt| {
           let cloned_tx = tx.clone();
           async move {
             if evt.as_any().is::<EsTestMsg>() {

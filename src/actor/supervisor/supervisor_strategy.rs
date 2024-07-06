@@ -16,31 +16,31 @@ use once_cell::sync::Lazy;
 use tokio::sync::Mutex;
 
 #[derive(Clone)]
-pub struct DeciderFunc(Arc<dyn Fn(ActorInnerError) -> Directive + Send + Sync>);
+pub struct Decider(Arc<dyn Fn(ActorInnerError) -> Directive + Send + Sync>);
 
-impl Debug for DeciderFunc {
+impl Debug for Decider {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     write!(f, "DeciderFunc")
   }
 }
 
-impl PartialEq for DeciderFunc {
+impl PartialEq for Decider {
   fn eq(&self, other: &Self) -> bool {
     Arc::ptr_eq(&self.0, &other.0)
   }
 }
 
-impl Eq for DeciderFunc {}
+impl Eq for Decider {}
 
-impl std::hash::Hash for DeciderFunc {
+impl std::hash::Hash for Decider {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
     (self.0.as_ref() as *const dyn Fn(ActorInnerError) -> Directive).hash(state);
   }
 }
 
-impl DeciderFunc {
+impl Decider {
   pub fn new(f: impl Fn(ActorInnerError) -> Directive + Send + Sync + 'static) -> Self {
-    DeciderFunc(Arc::new(f))
+    Decider(Arc::new(f))
   }
 
   pub fn run(&self, reason: ActorInnerError) -> Directive {
