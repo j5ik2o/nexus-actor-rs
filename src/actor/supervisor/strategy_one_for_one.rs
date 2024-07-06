@@ -12,7 +12,7 @@ use crate::actor::supervisor::supervisor_strategy::{
 };
 use async_trait::async_trait;
 
-pub fn default_decider(_: ActorInnerError) -> Directive {
+pub async fn default_decider(_: ActorInnerError) -> Directive {
   Directive::Restart
 }
 
@@ -32,7 +32,10 @@ impl OneForOneStrategy {
     }
   }
 
-  pub fn with_decider(mut self, decider: impl Fn(ActorInnerError) -> Directive + Send + Sync + 'static) -> Self {
+  pub fn with_decider<F, Fut>(mut self, decider: F) -> Self
+  where
+    F: Fn(ActorInnerError) -> Fut + Send + Sync + 'static,
+    Fut: futures::future::Future<Output = Directive> + Send + 'static, {
     self.decider = Arc::new(Decider::new(decider));
     self
   }
@@ -95,7 +98,7 @@ impl SupervisorStrategy for OneForOneStrategy {
       rs,
       message
     );
-    let directive = self.decider.run(reason.clone());
+    let directive = self.decider.run(reason.clone()).await;
     match directive {
       Directive::Resume => {
         // resume the failing child

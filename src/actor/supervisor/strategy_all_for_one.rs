@@ -30,7 +30,10 @@ impl AllForOneStrategy {
     }
   }
 
-  pub fn with_decider(mut self, decider: impl Fn(ActorInnerError) -> Directive + Send + Sync + 'static) -> Self {
+  pub fn with_decider<F, Fut>(mut self, decider: F) -> Self
+  where
+    F: Fn(ActorInnerError) -> Fut + Send + Sync + 'static,
+    Fut: futures::future::Future<Output = Directive> + Send + 'static, {
     self.decider = Arc::new(Decider::new(decider));
     self
   }
@@ -61,7 +64,7 @@ impl SupervisorStrategy for AllForOneStrategy {
     reason: ActorInnerError,
     message: MessageHandle,
   ) {
-    let directive = self.decider.run(reason.clone());
+    let directive = self.decider.run(reason.clone()).await;
     match directive {
       Directive::Resume => {
         log_failure(actor_system, &child, reason, directive).await;

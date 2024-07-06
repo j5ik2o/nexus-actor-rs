@@ -42,7 +42,10 @@ pub async fn init() {
 
   let logger_for_subscriber = logger.clone();
   reset_subscription_with(move |evt: Event| {
-    let _ = logger_for_subscriber.sender.try_send(evt);
+    let logger_for_subscriber = logger_for_subscriber.clone();
+    async move {
+      let _ = logger_for_subscriber.sender.try_send(evt);
+    }
   })
   .await;
 
@@ -61,9 +64,10 @@ pub async fn reset_global_logger() {
   *logger = None;
 }
 
-pub async fn reset_subscription_with<F>(f: F)
+pub async fn reset_subscription_with<F, Fut>(f: F)
 where
-  F: Fn(Event) + Send + Sync + 'static, {
+  F: Fn(Event) -> Fut + Send + Sync + 'static,
+  Fut: futures::Future<Output = ()> + Send + 'static, {
   let mut sub = SUB.lock().await;
   if let Some(old_sub) = sub.take() {
     unsubscribe_stream(&old_sub).await;

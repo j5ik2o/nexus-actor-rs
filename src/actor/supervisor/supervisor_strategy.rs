@@ -1,4 +1,5 @@
 use std::fmt::Debug;
+use std::future::Future;
 use std::sync::Arc;
 
 use crate::actor::actor::actor_inner_error::ActorInnerError;
@@ -12,11 +13,25 @@ use crate::actor::supervisor::strategy_restarting::RestartingStrategy;
 use crate::actor::supervisor::supervision_event::SupervisorEvent;
 use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
 use async_trait::async_trait;
+use futures::future::BoxFuture;
 use once_cell::sync::Lazy;
 use tokio::sync::Mutex;
 
 #[derive(Clone)]
-pub struct Decider(Arc<dyn Fn(ActorInnerError) -> Directive + Send + Sync>);
+pub struct Decider(Arc<dyn Fn(ActorInnerError) -> BoxFuture<'static, Directive> + Send + Sync>);
+
+impl Decider {
+  pub fn new<F, Fut>(f: F) -> Self
+  where
+    F: Fn(ActorInnerError) -> Fut + Send + Sync + 'static,
+    Fut: Future<Output = Directive> + Send + 'static, {
+    Decider(Arc::new(move |error| Box::pin(f(error))))
+  }
+
+  pub async fn run(&self, reason: ActorInnerError) -> Directive {
+    (self.0)(reason).await
+  }
+}
 
 impl Debug for Decider {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -34,17 +49,7 @@ impl Eq for Decider {}
 
 impl std::hash::Hash for Decider {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    (self.0.as_ref() as *const dyn Fn(ActorInnerError) -> Directive).hash(state);
-  }
-}
-
-impl Decider {
-  pub fn new(f: impl Fn(ActorInnerError) -> Directive + Send + Sync + 'static) -> Self {
-    Decider(Arc::new(f))
-  }
-
-  pub fn run(&self, reason: ActorInnerError) -> Directive {
-    (self.0)(reason)
+    (self.0.as_ref() as *const dyn Fn(ActorInnerError) -> BoxFuture<'static, Directive>).hash(state);
   }
 }
 

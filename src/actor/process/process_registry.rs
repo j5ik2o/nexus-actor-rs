@@ -1,9 +1,11 @@
 use std::fmt::{Debug, Formatter};
+use std::future::Future;
 use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 use dashmap::DashMap;
+use futures::future::BoxFuture;
 use siphasher::sip::SipHasher;
 use tokio::sync::Mutex;
 
@@ -50,7 +52,7 @@ impl SliceMap {
 }
 
 #[derive(Clone)]
-pub struct AddressResolver(Arc<dyn Fn(&ExtendedPid) -> Option<ProcessHandle> + Send + Sync>);
+pub struct AddressResolver(Arc<dyn Fn(&ExtendedPid) -> BoxFuture<'static, Option<ProcessHandle>> + Send + Sync>);
 
 impl Debug for AddressResolver {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -68,17 +70,20 @@ impl Eq for AddressResolver {}
 
 impl Hash for AddressResolver {
   fn hash<H: Hasher>(&self, state: &mut H) {
-    (self.0.as_ref() as *const dyn Fn(&ExtendedPid) -> Option<ProcessHandle>).hash(state);
+    (self.0.as_ref() as *const dyn Fn(&ExtendedPid) -> BoxFuture<'static, Option<ProcessHandle>>).hash(state);
   }
 }
 
 impl AddressResolver {
-  pub fn new(f: impl Fn(&ExtendedPid) -> Option<ProcessHandle> + Send + Sync + 'static) -> Self {
-    AddressResolver(Arc::new(f))
+  pub fn new<F, Fut>(f: F) -> Self
+  where
+    F: Fn(&ExtendedPid) -> Fut + Send + Sync + 'static,
+    Fut: Future<Output = Option<ProcessHandle>> + Send + 'static, {
+    AddressResolver(Arc::new(move |p| Box::pin(f(p))))
   }
 
   pub async fn run(&self, pid: &ExtendedPid) -> Option<ProcessHandle> {
-    (self.0)(pid)
+    (self.0)(pid).await
   }
 }
 
