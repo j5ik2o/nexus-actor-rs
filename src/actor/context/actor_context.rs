@@ -60,7 +60,7 @@ pub struct ActorContextInner {
   self_pid: Option<ExtendedPid>,
   receive_timeout: Option<tokio::time::Duration>,
   producer: Option<ActorProducer>,
-  message_or_envelope_opt: Option<MessageHandle>,
+  message_or_envelope_opt: Arc<Mutex<Option<MessageHandle>>>,
   state: Option<Arc<AtomicU8>>,
 }
 
@@ -97,7 +97,7 @@ impl ActorContext {
         self_pid: None,
         receive_timeout: None,
         producer: None,
-        message_or_envelope_opt: None,
+        message_or_envelope_opt: Arc::new(Mutex::new(None)),
         state: None,
       })),
     };
@@ -239,25 +239,20 @@ impl ActorContext {
 
   async fn get_message_or_envelop(&self) -> MessageHandle {
     let inner_mg = self.inner.lock().await;
-    inner_mg.message_or_envelope_opt.clone().unwrap()
+    let mg = inner_mg.message_or_envelope_opt.lock().await;
+    mg.clone().unwrap()
   }
 
   async fn set_message_or_envelope(&mut self, message: MessageHandle) {
-    let mut inner_mg = self.inner.lock().await;
-    let message_or_envelope = &mut inner_mg.message_or_envelope_opt;
-    match message_or_envelope {
-      None => {
-        *message_or_envelope = Some(message);
-      }
-      Some(value) => {
-        *value = message;
-      }
-    }
+    let inner_mg = self.inner.lock().await;
+    let mut moe_opt = inner_mg.message_or_envelope_opt.lock().await;
+    *moe_opt = Some(message);
   }
 
   async fn reset_message_or_envelope(&mut self) {
-    let mut inner_mg = self.inner.lock().await;
-    inner_mg.message_or_envelope_opt = None;
+    let inner_mg = self.inner.lock().await;
+    let mut moe_opt = inner_mg.message_or_envelope_opt.lock().await;
+    *moe_opt = None;
   }
 
   async fn process_message(&mut self, message: MessageHandle) -> Result<(), ActorError> {
@@ -595,9 +590,9 @@ impl BasePart for ActorContext {
   async fn respond(&self, response: ResponseHandle) {
     tracing::debug!("ActorContext::respond: response = {:?}", response);
     let mh = MessageHandle::new(response);
-    tracing::debug!("ActorContext::respond: response = {:?}", mh);
+    tracing::debug!("ActorContext::respond: mh = {:?}", mh);
     let sender = self.get_sender().await;
-    tracing::debug!("ActorContext::respond: response = {:?}", sender);
+    tracing::debug!("ActorContext::respond: sender = {:?}", sender);
     if sender.is_none() {
       self
         .get_actor_system()
@@ -684,8 +679,9 @@ impl BasePart for ActorContext {
   }
 
   async fn forward(&self, pid: &ExtendedPid) {
-    let mg = self.inner.lock().await;
-    if let Some(message_or_envelope) = &mg.message_or_envelope_opt {
+    let inner_mg = self.inner.lock().await;
+    let mg = inner_mg.message_or_envelope_opt.lock().await;
+    if let Some(message_or_envelope) = &*mg {
       if let Some(sm) = message_or_envelope.as_any().downcast_ref::<SystemMessage>() {
         panic!("SystemMessage cannot be forwarded: {:?}", sm);
       } else {
@@ -697,12 +693,14 @@ impl BasePart for ActorContext {
   }
 
   async fn reenter_after(&self, f: crate::actor::future::Future, continuer: Continuer) {
+    tracing::debug!("reenter_after: start");
     let message = self.get_message_or_envelop().await;
     let f_clone = f.clone();
     let system = self.get_actor_system().await;
     let self_ref = self.get_self().await.unwrap();
 
-    f.continue_with(move |_, _| {
+    f.continue_with(move |result_message, result_error| {
+      tracing::debug!("reenter_after: continue_with: start");
       let f = f_clone.clone();
       let message = message.clone();
       let continuation = continuer.clone();
@@ -710,8 +708,9 @@ impl BasePart for ActorContext {
       let self_ref = self_ref.clone();
 
       async move {
-        let result_message = f.result().await.ok();
-        let result_error = f.result().await.err();
+        tracing::debug!("reenter_after: continue_with: f = {:?}", f);
+        tracing::debug!("reenter_after: continue_with: result_message = {:?}", result_message);
+        tracing::debug!("reenter_after: continue_with: result_error = {:?}", result_error);
         self_ref
           .send_system_message(
             system,
@@ -735,7 +734,8 @@ impl BasePart for ActorContext {
 impl MessagePart for ActorContext {
   async fn get_message(&self) -> Option<MessageHandle> {
     let inner_mg = self.inner.lock().await;
-    let result = if let Some(message_or_envelope) = &inner_mg.message_or_envelope_opt {
+    let mg = inner_mg.message_or_envelope_opt.lock().await;
+    let result = if let Some(message_or_envelope) = &*mg {
       Some(message_or_envelope.clone())
     } else {
       None
@@ -745,7 +745,8 @@ impl MessagePart for ActorContext {
 
   async fn get_message_header(&self) -> Option<ReadonlyMessageHeadersHandle> {
     let inner_mg = self.inner.lock().await;
-    if let Some(moe) = &inner_mg.message_or_envelope_opt {
+    let mg = inner_mg.message_or_envelope_opt.lock().await;
+    if let Some(moe) = &*mg {
       unwrap_envelope_header(moe.clone()).map(|x| ReadonlyMessageHeadersHandle::new(x))
     } else {
       None
@@ -756,11 +757,17 @@ impl MessagePart for ActorContext {
 #[async_trait]
 impl SenderPart for ActorContext {
   async fn get_sender(&self) -> Option<ExtendedPid> {
+    tracing::debug!("ActorContext::get_sender: start");
     let inner_mg = self.inner.lock().await;
-    if let Some(message_or_envelope) = &inner_mg.message_or_envelope_opt {
+    let mg = inner_mg.message_or_envelope_opt.lock().await;
+    tracing::debug!("ActorContext::get_sender: inner_mg = {:?}", inner_mg);
+    tracing::debug!("ActorContext::get_sender: self_pid = {:?}", inner_mg.self_pid);
+    tracing::debug!("ActorContext::get_sender: message_or_envelope_opt = {:?}", mg);
+    if let Some(message_or_envelope) = &*mg {
       tracing::debug!("get_sender: message_or_envelope = {:?}", message_or_envelope);
       unwrap_envelope_sender(message_or_envelope.clone())
     } else {
+      tracing::debug!("get_sender: None");
       None
     }
   }
@@ -799,13 +806,15 @@ impl SenderPart for ActorContext {
 impl ReceiverPart for ActorContext {
   async fn receive(&mut self, envelope: MessageEnvelope) -> Result<(), ActorError> {
     {
-      let mut inner_mg = self.inner.lock().await;
-      inner_mg.message_or_envelope_opt = Some(MessageHandle::new(envelope));
+      let inner_mg = self.inner.lock().await;
+      let mut mg = inner_mg.message_or_envelope_opt.lock().await;
+      *mg = Some(MessageHandle::new(envelope));
     }
     let result = self.default_receive().await;
     {
-      let mut inner_mg = self.inner.lock().await;
-      inner_mg.message_or_envelope_opt = None;
+      let inner_mg = self.inner.lock().await;
+      let mut mg = inner_mg.message_or_envelope_opt.lock().await;
+      *mg = None;
     }
     result
   }
@@ -976,10 +985,27 @@ impl MessageInvoker for ActorContext {
       }
     }
     if let Some(c) = message.as_any().downcast_ref::<Continuation>() {
-      let mut mg = self.inner.lock().await;
-      mg.message_or_envelope_opt = Some(c.message.clone());
+      tracing::debug!("Continuation message received: msg = {:?}", c.message);
+      {
+        tracing::debug!("Continuation message received: start: c.message = {:?}", c.message);
+        let inner_mg = self.inner.lock().await;
+        let mut mg = inner_mg.message_or_envelope_opt.lock().await;
+        tracing::debug!(
+          "Continuation message received: start: mg.message_or_envelope_opt = {:?}",
+          mg
+        );
+        *mg = Some(c.message.clone());
+        tracing::debug!(
+          "Continuation message received: finished: mg.message_or_envelope_opt = {:?}",
+          mg
+        );
+      }
       (c.f).run().await;
-      mg.message_or_envelope_opt = None;
+      {
+        let inner_mg = self.inner.lock().await.clone();
+        let mut mg = inner_mg.message_or_envelope_opt.lock().await;
+        *mg = None;
+      }
     }
     if let Some(w) = message.as_any().downcast_ref::<Watch>() {
       self.handle_watch(w).await;

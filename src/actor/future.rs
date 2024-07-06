@@ -52,7 +52,7 @@ pub struct Future {
 static_assertions::assert_impl_all!(Future: Send, Sync);
 
 #[derive(Clone)]
-struct Completion(Arc<dyn Fn(Option<MessageHandle>, Option<&FutureError>) -> BoxFuture<'static, ()> + Send>);
+struct Completion(Arc<dyn Fn(Option<MessageHandle>, Option<FutureError>) -> BoxFuture<'static, ()> + Send>);
 
 unsafe impl Send for Completion {}
 
@@ -60,14 +60,14 @@ unsafe impl Sync for Completion {}
 impl Completion {
   fn new<F, Fut>(f: F) -> Self
   where
-    F: Fn(Option<MessageHandle>, Option<&FutureError>) -> Fut + Send + 'static,
+    F: Fn(Option<MessageHandle>, Option<FutureError>) -> Fut + Send + 'static,
     Fut: core::future::Future<Output = ()> + Send + 'static, {
     Self(Arc::new(move |message, error| {
       Box::pin(f(message, error)) as BoxFuture<'static, ()>
     }))
   }
 
-  async fn run(&self, result: Option<MessageHandle>, error: Option<&FutureError>) {
+  async fn run(&self, result: Option<MessageHandle>, error: Option<FutureError>) {
     (self.0)(result, error).await
   }
 }
@@ -380,11 +380,11 @@ impl Future {
 
   pub async fn continue_with<F, Fut>(&self, continuation: F)
   where
-    F: Fn(Option<MessageHandle>, Option<&FutureError>) -> Fut + Send + Sync + 'static,
+    F: Fn(Option<MessageHandle>, Option<FutureError>) -> Fut + Send + Sync + 'static,
     Fut: core::future::Future<Output = ()> + Send + 'static, {
     let mut inner = self.inner.lock().await;
     if inner.done {
-      continuation(inner.result.clone(), inner.error.as_ref()).await;
+      continuation(inner.result.clone(), inner.error.clone()).await;
     } else {
       inner.completions.push(Completion::new(continuation));
     }
@@ -392,7 +392,7 @@ impl Future {
 
   async fn run_completions(&self, inner: &mut FutureInner) {
     for completion in inner.completions.drain(..) {
-      completion.run(inner.result.clone(), inner.error.as_ref()).await;
+      completion.run(inner.result.clone(), inner.error.clone()).await;
     }
   }
 

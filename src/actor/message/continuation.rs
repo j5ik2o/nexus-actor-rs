@@ -59,7 +59,9 @@ impl ContinuationCallback {
   }
 
   pub async fn run(&self) {
-    (self.0)().await
+    tracing::debug!("ContinuationCallback::run: start");
+    (self.0)().await;
+    tracing::debug!("ContinuationCallback::run: end");
   }
 }
 

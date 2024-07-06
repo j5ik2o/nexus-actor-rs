@@ -14,7 +14,7 @@ mod test {
   use crate::actor::message::message_handle::MessageHandle;
   use crate::actor::message::message_or_envelope::MessageEnvelope;
   use crate::actor::message::readonly_message_headers::ReadonlyMessageHeaders;
-  use crate::actor::message::response::{Response, ResponseHandle};
+  use crate::actor::message::response::ResponseHandle;
 
   #[derive(Debug)]
   pub struct Length(pub usize);
@@ -29,11 +29,11 @@ mod test {
     }
   }
 
-  impl Response for Length {
-    fn eq_response(&self, other: &dyn Response) -> bool {
-      self.0 == other.as_any().downcast_ref::<Length>().unwrap().0
-    }
-  }
+  // impl Response for Length {
+  //   fn eq_response(&self, other: &dyn Response) -> bool {
+  //     self.0 == other.as_any().downcast_ref::<Length>().unwrap().0
+  //   }
+  // }
 
   #[tokio::test]
   async fn test_normal_message_gives_empty_message_headers() {
