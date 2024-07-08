@@ -118,8 +118,10 @@ impl FutureProcess {
     let process_registry = system.get_process_registry().await;
     let id = process_registry.next_id();
 
-    let (pid, ok) =
-      process_registry.add_process(ProcessHandle::new_arc(future_process.clone()), &format!("future{}", id));
+    let (pid, ok) = process_registry.add_process(
+      ProcessHandle::new_arc(future_process.clone()),
+      &format!("future_{}", id),
+    );
     if !ok {
       P_LOG
         .error(
@@ -128,6 +130,7 @@ impl FutureProcess {
         )
         .await;
     }
+
     future_process.set_pid(pid).await;
 
     if duration > Duration::from_secs(0) {
@@ -138,7 +141,7 @@ impl FutureProcess {
 
         tokio::select! {
             _ = future.notify.notified() => {
-                tracing::debug!("Future completed before timeout");
+                tracing::debug!("Future completed");
             }
             _ = tokio::time::sleep(duration) => {
                 tracing::debug!("Future timed out");
@@ -193,7 +196,6 @@ impl FutureProcess {
   }
 
   async fn handle_timeout(&self) {
-    tracing::debug!("Future timeout");
     let error = FutureError::Timeout;
     {
       let future_mg = self.future.lock().await;
@@ -201,92 +203,43 @@ impl FutureProcess {
     }
 
     let future = self.future.lock().await.clone();
-    let mut inner = future.inner.lock().await;
-    for pipe in &inner.pipes {
-      pipe
-        .send_user_message(inner.actor_system.clone(), MessageHandle::new(error.clone()))
-        .await;
+
+    {
+      let mut inner = future.inner.lock().await;
+      for pipe in &inner.pipes {
+        pipe
+          .send_user_message(inner.actor_system.clone(), MessageHandle::new(error.clone()))
+          .await;
+      }
+      inner.pipes.clear();
     }
-    inner.pipes.clear();
   }
 }
 
 #[async_trait]
 impl Process for FutureProcess {
   async fn send_user_message(&self, _: Option<&ExtendedPid>, message: MessageHandle) {
-    tracing::debug!(
-      "FutureProcess send_user_message: start: {:?}",
-      message.as_any().type_id()
-    );
     let future = self.future.lock().await.clone();
-    tracing::debug!(
-      "FutureProcess send_user_message: finish: {:?}",
-      message.as_any().type_id()
-    );
     tokio::spawn({
-      tracing::debug!(
-        "FutureProcess send_user_message: spawn: {:?}",
-        message.as_any().type_id()
-      );
       let future = future.clone();
       async move {
-        tracing::debug!(
-          "FutureProcess send_user_message: async: start {:?}",
-          message.as_any().type_id()
-        );
         if message.as_any().downcast_ref::<DeadLetterResponse>().is_some() {
-          tracing::debug!(
-            "FutureProcess send_user_message: async: fail {:?}",
-            message.as_any().type_id()
-          );
           future.fail(FutureError::DeadLetter).await;
         } else {
-          tracing::debug!(
-            "FutureProcess send_user_message: async: complete {:?}",
-            message.as_any().type_id()
-          );
           future.complete(message.clone()).await;
         }
         future.instrument().await;
-        tracing::debug!(
-          "FutureProcess send_user_message: async: finish {:?}",
-          message.as_any().type_id()
-        );
       }
     });
   }
 
   async fn send_system_message(&self, _pid: &ExtendedPid, message: MessageHandle) {
-    tracing::debug!(
-      "FutureProcess send_system_message: start: {:?}",
-      message.as_any().type_id()
-    );
     let future = self.future.lock().await.clone();
-    tracing::debug!(
-      "FutureProcess send_system_message: finish: {:?}",
-      message.as_any().type_id()
-    );
     tokio::spawn({
-      tracing::debug!(
-        "FutureProcess send_system_message: spawn: {:?}",
-        message.as_any().type_id()
-      );
       let future = future.clone();
       async move {
-        tracing::debug!(
-          "FutureProcess send_system_message: async: start {:?}",
-          message.as_any().type_id()
-        );
         future.complete(message.clone()).await;
-        tracing::debug!(
-          "FutureProcess send_system_message: async: instrument {:?}",
-          message.as_any().type_id()
-        );
         future.instrument().await;
-        tracing::debug!(
-          "FutureProcess send_system_message: async: finish {:?}",
-          message.as_any().type_id()
-        );
       }
     });
   }
