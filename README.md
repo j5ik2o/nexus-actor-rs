@@ -28,8 +28,6 @@ This name serves as a nexus itself, connecting the theoretical underpinnings of 
 
 ---
 
-Certainly. Here's an improved English version of the Installation section:
-
 ## Installation
 
 To add NEXUS-ACTo-rs to your project, follow these steps:
