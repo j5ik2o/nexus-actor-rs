@@ -1,24 +1,36 @@
 use std::any::Any;
 use std::fmt::Debug;
+use std::future::Future;
 use std::sync::Arc;
+
+use async_trait::async_trait;
+use futures::future::BoxFuture;
 
 use crate::actor::context::context_handle::ContextHandle;
 use crate::actor::message::message::Message;
-use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::message::response::ResponseHandle;
 
-#[derive(Debug, Clone)]
-pub struct AutoRespond(MessageHandle);
+#[derive(Clone)]
+pub struct AutoRespond(Arc<dyn Fn(ContextHandle) -> BoxFuture<'static, ResponseHandle> + Send + Sync + 'static>);
 
 impl AutoRespond {
-  pub fn new(message: MessageHandle) -> Self {
-    Self(message)
+  pub fn new<F, Fut>(f: F) -> Self
+  where
+    F: Fn(ContextHandle) -> Fut + Send + Sync + 'static,
+    Fut: Future<Output = ResponseHandle> + Send + 'static, {
+    Self(Arc::new(move |mh| Box::pin(f(mh))))
+  }
+}
+
+impl Debug for AutoRespond {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "AutoRespond")
   }
 }
 
 impl Message for AutoRespond {
   fn eq_message(&self, other: &dyn Message) -> bool {
-    self.0.eq_message(other)
+    other.eq_message(self)
   }
 
   fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
@@ -26,13 +38,15 @@ impl Message for AutoRespond {
   }
 }
 
+#[async_trait]
 pub trait AutoResponsive: Debug + Send + Sync + 'static {
-  fn get_auto_response(&self, context: ContextHandle) -> ResponseHandle;
+  async fn get_auto_response(&self, context: ContextHandle) -> ResponseHandle;
 }
 
+#[async_trait]
 impl AutoResponsive for AutoRespond {
-  fn get_auto_response(&self, _: ContextHandle) -> ResponseHandle {
-    ResponseHandle::new(self.0.clone())
+  async fn get_auto_response(&self, ctx: ContextHandle) -> ResponseHandle {
+    (self.0)(ctx).await
   }
 }
 
@@ -45,9 +59,10 @@ impl AutoRespondHandle {
   }
 }
 
+#[async_trait]
 impl AutoResponsive for AutoRespondHandle {
-  fn get_auto_response(&self, context: ContextHandle) -> ResponseHandle {
-    self.0.get_auto_response(context)
+  async fn get_auto_response(&self, context: ContextHandle) -> ResponseHandle {
+    self.0.get_auto_response(context).await
   }
 }
 
