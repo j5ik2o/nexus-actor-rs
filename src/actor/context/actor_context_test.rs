@@ -5,6 +5,7 @@ mod tests {
   use crate::actor::actor::actor_receiver::ActorReceiver;
   use crate::actor::actor::continuer::Continuer;
   use crate::actor::actor::props::Props;
+  use crate::actor::actor::Touched;
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::auto_respond::AutoRespond;
   use crate::actor::context::{BasePart, InfoPart, MessagePart, SenderPart, SpawnerPart};
@@ -98,7 +99,7 @@ mod tests {
   }
 
   #[tokio::test]
-  async fn test_actor_context_auto_respond_touched_message() {
+  async fn test_actor_context_auto_respond_message() {
     let _ = env::set_var("RUST_LOG", "debug");
     let _ = tracing_subscriber::fmt()
       .with_env_filter(EnvFilter::from_default_env())
@@ -115,7 +116,9 @@ mod tests {
     let result = root_context
       .request_future(
         pid,
-        MessageHandle::new(AutoRespond::new(MessageHandle::new(DummyAutoRespond {}))),
+        MessageHandle::new(AutoRespond::new(move |_| async move {
+          ResponseHandle::new(MessageHandle::new(DummyAutoRespond {}))
+        })),
         Duration::from_secs(1),
       )
       .await
@@ -124,5 +127,40 @@ mod tests {
       .unwrap();
 
     assert!(result.as_any().is::<DummyAutoRespond>());
+  }
+
+  #[tokio::test]
+  async fn test_actor_context_auto_respond_touched_message() {
+    let _ = env::set_var("RUST_LOG", "debug");
+    let _ = tracing_subscriber::fmt()
+      .with_env_filter(EnvFilter::from_default_env())
+      .try_init();
+
+    let system = ActorSystem::new().await;
+    let mut root_context = system.get_root_context().await;
+
+    let actor_receiver = ActorReceiver::new(move |_| async move { Ok(()) });
+    let pid = root_context
+      .spawn(Props::from_actor_receiver(actor_receiver).await)
+      .await;
+
+    let result = root_context
+      .request_future(
+        pid.clone(),
+        MessageHandle::new(AutoRespond::new(move |ctx| async move {
+          ResponseHandle::new(MessageHandle::new(Touched {
+            who: Some(ctx.get_self().await.inner_pid.clone()),
+          }))
+        })),
+        Duration::from_secs(1),
+      )
+      .await
+      .result()
+      .await
+      .unwrap();
+
+    let result2 = result.as_any().downcast_ref::<Touched>();
+    assert!(result2.is_some());
+    assert_eq!(result2.cloned().unwrap().who.unwrap(), pid.inner_pid);
   }
 }

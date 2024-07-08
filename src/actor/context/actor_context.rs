@@ -192,7 +192,7 @@ impl ActorContext {
       };
 
       if let Some(auto_respond) = msg {
-        let res = auto_respond.get_auto_response(context);
+        let res = auto_respond.get_auto_response(context).await;
         tracing::debug!("auto_response: response = {:?}", res);
         self.respond(res).await
       }
