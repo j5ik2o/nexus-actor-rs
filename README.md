@@ -27,3 +27,33 @@ NEXUS-ACTo-rs integrates the core characteristics of the Actor Model—distribut
 This name serves as a nexus itself, connecting the theoretical underpinnings of the Actor Model with the practical implementation in Rust, all while engaging the community with its clever wordplay.
 
 ---
+
+Certainly. Here's an improved English version of the Installation section:
+
+## Installation
+
+To add NEXUS-ACTo-rs to your project, follow these steps:
+
+1. Open your `Cargo.toml` file.
+
+2. Add the following line to the `[dependencies]` section:
+
+```toml
+nexus-acto-rs = "0.0.4"
+```
+
+3. If you want to use the latest version, you can check it by running:
+
+```shell
+cargo search nexus-acto-rs
+```
+
+4. To update the dependencies, run the following command in your project's root directory:
+
+```shell
+cargo update
+```
+
+Now NEXUS-ACTo-rs is installed and ready to use in your project.
+
+Note: As versions may be updated regularly, it's recommended to check for the latest version.
