@@ -146,12 +146,7 @@ impl ProcessRegistry {
       return Some(self.actor_system.get_dead_letter().await);
     }
 
-    let bucket = self.local_pids.get_bucket(pid.id());
-    let result = bucket.get(pid.id());
-    match result {
-      Some(r) => Some(r.clone()),
-      None => Some(self.actor_system.get_dead_letter().await),
-    }
+    self.get_local_process(pid.id()).await
   }
 
   pub async fn get_local_process(&self, id: &str) -> Option<ProcessHandle> {

@@ -17,7 +17,7 @@ use crate::actor::actor::sender_middleware_chain::SenderMiddlewareChain;
 use crate::actor::actor::spawner::SpawnError;
 use crate::actor::actor::{PoisonPill, Stop, Terminated, Unwatch, Watch};
 use crate::actor::actor_system::ActorSystem;
-use crate::actor::auto_respond::{AutoRespond, AutoRespondHandle};
+use crate::actor::auto_respond::{AutoRespond, AutoResponsive};
 use crate::actor::context::actor_context_extras::ActorContextExtras;
 use crate::actor::context::context_handle::ContextHandle;
 use crate::actor::context::spawner_context_handle::SpawnerContextHandle;
@@ -183,14 +183,17 @@ impl ActorContext {
 
       let result = actor.handle(context.clone()).await;
 
-      if message.as_any().is::<AutoRespondHandle>() {
-        let auto_respond = message
-          .as_any()
-          .downcast_ref::<AutoRespondHandle>()
-          .expect("Failed to downcast to AutoRespondWrapper")
-          .clone();
+      let me = message.as_any().downcast_ref::<MessageEnvelope>();
+      let ar = message.as_any().downcast_ref::<AutoRespond>();
+      let msg = match (me, ar) {
+        (Some(me), _) => me.get_message().as_any().downcast_ref::<AutoRespond>().cloned(),
+        (_, Some(ar)) => Some(ar.clone()),
+        _ => None,
+      };
+
+      if let Some(auto_respond) = msg {
         let res = auto_respond.get_auto_response(context);
-        tracing::debug!("auto_response: res = {:?}", res);
+        tracing::debug!("auto_response: response = {:?}", res);
         self.respond(res).await
       }
 
@@ -591,11 +594,11 @@ impl BasePart for ActorContext {
   }
 
   async fn respond(&self, response: ResponseHandle) {
-    tracing::debug!("ActorContext::respond: response = {:?}", response);
+    // tracing::debug!("ActorContext::respond: response = {:?}", response);
     let mh = MessageHandle::new(response);
-    tracing::debug!("ActorContext::respond: mh = {:?}", mh);
+    // tracing::debug!("ActorContext::respond: mh = {:?}", mh);
     let sender = self.get_sender().await;
-    tracing::debug!("ActorContext::respond: sender = {:?}", sender);
+    // tracing::debug!("ActorContext::respond: sender = {:?}", sender);
     if sender.is_none() {
       self
         .get_actor_system()
@@ -607,7 +610,7 @@ impl BasePart for ActorContext {
     } else {
       let mut cloned = self.clone();
       let pid = self.get_sender().await;
-      tracing::debug!("ActorContext::respond: pid = {:?}", pid);
+      // tracing::debug!("ActorContext::respond: pid = {:?}", pid);
       cloned.send(pid.unwrap(), mh).await
     }
   }
@@ -937,29 +940,24 @@ impl Context for ActorContext {}
 #[async_trait]
 impl MessageInvoker for ActorContext {
   async fn invoke_system_message(&mut self, message: MessageHandle) -> Result<(), ActorError> {
-    tracing::debug!("invoke_system_message: message = {:?}", message);
     let sm = message.as_any().downcast_ref::<SystemMessage>();
     if let Some(sm) = sm {
       match sm {
         SystemMessage::Started(_) => {
-          tracing::debug!("Started message received");
           let result = self.invoke_user_message(message.clone()).await;
           if result.is_err() {
-            tracing::debug!("Failed to handle Started message: {:?}", result);
             return result;
           }
         }
         SystemMessage::Stop(_) => {
           let result = self.handle_stop().await;
           if result.is_err() {
-            tracing::debug!("Failed to handle Stop message: {:?}", result);
             return result;
           }
         }
         SystemMessage::Restart(_) => {
           let result = self.handle_restart().await;
           if result.is_err() {
-            tracing::debug!("Failed to handle Restart message: {:?}", result);
             return result;
           }
         }
@@ -982,7 +980,6 @@ impl MessageInvoker for ActorContext {
     if let Some(t) = message.as_any().downcast_ref::<Terminated>() {
       let result = self.handle_terminated(t).await;
       if result.is_err() {
-        tracing::debug!("Failed to handle Terminated message: {:?}", result);
         return result;
       }
     }
@@ -990,7 +987,6 @@ impl MessageInvoker for ActorContext {
   }
 
   async fn invoke_user_message(&mut self, message: MessageHandle) -> Result<(), ActorError> {
-    // tracing::debug!("invoke_user_message: message = {:?}", message);
     let state = {
       let inner_mg = self.inner.lock().await;
       inner_mg.state.clone()
@@ -1047,42 +1043,21 @@ impl MessageInvoker for ActorContext {
     );
 
     let self_pid = self.get_self_opt().await.unwrap();
-    tracing::debug!(
-      "MessageInvoker::escalate_failure: send failure message: start: from = {}, to = {}",
-      self_pid,
-      self_pid
-    );
+
     self_pid
       .send_system_message(
         self.get_actor_system().await,
         MessageHandle::new(MailboxMessage::SuspendMailbox),
       )
       .await;
-    tracing::debug!(
-      "MessageInvoker::escalate_failure: send failure message: finished: from = {}, to = {}",
-      self_pid,
-      self_pid
-    );
 
     if self.get_parent().await.is_none() {
-      tracing::debug!("----- MessageInvoker::escalate_failure: parent is none: handle_root_failure ----->>>>>");
       self.handle_root_failure(&failure).await;
-      tracing::debug!("<<<<<----- MessageInvoker::escalate_failure: parent is none: handle_root_failure -----");
     } else {
       let parent_pid = self.get_parent().await.unwrap();
-      tracing::debug!(
-        "MessageInvoker::escalate_failure: send failure message: start: from = {}, to = {}",
-        self_pid,
-        parent_pid
-      );
       parent_pid
         .send_system_message(self.get_actor_system().await, MessageHandle::new(failure))
         .await;
-      tracing::debug!(
-        "MessageInvoker::escalate_failure: send failure message: finished: from = {}, to = {}",
-        self_pid,
-        parent_pid
-      );
     }
   }
 }
@@ -1098,7 +1073,6 @@ impl Supervisor for ActorContext {
   }
 
   async fn escalate_failure(&self, reason: ActorInnerError, message: MessageHandle) {
-    tracing::debug!("ActorContext::escalate_failure: reason = {:?}", reason);
     let self_pid = self.get_self_opt().await.expect("Failed to retrieve self_pid");
     if self
       .get_actor_system()
@@ -1141,10 +1115,8 @@ impl Supervisor for ActorContext {
       .await;
 
     if self.get_parent().await.is_none() {
-      tracing::debug!("Escalating failure to root");
       cloned_self.handle_root_failure(&failure).await
     } else {
-      tracing::debug!("Escalating failure to parent");
       self
         .get_parent()
         .await
