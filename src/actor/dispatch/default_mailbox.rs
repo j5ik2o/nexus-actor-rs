@@ -4,7 +4,6 @@ use crate::actor::dispatch::mailbox_handle::MailboxHandle;
 use crate::actor::dispatch::mailbox_message::MailboxMessage;
 use crate::actor::dispatch::mailbox_middleware::{MailboxMiddleware, MailboxMiddlewareHandle};
 use crate::actor::dispatch::message_invoker::{MessageInvoker, MessageInvokerHandle};
-use crate::actor::message::message::Message;
 use crate::actor::message::message_handle::MessageHandle;
 use crate::util::queue::{QueueError, QueueReader, QueueWriter};
 use async_trait::async_trait;
@@ -208,9 +207,8 @@ impl DefaultMailbox {
       i += 1;
 
       if let Ok(Some(msg)) = self.poll_system_mailbox().await {
-        tracing::debug!("DefaultMailbox::run: system msg = {:?}", msg);
         self.decrement_system_messages_count().await;
-        let mailbox_message = msg.as_any().downcast_ref::<MailboxMessage>();
+        let mailbox_message = msg.to_typed::<MailboxMessage>();
         match mailbox_message {
           Some(MailboxMessage::SuspendMailbox) => {
             self.set_suspended(true).await;
@@ -220,11 +218,9 @@ impl DefaultMailbox {
           }
           _ => {
             if let Err(err) = message_invoker.invoke_system_message(msg.clone()).await {
-              tracing::debug!("----- DefaultMailbox::run: Failed to invoke system message ----->>>>>");
               message_invoker
                 .escalate_failure(err.reason().cloned().unwrap(), msg.clone())
                 .await;
-              tracing::debug!("<<<<<----- DefaultMailbox::run: Failed to invoke system message -----");
             }
           }
         }
@@ -239,15 +235,12 @@ impl DefaultMailbox {
       }
 
       if let Ok(Some(message)) = self.poll_user_mailbox().await {
-        tracing::debug!("DefaultMailbox::run: user msg = {:?}", message);
         self.decrement_user_messages_count().await;
         let result = message_invoker.invoke_user_message(message.clone()).await;
         if let Err(e) = result {
-          tracing::debug!("----- DefaultMailbox::run: Failed to invoke user message ----->>>>>");
           message_invoker
             .escalate_failure(e.reason().cloned().unwrap(), message.clone())
             .await;
-          tracing::debug!("<<<<<----- DefaultMailbox::run: Failed to invoke user message -----");
         }
         for middleware in self.get_middlewares().await {
           middleware.message_received(message.clone()).await;
@@ -283,12 +276,12 @@ impl Mailbox for DefaultMailbox {
     }
   }
 
-  async fn post_user_message(&self, message: MessageHandle) {
+  async fn post_user_message(&self, message_handle: MessageHandle) {
     for middleware in self.get_middlewares().await {
-      middleware.message_posted(message.clone()).await;
+      middleware.message_posted(message_handle.clone()).await;
     }
 
-    if let Err(e) = self.offer_user_mailbox(message).await {
+    if let Err(e) = self.offer_user_mailbox(message_handle).await {
       tracing::error!("Failed to send message: {:?}", e);
     } else {
       self.increment_user_messages_count().await;
@@ -296,12 +289,12 @@ impl Mailbox for DefaultMailbox {
     }
   }
 
-  async fn post_system_message(&self, message: MessageHandle) {
+  async fn post_system_message(&self, message_handle: MessageHandle) {
     for middleware in self.get_middlewares().await {
-      middleware.message_posted(message.clone()).await;
+      middleware.message_posted(message_handle.clone()).await;
     }
 
-    if let Err(e) = self.offer_system_mailbox(message).await {
+    if let Err(e) = self.offer_system_mailbox(message_handle).await {
       tracing::error!("Failed to send message: {:?}", e);
     } else {
       self.increment_system_messages_count().await;
@@ -309,9 +302,13 @@ impl Mailbox for DefaultMailbox {
     }
   }
 
-  async fn register_handlers(&mut self, invoker: Option<MessageInvokerHandle>, dispatcher: Option<DispatcherHandle>) {
-    self.set_message_invoker_opt(invoker).await;
-    self.set_dispatcher_opt(dispatcher).await;
+  async fn register_handlers(
+    &mut self,
+    message_invoker_handle: Option<MessageInvokerHandle>,
+    dispatcher_handle: Option<DispatcherHandle>,
+  ) {
+    self.set_message_invoker_opt(message_invoker_handle).await;
+    self.set_dispatcher_opt(dispatcher_handle).await;
   }
 
   async fn start(&self) {

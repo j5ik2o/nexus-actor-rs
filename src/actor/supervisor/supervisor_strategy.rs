@@ -62,7 +62,7 @@ pub trait SupervisorStrategy: Debug + Send + Sync {
     child: ExtendedPid,
     rs: RestartStatistics,
     reason: ActorInnerError,
-    message: MessageHandle,
+    message_handle: MessageHandle,
   );
 
   fn as_any(&self) -> &dyn std::any::Any;
@@ -71,7 +71,7 @@ pub trait SupervisorStrategy: Debug + Send + Sync {
 #[async_trait]
 pub trait Supervisor: Debug + Send + Sync + 'static {
   async fn get_children(&self) -> Vec<ExtendedPid>;
-  async fn escalate_failure(&self, reason: ActorInnerError, message: MessageHandle);
+  async fn escalate_failure(&self, reason: ActorInnerError, message_handle: MessageHandle);
   async fn restart_children(&self, pids: &[ExtendedPid]);
   async fn stop_children(&self, pids: &[ExtendedPid]);
   async fn resume_children(&self, pids: &[ExtendedPid]);
@@ -111,9 +111,9 @@ impl Supervisor for SupervisorHandle {
     mg.get_children().await
   }
 
-  async fn escalate_failure(&self, reason: ActorInnerError, message: MessageHandle) {
+  async fn escalate_failure(&self, reason: ActorInnerError, message_handle: MessageHandle) {
     let mg = self.0.lock().await;
-    mg.escalate_failure(reason, message).await;
+    mg.escalate_failure(reason, message_handle).await;
   }
 
   async fn restart_children(&self, pids: &[ExtendedPid]) {

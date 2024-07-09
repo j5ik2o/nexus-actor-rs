@@ -44,13 +44,13 @@ mod test {
 
   #[async_trait]
   impl MessageInvoker for TestMessageInvoker {
-    async fn invoke_system_message(&mut self, _message: MessageHandle) -> Result<(), ActorError> {
+    async fn invoke_system_message(&mut self, _: MessageHandle) -> Result<(), ActorError> {
       self.received.lock().await.push(ReceivedMessage::System);
       Ok(())
     }
 
-    async fn invoke_user_message(&mut self, message: MessageHandle) -> Result<(), ActorError> {
-      if message.as_any().is::<TestTask>() {
+    async fn invoke_user_message(&mut self, message_handle: MessageHandle) -> Result<(), ActorError> {
+      if message_handle.is_typed::<TestTask>() {
         self.received.lock().await.push(ReceivedMessage::Task);
       } else {
         self.received.lock().await.push(ReceivedMessage::User);
@@ -58,7 +58,7 @@ mod test {
       Ok(())
     }
 
-    async fn escalate_failure(&mut self, reason: ActorInnerError, _message: MessageHandle) {
+    async fn escalate_failure(&mut self, reason: ActorInnerError, _: MessageHandle) {
       let reason_msg = if reason.is_type::<&str>() {
         reason.clone().take::<&str>().unwrap().to_string()
       } else if reason.is_type::<String>() {

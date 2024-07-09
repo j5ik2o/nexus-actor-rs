@@ -51,11 +51,11 @@ impl SupervisorStrategy for SupervisorStrategyHandle {
     child: ExtendedPid,
     rs: RestartStatistics,
     reason: ActorInnerError,
-    message: MessageHandle,
+    message_handle: MessageHandle,
   ) {
     self
       .0
-      .handle_child_failure(actor_system, supervisor, child, rs, reason, message)
+      .handle_child_failure(actor_system, supervisor, child, rs, reason, message_handle)
       .await
   }
 

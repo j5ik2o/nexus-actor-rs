@@ -63,15 +63,15 @@ impl ReceiverPart for ReceiverContextHandle {
 
 #[async_trait]
 impl MessagePart for ReceiverContextHandle {
-  async fn get_message_opt(&self) -> Option<MessageHandle> {
+  async fn get_message_handle_opt(&self) -> Option<MessageHandle> {
     let mg = self.0.lock().await;
-    let result = mg.get_message_opt().await;
+    let result = mg.get_message_handle_opt().await;
     result
   }
 
-  async fn get_message_header(&self) -> Option<ReadonlyMessageHeadersHandle> {
+  async fn get_message_header_handle(&self) -> Option<ReadonlyMessageHeadersHandle> {
     let mg = self.0.lock().await;
-    mg.get_message_header().await
+    mg.get_message_header_handle().await
   }
 }
 

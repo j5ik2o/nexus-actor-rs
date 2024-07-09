@@ -47,9 +47,3 @@ impl Message for ResponseHandle {
     self.0.as_any()
   }
 }
-
-// impl Response for ResponseHandle {
-//   fn eq_response(&self, other: &dyn Response) -> bool {
-//     self.0.eq_response(other)
-//   }
-// }

@@ -31,10 +31,10 @@ mod tests {
     let pid = root_context
       .spawn(
         Props::from_actor_receiver(ActorReceiver::new(move |ctx| async move {
-          let msg = ctx.get_message().await;
-          if let Some(me) = msg.as_any().downcast_ref::<MessageEnvelope>() {
+          let msg = ctx.get_message_handle().await;
+          if let Some(me) = msg.to_typed::<MessageEnvelope>() {
             let self_pid = ctx.get_self().await;
-            let msg = me.get_message().as_any().downcast_ref::<String>().unwrap().clone();
+            let msg = me.get_message_handle().to_typed::<String>().unwrap().clone();
             if msg == "request" {
               ctx.respond(ResponseHandle::new("done".to_string())).await;
               Ok(())
@@ -52,7 +52,7 @@ mod tests {
                   future,
                   Continuer::new(move |msg, _| {
                     let cloned_ctx = cloned_ctx.clone();
-                    let cloned_msg = msg.clone().unwrap().as_any().downcast_ref::<String>().unwrap().clone();
+                    let cloned_msg = msg.clone().unwrap().to_typed::<String>().unwrap().clone();
                     async move {
                       cloned_ctx.respond(ResponseHandle::new(cloned_msg)).await;
                     }
@@ -82,7 +82,7 @@ mod tests {
       .unwrap();
     tracing::debug!("res = {:?}", res);
 
-    let response = res.as_any().downcast_ref::<String>().unwrap().clone();
+    let response = res.to_typed::<String>().unwrap().clone();
     assert_eq!(response, "done".to_string());
   }
 
@@ -159,8 +159,8 @@ mod tests {
       .await
       .unwrap();
 
-    let result2 = result.as_any().downcast_ref::<Touched>();
+    let result2 = result.to_typed::<Touched>();
     assert!(result2.is_some());
-    assert_eq!(result2.cloned().unwrap().who.unwrap(), pid.inner_pid);
+    assert_eq!(result2.unwrap().who.unwrap(), pid.inner_pid);
   }
 }

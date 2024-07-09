@@ -12,7 +12,6 @@ use crate::actor::actor_system::ActorSystem;
 use crate::actor::dispatch::mailbox_message::MailboxMessage;
 use crate::actor::log::P_LOG;
 use crate::actor::message::failure::Failure;
-use crate::actor::message::message::Message;
 use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::message::messages::Restart;
 use crate::actor::message::system_message::SystemMessage;
@@ -110,8 +109,8 @@ impl Process for GuardianProcess {
     panic!("guardian actor cannot receive any user messages");
   }
 
-  async fn send_system_message(&self, _: &ExtendedPid, message: MessageHandle) {
-    if let Some(failure) = message.as_any().downcast_ref::<Failure>() {
+  async fn send_system_message(&self, _: &ExtendedPid, message_handle: MessageHandle) {
+    if let Some(failure) = message_handle.to_typed::<Failure>() {
       self
         .strategy
         .handle_child_failure(
@@ -120,7 +119,7 @@ impl Process for GuardianProcess {
           failure.who.clone(),
           failure.restart_stats.clone(),
           failure.reason.clone(),
-          failure.message.clone(),
+          failure.message_handle.clone(),
         )
         .await;
     }
@@ -145,7 +144,7 @@ impl Supervisor for GuardianProcess {
     panic!("guardian does not hold its children PIDs");
   }
 
-  async fn escalate_failure(&self, _reason: ActorInnerError, _message: MessageHandle) {
+  async fn escalate_failure(&self, _: ActorInnerError, _: MessageHandle) {
     panic!("guardian cannot escalate failure");
   }
 

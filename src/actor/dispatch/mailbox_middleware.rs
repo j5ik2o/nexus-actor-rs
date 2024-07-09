@@ -9,8 +9,8 @@ use crate::actor::message::message_handle::MessageHandle;
 #[async_trait]
 pub trait MailboxMiddleware: Debug + Send + Sync {
   async fn mailbox_started(&self);
-  async fn message_posted(&self, message: MessageHandle);
-  async fn message_received(&self, message: MessageHandle);
+  async fn message_posted(&self, message_handle: MessageHandle);
+  async fn message_received(&self, message_handle: MessageHandle);
   async fn mailbox_empty(&self);
 }
 
@@ -43,12 +43,12 @@ impl MailboxMiddleware for MailboxMiddlewareHandle {
     self.0.mailbox_started().await;
   }
 
-  async fn message_posted(&self, message: MessageHandle) {
-    self.0.message_posted(message).await;
+  async fn message_posted(&self, message_handle: MessageHandle) {
+    self.0.message_posted(message_handle).await;
   }
 
-  async fn message_received(&self, message: MessageHandle) {
-    self.0.message_received(message).await;
+  async fn message_received(&self, message_handle: MessageHandle) {
+    self.0.message_received(message_handle).await;
   }
 
   async fn mailbox_empty(&self) {

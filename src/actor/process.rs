@@ -10,8 +10,8 @@ pub mod process_registry;
 
 #[async_trait]
 pub trait Process: Debug + Send + Sync + 'static {
-  async fn send_user_message(&self, pid: Option<&ExtendedPid>, message: MessageHandle);
-  async fn send_system_message(&self, pid: &ExtendedPid, message: MessageHandle);
+  async fn send_user_message(&self, pid: Option<&ExtendedPid>, message_handle: MessageHandle);
+  async fn send_system_message(&self, pid: &ExtendedPid, message_handle: MessageHandle);
   async fn stop(&self, pid: &ExtendedPid);
 
   fn set_dead(&self);
@@ -42,19 +42,21 @@ impl ProcessHandle {
     ProcessHandle(process)
   }
 
-  pub fn new(p: impl Process + 'static) -> Self {
-    ProcessHandle(Arc::new(p))
+  pub fn new<P>(process: P) -> Self
+  where
+    P: Process + 'static, {
+    ProcessHandle(Arc::new(process))
   }
 }
 
 #[async_trait]
 impl Process for ProcessHandle {
-  async fn send_user_message(&self, pid: Option<&ExtendedPid>, message: MessageHandle) {
-    self.0.send_user_message(pid, message).await;
+  async fn send_user_message(&self, pid: Option<&ExtendedPid>, message_handle: MessageHandle) {
+    self.0.send_user_message(pid, message_handle).await;
   }
 
-  async fn send_system_message(&self, pid: &ExtendedPid, message: MessageHandle) {
-    self.0.send_system_message(pid, message).await;
+  async fn send_system_message(&self, pid: &ExtendedPid, message_handle: MessageHandle) {
+    self.0.send_system_message(pid, message_handle).await;
   }
 
   async fn stop(&self, pid: &ExtendedPid) {

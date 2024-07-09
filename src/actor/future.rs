@@ -218,27 +218,27 @@ impl FutureProcess {
 
 #[async_trait]
 impl Process for FutureProcess {
-  async fn send_user_message(&self, _: Option<&ExtendedPid>, message: MessageHandle) {
+  async fn send_user_message(&self, _: Option<&ExtendedPid>, message_handle: MessageHandle) {
     let future = self.future.lock().await.clone();
     tokio::spawn({
       let future = future.clone();
       async move {
-        if message.as_any().downcast_ref::<DeadLetterResponse>().is_some() {
+        if message_handle.to_typed::<DeadLetterResponse>().is_some() {
           future.fail(FutureError::DeadLetter).await;
         } else {
-          future.complete(message.clone()).await;
+          future.complete(message_handle.clone()).await;
         }
         future.instrument().await;
       }
     });
   }
 
-  async fn send_system_message(&self, _pid: &ExtendedPid, message: MessageHandle) {
+  async fn send_system_message(&self, _pid: &ExtendedPid, message_handle: MessageHandle) {
     let future = self.future.lock().await.clone();
     tokio::spawn({
       let future = future.clone();
       async move {
-        future.complete(message.clone()).await;
+        future.complete(message_handle.clone()).await;
         future.instrument().await;
       }
     });

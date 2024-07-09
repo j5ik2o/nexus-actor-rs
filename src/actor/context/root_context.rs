@@ -45,7 +45,7 @@ impl RootContext {
           let actor_system = actor_system.clone();
           async move {
             target
-              .send_user_message(actor_system, envelope.get_message().clone())
+              .send_user_message(actor_system, envelope.get_message_handle().clone())
               .await
           }
         }),
@@ -71,13 +71,13 @@ impl RootContext {
     self
   }
 
-  async fn send_user_message(&self, pid: ExtendedPid, message: MessageHandle) {
+  async fn send_user_message(&self, pid: ExtendedPid, message_handle: MessageHandle) {
     if self.sender_middleware_chain.is_some() {
       let sch = SenderContextHandle::new(self.clone());
-      let me = MessageEnvelope::new(message);
+      let me = MessageEnvelope::new(message_handle);
       self.sender_middleware_chain.clone().unwrap().run(sch, pid, me).await;
     } else {
-      pid.send_user_message(self.actor_system.clone(), message).await;
+      pid.send_user_message(self.actor_system.clone(), message_handle).await;
     }
   }
 }
@@ -122,27 +122,27 @@ impl SenderPart for RootContext {
     None
   }
 
-  async fn send(&mut self, pid: ExtendedPid, message: MessageHandle) {
-    self.send_user_message(pid, message).await
+  async fn send(&mut self, pid: ExtendedPid, message_handle: MessageHandle) {
+    self.send_user_message(pid, message_handle).await
   }
 
-  async fn request(&mut self, pid: ExtendedPid, message: MessageHandle) {
-    self.send_user_message(pid, message).await
+  async fn request(&mut self, pid: ExtendedPid, message_handle: MessageHandle) {
+    self.send_user_message(pid, message_handle).await
   }
 
-  async fn request_with_custom_sender(&mut self, pid: ExtendedPid, message: MessageHandle, sender: ExtendedPid) {
+  async fn request_with_custom_sender(&mut self, pid: ExtendedPid, message_handle: MessageHandle, sender: ExtendedPid) {
     self
       .send_user_message(
         pid,
-        MessageHandle::new(MessageEnvelope::new(message).with_sender(sender)),
+        MessageHandle::new(MessageEnvelope::new(message_handle).with_sender(sender)),
       )
       .await
   }
 
-  async fn request_future(&self, pid: ExtendedPid, message: MessageHandle, timeout: Duration) -> Future {
+  async fn request_future(&self, pid: ExtendedPid, message_handle: MessageHandle, timeout: Duration) -> Future {
     let future_process = FutureProcess::new(self.get_actor_system().await, timeout).await;
     let future_pid = future_process.get_pid().await;
-    let moe = MessageEnvelope::new(message).with_sender(future_pid.clone());
+    let moe = MessageEnvelope::new(message_handle).with_sender(future_pid.clone());
     self.send_user_message(pid, MessageHandle::new(moe)).await;
     future_process.get_future().await
   }
@@ -150,11 +150,11 @@ impl SenderPart for RootContext {
 
 #[async_trait]
 impl MessagePart for RootContext {
-  async fn get_message_opt(&self) -> Option<MessageHandle> {
+  async fn get_message_handle_opt(&self) -> Option<MessageHandle> {
     None
   }
 
-  async fn get_message_header(&self) -> Option<ReadonlyMessageHeadersHandle> {
+  async fn get_message_header_handle(&self) -> Option<ReadonlyMessageHeadersHandle> {
     Some(ReadonlyMessageHeadersHandle::new_arc(self.message_headers.clone()))
   }
 }

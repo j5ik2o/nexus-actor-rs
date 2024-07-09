@@ -20,6 +20,18 @@ impl MessageHandle {
   pub fn new(msg: impl Message + Send + Sync + 'static) -> Self {
     MessageHandle(Arc::new(msg))
   }
+
+  pub fn to_typed<T: Clone + 'static>(&self) -> Option<T> {
+    if let Some(msg) = self.0.as_any().downcast_ref::<T>() {
+      Some(msg.clone())
+    } else {
+      None
+    }
+  }
+
+  pub fn is_typed<T: 'static>(&self) -> bool {
+    self.0.as_any().is::<T>()
+  }
 }
 
 impl Element for MessageHandle {}

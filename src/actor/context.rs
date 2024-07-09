@@ -111,14 +111,14 @@ pub trait BasePart: Debug + Send + Sync + 'static {
 #[async_trait]
 pub trait MessagePart: Debug + Send + Sync + 'static {
   // Message returns the current message to be processed
-  async fn get_message_opt(&self) -> Option<MessageHandle>;
+  async fn get_message_handle_opt(&self) -> Option<MessageHandle>;
 
-  async fn get_message(&self) -> MessageHandle {
-    self.get_message_opt().await.expect("message not found")
+  async fn get_message_handle(&self) -> MessageHandle {
+    self.get_message_handle_opt().await.expect("message not found")
   }
 
   // MessageHeader returns the meta information for the currently processed message
-  async fn get_message_header(&self) -> Option<ReadonlyMessageHeadersHandle>;
+  async fn get_message_header_handle(&self) -> Option<ReadonlyMessageHeadersHandle>;
 }
 
 #[async_trait]
@@ -127,16 +127,16 @@ pub trait SenderPart: Debug + Send + Sync + 'static {
   async fn get_sender(&self) -> Option<ExtendedPid>;
 
   // Send sends a message to the given PID
-  async fn send(&mut self, pid: ExtendedPid, message: MessageHandle);
+  async fn send(&mut self, pid: ExtendedPid, message_handle: MessageHandle);
 
   // Request sends a message to the given PID
-  async fn request(&mut self, pid: ExtendedPid, message: MessageHandle);
+  async fn request(&mut self, pid: ExtendedPid, message_handle: MessageHandle);
 
   // RequestWithCustomSender sends a message to the given PID and also provides a Sender PID
-  async fn request_with_custom_sender(&mut self, pid: ExtendedPid, message: MessageHandle, sender: ExtendedPid);
+  async fn request_with_custom_sender(&mut self, pid: ExtendedPid, message_handle: MessageHandle, sender: ExtendedPid);
 
   // RequestFuture sends a message to a given PID and returns a Future
-  async fn request_future(&self, pid: ExtendedPid, message: MessageHandle, timeout: Duration) -> Future;
+  async fn request_future(&self, pid: ExtendedPid, message_handle: MessageHandle, timeout: Duration) -> Future;
 }
 
 #[async_trait]
