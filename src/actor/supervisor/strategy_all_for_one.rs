@@ -62,7 +62,7 @@ impl SupervisorStrategy for AllForOneStrategy {
     child: ExtendedPid,
     mut rs: RestartStatistics,
     reason: ActorInnerError,
-    message: MessageHandle,
+    message_handle: MessageHandle,
   ) {
     let directive = self.decider.run(reason.clone()).await;
     match directive {
@@ -86,7 +86,7 @@ impl SupervisorStrategy for AllForOneStrategy {
         supervisor.stop_children(&children).await;
       }
       Directive::Escalate => {
-        supervisor.escalate_failure(reason, message).await;
+        supervisor.escalate_failure(reason, message_handle).await;
       }
     }
   }

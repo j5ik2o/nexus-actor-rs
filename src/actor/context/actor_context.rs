@@ -168,7 +168,7 @@ impl ActorContext {
   }
 
   async fn default_receive(&mut self) -> Result<(), ActorError> {
-    let message = self.get_message_opt().await.expect("Failed to retrieve message");
+    let message = self.get_message_handle_opt().await.expect("Failed to retrieve message");
     tracing::debug!("ActorContext::default_receive: message = {:?}", message);
     if message.as_any().is::<PoisonPill>() {
       // tracing::debug!("PoisonPill received");
@@ -183,10 +183,10 @@ impl ActorContext {
 
       let result = actor.handle(context.clone()).await;
 
-      let me = message.as_any().downcast_ref::<MessageEnvelope>();
-      let ar = message.as_any().downcast_ref::<AutoRespond>();
+      let me = message.to_typed::<MessageEnvelope>();
+      let ar = message.to_typed::<AutoRespond>();
       let msg = match (me, ar) {
-        (Some(me), _) => me.get_message().as_any().downcast_ref::<AutoRespond>().cloned(),
+        (Some(me), _) => me.get_message_handle().to_typed::<AutoRespond>(),
         (_, Some(ar)) => Some(ar.clone()),
         _ => None,
       };
@@ -230,15 +230,17 @@ impl ActorContext {
     mg.props.get_sender_middleware_chain().clone()
   }
 
-  pub async fn send_user_message(&self, pid: ExtendedPid, message: MessageHandle) {
+  pub async fn send_user_message(&self, pid: ExtendedPid, message_handle: MessageHandle) {
     match self.get_sender_middleware_chain().await {
       Some(chain) => {
         let mut cloned = self.clone();
         let context = cloned.ensure_extras().await.get_sender_context().await;
-        chain.run(context, pid, MessageEnvelope::new(message)).await;
+        chain.run(context, pid, MessageEnvelope::new(message_handle)).await;
       }
       _ => {
-        pid.send_user_message(self.get_actor_system().await, message).await;
+        pid
+          .send_user_message(self.get_actor_system().await, message_handle)
+          .await;
       }
     }
   }
@@ -249,10 +251,10 @@ impl ActorContext {
     mg.clone().unwrap()
   }
 
-  async fn set_message_or_envelope(&mut self, message: MessageHandle) {
+  async fn set_message_or_envelope(&mut self, message_handle: MessageHandle) {
     let inner_mg = self.inner.lock().await;
     let mut moe_opt = inner_mg.message_or_envelope_opt.lock().await;
-    *moe_opt = Some(message);
+    *moe_opt = Some(message_handle);
   }
 
   async fn reset_message_or_envelope(&mut self) {
@@ -261,15 +263,18 @@ impl ActorContext {
     *moe_opt = None;
   }
 
-  async fn process_message(&mut self, message: MessageHandle) -> Result<(), ActorError> {
-    tracing::debug!("ActorContext::process_message: start message = {:?}", message);
+  async fn process_message(&mut self, message_handle: MessageHandle) -> Result<(), ActorError> {
+    tracing::debug!(
+      "ActorContext::process_message: start message_handle = {:?}",
+      message_handle
+    );
     let props = self.get_props().await;
 
     if props.get_receiver_middleware_chain().is_some() {
       // tracing::debug!("ActorContext::process_message: get_receiver_middleware_chain");
       let extras = self.ensure_extras().await;
       let receiver_context = extras.get_receiver_context().await;
-      let message_envelope = wrap_envelope(message.clone());
+      let message_envelope = wrap_envelope(message_handle.clone());
       let chain = props.get_receiver_middleware_chain().unwrap();
       return chain.run(receiver_context, message_envelope).await;
     }
@@ -278,15 +283,15 @@ impl ActorContext {
       // tracing::debug!("ActorContext::process_message: get_context_decorator_chain");
       let extras = self.ensure_extras().await;
       let mut receiver_context = extras.get_receiver_context().await;
-      let message_envelope = wrap_envelope(message.clone());
+      let message_envelope = wrap_envelope(message_handle.clone());
       return receiver_context.receive(message_envelope).await;
     }
 
     tracing::debug!(
       "ActorContext::process_message: default_receive: message = {:?}",
-      message
+      message_handle
     );
-    self.set_message_or_envelope(message).await;
+    self.set_message_or_envelope(message_handle).await;
     let result = self.default_receive().await;
     self.reset_message_or_envelope().await;
     result
@@ -483,7 +488,7 @@ impl ActorContext {
         f.who.clone(),
         f.restart_stats.clone(),
         f.reason.clone(),
-        f.message.clone(),
+        f.message_handle.clone(),
       )
       .await;
       return;
@@ -499,7 +504,7 @@ impl ActorContext {
         f.who.clone(),
         f.restart_stats.clone(),
         f.reason.clone(),
-        f.message.clone(),
+        f.message_handle.clone(),
       )
       .await;
     tracing::debug!("ActorContext::handle_child_failure: finished: self = {}", self_pid,);
@@ -535,7 +540,7 @@ impl ActorContext {
         self.get_self_opt().await.unwrap(),
         failure.restart_stats.clone(),
         failure.reason.clone(),
-        failure.message.clone(),
+        failure.message_handle.clone(),
       )
       .await;
     tracing::debug!("ActorContext::handle_root_failure: finished");
@@ -618,7 +623,7 @@ impl BasePart for ActorContext {
   async fn stash(&mut self) {
     let extra = self.ensure_extras().await;
     let mut stash = extra.get_stash().await;
-    stash.push(self.get_message_opt().await.unwrap()).await;
+    stash.push(self.get_message_handle_opt().await.unwrap()).await;
   }
 
   async fn watch(&mut self, pid: &ExtendedPid) {
@@ -688,7 +693,7 @@ impl BasePart for ActorContext {
     let inner_mg = self.inner.lock().await;
     let mg = inner_mg.message_or_envelope_opt.lock().await;
     if let Some(message_or_envelope) = &*mg {
-      if let Some(sm) = message_or_envelope.as_any().downcast_ref::<SystemMessage>() {
+      if let Some(sm) = message_or_envelope.to_typed::<SystemMessage>() {
         panic!("SystemMessage cannot be forwarded: {:?}", sm);
       } else {
         pid
@@ -732,7 +737,7 @@ impl BasePart for ActorContext {
 
 #[async_trait]
 impl MessagePart for ActorContext {
-  async fn get_message_opt(&self) -> Option<MessageHandle> {
+  async fn get_message_handle_opt(&self) -> Option<MessageHandle> {
     let inner_mg = self.inner.lock().await;
     let mg = inner_mg.message_or_envelope_opt.lock().await;
     let result = if let Some(message_or_envelope) = &*mg {
@@ -743,7 +748,7 @@ impl MessagePart for ActorContext {
     result
   }
 
-  async fn get_message_header(&self) -> Option<ReadonlyMessageHeadersHandle> {
+  async fn get_message_header_handle(&self) -> Option<ReadonlyMessageHeadersHandle> {
     let inner_mg = self.inner.lock().await;
     let mg = inner_mg.message_or_envelope_opt.lock().await;
     if let Some(moe) = &*mg {
@@ -766,18 +771,18 @@ impl SenderPart for ActorContext {
     }
   }
 
-  async fn send(&mut self, pid: ExtendedPid, message: MessageHandle) {
-    self.send_user_message(pid, message).await;
+  async fn send(&mut self, pid: ExtendedPid, message_handle: MessageHandle) {
+    self.send_user_message(pid, message_handle).await;
   }
 
-  async fn request(&mut self, pid: ExtendedPid, message: MessageHandle) {
-    let env = MessageEnvelope::new(message).with_sender(self.get_self_opt().await.unwrap());
+  async fn request(&mut self, pid: ExtendedPid, message_handle: MessageHandle) {
+    let env = MessageEnvelope::new(message_handle).with_sender(self.get_self_opt().await.unwrap());
     let message_handle = MessageHandle::new(env);
     self.send_user_message(pid, message_handle).await;
   }
 
-  async fn request_with_custom_sender(&mut self, pid: ExtendedPid, message: MessageHandle, sender: ExtendedPid) {
-    let env = MessageEnvelope::new(message).with_sender(sender);
+  async fn request_with_custom_sender(&mut self, pid: ExtendedPid, message_handle: MessageHandle, sender: ExtendedPid) {
+    let env = MessageEnvelope::new(message_handle).with_sender(sender);
     let message_handle = MessageHandle::new(env);
     self.send_user_message(pid, message_handle).await;
   }
@@ -785,12 +790,12 @@ impl SenderPart for ActorContext {
   async fn request_future(
     &self,
     pid: ExtendedPid,
-    message: MessageHandle,
+    message_handle: MessageHandle,
     timeout: Duration,
   ) -> crate::actor::future::Future {
     let future_process = FutureProcess::new(self.get_actor_system().await, timeout.clone()).await;
     let future_pid = future_process.get_pid().await;
-    let moe = MessageEnvelope::new(message).with_sender(future_pid);
+    let moe = MessageEnvelope::new(message_handle).with_sender(future_pid);
     self.send_user_message(pid, MessageHandle::new(moe)).await;
     future_process.get_future().await
   }
@@ -939,12 +944,12 @@ impl Context for ActorContext {}
 
 #[async_trait]
 impl MessageInvoker for ActorContext {
-  async fn invoke_system_message(&mut self, message: MessageHandle) -> Result<(), ActorError> {
-    let sm = message.as_any().downcast_ref::<SystemMessage>();
+  async fn invoke_system_message(&mut self, message_handle: MessageHandle) -> Result<(), ActorError> {
+    let sm = message_handle.to_typed::<SystemMessage>();
     if let Some(sm) = sm {
       match sm {
         SystemMessage::Started(_) => {
-          let result = self.invoke_user_message(message.clone()).await;
+          let result = self.invoke_user_message(message_handle.clone()).await;
           if result.is_err() {
             return result;
           }
@@ -963,22 +968,22 @@ impl MessageInvoker for ActorContext {
         }
       }
     }
-    if let Some(c) = message.as_any().downcast_ref::<Continuation>() {
-      self.set_message_or_envelope(c.message.clone()).await;
+    if let Some(c) = message_handle.to_typed::<Continuation>() {
+      self.set_message_or_envelope(c.message_handle.clone()).await;
       (c.f).run().await;
       self.reset_message_or_envelope().await;
     }
-    if let Some(w) = message.as_any().downcast_ref::<Watch>() {
-      self.handle_watch(w).await;
+    if let Some(w) = message_handle.to_typed::<Watch>() {
+      self.handle_watch(&w).await;
     }
-    if let Some(uw) = message.as_any().downcast_ref::<Unwatch>() {
-      self.handle_unwatch(uw).await;
+    if let Some(uw) = message_handle.to_typed::<Unwatch>() {
+      self.handle_unwatch(&uw).await;
     }
-    if let Some(f) = message.as_any().downcast_ref::<Failure>() {
-      self.handle_child_failure(f).await;
+    if let Some(f) = message_handle.to_typed::<Failure>() {
+      self.handle_child_failure(&f).await;
     }
-    if let Some(t) = message.as_any().downcast_ref::<Terminated>() {
-      let result = self.handle_terminated(t).await;
+    if let Some(t) = message_handle.to_typed::<Terminated>() {
+      let result = self.handle_terminated(&t).await;
       if result.is_err() {
         return result;
       }
@@ -986,7 +991,7 @@ impl MessageInvoker for ActorContext {
     Ok(())
   }
 
-  async fn invoke_user_message(&mut self, message: MessageHandle) -> Result<(), ActorError> {
+  async fn invoke_user_message(&mut self, message_handle: MessageHandle) -> Result<(), ActorError> {
     let state = {
       let inner_mg = self.inner.lock().await;
       inner_mg.state.clone()
@@ -1001,12 +1006,8 @@ impl MessageInvoker for ActorContext {
       inner_mg.receive_timeout.clone()
     };
 
-    if receive_timeout.unwrap_or_else(|| tokio::time::Duration::from_millis(0)) > tokio::time::Duration::from_millis(0)
-    {
-      influence_timeout = !message
-        .as_any()
-        .downcast_ref::<NotInfluenceReceiveTimeoutHandle>()
-        .is_some();
+    if receive_timeout.unwrap_or_else(|| Duration::from_millis(0)) > Duration::from_millis(0) {
+      influence_timeout = !message_handle.to_typed::<NotInfluenceReceiveTimeoutHandle>().is_some();
       if influence_timeout {
         let mg = self.get_extras().await;
         if let Some(extras) = mg {
@@ -1015,7 +1016,7 @@ impl MessageInvoker for ActorContext {
       }
     }
 
-    let result = self.process_message(message).await;
+    let result = self.process_message(message_handle).await;
 
     let receive_timeout = {
       let inner_mg = self.inner.lock().await;
@@ -1032,14 +1033,14 @@ impl MessageInvoker for ActorContext {
     result
   }
 
-  async fn escalate_failure(&mut self, reason: ActorInnerError, message: MessageHandle) {
+  async fn escalate_failure(&mut self, reason: ActorInnerError, message_handle: MessageHandle) {
     // TODO: Metrics
 
     let failure = Failure::new(
       self.get_self_opt().await.unwrap(),
       reason.clone(),
       self.ensure_extras().await.restart_stats().await,
-      message.clone(),
+      message_handle.clone(),
     );
 
     let self_pid = self.get_self_opt().await.unwrap();
@@ -1072,7 +1073,7 @@ impl Supervisor for ActorContext {
     self.get_extras().await.unwrap().get_children().await.to_vec().await
   }
 
-  async fn escalate_failure(&self, reason: ActorInnerError, message: MessageHandle) {
+  async fn escalate_failure(&self, reason: ActorInnerError, message_handle: MessageHandle) {
     let self_pid = self.get_self_opt().await.expect("Failed to retrieve self_pid");
     if self
       .get_actor_system()
@@ -1084,14 +1085,14 @@ impl Supervisor for ActorContext {
       tracing::info!(
         "[Supervision] Actor: {}, failed with message: {}, exception: {}",
         self_pid,
-        message,
+        message_handle,
         reason
       );
       P_LOG
         .error(
           &format!(
             "[Supervision] Actor: {}, failed with message: {}, exception: {}",
-            self_pid, message, reason
+            self_pid, message_handle, reason
           ),
           vec![],
         )
@@ -1104,7 +1105,7 @@ impl Supervisor for ActorContext {
       self_pid,
       reason,
       cloned_self.ensure_extras().await.restart_stats().await,
-      message,
+      message_handle,
     );
 
     self

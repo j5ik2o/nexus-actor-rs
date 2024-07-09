@@ -4,7 +4,6 @@ use crate::actor::actor::Terminated;
 use crate::actor::context::context_handle::ContextHandle;
 use crate::actor::context::MessagePart;
 use crate::actor::message::auto_receive_message::AutoReceiveMessage;
-use crate::actor::message::message::Message;
 use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::message::message_or_envelope::{unwrap_envelope_message, MessageEnvelope};
 use crate::actor::message::system_message::SystemMessage;
@@ -15,11 +14,11 @@ use std::fmt::Debug;
 #[async_trait]
 pub trait Actor: Debug + Send + Sync + 'static {
   async fn handle(&mut self, context_handle: ContextHandle) -> Result<(), ActorError> {
-    if let Some(message_handle) = context_handle.get_message_opt().await {
+    if let Some(message_handle) = context_handle.get_message_handle_opt().await {
       tracing::debug!("Actor::handle: message_handle = {:?}", message_handle);
-      let me = message_handle.as_any().downcast_ref::<MessageEnvelope>();
-      let sm = message_handle.as_any().downcast_ref::<SystemMessage>();
-      let arm = message_handle.as_any().downcast_ref::<AutoReceiveMessage>();
+      let me = message_handle.to_typed::<MessageEnvelope>();
+      let sm = message_handle.to_typed::<SystemMessage>();
+      let arm = message_handle.to_typed::<AutoReceiveMessage>();
       match (me, sm, arm) {
         (Some(_), None, None) => {
           let message = unwrap_envelope_message(message_handle.clone());

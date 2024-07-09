@@ -77,7 +77,7 @@ mod test {
         let cloned_observer = cloned_observer.clone();
         async move {
           tracing::debug!("ReceiverMiddleware: moe = {:?}", moe);
-          let msg = moe.get_message();
+          let msg = moe.get_message_handle();
           tracing::debug!(">>>> msg = {:?}", msg);
           let result = cloned_observer.receive(ctx.clone(), msg.clone()).await;
           if result.is_err() {
@@ -201,13 +201,13 @@ mod test {
       child: ExtendedPid,
       rs: RestartStatistics,
       _: ActorInnerError,
-      message: MessageHandle,
+      message_handle: MessageHandle,
     ) {
       tracing::debug!(
         "ActorWithSupervisor::handle_failure: child = {}, rs = {}, message = {:?}",
         child,
         rs,
-        message
+        message_handle
       );
       self.notify.notify_one();
     }
@@ -226,7 +226,7 @@ mod test {
 
     async fn receive(&mut self, _: ContextHandle, message_handle: MessageHandle) -> Result<(), ActorError> {
       tracing::debug!("FailingChildActor::receive: msg = {:?}", message_handle);
-      if let Some(StringMessage(msg)) = message_handle.as_any().downcast_ref::<StringMessage>() {
+      if let Some(StringMessage(msg)) = message_handle.to_typed::<StringMessage>() {
         tracing::debug!("FailingChildActor::receive: msg = {:?}", msg);
         Err(ActorError::ReceiveError(ActorInnerError::new("error")))
       } else {
@@ -252,8 +252,8 @@ mod test {
       }
     }
 
-    async fn receive(&self, _: ReceiverContextHandle, message: MessageHandle) -> Result<(), ActorError> {
-      self.received.lock().await.push_back(message);
+    async fn receive(&self, _: ReceiverContextHandle, message_handle: MessageHandle) -> Result<(), ActorError> {
+      self.received.lock().await.push_back(message_handle);
       Ok(())
     }
 

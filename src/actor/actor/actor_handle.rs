@@ -41,9 +41,9 @@ impl Actor for ActorHandle {
     mg.handle(c).await
   }
 
-  async fn receive(&mut self, c: ContextHandle, m: MessageHandle) -> Result<(), ActorError> {
+  async fn receive(&mut self, context_handle: ContextHandle, message_handle: MessageHandle) -> Result<(), ActorError> {
     let mut mg = self.0.lock().await;
-    mg.receive(c, m).await
+    mg.receive(context_handle, message_handle).await
   }
 
   async fn get_supervisor_strategy(&self) -> Option<SupervisorStrategyHandle> {

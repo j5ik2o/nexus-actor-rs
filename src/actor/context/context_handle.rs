@@ -86,37 +86,37 @@ impl SenderPart for ContextHandle {
     mg.get_sender().await
   }
 
-  async fn send(&mut self, pid: ExtendedPid, message: MessageHandle) {
+  async fn send(&mut self, pid: ExtendedPid, message_handle: MessageHandle) {
     let mut mg = self.0.lock().await;
-    mg.send(pid, message).await
+    mg.send(pid, message_handle).await
   }
 
-  async fn request(&mut self, pid: ExtendedPid, message: MessageHandle) {
+  async fn request(&mut self, pid: ExtendedPid, message_handle: MessageHandle) {
     let mut mg = self.0.lock().await;
-    mg.request(pid, message).await
+    mg.request(pid, message_handle).await
   }
 
-  async fn request_with_custom_sender(&mut self, pid: ExtendedPid, message: MessageHandle, sender: ExtendedPid) {
+  async fn request_with_custom_sender(&mut self, pid: ExtendedPid, message_handle: MessageHandle, sender: ExtendedPid) {
     let mut mg = self.0.lock().await;
-    mg.request_with_custom_sender(pid, message, sender).await
+    mg.request_with_custom_sender(pid, message_handle, sender).await
   }
 
-  async fn request_future(&self, pid: ExtendedPid, message: MessageHandle, timeout: Duration) -> Future {
+  async fn request_future(&self, pid: ExtendedPid, message_handle: MessageHandle, timeout: Duration) -> Future {
     let mg = self.0.lock().await;
-    mg.request_future(pid, message, timeout).await
+    mg.request_future(pid, message_handle, timeout).await
   }
 }
 
 #[async_trait]
 impl MessagePart for ContextHandle {
-  async fn get_message_opt(&self) -> Option<MessageHandle> {
+  async fn get_message_handle_opt(&self) -> Option<MessageHandle> {
     let mg = self.0.lock().await;
-    mg.get_message_opt().await
+    mg.get_message_handle_opt().await
   }
 
-  async fn get_message_header(&self) -> Option<ReadonlyMessageHeadersHandle> {
+  async fn get_message_header_handle(&self) -> Option<ReadonlyMessageHeadersHandle> {
     let mg = self.0.lock().await;
-    mg.get_message_header().await
+    mg.get_message_header_handle().await
   }
 }
 

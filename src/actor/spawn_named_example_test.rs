@@ -28,7 +28,7 @@ mod tests {
     let props = Props::from_actor_receiver(ActorReceiver::new(move |ctx| {
       let cloned_b = cloned_b.clone();
       async move {
-        let msg = ctx.get_message_opt().await.unwrap();
+        let msg = ctx.get_message_handle_opt().await.unwrap();
         if let Some(SystemMessage::Started(_)) = msg.as_any().downcast_ref::<SystemMessage>() {
           tracing::debug!("Hello World!");
           cloned_b.wait().await;

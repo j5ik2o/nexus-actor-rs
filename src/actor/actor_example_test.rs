@@ -29,7 +29,7 @@ mod tests {
     let mut root_context = system.get_root_context().await;
 
     let props = Props::from_actor_receiver(ActorReceiver::new(move |ctx| async move {
-      tracing::debug!("msg = {:?}", ctx.get_message_opt().await.unwrap());
+      tracing::debug!("msg = {:?}", ctx.get_message_handle_opt().await.unwrap());
       Ok(())
     }))
     .await;
@@ -55,7 +55,7 @@ mod tests {
       self
     }
   }
-  #[derive(Debug)]
+  #[derive(Debug, Clone)]
   struct Reply(pub String);
 
   impl Message for Reply {
@@ -88,9 +88,9 @@ mod tests {
     let mut root_context = system.get_root_context().await;
 
     let callee_props = Props::from_actor_receiver(ActorReceiver::new(move |ctx| async move {
-      let msg = ctx.get_message().await;
+      let msg = ctx.get_message_handle().await;
       tracing::debug!("callee msg = {:?}", msg);
-      if let Some(msg) = msg.as_any().downcast_ref::<MessageEnvelope>() {
+      if let Some(msg) = msg.to_typed::<MessageEnvelope>() {
         tracing::debug!("{:?}", msg);
         ctx.respond(ResponseHandle::new(Reply("PONG".to_string()))).await
       }
@@ -104,16 +104,16 @@ mod tests {
       let cloned_b = cloned_b.clone();
       let cloned_callee_pid = cloned_callee_pid.clone();
       async move {
-        let msg = ctx.get_message().await;
+        let msg = ctx.get_message_handle().await;
         tracing::debug!("caller msg = {:?}", msg);
-        if let Some(msg) = msg.as_any().downcast_ref::<SystemMessage>() {
+        if let Some(msg) = msg.to_typed::<SystemMessage>() {
           if let SystemMessage::Started(_) = msg {
             ctx
               .request(cloned_callee_pid, MessageHandle::new(Request("PING".to_string())))
               .await;
           }
         }
-        if let Some(msg) = msg.as_any().downcast_ref::<Reply>() {
+        if let Some(msg) = msg.to_typed::<Reply>() {
           tracing::debug!("{:?}", msg);
           cloned_b.wait().await;
         }

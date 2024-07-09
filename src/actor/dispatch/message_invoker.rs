@@ -10,9 +10,9 @@ use tokio::sync::Mutex;
 // MessageInvoker trait
 #[async_trait]
 pub trait MessageInvoker: Debug + Send + Sync {
-  async fn invoke_system_message(&mut self, message: MessageHandle) -> Result<(), ActorError>;
-  async fn invoke_user_message(&mut self, message: MessageHandle) -> Result<(), ActorError>;
-  async fn escalate_failure(&mut self, reason: ActorInnerError, message: MessageHandle);
+  async fn invoke_system_message(&mut self, message_handle: MessageHandle) -> Result<(), ActorError>;
+  async fn invoke_user_message(&mut self, message_handle: MessageHandle) -> Result<(), ActorError>;
+  async fn escalate_failure(&mut self, reason: ActorInnerError, message_handle: MessageHandle);
 }
 
 #[derive(Debug, Clone)]
@@ -40,18 +40,18 @@ impl std::hash::Hash for MessageInvokerHandle {
 
 #[async_trait]
 impl MessageInvoker for MessageInvokerHandle {
-  async fn invoke_system_message(&mut self, message: MessageHandle) -> Result<(), ActorError> {
+  async fn invoke_system_message(&mut self, message_handle: MessageHandle) -> Result<(), ActorError> {
     let mut mg = self.0.lock().await;
-    mg.invoke_system_message(message).await
+    mg.invoke_system_message(message_handle).await
   }
 
-  async fn invoke_user_message(&mut self, message: MessageHandle) -> Result<(), ActorError> {
+  async fn invoke_user_message(&mut self, message_handle: MessageHandle) -> Result<(), ActorError> {
     let mut mg = self.0.lock().await;
-    mg.invoke_user_message(message).await
+    mg.invoke_user_message(message_handle).await
   }
 
-  async fn escalate_failure(&mut self, reason: ActorInnerError, message: MessageHandle) {
+  async fn escalate_failure(&mut self, reason: ActorInnerError, message_handle: MessageHandle) {
     let mut mg = self.0.lock().await;
-    mg.escalate_failure(reason, message).await;
+    mg.escalate_failure(reason, message_handle).await;
   }
 }

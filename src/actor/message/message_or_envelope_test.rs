@@ -39,9 +39,13 @@ mod test {
     let system = ActorSystem::new().await;
 
     let props = Props::from_actor_receiver(ActorReceiver::new(move |ctx| async move {
-      let msg = ctx.get_message().await;
+      let msg = ctx.get_message_handle().await;
       if let Some(_) = msg.as_any().downcast_ref::<MessageEnvelope>() {
-        let l = ctx.get_message_header().await.map(|v| v.keys().len()).unwrap_or(0);
+        let l = ctx
+          .get_message_header_handle()
+          .await
+          .map(|v| v.keys().len())
+          .unwrap_or(0);
         ctx.respond(ResponseHandle::new(Length(l))).await
       }
       Ok(())

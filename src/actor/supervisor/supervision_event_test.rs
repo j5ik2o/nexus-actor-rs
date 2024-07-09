@@ -33,7 +33,7 @@ mod test {
   #[async_trait]
   impl Actor for PanicActor {
     async fn receive(&mut self, _: ContextHandle, message_handle: MessageHandle) -> Result<(), ActorError> {
-      if message_handle.as_any().downcast_ref::<String>().is_some() {
+      if message_handle.to_typed::<String>().is_some() {
         Err(ActorError::ReceiveError(ActorInnerError::new("Boom!".to_string())))
       } else {
         Ok(())

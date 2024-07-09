@@ -60,7 +60,7 @@ impl DeadLetterProcess {
         let cloned_self = cloned_self.clone();
         let cloned_throttle = throttle.clone();
         async move {
-          if let Some(dead_letter) = cloned_msg.as_any().downcast_ref::<DeadLetterEvent>() {
+          if let Some(dead_letter) = cloned_msg.to_typed::<DeadLetterEvent>() {
             if let Some(sender) = &dead_letter.sender {
               cloned_self
                 .actor_system
@@ -80,8 +80,7 @@ impl DeadLetterProcess {
               return;
             }
 
-            if let Some(is_ignore_dead_letter) = dead_letter.message.as_any().downcast_ref::<IgnoreDeadLetterLogging>()
-            {
+            if let Some(is_ignore_dead_letter) = dead_letter.message_handle.to_typed::<IgnoreDeadLetterLogging>() {
               if cloned_throttle.should_throttle() == Valve::Open {
                 P_LOG
                   .debug(
@@ -114,8 +113,8 @@ impl DeadLetterProcess {
         let cloned_msg = msg.clone();
         let cloned_self = cloned_self.clone();
         async move {
-          if let Some(dle) = cloned_msg.as_any().downcast_ref::<DeadLetterEvent>() {
-            if let Some(m) = dle.message.as_any().downcast_ref::<Watch>() {
+          if let Some(dle) = cloned_msg.to_typed::<DeadLetterEvent>() {
+            if let Some(m) = dle.message_handle.to_typed::<Watch>() {
               let actor_system = cloned_self.actor_system.clone();
               let pid = m.watcher.clone().unwrap();
               let e_pid = ExtendedPid::new(pid.clone(), actor_system.clone());
@@ -140,35 +139,35 @@ impl DeadLetterProcess {
 
 #[async_trait]
 impl Process for DeadLetterProcess {
-  async fn send_user_message(&self, pid: Option<&ExtendedPid>, message: MessageHandle) {
+  async fn send_user_message(&self, pid: Option<&ExtendedPid>, message_handle: MessageHandle) {
     // TODO: Metrics
 
-    let (_, msg, sender) = unwrap_envelope(message.clone());
+    let (_, msg, sender) = unwrap_envelope(message_handle.clone());
     self
       .actor_system
       .get_event_stream()
       .await
       .publish(MessageHandle::new(DeadLetterEvent {
         pid: pid.cloned(),
-        message: msg,
+        message_handle: msg,
         sender,
       }))
       .await;
-    tracing::debug!("DeadLetterProcess: send_user_message: msg = {:?}", message);
+    tracing::debug!("DeadLetterProcess: send_user_message: msg = {:?}", message_handle);
   }
 
-  async fn send_system_message(&self, pid: &ExtendedPid, message: MessageHandle) {
+  async fn send_system_message(&self, pid: &ExtendedPid, message_handle: MessageHandle) {
     self
       .actor_system
       .get_event_stream()
       .await
       .publish(MessageHandle::new(DeadLetterEvent {
         pid: Some(pid.clone()),
-        message: message.clone(),
+        message_handle: message_handle.clone(),
         sender: None,
       }))
       .await;
-    tracing::debug!("DeadLetterProcess: send_system_message: msg = {:?}", message);
+    tracing::debug!("DeadLetterProcess: send_system_message: msg = {:?}", message_handle);
   }
 
   async fn stop(&self, pid: &ExtendedPid) {
@@ -187,13 +186,13 @@ impl Process for DeadLetterProcess {
 #[derive(Debug, Clone)]
 pub struct DeadLetterEvent {
   pub pid: Option<ExtendedPid>,
-  pub message: MessageHandle,
+  pub message_handle: MessageHandle,
   pub sender: Option<ExtendedPid>,
 }
 
 impl PartialEq for DeadLetterEvent {
   fn eq(&self, other: &Self) -> bool {
-    self.pid == other.pid && self.message == other.message && self.sender == other.sender
+    self.pid == other.pid && self.message_handle == other.message_handle && self.sender == other.sender
   }
 }
 

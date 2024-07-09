@@ -90,13 +90,13 @@ impl SupervisorStrategy for OneForOneStrategy {
     child: ExtendedPid,
     mut rs: RestartStatistics,
     reason: ActorInnerError,
-    message: MessageHandle,
+    message_handle: MessageHandle,
   ) {
     tracing::debug!(
       "OneForOneStrategy::handle_child_failure: child = {:?}, rs = {:?}, message = {:?}",
       child.id(),
       rs,
-      message
+      message_handle
     );
     let directive = self.decider.run(reason.clone()).await;
     match directive {
@@ -106,7 +106,7 @@ impl SupervisorStrategy for OneForOneStrategy {
           "OneForOneStrategy::handle_child_failure: Resume: child = {:?}, rs = {:?}, message = {:?}",
           child.id(),
           rs,
-          message
+          message_handle
         );
         log_failure(actor_system, &child, reason, directive).await;
         supervisor.resume_children(&[child]).await
@@ -116,7 +116,7 @@ impl SupervisorStrategy for OneForOneStrategy {
           "OneForOneStrategy::handle_child_failure: Restart: child = {:?}, rs = {:?}, message = {:?}",
           child.id(),
           rs,
-          message
+          message_handle
         );
         // try restart the failing child
         if self.should_stop(&mut rs).await {
@@ -132,7 +132,7 @@ impl SupervisorStrategy for OneForOneStrategy {
           "OneForOneStrategy::handle_child_failure: Stop: child = {:?}, rs = {:?}, message = {:?}",
           child.id(),
           rs,
-          message
+          message_handle
         );
         // stop the failing child, no need to involve the crs
         log_failure(actor_system, &child, reason, directive).await;
@@ -143,12 +143,12 @@ impl SupervisorStrategy for OneForOneStrategy {
           "OneForOneStrategy::handle_child_failure: Escalate: child = {:?}, rs = {:?}, message = {:?}",
           child.id(),
           rs,
-          message
+          message_handle
         );
         // send failure to parent
         // supervisor mailbox
         // do not log here, log in the parent handling the error
-        supervisor.escalate_failure(reason, message).await
+        supervisor.escalate_failure(reason, message_handle).await
       }
     }
   }

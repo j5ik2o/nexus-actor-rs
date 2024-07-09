@@ -97,19 +97,19 @@ impl ExtendedPid {
     }
   }
 
-  pub async fn send_user_message(&self, actor_system: ActorSystem, message: MessageHandle) {
+  pub async fn send_user_message(&self, actor_system: ActorSystem, message_handle: MessageHandle) {
     self
       .ref_process(actor_system)
       .await
-      .send_user_message(Some(self), message)
+      .send_user_message(Some(self), message_handle)
       .await;
   }
 
-  pub async fn send_system_message(&self, actor_system: ActorSystem, message: MessageHandle) {
+  pub async fn send_system_message(&self, actor_system: ActorSystem, message_handle: MessageHandle) {
     self
       .ref_process(actor_system)
       .await
-      .send_system_message(&self, message)
+      .send_system_message(&self, message_handle)
       .await;
   }
 }

@@ -10,7 +10,7 @@ pub struct Failure {
   pub who: ExtendedPid,
   pub reason: ActorInnerError,
   pub restart_stats: RestartStatistics,
-  pub message: MessageHandle,
+  pub message_handle: MessageHandle,
 }
 
 impl Message for Failure {
@@ -28,13 +28,13 @@ impl Failure {
     who: ExtendedPid,
     reason: ActorInnerError,
     restart_stats: RestartStatistics,
-    message: MessageHandle,
+    message_handle: MessageHandle,
   ) -> Self {
     Failure {
       who,
       reason,
       restart_stats,
-      message,
+      message_handle,
     }
   }
 }

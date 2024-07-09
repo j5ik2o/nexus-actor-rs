@@ -40,19 +40,23 @@ impl Mailbox for MailboxHandle {
     mg.process_messages().await;
   }
 
-  async fn post_user_message(&self, message: MessageHandle) {
+  async fn post_user_message(&self, message_handle: MessageHandle) {
     let mg = self.0.lock().await;
-    mg.post_user_message(message).await;
+    mg.post_user_message(message_handle).await;
   }
 
-  async fn post_system_message(&self, message: MessageHandle) {
+  async fn post_system_message(&self, message_handle: MessageHandle) {
     let mg = self.0.lock().await;
-    mg.post_system_message(message).await;
+    mg.post_system_message(message_handle).await;
   }
 
-  async fn register_handlers(&mut self, invoker: Option<MessageInvokerHandle>, dispatcher: Option<DispatcherHandle>) {
+  async fn register_handlers(
+    &mut self,
+    message_invoker_handle: Option<MessageInvokerHandle>,
+    dispatcher_handle: Option<DispatcherHandle>,
+  ) {
     let mut mg = self.0.lock().await;
-    mg.register_handlers(invoker, dispatcher).await;
+    mg.register_handlers(message_invoker_handle, dispatcher_handle).await;
   }
 
   async fn start(&self) {

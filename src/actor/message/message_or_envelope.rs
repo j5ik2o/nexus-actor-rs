@@ -11,20 +11,20 @@ use crate::actor::message::system_message::SystemMessage;
 #[derive(Debug, Clone)]
 pub struct MessageEnvelope {
   header: Option<MessageHeaders>,
-  message: MessageHandle,
+  message_handle: MessageHandle,
   sender: Option<ExtendedPid>,
 }
 
 impl PartialEq for MessageEnvelope {
   fn eq(&self, other: &Self) -> bool {
-    self.header == other.header && self.message == other.message && self.sender == other.sender
+    self.header == other.header && self.message_handle == other.message_handle && self.sender == other.sender
   }
 }
 
 impl Message for MessageEnvelope {
   fn eq_message(&self, other: &dyn Message) -> bool {
     if let Some(other) = other.as_any().downcast_ref::<Self>() {
-      self.header == other.header && self.message == other.message && self.sender == other.sender
+      self.header == other.header && self.message_handle == other.message_handle && self.sender == other.sender
     } else {
       false
     }
@@ -36,13 +36,13 @@ impl Message for MessageEnvelope {
 }
 
 impl MessageEnvelope {
-  pub fn new(message: MessageHandle) -> Self {
-    if message.as_any().is::<SystemMessage>() {
-      tracing::warn!("SystemMessage can't be used as a message, {:?}", message);
+  pub fn new(message_handle: MessageHandle) -> Self {
+    if message_handle.as_any().is::<SystemMessage>() {
+      tracing::warn!("SystemMessage can't be used as a message, {:?}", message_handle);
     }
     Self {
       header: None,
-      message,
+      message_handle: message_handle,
       sender: None,
     }
   }
@@ -57,8 +57,8 @@ impl MessageEnvelope {
     self
   }
 
-  pub fn get_message(&self) -> MessageHandle {
-    self.message.clone()
+  pub fn get_message_handle(&self) -> MessageHandle {
+    self.message_handle.clone()
   }
 
   pub fn get_sender(&self) -> Option<ExtendedPid> {
@@ -87,46 +87,44 @@ impl MessageEnvelope {
   }
 }
 
-pub fn wrap_envelope(message: MessageHandle) -> MessageEnvelope {
-  if let Some(envelope) = message.as_any().downcast_ref::<MessageEnvelope>() {
+pub fn wrap_envelope(message_handle: MessageHandle) -> MessageEnvelope {
+  if let Some(envelope) = message_handle.to_typed::<MessageEnvelope>() {
     envelope.clone()
   } else {
-    MessageEnvelope::new(message)
+    MessageEnvelope::new(message_handle)
   }
 }
 
-pub fn unwrap_envelope(message: MessageHandle) -> (Option<MessageHeaders>, MessageHandle, Option<ExtendedPid>) {
-  if let Some(envelope) = message.as_any().downcast_ref::<MessageEnvelope>() {
+pub fn unwrap_envelope(message_handle: MessageHandle) -> (Option<MessageHeaders>, MessageHandle, Option<ExtendedPid>) {
+  if let Some(envelope) = message_handle.to_typed::<MessageEnvelope>() {
     (
       envelope.header.clone(),
-      envelope.message.clone(),
+      envelope.message_handle.clone(),
       envelope.sender.clone(),
     )
   } else {
-    (None, message, None)
+    (None, message_handle, None)
   }
 }
 
-pub fn unwrap_envelope_header(message: MessageHandle) -> Option<MessageHeaders> {
-  if let Some(envelope) = message.as_any().downcast_ref::<MessageEnvelope>() {
+pub fn unwrap_envelope_header(message_handle: MessageHandle) -> Option<MessageHeaders> {
+  if let Some(envelope) = message_handle.to_typed::<MessageEnvelope>() {
     envelope.header.clone().map(|h| MessageHeaders::with_values(h.to_map()))
   } else {
     None
   }
 }
 
-pub fn unwrap_envelope_message(message: MessageHandle) -> MessageHandle {
-  if let Some(envelope) = message.as_any().downcast_ref::<MessageEnvelope>() {
-    envelope.message.clone()
+pub fn unwrap_envelope_message(message_handle: MessageHandle) -> MessageHandle {
+  if let Some(envelope) = message_handle.to_typed::<MessageEnvelope>() {
+    envelope.message_handle.clone()
   } else {
-    message
+    message_handle
   }
 }
 
-pub fn unwrap_envelope_sender(message: MessageHandle) -> Option<ExtendedPid> {
-  // tracing::debug!("unwrap_envelope_sender: message = {:?}", message);
-  if let Some(envelope) = message.as_any().downcast_ref::<MessageEnvelope>() {
-    // tracing::debug!("unwrap_envelope_sender: envelope.sender = {:?}", envelope.sender);
+pub fn unwrap_envelope_sender(message_handle: MessageHandle) -> Option<ExtendedPid> {
+  if let Some(envelope) = message_handle.to_typed::<MessageEnvelope>() {
     envelope.sender.clone()
   } else {
     // tracing::debug!("unwrap_envelope_sender: None");
