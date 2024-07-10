@@ -31,8 +31,7 @@ mod tests {
     let pid = root_context
       .spawn(
         Props::from_actor_receiver(ActorReceiver::new(move |ctx| async move {
-          let msg = ctx.get_message_handle().await;
-          if let Some(me) = msg.to_typed::<MessageEnvelope>() {
+          if let Some(me) = ctx.get_message_handle().await.to_typed::<MessageEnvelope>() {
             let self_pid = ctx.get_self().await;
             let msg = me.get_message_handle().to_typed::<String>().unwrap().clone();
             if msg == "request" {
