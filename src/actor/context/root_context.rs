@@ -10,7 +10,7 @@ use crate::actor::actor::sender_middleware::SenderMiddleware;
 use crate::actor::actor::sender_middleware_chain::SenderMiddlewareChain;
 use crate::actor::actor::spawner::SpawnError;
 use crate::actor::actor::spawner::Spawner;
-use crate::actor::actor::{PoisonPill, Watch};
+use crate::actor::actor::{Watch};
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::sender_context_handle::SenderContextHandle;
 use crate::actor::context::spawner_context_handle::SpawnerContextHandle;
@@ -249,7 +249,7 @@ impl StopperPart for RootContext {
     pid
       .send_user_message(
         self.get_actor_system().await.clone(),
-        MessageHandle::new(AutoReceiveMessage::PoisonPill(PoisonPill {})),
+        MessageHandle::new(AutoReceiveMessage::PoisonPill),
       )
       .await
   }

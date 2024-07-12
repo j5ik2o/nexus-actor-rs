@@ -1,7 +1,7 @@
 use std::any::Any;
 
 use crate::actor::actor::pid::ExtendedPid;
-use crate::actor::actor::{DeadLetterResponse, Stop, Terminated, TerminatedReason, Watch};
+use crate::actor::actor::{DeadLetterResponse, Terminated, TerminatedReason, Watch};
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::SenderPart;
 use crate::actor::log::P_LOG;
@@ -172,7 +172,7 @@ impl Process for DeadLetterProcess {
 
   async fn stop(&self, pid: &ExtendedPid) {
     self
-      .send_system_message(pid, MessageHandle::new(SystemMessage::Stop(Stop {})))
+      .send_system_message(pid, MessageHandle::new(SystemMessage::Stop))
       .await
   }
 

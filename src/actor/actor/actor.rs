@@ -51,30 +51,37 @@ pub trait Actor: Debug + Send + Sync + 'static {
   async fn receive(&mut self, context_handle: ContextHandle, message_handle: MessageHandle) -> Result<(), ActorError>;
 
   async fn started(&self, _: ContextHandle) -> Result<(), ActorError> {
+    tracing::debug!("Actor::started");
     Ok(())
   }
 
   async fn stop(&self, _: ContextHandle) -> Result<(), ActorError> {
+    tracing::debug!("Actor::stop");
     Ok(())
   }
 
   async fn restart(&self, _: ContextHandle) -> Result<(), ActorError> {
+    tracing::debug!("Actor::restart");
     Ok(())
   }
 
   async fn restarting(&self, _: ContextHandle) -> Result<(), ActorError> {
+    tracing::debug!("Actor::restarting");
     Ok(())
   }
 
   async fn stopping(&self, _: ContextHandle) -> Result<(), ActorError> {
+    tracing::debug!("Actor::stopping");
     Ok(())
   }
 
   async fn stopped(&self, _: ContextHandle) -> Result<(), ActorError> {
+    tracing::debug!("Actor::stopped");
     Ok(())
   }
 
   async fn on_child_terminated(&self, _: ContextHandle, _: &Terminated) -> Result<(), ActorError> {
+    tracing::debug!("Actor::on_child_terminated");
     Ok(())
   }
 

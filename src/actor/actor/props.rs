@@ -37,7 +37,6 @@ use crate::actor::dispatch::mailbox_producer::MailboxProducer;
 use crate::actor::dispatch::message_invoker::MessageInvokerHandle;
 use crate::actor::dispatch::unbounded::unbounded_mailbox_creator_with_opts;
 use crate::actor::message::message_handle::MessageHandle;
-use crate::actor::message::messages::Started;
 use crate::actor::message::system_message::SystemMessage;
 use crate::actor::process::ProcessHandle;
 use crate::actor::supervisor::supervisor_strategy::DEFAULT_SUPERVISION_STRATEGY;
@@ -98,7 +97,7 @@ static DEFAULT_SPAWNER: Lazy<Spawner> = Lazy::new(|| {
         .await;
         tracing::debug!("mailbox handlers registered: {}", name);
 
-        mb.post_system_message(MessageHandle::new(SystemMessage::Started(Started)))
+        mb.post_system_message(MessageHandle::new(SystemMessage::Started))
           .await;
         tracing::debug!("post_system_message: started: {}", name);
         mb.start().await;
@@ -305,7 +304,7 @@ impl Props {
     }
   }
 
-  pub async fn from_actor_producer_with_opts(producer: ActorProducer, opts: Vec<PropsOption>) -> Props {
+  pub async fn from_actor_producer_with_opts(producer: ActorProducer, opts: &[PropsOption]) -> Props {
     let mut props = Props {
       on_init: Vec::new(),
       producer: Some(producer),
@@ -328,10 +327,10 @@ impl Props {
   }
 
   pub async fn from_actor_producer(actor_producer: ActorProducer) -> Props {
-    Props::from_actor_producer_with_opts(actor_producer, vec![]).await
+    Props::from_actor_producer_with_opts(actor_producer, &[]).await
   }
 
-  pub async fn from_actor_receiver_with_opts(actor_receiver: ActorReceiver, opts: Vec<PropsOption>) -> Props {
+  pub async fn from_actor_receiver_with_opts(actor_receiver: ActorReceiver, opts: &[PropsOption]) -> Props {
     let producer = ActorProducer::new(move |_| {
       let cloned = actor_receiver.clone();
       async move {
@@ -343,7 +342,7 @@ impl Props {
   }
 
   pub async fn from_actor_receiver(f: ActorReceiver) -> Props {
-    Props::from_actor_receiver_with_opts(f, vec![]).await
+    Props::from_actor_receiver_with_opts(f, &[]).await
   }
 
   pub async fn spawn(

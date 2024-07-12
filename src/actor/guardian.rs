@@ -7,13 +7,11 @@ use tokio::sync::Mutex;
 
 use crate::actor::actor::actor_inner_error::ActorInnerError;
 use crate::actor::actor::pid::ExtendedPid;
-use crate::actor::actor::Stop;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::dispatch::mailbox_message::MailboxMessage;
 use crate::actor::log::P_LOG;
 use crate::actor::message::failure::Failure;
 use crate::actor::message::message_handle::MessageHandle;
-use crate::actor::message::messages::Restart;
 use crate::actor::message::system_message::SystemMessage;
 use crate::actor::process::{Process, ProcessHandle};
 use crate::actor::supervisor::supervisor_strategy::{Supervisor, SupervisorHandle, SupervisorStrategy};
@@ -151,7 +149,7 @@ impl Supervisor for GuardianProcess {
   async fn restart_children(&self, pids: &[ExtendedPid]) {
     for pid in pids {
       // Implement send_system_message for PID
-      let restart_message = MessageHandle::new(SystemMessage::Restart(Restart {}));
+      let restart_message = MessageHandle::new(SystemMessage::Restart);
       pid
         .send_system_message(self.guardians.actor_system.clone(), restart_message)
         .await;
@@ -160,7 +158,7 @@ impl Supervisor for GuardianProcess {
 
   async fn stop_children(&self, pids: &[ExtendedPid]) {
     for pid in pids {
-      let restart_message = MessageHandle::new(SystemMessage::Stop(Stop {}));
+      let restart_message = MessageHandle::new(SystemMessage::Stop);
       pid
         .send_system_message(self.guardians.actor_system.clone(), restart_message)
         .await;
