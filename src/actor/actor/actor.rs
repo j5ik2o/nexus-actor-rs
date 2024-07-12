@@ -19,23 +19,25 @@ pub trait Actor: Debug + Send + Sync + 'static {
       let me = message_handle.to_typed::<MessageEnvelope>();
       let sm = message_handle.to_typed::<SystemMessage>();
       let arm = message_handle.to_typed::<AutoReceiveMessage>();
-      match (me, sm, arm) {
-        (Some(_), None, None) => {
+      let t = message_handle.to_typed::<Terminated>();
+      match (me, sm, arm, t) {
+        (Some(_), None, None, None) => {
           let message = unwrap_envelope_message(message_handle.clone());
           tracing::debug!("Actor::handle: MessageEnvelope = {:?}", message);
           self.receive(context_handle.clone(), message).await
         }
-        (None, Some(sm), None) => match sm {
-          SystemMessage::Started(_) => self.started(context_handle).await,
-          SystemMessage::Stop(_) => self.stop(context_handle).await,
-          SystemMessage::Restart(_) => self.restart(context_handle).await,
+        (None, Some(sm), None, None) => match sm {
+          SystemMessage::Started => self.started(context_handle).await,
+          SystemMessage::Stop => self.stop(context_handle).await,
+          SystemMessage::Restart => self.restart(context_handle).await,
         },
-        (None, None, Some(arm)) => match arm {
-          AutoReceiveMessage::Restarting(_) => self.restarting(context_handle).await,
-          AutoReceiveMessage::Stopping(_) => self.stopping(context_handle).await,
-          AutoReceiveMessage::Stopped(_) => self.stopped(context_handle).await,
-          AutoReceiveMessage::PoisonPill(_) => Ok(()),
+        (None, None, Some(arm), None) => match arm {
+          AutoReceiveMessage::Restarting => self.restarting(context_handle).await,
+          AutoReceiveMessage::Stopping => self.stopping(context_handle).await,
+          AutoReceiveMessage::Stopped => self.stopped(context_handle).await,
+          AutoReceiveMessage::PoisonPill => Ok(()),
         },
+        (None, None, None, Some(t)) => self.on_child_terminated(context_handle, &t).await,
         _ => self.receive(context_handle.clone(), message_handle).await,
       }
     } else {
