@@ -409,6 +409,14 @@ impl ActorContext {
     Ok(())
   }
 
+  async fn handle_start(&mut self, message_handle: MessageHandle) -> Result<(), ActorError> {
+    let result = self.invoke_user_message(message_handle.clone()).await;
+    if result.is_err() {
+      return result;
+    }
+    Ok(())
+  }
+
   async fn handle_stop(&mut self) -> Result<(), ActorError> {
     tracing::debug!("ActorContext::handle_stop: start");
     {
@@ -952,7 +960,7 @@ impl MessageInvoker for ActorContext {
     if let Some(sm) = sm {
       match sm {
         SystemMessage::Started => {
-          let result = self.invoke_user_message(message_handle.clone()).await;
+          let result = self.handle_start(message_handle.clone()).await;
           if result.is_err() {
             return result;
           }
