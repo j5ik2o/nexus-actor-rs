@@ -4,12 +4,12 @@ use async_trait::async_trait;
 
 use crate::actor::actor::actor_error::ActorError;
 use crate::actor::actor::actor_inner_error::ActorInnerError;
-use crate::actor::actor::Terminated;
 use crate::actor::context::context_handle::ContextHandle;
 use crate::actor::context::MessagePart;
 use crate::actor::message::auto_receive_message::AutoReceiveMessage;
 use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::message::message_or_envelope::{unwrap_envelope_message, MessageEnvelope};
+use crate::actor::message::terminate_info::TerminateInfo;
 use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
 
 #[async_trait]
@@ -19,15 +19,13 @@ pub trait Actor: Debug + Send + Sync + 'static {
       tracing::debug!("Actor::handle: message_handle = {:?}", message_handle);
       let me = message_handle.to_typed::<MessageEnvelope>();
       let arm = message_handle.to_typed::<AutoReceiveMessage>();
-      let t = message_handle.to_typed::<Terminated>();
-      println!("me = {:?}, arm = {:?}, t = {:?}", me, arm, t);
-      match (me, arm, t) {
-        (Some(_), None, None) => {
+      match (me, arm) {
+        (Some(_), None) => {
           let message = unwrap_envelope_message(message_handle.clone());
           tracing::debug!("Actor::handle: MessageEnvelope = {:?}", message);
           self.receive(context_handle.clone(), message).await
         }
-        (None, Some(arm), None) => match arm {
+        (None, Some(arm)) => match arm {
           AutoReceiveMessage::PreStart => self.pre_start(context_handle).await,
           AutoReceiveMessage::PostStart => self.post_start(context_handle).await,
           AutoReceiveMessage::PreRestart => self.pre_restart(context_handle).await,
@@ -35,8 +33,8 @@ pub trait Actor: Debug + Send + Sync + 'static {
           AutoReceiveMessage::PreStop => self.pre_stop(context_handle).await,
           AutoReceiveMessage::PostStop => self.post_stop(context_handle).await,
           AutoReceiveMessage::PoisonPill => Ok(()),
+          AutoReceiveMessage::Terminated(t) => self.post_child_terminate(context_handle, &t).await,
         },
-        (None, None, Some(t)) => self.post_child_terminate(context_handle, &t).await,
         _ => self.receive(context_handle.clone(), message_handle).await,
       }
     } else {
@@ -79,7 +77,7 @@ pub trait Actor: Debug + Send + Sync + 'static {
     Ok(())
   }
 
-  async fn post_child_terminate(&self, _: ContextHandle, _: &Terminated) -> Result<(), ActorError> {
+  async fn post_child_terminate(&self, _: ContextHandle, _: &TerminateInfo) -> Result<(), ActorError> {
     tracing::debug!("Actor::post_child_terminate");
     Ok(())
   }

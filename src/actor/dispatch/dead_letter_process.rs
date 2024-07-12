@@ -3,7 +3,7 @@ use std::any::Any;
 use async_trait::async_trait;
 
 use crate::actor::actor::pid::ExtendedPid;
-use crate::actor::actor::{DeadLetterResponse, Terminated, TerminatedReason};
+use crate::actor::actor::{DeadLetterResponse, TerminatedReason};
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::SenderPart;
 use crate::actor::log::P_LOG;
@@ -12,6 +12,7 @@ use crate::actor::message::message::Message;
 use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::message::message_or_envelope::unwrap_envelope;
 use crate::actor::message::system_message::SystemMessage;
+use crate::actor::message::terminate_info::TerminateInfo;
 use crate::actor::process::{Process, ProcessHandle};
 use crate::actor::util::throttler::{Throttle, ThrottleCallback, Valve};
 use crate::event_stream::Handler;
@@ -122,10 +123,10 @@ impl DeadLetterProcess {
               e_pid
                 .send_system_message(
                   actor_system,
-                  MessageHandle::new(Terminated {
+                  MessageHandle::new(SystemMessage::Terminate(TerminateInfo {
                     who: Some(pid),
                     why: TerminatedReason::NotFound as i32,
-                  }),
+                  })),
                 )
                 .await;
             }

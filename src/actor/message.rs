@@ -15,3 +15,4 @@ pub mod receive_timeout;
 pub mod response;
 pub mod system_message;
 pub mod watch;
+pub mod terminate_info;

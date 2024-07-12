@@ -4,6 +4,7 @@ use std::fmt::Display;
 use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::message::message::Message;
 use crate::actor::message::message_handle::MessageHandle;
+use crate::actor::message::terminate_info::TerminateInfo;
 
 #[derive(Debug, Clone)]
 pub enum AutoReceiveMessage {
@@ -14,6 +15,7 @@ pub enum AutoReceiveMessage {
   PreStop,
   PostStop,
   PoisonPill,
+  Terminated(TerminateInfo)
 }
 
 impl AutoReceiveMessage {
@@ -40,6 +42,7 @@ impl Display for AutoReceiveMessage {
       AutoReceiveMessage::PreStop => write!(f, "PreStop"),
       AutoReceiveMessage::PostStop => write!(f, "PostStop"),
       AutoReceiveMessage::PoisonPill => write!(f, "PoisonPill"),
+      AutoReceiveMessage::Terminated(_) => write!(f, "Terminated"),
     }
   }
 }
@@ -55,6 +58,7 @@ impl Message for AutoReceiveMessage {
       (AutoReceiveMessage::PreStop, Some(&AutoReceiveMessage::PreStop)) => true,
       (AutoReceiveMessage::PostStop, Some(&AutoReceiveMessage::PostStop)) => true,
       (AutoReceiveMessage::PoisonPill, Some(&AutoReceiveMessage::PoisonPill)) => true,
+      (AutoReceiveMessage::Terminated(me), Some(&AutoReceiveMessage::Terminated(ref you))) => *me == *you,
       _ => false,
     }
   }

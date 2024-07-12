@@ -46,14 +46,14 @@ pub struct DeadLetterResponse {
 }
 /// system messages
 
-#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct Terminated {
-  #[prost(message, optional, tag = "1")]
-  pub who: ::core::option::Option<Pid>,
-  #[prost(enumeration = "TerminatedReason", tag = "2")]
-  pub why: i32,
-}
+// #[allow(clippy::derive_partial_eq_without_eq)]
+// #[derive(Clone, PartialEq, ::prost::Message)]
+// pub struct Terminated {
+//   #[prost(message, optional, tag = "1")]
+//   pub who: ::core::option::Option<Pid>,
+//   #[prost(enumeration = "TerminatedReason", tag = "2")]
+//   pub why: i32,
+// }
 
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]

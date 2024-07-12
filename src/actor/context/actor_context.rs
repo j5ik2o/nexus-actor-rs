@@ -16,7 +16,6 @@ use crate::actor::actor::props::Props;
 use crate::actor::actor::receiver_middleware_chain::ReceiverMiddlewareChain;
 use crate::actor::actor::sender_middleware_chain::SenderMiddlewareChain;
 use crate::actor::actor::spawner::SpawnError;
-use crate::actor::actor::Terminated;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::auto_respond::{AutoRespond, AutoResponsive};
 use crate::actor::context::actor_context_extras::ActorContextExtras;
@@ -43,6 +42,7 @@ use crate::actor::message::readonly_message_headers::ReadonlyMessageHeadersHandl
 use crate::actor::message::receive_timeout::ReceiveTimeout;
 use crate::actor::message::response::ResponseHandle;
 use crate::actor::message::system_message::SystemMessage;
+use crate::actor::message::terminate_info::TerminateInfo;
 use crate::actor::message::watch::{Unwatch, Watch};
 use crate::actor::process::Process;
 use crate::actor::supervisor::supervisor_strategy::{
@@ -342,10 +342,10 @@ impl ActorContext {
       P_LOG.error("Failed to handle Stopped message", vec![]).await;
       return result;
     }
-    let other_stopped = MessageHandle::new(Terminated {
+    let other_stopped = MessageHandle::new(SystemMessage::Terminate(TerminateInfo {
       who: self.get_self_opt().await.map(|x| x.inner_pid),
       why: 0,
-    });
+    }));
     if let Some(extras) = self.get_extras().await {
       let watchers = extras.get_watchers().await;
       for watcher in watchers.to_vec().await {
@@ -522,14 +522,14 @@ impl ActorContext {
     tracing::debug!("ActorContext::handle_child_failure: finished: self = {}", self_pid,);
   }
 
-  async fn handle_terminated(&mut self, terminated: &Terminated) -> Result<(), ActorError> {
+  async fn handle_terminated(&mut self, terminated: &TerminateInfo) -> Result<(), ActorError> {
     // tracing::debug!("ActorContext::handle_terminated: {:?}", terminated);
     if let Some(mut extras) = self.get_extras().await {
       let pid = ExtendedPid::new(terminated.clone().who.unwrap(), self.get_actor_system().await);
       extras.remove_child(&pid).await;
     }
 
-    let msg = MessageHandle::new(terminated.clone());
+    let msg = MessageHandle::new(AutoReceiveMessage::Terminated(terminated.clone()));
     let result = self.invoke_user_message(msg.clone()).await;
     if result.is_err() {
       P_LOG.error("Failed to handle Terminated message", vec![]).await;
@@ -984,6 +984,12 @@ impl MessageInvoker for ActorContext {
         SystemMessage::Unwatch(unwatch) => {
           self.handle_unwatch(&unwatch).await;
         }
+        SystemMessage::Terminate(t) => {
+          let result = self.handle_terminated(&t).await;
+          if result.is_err() {
+            return result;
+          }
+        }
       }
     }
     if let Some(c) = message_handle.to_typed::<Continuation>() {
@@ -993,12 +999,6 @@ impl MessageInvoker for ActorContext {
     }
     if let Some(f) = message_handle.to_typed::<Failure>() {
       self.handle_child_failure(&f).await;
-    }
-    if let Some(t) = message_handle.to_typed::<Terminated>() {
-      let result = self.handle_terminated(&t).await;
-      if result.is_err() {
-        return result;
-      }
     }
     Ok(())
   }
