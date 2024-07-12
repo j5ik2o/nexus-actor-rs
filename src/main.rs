@@ -1,7 +1,6 @@
 use async_trait::async_trait;
 use nexus_acto_rs::actor::actor::actor::Actor;
 use nexus_acto_rs::actor::actor::actor_error::ActorError;
-use nexus_acto_rs::actor::actor::actor_producer::ActorProducer;
 use nexus_acto_rs::actor::actor::props::Props;
 use nexus_acto_rs::actor::actor_system::ActorSystem;
 use nexus_acto_rs::actor::context::context_handle::ContextHandle;
@@ -36,7 +35,7 @@ struct ChildActor;
 
 #[async_trait]
 impl Actor for ChildActor {
-  async fn started(&self, _: ContextHandle) -> Result<(), ActorError> {
+  async fn post_start(&self, _: ContextHandle) -> Result<(), ActorError> {
     tracing::debug!("ChildActor::started");
     Ok(())
   }
@@ -52,9 +51,9 @@ struct TopActor;
 
 #[async_trait]
 impl Actor for TopActor {
-  async fn started(&self, mut context_handle: ContextHandle) -> Result<(), ActorError> {
+  async fn post_start(&self, mut context_handle: ContextHandle) -> Result<(), ActorError> {
     tracing::debug!("TopActor::post_start");
-    let props = Props::from_actor_producer(ActorProducer::new(create_child_actor)).await;
+    let props = Props::from_actor_producer(create_child_actor).await;
 
     let pid = context_handle.spawn(props).await;
     for _ in 1..10 {
@@ -89,8 +88,8 @@ async fn main() {
   let mut root = system.get_root_context().await;
 
   let props = Props::from_actor_producer_with_opts(
-    ActorProducer::new(create_top_actor),
-    &[Props::with_mailbox_producer(unbounded_mpsc_mailbox_creator())],
+    create_top_actor,
+    [Props::with_mailbox_producer(unbounded_mpsc_mailbox_creator())],
   )
   .await;
 

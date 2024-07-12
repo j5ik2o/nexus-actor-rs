@@ -1,4 +1,5 @@
 use std::fmt::Debug;
+use std::future::Future;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -268,7 +269,7 @@ impl Props {
     self.spawner.clone().unwrap_or(DEFAULT_SPAWNER.clone())
   }
 
-  pub fn get_producer(&self) -> ActorProducer {
+  pub(crate) fn get_producer(&self) -> ActorProducer {
     self.producer.clone().unwrap()
   }
 
@@ -276,7 +277,7 @@ impl Props {
     self.dispatcher.clone().unwrap_or_else(|| DEFAULT_DISPATCHER.clone())
   }
 
-  pub fn get_supervisor_strategy(&self) -> SupervisorStrategyHandle {
+  pub(crate) fn get_supervisor_strategy(&self) -> SupervisorStrategyHandle {
     self
       .supervisor_strategy
       .clone()
@@ -311,19 +312,33 @@ impl Props {
     }
   }
 
-  pub async fn from_actor_producer_with_opts(producer: ActorProducer, opts: &[PropsOption]) -> Props {
+  pub async fn from_actor_producer<A, F, Fut>(f: F) -> Props
+  where
+    A: Actor,
+    F: Fn(ContextHandle) -> Fut + Clone + Send + Sync + 'static,
+    Fut: Future<Output = A> + Send + 'static, {
+    Props::from_actor_producer_with_opts(f, []).await
+  }
+
+  pub async fn from_actor_producer_with_opts<A, F, Fut>(f: F, opts: impl IntoIterator<Item = PropsOption>) -> Props
+  where
+    A: Actor,
+    F: Fn(ContextHandle) -> Fut + Clone + Send + Sync + 'static,
+    Fut: Future<Output = A> + Send + 'static, {
+    let producer = ActorProducer::new(f);
+    let opts = opts.into_iter().collect::<Vec<_>>();
     let mut props = Props {
-      on_init: Vec::new(),
+      on_init: vec![],
       producer: Some(producer),
       dispatcher: None,
       mailbox_producer: None,
-      context_decorator: Vec::new(),
+      context_decorator: vec![],
       guardian_strategy: None,
       supervisor_strategy: None,
-      receiver_middleware: Vec::new(),
-      sender_middleware: Vec::new(),
+      receiver_middleware: vec![],
+      sender_middleware: vec![],
       spawner: None,
-      spawn_middleware: Vec::new(),
+      spawn_middleware: vec![],
       receiver_middleware_chain: None,
       sender_middleware_chain: None,
       spawn_middleware_chain: None,
@@ -333,26 +348,30 @@ impl Props {
     props
   }
 
-  pub async fn from_actor_producer(actor_producer: ActorProducer) -> Props {
-    Props::from_actor_producer_with_opts(actor_producer, &[]).await
-  }
-
-  pub async fn from_actor_receiver_with_opts(actor_receiver: ActorReceiver, opts: &[PropsOption]) -> Props {
-    let producer = ActorProducer::from_handle(move |_| {
+  pub async fn from_actor_receiver_with_opts<F, Fut>(f: F, opts: impl IntoIterator<Item = PropsOption>) -> Props
+  where
+    F: Fn(ContextHandle) -> Fut + Send + Sync + 'static,
+    Fut: Future<Output = Result<(), ActorError>> + Send + 'static, {
+    let actor_receiver = ActorReceiver::new(f);
+    let opts = opts.into_iter().collect::<Vec<_>>();
+    let producer = move |_| {
       let cloned = actor_receiver.clone();
       async move {
         let actor = ActorReceiverActor(cloned);
         ActorHandle::new(actor)
       }
-    });
+    };
     Props::from_actor_producer_with_opts(producer, opts).await
   }
 
-  pub async fn from_actor_receiver(f: ActorReceiver) -> Props {
-    Props::from_actor_receiver_with_opts(f, &[]).await
+  pub async fn from_actor_receiver<F, Fut>(f: F) -> Props
+  where
+    F: Fn(ContextHandle) -> Fut + Send + Sync + 'static,
+    Fut: Future<Output = Result<(), ActorError>> + Send + 'static, {
+    Self::from_actor_receiver_with_opts(f, []).await
   }
 
-  pub async fn spawn(
+  pub(crate) async fn spawn(
     self,
     actor_system: ActorSystem,
     name: &str,

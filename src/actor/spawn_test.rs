@@ -10,7 +10,6 @@ mod tests {
 
   use crate::actor::actor::actor::Actor;
   use crate::actor::actor::actor_error::ActorError;
-  use crate::actor::actor::actor_producer::ActorProducer;
   use crate::actor::actor::props::Props;
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::context::context_handle::ContextHandle;
@@ -26,7 +25,7 @@ mod tests {
 
   #[async_trait]
   impl Actor for MyActor {
-    async fn started(&self, _: ContextHandle) -> Result<(), ActorError> {
+    async fn post_start(&self, _: ContextHandle) -> Result<(), ActorError> {
       tracing::debug!("MyActor started");
       self.is_started.store(true, Ordering::SeqCst);
       self.received.notify_one();
@@ -56,13 +55,13 @@ mod tests {
       received: Arc::new(Notify::new()),
     };
 
-    let actor_producer = ActorProducer::new({
+    let actor_producer = {
       let actor = actor.clone();
       move |_| {
         let actor = actor.clone();
         async move { actor.clone() }
       }
-    });
+    };
 
     let props = Props::from_actor_producer(actor_producer).await;
 

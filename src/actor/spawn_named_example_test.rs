@@ -4,12 +4,11 @@ mod tests {
 
   use tracing_subscriber::EnvFilter;
 
-  use crate::actor::actor::actor_receiver::ActorReceiver;
   use crate::actor::actor::props::Props;
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::context::{MessagePart, SpawnerPart};
+  use crate::actor::message::auto_receive_message::AutoReceiveMessage;
   use crate::actor::message::message::Message;
-  use crate::actor::message::system_message::SystemMessage;
 
   use crate::actor::util::async_barrier::AsyncBarrier;
 
@@ -25,17 +24,17 @@ mod tests {
     let system = ActorSystem::new().await;
     let cloned_b = b.clone();
 
-    let props = Props::from_actor_receiver(ActorReceiver::new(move |ctx| {
+    let props = Props::from_actor_receiver(move |ctx| {
       let cloned_b = cloned_b.clone();
       async move {
         let msg = ctx.get_message_handle_opt().await.unwrap();
-        if let Some(SystemMessage::Started) = msg.as_any().downcast_ref::<SystemMessage>() {
+        if let Some(AutoReceiveMessage::PostStart) = msg.as_any().downcast_ref::<AutoReceiveMessage>() {
           tracing::debug!("Hello World!");
           cloned_b.wait().await;
         }
         Ok(())
       }
-    }))
+    })
     .await;
 
     if let Err(err) = system.get_root_context().await.spawn_named(props, "my-actor").await {

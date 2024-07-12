@@ -7,7 +7,6 @@ mod tests {
 
   use crate::actor::actor::actor::Actor;
   use crate::actor::actor::actor_error::ActorError;
-  use crate::actor::actor::actor_producer::ActorProducer;
   use crate::actor::actor::props::Props;
   use crate::actor::actor_system::{ActorSystem, Config};
   use crate::actor::context::context_handle::ContextHandle;
@@ -74,10 +73,10 @@ mod tests {
     let system = ActorSystem::new().await;
     let mut root_context = system.get_root_context().await;
 
-    let props = Props::from_actor_producer(ActorProducer::new(move |_| {
+    let props = Props::from_actor_producer(move |_| {
       let cloned_b = b.clone();
       async move { MyActor { b: cloned_b.clone() } }
-    }))
+    })
     .await;
 
     let pid = root_context.spawn(props).await;

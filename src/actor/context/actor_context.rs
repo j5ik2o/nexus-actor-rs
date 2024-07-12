@@ -309,7 +309,7 @@ impl ActorContext {
       )
       .await;
     let result = self
-      .invoke_user_message(MessageHandle::new(SystemMessage::Started))
+      .invoke_user_message(MessageHandle::new(AutoReceiveMessage::PostStart))
       .await;
     if result.is_err() {
       P_LOG.error("Failed to handle Started message", vec![]).await;
@@ -336,8 +336,9 @@ impl ActorContext {
       .get_process_registry()
       .await
       .remove_process(&self.get_self_opt().await.unwrap());
-    let msg = MessageHandle::new(AutoReceiveMessage::Stopped);
-    let result = self.invoke_user_message(msg).await;
+    let result = self
+      .invoke_user_message(MessageHandle::new(AutoReceiveMessage::PostStop))
+      .await;
     if result.is_err() {
       P_LOG.error("Failed to handle Stopped message", vec![]).await;
       return result;
@@ -408,6 +409,16 @@ impl ActorContext {
     Ok(())
   }
 
+  async fn handle_start(&mut self) -> Result<(), ActorError> {
+    let result = self
+      .invoke_user_message(MessageHandle::new(AutoReceiveMessage::PostStart))
+      .await;
+    if result.is_err() {
+      return result;
+    }
+    Ok(())
+  }
+
   async fn handle_stop(&mut self) -> Result<(), ActorError> {
     tracing::debug!("ActorContext::handle_stop: start");
     {
@@ -420,8 +431,9 @@ impl ActorContext {
         .unwrap()
         .store(State::Stopping as u8, Ordering::SeqCst);
     }
-    let msg = MessageHandle::new(AutoReceiveMessage::Stopping);
-    let result = self.invoke_user_message(msg).await;
+    let result = self
+      .invoke_user_message(MessageHandle::new(AutoReceiveMessage::PreStop))
+      .await;
     if result.is_err() {
       P_LOG.error("Failed to handle Stopping message", vec![]).await;
       return result;
@@ -445,8 +457,9 @@ impl ActorContext {
         .unwrap()
         .store(State::Restarting as u8, Ordering::SeqCst);
     }
-    let msg = MessageHandle::new(AutoReceiveMessage::Restarting);
-    let result = self.invoke_user_message(msg).await;
+    let result = self
+      .invoke_user_message(MessageHandle::new(AutoReceiveMessage::PreRestart))
+      .await;
     if result.is_err() {
       P_LOG.error("Failed to handle Restarting message", vec![]).await;
       return result;
@@ -949,7 +962,7 @@ impl MessageInvoker for ActorContext {
     if let Some(sm) = sm {
       match sm {
         SystemMessage::Started => {
-          let result = self.invoke_user_message(message_handle.clone()).await;
+          let result = self.handle_start().await;
           if result.is_err() {
             return result;
           }

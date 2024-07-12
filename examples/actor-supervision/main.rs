@@ -2,7 +2,6 @@ use async_trait::async_trait;
 use nexus_acto_rs::actor::actor::actor::Actor;
 use nexus_acto_rs::actor::actor::actor_error::ActorError;
 use nexus_acto_rs::actor::actor::actor_inner_error::ActorInnerError;
-use nexus_acto_rs::actor::actor::actor_producer::ActorProducer;
 use nexus_acto_rs::actor::actor::props::Props;
 use nexus_acto_rs::actor::actor_system::ActorSystem;
 use nexus_acto_rs::actor::context::context_handle::ContextHandle;
@@ -36,7 +35,7 @@ impl Actor for Parent {
     message_handle: MessageHandle,
   ) -> Result<(), ActorError> {
     let msg = message_handle.to_typed::<Hello>().unwrap();
-    let props = Props::from_actor_producer(ActorProducer::new(|_| async { Child::new() })).await;
+    let props = Props::from_actor_producer(|_| async { Child::new() }).await;
     let child = context_handle.spawn(props).await;
     context_handle.send(child, MessageHandle::new(msg)).await;
     Ok(())
@@ -98,10 +97,9 @@ async fn main() {
   };
   let supervisor = OneForOneStrategy::new(10, Duration::from_millis(1000)).with_decider(decider);
   let mut root_context = system.get_root_context().await;
-  let actor_producer = ActorProducer::new(|_| async { Parent::new() });
   let props = Props::from_actor_producer_with_opts(
-    actor_producer,
-    &[Props::with_supervisor_strategy(SupervisorStrategyHandle::new(
+    |_| async { Parent::new() },
+    [Props::with_supervisor_strategy(SupervisorStrategyHandle::new(
       supervisor,
     ))],
   )

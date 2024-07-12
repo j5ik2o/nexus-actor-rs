@@ -10,7 +10,6 @@ use crate::actor::context::MessagePart;
 use crate::actor::message::auto_receive_message::AutoReceiveMessage;
 use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::message::message_or_envelope::{unwrap_envelope_message, MessageEnvelope};
-use crate::actor::message::system_message::SystemMessage;
 use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
 
 #[async_trait]
@@ -19,27 +18,23 @@ pub trait Actor: Debug + Send + Sync + 'static {
     if let Some(message_handle) = context_handle.get_message_handle_opt().await {
       tracing::debug!("Actor::handle: message_handle = {:?}", message_handle);
       let me = message_handle.to_typed::<MessageEnvelope>();
-      let sm = message_handle.to_typed::<SystemMessage>();
       let arm = message_handle.to_typed::<AutoReceiveMessage>();
       let t = message_handle.to_typed::<Terminated>();
-      match (me, sm, arm, t) {
-        (Some(_), None, None, None) => {
+      println!("me = {:?}, arm = {:?}, t = {:?}", me, arm, t);
+      match (me, arm, t) {
+        (Some(_), None, None) => {
           let message = unwrap_envelope_message(message_handle.clone());
           tracing::debug!("Actor::handle: MessageEnvelope = {:?}", message);
           self.receive(context_handle.clone(), message).await
         }
-        (None, Some(sm), None, None) => match sm {
-          SystemMessage::Started => self.started(context_handle).await,
-          SystemMessage::Stop => self.stop(context_handle).await,
-          SystemMessage::Restart => self.restart(context_handle).await,
-        },
-        (None, None, Some(arm), None) => match arm {
-          AutoReceiveMessage::Restarting => self.restarting(context_handle).await,
-          AutoReceiveMessage::Stopping => self.stopping(context_handle).await,
-          AutoReceiveMessage::Stopped => self.stopped(context_handle).await,
+        (None, Some(arm), None) => match arm {
+          AutoReceiveMessage::PostStart => self.post_start(context_handle).await,
+          AutoReceiveMessage::PreRestart => self.pre_restart(context_handle).await,
+          AutoReceiveMessage::PreStop => self.pre_stop(context_handle).await,
+          AutoReceiveMessage::PostStop => self.post_stop(context_handle).await,
           AutoReceiveMessage::PoisonPill => Ok(()),
         },
-        (None, None, None, Some(t)) => self.on_child_terminated(context_handle, &t).await,
+        (None, None, Some(t)) => self.post_child_terminate(context_handle, &t).await,
         _ => self.receive(context_handle.clone(), message_handle).await,
       }
     } else {
@@ -52,38 +47,28 @@ pub trait Actor: Debug + Send + Sync + 'static {
 
   async fn receive(&mut self, context_handle: ContextHandle, message_handle: MessageHandle) -> Result<(), ActorError>;
 
-  async fn started(&self, _: ContextHandle) -> Result<(), ActorError> {
-    tracing::debug!("Actor::started");
+  async fn post_start(&self, _: ContextHandle) -> Result<(), ActorError> {
+    tracing::debug!("Actor::post_start");
     Ok(())
   }
 
-  async fn stop(&self, _: ContextHandle) -> Result<(), ActorError> {
-    tracing::debug!("Actor::stop");
+  async fn pre_restart(&self, _: ContextHandle) -> Result<(), ActorError> {
+    tracing::debug!("Actor::pre_restart");
     Ok(())
   }
 
-  async fn restart(&self, _: ContextHandle) -> Result<(), ActorError> {
-    tracing::debug!("Actor::restart");
+  async fn pre_stop(&self, _: ContextHandle) -> Result<(), ActorError> {
+    tracing::debug!("Actor::pre_stop");
     Ok(())
   }
 
-  async fn restarting(&self, _: ContextHandle) -> Result<(), ActorError> {
-    tracing::debug!("Actor::restarting");
+  async fn post_stop(&self, _: ContextHandle) -> Result<(), ActorError> {
+    tracing::debug!("Actor::post_stop");
     Ok(())
   }
 
-  async fn stopping(&self, _: ContextHandle) -> Result<(), ActorError> {
-    tracing::debug!("Actor::stopping");
-    Ok(())
-  }
-
-  async fn stopped(&self, _: ContextHandle) -> Result<(), ActorError> {
-    tracing::debug!("Actor::stopped");
-    Ok(())
-  }
-
-  async fn on_child_terminated(&self, _: ContextHandle, _: &Terminated) -> Result<(), ActorError> {
-    tracing::debug!("Actor::on_child_terminated");
+  async fn post_child_terminate(&self, _: ContextHandle, _: &Terminated) -> Result<(), ActorError> {
+    tracing::debug!("Actor::post_child_terminate");
     Ok(())
   }
 
