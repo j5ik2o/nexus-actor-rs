@@ -8,9 +8,9 @@ use futures::future::BoxFuture;
 use tokio::sync::{Mutex, Notify};
 
 use crate::actor::actor::pid::ExtendedPid;
-use crate::actor::actor::DeadLetterResponse;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::log::P_LOG;
+use crate::actor::message::dead_letter_response::DeadLetterResponse;
 use crate::actor::message::message::Message;
 use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::process::{Process, ProcessHandle};

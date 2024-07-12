@@ -3,15 +3,17 @@ use std::any::Any;
 use async_trait::async_trait;
 
 use crate::actor::actor::pid::ExtendedPid;
-use crate::actor::actor::{DeadLetterResponse, Terminated, TerminatedReason, Watch};
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::SenderPart;
 use crate::actor::log::P_LOG;
+use crate::actor::message::dead_letter_response::DeadLetterResponse;
 use crate::actor::message::ignore_dead_letter_logging::IgnoreDeadLetterLogging;
 use crate::actor::message::message::Message;
 use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::message::message_or_envelope::unwrap_envelope;
 use crate::actor::message::system_message::SystemMessage;
+use crate::actor::message::terminate_info::TerminateInfo;
+use crate::actor::message::terminate_reason::TerminateReason;
 use crate::actor::process::{Process, ProcessHandle};
 use crate::actor::util::throttler::{Throttle, ThrottleCallback, Valve};
 use crate::event_stream::Handler;
@@ -115,17 +117,17 @@ impl DeadLetterProcess {
         let cloned_self = cloned_self.clone();
         async move {
           if let Some(dle) = cloned_msg.to_typed::<DeadLetterEvent>() {
-            if let Some(m) = dle.message_handle.to_typed::<Watch>() {
+            if let Some(SystemMessage::Watch(watch)) = dle.message_handle.to_typed::<SystemMessage>() {
               let actor_system = cloned_self.actor_system.clone();
-              let pid = m.watcher.clone().unwrap();
+              let pid = watch.watcher.clone().unwrap();
               let e_pid = ExtendedPid::new(pid.clone(), actor_system.clone());
               e_pid
                 .send_system_message(
                   actor_system,
-                  MessageHandle::new(Terminated {
+                  MessageHandle::new(SystemMessage::Terminate(TerminateInfo {
                     who: Some(pid),
-                    why: TerminatedReason::NotFound as i32,
-                  }),
+                    why: TerminateReason::NotFound,
+                  })),
                 )
                 .await;
             }

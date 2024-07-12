@@ -1,12 +1,17 @@
 use std::any::Any;
 
 use crate::actor::message::message::Message;
+use crate::actor::message::terminate_info::TerminateInfo;
+use crate::actor::message::watch::{Unwatch, Watch};
 
 #[derive(Debug, Clone)]
 pub enum SystemMessage {
   Restart,
   Start,
   Stop,
+  Watch(Watch),
+  Unwatch(Unwatch),
+  Terminate(TerminateInfo),
 }
 
 impl Message for SystemMessage {
@@ -16,6 +21,9 @@ impl Message for SystemMessage {
       (SystemMessage::Restart, Some(&SystemMessage::Restart)) => true,
       (SystemMessage::Start, Some(&SystemMessage::Start)) => true,
       (SystemMessage::Stop, Some(&SystemMessage::Stop)) => true,
+      (SystemMessage::Watch(_), Some(&SystemMessage::Watch(_))) => true,
+      (SystemMessage::Unwatch(_), Some(&SystemMessage::Unwatch(_))) => true,
+      (SystemMessage::Terminate(me), Some(&SystemMessage::Terminate(ref you))) => *me == *you,
       _ => false,
     }
   }

@@ -1,5 +1,6 @@
 pub mod auto_receive_message;
 pub mod continuation;
+pub mod dead_letter_response;
 pub mod failure;
 pub mod ignore_dead_letter_logging;
 pub mod message;
@@ -14,3 +15,7 @@ pub mod readonly_message_headers;
 pub mod receive_timeout;
 pub mod response;
 pub mod system_message;
+pub mod terminate_info;
+pub mod terminate_reason;
+pub mod touched;
+pub mod watch;

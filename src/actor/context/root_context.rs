@@ -11,7 +11,6 @@ use crate::actor::actor::sender_middleware::SenderMiddleware;
 use crate::actor::actor::sender_middleware_chain::SenderMiddlewareChain;
 use crate::actor::actor::spawner::SpawnError;
 use crate::actor::actor::spawner::Spawner;
-use crate::actor::actor::Watch;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::sender_context_handle::SenderContextHandle;
 use crate::actor::context::spawner_context_handle::SpawnerContextHandle;
@@ -24,6 +23,8 @@ use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::message::message_headers::MessageHeaders;
 use crate::actor::message::message_or_envelope::MessageEnvelope;
 use crate::actor::message::readonly_message_headers::ReadonlyMessageHeadersHandle;
+use crate::actor::message::system_message::SystemMessage;
+use crate::actor::message::watch::Watch;
 use crate::actor::process::Process;
 use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
 
@@ -236,9 +237,9 @@ impl StopperPart for RootContext {
     pid
       .send_system_message(
         self.get_actor_system().await.clone(),
-        MessageHandle::new(Watch {
+        MessageHandle::new(SystemMessage::Watch(Watch {
           watcher: Some(future_pid.inner_pid),
-        }),
+        })),
       )
       .await;
     self.stop(pid).await;
@@ -262,9 +263,9 @@ impl StopperPart for RootContext {
     pid
       .send_system_message(
         self.get_actor_system().await.clone(),
-        MessageHandle::new(Watch {
+        MessageHandle::new(SystemMessage::Watch(Watch {
           watcher: Some(future_pid.inner_pid),
-        }),
+        })),
       )
       .await;
     self.poison(pid).await;

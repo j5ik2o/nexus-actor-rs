@@ -24,4 +24,11 @@ pub mod spawn_middleware;
 pub mod spawner;
 pub mod taks;
 
-include!(concat!(env!("OUT_DIR"), "/actor.rs"));
+// include!(concat!(env!("OUT_DIR"), "/actor.rs"));
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Pid {
+  pub address: String,
+  pub id: String,
+  pub request_id: u32,
+}

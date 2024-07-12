@@ -16,7 +16,6 @@ use crate::actor::actor::props::Props;
 use crate::actor::actor::receiver_middleware_chain::ReceiverMiddlewareChain;
 use crate::actor::actor::sender_middleware_chain::SenderMiddlewareChain;
 use crate::actor::actor::spawner::SpawnError;
-use crate::actor::actor::{PoisonPill, Terminated, Unwatch, Watch};
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::auto_respond::{AutoRespond, AutoResponsive};
 use crate::actor::context::actor_context_extras::ActorContextExtras;
@@ -34,7 +33,6 @@ use crate::actor::log::P_LOG;
 use crate::actor::message::auto_receive_message::AutoReceiveMessage;
 use crate::actor::message::continuation::Continuation;
 use crate::actor::message::failure::Failure;
-use crate::actor::message::message::Message;
 use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::message::message_or_envelope::{
   unwrap_envelope_header, unwrap_envelope_sender, wrap_envelope, MessageEnvelope,
@@ -44,6 +42,9 @@ use crate::actor::message::readonly_message_headers::ReadonlyMessageHeadersHandl
 use crate::actor::message::receive_timeout::ReceiveTimeout;
 use crate::actor::message::response::ResponseHandle;
 use crate::actor::message::system_message::SystemMessage;
+use crate::actor::message::terminate_info::TerminateInfo;
+use crate::actor::message::terminate_reason::TerminateReason;
+use crate::actor::message::watch::{Unwatch, Watch};
 use crate::actor::process::Process;
 use crate::actor::supervisor::supervisor_strategy::{
   Supervisor, SupervisorHandle, SupervisorStrategy, DEFAULT_SUPERVISION_STRATEGY,
@@ -170,8 +171,7 @@ impl ActorContext {
   async fn default_receive(&mut self) -> Result<(), ActorError> {
     let message = self.get_message_handle_opt().await.expect("Failed to retrieve message");
     tracing::debug!("ActorContext::default_receive: message = {:?}", message);
-    if message.as_any().is::<PoisonPill>() {
-      // tracing::debug!("PoisonPill received");
+    if let Some(AutoReceiveMessage::PoisonPill) = message.to_typed::<AutoReceiveMessage>() {
       let me = self.get_self_opt().await.unwrap();
       self.stop(&me).await;
       Ok(())
@@ -343,10 +343,10 @@ impl ActorContext {
       P_LOG.error("Failed to handle Stopped message", vec![]).await;
       return result;
     }
-    let other_stopped = MessageHandle::new(Terminated {
+    let other_stopped = MessageHandle::new(SystemMessage::Terminate(TerminateInfo {
       who: self.get_self_opt().await.map(|x| x.inner_pid),
-      why: 0,
-    });
+      why: TerminateReason::Stopped,
+    }));
     if let Some(extras) = self.get_extras().await {
       let watchers = extras.get_watchers().await;
       for watcher in watchers.to_vec().await {
@@ -523,14 +523,14 @@ impl ActorContext {
     tracing::debug!("ActorContext::handle_child_failure: finished: self = {}", self_pid,);
   }
 
-  async fn handle_terminated(&mut self, terminated: &Terminated) -> Result<(), ActorError> {
+  async fn handle_terminated(&mut self, terminated: &TerminateInfo) -> Result<(), ActorError> {
     // tracing::debug!("ActorContext::handle_terminated: {:?}", terminated);
     if let Some(mut extras) = self.get_extras().await {
       let pid = ExtendedPid::new(terminated.clone().who.unwrap(), self.get_actor_system().await);
       extras.remove_child(&pid).await;
     }
 
-    let msg = MessageHandle::new(terminated.clone());
+    let msg = MessageHandle::new(AutoReceiveMessage::Terminated(terminated.clone()));
     let result = self.invoke_user_message(msg.clone()).await;
     if result.is_err() {
       P_LOG.error("Failed to handle Terminated message", vec![]).await;
@@ -644,7 +644,7 @@ impl BasePart for ActorContext {
     pid
       .send_system_message(
         self.get_actor_system().await,
-        MessageHandle::new(Watch { watcher: Some(id) }),
+        MessageHandle::new(SystemMessage::Watch(Watch { watcher: Some(id) })),
       )
       .await;
   }
@@ -654,7 +654,7 @@ impl BasePart for ActorContext {
     pid
       .send_system_message(
         self.get_actor_system().await,
-        MessageHandle::new(Unwatch { watcher: Some(id) }),
+        MessageHandle::new(SystemMessage::Unwatch(Unwatch { watcher: Some(id) })),
       )
       .await;
   }
@@ -897,9 +897,9 @@ impl StopperPart for ActorContext {
     pid
       .send_system_message(
         self.get_actor_system().await,
-        MessageHandle::new(Watch {
+        MessageHandle::new(SystemMessage::Watch(Watch {
           watcher: Some(future_process.get_pid().await.inner_pid),
-        }),
+        })),
       )
       .await;
     self.stop(pid).await;
@@ -922,9 +922,9 @@ impl StopperPart for ActorContext {
     pid
       .send_system_message(
         self.get_actor_system().await,
-        MessageHandle::new(Watch {
+        MessageHandle::new(SystemMessage::Watch(Watch {
           watcher: Some(future_process.get_pid().await.inner_pid),
-        }),
+        })),
       )
       .await;
     self.poison(pid).await;
@@ -979,6 +979,18 @@ impl MessageInvoker for ActorContext {
             return result;
           }
         }
+        SystemMessage::Watch(watch) => {
+          self.handle_watch(&watch).await;
+        }
+        SystemMessage::Unwatch(unwatch) => {
+          self.handle_unwatch(&unwatch).await;
+        }
+        SystemMessage::Terminate(t) => {
+          let result = self.handle_terminated(&t).await;
+          if result.is_err() {
+            return result;
+          }
+        }
       }
     }
     if let Some(c) = message_handle.to_typed::<Continuation>() {
@@ -986,20 +998,8 @@ impl MessageInvoker for ActorContext {
       (c.f).run().await;
       self.reset_message_or_envelope().await;
     }
-    if let Some(w) = message_handle.to_typed::<Watch>() {
-      self.handle_watch(&w).await;
-    }
-    if let Some(uw) = message_handle.to_typed::<Unwatch>() {
-      self.handle_unwatch(&uw).await;
-    }
     if let Some(f) = message_handle.to_typed::<Failure>() {
       self.handle_child_failure(&f).await;
-    }
-    if let Some(t) = message_handle.to_typed::<Terminated>() {
-      let result = self.handle_terminated(&t).await;
-      if result.is_err() {
-        return result;
-      }
     }
     Ok(())
   }
