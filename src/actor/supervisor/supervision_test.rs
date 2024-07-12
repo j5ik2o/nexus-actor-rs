@@ -109,7 +109,7 @@ mod test {
       root_context.send(child.clone(), fail.clone()).await;
       observer.expect_message(fail.clone(), d).await.unwrap();
       observer
-        .expect_message(MessageHandle::new(AutoReceiveMessage::Restarting), d)
+        .expect_message(MessageHandle::new(AutoReceiveMessage::PreRestart), d)
         .await
         .unwrap();
       observer
@@ -120,7 +120,7 @@ mod test {
     root_context.send(child, fail.clone()).await;
     observer.expect_message(fail.clone(), d).await.unwrap();
     observer
-      .expect_message(MessageHandle::new(AutoReceiveMessage::Stopping), d)
+      .expect_message(MessageHandle::new(AutoReceiveMessage::PreStop), d)
       .await
       .unwrap();
   }
@@ -158,7 +158,7 @@ mod test {
 
   #[async_trait]
   impl Actor for ActorWithSupervisor {
-    async fn started(&self, mut ctx: ContextHandle) -> Result<(), ActorError> {
+    async fn post_start(&self, mut ctx: ContextHandle) -> Result<(), ActorError> {
       tracing::debug!("ActorWithSupervisor::post_start");
       let props = Props::from_actor_producer(|_| async { FailingChildActor }).await;
       let child = ctx.spawn(props).await;
@@ -205,7 +205,7 @@ mod test {
 
   #[async_trait]
   impl Actor for FailingChildActor {
-    async fn started(&self, _: ContextHandle) -> Result<(), ActorError> {
+    async fn post_start(&self, _: ContextHandle) -> Result<(), ActorError> {
       tracing::debug!("FailingChildActor::started");
       Ok(())
     }

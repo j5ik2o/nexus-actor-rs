@@ -25,7 +25,7 @@ mod tests {
 
   #[async_trait]
   impl Actor for MyActor {
-    async fn started(&self, _: ContextHandle) -> Result<(), ActorError> {
+    async fn post_start(&self, _: ContextHandle) -> Result<(), ActorError> {
       tracing::debug!("MyActor started");
       self.is_started.store(true, Ordering::SeqCst);
       self.received.notify_one();

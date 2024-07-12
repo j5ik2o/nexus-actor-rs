@@ -29,14 +29,13 @@ pub trait Actor: Debug + Send + Sync + 'static {
           self.receive(context_handle.clone(), message).await
         }
         (None, Some(sm), None, None) => match sm {
-          SystemMessage::Started => self.started(context_handle).await,
-          SystemMessage::Stop => self.stop(context_handle).await,
-          SystemMessage::Restart => self.restart(context_handle).await,
+          SystemMessage::Started => self.post_start(context_handle).await,
+          _ => Ok(()),
         },
         (None, None, Some(arm), None) => match arm {
-          AutoReceiveMessage::Restarting => self.restarting(context_handle).await,
-          AutoReceiveMessage::Stopping => self.stopping(context_handle).await,
-          AutoReceiveMessage::Stopped => self.stopped(context_handle).await,
+          AutoReceiveMessage::PreRestart => self.pre_restart(context_handle).await,
+          AutoReceiveMessage::PreStop => self.pre_stop(context_handle).await,
+          AutoReceiveMessage::PostStop => self.post_stop(context_handle).await,
           AutoReceiveMessage::PoisonPill => Ok(()),
         },
         (None, None, None, Some(t)) => self.on_child_terminated(context_handle, &t).await,
@@ -52,32 +51,22 @@ pub trait Actor: Debug + Send + Sync + 'static {
 
   async fn receive(&mut self, context_handle: ContextHandle, message_handle: MessageHandle) -> Result<(), ActorError>;
 
-  async fn started(&self, _: ContextHandle) -> Result<(), ActorError> {
+  async fn post_start(&self, _: ContextHandle) -> Result<(), ActorError> {
     tracing::debug!("Actor::started");
     Ok(())
   }
 
-  async fn stop(&self, _: ContextHandle) -> Result<(), ActorError> {
-    tracing::debug!("Actor::stop");
-    Ok(())
-  }
-
-  async fn restart(&self, _: ContextHandle) -> Result<(), ActorError> {
-    tracing::debug!("Actor::restart");
-    Ok(())
-  }
-
-  async fn restarting(&self, _: ContextHandle) -> Result<(), ActorError> {
+  async fn pre_restart(&self, _: ContextHandle) -> Result<(), ActorError> {
     tracing::debug!("Actor::restarting");
     Ok(())
   }
 
-  async fn stopping(&self, _: ContextHandle) -> Result<(), ActorError> {
+  async fn pre_stop(&self, _: ContextHandle) -> Result<(), ActorError> {
     tracing::debug!("Actor::stopping");
     Ok(())
   }
 
-  async fn stopped(&self, _: ContextHandle) -> Result<(), ActorError> {
+  async fn post_stop(&self, _: ContextHandle) -> Result<(), ActorError> {
     tracing::debug!("Actor::stopped");
     Ok(())
   }

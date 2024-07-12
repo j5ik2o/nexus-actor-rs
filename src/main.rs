@@ -35,7 +35,7 @@ struct ChildActor;
 
 #[async_trait]
 impl Actor for ChildActor {
-  async fn started(&self, _: ContextHandle) -> Result<(), ActorError> {
+  async fn post_start(&self, _: ContextHandle) -> Result<(), ActorError> {
     tracing::debug!("ChildActor::started");
     Ok(())
   }
@@ -51,7 +51,7 @@ struct TopActor;
 
 #[async_trait]
 impl Actor for TopActor {
-  async fn started(&self, mut context_handle: ContextHandle) -> Result<(), ActorError> {
+  async fn post_start(&self, mut context_handle: ContextHandle) -> Result<(), ActorError> {
     tracing::debug!("TopActor::post_start");
     let props = Props::from_actor_producer(create_child_actor).await;
 
