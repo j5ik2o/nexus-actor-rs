@@ -28,7 +28,6 @@ mod test {
   use crate::actor::message::auto_receive_message::AutoReceiveMessage;
   use crate::actor::message::message::Message;
   use crate::actor::message::message_handle::MessageHandle;
-  use crate::actor::message::messages::Started;
   use crate::actor::message::system_message::SystemMessage;
   use crate::actor::supervisor::strategy_one_for_one::OneForOneStrategy;
   use crate::actor::supervisor::supervisor_strategy::{SupervisorHandle, SupervisorStrategy};
@@ -90,8 +89,8 @@ mod test {
 
     let props = Props::from_actor_producer_with_opts(
       ActorProducer::new(|_| async { ActorHandle::new(FailingChildActor) }),
-      vec![
-        Props::with_receiver_middlewares(vec![middles]),
+      &[
+        Props::with_receiver_middlewares([middles]),
         Props::with_supervisor_strategy(SupervisorStrategyHandle::new(OneForOneStrategy::new(
           10,
           tokio::time::Duration::from_secs(10),
@@ -104,7 +103,7 @@ mod test {
     let fail = MessageHandle::new(StringMessage("fail".to_string()));
     let d = tokio::time::Duration::from_secs(10);
     let _ = observer
-      .expect_message(MessageHandle::new(SystemMessage::Started(Started {})), d)
+      .expect_message(MessageHandle::new(SystemMessage::Started), d)
       .await;
 
     for i in 0..10 {
@@ -112,28 +111,18 @@ mod test {
       root_context.send(child.clone(), fail.clone()).await;
       observer.expect_message(fail.clone(), d).await.unwrap();
       observer
-        .expect_message(
-          MessageHandle::new(AutoReceiveMessage::Restarting(
-            crate::actor::message::messages::Restarting {},
-          )),
-          d,
-        )
+        .expect_message(MessageHandle::new(AutoReceiveMessage::Restarting), d)
         .await
         .unwrap();
       observer
-        .expect_message(MessageHandle::new(SystemMessage::Started(Started {})), d)
+        .expect_message(MessageHandle::new(SystemMessage::Started), d)
         .await
         .unwrap();
     }
     root_context.send(child, fail.clone()).await;
     observer.expect_message(fail.clone(), d).await.unwrap();
     observer
-      .expect_message(
-        MessageHandle::new(AutoReceiveMessage::Stopping(
-          crate::actor::message::messages::Stopping {},
-        )),
-        d,
-      )
+      .expect_message(MessageHandle::new(AutoReceiveMessage::Stopping), d)
       .await
       .unwrap();
   }

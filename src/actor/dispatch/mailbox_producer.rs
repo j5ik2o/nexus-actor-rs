@@ -1,8 +1,10 @@
-use crate::actor::dispatch::mailbox_handle::MailboxHandle;
-use futures::future::BoxFuture;
 use std::fmt::Debug;
 use std::future::Future;
 use std::sync::Arc;
+
+use futures::future::BoxFuture;
+
+use crate::actor::dispatch::mailbox_handle::MailboxHandle;
 
 #[derive(Clone)]
 pub struct MailboxProducer(Arc<dyn Fn() -> BoxFuture<'static, MailboxHandle> + Send + Sync>);

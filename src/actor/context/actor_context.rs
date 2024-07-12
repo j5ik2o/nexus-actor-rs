@@ -1,7 +1,8 @@
-use async_trait::async_trait;
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
+
+use async_trait::async_trait;
 use tokio::sync::Mutex;
 
 use crate::actor::actor::actor::Actor;
@@ -1140,10 +1141,7 @@ impl Supervisor for ActorContext {
   async fn stop_children(&self, pids: &[ExtendedPid]) {
     for pid in pids {
       pid
-        .send_system_message(
-          self.get_actor_system().await,
-          MessageHandle::new(SystemMessage::Stop),
-        )
+        .send_system_message(self.get_actor_system().await, MessageHandle::new(SystemMessage::Stop))
         .await;
     }
   }

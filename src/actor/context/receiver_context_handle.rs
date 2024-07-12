@@ -1,5 +1,8 @@
 use std::sync::Arc;
 
+use async_trait::async_trait;
+use tokio::sync::Mutex;
+
 use crate::actor::actor::actor_error::ActorError;
 use crate::actor::actor::actor_handle::ActorHandle;
 use crate::actor::actor::pid::ExtendedPid;
@@ -9,8 +12,6 @@ use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::message::message_or_envelope::MessageEnvelope;
 use crate::actor::message::readonly_message_headers::ReadonlyMessageHeadersHandle;
 use crate::ctxext::extensions::{ContextExtensionHandle, ContextExtensionId};
-use async_trait::async_trait;
-use tokio::sync::Mutex;
 
 #[derive(Debug, Clone)]
 pub struct ReceiverContextHandle(Arc<Mutex<dyn ReceiverContext>>);

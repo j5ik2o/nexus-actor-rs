@@ -1,3 +1,7 @@
+use std::fmt::Debug;
+
+use async_trait::async_trait;
+
 use crate::actor::actor::actor_error::ActorError;
 use crate::actor::actor::actor_inner_error::ActorInnerError;
 use crate::actor::actor::Terminated;
@@ -8,8 +12,6 @@ use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::message::message_or_envelope::{unwrap_envelope_message, MessageEnvelope};
 use crate::actor::message::system_message::SystemMessage;
 use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
-use async_trait::async_trait;
-use std::fmt::Debug;
 
 #[async_trait]
 pub trait Actor: Debug + Send + Sync + 'static {

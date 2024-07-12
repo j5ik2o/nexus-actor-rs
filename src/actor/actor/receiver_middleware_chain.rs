@@ -2,10 +2,11 @@ use std::fmt::{Debug, Formatter};
 use std::future::Future;
 use std::sync::Arc;
 
+use futures::future::BoxFuture;
+
 use crate::actor::actor::actor_error::ActorError;
 use crate::actor::context::receiver_context_handle::ReceiverContextHandle;
 use crate::actor::message::message_or_envelope::MessageEnvelope;
-use futures::future::BoxFuture;
 
 // ReceiverMiddlewareChain
 #[derive(Clone)]

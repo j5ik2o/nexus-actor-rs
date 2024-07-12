@@ -83,7 +83,7 @@ mod test {
 
       let props = Props::from_actor_producer_with_opts(
         ActorProducer::new(move |_| async { ActorHandle::new(PanicActor) }),
-        vec![Props::with_supervisor_strategy(strategy.clone())],
+        &[Props::with_supervisor_strategy(strategy.clone())],
       )
       .await;
 

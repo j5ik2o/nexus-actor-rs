@@ -1,6 +1,7 @@
-use crate::actor::message::message::Message;
 use std::any::Any;
 use std::fmt::Display;
+
+use crate::actor::message::message::Message;
 
 #[derive(Debug, Clone)]
 pub struct IgnoreDeadLetterLogging {}

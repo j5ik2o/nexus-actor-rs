@@ -97,8 +97,7 @@ static DEFAULT_SPAWNER: Lazy<Spawner> = Lazy::new(|| {
         .await;
         tracing::debug!("mailbox handlers registered: {}", name);
 
-        mb.post_system_message(MessageHandle::new(SystemMessage::Started))
-          .await;
+        mb.post_system_message(MessageHandle::new(SystemMessage::Started)).await;
         tracing::debug!("post_system_message: started: {}", name);
         mb.start().await;
         tracing::debug!("mailbox started: {}", name);
@@ -185,9 +184,10 @@ impl Props {
     })
   }
 
-  pub fn with_context_decorators(decorators: Vec<ContextDecorator>) -> PropsOption {
+  pub fn with_context_decorators(decorators: impl IntoIterator<Item = ContextDecorator> + Send + Sync) -> PropsOption {
+    let cloned_decorators = decorators.into_iter().collect::<Vec<_>>();
     PropsOption::new(move |props: &mut Props| {
-      let cloned_decorators = decorators.clone();
+      let cloned_decorators = cloned_decorators.clone();
       props.context_decorator.extend(cloned_decorators.clone());
       props.context_decorator_chain = make_context_decorator_chain(
         &props.context_decorator,
@@ -211,7 +211,10 @@ impl Props {
     })
   }
 
-  pub fn with_receiver_middlewares(middlewares: Vec<ReceiverMiddleware>) -> PropsOption {
+  pub fn with_receiver_middlewares(
+    middlewares: impl IntoIterator<Item = ReceiverMiddleware> + Send + Sync,
+  ) -> PropsOption {
+    let middlewares = middlewares.into_iter().collect::<Vec<_>>();
     PropsOption::new(move |props: &mut Props| {
       props.receiver_middleware.extend(middlewares.clone());
       props.receiver_middleware_chain = make_receiver_middleware_chain(
@@ -221,7 +224,8 @@ impl Props {
     })
   }
 
-  pub fn with_sender_middlewares(middlewares: Vec<SenderMiddleware>) -> PropsOption {
+  pub fn with_sender_middlewares(middlewares: impl IntoIterator<Item = SenderMiddleware> + Send + Sync) -> PropsOption {
+    let middlewares = middlewares.into_iter().collect::<Vec<_>>();
     PropsOption::new(move |props: &mut Props| {
       props.sender_middleware.extend(middlewares.clone());
       props.sender_middleware_chain = make_sender_middleware_chain(
@@ -241,7 +245,10 @@ impl Props {
     })
   }
 
-  pub fn with_spawn_middleware(spawn_middlewares: Vec<SpawnMiddleware>) -> PropsOption {
+  pub fn with_spawn_middleware(
+    spawn_middlewares: impl IntoIterator<Item = SpawnMiddleware> + Send + Sync,
+  ) -> PropsOption {
+    let spawn_middlewares = spawn_middlewares.into_iter().collect::<Vec<_>>();
     PropsOption::new(move |props: &mut Props| {
       props.spawn_middleware.extend(spawn_middlewares.clone());
       props.spawn_middleware_chain = make_spawn_middleware_chain(

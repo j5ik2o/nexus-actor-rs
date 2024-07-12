@@ -1,5 +1,6 @@
-use crate::actor::message::message::Message;
 use std::any::Any;
+
+use crate::actor::message::message::Message;
 
 #[derive(Debug, Clone)]
 pub enum MailboxMessage {

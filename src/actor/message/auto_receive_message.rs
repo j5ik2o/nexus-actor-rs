@@ -1,8 +1,9 @@
+use std::any::Any;
+use std::fmt::Display;
+
 use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::message::message::Message;
 use crate::actor::message::message_handle::MessageHandle;
-use std::any::Any;
-use std::fmt::Display;
 
 #[derive(Debug, Clone)]
 pub enum AutoReceiveMessage {

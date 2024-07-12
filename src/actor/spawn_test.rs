@@ -17,7 +17,6 @@ mod tests {
   use crate::actor::context::context_handle::ContextHandle;
   use crate::actor::context::SpawnerPart;
   use crate::actor::message::message_handle::MessageHandle;
-
   use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
 
   #[derive(Debug, Clone)]

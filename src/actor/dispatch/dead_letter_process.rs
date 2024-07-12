@@ -1,5 +1,7 @@
 use std::any::Any;
 
+use async_trait::async_trait;
+
 use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::actor::{DeadLetterResponse, Terminated, TerminatedReason, Watch};
 use crate::actor::actor_system::ActorSystem;
@@ -13,7 +15,6 @@ use crate::actor::message::system_message::SystemMessage;
 use crate::actor::process::{Process, ProcessHandle};
 use crate::actor::util::throttler::{Throttle, ThrottleCallback, Valve};
 use crate::event_stream::Handler;
-use async_trait::async_trait;
 
 #[derive(Debug, Clone)]
 pub struct DeadLetterProcess {

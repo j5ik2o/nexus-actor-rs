@@ -1,5 +1,11 @@
 #[cfg(test)]
 mod tests {
+  use std::any::Any;
+  use std::env;
+  use std::time::Duration;
+
+  use tracing_subscriber::EnvFilter;
+
   use crate::actor::actor::actor_error::ActorError;
   use crate::actor::actor::actor_inner_error::ActorInnerError;
   use crate::actor::actor::actor_receiver::ActorReceiver;
@@ -13,10 +19,6 @@ mod tests {
   use crate::actor::message::message_handle::MessageHandle;
   use crate::actor::message::message_or_envelope::MessageEnvelope;
   use crate::actor::message::response::ResponseHandle;
-  use std::any::Any;
-  use std::env;
-  use std::time::Duration;
-  use tracing_subscriber::EnvFilter;
 
   #[tokio::test]
   async fn test_actor_continue_future_in_actor() {

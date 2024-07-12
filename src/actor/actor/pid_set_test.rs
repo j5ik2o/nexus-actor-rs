@@ -1,9 +1,10 @@
 #[cfg(test)]
 mod tests {
-  use super::super::*;
   use crate::actor::actor::pid::ExtendedPid;
   use crate::actor::actor::pid_set::PidSet;
   use crate::actor::actor_system::ActorSystem;
+
+  use super::super::*;
 
   async fn new_pid(system: ActorSystem, address: &str, id: &str, request_id: u32) -> ExtendedPid {
     let pid = Pid {

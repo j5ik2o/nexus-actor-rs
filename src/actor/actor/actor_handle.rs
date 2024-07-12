@@ -1,11 +1,13 @@
+use std::sync::Arc;
+
+use async_trait::async_trait;
+use tokio::sync::Mutex;
+
 use crate::actor::actor::actor::Actor;
 use crate::actor::actor::actor_error::ActorError;
 use crate::actor::context::context_handle::ContextHandle;
 use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
-use async_trait::async_trait;
-use std::sync::Arc;
-use tokio::sync::Mutex;
 
 #[derive(Debug, Clone)]
 pub struct ActorHandle(Arc<Mutex<dyn Actor>>);

@@ -1,8 +1,9 @@
-use backtrace::Backtrace;
 use std::any::Any;
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 use std::sync::Arc;
+
+use backtrace::Backtrace;
 
 #[derive(Clone)]
 pub struct ActorInnerError {

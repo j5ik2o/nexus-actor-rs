@@ -1,6 +1,7 @@
-use async_trait::async_trait;
 use std::sync::Arc;
 use std::time::Duration;
+
+use async_trait::async_trait;
 
 use crate::actor::actor::actor_handle::ActorHandle;
 use crate::actor::actor::middleware_chain::make_sender_middleware_chain;
@@ -10,7 +11,7 @@ use crate::actor::actor::sender_middleware::SenderMiddleware;
 use crate::actor::actor::sender_middleware_chain::SenderMiddlewareChain;
 use crate::actor::actor::spawner::SpawnError;
 use crate::actor::actor::spawner::Spawner;
-use crate::actor::actor::{Watch};
+use crate::actor::actor::Watch;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::sender_context_handle::SenderContextHandle;
 use crate::actor::context::spawner_context_handle::SpawnerContextHandle;

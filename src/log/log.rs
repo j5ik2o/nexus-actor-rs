@@ -47,14 +47,19 @@ pub struct Logger {
 }
 
 impl Logger {
-  pub fn new(event_stream: Arc<EventStream>, level: Level, prefix: &str, context: Vec<Field>) -> Self {
+  pub fn new(
+    event_stream: Arc<EventStream>,
+    level: Level,
+    prefix: &str,
+    context: impl IntoIterator<Item = Field>,
+  ) -> Self {
     let opts = CURRENT.lock().unwrap();
     let level = if level == Level::Default { opts.log_level } else { level };
     Logger {
       event_stream,
       level: Arc::new(AtomicI32::new(level as i32)),
       prefix: prefix.to_string(),
-      context,
+      context: context.into_iter().collect(),
       enable_caller: opts.enable_caller,
     }
   }
@@ -90,14 +95,14 @@ impl Logger {
     self.context.clone()
   }
 
-  fn new_event(&self, msg: &str, level: Level, fields: Vec<Field>) -> Event {
+  fn new_event(&self, msg: &str, level: Level, fields: impl IntoIterator<Item = Field>) -> Event {
     let mut ev = Event {
       time: OffsetDateTime::now_utc(),
       level,
       prefix: self.prefix.clone(),
       message: msg.to_string(),
       context: self.context.clone(),
-      fields,
+      fields: fields.into_iter().collect(),
       caller: None,
     };
     if self.enable_caller {
@@ -106,7 +111,7 @@ impl Logger {
     ev
   }
 
-  pub async fn debug(&self, msg: &str, fields: Vec<Field>) {
+  pub async fn debug(&self, msg: &str, fields: impl IntoIterator<Item = Field>) {
     if self.get_level() <= Level::Debug {
       self
         .event_stream
@@ -115,7 +120,7 @@ impl Logger {
     }
   }
 
-  pub async fn info(&self, msg: &str, fields: Vec<Field>) {
+  pub async fn info(&self, msg: &str, fields: impl IntoIterator<Item = Field>) {
     if self.get_level() <= Level::Info {
       self
         .event_stream
@@ -124,7 +129,7 @@ impl Logger {
     }
   }
 
-  pub async fn warn(&self, msg: &str, fields: Vec<Field>) {
+  pub async fn warn(&self, msg: &str, fields: impl IntoIterator<Item = Field>) {
     if self.get_level() <= Level::Warn {
       self
         .event_stream
@@ -133,7 +138,7 @@ impl Logger {
     }
   }
 
-  pub async fn error(&self, msg: &str, fields: Vec<Field>) {
+  pub async fn error(&self, msg: &str, fields: impl IntoIterator<Item = Field>) {
     if self.get_level() <= Level::Error {
       self
         .event_stream
