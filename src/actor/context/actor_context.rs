@@ -43,6 +43,7 @@ use crate::actor::message::receive_timeout::ReceiveTimeout;
 use crate::actor::message::response::ResponseHandle;
 use crate::actor::message::system_message::SystemMessage;
 use crate::actor::message::terminate_info::TerminateInfo;
+use crate::actor::message::terminate_reason::TerminateReason;
 use crate::actor::message::watch::{Unwatch, Watch};
 use crate::actor::process::Process;
 use crate::actor::supervisor::supervisor_strategy::{
@@ -344,7 +345,7 @@ impl ActorContext {
     }
     let other_stopped = MessageHandle::new(SystemMessage::Terminate(TerminateInfo {
       who: self.get_self_opt().await.map(|x| x.inner_pid),
-      why: 0,
+      why: TerminateReason::Stopped,
     }));
     if let Some(extras) = self.get_extras().await {
       let watchers = extras.get_watchers().await;

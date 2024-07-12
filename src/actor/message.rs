@@ -16,4 +16,5 @@ pub mod receive_timeout;
 pub mod response;
 pub mod system_message;
 pub mod terminate_info;
+pub mod terminate_reason;
 pub mod watch;
