@@ -18,10 +18,10 @@ use crate::actor::context::{
   InfoPart, MessagePart, SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart,
 };
 use crate::actor::future::{Future, FutureProcess};
-use crate::actor::message::auto_receive_message::AutoReceiveMessage;
 use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::message::message_headers::MessageHeaders;
 use crate::actor::message::message_or_envelope::MessageEnvelope;
+use crate::actor::message::poison_pill::PoisonPill;
 use crate::actor::message::readonly_message_headers::ReadonlyMessageHeadersHandle;
 use crate::actor::message::system_message::SystemMessage;
 use crate::actor::message::watch::Watch;
@@ -249,10 +249,7 @@ impl StopperPart for RootContext {
 
   async fn poison(&mut self, pid: &ExtendedPid) {
     pid
-      .send_user_message(
-        self.get_actor_system().await.clone(),
-        MessageHandle::new(AutoReceiveMessage::PoisonPill),
-      )
+      .send_user_message(self.get_actor_system().await.clone(), MessageHandle::new(PoisonPill))
       .await
   }
 

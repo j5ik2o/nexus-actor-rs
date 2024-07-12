@@ -32,7 +32,6 @@ pub trait Actor: Debug + Send + Sync + 'static {
           AutoReceiveMessage::PostRestart => self.post_restart(context_handle).await,
           AutoReceiveMessage::PreStop => self.pre_stop(context_handle).await,
           AutoReceiveMessage::PostStop => self.post_stop(context_handle).await,
-          AutoReceiveMessage::PoisonPill => Ok(()),
           AutoReceiveMessage::Terminated(t) => self.post_child_terminate(context_handle, &t).await,
         },
         _ => self.receive(context_handle.clone(), message_handle).await,

@@ -11,6 +11,7 @@ pub mod message_or_envelope;
 mod message_or_envelope_test;
 pub mod messages;
 pub mod not_influence_receive_timeout;
+pub mod poison_pill;
 pub mod readonly_message_headers;
 pub mod receive_timeout;
 pub mod response;
