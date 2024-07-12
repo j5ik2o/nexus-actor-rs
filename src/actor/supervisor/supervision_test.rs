@@ -14,7 +14,6 @@ mod test {
   use crate::actor::actor::actor::Actor;
   use crate::actor::actor::actor_error::ActorError;
   use crate::actor::actor::actor_inner_error::ActorInnerError;
-  use crate::actor::actor::actor_producer::ActorProducer;
   use crate::actor::actor::pid::ExtendedPid;
   use crate::actor::actor::props::Props;
   use crate::actor::actor::receiver_middleware::ReceiverMiddleware;
@@ -43,14 +42,14 @@ mod test {
     let mut root = system.get_root_context().await;
     let notify = Arc::new(Notify::new());
     let cloned_notify = notify.clone();
-    let props = Props::from_actor_producer(ActorProducer::new(move |_| {
+    let props = Props::from_actor_producer(move |_| {
       let cloned_notify = cloned_notify.clone();
       async move {
         ActorWithSupervisor {
           notify: cloned_notify.clone(),
         }
       }
-    }))
+    })
     .await;
     let pid = root.spawn(props).await;
     tracing::info!("pid = {:?}", pid);
@@ -87,8 +86,8 @@ mod test {
     });
 
     let props = Props::from_actor_producer_with_opts(
-      ActorProducer::new(|_| async { FailingChildActor }),
-      &[
+      |_| async { FailingChildActor },
+      [
         Props::with_receiver_middlewares([middles]),
         Props::with_supervisor_strategy(SupervisorStrategyHandle::new(OneForOneStrategy::new(
           10,
@@ -161,7 +160,7 @@ mod test {
   impl Actor for ActorWithSupervisor {
     async fn started(&self, mut ctx: ContextHandle) -> Result<(), ActorError> {
       tracing::debug!("ActorWithSupervisor::post_start");
-      let props = Props::from_actor_producer(ActorProducer::new(|_| async { FailingChildActor })).await;
+      let props = Props::from_actor_producer(|_| async { FailingChildActor }).await;
       let child = ctx.spawn(props).await;
       ctx
         .send(child, MessageHandle::new(StringMessage("fail".to_string())))

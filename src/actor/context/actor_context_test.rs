@@ -8,7 +8,6 @@ mod tests {
 
   use crate::actor::actor::actor_error::ActorError;
   use crate::actor::actor::actor_inner_error::ActorInnerError;
-  use crate::actor::actor::actor_receiver::ActorReceiver;
   use crate::actor::actor::continuer::Continuer;
   use crate::actor::actor::props::Props;
   use crate::actor::actor::Touched;
@@ -32,7 +31,7 @@ mod tests {
 
     let pid = root_context
       .spawn(
-        Props::from_actor_receiver(ActorReceiver::new(move |ctx| async move {
+        Props::from_actor_receiver(move |ctx| async move {
           if let Some(me) = ctx.get_message_handle().await.to_typed::<MessageEnvelope>() {
             let self_pid = ctx.get_self().await;
             let msg = me.get_message_handle().to_typed::<String>().unwrap().clone();
@@ -70,7 +69,7 @@ mod tests {
           } else {
             Ok(())
           }
-        }))
+        })
         .await,
       )
       .await;
@@ -109,7 +108,7 @@ mod tests {
     let system = ActorSystem::new().await;
     let mut root_context = system.get_root_context().await;
 
-    let actor_receiver = ActorReceiver::new(move |_| async move { Ok(()) });
+    let actor_receiver = move |_| async move { Ok(()) };
     let pid = root_context
       .spawn(Props::from_actor_receiver(actor_receiver).await)
       .await;
@@ -140,7 +139,7 @@ mod tests {
     let system = ActorSystem::new().await;
     let mut root_context = system.get_root_context().await;
 
-    let actor_receiver = ActorReceiver::new(move |_| async move { Ok(()) });
+    let actor_receiver = move |_| async move { Ok(()) };
     let pid = root_context
       .spawn(Props::from_actor_receiver(actor_receiver).await)
       .await;

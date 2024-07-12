@@ -6,7 +6,6 @@ mod test {
 
   use tracing_subscriber::EnvFilter;
 
-  use crate::actor::actor::actor_receiver::ActorReceiver;
   use crate::actor::actor::props::Props;
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::context::{BasePart, MessagePart, SenderPart, SpawnerPart};
@@ -38,7 +37,7 @@ mod test {
 
     let system = ActorSystem::new().await;
 
-    let props = Props::from_actor_receiver(ActorReceiver::new(move |ctx| async move {
+    let props = Props::from_actor_receiver(move |ctx| async move {
       let msg = ctx.get_message_handle().await;
       if let Some(_) = msg.as_any().downcast_ref::<MessageEnvelope>() {
         let l = ctx
@@ -49,7 +48,7 @@ mod test {
         ctx.respond(ResponseHandle::new(Length(l))).await
       }
       Ok(())
-    }))
+    })
     .await;
 
     let mut root_context = system.get_root_context().await;

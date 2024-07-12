@@ -7,7 +7,6 @@ mod tests {
   use tokio::time::sleep;
   use tracing_subscriber::EnvFilter;
 
-  use crate::actor::actor::actor_receiver::ActorReceiver;
   use crate::actor::actor::props::Props;
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::context::{BasePart, MessagePart, SenderPart, SpawnerPart, StopperPart};
@@ -28,10 +27,10 @@ mod tests {
     let system = ActorSystem::new().await;
     let mut root_context = system.get_root_context().await;
 
-    let props = Props::from_actor_receiver(ActorReceiver::new(move |ctx| async move {
+    let props = Props::from_actor_receiver(move |ctx| async move {
       tracing::debug!("msg = {:?}", ctx.get_message_handle_opt().await.unwrap());
       Ok(())
-    }))
+    })
     .await;
 
     let pid = root_context.spawn(props).await;
@@ -81,7 +80,7 @@ mod tests {
     let system = ActorSystem::new().await;
     let mut root_context = system.get_root_context().await;
 
-    let callee_props = Props::from_actor_receiver(ActorReceiver::new(move |ctx| async move {
+    let callee_props = Props::from_actor_receiver(move |ctx| async move {
       let msg = ctx.get_message_handle().await;
       tracing::debug!("callee msg = {:?}", msg);
       if let Some(msg) = msg.to_typed::<MessageEnvelope>() {
@@ -89,12 +88,12 @@ mod tests {
         ctx.respond(ResponseHandle::new(Reply("PONG".to_string()))).await
       }
       Ok(())
-    }))
+    })
     .await;
     let callee_pid = root_context.spawn(callee_props).await;
     let cloned_callee_pid = callee_pid.clone();
 
-    let caller_props = Props::from_actor_receiver(ActorReceiver::new(move |mut ctx| {
+    let caller_props = Props::from_actor_receiver(move |mut ctx| {
       let cloned_async_barrier = cloned_async_barrier.clone();
       let cloned_callee_pid = cloned_callee_pid.clone();
       async move {
@@ -113,7 +112,7 @@ mod tests {
         }
         Ok(())
       }
-    }))
+    })
     .await;
     let caller_pid = root_context.spawn(caller_props).await;
 

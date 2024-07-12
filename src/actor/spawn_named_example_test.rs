@@ -4,7 +4,6 @@ mod tests {
 
   use tracing_subscriber::EnvFilter;
 
-  use crate::actor::actor::actor_receiver::ActorReceiver;
   use crate::actor::actor::props::Props;
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::context::{MessagePart, SpawnerPart};
@@ -25,7 +24,7 @@ mod tests {
     let system = ActorSystem::new().await;
     let cloned_b = b.clone();
 
-    let props = Props::from_actor_receiver(ActorReceiver::new(move |ctx| {
+    let props = Props::from_actor_receiver(move |ctx| {
       let cloned_b = cloned_b.clone();
       async move {
         let msg = ctx.get_message_handle_opt().await.unwrap();
@@ -35,7 +34,7 @@ mod tests {
         }
         Ok(())
       }
-    }))
+    })
     .await;
 
     if let Err(err) = system.get_root_context().await.spawn_named(props, "my-actor").await {
