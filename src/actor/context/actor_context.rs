@@ -38,6 +38,7 @@ use crate::actor::message::message_or_envelope::{
   unwrap_envelope_header, unwrap_envelope_sender, wrap_envelope, MessageEnvelope,
 };
 use crate::actor::message::not_influence_receive_timeout::NotInfluenceReceiveTimeoutHandle;
+use crate::actor::message::poison_pill::PoisonPill;
 use crate::actor::message::readonly_message_headers::ReadonlyMessageHeadersHandle;
 use crate::actor::message::receive_timeout::ReceiveTimeout;
 use crate::actor::message::response::ResponseHandle;
@@ -171,7 +172,7 @@ impl ActorContext {
   async fn default_receive(&mut self) -> Result<(), ActorError> {
     let message = self.get_message_handle_opt().await.expect("Failed to retrieve message");
     tracing::debug!("ActorContext::default_receive: message = {:?}", message);
-    if let Some(AutoReceiveMessage::PoisonPill) = message.to_typed::<AutoReceiveMessage>() {
+    if message.to_typed::<PoisonPill>().is_some() {
       let me = self.get_self_opt().await.unwrap();
       self.stop(&me).await;
       Ok(())
@@ -909,10 +910,7 @@ impl StopperPart for ActorContext {
   async fn poison(&mut self, pid: &ExtendedPid) {
     let inner_mg = self.inner.lock().await;
     pid
-      .send_user_message(
-        inner_mg.actor_system.clone(),
-        MessageHandle::new(AutoReceiveMessage::PoisonPill),
-      )
+      .send_user_message(inner_mg.actor_system.clone(), MessageHandle::new(PoisonPill))
       .await;
   }
 

@@ -14,7 +14,6 @@ pub enum AutoReceiveMessage {
   PostRestart,
   PreStop,
   PostStop,
-  PoisonPill,
   Terminated(TerminateInfo),
 }
 
@@ -41,7 +40,6 @@ impl Display for AutoReceiveMessage {
       AutoReceiveMessage::PostRestart => write!(f, "PostRestart"),
       AutoReceiveMessage::PreStop => write!(f, "PreStop"),
       AutoReceiveMessage::PostStop => write!(f, "PostStop"),
-      AutoReceiveMessage::PoisonPill => write!(f, "PoisonPill"),
       AutoReceiveMessage::Terminated(_) => write!(f, "Terminated"),
     }
   }
@@ -57,7 +55,6 @@ impl Message for AutoReceiveMessage {
       (AutoReceiveMessage::PostRestart, Some(&AutoReceiveMessage::PostRestart)) => true,
       (AutoReceiveMessage::PreStop, Some(&AutoReceiveMessage::PreStop)) => true,
       (AutoReceiveMessage::PostStop, Some(&AutoReceiveMessage::PostStop)) => true,
-      (AutoReceiveMessage::PoisonPill, Some(&AutoReceiveMessage::PoisonPill)) => true,
       (AutoReceiveMessage::Terminated(me), Some(&AutoReceiveMessage::Terminated(ref you))) => *me == *you,
       _ => false,
     }
