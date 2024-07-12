@@ -15,7 +15,7 @@ pub enum AutoReceiveMessage {
   PreStop,
   PostStop,
   PoisonPill,
-  Terminated(TerminateInfo)
+  Terminated(TerminateInfo),
 }
 
 impl AutoReceiveMessage {

@@ -36,24 +36,8 @@ pub struct Pid {
   #[prost(uint32, tag = "3")]
   pub request_id: u32,
 }
-/// user messages
 
-#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct DeadLetterResponse {
-  #[prost(message, optional, tag = "1")]
-  pub target: ::core::option::Option<Pid>,
-}
 /// system messages
-
-// #[allow(clippy::derive_partial_eq_without_eq)]
-// #[derive(Clone, PartialEq, ::prost::Message)]
-// pub struct Terminated {
-//   #[prost(message, optional, tag = "1")]
-//   pub who: ::core::option::Option<Pid>,
-//   #[prost(enumeration = "TerminatedReason", tag = "2")]
-//   pub why: i32,
-// }
 
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]

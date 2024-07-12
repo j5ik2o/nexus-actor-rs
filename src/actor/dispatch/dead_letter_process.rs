@@ -3,10 +3,11 @@ use std::any::Any;
 use async_trait::async_trait;
 
 use crate::actor::actor::pid::ExtendedPid;
-use crate::actor::actor::{DeadLetterResponse, TerminatedReason};
+use crate::actor::actor::TerminatedReason;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::SenderPart;
 use crate::actor::log::P_LOG;
+use crate::actor::message::dead_letter_response::DeadLetterResponse;
 use crate::actor::message::ignore_dead_letter_logging::IgnoreDeadLetterLogging;
 use crate::actor::message::message::Message;
 use crate::actor::message::message_handle::MessageHandle;
