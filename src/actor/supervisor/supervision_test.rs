@@ -100,6 +100,9 @@ mod test {
     let fail = MessageHandle::new(StringMessage("fail".to_string()));
     let d = Duration::from_secs(10);
     let _ = observer
+      .expect_message(MessageHandle::new(AutoReceiveMessage::PreStart), d)
+      .await;
+    let _ = observer
       .expect_message(MessageHandle::new(AutoReceiveMessage::PostStart), d)
       .await;
 
@@ -112,16 +115,16 @@ mod test {
         .await
         .unwrap();
       observer
-        .expect_message(MessageHandle::new(AutoReceiveMessage::PostStart), d)
+        .expect_message(MessageHandle::new(AutoReceiveMessage::PostRestart), d)
         .await
         .unwrap();
     }
-    // root_context.send(child, fail.clone()).await;
-    // observer.expect_message(fail.clone(), d).await.unwrap();
-    // observer
-    //   .expect_message(MessageHandle::new(AutoReceiveMessage::PreStop), d)
-    //   .await
-    //   .unwrap();
+    root_context.send(child, fail.clone()).await;
+    observer.expect_message(fail.clone(), d).await.unwrap();
+    observer
+      .expect_message(MessageHandle::new(AutoReceiveMessage::PreStop), d)
+      .await
+      .unwrap();
   }
 
   #[derive(Debug, Clone)]

@@ -7,8 +7,10 @@ use crate::actor::message::message_handle::MessageHandle;
 
 #[derive(Debug, Clone)]
 pub enum AutoReceiveMessage {
+  PreStart,
   PostStart,
   PreRestart,
+  PostRestart,
   PreStop,
   PostStop,
   PoisonPill,
@@ -31,8 +33,10 @@ impl Eq for AutoReceiveMessage {}
 impl Display for AutoReceiveMessage {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     match self {
+      AutoReceiveMessage::PreStart => write!(f, "PreStart"),
       AutoReceiveMessage::PostStart => write!(f, "PostStart"),
       AutoReceiveMessage::PreRestart => write!(f, "PreRestart"),
+      AutoReceiveMessage::PostRestart => write!(f, "PostRestart"),
       AutoReceiveMessage::PreStop => write!(f, "PreStop"),
       AutoReceiveMessage::PostStop => write!(f, "PostStop"),
       AutoReceiveMessage::PoisonPill => write!(f, "PoisonPill"),
@@ -44,8 +48,10 @@ impl Message for AutoReceiveMessage {
   fn eq_message(&self, other: &dyn Message) -> bool {
     let msg = other.as_any().downcast_ref::<AutoReceiveMessage>();
     match (self, msg) {
+      (AutoReceiveMessage::PreStart, Some(&AutoReceiveMessage::PreStart)) => true,
       (AutoReceiveMessage::PostStart, Some(&AutoReceiveMessage::PostStart)) => true,
       (AutoReceiveMessage::PreRestart, Some(&AutoReceiveMessage::PreRestart)) => true,
+      (AutoReceiveMessage::PostRestart, Some(&AutoReceiveMessage::PostRestart)) => true,
       (AutoReceiveMessage::PreStop, Some(&AutoReceiveMessage::PreStop)) => true,
       (AutoReceiveMessage::PostStop, Some(&AutoReceiveMessage::PostStop)) => true,
       (AutoReceiveMessage::PoisonPill, Some(&AutoReceiveMessage::PoisonPill)) => true,

@@ -35,8 +35,9 @@ use crate::actor::dispatch::dispatcher::*;
 use crate::actor::dispatch::mailbox::Mailbox;
 use crate::actor::dispatch::mailbox_handle::MailboxHandle;
 use crate::actor::dispatch::mailbox_producer::MailboxProducer;
-use crate::actor::dispatch::message_invoker::MessageInvokerHandle;
+use crate::actor::dispatch::message_invoker::{MessageInvoker, MessageInvokerHandle};
 use crate::actor::dispatch::unbounded::unbounded_mailbox_creator_with_opts;
+use crate::actor::message::auto_receive_message::AutoReceiveMessage;
 use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::message::system_message::SystemMessage;
 use crate::actor::process::ProcessHandle;
@@ -91,14 +92,20 @@ static DEFAULT_SPAWNER: Lazy<Spawner> = Lazy::new(|| {
 
         initialize(props, ctx.clone());
 
-        mb.register_handlers(
-          Some(MessageInvokerHandle::new(Arc::new(Mutex::new(ctx.clone())))),
-          Some(dp.clone()),
-        )
-        .await;
+        let mut mi = MessageInvokerHandle::new(Arc::new(Mutex::new(ctx.clone())));
+
+        mb.register_handlers(Some(mi.clone()), Some(dp.clone())).await;
         tracing::debug!("mailbox handlers registered: {}", name);
 
-        mb.post_system_message(MessageHandle::new(SystemMessage::Started)).await;
+        let result = mi
+          .invoke_user_message(MessageHandle::new(AutoReceiveMessage::PreStart))
+          .await;
+
+        if result.is_err() {
+          return Err(SpawnError::ErrPreStart(result.err().unwrap()));
+        }
+
+        mb.post_system_message(MessageHandle::new(SystemMessage::Start)).await;
         tracing::debug!("post_system_message: started: {}", name);
         mb.start().await;
         tracing::debug!("mailbox started: {}", name);
