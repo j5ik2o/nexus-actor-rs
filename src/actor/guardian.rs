@@ -149,27 +149,33 @@ impl Supervisor for GuardianProcess {
   async fn restart_children(&self, pids: &[ExtendedPid]) {
     for pid in pids {
       // Implement send_system_message for PID
-      let restart_message = MessageHandle::new(SystemMessage::Restart);
       pid
-        .send_system_message(self.guardians.actor_system.clone(), restart_message)
+        .send_system_message(
+          self.guardians.actor_system.clone(),
+          MessageHandle::new(SystemMessage::Restart),
+        )
         .await;
     }
   }
 
   async fn stop_children(&self, pids: &[ExtendedPid]) {
     for pid in pids {
-      let restart_message = MessageHandle::new(SystemMessage::Stop);
       pid
-        .send_system_message(self.guardians.actor_system.clone(), restart_message)
+        .send_system_message(
+          self.guardians.actor_system.clone(),
+          MessageHandle::new(SystemMessage::Stop),
+        )
         .await;
     }
   }
 
   async fn resume_children(&self, pids: &[ExtendedPid]) {
     for pid in pids {
-      let restart_message = MessageHandle::new(MailboxMessage::ResumeMailbox);
       pid
-        .send_system_message(self.guardians.actor_system.clone(), restart_message)
+        .send_system_message(
+          self.guardians.actor_system.clone(),
+          MessageHandle::new(MailboxMessage::ResumeMailbox),
+        )
         .await;
     }
   }

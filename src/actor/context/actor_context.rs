@@ -336,8 +336,9 @@ impl ActorContext {
       .get_process_registry()
       .await
       .remove_process(&self.get_self_opt().await.unwrap());
-    let msg = MessageHandle::new(AutoReceiveMessage::Stopped);
-    let result = self.invoke_user_message(msg).await;
+    let result = self
+      .invoke_user_message(MessageHandle::new(AutoReceiveMessage::Stopped))
+      .await;
     if result.is_err() {
       P_LOG.error("Failed to handle Stopped message", vec![]).await;
       return result;
@@ -420,8 +421,9 @@ impl ActorContext {
         .unwrap()
         .store(State::Stopping as u8, Ordering::SeqCst);
     }
-    let msg = MessageHandle::new(AutoReceiveMessage::Stopping);
-    let result = self.invoke_user_message(msg).await;
+    let result = self
+      .invoke_user_message(MessageHandle::new(AutoReceiveMessage::Stopping))
+      .await;
     if result.is_err() {
       P_LOG.error("Failed to handle Stopping message", vec![]).await;
       return result;
@@ -445,8 +447,9 @@ impl ActorContext {
         .unwrap()
         .store(State::Restarting as u8, Ordering::SeqCst);
     }
-    let msg = MessageHandle::new(AutoReceiveMessage::Restarting);
-    let result = self.invoke_user_message(msg).await;
+    let result = self
+      .invoke_user_message(MessageHandle::new(AutoReceiveMessage::Restarting))
+      .await;
     if result.is_err() {
       P_LOG.error("Failed to handle Restarting message", vec![]).await;
       return result;

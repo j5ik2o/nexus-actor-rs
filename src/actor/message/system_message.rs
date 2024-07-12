@@ -4,8 +4,11 @@ use crate::actor::message::message::Message;
 
 #[derive(Debug, Clone)]
 pub enum SystemMessage {
+  // リスタート開始
   Restart,
+  // 開始済み
   Started,
+  // 停止開始
   Stop,
 }
 
