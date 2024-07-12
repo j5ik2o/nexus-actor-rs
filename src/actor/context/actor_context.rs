@@ -16,7 +16,7 @@ use crate::actor::actor::props::Props;
 use crate::actor::actor::receiver_middleware_chain::ReceiverMiddlewareChain;
 use crate::actor::actor::sender_middleware_chain::SenderMiddlewareChain;
 use crate::actor::actor::spawner::SpawnError;
-use crate::actor::actor::{PoisonPill, Terminated, Unwatch, Watch};
+use crate::actor::actor::{Terminated, Unwatch, Watch};
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::auto_respond::{AutoRespond, AutoResponsive};
 use crate::actor::context::actor_context_extras::ActorContextExtras;
@@ -34,7 +34,6 @@ use crate::actor::log::P_LOG;
 use crate::actor::message::auto_receive_message::AutoReceiveMessage;
 use crate::actor::message::continuation::Continuation;
 use crate::actor::message::failure::Failure;
-use crate::actor::message::message::Message;
 use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::message::message_or_envelope::{
   unwrap_envelope_header, unwrap_envelope_sender, wrap_envelope, MessageEnvelope,
@@ -170,8 +169,7 @@ impl ActorContext {
   async fn default_receive(&mut self) -> Result<(), ActorError> {
     let message = self.get_message_handle_opt().await.expect("Failed to retrieve message");
     tracing::debug!("ActorContext::default_receive: message = {:?}", message);
-    if message.as_any().is::<PoisonPill>() {
-      // tracing::debug!("PoisonPill received");
+    if let Some(AutoReceiveMessage::PoisonPill) = message.to_typed::<AutoReceiveMessage>() {
       let me = self.get_self_opt().await.unwrap();
       self.stop(&me).await;
       Ok(())
