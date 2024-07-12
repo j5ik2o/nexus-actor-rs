@@ -10,7 +10,6 @@ mod tests {
   use crate::actor::actor::actor_inner_error::ActorInnerError;
   use crate::actor::actor::continuer::Continuer;
   use crate::actor::actor::props::Props;
-  use crate::actor::actor::Touched;
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::auto_respond::AutoRespond;
   use crate::actor::context::{BasePart, InfoPart, MessagePart, SenderPart, SpawnerPart};
@@ -18,6 +17,7 @@ mod tests {
   use crate::actor::message::message_handle::MessageHandle;
   use crate::actor::message::message_or_envelope::MessageEnvelope;
   use crate::actor::message::response::ResponseHandle;
+  use crate::actor::message::touched::Touched;
 
   #[tokio::test]
   async fn test_actor_continue_future_in_actor() {
