@@ -1,7 +1,7 @@
+use async_trait::async_trait;
 use std::any::Any;
 use std::sync::Arc;
-
-use async_trait::async_trait;
+use std::time::Duration;
 
 use crate::actor::actor::actor_inner_error::ActorInnerError;
 use crate::actor::actor::pid::ExtendedPid;
@@ -20,12 +20,12 @@ pub async fn default_decider(_: ActorInnerError) -> Directive {
 #[derive(Debug, Clone)]
 pub struct OneForOneStrategy {
   max_nr_of_retries: u32,
-  pub(crate) within_duration: tokio::time::Duration,
+  pub(crate) within_duration: Duration,
   decider: Arc<Decider>,
 }
 
 impl OneForOneStrategy {
-  pub fn new(max_nr_of_retries: u32, within_duration: tokio::time::Duration) -> Self {
+  pub fn new(max_nr_of_retries: u32, within_duration: Duration) -> Self {
     OneForOneStrategy {
       max_nr_of_retries,
       within_duration,

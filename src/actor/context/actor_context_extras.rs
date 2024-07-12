@@ -1,5 +1,5 @@
 use std::sync::Arc;
-
+use std::time::Duration;
 use tokio::sync::Mutex;
 
 use crate::actor::actor::pid::ExtendedPid;
@@ -98,7 +98,7 @@ impl ActorContextExtras {
     rs_mg.as_ref().unwrap().clone()
   }
 
-  pub async fn init_receive_timeout_timer(&self, duration: tokio::time::Duration) {
+  pub async fn init_receive_timeout_timer(&self, duration: Duration) {
     let mut inner_mg = self.inner.lock().await;
     match inner_mg.receive_timeout_timer {
       Some(_) => return,
@@ -108,11 +108,7 @@ impl ActorContextExtras {
     }
   }
 
-  pub async fn init_or_reset_receive_timeout_timer(
-    &mut self,
-    d: tokio::time::Duration,
-    context: Arc<Mutex<ActorContext>>,
-  ) {
+  pub async fn init_or_reset_receive_timeout_timer(&mut self, d: Duration, context: Arc<Mutex<ActorContext>>) {
     self.stop_receive_timeout_timer().await;
 
     let timer = Arc::new(Mutex::new(Box::pin(tokio::time::sleep(d))));
@@ -130,7 +126,7 @@ impl ActorContextExtras {
     });
   }
 
-  pub async fn reset_receive_timeout_timer(&self, duration: tokio::time::Duration) {
+  pub async fn reset_receive_timeout_timer(&self, duration: Duration) {
     let mut mg = self.inner.lock().await;
     if let Some(t) = &mut mg.receive_timeout_timer {
       t.reset(tokio::time::Instant::now() + duration).await;

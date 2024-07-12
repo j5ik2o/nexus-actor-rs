@@ -1,8 +1,7 @@
+use async_trait::async_trait;
 use std::any::Any;
 use std::sync::Arc;
-
-use async_trait::async_trait;
-use tokio::time::Duration;
+use std::time::Duration;
 
 use crate::actor::actor::actor_inner_error::ActorInnerError;
 use crate::actor::actor::pid::ExtendedPid;

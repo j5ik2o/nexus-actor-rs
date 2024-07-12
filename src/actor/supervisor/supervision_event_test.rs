@@ -10,7 +10,7 @@ mod test {
 
   use crate::actor::actor::actor::Actor;
   use crate::actor::actor::actor_error::ActorError;
-  use crate::actor::actor::actor_handle::ActorHandle;
+
   use crate::actor::actor::actor_inner_error::ActorInnerError;
   use crate::actor::actor::actor_producer::ActorProducer;
   use crate::actor::actor::props::Props;
@@ -82,7 +82,7 @@ mod test {
         .await;
 
       let props = Props::from_actor_producer_with_opts(
-        ActorProducer::new(move |_| async { ActorHandle::new(PanicActor) }),
+        ActorProducer::new(move |_| async { PanicActor }),
         &[Props::with_supervisor_strategy(strategy.clone())],
       )
       .await;

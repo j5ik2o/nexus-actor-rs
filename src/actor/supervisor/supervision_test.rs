@@ -1,11 +1,11 @@
 #[cfg(test)]
 mod test {
+  use async_trait::async_trait;
   use std::any::Any;
   use std::collections::VecDeque;
   use std::env;
   use std::sync::Arc;
-
-  use async_trait::async_trait;
+  use std::time::Duration;
   use thiserror::Error;
   use tokio::sync::{Mutex, Notify};
   use tokio::time::Instant;
@@ -13,7 +13,6 @@ mod test {
 
   use crate::actor::actor::actor::Actor;
   use crate::actor::actor::actor_error::ActorError;
-  use crate::actor::actor::actor_handle::ActorHandle;
   use crate::actor::actor::actor_inner_error::ActorInnerError;
   use crate::actor::actor::actor_producer::ActorProducer;
   use crate::actor::actor::pid::ExtendedPid;
@@ -47,9 +46,9 @@ mod test {
     let props = Props::from_actor_producer(ActorProducer::new(move |_| {
       let cloned_notify = cloned_notify.clone();
       async move {
-        ActorHandle::new(ActorWithSupervisor {
+        ActorWithSupervisor {
           notify: cloned_notify.clone(),
-        })
+        }
       }
     }))
     .await;
@@ -88,12 +87,12 @@ mod test {
     });
 
     let props = Props::from_actor_producer_with_opts(
-      ActorProducer::new(|_| async { ActorHandle::new(FailingChildActor) }),
+      ActorProducer::new(|_| async { FailingChildActor }),
       &[
         Props::with_receiver_middlewares([middles]),
         Props::with_supervisor_strategy(SupervisorStrategyHandle::new(OneForOneStrategy::new(
           10,
-          tokio::time::Duration::from_secs(10),
+          Duration::from_secs(10),
         ))),
       ],
     )
@@ -101,7 +100,7 @@ mod test {
 
     let child = root_context.spawn(props).await;
     let fail = MessageHandle::new(StringMessage("fail".to_string()));
-    let d = tokio::time::Duration::from_secs(10);
+    let d = Duration::from_secs(10);
     let _ = observer
       .expect_message(MessageHandle::new(SystemMessage::Started), d)
       .await;
@@ -162,8 +161,7 @@ mod test {
   impl Actor for ActorWithSupervisor {
     async fn started(&self, mut ctx: ContextHandle) -> Result<(), ActorError> {
       tracing::debug!("ActorWithSupervisor::post_start");
-      let props =
-        Props::from_actor_producer(ActorProducer::new(|_| async { ActorHandle::new(FailingChildActor) })).await;
+      let props = Props::from_actor_producer(ActorProducer::new(|_| async { FailingChildActor })).await;
       let child = ctx.spawn(props).await;
       ctx
         .send(child, MessageHandle::new(StringMessage("fail".to_string())))
@@ -246,7 +244,7 @@ mod test {
       Ok(())
     }
 
-    async fn expect_message(&self, expected: MessageHandle, timeout: tokio::time::Duration) -> Result<(), TestError> {
+    async fn expect_message(&self, expected: MessageHandle, timeout: Duration) -> Result<(), TestError> {
       let start = Instant::now();
       while start.elapsed() <= timeout {
         if let Some(received) = self.received.lock().await.pop_front() {
@@ -255,7 +253,7 @@ mod test {
             return Ok(());
           }
         }
-        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+        tokio::time::sleep(Duration::from_millis(10)).await;
       }
       Err(TestError::TimeoutError)
     }

@@ -77,7 +77,7 @@ pub trait InfoPart: Debug + Send + Sync + 'static {
 #[async_trait]
 pub trait BasePart: Debug + Send + Sync + 'static {
   // ReceiveTimeout returns the current timeout
-  async fn get_receive_timeout(&self) -> tokio::time::Duration;
+  async fn get_receive_timeout(&self) -> Duration;
 
   // Children returns a slice of the actors children
   async fn get_children(&self) -> Vec<ExtendedPid>;
@@ -100,7 +100,7 @@ pub trait BasePart: Debug + Send + Sync + 'static {
   //
   // If a message is received before the duration d, the timer will be reset. If the message conforms to
   // the not_influence_receive_timeout interface, the timer will not be reset
-  async fn set_receive_timeout(&mut self, d: &tokio::time::Duration);
+  async fn set_receive_timeout(&mut self, d: &Duration);
 
   async fn cancel_receive_timeout(&mut self);
 
@@ -168,11 +168,19 @@ pub trait StopperPart: Debug + Send + Sync + 'static {
   async fn stop(&mut self, pid: &ExtendedPid);
 
   // StopFuture will stop actor immediately regardless of existing user messages in mailbox, and return its future.
-  async fn stop_future(&mut self, pid: &ExtendedPid) -> Future;
+  async fn stop_future_with_timeout(&mut self, pid: &ExtendedPid, timeout: Duration) -> Future;
+
+  async fn stop_future(&mut self, pid: &ExtendedPid) -> Future {
+    self.stop_future_with_timeout(pid, Duration::from_secs(10)).await
+  }
 
   // Poison will tell actor to stop after processing current user messages in mailbox.
   async fn poison(&mut self, pid: &ExtendedPid);
 
   // PoisonFuture will tell actor to stop after processing current user messages in mailbox, and return its future.
-  async fn poison_future(&mut self, pid: &ExtendedPid) -> Future;
+  async fn poison_future_with_timeout(&mut self, pid: &ExtendedPid, timeout: Duration) -> Future;
+
+  async fn poison_future(&mut self, pid: &ExtendedPid) -> Future {
+    self.stop_future_with_timeout(pid, Duration::from_secs(10)).await
+  }
 }

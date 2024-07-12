@@ -162,7 +162,7 @@ impl Props {
   pub fn with_actor_receiver(actor_receiver: ActorReceiver) -> PropsOption {
     PropsOption::new(move |props: &mut Props| {
       let actor_receiver = actor_receiver.clone();
-      props.producer = Some(ActorProducer::new(move |_| {
+      props.producer = Some(ActorProducer::from_handle(move |_| {
         let actor_receiver = actor_receiver.clone();
         async move {
           let actor = ActorReceiverActor(actor_receiver.clone());
@@ -338,7 +338,7 @@ impl Props {
   }
 
   pub async fn from_actor_receiver_with_opts(actor_receiver: ActorReceiver, opts: &[PropsOption]) -> Props {
-    let producer = ActorProducer::new(move |_| {
+    let producer = ActorProducer::from_handle(move |_| {
       let cloned = actor_receiver.clone();
       async move {
         let actor = ActorReceiverActor(cloned);

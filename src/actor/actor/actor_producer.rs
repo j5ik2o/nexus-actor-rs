@@ -2,10 +2,10 @@ use std::fmt::{Debug, Formatter};
 use std::future::Future;
 use std::sync::Arc;
 
-use futures::future::BoxFuture;
-
+use crate::actor::actor::actor::Actor;
 use crate::actor::actor::actor_handle::ActorHandle;
 use crate::actor::context::context_handle::ContextHandle;
+use futures::future::BoxFuture;
 
 #[derive(Clone)]
 pub struct ActorProducer(Arc<dyn Fn(ContextHandle) -> BoxFuture<'static, ActorHandle> + Send + Sync>);
@@ -14,11 +14,25 @@ unsafe impl Send for ActorProducer {}
 unsafe impl Sync for ActorProducer {}
 
 impl ActorProducer {
-  pub fn new<F, Fut>(f: F) -> Self
+  pub fn from_handle<F, Fut>(f: F) -> Self
   where
     F: Fn(ContextHandle) -> Fut + Send + Sync + 'static,
     Fut: Future<Output = ActorHandle> + Send + 'static, {
     Self(Arc::new(move |ch| Box::pin(f(ch)) as BoxFuture<'static, ActorHandle>))
+  }
+
+  pub fn new<A, F, Fut>(f: F) -> Self
+  where
+    A: Actor,
+    F: Fn(ContextHandle) -> Fut + Clone + Send + Sync + 'static,
+    Fut: Future<Output = A> + Send + 'static, {
+    Self::from_handle(move |c| {
+      let f = f.clone();
+      async move {
+        let a = f(c).await;
+        ActorHandle::new(a)
+      }
+    })
   }
 
   pub async fn run(&self, c: ContextHandle) -> ActorHandle {

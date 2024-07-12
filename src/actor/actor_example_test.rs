@@ -68,12 +68,6 @@ mod tests {
     }
   }
 
-  // impl Response for Reply {
-  //   fn eq_response(&self, other: &dyn Response) -> bool {
-  //     self.0 == other.as_any().downcast_ref::<Reply>().unwrap().0
-  //   }
-  // }
-
   #[tokio::test]
   async fn example_synchronous() {
     let _ = env::set_var("RUST_LOG", "debug");
@@ -81,8 +75,8 @@ mod tests {
       .with_env_filter(EnvFilter::from_default_env())
       .try_init();
 
-    let b = AsyncBarrier::new(2);
-    let cloned_b = b.clone();
+    let async_barrier = AsyncBarrier::new(2);
+    let cloned_async_barrier = async_barrier.clone();
 
     let system = ActorSystem::new().await;
     let mut root_context = system.get_root_context().await;
@@ -101,7 +95,7 @@ mod tests {
     let cloned_callee_pid = callee_pid.clone();
 
     let caller_props = Props::from_actor_receiver(ActorReceiver::new(move |mut ctx| {
-      let cloned_b = cloned_b.clone();
+      let cloned_async_barrier = cloned_async_barrier.clone();
       let cloned_callee_pid = cloned_callee_pid.clone();
       async move {
         let msg = ctx.get_message_handle().await;
@@ -115,7 +109,7 @@ mod tests {
         }
         if let Some(msg) = msg.to_typed::<Reply>() {
           tracing::debug!("{:?}", msg);
-          cloned_b.wait().await;
+          cloned_async_barrier.wait().await;
         }
         Ok(())
       }
@@ -123,7 +117,7 @@ mod tests {
     .await;
     let caller_pid = root_context.spawn(caller_props).await;
 
-    b.wait().await;
+    async_barrier.wait().await;
     root_context.stop_future(&callee_pid).await.result().await.unwrap();
     root_context.stop_future(&caller_pid).await.result().await.unwrap();
   }

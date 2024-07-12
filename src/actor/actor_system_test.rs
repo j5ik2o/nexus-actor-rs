@@ -7,7 +7,6 @@ mod tests {
 
   use crate::actor::actor::actor::Actor;
   use crate::actor::actor::actor_error::ActorError;
-  use crate::actor::actor::actor_handle::ActorHandle;
   use crate::actor::actor::actor_producer::ActorProducer;
   use crate::actor::actor::props::Props;
   use crate::actor::actor_system::{ActorSystem, Config};
@@ -77,7 +76,7 @@ mod tests {
 
     let props = Props::from_actor_producer(ActorProducer::new(move |_| {
       let cloned_b = b.clone();
-      async move { ActorHandle::new(MyActor { b: cloned_b.clone() }) }
+      async move { MyActor { b: cloned_b.clone() } }
     }))
     .await;
 

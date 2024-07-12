@@ -577,7 +577,7 @@ impl InfoPart for ActorContext {
 
 #[async_trait]
 impl BasePart for ActorContext {
-  async fn get_receive_timeout(&self) -> tokio::time::Duration {
+  async fn get_receive_timeout(&self) -> Duration {
     let inner_mg = self.inner.lock().await;
     inner_mg
       .receive_timeout
@@ -646,7 +646,7 @@ impl BasePart for ActorContext {
       .await;
   }
 
-  async fn set_receive_timeout(&mut self, d: &tokio::time::Duration) {
+  async fn set_receive_timeout(&mut self, d: &Duration) {
     if d.as_nanos() == 0 {
       panic!("Duration must be greater than zero");
     }
@@ -657,8 +657,8 @@ impl BasePart for ActorContext {
       }
     }
 
-    let d = if *d < tokio::time::Duration::from_millis(1) {
-      tokio::time::Duration::from_secs(0)
+    let d = if *d < Duration::from_millis(1) {
+      Duration::from_secs(0)
     } else {
       *d
     };
@@ -669,7 +669,7 @@ impl BasePart for ActorContext {
 
     self.ensure_extras().await;
 
-    if d > tokio::time::Duration::from_secs(0) {
+    if d > Duration::from_secs(0) {
       let context = Arc::new(Mutex::new(self.clone()));
       self
         .get_extras()
@@ -879,8 +879,8 @@ impl StopperPart for ActorContext {
     pid.ref_process(inner_mg.actor_system.clone()).await.stop(&pid).await;
   }
 
-  async fn stop_future(&mut self, pid: &ExtendedPid) -> crate::actor::future::Future {
-    let future_process = FutureProcess::new(self.get_actor_system().await, tokio::time::Duration::from_secs(10)).await;
+  async fn stop_future_with_timeout(&mut self, pid: &ExtendedPid, timeout: Duration) -> crate::actor::future::Future {
+    let future_process = FutureProcess::new(self.get_actor_system().await, timeout).await;
     pid
       .send_system_message(
         self.get_actor_system().await,
@@ -903,8 +903,8 @@ impl StopperPart for ActorContext {
       .await;
   }
 
-  async fn poison_future(&mut self, pid: &ExtendedPid) -> crate::actor::future::Future {
-    let future_process = FutureProcess::new(self.get_actor_system().await, tokio::time::Duration::from_secs(10)).await;
+  async fn poison_future_with_timeout(&mut self, pid: &ExtendedPid, timeout: Duration) -> crate::actor::future::Future {
+    let future_process = FutureProcess::new(self.get_actor_system().await, timeout).await;
 
     pid
       .send_system_message(
@@ -1023,8 +1023,8 @@ impl MessageInvoker for ActorContext {
       inner_mg.receive_timeout.clone()
     };
 
-    let t = receive_timeout.unwrap_or_else(|| tokio::time::Duration::from_secs(0));
-    if t > tokio::time::Duration::from_secs(0) && influence_timeout {
+    let t = receive_timeout.unwrap_or_else(|| Duration::from_secs(0));
+    if t > Duration::from_secs(0) && influence_timeout {
       if let Some(extras) = self.get_extras().await {
         extras.reset_receive_timeout_timer(t).await;
       }

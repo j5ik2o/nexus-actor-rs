@@ -1,10 +1,10 @@
-use std::fmt::Debug;
-use std::future::Future;
-use std::sync::Arc;
-
 use async_trait::async_trait;
 use futures::future::BoxFuture;
 use once_cell::sync::Lazy;
+use std::fmt::Debug;
+use std::future::Future;
+use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::Mutex;
 
 use crate::actor::actor::actor_inner_error::ActorInnerError;
@@ -151,7 +151,7 @@ pub async fn log_failure(
 }
 
 pub static DEFAULT_SUPERVISION_STRATEGY: Lazy<SupervisorStrategyHandle> =
-  Lazy::new(|| SupervisorStrategyHandle::new(OneForOneStrategy::new(10, tokio::time::Duration::from_secs(10))));
+  Lazy::new(|| SupervisorStrategyHandle::new(OneForOneStrategy::new(10, Duration::from_secs(10))));
 
 pub static RESTARTING_SUPERVISION_STRATEGY: Lazy<SupervisorStrategyHandle> =
   Lazy::new(|| SupervisorStrategyHandle::new(RestartingStrategy::new()));
