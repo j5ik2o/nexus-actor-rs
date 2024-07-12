@@ -3,7 +3,7 @@ use std::any::Any;
 use async_trait::async_trait;
 
 use crate::actor::actor::pid::ExtendedPid;
-use crate::actor::actor::{DeadLetterResponse, Terminated, TerminatedReason, Watch};
+use crate::actor::actor::{DeadLetterResponse, Terminated, TerminatedReason};
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::SenderPart;
 use crate::actor::log::P_LOG;
@@ -115,9 +115,9 @@ impl DeadLetterProcess {
         let cloned_self = cloned_self.clone();
         async move {
           if let Some(dle) = cloned_msg.to_typed::<DeadLetterEvent>() {
-            if let Some(m) = dle.message_handle.to_typed::<Watch>() {
+            if let Some(SystemMessage::Watch(watch)) = dle.message_handle.to_typed::<SystemMessage>() {
               let actor_system = cloned_self.actor_system.clone();
-              let pid = m.watcher.clone().unwrap();
+              let pid = watch.watcher.clone().unwrap();
               let e_pid = ExtendedPid::new(pid.clone(), actor_system.clone());
               e_pid
                 .send_system_message(

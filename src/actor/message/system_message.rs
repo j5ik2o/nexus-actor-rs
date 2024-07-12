@@ -1,12 +1,15 @@
 use std::any::Any;
 
 use crate::actor::message::message::Message;
+use crate::actor::message::watch::{Unwatch, Watch};
 
 #[derive(Debug, Clone)]
 pub enum SystemMessage {
   Restart,
   Start,
   Stop,
+  Watch(Watch),
+  Unwatch(Unwatch),
 }
 
 impl Message for SystemMessage {

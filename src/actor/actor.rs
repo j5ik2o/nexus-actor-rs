@@ -37,9 +37,7 @@ pub struct Pid {
   pub request_id: u32,
 }
 /// user messages
-// #[allow(clippy::derive_partial_eq_without_eq)]
-// #[derive(Clone, Copy, PartialEq, ::prost::Message)]
-// pub struct PoisonPill {}
+
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DeadLetterResponse {
@@ -47,18 +45,7 @@ pub struct DeadLetterResponse {
   pub target: ::core::option::Option<Pid>,
 }
 /// system messages
-#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct Watch {
-  #[prost(message, optional, tag = "1")]
-  pub watcher: ::core::option::Option<Pid>,
-}
-#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct Unwatch {
-  #[prost(message, optional, tag = "1")]
-  pub watcher: ::core::option::Option<Pid>,
-}
+
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Terminated {
@@ -67,9 +54,7 @@ pub struct Terminated {
   #[prost(enumeration = "TerminatedReason", tag = "2")]
   pub why: i32,
 }
-#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, Copy, PartialEq, ::prost::Message)]
-pub struct Stop {}
+
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct Touch {}

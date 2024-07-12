@@ -16,7 +16,7 @@ use crate::actor::actor::props::Props;
 use crate::actor::actor::receiver_middleware_chain::ReceiverMiddlewareChain;
 use crate::actor::actor::sender_middleware_chain::SenderMiddlewareChain;
 use crate::actor::actor::spawner::SpawnError;
-use crate::actor::actor::{Terminated, Unwatch, Watch};
+use crate::actor::actor::Terminated;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::auto_respond::{AutoRespond, AutoResponsive};
 use crate::actor::context::actor_context_extras::ActorContextExtras;
@@ -43,6 +43,7 @@ use crate::actor::message::readonly_message_headers::ReadonlyMessageHeadersHandl
 use crate::actor::message::receive_timeout::ReceiveTimeout;
 use crate::actor::message::response::ResponseHandle;
 use crate::actor::message::system_message::SystemMessage;
+use crate::actor::message::watch::{Unwatch, Watch};
 use crate::actor::process::Process;
 use crate::actor::supervisor::supervisor_strategy::{
   Supervisor, SupervisorHandle, SupervisorStrategy, DEFAULT_SUPERVISION_STRATEGY,
@@ -642,7 +643,7 @@ impl BasePart for ActorContext {
     pid
       .send_system_message(
         self.get_actor_system().await,
-        MessageHandle::new(Watch { watcher: Some(id) }),
+        MessageHandle::new(SystemMessage::Watch(Watch { watcher: Some(id) })),
       )
       .await;
   }
@@ -652,7 +653,7 @@ impl BasePart for ActorContext {
     pid
       .send_system_message(
         self.get_actor_system().await,
-        MessageHandle::new(Unwatch { watcher: Some(id) }),
+        MessageHandle::new(SystemMessage::Unwatch(Unwatch { watcher: Some(id) })),
       )
       .await;
   }
@@ -895,9 +896,9 @@ impl StopperPart for ActorContext {
     pid
       .send_system_message(
         self.get_actor_system().await,
-        MessageHandle::new(Watch {
+        MessageHandle::new(SystemMessage::Watch(Watch {
           watcher: Some(future_process.get_pid().await.inner_pid),
-        }),
+        })),
       )
       .await;
     self.stop(pid).await;
@@ -920,9 +921,9 @@ impl StopperPart for ActorContext {
     pid
       .send_system_message(
         self.get_actor_system().await,
-        MessageHandle::new(Watch {
+        MessageHandle::new(SystemMessage::Watch(Watch {
           watcher: Some(future_process.get_pid().await.inner_pid),
-        }),
+        })),
       )
       .await;
     self.poison(pid).await;
@@ -977,18 +978,18 @@ impl MessageInvoker for ActorContext {
             return result;
           }
         }
+        SystemMessage::Watch(watch) => {
+          self.handle_watch(&watch).await;
+        }
+        SystemMessage::Unwatch(unwatch) => {
+          self.handle_unwatch(&unwatch).await;
+        }
       }
     }
     if let Some(c) = message_handle.to_typed::<Continuation>() {
       self.set_message_or_envelope(c.message_handle.clone()).await;
       (c.f).run().await;
       self.reset_message_or_envelope().await;
-    }
-    if let Some(w) = message_handle.to_typed::<Watch>() {
-      self.handle_watch(&w).await;
-    }
-    if let Some(uw) = message_handle.to_typed::<Unwatch>() {
-      self.handle_unwatch(&uw).await;
     }
     if let Some(f) = message_handle.to_typed::<Failure>() {
       self.handle_child_failure(&f).await;
