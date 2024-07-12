@@ -1,9 +1,6 @@
-use std::env;
-
 use async_trait::async_trait;
 use nexus_acto_rs::actor::actor::actor::Actor;
 use nexus_acto_rs::actor::actor::actor_error::ActorError;
-use nexus_acto_rs::actor::actor::actor_handle::ActorHandle;
 use nexus_acto_rs::actor::actor::actor_producer::ActorProducer;
 use nexus_acto_rs::actor::actor::props::Props;
 use nexus_acto_rs::actor::actor_system::ActorSystem;
@@ -12,6 +9,8 @@ use nexus_acto_rs::actor::context::{SenderPart, SpawnerPart};
 use nexus_acto_rs::actor::dispatch::unbounded::unbounded_mpsc_mailbox_creator;
 use nexus_acto_rs::actor::message::message::Message;
 use nexus_acto_rs::actor::message::message_handle::MessageHandle;
+use std::env;
+use std::time::Duration;
 use tokio::time::sleep;
 use tracing_subscriber::EnvFilter;
 
@@ -33,7 +32,7 @@ impl Message for Hello {
 }
 
 #[derive(Debug)]
-struct ChildActor {}
+struct ChildActor;
 
 #[async_trait]
 impl Actor for ChildActor {
@@ -49,7 +48,7 @@ impl Actor for ChildActor {
 }
 
 #[derive(Debug)]
-struct TopActor {}
+struct TopActor;
 
 #[async_trait]
 impl Actor for TopActor {
@@ -72,12 +71,12 @@ impl Actor for TopActor {
   }
 }
 
-pub async fn create_top_actor(_: ContextHandle) -> ActorHandle {
-  ActorHandle::new(TopActor {})
+async fn create_top_actor(_: ContextHandle) -> TopActor {
+  TopActor
 }
 
-pub async fn create_child_actor(_: ContextHandle) -> ActorHandle {
-  ActorHandle::new(ChildActor {})
+async fn create_child_actor(_: ContextHandle) -> ChildActor {
+  ChildActor
 }
 
 #[tokio::main]
@@ -102,5 +101,5 @@ async fn main() {
       .await;
   }
 
-  sleep(std::time::Duration::from_secs(3)).await;
+  sleep(Duration::from_secs(3)).await;
 }

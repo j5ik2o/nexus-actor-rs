@@ -10,7 +10,6 @@ mod tests {
 
   use crate::actor::actor::actor::Actor;
   use crate::actor::actor::actor_error::ActorError;
-  use crate::actor::actor::actor_handle::ActorHandle;
   use crate::actor::actor::actor_producer::ActorProducer;
   use crate::actor::actor::props::Props;
   use crate::actor::actor_system::ActorSystem;
@@ -61,7 +60,7 @@ mod tests {
       let actor = actor.clone();
       move |_| {
         let actor = actor.clone();
-        async move { ActorHandle::new(actor.clone()) }
+        async move { actor.clone() }
       }
     });
 

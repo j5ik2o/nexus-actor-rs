@@ -1,7 +1,6 @@
 use async_trait::async_trait;
 use nexus_acto_rs::actor::actor::actor::Actor;
 use nexus_acto_rs::actor::actor::actor_error::ActorError;
-use nexus_acto_rs::actor::actor::actor_handle::ActorHandle;
 use nexus_acto_rs::actor::actor::actor_producer::ActorProducer;
 use nexus_acto_rs::actor::actor::props::Props;
 use nexus_acto_rs::actor::actor_system::ActorSystem;
@@ -44,7 +43,7 @@ impl Actor for HelloActor {
 async fn main() {
   let system = ActorSystem::new().await;
   let mut root_context = system.get_root_context().await;
-  let actor_producer = ActorProducer::new(|_| async { ActorHandle::new(HelloActor) });
+  let actor_producer = ActorProducer::new(|_| async { HelloActor });
   let pid = root_context
     .spawn(Props::from_actor_producer(actor_producer).await)
     .await;
