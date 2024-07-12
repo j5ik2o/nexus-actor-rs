@@ -211,9 +211,9 @@ impl StopperPart for ContextHandle {
     mg.stop(pid).await
   }
 
-  async fn stop_future(&mut self, pid: &ExtendedPid) -> Future {
+  async fn stop_future_with_timeout(&mut self, pid: &ExtendedPid, timeout: Duration) -> Future {
     let mut mg = self.0.lock().await;
-    mg.stop_future(pid).await
+    mg.stop_future_with_timeout(pid, timeout).await
   }
 
   async fn poison(&mut self, pid: &ExtendedPid) {
@@ -221,9 +221,9 @@ impl StopperPart for ContextHandle {
     mg.poison(pid).await
   }
 
-  async fn poison_future(&mut self, pid: &ExtendedPid) -> Future {
+  async fn poison_future_with_timeout(&mut self, pid: &ExtendedPid, timeout: Duration) -> Future {
     let mut mg = self.0.lock().await;
-    mg.poison_future(pid).await
+    mg.poison_future_with_timeout(pid, timeout).await
   }
 }
 

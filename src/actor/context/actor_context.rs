@@ -879,8 +879,8 @@ impl StopperPart for ActorContext {
     pid.ref_process(inner_mg.actor_system.clone()).await.stop(&pid).await;
   }
 
-  async fn stop_future(&mut self, pid: &ExtendedPid) -> crate::actor::future::Future {
-    let future_process = FutureProcess::new(self.get_actor_system().await, Duration::from_secs(10)).await;
+  async fn stop_future_with_timeout(&mut self, pid: &ExtendedPid, timeout: Duration) -> crate::actor::future::Future {
+    let future_process = FutureProcess::new(self.get_actor_system().await, timeout).await;
     pid
       .send_system_message(
         self.get_actor_system().await,
@@ -903,8 +903,8 @@ impl StopperPart for ActorContext {
       .await;
   }
 
-  async fn poison_future(&mut self, pid: &ExtendedPid) -> crate::actor::future::Future {
-    let future_process = FutureProcess::new(self.get_actor_system().await, Duration::from_secs(10)).await;
+  async fn poison_future_with_timeout(&mut self, pid: &ExtendedPid, timeout: Duration) -> crate::actor::future::Future {
+    let future_process = FutureProcess::new(self.get_actor_system().await, timeout).await;
 
     pid
       .send_system_message(

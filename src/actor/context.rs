@@ -168,11 +168,19 @@ pub trait StopperPart: Debug + Send + Sync + 'static {
   async fn stop(&mut self, pid: &ExtendedPid);
 
   // StopFuture will stop actor immediately regardless of existing user messages in mailbox, and return its future.
-  async fn stop_future(&mut self, pid: &ExtendedPid) -> Future;
+  async fn stop_future_with_timeout(&mut self, pid: &ExtendedPid, timeout: Duration) -> Future;
+
+  async fn stop_future(&mut self, pid: &ExtendedPid) -> Future {
+    self.stop_future_with_timeout(pid, Duration::from_secs(10)).await
+  }
 
   // Poison will tell actor to stop after processing current user messages in mailbox.
   async fn poison(&mut self, pid: &ExtendedPid);
 
   // PoisonFuture will tell actor to stop after processing current user messages in mailbox, and return its future.
-  async fn poison_future(&mut self, pid: &ExtendedPid) -> Future;
+  async fn poison_future_with_timeout(&mut self, pid: &ExtendedPid, timeout: Duration) -> Future;
+
+  async fn poison_future(&mut self, pid: &ExtendedPid) -> Future {
+    self.stop_future_with_timeout(pid, Duration::from_secs(10)).await
+  }
 }
