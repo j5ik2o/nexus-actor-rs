@@ -1,3 +1,9 @@
+use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
+use std::sync::Arc;
+
+use async_trait::async_trait;
+use tokio::sync::Mutex;
+
 use crate::actor::dispatch::dispatcher::{Dispatcher, DispatcherHandle, Runnable};
 use crate::actor::dispatch::mailbox::Mailbox;
 use crate::actor::dispatch::mailbox_handle::MailboxHandle;
@@ -6,10 +12,6 @@ use crate::actor::dispatch::mailbox_middleware::{MailboxMiddleware, MailboxMiddl
 use crate::actor::dispatch::message_invoker::{MessageInvoker, MessageInvokerHandle};
 use crate::actor::message::message_handle::MessageHandle;
 use crate::util::queue::{QueueError, QueueReader, QueueWriter};
-use async_trait::async_trait;
-use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
-use std::sync::Arc;
-use tokio::sync::Mutex;
 
 #[derive(Debug)]
 struct DefaultMailboxInner {
@@ -54,10 +56,10 @@ impl DefaultMailbox {
     }
   }
 
-  pub(crate) async fn with_middlewares(self, middlewares: Vec<MailboxMiddlewareHandle>) -> Self {
+  pub(crate) async fn with_middlewares(self, middlewares: impl IntoIterator<Item = MailboxMiddlewareHandle>) -> Self {
     {
       let mut inner_mg = self.inner.lock().await;
-      inner_mg.middlewares = middlewares;
+      inner_mg.middlewares = middlewares.into_iter().collect();
     }
     self
   }

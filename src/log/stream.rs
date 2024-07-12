@@ -1,8 +1,9 @@
-use futures::future::BoxFuture;
-use once_cell::sync::Lazy;
 use std::fmt::{Debug, Formatter};
 use std::sync::atomic::{AtomicI32, AtomicUsize, Ordering};
 use std::sync::{Arc, Weak};
+
+use futures::future::BoxFuture;
+use once_cell::sync::Lazy;
 use tokio::sync::RwLock;
 
 use crate::log::event::Event;

@@ -16,9 +16,9 @@ impl RestartStatistics {
     }
   }
 
-  pub fn with_values(failure_times: Vec<Instant>) -> Self {
+  pub fn with_values(failure_times: impl IntoIterator<Item = Instant>) -> Self {
     Self {
-      failure_times: Arc::new(Mutex::new(failure_times)),
+      failure_times: Arc::new(Mutex::new(failure_times.into_iter().collect())),
     }
   }
 

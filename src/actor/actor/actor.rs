@@ -1,3 +1,7 @@
+use std::fmt::Debug;
+
+use async_trait::async_trait;
+
 use crate::actor::actor::actor_error::ActorError;
 use crate::actor::actor::actor_inner_error::ActorInnerError;
 use crate::actor::actor::Terminated;
@@ -8,8 +12,6 @@ use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::message::message_or_envelope::{unwrap_envelope_message, MessageEnvelope};
 use crate::actor::message::system_message::SystemMessage;
 use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
-use async_trait::async_trait;
-use std::fmt::Debug;
 
 #[async_trait]
 pub trait Actor: Debug + Send + Sync + 'static {
@@ -19,23 +21,25 @@ pub trait Actor: Debug + Send + Sync + 'static {
       let me = message_handle.to_typed::<MessageEnvelope>();
       let sm = message_handle.to_typed::<SystemMessage>();
       let arm = message_handle.to_typed::<AutoReceiveMessage>();
-      match (me, sm, arm) {
-        (Some(_), None, None) => {
+      let t = message_handle.to_typed::<Terminated>();
+      match (me, sm, arm, t) {
+        (Some(_), None, None, None) => {
           let message = unwrap_envelope_message(message_handle.clone());
           tracing::debug!("Actor::handle: MessageEnvelope = {:?}", message);
           self.receive(context_handle.clone(), message).await
         }
-        (None, Some(sm), None) => match sm {
-          SystemMessage::Started(_) => self.started(context_handle).await,
-          SystemMessage::Stop(_) => self.stop(context_handle).await,
-          SystemMessage::Restart(_) => self.restart(context_handle).await,
+        (None, Some(sm), None, None) => match sm {
+          SystemMessage::Started => self.started(context_handle).await,
+          SystemMessage::Stop => self.stop(context_handle).await,
+          SystemMessage::Restart => self.restart(context_handle).await,
         },
-        (None, None, Some(arm)) => match arm {
-          AutoReceiveMessage::Restarting(_) => self.restarting(context_handle).await,
-          AutoReceiveMessage::Stopping(_) => self.stopping(context_handle).await,
-          AutoReceiveMessage::Stopped(_) => self.stopped(context_handle).await,
-          AutoReceiveMessage::PoisonPill(_) => Ok(()),
+        (None, None, Some(arm), None) => match arm {
+          AutoReceiveMessage::Restarting => self.restarting(context_handle).await,
+          AutoReceiveMessage::Stopping => self.stopping(context_handle).await,
+          AutoReceiveMessage::Stopped => self.stopped(context_handle).await,
+          AutoReceiveMessage::PoisonPill => Ok(()),
         },
+        (None, None, None, Some(t)) => self.on_child_terminated(context_handle, &t).await,
         _ => self.receive(context_handle.clone(), message_handle).await,
       }
     } else {
@@ -49,30 +53,37 @@ pub trait Actor: Debug + Send + Sync + 'static {
   async fn receive(&mut self, context_handle: ContextHandle, message_handle: MessageHandle) -> Result<(), ActorError>;
 
   async fn started(&self, _: ContextHandle) -> Result<(), ActorError> {
+    tracing::debug!("Actor::started");
     Ok(())
   }
 
   async fn stop(&self, _: ContextHandle) -> Result<(), ActorError> {
+    tracing::debug!("Actor::stop");
     Ok(())
   }
 
   async fn restart(&self, _: ContextHandle) -> Result<(), ActorError> {
+    tracing::debug!("Actor::restart");
     Ok(())
   }
 
   async fn restarting(&self, _: ContextHandle) -> Result<(), ActorError> {
+    tracing::debug!("Actor::restarting");
     Ok(())
   }
 
   async fn stopping(&self, _: ContextHandle) -> Result<(), ActorError> {
+    tracing::debug!("Actor::stopping");
     Ok(())
   }
 
   async fn stopped(&self, _: ContextHandle) -> Result<(), ActorError> {
+    tracing::debug!("Actor::stopped");
     Ok(())
   }
 
   async fn on_child_terminated(&self, _: ContextHandle, _: &Terminated) -> Result<(), ActorError> {
+    tracing::debug!("Actor::on_child_terminated");
     Ok(())
   }
 

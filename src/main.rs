@@ -91,7 +91,7 @@ async fn main() {
 
   let props = Props::from_actor_producer_with_opts(
     ActorProducer::new(create_top_actor),
-    vec![Props::with_mailbox_producer(unbounded_mpsc_mailbox_creator())],
+    &[Props::with_mailbox_producer(unbounded_mpsc_mailbox_creator())],
   )
   .await;
 

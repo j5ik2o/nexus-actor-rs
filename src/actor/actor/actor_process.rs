@@ -5,7 +5,6 @@ use std::sync::Arc;
 use async_trait::async_trait;
 
 use crate::actor::actor::pid::ExtendedPid;
-use crate::actor::actor::Stop;
 use crate::actor::dispatch::mailbox::Mailbox;
 use crate::actor::dispatch::mailbox_handle::MailboxHandle;
 use crate::actor::message::message_handle::MessageHandle;
@@ -58,7 +57,7 @@ impl Process for ActorProcess {
 
   async fn stop(&self, pid: &ExtendedPid) {
     self.set_dead();
-    let stop_message = MessageHandle::new(SystemMessage::Stop(Stop {}));
+    let stop_message = MessageHandle::new(SystemMessage::Stop);
     self.send_system_message(pid, stop_message).await;
   }
 

@@ -1,3 +1,5 @@
+use async_trait::async_trait;
+
 use crate::actor::dispatch::default_mailbox::DefaultMailbox;
 use crate::actor::dispatch::mailbox_handle::MailboxHandle;
 use crate::actor::dispatch::mailbox_middleware::MailboxMiddlewareHandle;
@@ -7,7 +9,6 @@ use crate::util::queue::mpsc_unbounded_channel_queue::MpscUnboundedChannelQueue;
 use crate::util::queue::priority_queue::PriorityQueue;
 use crate::util::queue::ring_queue::RingQueue;
 use crate::util::queue::{QueueBase, QueueError, QueueReader, QueueSize, QueueWriter};
-use async_trait::async_trait;
 
 #[derive(Debug, Clone)]
 pub struct UnboundedMailboxQueue<Q: QueueReader<MessageHandle> + QueueWriter<MessageHandle>> {
@@ -53,9 +54,12 @@ impl<Q: QueueReader<MessageHandle> + QueueWriter<MessageHandle>> QueueWriter<Mes
   }
 }
 
-pub fn unbounded_mailbox_creator_with_opts(mailbox_stats: Vec<MailboxMiddlewareHandle>) -> MailboxProducer {
+pub fn unbounded_mailbox_creator_with_opts(
+  mailbox_stats: impl IntoIterator<Item = MailboxMiddlewareHandle> + Send + Sync,
+) -> MailboxProducer {
+  let cloned_mailbox_stats = mailbox_stats.into_iter().collect::<Vec<_>>();
   MailboxProducer::new(move || {
-    let cloned_mailbox_stats = mailbox_stats.clone();
+    let cloned_mailbox_stats = cloned_mailbox_stats.clone();
     async move {
       let user_queue = UnboundedMailboxQueue::new(RingQueue::new(10));
       let system_queue = UnboundedMailboxQueue::new(MpscUnboundedChannelQueue::new());
@@ -72,9 +76,12 @@ pub fn unbounded_mailbox_creator() -> MailboxProducer {
   unbounded_mailbox_creator_with_opts(vec![])
 }
 
-pub fn unbounded_priority_mailbox_creator_with_opts(mailbox_stats: Vec<MailboxMiddlewareHandle>) -> MailboxProducer {
+pub fn unbounded_priority_mailbox_creator_with_opts(
+  mailbox_stats: impl IntoIterator<Item = MailboxMiddlewareHandle> + Send + Sync,
+) -> MailboxProducer {
+  let cloned_mailbox_stats = mailbox_stats.into_iter().collect::<Vec<_>>();
   MailboxProducer::new(move || {
-    let cloned_mailbox_stats = mailbox_stats.clone();
+    let cloned_mailbox_stats = cloned_mailbox_stats.clone();
     async move {
       let user_queue = UnboundedMailboxQueue::new(PriorityQueue::new(|| RingQueue::new(10)));
       let system_queue = UnboundedMailboxQueue::new(MpscUnboundedChannelQueue::new());
@@ -91,9 +98,12 @@ pub fn unbounded_priority_mailbox_creator() -> MailboxProducer {
   unbounded_priority_mailbox_creator_with_opts(vec![])
 }
 
-pub fn unbounded_mpsc_mailbox_creator_with_opts(mailbox_stats: Vec<MailboxMiddlewareHandle>) -> MailboxProducer {
+pub fn unbounded_mpsc_mailbox_creator_with_opts(
+  mailbox_stats: impl IntoIterator<Item = MailboxMiddlewareHandle> + Send + Sync,
+) -> MailboxProducer {
+  let cloned_mailbox_stats = mailbox_stats.into_iter().collect::<Vec<_>>();
   MailboxProducer::new(move || {
-    let cloned_mailbox_stats = mailbox_stats.clone();
+    let cloned_mailbox_stats = cloned_mailbox_stats.clone();
     async move {
       let user_queue = UnboundedMailboxQueue::new(MpscUnboundedChannelQueue::new());
       let system_queue = UnboundedMailboxQueue::new(MpscUnboundedChannelQueue::new());

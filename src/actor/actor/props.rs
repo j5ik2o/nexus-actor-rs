@@ -37,7 +37,6 @@ use crate::actor::dispatch::mailbox_producer::MailboxProducer;
 use crate::actor::dispatch::message_invoker::MessageInvokerHandle;
 use crate::actor::dispatch::unbounded::unbounded_mailbox_creator_with_opts;
 use crate::actor::message::message_handle::MessageHandle;
-use crate::actor::message::messages::Started;
 use crate::actor::message::system_message::SystemMessage;
 use crate::actor::process::ProcessHandle;
 use crate::actor::supervisor::supervisor_strategy::DEFAULT_SUPERVISION_STRATEGY;
@@ -98,8 +97,7 @@ static DEFAULT_SPAWNER: Lazy<Spawner> = Lazy::new(|| {
         .await;
         tracing::debug!("mailbox handlers registered: {}", name);
 
-        mb.post_system_message(MessageHandle::new(SystemMessage::Started(Started)))
-          .await;
+        mb.post_system_message(MessageHandle::new(SystemMessage::Started)).await;
         tracing::debug!("post_system_message: started: {}", name);
         mb.start().await;
         tracing::debug!("mailbox started: {}", name);
@@ -186,9 +184,10 @@ impl Props {
     })
   }
 
-  pub fn with_context_decorators(decorators: Vec<ContextDecorator>) -> PropsOption {
+  pub fn with_context_decorators(decorators: impl IntoIterator<Item = ContextDecorator> + Send + Sync) -> PropsOption {
+    let cloned_decorators = decorators.into_iter().collect::<Vec<_>>();
     PropsOption::new(move |props: &mut Props| {
-      let cloned_decorators = decorators.clone();
+      let cloned_decorators = cloned_decorators.clone();
       props.context_decorator.extend(cloned_decorators.clone());
       props.context_decorator_chain = make_context_decorator_chain(
         &props.context_decorator,
@@ -212,7 +211,10 @@ impl Props {
     })
   }
 
-  pub fn with_receiver_middlewares(middlewares: Vec<ReceiverMiddleware>) -> PropsOption {
+  pub fn with_receiver_middlewares(
+    middlewares: impl IntoIterator<Item = ReceiverMiddleware> + Send + Sync,
+  ) -> PropsOption {
+    let middlewares = middlewares.into_iter().collect::<Vec<_>>();
     PropsOption::new(move |props: &mut Props| {
       props.receiver_middleware.extend(middlewares.clone());
       props.receiver_middleware_chain = make_receiver_middleware_chain(
@@ -222,7 +224,8 @@ impl Props {
     })
   }
 
-  pub fn with_sender_middlewares(middlewares: Vec<SenderMiddleware>) -> PropsOption {
+  pub fn with_sender_middlewares(middlewares: impl IntoIterator<Item = SenderMiddleware> + Send + Sync) -> PropsOption {
+    let middlewares = middlewares.into_iter().collect::<Vec<_>>();
     PropsOption::new(move |props: &mut Props| {
       props.sender_middleware.extend(middlewares.clone());
       props.sender_middleware_chain = make_sender_middleware_chain(
@@ -242,7 +245,10 @@ impl Props {
     })
   }
 
-  pub fn with_spawn_middleware(spawn_middlewares: Vec<SpawnMiddleware>) -> PropsOption {
+  pub fn with_spawn_middleware(
+    spawn_middlewares: impl IntoIterator<Item = SpawnMiddleware> + Send + Sync,
+  ) -> PropsOption {
+    let spawn_middlewares = spawn_middlewares.into_iter().collect::<Vec<_>>();
     PropsOption::new(move |props: &mut Props| {
       props.spawn_middleware.extend(spawn_middlewares.clone());
       props.spawn_middleware_chain = make_spawn_middleware_chain(
@@ -305,7 +311,7 @@ impl Props {
     }
   }
 
-  pub async fn from_actor_producer_with_opts(producer: ActorProducer, opts: Vec<PropsOption>) -> Props {
+  pub async fn from_actor_producer_with_opts(producer: ActorProducer, opts: &[PropsOption]) -> Props {
     let mut props = Props {
       on_init: Vec::new(),
       producer: Some(producer),
@@ -328,10 +334,10 @@ impl Props {
   }
 
   pub async fn from_actor_producer(actor_producer: ActorProducer) -> Props {
-    Props::from_actor_producer_with_opts(actor_producer, vec![]).await
+    Props::from_actor_producer_with_opts(actor_producer, &[]).await
   }
 
-  pub async fn from_actor_receiver_with_opts(actor_receiver: ActorReceiver, opts: Vec<PropsOption>) -> Props {
+  pub async fn from_actor_receiver_with_opts(actor_receiver: ActorReceiver, opts: &[PropsOption]) -> Props {
     let producer = ActorProducer::new(move |_| {
       let cloned = actor_receiver.clone();
       async move {
@@ -343,7 +349,7 @@ impl Props {
   }
 
   pub async fn from_actor_receiver(f: ActorReceiver) -> Props {
-    Props::from_actor_receiver_with_opts(f, vec![]).await
+    Props::from_actor_receiver_with_opts(f, &[]).await
   }
 
   pub async fn spawn(

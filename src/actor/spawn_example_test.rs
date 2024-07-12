@@ -28,7 +28,7 @@ mod tests {
       async move {
         let msg = ctx.get_message_handle().await;
         tracing::debug!("msg = {:?}", msg);
-        if let Some(SystemMessage::Started(_)) = msg.as_any().downcast_ref::<SystemMessage>() {
+        if let Some(SystemMessage::Started) = msg.as_any().downcast_ref::<SystemMessage>() {
           tracing::debug!("Hello World!");
           b.wait().await;
         }

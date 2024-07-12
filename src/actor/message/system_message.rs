@@ -1,23 +1,21 @@
 use std::any::Any;
 
-use crate::actor::actor::Stop;
 use crate::actor::message::message::Message;
-use crate::actor::message::messages::{Restart, Started};
 
 #[derive(Debug, Clone)]
 pub enum SystemMessage {
-  Restart(Restart),
-  Started(Started),
-  Stop(Stop),
+  Restart,
+  Started,
+  Stop,
 }
 
 impl Message for SystemMessage {
   fn eq_message(&self, other: &dyn Message) -> bool {
     let msg = other.as_any().downcast_ref::<SystemMessage>();
     match (self, msg) {
-      (SystemMessage::Restart(_), Some(&SystemMessage::Restart(_))) => true,
-      (SystemMessage::Started(_), Some(&SystemMessage::Started(_))) => true,
-      (SystemMessage::Stop(_), Some(&SystemMessage::Stop(_))) => true,
+      (SystemMessage::Restart, Some(&SystemMessage::Restart)) => true,
+      (SystemMessage::Started, Some(&SystemMessage::Started)) => true,
+      (SystemMessage::Stop, Some(&SystemMessage::Stop)) => true,
       _ => false,
     }
   }

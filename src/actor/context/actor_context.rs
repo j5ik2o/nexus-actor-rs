@@ -1,7 +1,8 @@
-use async_trait::async_trait;
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
+
+use async_trait::async_trait;
 use tokio::sync::Mutex;
 
 use crate::actor::actor::actor::Actor;
@@ -15,7 +16,7 @@ use crate::actor::actor::props::Props;
 use crate::actor::actor::receiver_middleware_chain::ReceiverMiddlewareChain;
 use crate::actor::actor::sender_middleware_chain::SenderMiddlewareChain;
 use crate::actor::actor::spawner::SpawnError;
-use crate::actor::actor::{PoisonPill, Stop, Terminated, Unwatch, Watch};
+use crate::actor::actor::{PoisonPill, Terminated, Unwatch, Watch};
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::auto_respond::{AutoRespond, AutoResponsive};
 use crate::actor::context::actor_context_extras::ActorContextExtras;
@@ -38,7 +39,6 @@ use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::message::message_or_envelope::{
   unwrap_envelope_header, unwrap_envelope_sender, wrap_envelope, MessageEnvelope,
 };
-use crate::actor::message::messages::{Restart, Restarting, Started, Stopped, Stopping};
 use crate::actor::message::not_influence_receive_timeout::NotInfluenceReceiveTimeoutHandle;
 use crate::actor::message::readonly_message_headers::ReadonlyMessageHeadersHandle;
 use crate::actor::message::receive_timeout::ReceiveTimeout;
@@ -58,7 +58,7 @@ pub struct ActorContextInner {
   props: Props,
   parent: Option<ExtendedPid>,
   self_pid: Option<ExtendedPid>,
-  receive_timeout: Option<tokio::time::Duration>,
+  receive_timeout: Option<Duration>,
   producer: Option<ActorProducer>,
   message_or_envelope_opt: Arc<Mutex<Option<MessageHandle>>>,
   state: Option<Arc<AtomicU8>>,
@@ -309,7 +309,7 @@ impl ActorContext {
       )
       .await;
     let result = self
-      .invoke_user_message(MessageHandle::new(SystemMessage::Started(Started {})))
+      .invoke_user_message(MessageHandle::new(SystemMessage::Started))
       .await;
     if result.is_err() {
       P_LOG.error("Failed to handle Started message", vec![]).await;
@@ -336,7 +336,7 @@ impl ActorContext {
       .get_process_registry()
       .await
       .remove_process(&self.get_self_opt().await.unwrap());
-    let msg = MessageHandle::new(AutoReceiveMessage::Stopped(Stopped {}));
+    let msg = MessageHandle::new(AutoReceiveMessage::Stopped);
     let result = self.invoke_user_message(msg).await;
     if result.is_err() {
       P_LOG.error("Failed to handle Stopped message", vec![]).await;
@@ -420,7 +420,7 @@ impl ActorContext {
         .unwrap()
         .store(State::Stopping as u8, Ordering::SeqCst);
     }
-    let msg = MessageHandle::new(AutoReceiveMessage::Stopping(Stopping {}));
+    let msg = MessageHandle::new(AutoReceiveMessage::Stopping);
     let result = self.invoke_user_message(msg).await;
     if result.is_err() {
       P_LOG.error("Failed to handle Stopping message", vec![]).await;
@@ -445,7 +445,7 @@ impl ActorContext {
         .unwrap()
         .store(State::Restarting as u8, Ordering::SeqCst);
     }
-    let msg = MessageHandle::new(AutoReceiveMessage::Restarting(Restarting {}));
+    let msg = MessageHandle::new(AutoReceiveMessage::Restarting);
     let result = self.invoke_user_message(msg).await;
     if result.is_err() {
       P_LOG.error("Failed to handle Restarting message", vec![]).await;
@@ -898,7 +898,7 @@ impl StopperPart for ActorContext {
     pid
       .send_user_message(
         inner_mg.actor_system.clone(),
-        MessageHandle::new(AutoReceiveMessage::PoisonPill(PoisonPill {})),
+        MessageHandle::new(AutoReceiveMessage::PoisonPill),
       )
       .await;
   }
@@ -948,19 +948,19 @@ impl MessageInvoker for ActorContext {
     let sm = message_handle.to_typed::<SystemMessage>();
     if let Some(sm) = sm {
       match sm {
-        SystemMessage::Started(_) => {
+        SystemMessage::Started => {
           let result = self.invoke_user_message(message_handle.clone()).await;
           if result.is_err() {
             return result;
           }
         }
-        SystemMessage::Stop(_) => {
+        SystemMessage::Stop => {
           let result = self.handle_stop().await;
           if result.is_err() {
             return result;
           }
         }
-        SystemMessage::Restart(_) => {
+        SystemMessage::Restart => {
           let result = self.handle_restart().await;
           if result.is_err() {
             return result;
@@ -1132,7 +1132,7 @@ impl Supervisor for ActorContext {
       pid
         .send_system_message(
           self.get_actor_system().await,
-          MessageHandle::new(SystemMessage::Restart(Restart {})),
+          MessageHandle::new(SystemMessage::Restart),
         )
         .await;
     }
@@ -1141,10 +1141,7 @@ impl Supervisor for ActorContext {
   async fn stop_children(&self, pids: &[ExtendedPid]) {
     for pid in pids {
       pid
-        .send_system_message(
-          self.get_actor_system().await,
-          MessageHandle::new(SystemMessage::Stop(Stop {})),
-        )
+        .send_system_message(self.get_actor_system().await, MessageHandle::new(SystemMessage::Stop))
         .await;
     }
   }

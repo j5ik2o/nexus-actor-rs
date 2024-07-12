@@ -8,8 +8,8 @@ use crate::actor::message::message_handle::MessageHandle;
 pub struct MessageHandles(Arc<Mutex<Vec<MessageHandle>>>);
 
 impl MessageHandles {
-  pub fn new(msgs: Vec<MessageHandle>) -> Self {
-    Self(Arc::new(Mutex::new(msgs)))
+  pub fn new(msgs: impl IntoIterator<Item = MessageHandle>) -> Self {
+    Self(Arc::new(Mutex::new(msgs.into_iter().collect())))
   }
 
   pub async fn push(&mut self, msg: MessageHandle) {

@@ -33,7 +33,7 @@ struct HelloActor;
 
 #[async_trait]
 impl Actor for HelloActor {
-  async fn receive(&mut self, context_handle: ContextHandle, message_handle: MessageHandle) -> Result<(), ActorError> {
+  async fn receive(&mut self, _: ContextHandle, message_handle: MessageHandle) -> Result<(), ActorError> {
     let hello = message_handle.to_typed::<Hello>().unwrap();
     println!("Hello, {}!", hello.who);
     Ok(())

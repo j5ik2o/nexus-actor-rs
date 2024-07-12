@@ -1,6 +1,7 @@
-use crate::actor::actor::actor_inner_error::ActorInnerError;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
+
+use crate::actor::actor::actor_inner_error::ActorInnerError;
 
 #[derive(Debug, Clone)]
 pub enum ActorError {

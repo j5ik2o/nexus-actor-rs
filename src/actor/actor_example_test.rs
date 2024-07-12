@@ -107,7 +107,7 @@ mod tests {
         let msg = ctx.get_message_handle().await;
         tracing::debug!("caller msg = {:?}", msg);
         if let Some(msg) = msg.to_typed::<SystemMessage>() {
-          if let SystemMessage::Started(_) = msg {
+          if let SystemMessage::Started = msg {
             ctx
               .request(cloned_callee_pid, MessageHandle::new(Request("PING".to_string())))
               .await;
