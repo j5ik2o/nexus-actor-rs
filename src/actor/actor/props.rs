@@ -269,7 +269,7 @@ impl Props {
     self.spawner.clone().unwrap_or(DEFAULT_SPAWNER.clone())
   }
 
-  pub fn get_producer(&self) -> ActorProducer {
+  pub(crate) fn get_producer(&self) -> ActorProducer {
     self.producer.clone().unwrap()
   }
 
@@ -277,7 +277,7 @@ impl Props {
     self.dispatcher.clone().unwrap_or_else(|| DEFAULT_DISPATCHER.clone())
   }
 
-  pub fn get_supervisor_strategy(&self) -> SupervisorStrategyHandle {
+  pub(crate) fn get_supervisor_strategy(&self) -> SupervisorStrategyHandle {
     self
       .supervisor_strategy
       .clone()
@@ -371,7 +371,7 @@ impl Props {
     Self::from_actor_receiver_with_opts(f, []).await
   }
 
-  pub async fn spawn(
+  pub(crate) async fn spawn(
     self,
     actor_system: ActorSystem,
     name: &str,
