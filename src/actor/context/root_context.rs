@@ -230,7 +230,7 @@ impl StopperPart for RootContext {
   }
 
   async fn stop_future(&mut self, pid: &ExtendedPid) -> Future {
-    let future_process = FutureProcess::new(self.get_actor_system().await, tokio::time::Duration::from_secs(10)).await;
+    let future_process = FutureProcess::new(self.get_actor_system().await, Duration::from_secs(10)).await;
 
     let future_pid = future_process.get_pid().await.clone();
     pid
@@ -256,7 +256,7 @@ impl StopperPart for RootContext {
   }
 
   async fn poison_future(&mut self, pid: &ExtendedPid) -> Future {
-    let future_process = FutureProcess::new(self.get_actor_system().await, tokio::time::Duration::from_secs(10)).await;
+    let future_process = FutureProcess::new(self.get_actor_system().await, Duration::from_secs(10)).await;
 
     let future_pid = future_process.get_pid().await.clone();
     pid

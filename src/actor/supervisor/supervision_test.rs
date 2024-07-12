@@ -1,11 +1,11 @@
 #[cfg(test)]
 mod test {
+  use async_trait::async_trait;
   use std::any::Any;
   use std::collections::VecDeque;
   use std::env;
   use std::sync::Arc;
-
-  use async_trait::async_trait;
+  use std::time::Duration;
   use thiserror::Error;
   use tokio::sync::{Mutex, Notify};
   use tokio::time::Instant;
@@ -93,7 +93,7 @@ mod test {
         Props::with_receiver_middlewares([middles]),
         Props::with_supervisor_strategy(SupervisorStrategyHandle::new(OneForOneStrategy::new(
           10,
-          tokio::time::Duration::from_secs(10),
+          Duration::from_secs(10),
         ))),
       ],
     )
@@ -101,7 +101,7 @@ mod test {
 
     let child = root_context.spawn(props).await;
     let fail = MessageHandle::new(StringMessage("fail".to_string()));
-    let d = tokio::time::Duration::from_secs(10);
+    let d = Duration::from_secs(10);
     let _ = observer
       .expect_message(MessageHandle::new(SystemMessage::Started), d)
       .await;
@@ -246,7 +246,7 @@ mod test {
       Ok(())
     }
 
-    async fn expect_message(&self, expected: MessageHandle, timeout: tokio::time::Duration) -> Result<(), TestError> {
+    async fn expect_message(&self, expected: MessageHandle, timeout: Duration) -> Result<(), TestError> {
       let start = Instant::now();
       while start.elapsed() <= timeout {
         if let Some(received) = self.received.lock().await.pop_front() {
@@ -255,7 +255,7 @@ mod test {
             return Ok(());
           }
         }
-        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+        tokio::time::sleep(Duration::from_millis(10)).await;
       }
       Err(TestError::TimeoutError)
     }

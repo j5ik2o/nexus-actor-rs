@@ -1,6 +1,6 @@
 use std::pin::Pin;
 use std::sync::Arc;
-
+use std::time::Duration;
 use tokio::sync::Mutex;
 
 #[derive(Debug, Clone)]
@@ -10,7 +10,7 @@ impl SleepContainer {
     SleepContainer(Arc::new(Mutex::new(Box::pin(sleep))))
   }
 
-  pub fn new(duration: tokio::time::Duration) -> Self {
+  pub fn new(duration: Duration) -> Self {
     Self::from_sleep(tokio::time::sleep(duration))
   }
 
@@ -43,7 +43,7 @@ impl SleepContainer {
 pub struct ReceiveTimeoutTimer(SleepContainer);
 
 impl ReceiveTimeoutTimer {
-  pub fn new(duration: tokio::time::Duration) -> Self {
+  pub fn new(duration: Duration) -> Self {
     ReceiveTimeoutTimer(SleepContainer::new(duration))
   }
 

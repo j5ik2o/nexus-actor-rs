@@ -1,9 +1,8 @@
 #[cfg(test)]
 mod tests {
   use std::sync::Arc;
-
+  use std::time::Duration;
   use tokio::sync::Mutex;
-  use tokio::time::Duration;
 
   use crate::actor::util::throttler::{Throttle, ThrottleCallback, Valve};
 

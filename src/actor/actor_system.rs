@@ -1,5 +1,5 @@
 use std::sync::Arc;
-
+use std::time::Duration;
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
@@ -165,7 +165,7 @@ impl ActorSystem {
 pub struct Config {
   // pub metrics_provider: Option<Arc<dyn MetricsProvider>>,
   pub dispatcher_throughput: usize,
-  pub dead_letter_throttle_interval: tokio::time::Duration,
+  pub dead_letter_throttle_interval: Duration,
   pub dead_letter_throttle_count: usize,
   pub dead_letter_request_logging: bool,
   pub developer_supervision_logging: bool,
@@ -177,7 +177,7 @@ impl Default for Config {
     Config {
       // metrics_provider: None,
       dispatcher_throughput: 300,
-      dead_letter_throttle_interval: tokio::time::Duration::from_secs(1),
+      dead_letter_throttle_interval: Duration::from_secs(1),
       dead_letter_throttle_count: 10,
       dead_letter_request_logging: false,
       developer_supervision_logging: false,
@@ -189,7 +189,7 @@ impl Default for Config {
 pub enum ConfigOption {
   // SetMetricsProvider(Arc<dyn MetricsProvider>),
   SetDispatcherThroughput(usize),
-  SetDeadLetterThrottleInterval(tokio::time::Duration),
+  SetDeadLetterThrottleInterval(Duration),
   SetDeadLetterThrottleCount(usize),
   // Other options...
 }
