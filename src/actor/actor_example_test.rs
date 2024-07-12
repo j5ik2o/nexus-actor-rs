@@ -10,11 +10,11 @@ mod tests {
   use crate::actor::actor::props::Props;
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::context::{BasePart, MessagePart, SenderPart, SpawnerPart, StopperPart};
+  use crate::actor::message::auto_receive_message::AutoReceiveMessage;
   use crate::actor::message::message::Message;
   use crate::actor::message::message_handle::MessageHandle;
   use crate::actor::message::message_or_envelope::MessageEnvelope;
   use crate::actor::message::response::ResponseHandle;
-  use crate::actor::message::system_message::SystemMessage;
   use crate::actor::util::async_barrier::AsyncBarrier;
 
   #[tokio::test]
@@ -99,8 +99,8 @@ mod tests {
       async move {
         let msg = ctx.get_message_handle().await;
         tracing::debug!("caller msg = {:?}", msg);
-        if let Some(msg) = msg.to_typed::<SystemMessage>() {
-          if let SystemMessage::Started = msg {
+        if let Some(msg) = msg.to_typed::<AutoReceiveMessage>() {
+          if let AutoReceiveMessage::PostStart = msg {
             ctx
               .request(cloned_callee_pid, MessageHandle::new(Request("PING".to_string())))
               .await;

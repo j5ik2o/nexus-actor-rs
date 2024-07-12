@@ -7,8 +7,8 @@ mod tests {
   use crate::actor::actor::props::Props;
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::context::{MessagePart, SpawnerPart};
+  use crate::actor::message::auto_receive_message::AutoReceiveMessage;
   use crate::actor::message::message::Message;
-  use crate::actor::message::system_message::SystemMessage;
   use crate::actor::util::async_barrier::AsyncBarrier;
 
   #[tokio::test]
@@ -27,7 +27,7 @@ mod tests {
       async move {
         let msg = ctx.get_message_handle().await;
         tracing::debug!("msg = {:?}", msg);
-        if let Some(SystemMessage::Started) = msg.as_any().downcast_ref::<SystemMessage>() {
+        if let Some(AutoReceiveMessage::PostStart) = msg.as_any().downcast_ref::<AutoReceiveMessage>() {
           tracing::debug!("Hello World!");
           b.wait().await;
         }
