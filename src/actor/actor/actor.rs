@@ -28,8 +28,10 @@ pub trait Actor: Debug + Send + Sync + 'static {
           self.receive(context_handle.clone(), message).await
         }
         (None, Some(arm), None) => match arm {
+          AutoReceiveMessage::PreStart => self.pre_start(context_handle).await,
           AutoReceiveMessage::PostStart => self.post_start(context_handle).await,
           AutoReceiveMessage::PreRestart => self.pre_restart(context_handle).await,
+          AutoReceiveMessage::PostRestart => self.post_restart(context_handle).await,
           AutoReceiveMessage::PreStop => self.pre_stop(context_handle).await,
           AutoReceiveMessage::PostStop => self.post_stop(context_handle).await,
           AutoReceiveMessage::PoisonPill => Ok(()),
@@ -47,6 +49,11 @@ pub trait Actor: Debug + Send + Sync + 'static {
 
   async fn receive(&mut self, context_handle: ContextHandle, message_handle: MessageHandle) -> Result<(), ActorError>;
 
+  async fn pre_start(&self, _: ContextHandle) -> Result<(), ActorError> {
+    tracing::debug!("Actor::pre_start");
+    Ok(())
+  }
+
   async fn post_start(&self, _: ContextHandle) -> Result<(), ActorError> {
     tracing::debug!("Actor::post_start");
     Ok(())
@@ -55,6 +62,11 @@ pub trait Actor: Debug + Send + Sync + 'static {
   async fn pre_restart(&self, _: ContextHandle) -> Result<(), ActorError> {
     tracing::debug!("Actor::pre_restart");
     Ok(())
+  }
+
+  async fn post_restart(&self, context_handle: ContextHandle) -> Result<(), ActorError> {
+    tracing::debug!("Actor::post_restart");
+    self.pre_start(context_handle).await
   }
 
   async fn pre_stop(&self, _: ContextHandle) -> Result<(), ActorError> {

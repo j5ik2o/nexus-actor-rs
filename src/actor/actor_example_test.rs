@@ -99,12 +99,10 @@ mod tests {
       async move {
         let msg = ctx.get_message_handle().await;
         tracing::debug!("caller msg = {:?}", msg);
-        if let Some(msg) = msg.to_typed::<AutoReceiveMessage>() {
-          if let AutoReceiveMessage::PostStart = msg {
-            ctx
-              .request(cloned_callee_pid, MessageHandle::new(Request("PING".to_string())))
-              .await;
-          }
+        if let Some(AutoReceiveMessage::PreStart) = msg.to_typed::<AutoReceiveMessage>() {
+          ctx
+            .request(cloned_callee_pid, MessageHandle::new(Request("PING".to_string())))
+            .await;
         }
         if let Some(msg) = msg.to_typed::<Reply>() {
           tracing::debug!("{:?}", msg);

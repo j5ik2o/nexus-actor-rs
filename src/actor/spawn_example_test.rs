@@ -27,9 +27,11 @@ mod tests {
       async move {
         let msg = ctx.get_message_handle().await;
         tracing::debug!("msg = {:?}", msg);
-        if let Some(AutoReceiveMessage::PostStart) = msg.as_any().downcast_ref::<AutoReceiveMessage>() {
+        if let Some(AutoReceiveMessage::PreStart) = msg.as_any().downcast_ref::<AutoReceiveMessage>() {
           tracing::debug!("Hello World!");
-          b.wait().await;
+          tokio::spawn(async move {
+            b.wait().await;
+          });
         }
         Ok(())
       }

@@ -309,7 +309,7 @@ impl ActorContext {
       )
       .await;
     let result = self
-      .invoke_user_message(MessageHandle::new(AutoReceiveMessage::PostStart))
+      .invoke_user_message(MessageHandle::new(AutoReceiveMessage::PostRestart))
       .await;
     if result.is_err() {
       P_LOG.error("Failed to handle Started message", vec![]).await;
@@ -961,7 +961,7 @@ impl MessageInvoker for ActorContext {
     let sm = message_handle.to_typed::<SystemMessage>();
     if let Some(sm) = sm {
       match sm {
-        SystemMessage::Started => {
+        SystemMessage::Start => {
           let result = self.handle_start().await;
           if result.is_err() {
             return result;

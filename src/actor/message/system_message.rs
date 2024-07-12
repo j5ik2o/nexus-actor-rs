@@ -4,11 +4,8 @@ use crate::actor::message::message::Message;
 
 #[derive(Debug, Clone)]
 pub enum SystemMessage {
-  // リスタート開始
   Restart,
-  // 開始済み
-  Started,
-  // 停止開始
+  Start,
   Stop,
 }
 
@@ -17,7 +14,7 @@ impl Message for SystemMessage {
     let msg = other.as_any().downcast_ref::<SystemMessage>();
     match (self, msg) {
       (SystemMessage::Restart, Some(&SystemMessage::Restart)) => true,
-      (SystemMessage::Started, Some(&SystemMessage::Started)) => true,
+      (SystemMessage::Start, Some(&SystemMessage::Start)) => true,
       (SystemMessage::Stop, Some(&SystemMessage::Stop)) => true,
       _ => false,
     }

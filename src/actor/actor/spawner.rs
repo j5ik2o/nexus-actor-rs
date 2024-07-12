@@ -2,18 +2,20 @@ use std::fmt::{Debug, Formatter};
 use std::future::Future;
 use std::sync::Arc;
 
-use futures::future::BoxFuture;
-use thiserror::Error;
-
+use crate::actor::actor::actor_error::ActorError;
 use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::actor::props::Props;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::spawner_context_handle::SpawnerContextHandle;
+use futures::future::BoxFuture;
+use thiserror::Error;
 
 #[derive(Debug, Clone, Error)]
 pub enum SpawnError {
   #[error("Name already exists: {0}")]
   ErrNameExists(ExtendedPid),
+  #[error("Actor error: {0}")]
+  ErrPreStart(ActorError),
 }
 
 #[derive(Clone)]
