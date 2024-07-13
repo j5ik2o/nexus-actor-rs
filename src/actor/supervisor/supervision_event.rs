@@ -7,7 +7,8 @@ use crate::actor::actor_system::ActorSystem;
 use crate::actor::log::P_LOG;
 use crate::actor::message::message::Message;
 use crate::actor::supervisor::directive::Directive;
-use crate::event_stream::{Handler, Subscription};
+use crate::event_stream::handler::Handler;
+use crate::event_stream::subscription::Subscription;
 use crate::log::field::Field;
 
 #[derive(Debug, Clone)]

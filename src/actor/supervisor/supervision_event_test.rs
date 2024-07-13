@@ -24,7 +24,7 @@ mod test {
   use crate::actor::supervisor::strategy_restarting::RestartingStrategy;
   use crate::actor::supervisor::supervision_event::SupervisorEvent;
   use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
-  use crate::event_stream::Handler;
+  use crate::event_stream::handler::Handler;
 
   #[derive(Debug)]
   struct PanicActor;

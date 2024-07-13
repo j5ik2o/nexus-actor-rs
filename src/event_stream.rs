@@ -1,83 +1,17 @@
-use std::fmt::{Debug, Formatter};
+pub mod handler;
+pub mod predicate;
+pub mod subscription;
+
 use std::future::Future;
-use std::sync::atomic::{AtomicI32, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicI32, Ordering};
 use std::sync::Arc;
 
-use futures::future::BoxFuture;
 use tokio::sync::RwLock;
 
 use crate::actor::message::message_handle::MessageHandle;
-
-// Handler defines a callback function that must be passed when subscribing.
-#[derive(Clone)]
-pub struct Handler(Arc<dyn Fn(MessageHandle) -> BoxFuture<'static, ()> + Send + Sync + 'static>);
-
-impl Debug for Handler {
-  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "Handler")
-  }
-}
-
-impl PartialEq for Handler {
-  fn eq(&self, _other: &Self) -> bool {
-    Arc::ptr_eq(&self.0, &_other.0)
-  }
-}
-
-impl Eq for Handler {}
-
-impl std::hash::Hash for Handler {
-  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    (self.0.as_ref() as *const dyn Fn(MessageHandle) -> BoxFuture<'static, ()>).hash(state);
-  }
-}
-
-impl Handler {
-  pub fn new<F, Fut>(f: F) -> Self
-  where
-    F: Fn(MessageHandle) -> Fut + Send + Sync + 'static,
-    Fut: Future<Output = ()> + Send + 'static, {
-    Self(Arc::new(move |mh| Box::pin(f(mh)) as BoxFuture<'static, ()>))
-  }
-
-  pub async fn run(&self, evt: MessageHandle) {
-    (self.0)(evt).await
-  }
-}
-
-// Predicate is a function used to filter messages before being forwarded to a subscriber
-#[derive(Clone)]
-pub struct Predicate(Arc<dyn Fn(MessageHandle) -> bool + Send + Sync>);
-
-impl Debug for Predicate {
-  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "Predicate")
-  }
-}
-
-impl PartialEq for Predicate {
-  fn eq(&self, _other: &Self) -> bool {
-    Arc::ptr_eq(&self.0, &_other.0)
-  }
-}
-
-impl Eq for Predicate {}
-
-impl std::hash::Hash for Predicate {
-  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    (self.0.as_ref() as *const dyn Fn(MessageHandle) -> bool).hash(state);
-  }
-}
-
-impl Predicate {
-  pub fn new(f: impl Fn(MessageHandle) -> bool + Send + Sync + 'static) -> Self {
-    Predicate(Arc::new(f))
-  }
-
-  pub fn run(&self, evt: MessageHandle) -> bool {
-    (self.0)(evt)
-  }
-}
+use crate::event_stream::handler::Handler;
+use crate::event_stream::predicate::Predicate;
+use crate::event_stream::subscription::Subscription;
 
 #[derive(Debug, Clone)]
 pub struct EventStream {
@@ -94,12 +28,7 @@ impl EventStream {
   }
 
   pub async fn subscribe(&self, handler: Handler) -> Subscription {
-    let subscription = Subscription {
-      id: self.counter.fetch_add(1, Ordering::SeqCst),
-      handler: Arc::new(handler),
-      predicate: None,
-      active: Arc::new(AtomicU32::new(1)),
-    };
+    let subscription = Subscription::new(self.counter.fetch_add(1, Ordering::SeqCst), Arc::new(handler), None);
     let mut subscriptions = self.subscriptions.write().await;
     subscriptions.push(subscription.clone());
     subscription
@@ -113,12 +42,11 @@ impl EventStream {
   }
 
   pub async fn subscribe_with_predicate(&self, handler: Handler, predicate: Predicate) -> Subscription {
-    let subscription = Subscription {
-      id: self.counter.fetch_add(1, Ordering::SeqCst),
-      handler: Arc::new(handler),
-      predicate: Some(predicate),
-      active: Arc::new(AtomicU32::new(1)),
-    };
+    let subscription = Subscription::new(
+      self.counter.fetch_add(1, Ordering::SeqCst),
+      Arc::new(handler),
+      Some(predicate),
+    );
     let mut subscriptions = self.subscriptions.write().await;
     subscriptions.push(subscription.clone());
     subscription
@@ -150,43 +78,5 @@ impl EventStream {
 
   pub fn length(&self) -> i32 {
     self.counter.load(Ordering::SeqCst)
-  }
-}
-
-#[derive(Debug, Clone)]
-pub struct Subscription {
-  id: i32,
-  handler: Arc<Handler>,
-  predicate: Option<Predicate>,
-  active: Arc<AtomicU32>,
-}
-
-static_assertions::assert_impl_all!(Subscription: Send, Sync);
-
-impl PartialEq for Subscription {
-  fn eq(&self, other: &Self) -> bool {
-    self.id == other.id
-  }
-}
-
-impl Eq for Subscription {}
-
-impl Subscription {
-  pub fn activate(&self) -> bool {
-    self
-      .active
-      .compare_exchange(0, 1, Ordering::SeqCst, Ordering::Relaxed)
-      .is_ok()
-  }
-
-  pub fn deactivate(&self) -> bool {
-    self
-      .active
-      .compare_exchange(1, 0, Ordering::SeqCst, Ordering::Relaxed)
-      .is_ok()
-  }
-
-  pub fn is_active(&self) -> bool {
-    self.active.load(Ordering::SeqCst) == 1
   }
 }
