@@ -30,12 +30,8 @@ mod tests {
   #[tokio::test]
   async fn test_off_level_only_context() {
     let event_stream = LogEventStream::new();
-    let l = Logger::new(
-      event_stream,
-      Level::Min,
-      "").with_fields(
-      [LogField::int("bar", 32), LogField::bool("fum", false)],
-    );
+    let l =
+      Logger::new(event_stream, Level::Min, "").with_fields([LogField::int("bar", 32), LogField::bool("fum", false)]);
     l.debug("foo").await;
   }
 
@@ -44,12 +40,8 @@ mod tests {
     let event_stream = LogEventStream::new();
     let _s1 = subscribe_stream(&event_stream, |_: LogEvent| async {}).await;
 
-    let l = Logger::new(
-      event_stream,
-      Level::Debug,
-      "").with_fields(
-      [LogField::int("bar", 32), LogField::bool("fum", false)],
-    );
+    let l =
+      Logger::new(event_stream, Level::Debug, "").with_fields([LogField::int("bar", 32), LogField::bool("fum", false)]);
     l.debug("foo").await;
 
     unsubscribe_stream(&_s1).await;
@@ -61,12 +53,8 @@ mod tests {
     let _s1 = subscribe_stream(&event_stream, |_: LogEvent| async {}).await;
     let _s2 = subscribe_stream(&event_stream, |_: LogEvent| async {}).await;
 
-    let l = Logger::new(
-      event_stream,
-      Level::Debug,
-      "").with_fields(
-      [LogField::int("bar", 32), LogField::bool("fum", false)],
-    );
+    let l =
+      Logger::new(event_stream, Level::Debug, "").with_fields([LogField::int("bar", 32), LogField::bool("fum", false)]);
     l.debug("foo").await;
 
     unsubscribe_stream(&_s1).await;

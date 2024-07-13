@@ -1100,12 +1100,10 @@ impl Supervisor for ActorContext {
         reason
       );
       P_LOG
-        .error(
-          &format!(
-            "[Supervision] Actor: {}, failed with message: {}, exception: {}",
-            self_pid, message_handle, reason
-          ),
-        )
+        .error(&format!(
+          "[Supervision] Actor: {}, failed with message: {}, exception: {}",
+          self_pid, message_handle, reason
+        ))
         .await;
     }
 
