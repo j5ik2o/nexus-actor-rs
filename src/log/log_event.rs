@@ -1,18 +1,18 @@
 use time::OffsetDateTime;
 
-use crate::log::caller::CallerInfo;
-use crate::log::field::Field;
 use crate::log::log::Level;
+use crate::log::log_caller::LogCallerInfo;
+use crate::log::log_field::LogField;
 
 #[derive(Debug, Clone)]
 pub struct LogEvent {
   pub time: OffsetDateTime,
   pub level: Level,
   pub prefix: String,
-  pub caller: Option<CallerInfo>,
+  pub caller: Option<LogCallerInfo>,
   pub message: String,
-  pub context: Vec<Field>,
-  pub fields: Vec<Field>,
+  pub context: Vec<LogField>,
+  pub fields: Vec<LogField>,
 }
 
 impl LogEvent {
@@ -21,18 +21,18 @@ impl LogEvent {
       time: OffsetDateTime::now_utc(),
       level,
       prefix: String::new(),
-      caller: Some(CallerInfo::new(2)), // スキップ数は適宜調整が必要
+      caller: Some(LogCallerInfo::new(2)), // スキップ数は適宜調整が必要
       message,
       context: Vec::new(),
       fields: Vec::new(),
     }
   }
 
-  pub fn add_field(&mut self, field: Field) {
+  pub fn add_field(&mut self, field: LogField) {
     self.fields.push(field);
   }
 
-  pub fn add_context(&mut self, field: Field) {
+  pub fn add_context(&mut self, field: LogField) {
     self.context.push(field);
   }
 }

@@ -2,19 +2,19 @@
 mod tests {
   use std::sync::{Arc, RwLock};
 
-  use crate::log::field::Field;
   use crate::log::log::{Level, Logger};
   use crate::log::log_event::LogEvent;
   use crate::log::log_event_stream::{publish_to_stream, subscribe_stream, unsubscribe_stream, LogEventStream};
+  use crate::log::log_field::LogField;
 
   #[tokio::test]
   async fn test_logger_with() {
     let event_stream = LogEventStream::new();
-    let base = Logger::new(event_stream, Level::Debug, "", [Field::string("first", "value")]);
-    let l = base.with([Field::string("second", "value")]);
+    let base = Logger::new(event_stream, Level::Debug, "", [LogField::string("first", "value")]);
+    let l = base.with([LogField::string("second", "value")]);
 
     assert_eq!(
-      vec![Field::string("first", "value"), Field::string("second", "value")],
+      vec![LogField::string("first", "value"), LogField::string("second", "value")],
       l.get_context()
     );
   }
@@ -23,7 +23,8 @@ mod tests {
   async fn test_off_level_two_fields() {
     let event_stream = LogEventStream::new();
     let l = Logger::new(event_stream, Level::Min, "", []);
-    l.debug("foo", [Field::int("bar", 32), Field::bool("fum", false)]).await;
+    l.debug("foo", [LogField::int("bar", 32), LogField::bool("fum", false)])
+      .await;
   }
 
   #[tokio::test]
@@ -33,7 +34,7 @@ mod tests {
       event_stream,
       Level::Min,
       "",
-      [Field::int("bar", 32), Field::bool("fum", false)],
+      [LogField::int("bar", 32), LogField::bool("fum", false)],
     );
     l.debug("foo", []).await;
   }
@@ -47,7 +48,7 @@ mod tests {
       event_stream,
       Level::Debug,
       "",
-      [Field::int("bar", 32), Field::bool("fum", false)],
+      [LogField::int("bar", 32), LogField::bool("fum", false)],
     );
     l.debug("foo", []).await;
 
@@ -64,7 +65,7 @@ mod tests {
       event_stream,
       Level::Debug,
       "",
-      [Field::int("bar", 32), Field::bool("fum", false)],
+      [LogField::int("bar", 32), LogField::bool("fum", false)],
     );
     l.debug("foo", []).await;
 

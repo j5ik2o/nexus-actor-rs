@@ -2,6 +2,7 @@
 pub mod actor;
 pub mod ctxext;
 pub mod event_stream;
+mod event_stream_test;
 pub mod log;
 pub mod util;
 

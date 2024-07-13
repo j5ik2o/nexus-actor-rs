@@ -16,7 +16,7 @@ use crate::actor::message::system_message::SystemMessage;
 use crate::actor::process::{Process, ProcessHandle};
 use crate::actor::supervisor::supervisor_strategy::{Supervisor, SupervisorHandle, SupervisorStrategy};
 use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
-use crate::log::field::Field;
+use crate::log::log_field::LogField;
 
 #[derive(Debug, Clone)]
 pub struct GuardiansValue {
@@ -92,7 +92,7 @@ impl GuardianProcess {
       P_LOG
         .error(
           "failed to register guardian process",
-          vec![Field::stringer("pid", pid.clone())],
+          vec![LogField::stringer("pid", pid.clone())],
         )
         .await
     }
