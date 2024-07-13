@@ -1,13 +1,13 @@
 use time::OffsetDateTime;
 
-use crate::log::log::Level;
+use crate::log::log::LogLevel;
 use crate::log::log_caller::LogCallerInfo;
 use crate::log::log_field::LogField;
 
 #[derive(Debug, Clone)]
 pub struct LogEvent {
   pub time: OffsetDateTime,
-  pub level: Level,
+  pub level: LogLevel,
   pub prefix: String,
   pub caller: Option<LogCallerInfo>,
   pub message: String,
@@ -16,7 +16,7 @@ pub struct LogEvent {
 }
 
 impl LogEvent {
-  pub fn new(level: Level, message: String) -> Self {
+  pub fn new(level: LogLevel, message: String) -> Self {
     LogEvent {
       time: OffsetDateTime::now_utc(),
       level,

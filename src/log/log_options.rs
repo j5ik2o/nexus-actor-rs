@@ -3,22 +3,22 @@ use std::sync::Mutex;
 
 use once_cell::sync::Lazy;
 
-use crate::log::log::Level;
+use crate::log::log::LogLevel;
 use crate::log::log_event::LogEvent;
 
 #[derive(Clone, Debug)]
 pub struct Options {
-  pub(crate) log_level: Level,
+  pub(crate) log_level: LogLevel,
   pub(crate) enable_caller: bool,
 }
 
 pub static DEVELOPMENT: Lazy<Options> = Lazy::new(|| Options {
-  log_level: Level::Debug,
+  log_level: LogLevel::Debug,
   enable_caller: true,
 });
 
 pub static PRODUCTION: Lazy<Options> = Lazy::new(|| Options {
-  log_level: Level::Info,
+  log_level: LogLevel::Info,
   enable_caller: false,
 });
 
@@ -54,9 +54,13 @@ pub fn with_caller(enabled: bool) -> Box<dyn Fn(&mut Options)> {
   })
 }
 
-pub fn with_default_level(level: Level) -> Box<dyn Fn(&mut Options)> {
+pub fn with_default_level(level: LogLevel) -> Box<dyn Fn(&mut Options)> {
   Box::new(move |opts: &mut Options| {
-    opts.log_level = if level == Level::Default { Level::Info } else { level };
+    opts.log_level = if level == LogLevel::Default {
+      LogLevel::Info
+    } else {
+      level
+    };
   })
 }
 

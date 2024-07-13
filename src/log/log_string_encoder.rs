@@ -5,7 +5,7 @@ use once_cell::sync::Lazy;
 use time::OffsetDateTime;
 use tokio::sync::{mpsc, Mutex};
 
-use crate::log::log::Level;
+use crate::log::log::LogLevel;
 use crate::log::log_caller::LogCallerInfo;
 use crate::log::log_encoder::LogEncoder;
 use crate::log::log_event::LogEvent;
@@ -92,11 +92,14 @@ async fn listen_event(mut receiver: mpsc::Receiver<LogEvent>, out: Arc<Mutex<Box
       }
       break;
     }
-    write_event(&event, &out).await;
+    let buf = write_event(&event).await;
+    let mut out = out.lock().await;
+    out.write_all(&buf).unwrap();
+    out.flush().unwrap();
   }
 }
 
-async fn write_event(event: &LogEvent, out: &Arc<Mutex<Box<dyn Write + Send>>>) {
+pub async fn write_event(event: &LogEvent) -> Vec<u8> {
   let mut buf = Vec::new();
   format_header(&mut buf, &event.prefix, event.time, event.level);
   if let Some(caller) = &event.caller {
@@ -108,7 +111,6 @@ async fn write_event(event: &LogEvent, out: &Arc<Mutex<Box<dyn Write + Send>>>) 
     buf.extend_from_slice(event.message.as_bytes());
     buf.push(b' ');
   }
-
   let mut encoder = IoEncoder { writer: &mut buf };
   for field in &event.context {
     field.encode(&mut encoder);
@@ -119,13 +121,10 @@ async fn write_event(event: &LogEvent, out: &Arc<Mutex<Box<dyn Write + Send>>>) 
     encoder.write_space();
   }
   encoder.write_newline();
-
-  let mut out = out.lock().await;
-  out.write_all(&buf).unwrap();
-  out.flush().unwrap();
+  buf
 }
 
-fn format_header(buf: &mut Vec<u8>, prefix: &str, time: OffsetDateTime, level: Level) {
+fn format_header(buf: &mut Vec<u8>, prefix: &str, time: OffsetDateTime, level: LogLevel) {
   write!(buf, "{} {} ", time, level).unwrap();
   if !prefix.is_empty() {
     buf.extend_from_slice(prefix.as_bytes());

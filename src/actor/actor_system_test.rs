@@ -3,6 +3,7 @@ mod tests {
   use std::env;
 
   use async_trait::async_trait;
+  use tokio::time::sleep;
   use tracing_subscriber::EnvFilter;
 
   use crate::actor::actor::actor::Actor;
@@ -22,6 +23,8 @@ mod tests {
     let system = ActorSystem::new().await;
     let root = system.get_root_context().await;
     assert_eq!(root.get_self_opt().await, None);
+
+    sleep(std::time::Duration::from_secs(1)).await;
   }
 
   #[tokio::test]
