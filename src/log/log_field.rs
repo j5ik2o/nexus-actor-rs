@@ -17,7 +17,7 @@ pub enum LogFieldType {
   U32,
   U64,
   String,
-  Stringer,
+  Display,
   Error,
   Object,
   TypeOf,
@@ -114,7 +114,7 @@ impl LogField {
   pub fn display<T: fmt::Display + Send + Sync + 'static>(key: &str, val: T) -> Self {
     LogField {
       key: key.to_string(),
-      field_type: LogFieldType::Stringer,
+      field_type: LogFieldType::Display,
       val: 0,
       str: String::new(),
       obj: Some(Arc::new(val)),
@@ -184,7 +184,7 @@ impl LogField {
       LogFieldType::U64 => enc.encode_uint64(&self.key, self.val as u64),
       LogFieldType::String => enc.encode_string(&self.key, &self.str),
       LogFieldType::Duration => enc.encode_duration(&self.key, Duration::from_nanos(self.val as u64)),
-      LogFieldType::Stringer => {
+      LogFieldType::Display => {
         if let Some(obj) = &self.obj {
           if let Some(stringer) = obj.downcast_ref::<Box<dyn fmt::Display>>() {
             enc.encode_string(&self.key, &stringer.to_string());
