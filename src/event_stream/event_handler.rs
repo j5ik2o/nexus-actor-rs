@@ -6,9 +6,9 @@ use std::sync::Arc;
 
 // Handler defines a callback function that must be passed when subscribing.
 #[derive(Clone)]
-pub struct Handler(Arc<dyn Fn(MessageHandle) -> BoxFuture<'static, ()> + Send + Sync + 'static>);
+pub struct EventHandler(Arc<dyn Fn(MessageHandle) -> BoxFuture<'static, ()> + Send + Sync + 'static>);
 
-impl Handler {
+impl EventHandler {
   pub fn new<F, Fut>(f: F) -> Self
   where
     F: Fn(MessageHandle) -> Fut + Send + Sync + 'static,
@@ -21,21 +21,21 @@ impl Handler {
   }
 }
 
-impl Debug for Handler {
+impl Debug for EventHandler {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "Handler")
   }
 }
 
-impl PartialEq for Handler {
+impl PartialEq for EventHandler {
   fn eq(&self, _other: &Self) -> bool {
     Arc::ptr_eq(&self.0, &_other.0)
   }
 }
 
-impl Eq for Handler {}
+impl Eq for EventHandler {}
 
-impl std::hash::Hash for Handler {
+impl std::hash::Hash for EventHandler {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
     (self.0.as_ref() as *const dyn Fn(MessageHandle) -> BoxFuture<'static, ()>).hash(state);
   }

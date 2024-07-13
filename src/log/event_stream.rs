@@ -87,13 +87,13 @@ impl EventHandler {
 
 impl Debug for EventHandler {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "EventFunc")
+    write!(f, "EventHandler")
   }
 }
 
 impl PartialEq for EventHandler {
   fn eq(&self, _other: &Self) -> bool {
-    true
+    Arc::ptr_eq(&self.0, &_other.0)
   }
 }
 

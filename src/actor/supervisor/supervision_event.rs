@@ -7,7 +7,7 @@ use crate::actor::actor_system::ActorSystem;
 use crate::actor::log::P_LOG;
 use crate::actor::message::message::Message;
 use crate::actor::supervisor::directive::Directive;
-use crate::event_stream::handler::Handler;
+use crate::event_stream::event_handler::EventHandler;
 use crate::event_stream::subscription::Subscription;
 use crate::log::field::Field;
 
@@ -32,7 +32,7 @@ pub async fn subscribe_supervision(actor_system: &ActorSystem) -> Subscription {
   actor_system
     .get_event_stream()
     .await
-    .subscribe(Handler::new(move |evt| {
+    .subscribe(EventHandler::new(move |evt| {
       let evt = evt.as_any().downcast_ref::<SupervisorEvent>().cloned().map(Arc::new);
       async move {
         if let Some(supervisor_event) = evt {

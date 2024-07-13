@@ -16,7 +16,7 @@ use crate::actor::message::terminate_info::TerminateInfo;
 use crate::actor::message::terminate_reason::TerminateReason;
 use crate::actor::process::{Process, ProcessHandle};
 use crate::actor::util::throttler::{Throttle, ThrottleCallback, Valve};
-use crate::event_stream::handler::Handler;
+use crate::event_stream::event_handler::EventHandler;
 
 #[derive(Debug, Clone)]
 pub struct DeadLetterProcess {
@@ -58,7 +58,7 @@ impl DeadLetterProcess {
       .actor_system
       .get_event_stream()
       .await
-      .subscribe(Handler::new(move |msg| {
+      .subscribe(EventHandler::new(move |msg| {
         let cloned_msg = msg.clone();
         let cloned_self = cloned_self.clone();
         let cloned_throttle = throttle.clone();
@@ -112,7 +112,7 @@ impl DeadLetterProcess {
       .actor_system
       .get_event_stream()
       .await
-      .subscribe(Handler::new(move |msg| {
+      .subscribe(EventHandler::new(move |msg| {
         let cloned_msg = msg.clone();
         let cloned_self = cloned_self.clone();
         async move {

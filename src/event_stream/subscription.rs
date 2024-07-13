@@ -1,4 +1,4 @@
-use crate::event_stream::handler::Handler;
+use crate::event_stream::event_handler::EventHandler;
 use crate::event_stream::predicate::Predicate;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
@@ -6,13 +6,13 @@ use std::sync::Arc;
 #[derive(Debug, Clone)]
 pub struct Subscription {
   id: i32,
-  pub(crate) handler: Arc<Handler>,
+  pub(crate) handler: Arc<EventHandler>,
   pub(crate) predicate: Option<Predicate>,
   active: Arc<AtomicU32>,
 }
 
 impl Subscription {
-  pub fn new(id: i32, handler: Arc<Handler>, predicate: Option<Predicate>) -> Self {
+  pub fn new(id: i32, handler: Arc<EventHandler>, predicate: Option<Predicate>) -> Self {
     Subscription {
       id,
       handler,
