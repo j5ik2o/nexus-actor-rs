@@ -1,3 +1,4 @@
+pub mod io_encoder;
 pub mod log;
 pub mod log_caller;
 pub mod log_encoder;
