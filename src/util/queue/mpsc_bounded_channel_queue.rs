@@ -13,6 +13,7 @@ struct MpscBoundedQueueInner<E> {
   receiver: mpsc::Receiver<E>,
   count: usize,
   capacity: usize,
+  is_closed: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -30,17 +31,33 @@ impl<T> MpscBoundedChannelQueue<T> {
         receiver,
         count: 0,
         capacity: buffer,
+        is_closed: false,
       })),
     }
   }
 
   async fn try_recv(&self) -> Result<T, TryRecvError> {
     let mut inner_mg = self.inner.lock().await;
+    if inner_mg.is_closed {
+      return Err(TryRecvError::Disconnected);
+    }
     inner_mg.receiver.try_recv()
   }
 
-  async fn send(&self, element: T) -> Result<(), SendError<T>> {
-    self.sender.send(element).await
+  async fn try_send(&self, element: T) -> Result<(), SendError<T>> {
+    let inner_mg = self.inner.lock().await;
+    if inner_mg.is_closed {
+      return Err(SendError(element));
+    }
+    if inner_mg.count >= inner_mg.capacity {
+      return Err(SendError(element));
+    }
+    drop(inner_mg); // Release the lock before sending
+    match self.sender.try_send(element) {
+      Ok(()) => Ok(()),
+      Err(mpsc::error::TrySendError::Full(e)) => Err(SendError(e)),
+      Err(mpsc::error::TrySendError::Closed(e)) => Err(SendError(e)),
+    }
   }
 
   async fn increment_count(&self) {
@@ -70,7 +87,7 @@ impl<E: Element> QueueBase<E> for MpscBoundedChannelQueue<E> {
 #[async_trait]
 impl<E: Element> QueueWriter<E> for MpscBoundedChannelQueue<E> {
   async fn offer(&mut self, element: E) -> Result<(), QueueError<E>> {
-    match self.send(element).await {
+    match self.try_send(element).await {
       Ok(_) => {
         self.increment_count().await;
         Ok(())
@@ -97,5 +114,6 @@ impl<E: Element> QueueReader<E> for MpscBoundedChannelQueue<E> {
     let mut inner_mg = self.inner.lock().await;
     inner_mg.count = 0;
     inner_mg.receiver.close();
+    inner_mg.is_closed = true;
   }
 }

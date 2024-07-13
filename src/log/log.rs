@@ -6,9 +6,9 @@ use time::OffsetDateTime;
 
 use crate::log::caller::CallerInfo;
 use crate::log::event::Event;
+use crate::log::event_stream::{reset_event_stream, EventStream};
 use crate::log::field::Field;
 use crate::log::options::CURRENT;
-use crate::log::stream::{reset_event_stream, EventStream};
 use crate::log::string_encoder::{reset_global_logger, reset_no_std_err_logs, reset_subscription};
 
 #[derive(Debug, Clone, Copy, PartialOrd, PartialEq, Eq, TryFromPrimitive)]
