@@ -7,13 +7,13 @@ use tokio::sync::{mpsc, Mutex};
 
 use crate::log::caller::CallerInfo;
 use crate::log::encoder::Encoder;
-use crate::log::event::Event;
-use crate::log::event_stream::{unsubscribe_stream, EVENT_STREAM};
 use crate::log::log::Level;
+use crate::log::log_event::LogEvent;
+use crate::log::log_event_stream::{unsubscribe_stream, LOG_EVENT_STREAM};
 use crate::log::subscription::Subscription;
 
 pub struct IoLogger {
-  sender: mpsc::Sender<Event>,
+  sender: mpsc::Sender<LogEvent>,
   out: Arc<Mutex<Box<dyn Write + Send>>>,
 }
 
@@ -22,7 +22,7 @@ static NO_STD_ERR_LOGS: Lazy<Mutex<bool>> = Lazy::new(|| Mutex::new(false));
 static SUB: Lazy<Mutex<Option<Arc<Subscription>>>> = Lazy::new(|| Mutex::new(None));
 
 pub async fn set_no_std_err_logs() {
-  let subscriptions_count = EVENT_STREAM.subscriptions.read().await.len();
+  let subscriptions_count = LOG_EVENT_STREAM.subscriptions.read().await.len();
   if subscriptions_count >= 2 {
     let mut no_std_err_logs = NO_STD_ERR_LOGS.lock().await;
     *no_std_err_logs = true;
@@ -42,7 +42,7 @@ pub async fn init() {
   }
 
   let logger_for_subscriber = logger.clone();
-  reset_subscription_with(move |evt: Event| {
+  reset_subscription_with(move |evt: LogEvent| {
     let logger_for_subscriber = logger_for_subscriber.clone();
     async move {
       let _ = logger_for_subscriber.sender.try_send(evt);
@@ -67,13 +67,13 @@ pub async fn reset_global_logger() {
 
 pub async fn reset_subscription_with<F, Fut>(f: F)
 where
-  F: Fn(Event) -> Fut + Send + Sync + 'static,
+  F: Fn(LogEvent) -> Fut + Send + Sync + 'static,
   Fut: futures::Future<Output = ()> + Send + 'static, {
   let mut sub = SUB.lock().await;
   if let Some(old_sub) = sub.take() {
     unsubscribe_stream(&old_sub).await;
   }
-  *sub = Some(EVENT_STREAM.subscribe(f).await);
+  *sub = Some(LOG_EVENT_STREAM.subscribe(f).await);
 }
 
 pub async fn reset_subscription() {
@@ -84,11 +84,11 @@ pub async fn reset_subscription() {
   *sub = None;
 }
 
-async fn listen_event(mut receiver: mpsc::Receiver<Event>, out: Arc<Mutex<Box<dyn Write + Send>>>) {
+async fn listen_event(mut receiver: mpsc::Receiver<LogEvent>, out: Arc<Mutex<Box<dyn Write + Send>>>) {
   while let Some(event) = receiver.recv().await {
     if *NO_STD_ERR_LOGS.lock().await {
       if let Some(sub) = SUB.lock().await.take() {
-        EVENT_STREAM.unsubscribe(&sub).await;
+        LOG_EVENT_STREAM.unsubscribe(&sub).await;
       }
       break;
     }
@@ -96,7 +96,7 @@ async fn listen_event(mut receiver: mpsc::Receiver<Event>, out: Arc<Mutex<Box<dy
   }
 }
 
-async fn write_event(event: &Event, out: &Arc<Mutex<Box<dyn Write + Send>>>) {
+async fn write_event(event: &LogEvent, out: &Arc<Mutex<Box<dyn Write + Send>>>) {
   let mut buf = Vec::new();
   format_header(&mut buf, &event.prefix, event.time, event.level);
   if let Some(caller) = &event.caller {
@@ -207,7 +207,7 @@ impl<'a> Encoder for IoEncoder<'a> {
   }
 }
 
-pub async fn log(event: Event) {
+pub async fn log(event: LogEvent) {
   if let Some(logger) = GLOBAL_LOGGER.lock().await.as_ref() {
     let _ = logger.sender.try_send(event);
   }
