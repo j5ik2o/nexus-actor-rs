@@ -69,7 +69,8 @@ impl Logger {
     self
   }
 
-  pub fn with(&self, fields: Vec<Field>) -> Self {
+  pub fn with(&self, fields: impl IntoIterator<Item = Field>) -> Self {
+    let fields = fields.into_iter().collect::<Vec<_>>();
     let mut ctx = self.context.clone();
     ctx.extend(fields);
     Logger {

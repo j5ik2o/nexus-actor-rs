@@ -10,8 +10,8 @@ mod tests {
   #[tokio::test]
   async fn test_logger_with() {
     let event_stream = Arc::new(EventStream::new());
-    let base = Logger::new(event_stream, Level::Debug, "", vec![Field::string("first", "value")]);
-    let l = base.with(vec![Field::string("second", "value")]);
+    let base = Logger::new(event_stream, Level::Debug, "", [Field::string("first", "value")]);
+    let l = base.with([Field::string("second", "value")]);
 
     assert_eq!(
       vec![Field::string("first", "value"), Field::string("second", "value")],
@@ -22,9 +22,8 @@ mod tests {
   #[tokio::test]
   async fn test_off_level_two_fields() {
     let event_stream = Arc::new(EventStream::new());
-    let l = Logger::new(event_stream, Level::Min, "", vec![]);
-    l.debug("foo", vec![Field::int("bar", 32), Field::bool("fum", false)])
-      .await;
+    let l = Logger::new(event_stream, Level::Min, "", []);
+    l.debug("foo", [Field::int("bar", 32), Field::bool("fum", false)]).await;
   }
 
   #[tokio::test]
@@ -34,9 +33,9 @@ mod tests {
       event_stream,
       Level::Min,
       "",
-      vec![Field::int("bar", 32), Field::bool("fum", false)],
+      [Field::int("bar", 32), Field::bool("fum", false)],
     );
-    l.debug("foo", vec![]).await;
+    l.debug("foo", []).await;
   }
 
   #[tokio::test]
@@ -48,9 +47,9 @@ mod tests {
       event_stream,
       Level::Debug,
       "",
-      vec![Field::int("bar", 32), Field::bool("fum", false)],
+      [Field::int("bar", 32), Field::bool("fum", false)],
     );
-    l.debug("foo", vec![]).await;
+    l.debug("foo", []).await;
 
     unsubscribe_stream(&_s1).await;
   }
@@ -65,9 +64,9 @@ mod tests {
       event_stream,
       Level::Debug,
       "",
-      vec![Field::int("bar", 32), Field::bool("fum", false)],
+      [Field::int("bar", 32), Field::bool("fum", false)],
     );
-    l.debug("foo", vec![]).await;
+    l.debug("foo", []).await;
 
     unsubscribe_stream(&_s1).await;
     unsubscribe_stream(&_s2).await;
