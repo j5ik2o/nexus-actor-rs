@@ -1,4 +1,4 @@
-pub mod handler;
+pub mod event_handler;
 pub mod predicate;
 pub mod subscription;
 
@@ -9,7 +9,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::actor::message::message_handle::MessageHandle;
-use crate::event_stream::handler::Handler;
+use crate::event_stream::event_handler::EventHandler;
 use crate::event_stream::predicate::Predicate;
 use crate::event_stream::subscription::Subscription;
 
@@ -27,7 +27,7 @@ impl EventStream {
     }
   }
 
-  pub async fn subscribe(&self, handler: Handler) -> Subscription {
+  pub async fn subscribe(&self, handler: EventHandler) -> Subscription {
     let subscription = Subscription::new(self.counter.fetch_add(1, Ordering::SeqCst), Arc::new(handler), None);
     let mut subscriptions = self.subscriptions.write().await;
     subscriptions.push(subscription.clone());
@@ -38,10 +38,10 @@ impl EventStream {
   where
     F: Fn(MessageHandle) -> Fut + Send + Sync + 'static,
     Fut: Future<Output = ()> + Send + 'static, {
-    self.subscribe(Handler::new(f)).await
+    self.subscribe(EventHandler::new(f)).await
   }
 
-  pub async fn subscribe_with_predicate(&self, handler: Handler, predicate: Predicate) -> Subscription {
+  pub async fn subscribe_with_predicate(&self, handler: EventHandler, predicate: Predicate) -> Subscription {
     let subscription = Subscription::new(
       self.counter.fetch_add(1, Ordering::SeqCst),
       Arc::new(handler),

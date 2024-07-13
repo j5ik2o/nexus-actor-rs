@@ -5,9 +5,9 @@ use num_enum::TryFromPrimitive;
 use time::OffsetDateTime;
 
 use crate::log::caller::CallerInfo;
-use crate::log::event::Event;
-use crate::log::event_stream::{reset_event_stream, EventStream};
 use crate::log::field::Field;
+use crate::log::log_event::LogEvent;
+use crate::log::log_event_stream::{reset_event_stream, LogEventStream};
 use crate::log::options::CURRENT;
 use crate::log::string_encoder::{reset_global_logger, reset_no_std_err_logs, reset_subscription};
 
@@ -39,7 +39,7 @@ impl std::fmt::Display for Level {
 }
 
 pub struct Logger {
-  event_stream: Arc<EventStream>,
+  event_stream: Arc<LogEventStream>,
   level: Arc<AtomicI32>,
   prefix: String,
   context: Vec<Field>,
@@ -48,7 +48,7 @@ pub struct Logger {
 
 impl Logger {
   pub fn new(
-    event_stream: Arc<EventStream>,
+    event_stream: Arc<LogEventStream>,
     level: Level,
     prefix: &str,
     context: impl IntoIterator<Item = Field>,
@@ -96,8 +96,8 @@ impl Logger {
     self.context.clone()
   }
 
-  fn new_event(&self, msg: &str, level: Level, fields: impl IntoIterator<Item = Field>) -> Event {
-    let mut ev = Event {
+  fn new_event(&self, msg: &str, level: Level, fields: impl IntoIterator<Item = Field>) -> LogEvent {
+    let mut ev = LogEvent {
       time: OffsetDateTime::now_utc(),
       level,
       prefix: self.prefix.clone(),

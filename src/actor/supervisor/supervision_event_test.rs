@@ -24,7 +24,7 @@ mod test {
   use crate::actor::supervisor::strategy_restarting::RestartingStrategy;
   use crate::actor::supervisor::supervision_event::SupervisorEvent;
   use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
-  use crate::event_stream::handler::Handler;
+  use crate::event_stream::event_handler::EventHandler;
 
   #[derive(Debug)]
   struct PanicActor;
@@ -70,7 +70,7 @@ mod test {
       system
         .get_event_stream()
         .await
-        .subscribe(Handler::new(move |evt| {
+        .subscribe(EventHandler::new(move |evt| {
           let tx = tx.clone();
           async move {
             if evt.as_any().downcast_ref::<SupervisorEvent>().is_some() {

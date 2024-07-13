@@ -3,8 +3,8 @@ use std::sync::Mutex;
 
 use once_cell::sync::Lazy;
 
-use crate::log::event::Event;
 use crate::log::log::Level;
+use crate::log::log_event::LogEvent;
 
 #[derive(Clone, Debug)]
 pub struct Options {
@@ -41,7 +41,7 @@ impl Options {
   }
 }
 
-pub fn with_event_subscriber(fn_: Option<fn(Event)>) -> Box<dyn Fn(&mut Options)> {
+pub fn with_event_subscriber(fn_: Option<fn(LogEvent)>) -> Box<dyn Fn(&mut Options)> {
   Box::new(move |_opts: &mut Options| {
     // Assuming you have a function to reset the event subscriber
     reset_event_subscriber(fn_);
@@ -66,6 +66,6 @@ pub fn set_options(opts: &[Box<dyn Fn(&mut Options)>]) {
 }
 
 // This function should be implemented based on your event system
-fn reset_event_subscriber(_fn: Option<fn(Event)>) {
+fn reset_event_subscriber(_fn: Option<fn(LogEvent)>) {
   // Implementation here
 }

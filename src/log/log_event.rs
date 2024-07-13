@@ -5,7 +5,7 @@ use crate::log::field::Field;
 use crate::log::log::Level;
 
 #[derive(Debug, Clone)]
-pub struct Event {
+pub struct LogEvent {
   pub time: OffsetDateTime,
   pub level: Level,
   pub prefix: String,
@@ -15,9 +15,9 @@ pub struct Event {
   pub fields: Vec<Field>,
 }
 
-impl Event {
+impl LogEvent {
   pub fn new(level: Level, message: String) -> Self {
-    Event {
+    LogEvent {
       time: OffsetDateTime::now_utc(),
       level,
       prefix: String::new(),
