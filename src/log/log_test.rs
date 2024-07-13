@@ -11,7 +11,7 @@ mod tests {
   async fn test_logger_with() {
     let event_stream = LogEventStream::new();
     let base = Logger::new(event_stream, Level::Debug, "", [LogField::string("first", "value")]);
-    let l = base.with([LogField::string("second", "value")]);
+    let l = base.with_fields([LogField::string("second", "value")]);
 
     assert_eq!(
       vec![LogField::string("first", "value"), LogField::string("second", "value")],

@@ -47,19 +47,14 @@ pub struct Logger {
 }
 
 impl Logger {
-  pub fn new(
-    event_stream: Arc<LogEventStream>,
-    level: Level,
-    prefix: &str,
-    context: impl IntoIterator<Item = LogField>,
-  ) -> Self {
+  pub fn new(log_event_stream: Arc<LogEventStream>, level: Level, prefix: &str) -> Self {
     let opts = CURRENT.lock().unwrap();
     let level = if level == Level::Default { opts.log_level } else { level };
     Logger {
-      event_stream,
+      event_stream: log_event_stream,
       level: Arc::new(AtomicI32::new(level as i32)),
       prefix: prefix.to_string(),
-      context: context.into_iter().collect(),
+      context: vec![],
       enable_caller: opts.enable_caller,
     }
   }
@@ -69,7 +64,7 @@ impl Logger {
     self
   }
 
-  pub fn with(&self, fields: impl IntoIterator<Item = LogField>) -> Self {
+  pub fn with_fields(&self, fields: impl IntoIterator<Item = LogField>) -> Self {
     let fields = fields.into_iter().collect::<Vec<_>>();
     let mut ctx = self.context.clone();
     ctx.extend(fields);
@@ -112,7 +107,13 @@ impl Logger {
     ev
   }
 
-  pub async fn debug(&self, msg: &str, fields: impl IntoIterator<Item = LogField>) {
+  pub async fn debug(&self, msg: &str) {
+    if self.get_level() <= Level::Debug {
+      self.event_stream.publish(self.new_event(msg, Level::Debug, [])).await;
+    }
+  }
+
+  pub async fn debug_with_fields(&self, msg: &str, fields: impl IntoIterator<Item = LogField>) {
     if self.get_level() <= Level::Debug {
       self
         .event_stream
@@ -121,7 +122,13 @@ impl Logger {
     }
   }
 
-  pub async fn info(&self, msg: &str, fields: impl IntoIterator<Item = LogField>) {
+  pub async fn info(&self, msg: &str) {
+    if self.get_level() <= Level::Info {
+      self.event_stream.publish(self.new_event(msg, Level::Info, [])).await;
+    }
+  }
+
+  pub async fn info_with_fields(&self, msg: &str, fields: impl IntoIterator<Item = LogField>) {
     if self.get_level() <= Level::Info {
       self
         .event_stream
@@ -130,7 +137,13 @@ impl Logger {
     }
   }
 
-  pub async fn warn(&self, msg: &str, fields: impl IntoIterator<Item = LogField>) {
+  pub async fn warn(&self, msg: &str) {
+    if self.get_level() <= Level::Warn {
+      self.event_stream.publish(self.new_event(msg, Level::Warn, [])).await;
+    }
+  }
+
+  pub async fn warn_with_fields(&self, msg: &str, fields: impl IntoIterator<Item = LogField>) {
     if self.get_level() <= Level::Warn {
       self
         .event_stream
@@ -139,7 +152,13 @@ impl Logger {
     }
   }
 
-  pub async fn error(&self, msg: &str, fields: impl IntoIterator<Item = LogField>) {
+  pub async fn error(&self, msg: &str) {
+    if self.get_level() <= Level::Error {
+      self.event_stream.publish(self.new_event(msg, Level::Error, [])).await;
+    }
+  }
+
+  pub async fn error_with_fields(&self, msg: &str, fields: impl IntoIterator<Item = LogField>) {
     if self.get_level() <= Level::Error {
       self
         .event_stream
