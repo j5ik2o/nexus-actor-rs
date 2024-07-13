@@ -10,7 +10,7 @@ use crate::log::log::Level;
 use crate::log::log_event::LogEvent;
 use crate::log::subscription::Subscription;
 
-pub static LOG_EVENT_STREAM: Lazy<Arc<LogEventStream>> = Lazy::new(|| Arc::new(LogEventStream::new()));
+pub static LOG_EVENT_STREAM: Lazy<Arc<LogEventStream>> = Lazy::new(|| LogEventStream::new());
 
 pub fn get_global_log_event_stream() -> Arc<LogEventStream> {
   LOG_EVENT_STREAM.clone()
@@ -21,10 +21,10 @@ pub struct LogEventStream {
 }
 
 impl LogEventStream {
-  pub fn new() -> Self {
-    Self {
+  pub fn new() -> Arc<Self> {
+    Arc::new(Self {
       subscriptions: Arc::new(RwLock::new(Vec::new())),
-    }
+    })
   }
 
   pub async fn subscribe<F, Fut>(self: &Arc<Self>, f: F) -> Arc<Subscription>

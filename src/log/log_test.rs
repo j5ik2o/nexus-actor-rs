@@ -9,7 +9,7 @@ mod tests {
 
   #[tokio::test]
   async fn test_logger_with() {
-    let event_stream = Arc::new(LogEventStream::new());
+    let event_stream = LogEventStream::new();
     let base = Logger::new(event_stream, Level::Debug, "", [Field::string("first", "value")]);
     let l = base.with([Field::string("second", "value")]);
 
@@ -21,14 +21,14 @@ mod tests {
 
   #[tokio::test]
   async fn test_off_level_two_fields() {
-    let event_stream = Arc::new(LogEventStream::new());
+    let event_stream = LogEventStream::new();
     let l = Logger::new(event_stream, Level::Min, "", []);
     l.debug("foo", [Field::int("bar", 32), Field::bool("fum", false)]).await;
   }
 
   #[tokio::test]
   async fn test_off_level_only_context() {
-    let event_stream = Arc::new(LogEventStream::new());
+    let event_stream = LogEventStream::new();
     let l = Logger::new(
       event_stream,
       Level::Min,
@@ -40,7 +40,7 @@ mod tests {
 
   #[tokio::test]
   async fn test_debug_level_only_context_one_subscriber() {
-    let event_stream = Arc::new(LogEventStream::new());
+    let event_stream = LogEventStream::new();
     let _s1 = subscribe_stream(&event_stream, |_: LogEvent| async {}).await;
 
     let l = Logger::new(
@@ -56,7 +56,7 @@ mod tests {
 
   #[tokio::test]
   async fn test_debug_level_only_context_multiple_subscribers() {
-    let event_stream = Arc::new(LogEventStream::new());
+    let event_stream = LogEventStream::new();
     let _s1 = subscribe_stream(&event_stream, |_: LogEvent| async {}).await;
     let _s2 = subscribe_stream(&event_stream, |_: LogEvent| async {}).await;
 
@@ -74,7 +74,7 @@ mod tests {
 
   #[tokio::test]
   async fn test_subscribe_and_publish() {
-    let event_stream = Arc::new(LogEventStream::new());
+    let event_stream = LogEventStream::new();
     let received = Arc::new(RwLock::new(Vec::new()));
     let received_clone = Arc::clone(&received);
 
@@ -96,7 +96,7 @@ mod tests {
 
   #[tokio::test]
   async fn test_min_level_filtering() {
-    let event_stream = Arc::new(LogEventStream::new());
+    let event_stream = LogEventStream::new();
     let received = Arc::new(RwLock::new(Vec::new()));
     let received_clone = Arc::clone(&received);
 
