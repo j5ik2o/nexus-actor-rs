@@ -9,7 +9,6 @@ use tokio::sync::{Mutex, Notify};
 
 use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::actor_system::ActorSystem;
-use crate::actor::log::P_LOG;
 use crate::actor::message::dead_letter_response::DeadLetterResponse;
 use crate::actor::message::message::Message;
 use crate::actor::message::message_handle::MessageHandle;
@@ -123,10 +122,12 @@ impl FutureProcess {
       &format!("future_{}", id),
     );
     if !ok {
-      P_LOG
+      system
+        .get_logger()
+        .await
         .error_with_fields(
           "failed to register future process",
-          [LogField::stringer("pid", pid.to_string())],
+          [LogField::display("pid", pid.to_string())],
         )
         .await;
     }
@@ -141,10 +142,10 @@ impl FutureProcess {
 
         tokio::select! {
             _ = future.notify.notified() => {
-                tracing::debug!("Future completed");
+               system.get_logger().await.debug("Future completed").await;
             }
             _ = tokio::time::sleep(duration) => {
-                tracing::debug!("Future timed out");
+                system.get_logger().await.debug("Future timed out").await;
                 future_process_clone.handle_timeout().await;
             }
         }

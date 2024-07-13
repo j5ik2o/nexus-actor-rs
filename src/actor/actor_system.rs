@@ -53,7 +53,7 @@ impl<'a> LogEncoder for IoEncoder<'a> {
     write!(self.writer, "{}={}", key, val).unwrap();
   }
 
-  fn encode_duration(&mut self, key: &str, val: std::time::Duration) {
+  fn encode_duration(&mut self, key: &str, val: Duration) {
     write!(self.writer, "{}={:?}", key, val).unwrap();
   }
 
@@ -208,6 +208,10 @@ impl ActorSystem {
       request_id: 0,
     };
     ExtendedPid::new(pid, self.clone())
+  }
+
+  pub async fn get_logger(&self) -> Arc<Logger> {
+    self.inner.lock().await.logger.clone()
   }
 
   pub async fn get_address(&self) -> String {

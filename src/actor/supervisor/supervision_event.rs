@@ -40,9 +40,9 @@ pub async fn subscribe_supervision(actor_system: &ActorSystem) -> Subscription {
             .debug_with_fields(
               "[SUPERVISION]",
               [
-                LogField::stringer("actor", supervisor_event.child.clone()),
-                LogField::stringer("directive", supervisor_event.directive.clone()),
-                LogField::stringer("reason", supervisor_event.reason.clone()),
+                LogField::display("actor", supervisor_event.child.clone()),
+                LogField::display("directive", supervisor_event.directive.clone()),
+                LogField::display("reason", supervisor_event.reason.clone()),
               ],
             )
             .await;

@@ -23,7 +23,7 @@ mod tests {
   async fn test_off_level_two_fields() {
     let event_stream = LogEventStream::new();
     let l = Logger::new(event_stream, LogLevel::Min, "");
-    l.debug_with_fields("foo", [LogField::int("bar", 32), LogField::bool("fum", false)])
+    l.debug_with_fields("foo", [LogField::i32("bar", 32), LogField::bool("fum", false)])
       .await;
   }
 
@@ -31,7 +31,7 @@ mod tests {
   async fn test_off_level_only_context() {
     let event_stream = LogEventStream::new();
     let l = Logger::new(event_stream, LogLevel::Min, "")
-      .with_fields([LogField::int("bar", 32), LogField::bool("fum", false)]);
+      .with_fields([LogField::i32("bar", 32), LogField::bool("fum", false)]);
     l.debug("foo").await;
   }
 
@@ -41,7 +41,7 @@ mod tests {
     let _s1 = subscribe_stream(&event_stream, |_: LogEvent| async {}).await;
 
     let l = Logger::new(event_stream, LogLevel::Debug, "")
-      .with_fields([LogField::int("bar", 32), LogField::bool("fum", false)]);
+      .with_fields([LogField::i32("bar", 32), LogField::bool("fum", false)]);
     l.debug("foo").await;
 
     unsubscribe_stream(&_s1).await;
@@ -54,7 +54,7 @@ mod tests {
     let _s2 = subscribe_stream(&event_stream, |_: LogEvent| async {}).await;
 
     let l = Logger::new(event_stream, LogLevel::Debug, "")
-      .with_fields([LogField::int("bar", 32), LogField::bool("fum", false)]);
+      .with_fields([LogField::i32("bar", 32), LogField::bool("fum", false)]);
     l.debug("foo").await;
 
     unsubscribe_stream(&_s1).await;
