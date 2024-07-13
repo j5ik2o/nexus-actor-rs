@@ -8,7 +8,6 @@ pub static P_LOG: Lazy<Logger> = Lazy::new(|| {
     get_global_log_event_stream(),
     crate::log::log::Level::Debug,
     "[ACTOR]",
-    vec![],
   )
 });
 

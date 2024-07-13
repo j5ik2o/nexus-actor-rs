@@ -90,9 +90,9 @@ impl GuardianProcess {
       .add_process(ph, &format!("guardian-{}", id));
     if !ok {
       P_LOG
-        .error(
+        .error_with_fields(
           "failed to register guardian process",
-          vec![LogField::stringer("pid", pid.clone())],
+          [LogField::stringer("pid", pid.clone())],
         )
         .await
     }

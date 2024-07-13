@@ -124,9 +124,9 @@ impl FutureProcess {
     );
     if !ok {
       P_LOG
-        .error(
+        .error_with_fields(
           "failed to register future process",
-          vec![LogField::stringer("pid", pid.to_string())],
+          [LogField::stringer("pid", pid.to_string())],
         )
         .await;
     }

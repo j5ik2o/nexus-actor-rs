@@ -37,7 +37,7 @@ pub async fn subscribe_supervision(actor_system: &ActorSystem) -> Subscription {
       async move {
         if let Some(supervisor_event) = evt {
           P_LOG
-            .debug(
+            .debug_with_fields(
               "[SUPERVISION]",
               vec![
                 LogField::stringer("actor", supervisor_event.child.clone()),

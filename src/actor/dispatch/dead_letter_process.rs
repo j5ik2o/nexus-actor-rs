@@ -42,7 +42,6 @@ impl DeadLetterProcess {
       P_LOG
         .info(
           &format!("DeadLetterProcess: Throttling dead letters, count: {}", i),
-          vec![],
         )
         .await;
     });
@@ -96,8 +95,7 @@ impl DeadLetterProcess {
                         .map(|v| v.to_string())
                         .unwrap_or("None".to_string()),
                       is_ignore_dead_letter,
-                    ),
-                    vec![],
+                    )
                   )
                   .await
               }
