@@ -3,9 +3,9 @@ mod tests {
   use std::sync::{Arc, RwLock};
 
   use crate::log::event::Event;
+  use crate::log::event_stream::{publish_to_stream, subscribe_stream, unsubscribe_stream, EventStream};
   use crate::log::field::Field;
   use crate::log::log::{Level, Logger};
-  use crate::log::stream::{publish_to_stream, subscribe_stream, unsubscribe_stream, EventStream};
 
   #[tokio::test]
   async fn test_logger_with() {
