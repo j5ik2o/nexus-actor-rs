@@ -142,7 +142,7 @@ impl ActorSystemInner {
       })
       .await;
     let myself = ActorSystemInner {
-      id,
+      id: id.clone(),
       config,
       process_registry: None,
       root_context: None,
