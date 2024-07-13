@@ -14,7 +14,7 @@ use crate::actor::message::dead_letter_response::DeadLetterResponse;
 use crate::actor::message::message::Message;
 use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::process::{Process, ProcessHandle};
-use crate::log::field::Field;
+use crate::log::log_field::LogField;
 
 #[derive(Debug, Clone)]
 pub enum FutureError {
@@ -126,7 +126,7 @@ impl FutureProcess {
       P_LOG
         .error(
           "failed to register future process",
-          vec![Field::stringer("pid", pid.to_string())],
+          vec![LogField::stringer("pid", pid.to_string())],
         )
         .await;
     }

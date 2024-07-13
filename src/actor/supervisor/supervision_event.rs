@@ -9,7 +9,7 @@ use crate::actor::message::message::Message;
 use crate::actor::supervisor::directive::Directive;
 use crate::event_stream::event_handler::EventHandler;
 use crate::event_stream::subscription::Subscription;
-use crate::log::field::Field;
+use crate::log::log_field::LogField;
 
 #[derive(Debug, Clone)]
 pub struct SupervisorEvent {
@@ -40,9 +40,9 @@ pub async fn subscribe_supervision(actor_system: &ActorSystem) -> Subscription {
             .debug(
               "[SUPERVISION]",
               vec![
-                Field::stringer("actor", supervisor_event.child.clone()),
-                Field::stringer("directive", supervisor_event.directive.clone()),
-                Field::stringer("reason", supervisor_event.reason.clone()),
+                LogField::stringer("actor", supervisor_event.child.clone()),
+                LogField::stringer("directive", supervisor_event.directive.clone()),
+                LogField::stringer("reason", supervisor_event.reason.clone()),
               ],
             )
             .await;

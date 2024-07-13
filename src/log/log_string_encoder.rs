@@ -5,12 +5,12 @@ use once_cell::sync::Lazy;
 use time::OffsetDateTime;
 use tokio::sync::{mpsc, Mutex};
 
-use crate::log::caller::CallerInfo;
-use crate::log::encoder::Encoder;
 use crate::log::log::Level;
+use crate::log::log_caller::LogCallerInfo;
+use crate::log::log_encoder::LogEncoder;
 use crate::log::log_event::LogEvent;
 use crate::log::log_event_stream::{unsubscribe_stream, LOG_EVENT_STREAM};
-use crate::log::subscription::Subscription;
+use crate::log::log_subscription::LogSubscription;
 
 pub struct IoLogger {
   sender: mpsc::Sender<LogEvent>,
@@ -19,7 +19,7 @@ pub struct IoLogger {
 
 static GLOBAL_LOGGER: Lazy<Mutex<Option<Arc<IoLogger>>>> = Lazy::new(|| Mutex::new(None));
 static NO_STD_ERR_LOGS: Lazy<Mutex<bool>> = Lazy::new(|| Mutex::new(false));
-static SUB: Lazy<Mutex<Option<Arc<Subscription>>>> = Lazy::new(|| Mutex::new(None));
+static SUB: Lazy<Mutex<Option<Arc<LogSubscription>>>> = Lazy::new(|| Mutex::new(None));
 
 pub async fn set_no_std_err_logs() {
   let subscriptions_count = LOG_EVENT_STREAM.subscriptions.read().await.len();
@@ -133,7 +133,7 @@ fn format_header(buf: &mut Vec<u8>, prefix: &str, time: OffsetDateTime, level: L
   buf.push(b'\t');
 }
 
-fn format_caller(buf: &mut Vec<u8>, caller: &CallerInfo) {
+fn format_caller(buf: &mut Vec<u8>, caller: &LogCallerInfo) {
   let fname = caller.short_file_name();
   write!(buf, "{}:{}", fname, caller.line).unwrap();
   let v = 32 - fname.len();
@@ -160,7 +160,7 @@ impl<'a> IoEncoder<'a> {
   }
 }
 
-impl<'a> Encoder for IoEncoder<'a> {
+impl<'a> LogEncoder for IoEncoder<'a> {
   fn encode_bool(&mut self, key: &str, val: bool) {
     write!(self.writer, "{}={}", key, val).unwrap();
   }
@@ -201,7 +201,7 @@ impl<'a> Encoder for IoEncoder<'a> {
     write!(self.writer, "{}={:?}", key, val).unwrap();
   }
 
-  fn encode_caller(&mut self, key: &str, val: &CallerInfo) {
+  fn encode_caller(&mut self, key: &str, val: &LogCallerInfo) {
     let fname = val.short_file_name();
     write!(self.writer, "{}={}:{}", key, fname, val.line).unwrap();
   }

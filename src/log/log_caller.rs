@@ -3,18 +3,18 @@ use std::path::Path;
 use backtrace::Backtrace;
 
 #[derive(Debug, Clone)]
-pub struct CallerInfo {
+pub struct LogCallerInfo {
   pub(crate) fname: String,
   pub(crate) line: u32,
 }
 
-impl CallerInfo {
+impl LogCallerInfo {
   pub fn new(skip: usize) -> Self {
     let bt = Backtrace::new();
     let frames = bt.frames();
 
     if skip + 1 >= frames.len() {
-      return CallerInfo {
+      return LogCallerInfo {
         fname: String::new(),
         line: 0,
       };
@@ -47,7 +47,7 @@ impl CallerInfo {
   }
 }
 
-impl std::fmt::Display for CallerInfo {
+impl std::fmt::Display for LogCallerInfo {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}:{}", self.short_file_name(), self.line)
   }

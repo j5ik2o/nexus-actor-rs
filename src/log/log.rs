@@ -4,12 +4,12 @@ use std::sync::Arc;
 use num_enum::TryFromPrimitive;
 use time::OffsetDateTime;
 
-use crate::log::caller::CallerInfo;
-use crate::log::field::Field;
+use crate::log::log_caller::LogCallerInfo;
 use crate::log::log_event::LogEvent;
 use crate::log::log_event_stream::{reset_event_stream, LogEventStream};
-use crate::log::options::CURRENT;
-use crate::log::string_encoder::{reset_global_logger, reset_no_std_err_logs, reset_subscription};
+use crate::log::log_field::LogField;
+use crate::log::log_options::CURRENT;
+use crate::log::log_string_encoder::{reset_global_logger, reset_no_std_err_logs, reset_subscription};
 
 #[derive(Debug, Clone, Copy, PartialOrd, PartialEq, Eq, TryFromPrimitive)]
 #[repr(i32)]
@@ -42,7 +42,7 @@ pub struct Logger {
   event_stream: Arc<LogEventStream>,
   level: Arc<AtomicI32>,
   prefix: String,
-  context: Vec<Field>,
+  context: Vec<LogField>,
   enable_caller: bool,
 }
 
@@ -51,7 +51,7 @@ impl Logger {
     event_stream: Arc<LogEventStream>,
     level: Level,
     prefix: &str,
-    context: impl IntoIterator<Item = Field>,
+    context: impl IntoIterator<Item = LogField>,
   ) -> Self {
     let opts = CURRENT.lock().unwrap();
     let level = if level == Level::Default { opts.log_level } else { level };
@@ -69,7 +69,7 @@ impl Logger {
     self
   }
 
-  pub fn with(&self, fields: impl IntoIterator<Item = Field>) -> Self {
+  pub fn with(&self, fields: impl IntoIterator<Item = LogField>) -> Self {
     let fields = fields.into_iter().collect::<Vec<_>>();
     let mut ctx = self.context.clone();
     ctx.extend(fields);
@@ -92,11 +92,11 @@ impl Logger {
     self.level.store(level as i32, Ordering::Relaxed);
   }
 
-  pub fn get_context(&self) -> Vec<Field> {
+  pub fn get_context(&self) -> Vec<LogField> {
     self.context.clone()
   }
 
-  fn new_event(&self, msg: &str, level: Level, fields: impl IntoIterator<Item = Field>) -> LogEvent {
+  fn new_event(&self, msg: &str, level: Level, fields: impl IntoIterator<Item = LogField>) -> LogEvent {
     let mut ev = LogEvent {
       time: OffsetDateTime::now_utc(),
       level,
@@ -107,12 +107,12 @@ impl Logger {
       caller: None,
     };
     if self.enable_caller {
-      ev.caller = Some(CallerInfo::new(3));
+      ev.caller = Some(LogCallerInfo::new(3));
     }
     ev
   }
 
-  pub async fn debug(&self, msg: &str, fields: impl IntoIterator<Item = Field>) {
+  pub async fn debug(&self, msg: &str, fields: impl IntoIterator<Item = LogField>) {
     if self.get_level() <= Level::Debug {
       self
         .event_stream
@@ -121,7 +121,7 @@ impl Logger {
     }
   }
 
-  pub async fn info(&self, msg: &str, fields: impl IntoIterator<Item = Field>) {
+  pub async fn info(&self, msg: &str, fields: impl IntoIterator<Item = LogField>) {
     if self.get_level() <= Level::Info {
       self
         .event_stream
@@ -130,7 +130,7 @@ impl Logger {
     }
   }
 
-  pub async fn warn(&self, msg: &str, fields: impl IntoIterator<Item = Field>) {
+  pub async fn warn(&self, msg: &str, fields: impl IntoIterator<Item = LogField>) {
     if self.get_level() <= Level::Warn {
       self
         .event_stream
@@ -139,7 +139,7 @@ impl Logger {
     }
   }
 
-  pub async fn error(&self, msg: &str, fields: impl IntoIterator<Item = Field>) {
+  pub async fn error(&self, msg: &str, fields: impl IntoIterator<Item = LogField>) {
     if self.get_level() <= Level::Error {
       self
         .event_stream
