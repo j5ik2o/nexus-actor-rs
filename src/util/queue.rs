@@ -8,9 +8,13 @@ use thiserror::Error;
 use crate::util::element::Element;
 
 pub mod mpsc_bounded_channel_queue;
+mod mpsc_bounded_channel_queue_test;
 pub mod mpsc_unbounded_channel_queue;
+mod mpsc_unbounded_channel_queue_test;
 pub mod priority_queue;
+mod priority_queue_test;
 pub mod ring_queue;
+mod ring_queue_test;
 
 /// An error that occurs when a queue operation fails.<br/>
 /// キューの操作に失敗した場合に発生するエラー。
