@@ -148,14 +148,11 @@ impl ActorSystemInner {
       root_context: None,
       guardians: None,
       event_stream: Arc::new(EventStream::new()),
-      logger,
+      logger: logger.clone(),
       log_event_stream,
       dead_letter: None,
       extensions: ContextExtensions::new(),
     };
-    logger
-      .debug_with_fields("ActorSystemInner initialized", [LogField::string("id", &id)])
-      .await;
     myself
   }
 }
@@ -167,10 +164,11 @@ pub struct ActorSystem {
 
 impl ActorSystem {
   pub async fn new() -> Self {
-    Self::new_config_options(&[]).await
+    Self::new_config_options([]).await
   }
 
-  pub async fn new_config_options(options: &[ConfigOption]) -> Self {
+  pub async fn new_config_options(options: impl IntoIterator<Item=ConfigOption>) -> Self {
+    let options = options.into_iter().collect::<Vec<_>>();
     let config = Self::configure(options);
     Self::new_with_config(config).await
   }
@@ -248,7 +246,7 @@ impl ActorSystem {
     inner_mg.guardians.as_ref().unwrap().clone()
   }
 
-  fn configure(options: &[ConfigOption]) -> Config {
+  fn configure(options: Vec<ConfigOption>) -> Config {
     let mut config = Config::default();
     for option in options {
       option.apply(&mut config);

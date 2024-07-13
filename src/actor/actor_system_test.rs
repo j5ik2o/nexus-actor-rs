@@ -9,7 +9,7 @@ mod tests {
   use crate::actor::actor::actor::Actor;
   use crate::actor::actor::actor_error::ActorError;
   use crate::actor::actor::props::Props;
-  use crate::actor::actor_system::{ActorSystem, Config};
+  use crate::actor::actor_system::{ActorSystem, Config, ConfigOption};
   use crate::actor::context::context_handle::ContextHandle;
   use crate::actor::context::{InfoPart, SenderPart, SpawnerPart};
   use crate::actor::message::message::Message;
@@ -17,10 +17,16 @@ mod tests {
   use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
 
   use crate::actor::util::async_barrier::AsyncBarrier;
+  use crate::log::log::LogLevel;
 
   #[tokio::test]
   async fn test_actor_system_new() {
-    let system = ActorSystem::new().await;
+    let _ = env::set_var("RUST_LOG", "debug");
+    let _ = tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::from_default_env())
+        .try_init();
+
+    let system = ActorSystem::new_config_options([ConfigOption::SetLogLevel(LogLevel::Debug)]).await;
     let root = system.get_root_context().await;
     assert_eq!(root.get_self_opt().await, None);
 
