@@ -7,22 +7,22 @@ use crate::log::log::LogLevel;
 use crate::log::log_event::LogEvent;
 
 #[derive(Clone, Debug)]
-pub struct Options {
+pub struct LogOptions {
   pub(crate) log_level: LogLevel,
   pub(crate) enable_caller: bool,
 }
 
-pub static DEVELOPMENT: Lazy<Options> = Lazy::new(|| Options {
+pub(crate) static DEVELOPMENT: Lazy<LogOptions> = Lazy::new(|| LogOptions {
   log_level: LogLevel::Debug,
   enable_caller: true,
 });
 
-pub static PRODUCTION: Lazy<Options> = Lazy::new(|| Options {
+pub(crate) static PRODUCTION: Lazy<LogOptions> = Lazy::new(|| LogOptions {
   log_level: LogLevel::Info,
   enable_caller: false,
 });
 
-pub static CURRENT: Lazy<Mutex<Options>> = Lazy::new(|| {
+pub(crate) static CURRENT: Lazy<Mutex<LogOptions>> = Lazy::new(|| {
   let env = env::var("PROTO_ACTOR_ENV").unwrap_or_default();
   let options = match env.as_str() {
     "dev" => DEVELOPMENT.clone(),
@@ -31,8 +31,8 @@ pub static CURRENT: Lazy<Mutex<Options>> = Lazy::new(|| {
   Mutex::new(options)
 });
 
-impl Options {
-  pub fn with(&self, opts: &[Box<dyn Fn(&mut Options)>]) -> Options {
+impl LogOptions {
+  pub fn with(&self, opts: &[Box<dyn Fn(&mut LogOptions)>]) -> LogOptions {
     let mut cloned = self.clone();
     for opt in opts {
       opt(&mut cloned);
@@ -41,21 +41,20 @@ impl Options {
   }
 }
 
-pub fn with_event_subscriber(fn_: Option<fn(LogEvent)>) -> Box<dyn Fn(&mut Options)> {
-  Box::new(move |_opts: &mut Options| {
-    // Assuming you have a function to reset the event subscriber
+pub fn with_event_subscriber(fn_: Option<fn(LogEvent)>) -> Box<dyn Fn(&mut LogOptions)> {
+  Box::new(move |_opts: &mut LogOptions| {
     reset_event_subscriber(fn_);
   })
 }
 
-pub fn with_caller(enabled: bool) -> Box<dyn Fn(&mut Options)> {
-  Box::new(move |opts: &mut Options| {
+pub fn with_caller(enabled: bool) -> Box<dyn Fn(&mut LogOptions)> {
+  Box::new(move |opts: &mut LogOptions| {
     opts.enable_caller = enabled;
   })
 }
 
-pub fn with_default_level(level: LogLevel) -> Box<dyn Fn(&mut Options)> {
-  Box::new(move |opts: &mut Options| {
+pub fn with_default_level(level: LogLevel) -> Box<dyn Fn(&mut LogOptions)> {
+  Box::new(move |opts: &mut LogOptions| {
     opts.log_level = if level == LogLevel::Default {
       LogLevel::Info
     } else {
@@ -64,7 +63,7 @@ pub fn with_default_level(level: LogLevel) -> Box<dyn Fn(&mut Options)> {
   })
 }
 
-pub fn set_options(opts: &[Box<dyn Fn(&mut Options)>]) {
+pub fn set_options(opts: &[Box<dyn Fn(&mut LogOptions)>]) {
   let mut current = CURRENT.lock().unwrap();
   *current = current.with(opts);
 }
