@@ -20,7 +20,6 @@ use crate::log::log_caller::LogCallerInfo;
 use crate::log::log_encoder::LogEncoder;
 use crate::log::log_event::LogEvent;
 use crate::log::log_event_stream::LogEventStream;
-use crate::log::log_field::LogField;
 use std::io::Write;
 
 struct IoEncoder<'a> {
@@ -167,7 +166,7 @@ impl ActorSystem {
     Self::new_config_options([]).await
   }
 
-  pub async fn new_config_options(options: impl IntoIterator<Item=ConfigOption>) -> Self {
+  pub async fn new_config_options(options: impl IntoIterator<Item = ConfigOption>) -> Self {
     let options = options.into_iter().collect::<Vec<_>>();
     let config = Self::configure(options);
     Self::new_with_config(config).await

@@ -23,8 +23,8 @@ mod tests {
   async fn test_actor_system_new() {
     let _ = env::set_var("RUST_LOG", "debug");
     let _ = tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
-        .try_init();
+      .with_env_filter(EnvFilter::from_default_env())
+      .try_init();
 
     let system = ActorSystem::new_config_options([ConfigOption::SetLogLevel(LogLevel::Debug)]).await;
     let root = system.get_root_context().await;
