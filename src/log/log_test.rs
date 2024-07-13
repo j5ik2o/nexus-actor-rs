@@ -2,7 +2,7 @@
 mod tests {
   use std::sync::{Arc, RwLock};
 
-  use crate::log::log::{Level, Logger};
+  use crate::log::log::{LogLevel, Logger};
   use crate::log::log_event::LogEvent;
   use crate::log::log_event_stream::{publish_to_stream, subscribe_stream, unsubscribe_stream, LogEventStream};
   use crate::log::log_field::LogField;
@@ -10,7 +10,7 @@ mod tests {
   #[tokio::test]
   async fn test_logger_with() {
     let event_stream = LogEventStream::new();
-    let base = Logger::new(event_stream, Level::Debug, "").with_fields([LogField::string("first", "value")]);
+    let base = Logger::new(event_stream, LogLevel::Debug, "").with_fields([LogField::string("first", "value")]);
     let l = base.with_fields([LogField::string("second", "value")]);
 
     assert_eq!(
@@ -22,16 +22,16 @@ mod tests {
   #[tokio::test]
   async fn test_off_level_two_fields() {
     let event_stream = LogEventStream::new();
-    let l = Logger::new(event_stream, Level::Min, "");
-    l.debug_with_fields("foo", [LogField::int("bar", 32), LogField::bool("fum", false)])
+    let l = Logger::new(event_stream, LogLevel::Min, "");
+    l.debug_with_fields("foo", [LogField::i32("bar", 32), LogField::bool("fum", false)])
       .await;
   }
 
   #[tokio::test]
   async fn test_off_level_only_context() {
     let event_stream = LogEventStream::new();
-    let l =
-      Logger::new(event_stream, Level::Min, "").with_fields([LogField::int("bar", 32), LogField::bool("fum", false)]);
+    let l = Logger::new(event_stream, LogLevel::Min, "")
+      .with_fields([LogField::i32("bar", 32), LogField::bool("fum", false)]);
     l.debug("foo").await;
   }
 
@@ -40,8 +40,8 @@ mod tests {
     let event_stream = LogEventStream::new();
     let _s1 = subscribe_stream(&event_stream, |_: LogEvent| async {}).await;
 
-    let l =
-      Logger::new(event_stream, Level::Debug, "").with_fields([LogField::int("bar", 32), LogField::bool("fum", false)]);
+    let l = Logger::new(event_stream, LogLevel::Debug, "")
+      .with_fields([LogField::i32("bar", 32), LogField::bool("fum", false)]);
     l.debug("foo").await;
 
     unsubscribe_stream(&_s1).await;
@@ -53,8 +53,8 @@ mod tests {
     let _s1 = subscribe_stream(&event_stream, |_: LogEvent| async {}).await;
     let _s2 = subscribe_stream(&event_stream, |_: LogEvent| async {}).await;
 
-    let l =
-      Logger::new(event_stream, Level::Debug, "").with_fields([LogField::int("bar", 32), LogField::bool("fum", false)]);
+    let l = Logger::new(event_stream, LogLevel::Debug, "")
+      .with_fields([LogField::i32("bar", 32), LogField::bool("fum", false)]);
     l.debug("foo").await;
 
     unsubscribe_stream(&_s1).await;
@@ -75,7 +75,7 @@ mod tests {
     })
     .await;
 
-    publish_to_stream(&event_stream, LogEvent::new(Level::Info, "Test message".to_string())).await;
+    publish_to_stream(&event_stream, LogEvent::new(LogLevel::Info, "Test message".to_string())).await;
 
     assert_eq!(received.read().unwrap().len(), 1);
     assert_eq!(received.read().unwrap()[0], "Test message");
@@ -96,11 +96,15 @@ mod tests {
       }
     })
     .await
-    .with_min_level(Level::Warn);
+    .with_min_level(LogLevel::Warn);
 
-    publish_to_stream(&event_stream, LogEvent::new(Level::Info, "Info message".to_string())).await;
-    publish_to_stream(&event_stream, LogEvent::new(Level::Warn, "Warn message".to_string())).await;
-    publish_to_stream(&event_stream, LogEvent::new(Level::Error, "Error message".to_string())).await;
+    publish_to_stream(&event_stream, LogEvent::new(LogLevel::Info, "Info message".to_string())).await;
+    publish_to_stream(&event_stream, LogEvent::new(LogLevel::Warn, "Warn message".to_string())).await;
+    publish_to_stream(
+      &event_stream,
+      LogEvent::new(LogLevel::Error, "Error message".to_string()),
+    )
+    .await;
 
     assert_eq!(received.read().unwrap().len(), 2);
     assert_eq!(received.read().unwrap()[0], "Warn message");

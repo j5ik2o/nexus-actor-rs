@@ -1,4 +1,4 @@
-use crate::log::log::Level;
+use crate::log::log::LogLevel;
 use crate::log::log_event_handler::LogEventHandler;
 use crate::log::log_event_stream::LogEventStream;
 use std::sync::atomic::{AtomicI32, AtomicUsize, Ordering};
@@ -13,7 +13,7 @@ pub struct LogSubscription {
 }
 
 impl LogSubscription {
-  pub fn with_min_level(self: &Arc<Self>, level: Level) -> Arc<Self> {
+  pub fn with_min_level(self: &Arc<Self>, level: LogLevel) -> Arc<Self> {
     self.min_level.store(level as i32, Ordering::Relaxed);
     Arc::clone(self)
   }

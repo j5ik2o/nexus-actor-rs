@@ -10,14 +10,14 @@ use crate::log::log_encoder::LogEncoder;
 pub enum LogFieldType {
   Unknown,
   Bool,
-  Float,
-  Int,
-  Int64,
+  F64,
+  I32,
+  I64,
   Duration,
-  Uint,
-  Uint64,
+  U32,
+  U64,
   String,
-  Stringer,
+  Display,
   Error,
   Object,
   TypeOf,
@@ -51,50 +51,50 @@ impl LogField {
     }
   }
 
-  pub fn float64(key: &str, val: f64) -> Self {
+  pub fn f64(key: &str, val: f64) -> Self {
     LogField {
       key: key.to_string(),
-      field_type: LogFieldType::Float,
+      field_type: LogFieldType::F64,
       val: val.to_bits() as i64,
       str: String::new(),
       obj: None,
     }
   }
 
-  pub fn int(key: &str, val: i32) -> Self {
+  pub fn i32(key: &str, val: i32) -> Self {
     LogField {
       key: key.to_string(),
-      field_type: LogFieldType::Int,
+      field_type: LogFieldType::I32,
       val: val as i64,
       str: String::new(),
       obj: None,
     }
   }
 
-  pub fn int64(key: &str, val: i64) -> Self {
+  pub fn i64(key: &str, val: i64) -> Self {
     LogField {
       key: key.to_string(),
-      field_type: LogFieldType::Int64,
+      field_type: LogFieldType::I64,
       val,
       str: String::new(),
       obj: None,
     }
   }
 
-  pub fn uint(key: &str, val: u32) -> Self {
+  pub fn u32(key: &str, val: u32) -> Self {
     LogField {
       key: key.to_string(),
-      field_type: LogFieldType::Uint,
+      field_type: LogFieldType::U32,
       val: val as i64,
       str: String::new(),
       obj: None,
     }
   }
 
-  pub fn uint64(key: &str, val: u64) -> Self {
+  pub fn u64(key: &str, val: u64) -> Self {
     LogField {
       key: key.to_string(),
-      field_type: LogFieldType::Uint64,
+      field_type: LogFieldType::U64,
       val: val as i64,
       str: String::new(),
       obj: None,
@@ -111,10 +111,10 @@ impl LogField {
     }
   }
 
-  pub fn stringer<T: fmt::Display + Send + Sync + 'static>(key: &str, val: T) -> Self {
+  pub fn display<T: fmt::Display + Send + Sync + 'static>(key: &str, val: T) -> Self {
     LogField {
       key: key.to_string(),
-      field_type: LogFieldType::Stringer,
+      field_type: LogFieldType::Display,
       val: 0,
       str: String::new(),
       obj: Some(Arc::new(val)),
@@ -124,7 +124,7 @@ impl LogField {
   pub fn time(key: &str, val: SystemTime) -> Self {
     let duration = val.duration_since(UNIX_EPOCH).unwrap_or_default();
     let seconds = duration.as_secs_f64();
-    Self::float64(key, seconds)
+    Self::f64(key, seconds)
   }
 
   pub fn error(err: &dyn Error) -> Self {
@@ -136,8 +136,6 @@ impl LogField {
       obj: Some(Arc::new(err.to_string())),
     }
   }
-
-  // Stack関数の実装はRustでは複雑になるため、別途検討が必要です。
 
   pub fn duration(key: &str, val: Duration) -> Self {
     LogField {
@@ -179,14 +177,14 @@ impl LogField {
   pub fn encode(&self, enc: &mut dyn LogEncoder) {
     match self.field_type {
       LogFieldType::Bool => enc.encode_bool(&self.key, self.val != 0),
-      LogFieldType::Float => enc.encode_float64(&self.key, f64::from_bits(self.val as u64)),
-      LogFieldType::Int => enc.encode_int(&self.key, self.val as i32),
-      LogFieldType::Int64 => enc.encode_int64(&self.key, self.val),
-      LogFieldType::Duration => enc.encode_duration(&self.key, Duration::from_nanos(self.val as u64)),
-      LogFieldType::Uint => enc.encode_uint(&self.key, self.val as u32),
-      LogFieldType::Uint64 => enc.encode_uint64(&self.key, self.val as u64),
+      LogFieldType::F64 => enc.encode_float64(&self.key, f64::from_bits(self.val as u64)),
+      LogFieldType::I32 => enc.encode_int(&self.key, self.val as i32),
+      LogFieldType::I64 => enc.encode_int64(&self.key, self.val),
+      LogFieldType::U32 => enc.encode_uint(&self.key, self.val as u32),
+      LogFieldType::U64 => enc.encode_uint64(&self.key, self.val as u64),
       LogFieldType::String => enc.encode_string(&self.key, &self.str),
-      LogFieldType::Stringer => {
+      LogFieldType::Duration => enc.encode_duration(&self.key, Duration::from_nanos(self.val as u64)),
+      LogFieldType::Display => {
         if let Some(obj) = &self.obj {
           if let Some(stringer) = obj.downcast_ref::<Box<dyn fmt::Display>>() {
             enc.encode_string(&self.key, &stringer.to_string());

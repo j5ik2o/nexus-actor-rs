@@ -13,7 +13,7 @@ use crate::log::log_string_encoder::{reset_global_logger, reset_no_std_err_logs,
 
 #[derive(Debug, Clone, Copy, PartialOrd, PartialEq, Eq, TryFromPrimitive)]
 #[repr(i32)]
-pub enum Level {
+pub enum LogLevel {
   Min = 0,
   Debug = 1,
   Info = 2,
@@ -23,21 +23,22 @@ pub enum Level {
   Default = 6,
 }
 
-impl std::fmt::Display for Level {
+impl std::fmt::Display for LogLevel {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     let str = match self {
-      Level::Min => "-    ",
-      Level::Debug => "DEBUG",
-      Level::Info => "INFO ",
-      Level::Warn => "WARN ",
-      Level::Error => "ERROR",
-      Level::Off => "-    ",
-      Level::Default => "INFO ",
+      LogLevel::Min => "-    ",
+      LogLevel::Debug => "DEBUG",
+      LogLevel::Info => "INFO ",
+      LogLevel::Warn => "WARN ",
+      LogLevel::Error => "ERROR",
+      LogLevel::Off => "-    ",
+      LogLevel::Default => "INFO ",
     };
     write!(f, "{}", str)
   }
 }
 
+#[derive(Debug, Clone)]
 pub struct Logger {
   event_stream: Arc<LogEventStream>,
   level: Arc<AtomicI32>,
@@ -47,9 +48,13 @@ pub struct Logger {
 }
 
 impl Logger {
-  pub fn new(log_event_stream: Arc<LogEventStream>, level: Level, prefix: &str) -> Self {
+  pub fn new(log_event_stream: Arc<LogEventStream>, level: LogLevel, prefix: &str) -> Self {
     let opts = CURRENT.lock().unwrap();
-    let level = if level == Level::Default { opts.log_level } else { level };
+    let level = if level == LogLevel::Default {
+      opts.log_level
+    } else {
+      level
+    };
     Logger {
       event_stream: log_event_stream,
       level: Arc::new(AtomicI32::new(level as i32)),
@@ -77,13 +82,13 @@ impl Logger {
     }
   }
 
-  pub fn get_level(&self) -> Level {
+  pub fn get_level(&self) -> LogLevel {
     let level = self.level.load(Ordering::Relaxed);
     let n: i32 = unsafe { std::mem::transmute(level) };
-    Level::try_from(n).unwrap()
+    LogLevel::try_from(n).unwrap()
   }
 
-  pub fn set_level(&self, level: Level) {
+  pub fn set_level(&self, level: LogLevel) {
     self.level.store(level as i32, Ordering::Relaxed);
   }
 
@@ -91,7 +96,7 @@ impl Logger {
     self.context.clone()
   }
 
-  fn new_event(&self, msg: &str, level: Level, fields: impl IntoIterator<Item = LogField>) -> LogEvent {
+  fn new_event(&self, msg: &str, level: LogLevel, fields: impl IntoIterator<Item = LogField>) -> LogEvent {
     let mut ev = LogEvent {
       time: OffsetDateTime::now_utc(),
       level,
@@ -108,61 +113,67 @@ impl Logger {
   }
 
   pub async fn debug(&self, msg: &str) {
-    if self.get_level() <= Level::Debug {
-      self.event_stream.publish(self.new_event(msg, Level::Debug, [])).await;
+    if self.get_level() <= LogLevel::Debug {
+      self
+        .event_stream
+        .publish(self.new_event(msg, LogLevel::Debug, []))
+        .await;
     }
   }
 
   pub async fn debug_with_fields(&self, msg: &str, fields: impl IntoIterator<Item = LogField>) {
-    if self.get_level() <= Level::Debug {
+    if self.get_level() <= LogLevel::Debug {
       self
         .event_stream
-        .publish(self.new_event(msg, Level::Debug, fields))
+        .publish(self.new_event(msg, LogLevel::Debug, fields))
         .await;
     }
   }
 
   pub async fn info(&self, msg: &str) {
-    if self.get_level() <= Level::Info {
-      self.event_stream.publish(self.new_event(msg, Level::Info, [])).await;
+    if self.get_level() <= LogLevel::Info {
+      self.event_stream.publish(self.new_event(msg, LogLevel::Info, [])).await;
     }
   }
 
   pub async fn info_with_fields(&self, msg: &str, fields: impl IntoIterator<Item = LogField>) {
-    if self.get_level() <= Level::Info {
+    if self.get_level() <= LogLevel::Info {
       self
         .event_stream
-        .publish(self.new_event(msg, Level::Info, fields))
+        .publish(self.new_event(msg, LogLevel::Info, fields))
         .await;
     }
   }
 
   pub async fn warn(&self, msg: &str) {
-    if self.get_level() <= Level::Warn {
-      self.event_stream.publish(self.new_event(msg, Level::Warn, [])).await;
+    if self.get_level() <= LogLevel::Warn {
+      self.event_stream.publish(self.new_event(msg, LogLevel::Warn, [])).await;
     }
   }
 
   pub async fn warn_with_fields(&self, msg: &str, fields: impl IntoIterator<Item = LogField>) {
-    if self.get_level() <= Level::Warn {
+    if self.get_level() <= LogLevel::Warn {
       self
         .event_stream
-        .publish(self.new_event(msg, Level::Warn, fields))
+        .publish(self.new_event(msg, LogLevel::Warn, fields))
         .await;
     }
   }
 
   pub async fn error(&self, msg: &str) {
-    if self.get_level() <= Level::Error {
-      self.event_stream.publish(self.new_event(msg, Level::Error, [])).await;
+    if self.get_level() <= LogLevel::Error {
+      self
+        .event_stream
+        .publish(self.new_event(msg, LogLevel::Error, []))
+        .await;
     }
   }
 
   pub async fn error_with_fields(&self, msg: &str, fields: impl IntoIterator<Item = LogField>) {
-    if self.get_level() <= Level::Error {
+    if self.get_level() <= LogLevel::Error {
       self
         .event_stream
-        .publish(self.new_event(msg, Level::Error, fields))
+        .publish(self.new_event(msg, LogLevel::Error, fields))
         .await;
     }
   }
