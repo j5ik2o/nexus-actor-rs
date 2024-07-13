@@ -1,4 +1,3 @@
-use std::io::Write;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -19,8 +18,6 @@ use crate::ctxext::extensions::ContextExtensions;
 use crate::event_stream::EventStream;
 use crate::log::io_encoder::IoEncoder;
 use crate::log::log::{LogLevel, Logger};
-use crate::log::log_caller::LogCallerInfo;
-use crate::log::log_encoder::LogEncoder;
 use crate::log::log_event::LogEvent;
 use crate::log::log_event_stream::LogEventStream;
 
