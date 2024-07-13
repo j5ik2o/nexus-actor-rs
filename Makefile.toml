@@ -10,6 +10,5 @@ fi
 ''']
 script = '''
 #!/usr/bin/env bash
-cargo fix --allow-dirty
 cargo +nightly fmt
 '''

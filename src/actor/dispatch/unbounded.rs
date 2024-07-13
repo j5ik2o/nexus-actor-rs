@@ -73,7 +73,7 @@ pub fn unbounded_mailbox_creator_with_opts(
 }
 
 pub fn unbounded_mailbox_creator() -> MailboxProducer {
-  unbounded_mailbox_creator_with_opts(vec![])
+  unbounded_mailbox_creator_with_opts([])
 }
 
 pub fn unbounded_priority_mailbox_creator_with_opts(
