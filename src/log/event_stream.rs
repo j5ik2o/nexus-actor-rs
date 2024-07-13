@@ -1,6 +1,6 @@
 use std::fmt::{Debug, Formatter};
 use std::sync::atomic::{AtomicI32, AtomicUsize, Ordering};
-use std::sync::{Arc, Weak};
+use std::sync::Arc;
 
 use futures::future::BoxFuture;
 use once_cell::sync::Lazy;
@@ -8,6 +8,7 @@ use tokio::sync::RwLock;
 
 use crate::log::event::Event;
 use crate::log::log::Level;
+use crate::log::subscription::Subscription;
 
 pub static EVENT_STREAM: Lazy<Arc<EventStream>> = Lazy::new(|| Arc::new(EventStream::new()));
 
@@ -101,21 +102,6 @@ impl Eq for EventHandler {}
 impl std::hash::Hash for EventHandler {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
     (self.0.as_ref() as *const dyn Fn(Event) -> BoxFuture<'static, ()>).hash(state);
-  }
-}
-
-#[derive(Debug, Clone)]
-pub struct Subscription {
-  event_stream: Weak<EventStream>,
-  index: Arc<AtomicUsize>,
-  func: EventHandler,
-  min_level: Arc<AtomicI32>,
-}
-
-impl Subscription {
-  pub fn with_min_level(self: &Arc<Self>, level: Level) -> Arc<Self> {
-    self.min_level.store(level as i32, Ordering::Relaxed);
-    Arc::clone(self)
   }
 }
 

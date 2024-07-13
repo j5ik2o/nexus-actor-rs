@@ -8,8 +8,9 @@ use tokio::sync::{mpsc, Mutex};
 use crate::log::caller::CallerInfo;
 use crate::log::encoder::Encoder;
 use crate::log::event::Event;
-use crate::log::event_stream::{unsubscribe_stream, Subscription, EVENT_STREAM};
+use crate::log::event_stream::{unsubscribe_stream, EVENT_STREAM};
 use crate::log::log::Level;
+use crate::log::subscription::Subscription;
 
 pub struct IoLogger {
   sender: mpsc::Sender<Event>,

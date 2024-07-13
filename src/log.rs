@@ -7,3 +7,4 @@ pub mod log;
 mod log_test;
 pub mod options;
 pub mod string_encoder;
+pub mod subscription;
