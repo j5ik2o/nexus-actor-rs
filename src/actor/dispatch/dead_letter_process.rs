@@ -16,7 +16,7 @@ use crate::actor::message::terminate_info::TerminateInfo;
 use crate::actor::message::terminate_reason::TerminateReason;
 use crate::actor::process::{Process, ProcessHandle};
 use crate::actor::util::throttler::{Throttle, ThrottleCallback, Valve};
-use crate::event_stream::Handler;
+use crate::event_stream::handler::Handler;
 
 #[derive(Debug, Clone)]
 pub struct DeadLetterProcess {

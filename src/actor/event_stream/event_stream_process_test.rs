@@ -8,7 +8,7 @@ mod tests {
   use crate::actor::context::SenderPart;
   use crate::actor::message::message::Message;
   use crate::actor::message::message_handle::MessageHandle;
-  use crate::event_stream::Handler;
+  use crate::event_stream::handler::Handler;
 
   #[derive(Debug, Clone)]
   struct EsTestMsg;
