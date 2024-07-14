@@ -110,6 +110,11 @@ impl SenderPart for ContextHandle {
 
 #[async_trait]
 impl MessagePart for ContextHandle {
+  async fn get_message_envelope_opt(&self) -> Option<MessageEnvelope> {
+    let mg = self.0.lock().await;
+    mg.get_message_envelope_opt().await
+  }
+
   async fn get_message_handle_opt(&self) -> Option<MessageHandle> {
     let mg = self.0.lock().await;
     mg.get_message_handle_opt().await

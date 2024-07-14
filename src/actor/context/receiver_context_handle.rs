@@ -64,6 +64,12 @@ impl ReceiverPart for ReceiverContextHandle {
 
 #[async_trait]
 impl MessagePart for ReceiverContextHandle {
+  async fn get_message_envelope_opt(&self) -> Option<MessageEnvelope> {
+    let mg = self.0.lock().await;
+    let result = mg.get_message_envelope_opt().await;
+    result
+  }
+
   async fn get_message_handle_opt(&self) -> Option<MessageHandle> {
     let mg = self.0.lock().await;
     let result = mg.get_message_handle_opt().await;

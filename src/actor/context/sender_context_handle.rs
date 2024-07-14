@@ -10,6 +10,7 @@ use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::{InfoPart, MessagePart, SenderContext, SenderPart};
 use crate::actor::future::Future;
 use crate::actor::message::message_handle::MessageHandle;
+use crate::actor::message::message_or_envelope::MessageEnvelope;
 use crate::actor::message::readonly_message_headers::ReadonlyMessageHeadersHandle;
 
 #[derive(Debug, Clone)]
@@ -83,6 +84,11 @@ impl SenderPart for SenderContextHandle {
 
 #[async_trait]
 impl MessagePart for SenderContextHandle {
+  async fn get_message_envelope_opt(&self) -> Option<MessageEnvelope> {
+    let mg = self.0.lock().await;
+    mg.get_message_envelope_opt().await
+  }
+
   async fn get_message_handle_opt(&self) -> Option<MessageHandle> {
     let mg = self.0.lock().await;
     mg.get_message_handle_opt().await

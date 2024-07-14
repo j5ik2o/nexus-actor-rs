@@ -15,7 +15,6 @@ mod tests {
   use crate::actor::context::{BasePart, InfoPart, MessagePart, SenderPart, SpawnerPart};
   use crate::actor::message::message::Message;
   use crate::actor::message::message_handle::MessageHandle;
-  use crate::actor::message::message_or_envelope::MessageEnvelope;
   use crate::actor::message::response::ResponseHandle;
   use crate::actor::message::touched::Touched;
 
@@ -32,9 +31,8 @@ mod tests {
     let pid = root_context
       .spawn(
         Props::from_actor_receiver(move |ctx| async move {
-          if let Some(me) = ctx.get_message_handle().await.to_typed::<MessageEnvelope>() {
+          if let Some(msg) = ctx.get_message_handle().await.to_typed::<String>() {
             let self_pid = ctx.get_self().await;
-            let msg = me.get_message_handle().to_typed::<String>().unwrap().clone();
             if msg == "request" {
               ctx.respond(ResponseHandle::new("done".to_string())).await;
               Ok(())

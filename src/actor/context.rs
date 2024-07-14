@@ -112,6 +112,15 @@ pub trait BasePart: Debug + Send + Sync + 'static {
 
 #[async_trait]
 pub trait MessagePart: Debug + Send + Sync + 'static {
+  async fn get_message_envelope_opt(&self) -> Option<MessageEnvelope>;
+
+  async fn get_message_envelope(&self) -> MessageEnvelope {
+    self
+      .get_message_envelope_opt()
+      .await
+      .expect("message envelope not found")
+  }
+
   // Message returns the current message to be processed
   async fn get_message_handle_opt(&self) -> Option<MessageHandle>;
 

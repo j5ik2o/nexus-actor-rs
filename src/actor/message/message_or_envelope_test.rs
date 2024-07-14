@@ -11,7 +11,6 @@ mod test {
   use crate::actor::context::{BasePart, MessagePart, SenderPart, SpawnerPart};
   use crate::actor::message::message::Message;
   use crate::actor::message::message_handle::MessageHandle;
-  use crate::actor::message::message_or_envelope::MessageEnvelope;
   use crate::actor::message::readonly_message_headers::ReadonlyMessageHeaders;
   use crate::actor::message::response::ResponseHandle;
 
@@ -38,8 +37,8 @@ mod test {
     let system = ActorSystem::new().await;
 
     let props = Props::from_actor_receiver(move |ctx| async move {
-      let msg = ctx.get_message_handle().await;
-      if let Some(_) = msg.as_any().downcast_ref::<MessageEnvelope>() {
+      let msg = ctx.get_message_envelope_opt().await;
+      if msg.is_some() {
         let l = ctx
           .get_message_header_handle()
           .await
