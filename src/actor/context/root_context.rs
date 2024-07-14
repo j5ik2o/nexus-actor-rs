@@ -152,6 +152,10 @@ impl SenderPart for RootContext {
 
 #[async_trait]
 impl MessagePart for RootContext {
+  async fn get_message_envelope_opt(&self) -> Option<MessageEnvelope> {
+    None
+  }
+
   async fn get_message_handle_opt(&self) -> Option<MessageHandle> {
     None
   }

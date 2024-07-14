@@ -35,7 +35,7 @@ use crate::actor::message::continuation::Continuation;
 use crate::actor::message::failure::Failure;
 use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::message::message_or_envelope::{
-  unwrap_envelope_header, unwrap_envelope_sender, wrap_envelope, MessageEnvelope,
+  unwrap_envelope_header, unwrap_envelope_message, unwrap_envelope_sender, wrap_envelope, MessageEnvelope,
 };
 use crate::actor::message::not_influence_receive_timeout::NotInfluenceReceiveTimeoutHandle;
 use crate::actor::message::poison_pill::PoisonPill;
@@ -751,15 +751,24 @@ impl BasePart for ActorContext {
 
 #[async_trait]
 impl MessagePart for ActorContext {
+  async fn get_message_envelope_opt(&self) -> Option<MessageEnvelope> {
+    let inner_mg = self.inner.lock().await;
+    let mg = inner_mg.message_or_envelope_opt.lock().await;
+    if let Some(message_or_envelope) = &*mg {
+      message_or_envelope.to_typed::<MessageEnvelope>()
+    } else {
+      None
+    }
+  }
+
   async fn get_message_handle_opt(&self) -> Option<MessageHandle> {
     let inner_mg = self.inner.lock().await;
     let mg = inner_mg.message_or_envelope_opt.lock().await;
-    let result = if let Some(message_or_envelope) = &*mg {
-      Some(message_or_envelope.clone())
+    if let Some(message_or_envelope) = &*mg {
+      Some(unwrap_envelope_message(message_or_envelope.clone()))
     } else {
       None
-    };
-    result
+    }
   }
 
   async fn get_message_header_handle(&self) -> Option<ReadonlyMessageHeadersHandle> {

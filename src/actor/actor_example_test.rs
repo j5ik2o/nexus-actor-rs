@@ -13,7 +13,6 @@ mod tests {
   use crate::actor::message::auto_receive_message::AutoReceiveMessage;
   use crate::actor::message::message::Message;
   use crate::actor::message::message_handle::MessageHandle;
-  use crate::actor::message::message_or_envelope::MessageEnvelope;
   use crate::actor::message::response::ResponseHandle;
   use crate::actor::util::async_barrier::AsyncBarrier;
 
@@ -42,7 +41,7 @@ mod tests {
     root_context.stop_future(&pid).await.result().await.unwrap();
   }
 
-  #[derive(Debug)]
+  #[derive(Debug, Clone)]
   struct Request(pub String);
 
   impl Message for Request {
@@ -83,7 +82,7 @@ mod tests {
     let callee_props = Props::from_actor_receiver(move |ctx| async move {
       let msg = ctx.get_message_handle().await;
       tracing::debug!("callee msg = {:?}", msg);
-      if let Some(msg) = msg.to_typed::<MessageEnvelope>() {
+      if let Some(msg) = msg.to_typed::<Request>() {
         tracing::debug!("{:?}", msg);
         ctx.respond(ResponseHandle::new(Reply("PONG".to_string()))).await
       }
