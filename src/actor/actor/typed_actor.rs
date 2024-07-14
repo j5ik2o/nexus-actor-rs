@@ -11,7 +11,7 @@ use std::future::Future;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-type BehaviorFn<M> = Arc<dyn Fn(M, &mut TypedActorContext<M>) -> BoxFuture<'static, Behavior<M>> + Send + Sync>;
+type BehaviorFn<M> = Arc<dyn Fn(&mut TypedActorContext<M>) -> BoxFuture<'static, Behavior<M>> + Send + Sync>;
 
 #[derive(Clone)]
 pub struct Behavior<M: Message> {
@@ -27,24 +27,25 @@ impl<M: Message> Debug for Behavior<M> {
 impl<M: Message> Behavior<M> {
   pub fn new<F, Fut>(f: F) -> Self
   where
-    F: Fn(M, &mut TypedActorContext<M>) -> Fut + Send + Sync + 'static,
+    F: Fn(&mut TypedActorContext<M>) -> Fut + Send + Sync + 'static,
     Fut: Future<Output = Behavior<M>> + Send + 'static, {
     Behavior {
-      f: Arc::new(move |msg, ctx| Box::pin(f(msg, ctx))),
+      f: Arc::new(move |ctx| Box::pin(f(ctx))),
     }
   }
 
-  pub async fn receive(&self, msg: M, ctx: &mut TypedActorContext<M>) -> Behavior<M> {
-    (self.f)(msg, ctx).await
+  pub async fn receive(&self, ctx: &mut TypedActorContext<M>) -> Behavior<M> {
+    (self.f)(ctx).await
   }
 }
 
+#[derive(Debug, Clone)]
 pub struct TypedActorContext<M: Message> {
   context_handle: ContextHandle,
   _phantom: std::marker::PhantomData<M>,
 }
 
-impl<M: Message> TypedActorContext<M> {
+impl<M: Message + Clone> TypedActorContext<M> {
   pub fn new(context_handle: ContextHandle) -> Self {
     Self {
       context_handle,
@@ -52,9 +53,22 @@ impl<M: Message> TypedActorContext<M> {
     }
   }
 
-  pub fn context_handle(&self) -> &ContextHandle {
+  pub fn underlying(&self) -> &ContextHandle {
     &self.context_handle
   }
+
+  pub fn underlying_mut(&mut self) -> &mut ContextHandle {
+    &mut self.context_handle
+  }
+
+  pub async fn get_message_handle_opt(&self) -> Option<M> {
+    self.context_handle.get_message_handle().await.to_typed::<M>()
+  }
+
+  pub async fn get_message_handle(&self) -> M {
+    self.get_message_handle_opt().await.unwrap()
+  }
+
 }
 
 #[async_trait]
@@ -80,13 +94,10 @@ impl<A: BehaviorActor> TypedWrapper<A> {
 #[async_trait]
 impl<A: BehaviorActor + 'static> Actor for TypedWrapper<A> {
   async fn receive(&mut self, context_handle: ContextHandle) -> Result<(), ActorError> {
-    let message_handle = context_handle.get_message_handle().await;
-    let msg = message_handle.to_typed::<A::Message>().unwrap();
-
     let mut behavior_guard = self.behavior.lock().await;
     if let Some(current_behavior) = behavior_guard.take() {
       let mut actor_context = TypedActorContext::new(context_handle);
-      let new_behavior = current_behavior.receive(msg, &mut actor_context).await;
+      let new_behavior = current_behavior.receive(&mut actor_context).await;
       *behavior_guard = Some(new_behavior);
     } else {
       return Err(ActorError::BehaviorNotInitialized(ActorInnerError::new(
@@ -134,28 +145,33 @@ mod tests {
 
   impl StateSwitchingActor {
     fn informal_behavior(greeting_count: usize) -> Behavior<AppMessage> {
-      Behavior::new(move |msg, _ctx| async move {
-        match msg {
-          AppMessage::Greet(name) => {
-            let new_count = greeting_count + 1;
-            println!("Hey, {}! What's up? (Greetings: {})", name, new_count);
-            Self::informal_behavior(new_count)
-          }
-          AppMessage::SwitchToFormal => {
-            println!("Switching to formal behavior.");
-            Self::formal_behavior(greeting_count)
-          }
-          _ => {
-            println!("Informal: I don't understand that message.");
-            Self::informal_behavior(greeting_count)
+      Behavior::new(move |ctx| {
+        let ctx = ctx.clone();
+        async move {
+          match ctx.get_message_handle().await {
+            AppMessage::Greet(name) => {
+              let new_count = greeting_count + 1;
+              println!("Hey, {}! What's up? (Greetings: {})", name, new_count);
+              Self::informal_behavior(new_count)
+            }
+            AppMessage::SwitchToFormal => {
+              println!("Switching to formal behavior.");
+              Self::formal_behavior(greeting_count)
+            }
+            _ => {
+              println!("Informal: I don't understand that message.");
+              Self::informal_behavior(greeting_count)
+            }
           }
         }
       })
     }
 
     fn formal_behavior(greeting_count: usize) -> Behavior<AppMessage> {
-      Behavior::new(move |msg, _ctx| async move {
-        match msg {
+      Behavior::new(move |ctx| {
+        let ctx = ctx.clone();
+        async move {
+        match ctx.get_message_handle().await {
           AppMessage::Greet(name) => {
             let new_count = greeting_count + 1;
             println!("Good day, {}. How may I assist you? (Greetings: {})", name, new_count);
@@ -170,7 +186,7 @@ mod tests {
             Self::formal_behavior(greeting_count)
           }
         }
-      })
+      }})
     }
   }
 

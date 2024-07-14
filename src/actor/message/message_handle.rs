@@ -29,6 +29,10 @@ impl MessageHandle {
     }
   }
 
+  pub fn as_typed<T: 'static>(&self) -> Option<&T> {
+    self.0.as_any().downcast_ref::<T>()
+  }
+
   pub fn is_typed<T: 'static>(&self) -> bool {
     self.0.as_any().is::<T>()
   }
