@@ -21,7 +21,7 @@ pub trait Actor: Debug + Send + Sync + 'static {
       let arm = message_handle.to_typed::<AutoReceiveMessage>();
       match (me, arm) {
         (Some(_), None) => {
-          let message = unwrap_envelot pe_message(message_handle.clone());
+          let message = unwrap_envelope_message(message_handle.clone());
           tracing::debug!("Actor::handle: MessageEnvelope = {:?}", message);
           self.receive(context_handle.clone(), message).await
         }
