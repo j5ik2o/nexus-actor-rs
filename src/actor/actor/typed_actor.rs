@@ -68,7 +68,6 @@ impl<M: Message + Clone> TypedActorContext<M> {
   pub async fn get_message_handle(&self) -> M {
     self.get_message_handle_opt().await.unwrap()
   }
-
 }
 
 #[async_trait]
@@ -171,22 +170,23 @@ mod tests {
       Behavior::new(move |ctx| {
         let ctx = ctx.clone();
         async move {
-        match ctx.get_message_handle().await {
-          AppMessage::Greet(name) => {
-            let new_count = greeting_count + 1;
-            println!("Good day, {}. How may I assist you? (Greetings: {})", name, new_count);
-            Self::formal_behavior(new_count)
-          }
-          AppMessage::SwitchToInformal => {
-            println!("Switching to informal behavior.");
-            Self::informal_behavior(greeting_count)
-          }
-          _ => {
-            println!("Formal: I do not understand that message.");
-            Self::formal_behavior(greeting_count)
+          match ctx.get_message_handle().await {
+            AppMessage::Greet(name) => {
+              let new_count = greeting_count + 1;
+              println!("Good day, {}. How may I assist you? (Greetings: {})", name, new_count);
+              Self::formal_behavior(new_count)
+            }
+            AppMessage::SwitchToInformal => {
+              println!("Switching to informal behavior.");
+              Self::informal_behavior(greeting_count)
+            }
+            _ => {
+              println!("Formal: I do not understand that message.");
+              Self::formal_behavior(greeting_count)
+            }
           }
         }
-      }})
+      })
     }
   }
 
