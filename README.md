@@ -37,8 +37,10 @@ To add NEXUS-ACTo-rs to your project, follow these steps:
 2. Add the following line to the `[dependencies]` section:
 
 ```toml
-nexus-acto-rs = "0.0.4"
+nexus-acto-rs = "${version}"
 ```
+
+Specify the version number in ${version}, for example 0.0.1.
 
 3. If you want to use the latest version, you can check it by running:
 
