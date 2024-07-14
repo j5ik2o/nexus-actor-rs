@@ -5,8 +5,6 @@ pub mod actor_inner_error;
 pub mod actor_process;
 pub mod actor_producer;
 pub mod actor_receiver;
-pub mod behavior;
-mod behavior_logic_test;
 pub mod context_decorator;
 pub mod context_decorator_chain;
 pub mod context_handler;
@@ -24,6 +22,7 @@ pub mod sender_middleware_chain;
 pub mod spawn_middleware;
 pub mod spawner;
 pub mod taks;
+mod typed_actor;
 // include!(concat!(env!("OUT_DIR"), "/actor.rs"));
 
 #[derive(Debug, Clone, PartialEq)]

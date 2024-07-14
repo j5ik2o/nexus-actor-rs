@@ -14,7 +14,6 @@ mod tests {
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::context::context_handle::ContextHandle;
   use crate::actor::context::SpawnerPart;
-  use crate::actor::message::message_handle::MessageHandle;
   use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
 
   #[derive(Debug, Clone)]
@@ -32,7 +31,7 @@ mod tests {
       Ok(())
     }
 
-    async fn receive(&mut self, _: ContextHandle, _: MessageHandle) -> Result<(), ActorError> {
+    async fn receive(&mut self, _: ContextHandle) -> Result<(), ActorError> {
       Ok(())
     }
 

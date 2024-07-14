@@ -10,6 +10,7 @@ pub enum ActorError {
   StopError(ActorInnerError),
   InitializationError(ActorInnerError),
   CommunicationError(ActorInnerError),
+  BehaviorNotInitialized(ActorInnerError),
 }
 
 impl ActorError {
@@ -19,7 +20,8 @@ impl ActorError {
       | ActorError::RestartError(e)
       | ActorError::StopError(e)
       | ActorError::InitializationError(e)
-      | ActorError::CommunicationError(e) => Some(e),
+      | ActorError::CommunicationError(e)
+      | ActorError::BehaviorNotInitialized(e) => Some(e),
     }
   }
 }
@@ -32,6 +34,7 @@ impl Display for ActorError {
       ActorError::StopError(e) => write!(f, "Stop error: {}", e),
       ActorError::InitializationError(e) => write!(f, "Initialization error: {}", e),
       ActorError::CommunicationError(e) => write!(f, "Communication error: {}", e),
+      ActorError::BehaviorNotInitialized(e) => write!(f, "Behavior not initialized: {}", e),
     }
   }
 }
@@ -43,7 +46,8 @@ impl Error for ActorError {
       | ActorError::RestartError(e)
       | ActorError::StopError(e)
       | ActorError::InitializationError(e)
-      | ActorError::CommunicationError(e) => Some(e),
+      | ActorError::CommunicationError(e)
+      | ActorError::BehaviorNotInitialized(e) => Some(e),
     }
   }
 }

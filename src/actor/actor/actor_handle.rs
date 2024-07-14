@@ -6,7 +6,6 @@ use tokio::sync::Mutex;
 use crate::actor::actor::actor::Actor;
 use crate::actor::actor::actor_error::ActorError;
 use crate::actor::context::context_handle::ContextHandle;
-use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
 
 #[derive(Debug, Clone)]
@@ -43,9 +42,9 @@ impl Actor for ActorHandle {
     mg.handle(c).await
   }
 
-  async fn receive(&mut self, context_handle: ContextHandle, message_handle: MessageHandle) -> Result<(), ActorError> {
+  async fn receive(&mut self, context_handle: ContextHandle) -> Result<(), ActorError> {
     let mut mg = self.0.lock().await;
-    mg.receive(context_handle, message_handle).await
+    mg.receive(context_handle).await
   }
 
   async fn get_supervisor_strategy(&self) -> Option<SupervisorStrategyHandle> {

@@ -22,7 +22,7 @@ mod test {
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::context::context_handle::ContextHandle;
   use crate::actor::context::receiver_context_handle::ReceiverContextHandle;
-  use crate::actor::context::{SenderPart, SpawnerPart};
+  use crate::actor::context::{MessagePart, SenderPart, SpawnerPart};
   use crate::actor::message::auto_receive_message::AutoReceiveMessage;
   use crate::actor::message::message::Message;
   use crate::actor::message::message_handle::MessageHandle;
@@ -170,7 +170,7 @@ mod test {
       Ok(())
     }
 
-    async fn receive(&mut self, _: ContextHandle, _: MessageHandle) -> Result<(), ActorError> {
+    async fn receive(&mut self, _: ContextHandle) -> Result<(), ActorError> {
       tracing::debug!("ActorWithSupervisor::receive");
       Ok(())
     }
@@ -212,7 +212,8 @@ mod test {
       Ok(())
     }
 
-    async fn receive(&mut self, _: ContextHandle, message_handle: MessageHandle) -> Result<(), ActorError> {
+    async fn receive(&mut self, ctx: ContextHandle) -> Result<(), ActorError> {
+      let message_handle = ctx.get_message_handle().await;
       tracing::debug!("FailingChildActor::receive: msg = {:?}", message_handle);
       if let Some(StringMessage(msg)) = message_handle.to_typed::<StringMessage>() {
         tracing::debug!("FailingChildActor::receive: msg = {:?}", msg);
