@@ -15,7 +15,7 @@ impl Behavior {
     Behavior { stack: vec![] }
   }
 
-  pub async fn context_become<F, Fut>(&mut self, receive: F)
+  pub async fn transition<F, Fut>(&mut self, receive: F)
   where
     F: Fn(ContextHandle) -> Fut + Send + Sync + 'static,
     Fut: Future<Output = Result<(), ActorError>> + Send + 'static, {
@@ -23,14 +23,14 @@ impl Behavior {
     self.push(receive).await;
   }
 
-  pub async fn context_become_stacked<F, Fut>(&mut self, receive: F)
+  pub async fn transition_stacked<F, Fut>(&mut self, receive: F)
   where
     F: Fn(ContextHandle) -> Fut + Send + Sync + 'static,
     Fut: Future<Output = Result<(), ActorError>> + Send + 'static, {
     self.push(receive).await;
   }
 
-  pub async fn context_un_become_stacked(&mut self) {
+  pub async fn revert_transition(&mut self) {
     self.pop().await;
   }
 

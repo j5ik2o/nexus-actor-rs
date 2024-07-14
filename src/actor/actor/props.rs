@@ -131,7 +131,7 @@ impl Actor for ActorReceiverActor {
     self.0.run(ctx).await
   }
 
-  async fn receive(&mut self, _: ContextHandle, _: MessageHandle) -> Result<(), ActorError> {
+  async fn receive(&mut self, _: ContextHandle) -> Result<(), ActorError> {
     Ok(())
   }
 

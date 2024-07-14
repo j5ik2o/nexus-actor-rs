@@ -60,7 +60,7 @@ mod tests {
 
   #[async_trait]
   impl Actor for MyActor {
-    async fn receive(&mut self, _: ContextHandle, _: MessageHandle) -> Result<(), ActorError> {
+    async fn receive(&mut self, _: ContextHandle) -> Result<(), ActorError> {
       self.b.wait().await;
       Ok(())
     }

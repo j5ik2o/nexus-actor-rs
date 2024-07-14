@@ -7,6 +7,7 @@ pub mod actor_producer;
 pub mod actor_receiver;
 pub mod behavior;
 mod behavior_logic_test;
+mod behavior_test;
 pub mod context_decorator;
 pub mod context_decorator_chain;
 pub mod context_handler;

@@ -15,36 +15,23 @@ use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHand
 #[async_trait]
 pub trait Actor: Debug + Send + Sync + 'static {
   async fn handle(&mut self, context_handle: ContextHandle) -> Result<(), ActorError> {
-    if let Some(message_handle) = context_handle.get_message_handle_opt().await {
-      tracing::debug!("Actor::handle: message_handle = {:?}", message_handle);
-      let me = message_handle.to_typed::<MessageEnvelope>();
-      let arm = message_handle.to_typed::<AutoReceiveMessage>();
-      match (me, arm) {
-        (Some(_), None) => {
-          let message = unwrap_envelope_message(message_handle.clone());
-          tracing::debug!("Actor::handle: MessageEnvelope = {:?}", message);
-          self.receive(context_handle.clone(), message).await
-        }
-        (None, Some(arm)) => match arm {
-          AutoReceiveMessage::PreStart => self.pre_start(context_handle).await,
-          AutoReceiveMessage::PostStart => self.post_start(context_handle).await,
-          AutoReceiveMessage::PreRestart => self.pre_restart(context_handle).await,
-          AutoReceiveMessage::PostRestart => self.post_restart(context_handle).await,
-          AutoReceiveMessage::PreStop => self.pre_stop(context_handle).await,
-          AutoReceiveMessage::PostStop => self.post_stop(context_handle).await,
-          AutoReceiveMessage::Terminated(t) => self.post_child_terminate(context_handle, &t).await,
-        },
-        _ => self.receive(context_handle.clone(), message_handle).await,
-      }
-    } else {
-      tracing::error!("No message found");
-      Err(ActorError::ReceiveError(ActorInnerError::new(
-        "No message found".to_string(),
-      )))
+    let message_handle = context_handle.get_message_handle().await;
+    let arm = message_handle.to_typed::<AutoReceiveMessage>();
+    match arm {
+      Some(arm) => match arm {
+        AutoReceiveMessage::PreStart => self.pre_start(context_handle).await,
+        AutoReceiveMessage::PostStart => self.post_start(context_handle).await,
+        AutoReceiveMessage::PreRestart => self.pre_restart(context_handle).await,
+        AutoReceiveMessage::PostRestart => self.post_restart(context_handle).await,
+        AutoReceiveMessage::PreStop => self.pre_stop(context_handle).await,
+        AutoReceiveMessage::PostStop => self.post_stop(context_handle).await,
+        AutoReceiveMessage::Terminated(t) => self.post_child_terminate(context_handle, &t).await,
+      },
+      _ => self.receive(context_handle).await,
     }
   }
 
-  async fn receive(&mut self, context_handle: ContextHandle, message_handle: MessageHandle) -> Result<(), ActorError>;
+  async fn receive(&mut self, context_handle: ContextHandle) -> Result<(), ActorError>;
 
   async fn pre_start(&self, _: ContextHandle) -> Result<(), ActorError> {
     tracing::debug!("Actor::pre_start");

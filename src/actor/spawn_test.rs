@@ -32,7 +32,7 @@ mod tests {
       Ok(())
     }
 
-    async fn receive(&mut self, _: ContextHandle, _: MessageHandle) -> Result<(), ActorError> {
+    async fn receive(&mut self, _: ContextHandle) -> Result<(), ActorError> {
       Ok(())
     }
 

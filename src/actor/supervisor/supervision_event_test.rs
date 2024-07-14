@@ -15,7 +15,7 @@ mod test {
   use crate::actor::actor::props::Props;
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::context::context_handle::ContextHandle;
-  use crate::actor::context::{SenderPart, SpawnerPart};
+  use crate::actor::context::{MessagePart, SenderPart, SpawnerPart};
   use crate::actor::message::message::Message;
   use crate::actor::message::message_handle::MessageHandle;
   use crate::actor::supervisor::exponential_backoff_strategy::ExponentialBackoffStrategy;
@@ -31,8 +31,8 @@ mod test {
 
   #[async_trait]
   impl Actor for PanicActor {
-    async fn receive(&mut self, _: ContextHandle, message_handle: MessageHandle) -> Result<(), ActorError> {
-      if message_handle.to_typed::<String>().is_some() {
+    async fn receive(&mut self, ctx: ContextHandle) -> Result<(), ActorError> {
+      if ctx.get_message_handle().await.to_typed::<String>().is_some() {
         Err(ActorError::ReceiveError(ActorInnerError::new("Boom!".to_string())))
       } else {
         Ok(())
