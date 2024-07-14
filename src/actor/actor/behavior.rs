@@ -69,7 +69,7 @@ impl Behavior {
     self.stack.push(actor_receiver);
   }
 
-  async fn pop(&mut self) -> Option<ActorReceiver> {
+  pub(crate) async fn pop(&mut self) -> Option<ActorReceiver> {
     self.stack.pop()
   }
 
