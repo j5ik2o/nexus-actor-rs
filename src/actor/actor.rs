@@ -25,6 +25,7 @@ pub mod sender_middleware_chain;
 pub mod spawn_middleware;
 pub mod spawner;
 pub mod taks;
+mod typed_actor;
 // include!(concat!(env!("OUT_DIR"), "/actor.rs"));
 
 #[derive(Debug, Clone, PartialEq)]
