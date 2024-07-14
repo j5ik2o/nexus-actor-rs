@@ -61,12 +61,12 @@ impl<M: Message + Clone> TypedActorContext<M> {
     &mut self.context_handle
   }
 
-  pub async fn get_message_handle_opt(&self) -> Option<M> {
+  pub async fn get_message_opt(&self) -> Option<M> {
     self.context_handle.get_message_handle().await.to_typed::<M>()
   }
 
-  pub async fn get_message_handle(&self) -> M {
-    self.get_message_handle_opt().await.unwrap()
+  pub async fn get_message(&self) -> M {
+    self.get_message_opt().await.unwrap()
   }
 }
 
@@ -147,7 +147,7 @@ mod tests {
       Behavior::new(move |ctx| {
         let ctx = ctx.clone();
         async move {
-          match ctx.get_message_handle().await {
+          match ctx.get_message().await {
             AppMessage::Greet(name) => {
               let new_count = greeting_count + 1;
               println!("Hey, {}! What's up? (Greetings: {})", name, new_count);
@@ -170,7 +170,7 @@ mod tests {
       Behavior::new(move |ctx| {
         let ctx = ctx.clone();
         async move {
-          match ctx.get_message_handle().await {
+          match ctx.get_message().await {
             AppMessage::Greet(name) => {
               let new_count = greeting_count + 1;
               println!("Good day, {}. How may I assist you? (Greetings: {})", name, new_count);
