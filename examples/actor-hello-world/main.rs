@@ -4,7 +4,7 @@ use nexus_acto_rs::actor::actor::actor_error::ActorError;
 use nexus_acto_rs::actor::actor::props::Props;
 use nexus_acto_rs::actor::actor_system::ActorSystem;
 use nexus_acto_rs::actor::context::context_handle::ContextHandle;
-use nexus_acto_rs::actor::context::{SenderPart, SpawnerPart};
+use nexus_acto_rs::actor::context::{MessagePart, SenderPart, SpawnerPart};
 use nexus_acto_rs::actor::message::message::Message;
 use nexus_acto_rs::actor::message::message_handle::MessageHandle;
 use std::any::Any;
@@ -31,7 +31,8 @@ struct HelloActor;
 
 #[async_trait]
 impl Actor for HelloActor {
-  async fn receive(&mut self, _: ContextHandle, message_handle: MessageHandle) -> Result<(), ActorError> {
+  async fn receive(&mut self, ctx: ContextHandle) -> Result<(), ActorError> {
+    let message_handle = ctx.get_message_handle().await;
     let hello = message_handle.to_typed::<Hello>().unwrap();
     println!("Hello, {}!", hello.who);
     Ok(())

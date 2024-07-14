@@ -40,7 +40,8 @@ impl Actor for ChildActor {
     Ok(())
   }
 
-  async fn receive(&mut self, _: ContextHandle, message_handle: MessageHandle) -> Result<(), ActorError> {
+  async fn receive(&mut self, ctx: ContextHandle) -> Result<(), ActorError> {
+    let message_handle = ctx.get_message_handle().await;
     tracing::debug!("ChildActor::receive: msg = {:?}", message_handle);
     Ok(())
   }

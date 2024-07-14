@@ -29,11 +29,8 @@ impl Parent {
 
 #[async_trait]
 impl Actor for Parent {
-  async fn receive(
-    &mut self,
-    mut context_handle: ContextHandle,
-    message_handle: MessageHandle,
-  ) -> Result<(), ActorError> {
+  async fn receive(&mut self, mut context_handle: ContextHandle) -> Result<(), ActorError> {
+    let message_handle = context_handle.get_message_handle().await;
     let msg = message_handle.to_typed::<Hello>().unwrap();
     let props = Props::from_actor_producer(|_| async { Child::new() }).await;
     let child = context_handle.spawn(props).await;

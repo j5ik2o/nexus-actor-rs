@@ -3,10 +3,9 @@ mod tests {
   use crate::actor::actor::actor::Actor;
   use crate::actor::actor::actor_error::ActorError;
   use crate::actor::actor::behavior::Behavior;
-  use crate::actor::actor::props::Props;
-  use crate::actor::actor_system::ActorSystem;
+
   use crate::actor::context::context_handle::ContextHandle;
-  use crate::actor::context::{BasePart, MessagePart, SenderPart, SpawnerPart};
+  use crate::actor::context::{BasePart, MessagePart};
   use crate::actor::message::message::Message;
   use crate::actor::message::response::ResponseHandle;
   use async_trait::async_trait;

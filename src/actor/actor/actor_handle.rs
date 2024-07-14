@@ -6,7 +6,6 @@ use tokio::sync::Mutex;
 use crate::actor::actor::actor::Actor;
 use crate::actor::actor::actor_error::ActorError;
 use crate::actor::context::context_handle::ContextHandle;
-use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
 
 #[derive(Debug, Clone)]
