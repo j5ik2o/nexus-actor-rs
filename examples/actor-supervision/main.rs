@@ -5,7 +5,7 @@ use nexus_acto_rs::actor::actor::actor_inner_error::ActorInnerError;
 use nexus_acto_rs::actor::actor::props::Props;
 use nexus_acto_rs::actor::actor_system::ActorSystem;
 use nexus_acto_rs::actor::context::context_handle::ContextHandle;
-use nexus_acto_rs::actor::context::{SenderPart, SpawnerPart};
+use nexus_acto_rs::actor::context::{MessagePart, SenderPart, SpawnerPart};
 use nexus_acto_rs::actor::message::message::Message;
 use nexus_acto_rs::actor::message::message_handle::MessageHandle;
 use nexus_acto_rs::actor::supervisor::directive::Directive;
@@ -53,7 +53,8 @@ impl Child {
 
 #[async_trait]
 impl Actor for Child {
-  async fn receive(&mut self, _: ContextHandle, message_handle: MessageHandle) -> Result<(), ActorError> {
+  async fn receive(&mut self, ctx: ContextHandle) -> Result<(), ActorError> {
+    let message_handle = ctx.get_message_handle().await;
     let msg = message_handle.to_typed::<Hello>().unwrap();
     println!("Hello, {}", msg.who);
     msg.async_barrier.wait().await;

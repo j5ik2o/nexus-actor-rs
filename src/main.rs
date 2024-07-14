@@ -4,7 +4,7 @@ use nexus_acto_rs::actor::actor::actor_error::ActorError;
 use nexus_acto_rs::actor::actor::props::Props;
 use nexus_acto_rs::actor::actor_system::ActorSystem;
 use nexus_acto_rs::actor::context::context_handle::ContextHandle;
-use nexus_acto_rs::actor::context::{SenderPart, SpawnerPart};
+use nexus_acto_rs::actor::context::{MessagePart, SenderPart, SpawnerPart};
 use nexus_acto_rs::actor::dispatch::unbounded::unbounded_mpsc_mailbox_creator;
 use nexus_acto_rs::actor::message::message::Message;
 use nexus_acto_rs::actor::message::message_handle::MessageHandle;
@@ -64,7 +64,8 @@ impl Actor for TopActor {
     Ok(())
   }
 
-  async fn receive(&mut self, _: ContextHandle, message_handle: MessageHandle) -> Result<(), ActorError> {
+  async fn receive(&mut self, ctx: ContextHandle) -> Result<(), ActorError> {
+    let message_handle = ctx.get_message_handle().await;
     tracing::debug!("TopActor::receive: msg = {:?}", message_handle);
     Ok(())
   }

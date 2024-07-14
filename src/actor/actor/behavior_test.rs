@@ -8,15 +8,11 @@ mod tests {
   use crate::actor::context::context_handle::ContextHandle;
   use crate::actor::context::{BasePart, MessagePart, SenderPart, SpawnerPart};
   use crate::actor::message::message::Message;
-  use crate::actor::message::message_handle::MessageHandle;
   use crate::actor::message::response::ResponseHandle;
   use async_trait::async_trait;
   use std::any::Any;
-  use std::env;
   use std::sync::Arc;
-  use std::time::Duration;
   use tokio::sync::Mutex;
-  use tracing_subscriber::EnvFilter;
 
   #[derive(Debug, Clone, PartialEq, Eq)]
   struct BehaviorMessage;
@@ -119,10 +115,7 @@ mod tests {
 
   #[async_trait]
   impl Actor for EchoSetBehaviorActor {
-    async fn receive(
-      &mut self,
-      context_handle: ContextHandle,
-    ) -> Result<(), ActorError> {
+    async fn receive(&mut self, context_handle: ContextHandle) -> Result<(), ActorError> {
       let mg = self.behavior.lock().await;
       mg.receive(context_handle).await
     }
