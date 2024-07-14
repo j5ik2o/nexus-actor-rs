@@ -11,7 +11,8 @@ use std::future::Future;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-type BehaviorFn<M> = Arc<dyn Fn(&mut TypedActorContext<M>) -> BoxFuture<'static, Behavior<M>> + Send + Sync>;
+type BehaviorFn<M> =
+  Arc<dyn Fn(&mut TypedActorContext<M>) -> BoxFuture<'static, Result<Behavior<M>, ActorError>> + Send + Sync>;
 
 #[derive(Clone)]
 pub struct Behavior<M: Message> {
@@ -28,13 +29,13 @@ impl<M: Message> Behavior<M> {
   pub fn new<F, Fut>(f: F) -> Self
   where
     F: Fn(&mut TypedActorContext<M>) -> Fut + Send + Sync + 'static,
-    Fut: Future<Output = Behavior<M>> + Send + 'static, {
+    Fut: Future<Output = Result<Behavior<M>, ActorError>> + Send + 'static, {
     Behavior {
       f: Arc::new(move |ctx| Box::pin(f(ctx))),
     }
   }
 
-  pub async fn receive(&self, ctx: &mut TypedActorContext<M>) -> Behavior<M> {
+  pub async fn receive(&self, ctx: &mut TypedActorContext<M>) -> Result<Behavior<M>, ActorError> {
     (self.f)(ctx).await
   }
 }
@@ -74,7 +75,7 @@ impl<M: Message + Clone> TypedActorContext<M> {
 pub trait BehaviorActor: Debug {
   type Message: Message + Clone;
 
-  fn create_initial_behavior() -> Behavior<Self::Message>;
+  fn create_initial_behavior() -> Result<Behavior<Self::Message>, ActorError>;
 }
 
 #[derive(Debug)]
@@ -84,8 +85,11 @@ struct TypedWrapper<A: BehaviorActor> {
 
 impl<A: BehaviorActor> TypedWrapper<A> {
   fn new() -> Self {
-    Self {
-      behavior: Arc::new(Mutex::new(Some(A::create_initial_behavior()))),
+    match A::create_initial_behavior() {
+      Ok(behavior) => Self {
+        behavior: Arc::new(Mutex::new(Some(behavior))),
+      },
+      Err(err) => panic!("Failed to create initial behavior: {:?}", err),
     }
   }
 }
@@ -96,19 +100,28 @@ impl<A: BehaviorActor + 'static> Actor for TypedWrapper<A> {
     let mut behavior_guard = self.behavior.lock().await;
     if let Some(current_behavior) = behavior_guard.take() {
       let mut actor_context = TypedActorContext::new(context_handle);
-      let new_behavior = current_behavior.receive(&mut actor_context).await;
-      *behavior_guard = Some(new_behavior);
+      let result = current_behavior.receive(&mut actor_context).await;
+      match result {
+        Ok(new_behavior) => {
+          *behavior_guard = Some(new_behavior);
+          Ok(())
+        }
+        Err(err) => {
+          *behavior_guard = Some(current_behavior);
+          return Err(err);
+        }
+      }
     } else {
       return Err(ActorError::BehaviorNotInitialized(ActorInnerError::new(
         "Behavior not initialized".to_string(),
       )));
     }
-    Ok(())
   }
 }
 
 #[cfg(test)]
 mod tests {
+  use crate::actor::actor::actor_error::ActorError;
   use crate::actor::actor::props::Props;
   use crate::actor::actor::typed_actor::{Behavior, BehaviorActor, TypedWrapper};
   use crate::actor::actor_system::ActorSystem;
@@ -143,8 +156,8 @@ mod tests {
   struct StateSwitchingActor;
 
   impl StateSwitchingActor {
-    fn informal_behavior(greeting_count: usize) -> Behavior<AppMessage> {
-      Behavior::new(move |ctx| {
+    fn informal_behavior(greeting_count: usize) -> Result<Behavior<AppMessage>, ActorError> {
+      Ok(Behavior::new(move |ctx| {
         let ctx = ctx.clone();
         async move {
           match ctx.get_message().await {
@@ -163,11 +176,11 @@ mod tests {
             }
           }
         }
-      })
+      }))
     }
 
-    fn formal_behavior(greeting_count: usize) -> Behavior<AppMessage> {
-      Behavior::new(move |ctx| {
+    fn formal_behavior(greeting_count: usize) -> Result<Behavior<AppMessage>, ActorError> {
+      Ok(Behavior::new(move |ctx| {
         let ctx = ctx.clone();
         async move {
           match ctx.get_message().await {
@@ -186,14 +199,14 @@ mod tests {
             }
           }
         }
-      })
+      }))
     }
   }
 
   impl BehaviorActor for StateSwitchingActor {
     type Message = AppMessage;
 
-    fn create_initial_behavior() -> Behavior<Self::Message> {
+    fn create_initial_behavior() -> Result<Behavior<Self::Message>, ActorError> {
       Self::informal_behavior(0)
     }
   }
