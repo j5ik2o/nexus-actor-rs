@@ -3,7 +3,7 @@ use nexus_acto_rs::actor::actor_system::ActorSystem;
 use nexus_acto_rs::actor::context::{BasePart, MessagePart, SenderPart, SpawnerPart};
 use nexus_acto_rs::actor::message::message::Message;
 use nexus_acto_rs::actor::message::message_handle::MessageHandle;
-use nexus_acto_rs::actor::message::message_or_envelope::{unwrap_envelope_message, MessageEnvelope};
+use nexus_acto_rs::actor::message::message_or_envelope::unwrap_envelope_message;
 use nexus_acto_rs::actor::message::response::ResponseHandle;
 use std::any::Any;
 use std::time::Duration;
