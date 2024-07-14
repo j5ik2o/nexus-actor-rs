@@ -21,6 +21,7 @@ pub mod actor_context;
 mod actor_context_extras;
 mod actor_context_test;
 pub mod context_handle;
+pub mod mock_context;
 mod receive_timeout_timer;
 pub mod receiver_context_handle;
 pub mod root_context;

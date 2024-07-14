@@ -56,6 +56,7 @@ struct Completion(Arc<dyn Fn(Option<MessageHandle>, Option<FutureError>) -> BoxF
 unsafe impl Send for Completion {}
 
 unsafe impl Sync for Completion {}
+
 impl Completion {
   fn new<F, Fut>(f: F) -> Self
   where
