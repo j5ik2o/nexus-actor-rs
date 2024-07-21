@@ -15,6 +15,8 @@ pub mod util;
 
 mod actor_example_test;
 mod actor_system_test;
+pub mod child_test;
+pub mod interaction_test;
 mod spawn_example_test;
 mod spawn_named_example_test;
 mod spawn_test;
