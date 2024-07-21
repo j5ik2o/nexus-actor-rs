@@ -2,7 +2,7 @@ use crate::actor::actor::actor::Actor;
 use crate::actor::actor::actor_error::ActorError;
 use crate::actor::actor::actor_inner_error::ActorInnerError;
 use crate::actor::context::context_handle::ContextHandle;
-use crate::actor::context::MessagePart;
+use crate::actor::context::{BasePart, InfoPart, MessagePart, StopperPart};
 use crate::actor::message::message::Message;
 use async_trait::async_trait;
 use futures::future::BoxFuture;
@@ -15,8 +15,12 @@ type BehaviorFn<M> =
   Arc<dyn Fn(&mut TypedActorContext<M>) -> BoxFuture<'static, Result<Behavior<M>, ActorError>> + Send + Sync>;
 
 #[derive(Clone)]
-pub struct Behavior<M: Message> {
-  f: BehaviorFn<M>,
+pub enum Behavior<M: Message> {
+  Same,
+  Stopped,
+  Ignore,
+  Unhandled,
+  Func(BehaviorFn<M>),
 }
 
 impl<M: Message> Debug for Behavior<M> {
@@ -25,18 +29,22 @@ impl<M: Message> Debug for Behavior<M> {
   }
 }
 
-impl<M: Message> Behavior<M> {
+impl<M: Message + Clone> Behavior<M> {
   pub fn new<F, Fut>(f: F) -> Self
   where
     F: Fn(&mut TypedActorContext<M>) -> Fut + Send + Sync + 'static,
     Fut: Future<Output = Result<Behavior<M>, ActorError>> + Send + 'static, {
-    Behavior {
-      f: Arc::new(move |ctx| Box::pin(f(ctx))),
-    }
+    Behavior::Func(Arc::new(move |ctx| Box::pin(f(ctx))))
   }
 
   pub async fn receive(&self, ctx: &mut TypedActorContext<M>) -> Result<Behavior<M>, ActorError> {
-    (self.f)(ctx).await
+    match self {
+      Behavior::Func(f) => f(ctx).await,
+      Behavior::Same => Ok(self.clone()),
+      Behavior::Stopped => Ok(self.clone()),
+      Behavior::Ignore => Ok(self.clone()),
+      Behavior::Unhandled => Ok(self.clone()),
+    }
   }
 }
 
@@ -96,13 +104,36 @@ impl<A: BehaviorActor> TypedWrapper<A> {
 
 #[async_trait]
 impl<A: BehaviorActor + 'static> Actor for TypedWrapper<A> {
-  async fn receive(&mut self, context_handle: ContextHandle) -> Result<(), ActorError> {
+  async fn receive(&mut self, mut context_handle: ContextHandle) -> Result<(), ActorError> {
     let mut behavior_guard = self.behavior.lock().await;
     if let Some(current_behavior) = behavior_guard.take() {
-      let mut actor_context = TypedActorContext::new(context_handle);
+      let mut actor_context = TypedActorContext::new(context_handle.clone());
       let result = current_behavior.receive(&mut actor_context).await;
       match result {
+        Ok(Behavior::Same) => {
+          *behavior_guard = Some(current_behavior);
+          Ok(())
+        }
+        Ok(Behavior::Stopped) => {
+          *behavior_guard = Some(current_behavior);
+          let self_pid = context_handle.get_self().await;
+          context_handle.stop(&self_pid).await;
+          Ok(())
+        }
+        Ok(Behavior::Ignore) => {
+          *behavior_guard = Some(result.unwrap());
+          Ok(())
+        }
+        Ok(Behavior::Unhandled) => {
+          context_handle.stash().await;
+          *behavior_guard = Some(current_behavior);
+          Ok(())
+        }
         Ok(new_behavior) => {
+          let result = context_handle.un_stash_all().await;
+          if result.is_err() {
+            return Err(result.unwrap_err());
+          }
           *behavior_guard = Some(new_behavior);
           Ok(())
         }
@@ -172,7 +203,7 @@ mod tests {
             }
             _ => {
               println!("Informal: I don't understand that message.");
-              Self::informal_behavior(greeting_count)
+              Ok(Behavior::Same)
             }
           }
         }
@@ -195,7 +226,7 @@ mod tests {
             }
             _ => {
               println!("Formal: I do not understand that message.");
-              Self::formal_behavior(greeting_count)
+              Ok(Behavior::Same)
             }
           }
         }

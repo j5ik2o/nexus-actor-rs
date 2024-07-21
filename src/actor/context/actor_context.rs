@@ -317,17 +317,7 @@ impl ActorContext {
       return result;
     }
 
-    if let Some(extras) = self.get_extras().await {
-      while !extras.get_stash().await.is_empty().await {
-        let msg = extras.get_stash().await.pop().await.unwrap();
-        let result = self.invoke_user_message(msg).await;
-        if result.is_err() {
-          P_LOG.error("Failed to handle stashed message").await;
-          return result;
-        }
-      }
-    }
-    Ok(())
+    self.un_stash_all().await
   }
 
   async fn finalize_stop(&mut self) -> Result<(), ActorError> {
@@ -637,7 +627,21 @@ impl BasePart for ActorContext {
   async fn stash(&mut self) {
     let extra = self.ensure_extras().await;
     let mut stash = extra.get_stash().await;
-    stash.push(self.get_message_handle_opt().await.unwrap()).await;
+    stash.push(self.get_message_handle().await).await;
+  }
+
+  async fn un_stash_all(&mut self) -> Result<(), ActorError> {
+    if let Some(extras) = self.get_extras().await {
+      while !extras.get_stash().await.is_empty().await {
+        let msg = extras.get_stash().await.pop().await.unwrap();
+        let result = self.invoke_user_message(msg).await;
+        if result.is_err() {
+          P_LOG.error("Failed to handle stashed message").await;
+          return result;
+        }
+      }
+    }
+    Ok(())
   }
 
   async fn watch(&mut self, pid: &ExtendedPid) {
