@@ -17,6 +17,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: nightly

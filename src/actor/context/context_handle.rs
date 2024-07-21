@@ -178,6 +178,11 @@ impl BasePart for ContextHandle {
     mg.stash().await
   }
 
+  async fn un_stash_all(&mut self) -> Result<(), ActorError> {
+    let mut mg = self.0.lock().await;
+    mg.un_stash_all().await
+  }
+
   async fn watch(&mut self, pid: &ExtendedPid) {
     let mut mg = self.0.lock().await;
     mg.watch(pid).await

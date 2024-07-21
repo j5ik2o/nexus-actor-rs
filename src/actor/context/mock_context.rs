@@ -142,6 +142,10 @@ impl BasePart for MockContext {
     todo!()
   }
 
+  async fn un_stash_all(&mut self) -> Result<(), ActorError> {
+    todo!()
+  }
+
   async fn watch(&mut self, _: &ExtendedPid) {
     todo!()
   }

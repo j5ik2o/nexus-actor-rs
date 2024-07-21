@@ -89,6 +89,7 @@ pub trait BasePart: Debug + Send + Sync + 'static {
 
   // Stash stashes the current message on a stack for reprocessing when the actor restarts
   async fn stash(&mut self);
+  async fn un_stash_all(&mut self) -> Result<(), ActorError>;
 
   // Watch registers the actor as a monitor for the specified PID
   async fn watch(&mut self, pid: &ExtendedPid);
