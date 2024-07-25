@@ -1,6 +1,6 @@
 [package]
 name = "nexus-acto-rs"
-version = "0.5.2"
+version = "0.5.3"
 edition = "2021"
 build = "build.rs"
 description = "A Rust crate for Actors"
