@@ -321,6 +321,7 @@ impl ActorContext {
   }
 
   async fn finalize_stop(&mut self) -> Result<(), ActorError> {
+    tracing::debug!("ActorContext::finalize_stop");
     self
       .get_actor_system()
       .await
@@ -334,6 +335,7 @@ impl ActorContext {
       P_LOG.error("Failed to handle Stopped message").await;
       return result;
     }
+    tracing::debug!("ActorContext::finalize_stop: send Terminated");
     let other_stopped = MessageHandle::new(SystemMessage::Terminate(TerminateInfo {
       who: self.get_self_opt().await.map(|x| x.inner_pid),
       why: TerminateReason::Stopped,
@@ -355,19 +357,19 @@ impl ActorContext {
   }
 
   async fn stop_all_children(&mut self) {
-    match self.get_extras().await {
-      Some(extras) => {
-        let children = extras.get_children().await;
-        for child in children.to_vec().await {
-          self.stop(&child).await;
-        }
-      }
-      _ => {}
+    tracing::debug!("ActorContext::stop_all_children: start");
+    let extras = self.ensure_extras().await;
+    tracing::debug!("ActorContext::stop_all_children: extras = {:?}", extras);
+    let children = extras.get_children().await;
+    for child in children.to_vec().await {
+      tracing::debug!("ActorContext::stop_all_children: stop child = {:?}", child);
+      self.stop(&child).await;
     }
+    tracing::debug!("ActorContext::stop_all_children: finished");
   }
 
   async fn try_restart_or_terminate(&mut self) -> Result<(), ActorError> {
-    // tracing::debug!("ActorContext::try_restart_or_terminate");
+    tracing::debug!("ActorContext::try_restart_or_terminate");
     match self.get_extras().await {
       Some(extras) if extras.get_children().await.is_empty().await => {
         let state = {
@@ -377,6 +379,7 @@ impl ActorContext {
         };
         match state {
           State::Restarting => {
+            tracing::debug!("ActorContext::try_restart_or_terminate: Restarting");
             self.cancel_receive_timeout().await;
             let result = self.restart().await;
             if result.is_err() {
@@ -385,6 +388,7 @@ impl ActorContext {
             }
           }
           State::Stopping => {
+            tracing::debug!("ActorContext::try_restart_or_terminate: Stopping");
             self.cancel_receive_timeout().await;
             let result = self.finalize_stop().await;
             if result.is_err() {
@@ -392,10 +396,14 @@ impl ActorContext {
               return result;
             }
           }
-          _ => {}
+          _ => {
+            tracing::debug!("ActorContext::try_restart_or_terminate: default");
+          }
         }
       }
-      _ => {}
+      _ => {
+        tracing::debug!("ActorContext::try_restart_or_terminate: children not empty");
+      }
     }
     Ok(())
   }
@@ -515,7 +523,7 @@ impl ActorContext {
   }
 
   async fn handle_terminated(&mut self, terminated: &TerminateInfo) -> Result<(), ActorError> {
-    // tracing::debug!("ActorContext::handle_terminated: {:?}", terminated);
+    tracing::debug!("ActorContext::handle_terminated: {:?}", terminated);
     if let Some(mut extras) = self.get_extras().await {
       let pid = ExtendedPid::new(terminated.clone().who.unwrap(), self.get_actor_system().await);
       extras.remove_child(&pid).await;
@@ -1160,6 +1168,7 @@ impl Supervisor for ActorContext {
   }
 
   async fn stop_children(&self, pids: &[ExtendedPid]) {
+    tracing::debug!("ActorContext::stop_children: pids = {:?}", pids);
     for pid in pids {
       pid
         .send_system_message(self.get_actor_system().await, MessageHandle::new(SystemMessage::Stop))
