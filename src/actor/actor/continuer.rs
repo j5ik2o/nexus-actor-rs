@@ -4,12 +4,12 @@ use std::sync::Arc;
 
 use futures::future::BoxFuture;
 
-use crate::actor::future::FutureError;
+use crate::actor::future::ActorFutureError;
 use crate::actor::message::message_handle::MessageHandle;
 
 #[derive(Clone)]
 pub struct Continuer(
-  Arc<dyn Fn(Option<MessageHandle>, Option<FutureError>) -> BoxFuture<'static, ()> + Send + Sync + 'static>,
+    Arc<dyn Fn(Option<MessageHandle>, Option<ActorFutureError>) -> BoxFuture<'static, ()> + Send + Sync + 'static>,
 );
 
 unsafe impl Send for Continuer {}
@@ -18,12 +18,12 @@ unsafe impl Sync for Continuer {}
 impl Continuer {
   pub fn new<F, Fut>(f: F) -> Self
   where
-    F: Fn(Option<MessageHandle>, Option<FutureError>) -> Fut + Send + Sync + 'static,
+    F: Fn(Option<MessageHandle>, Option<ActorFutureError>) -> Fut + Send + Sync + 'static,
     Fut: Future<Output = ()> + Send + 'static, {
     Self(Arc::new(move |m, e| Box::pin(f(m, e))))
   }
 
-  pub async fn run(&self, result: Option<MessageHandle>, error: Option<FutureError>) {
+  pub async fn run(&self, result: Option<MessageHandle>, error: Option<ActorFutureError>) {
     (self.0)(result, error).await
   }
 }
@@ -44,7 +44,7 @@ impl Eq for Continuer {}
 
 impl std::hash::Hash for Continuer {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    (self.0.as_ref() as *const dyn Fn(Option<MessageHandle>, Option<FutureError>) -> BoxFuture<'static, ()>)
+    (self.0.as_ref() as *const dyn Fn(Option<MessageHandle>, Option<ActorFutureError>) -> BoxFuture<'static, ()>)
       .hash(state);
   }
 }

@@ -17,7 +17,7 @@ use crate::actor::context::spawner_context_handle::SpawnerContextHandle;
 use crate::actor::context::{
   InfoPart, MessagePart, SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart,
 };
-use crate::actor::future::{Future, FutureProcess};
+use crate::actor::future::{ActorFuture, FutureProcess};
 use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::message::message_headers::MessageHeaders;
 use crate::actor::message::message_or_envelope::MessageEnvelope;
@@ -141,7 +141,7 @@ impl SenderPart for RootContext {
       .await
   }
 
-  async fn request_future(&self, pid: ExtendedPid, message_handle: MessageHandle, timeout: Duration) -> Future {
+  async fn request_future(&self, pid: ExtendedPid, message_handle: MessageHandle, timeout: Duration) -> ActorFuture {
     let future_process = FutureProcess::new(self.get_actor_system().await, timeout).await;
     let future_pid = future_process.get_pid().await;
     let moe = MessageEnvelope::new(message_handle).with_sender(future_pid.clone());
@@ -234,7 +234,7 @@ impl StopperPart for RootContext {
     pid.ref_process(self.get_actor_system().await).await.stop(pid).await
   }
 
-  async fn stop_future_with_timeout(&mut self, pid: &ExtendedPid, timeout: Duration) -> Future {
+  async fn stop_future_with_timeout(&mut self, pid: &ExtendedPid, timeout: Duration) -> ActorFuture {
     let future_process = FutureProcess::new(self.get_actor_system().await, timeout).await;
 
     let future_pid = future_process.get_pid().await.clone();
@@ -257,7 +257,7 @@ impl StopperPart for RootContext {
       .await
   }
 
-  async fn poison_future_with_timeout(&mut self, pid: &ExtendedPid, timeout: Duration) -> Future {
+  async fn poison_future_with_timeout(&mut self, pid: &ExtendedPid, timeout: Duration) -> ActorFuture {
     let future_process = FutureProcess::new(self.get_actor_system().await, timeout).await;
 
     let future_pid = future_process.get_pid().await.clone();

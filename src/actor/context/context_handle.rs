@@ -15,7 +15,7 @@ use crate::actor::context::{
   BasePart, Context, ExtensionContext, ExtensionPart, InfoPart, MessagePart, ReceiverContext, ReceiverPart,
   SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart,
 };
-use crate::actor::future::Future;
+use crate::actor::future::ActorFuture;
 use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::message::message_or_envelope::MessageEnvelope;
 use crate::actor::message::readonly_message_headers::ReadonlyMessageHeadersHandle;
@@ -102,7 +102,7 @@ impl SenderPart for ContextHandle {
     mg.request_with_custom_sender(pid, message_handle, sender).await
   }
 
-  async fn request_future(&self, pid: ExtendedPid, message_handle: MessageHandle, timeout: Duration) -> Future {
+  async fn request_future(&self, pid: ExtendedPid, message_handle: MessageHandle, timeout: Duration) -> ActorFuture {
     let mg = self.0.lock().await;
     mg.request_future(pid, message_handle, timeout).await
   }
@@ -208,7 +208,7 @@ impl BasePart for ContextHandle {
     mg.forward(pid).await
   }
 
-  async fn reenter_after(&self, f: Future, continuation: Continuer) {
+  async fn reenter_after(&self, f: ActorFuture, continuation: Continuer) {
     let mg = self.0.lock().await;
     mg.reenter_after(f, continuation).await
   }
@@ -221,7 +221,7 @@ impl StopperPart for ContextHandle {
     mg.stop(pid).await
   }
 
-  async fn stop_future_with_timeout(&mut self, pid: &ExtendedPid, timeout: Duration) -> Future {
+  async fn stop_future_with_timeout(&mut self, pid: &ExtendedPid, timeout: Duration) -> ActorFuture {
     let mut mg = self.0.lock().await;
     mg.stop_future_with_timeout(pid, timeout).await
   }
@@ -231,7 +231,7 @@ impl StopperPart for ContextHandle {
     mg.poison(pid).await
   }
 
-  async fn poison_future_with_timeout(&mut self, pid: &ExtendedPid, timeout: Duration) -> Future {
+  async fn poison_future_with_timeout(&mut self, pid: &ExtendedPid, timeout: Duration) -> ActorFuture {
     let mut mg = self.0.lock().await;
     mg.poison_future_with_timeout(pid, timeout).await
   }

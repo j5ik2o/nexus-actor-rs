@@ -10,7 +10,7 @@ use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::actor::props::Props;
 use crate::actor::actor::spawner::SpawnError;
 use crate::actor::actor_system::ActorSystem;
-use crate::actor::future::Future;
+use crate::actor::future::ActorFuture;
 use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::message::message_or_envelope::MessageEnvelope;
 use crate::actor::message::readonly_message_headers::ReadonlyMessageHeadersHandle;
@@ -109,7 +109,7 @@ pub trait BasePart: Debug + Send + Sync + 'static {
   // Forward forwards current message to the given PID
   async fn forward(&self, pid: &ExtendedPid);
 
-  async fn reenter_after(&self, f: Future, continuation: Continuer);
+  async fn reenter_after(&self, f: ActorFuture, continuation: Continuer);
 }
 
 #[async_trait]
@@ -149,7 +149,7 @@ pub trait SenderPart: Debug + Send + Sync + 'static {
   async fn request_with_custom_sender(&mut self, pid: ExtendedPid, message_handle: MessageHandle, sender: ExtendedPid);
 
   // RequestFuture sends a message to a given PID and returns a Future
-  async fn request_future(&self, pid: ExtendedPid, message_handle: MessageHandle, timeout: Duration) -> Future;
+  async fn request_future(&self, pid: ExtendedPid, message_handle: MessageHandle, timeout: Duration) -> ActorFuture;
 }
 
 #[async_trait]
@@ -179,9 +179,9 @@ pub trait StopperPart: Debug + Send + Sync + 'static {
   async fn stop(&mut self, pid: &ExtendedPid);
 
   // StopFuture will stop actor immediately regardless of existing user messages in mailbox, and return its future.
-  async fn stop_future_with_timeout(&mut self, pid: &ExtendedPid, timeout: Duration) -> Future;
+  async fn stop_future_with_timeout(&mut self, pid: &ExtendedPid, timeout: Duration) -> ActorFuture;
 
-  async fn stop_future(&mut self, pid: &ExtendedPid) -> Future {
+  async fn stop_future(&mut self, pid: &ExtendedPid) -> ActorFuture {
     self.stop_future_with_timeout(pid, Duration::from_secs(10)).await
   }
 
@@ -189,9 +189,9 @@ pub trait StopperPart: Debug + Send + Sync + 'static {
   async fn poison(&mut self, pid: &ExtendedPid);
 
   // PoisonFuture will tell actor to stop after processing current user messages in mailbox, and return its future.
-  async fn poison_future_with_timeout(&mut self, pid: &ExtendedPid, timeout: Duration) -> Future;
+  async fn poison_future_with_timeout(&mut self, pid: &ExtendedPid, timeout: Duration) -> ActorFuture;
 
-  async fn poison_future(&mut self, pid: &ExtendedPid) -> Future {
+  async fn poison_future(&mut self, pid: &ExtendedPid) -> ActorFuture {
     self.stop_future_with_timeout(pid, Duration::from_secs(10)).await
   }
 }
