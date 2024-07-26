@@ -8,16 +8,17 @@ pub mod tests {
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::context::context_handle::ContextHandle;
   use crate::actor::context::{BasePart, MessagePart, SenderPart, SpawnerPart, StopperPart};
-  use crate::actor::future::FutureProcess;
+  use crate::actor::future::ActorFutureProcess;
   use crate::actor::interaction_test::tests::BlackHoleActor;
+  use crate::actor::message::auto_receive_message::AutoReceiveMessage;
   use crate::actor::message::message::Message;
   use crate::actor::message::message_handle::MessageHandle;
   use crate::actor::message::response::ResponseHandle;
+  use crate::actor::util::async_barrier::AsyncBarrier;
   use async_trait::async_trait;
   use std::any::Any;
-  use std::env;
   use std::time::Duration;
-  use tracing_subscriber::EnvFilter;
+  use tokio::time::sleep;
 
   #[derive(Debug, Clone)]
   struct CreateChildMessage;
@@ -176,10 +177,10 @@ pub mod tests {
 
   #[tokio::test]
   async fn test_actor_can_stop_children() {
-    let _ = env::set_var("RUST_LOG", "debug");
-    let _ = tracing_subscriber::fmt()
-      .with_env_filter(EnvFilter::from_default_env())
-      .try_init();
+    // let _ = env::set_var("RUST_LOG", "debug");
+    // let _ = tracing_subscriber::fmt()
+    //   .with_env_filter(EnvFilter::from_default_env())
+    //   .try_init();
 
     let system = ActorSystem::new().await;
     let mut root_context = system.get_root_context().await;
@@ -194,8 +195,8 @@ pub mod tests {
         .await;
     }
 
-    let future1 = FutureProcess::new(system.clone(), Duration::from_secs(5)).await;
-    let future2 = FutureProcess::new(system.clone(), Duration::from_secs(5)).await;
+    let future1 = ActorFutureProcess::new(system.clone(), Duration::from_secs(5)).await;
+    let future2 = ActorFutureProcess::new(system.clone(), Duration::from_secs(5)).await;
 
     root_context
       .send(
@@ -213,5 +214,95 @@ pub mod tests {
 
     let r2 = future2.result().await.unwrap();
     assert_eq!(0, r2.to_typed::<GetChildCountResponse>().unwrap().child_count);
+  }
+
+  #[tokio::test]
+  async fn test_actor_receives_terminated_from_watched() {
+    let system = ActorSystem::new().await;
+    let mut root_context = system.get_root_context().await;
+
+    let child = root_context
+      .spawn(Props::from_actor_receiver(|_| async { Ok(()) }).await)
+      .await;
+    let cloned_child = child.clone();
+    let future = ActorFutureProcess::new(system.clone(), Duration::from_secs(5)).await;
+    let cloned_future = future.clone();
+
+    let ab = AsyncBarrier::new(2);
+    let cloned_ab = ab.clone();
+
+    root_context
+      .spawn(
+        Props::from_actor_receiver(move |mut ctx| {
+          let cloned_child = cloned_child.clone();
+          let cloned_ab = cloned_ab.clone();
+          let cloned_future = cloned_future.clone();
+          async move {
+            let msg = ctx.get_message_handle().await;
+            if let Some(AutoReceiveMessage::PostStart) = msg.to_typed::<AutoReceiveMessage>() {
+              ctx.watch(&cloned_child).await;
+              cloned_ab.wait().await;
+            }
+            if let Some(AutoReceiveMessage::Terminated(ti)) = msg.to_typed::<AutoReceiveMessage>() {
+              let mut ac = ctx.to_actor_context().await.unwrap();
+              if ti.who.unwrap() == cloned_child.inner_pid
+                && ac.ensure_extras().await.get_watchers().await.is_empty().await
+              {
+                ctx.send(cloned_future.get_pid().await, MessageHandle::new(true)).await;
+              }
+            }
+            Ok(())
+          }
+        })
+        .await,
+      )
+      .await;
+    ab.wait().await;
+    root_context.stop(&child).await;
+
+    future.result().await.unwrap();
+  }
+
+  #[tokio::test]
+  async fn test_future_does_timeout() {
+    let system = ActorSystem::new().await;
+    let mut root_context = system.get_root_context().await;
+
+    let pid = root_context
+      .spawn(Props::from_actor_receiver(|_| async { Ok(()) }).await)
+      .await;
+    let future = root_context
+      .request_future(pid, MessageHandle::new("".to_string()), Duration::from_millis(1))
+      .await;
+    let result = future.result().await;
+    assert!(result.is_err());
+  }
+
+  #[tokio::test]
+  async fn test_future_does_not_timeout() {
+    let system = ActorSystem::new().await;
+    let mut root_context = system.get_root_context().await;
+
+    let pid = root_context
+      .spawn(
+        Props::from_actor_receiver(|ctx| async move {
+          let msg = ctx.get_message_handle().await;
+          if let Some(_) = msg.to_typed::<String>() {
+            sleep(Duration::from_millis(50)).await;
+            ctx.respond(ResponseHandle::new("foo".to_string())).await;
+          }
+          Ok(())
+        })
+        .await,
+      )
+      .await;
+    let future = root_context
+      .request_future(pid, MessageHandle::new("".to_string()), Duration::from_secs(2))
+      .await;
+    let result = future.result().await;
+    assert!(result.is_ok());
+    let msg_handle = result.unwrap();
+    let msg = msg_handle.to_typed::<String>().unwrap();
+    assert_eq!("foo", msg);
   }
 }

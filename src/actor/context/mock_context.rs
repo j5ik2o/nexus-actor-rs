@@ -9,7 +9,7 @@ use crate::actor::context::{
   BasePart, Context, ExtensionContext, ExtensionPart, InfoPart, MessagePart, ReceiverContext, ReceiverPart,
   SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart,
 };
-use crate::actor::future::{ActorFuture, FutureProcess};
+use crate::actor::future::{ActorFuture, ActorFutureProcess};
 use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::message::message_or_envelope::MessageEnvelope;
 use crate::actor::message::readonly_message_headers::ReadonlyMessageHeadersHandle;
@@ -17,6 +17,7 @@ use crate::actor::message::response::ResponseHandle;
 use crate::actor::process::Process;
 use crate::ctxext::extensions::{ContextExtensionHandle, ContextExtensionId};
 use async_trait::async_trait;
+use std::any::Any;
 use std::time::Duration;
 
 #[derive(Debug, Clone)]
@@ -77,7 +78,7 @@ impl SenderPart for MockContext {
   async fn request_with_custom_sender(&mut self, _: ExtendedPid, _: MessageHandle, _: ExtendedPid) {}
 
   async fn request_future(&self, _: ExtendedPid, message_handle: MessageHandle, timeout: Duration) -> ActorFuture {
-    let process = FutureProcess::new(self.system.clone(), timeout).await;
+    let process = ActorFutureProcess::new(self.system.clone(), timeout).await;
     process.send_user_message(None, message_handle).await;
     process.get_future().await
   }
@@ -126,6 +127,10 @@ impl SpawnerPart for MockContext {
 
 #[async_trait]
 impl BasePart for MockContext {
+  fn as_any(&self) -> &dyn Any {
+    self
+  }
+
   async fn get_receive_timeout(&self) -> Duration {
     todo!()
   }

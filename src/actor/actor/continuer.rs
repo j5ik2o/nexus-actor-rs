@@ -9,7 +9,7 @@ use crate::actor::message::message_handle::MessageHandle;
 
 #[derive(Clone)]
 pub struct Continuer(
-    Arc<dyn Fn(Option<MessageHandle>, Option<ActorFutureError>) -> BoxFuture<'static, ()> + Send + Sync + 'static>,
+  Arc<dyn Fn(Option<MessageHandle>, Option<ActorFutureError>) -> BoxFuture<'static, ()> + Send + Sync + 'static>,
 );
 
 unsafe impl Send for Continuer {}

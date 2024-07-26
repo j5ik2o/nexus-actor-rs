@@ -92,11 +92,11 @@ struct ActorFutureInner {
 static_assertions::assert_impl_all!(ActorFutureInner: Send, Sync);
 
 #[derive(Debug)]
-pub struct FutureProcess {
+pub struct ActorFutureProcess {
   future: Arc<Mutex<ActorFuture>>,
 }
 
-impl FutureProcess {
+impl ActorFutureProcess {
   pub async fn new(system: ActorSystem, duration: Duration) -> Arc<Self> {
     let inner = Arc::new(Mutex::new(ActorFutureInner {
       actor_system: system.clone(),
@@ -111,7 +111,7 @@ impl FutureProcess {
 
     let future = ActorFuture { inner, notify };
 
-    let future_process = Arc::new(FutureProcess {
+    let future_process = Arc::new(ActorFutureProcess {
       future: Arc::new(Mutex::new(future.clone())),
     });
 
@@ -219,7 +219,7 @@ impl FutureProcess {
 }
 
 #[async_trait]
-impl Process for FutureProcess {
+impl Process for ActorFutureProcess {
   async fn send_user_message(&self, _: Option<&ExtendedPid>, message_handle: MessageHandle) {
     let future = self.future.lock().await.clone();
     tokio::spawn({

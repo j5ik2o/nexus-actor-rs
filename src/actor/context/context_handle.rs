@@ -1,3 +1,4 @@
+use std::any::Any;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -11,6 +12,7 @@ use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::actor::props::Props;
 use crate::actor::actor::spawner::SpawnError;
 use crate::actor::actor_system::ActorSystem;
+use crate::actor::context::actor_context::ActorContext;
 use crate::actor::context::{
   BasePart, Context, ExtensionContext, ExtensionPart, InfoPart, MessagePart, ReceiverContext, ReceiverPart,
   SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart,
@@ -32,6 +34,11 @@ impl ContextHandle {
 
   pub fn new(c: impl Context + 'static) -> Self {
     ContextHandle(Arc::new(Mutex::new(c)))
+  }
+
+  pub(crate) async fn to_actor_context(&self) -> Option<ActorContext> {
+    let mg = self.0.lock().await;
+    mg.as_any().downcast_ref::<ActorContext>().cloned()
   }
 }
 
@@ -158,6 +165,10 @@ impl SpawnerPart for ContextHandle {
 
 #[async_trait]
 impl BasePart for ContextHandle {
+  fn as_any(&self) -> &dyn Any {
+    self
+  }
+
   async fn get_receive_timeout(&self) -> Duration {
     let mg = self.0.lock().await;
     mg.get_receive_timeout().await

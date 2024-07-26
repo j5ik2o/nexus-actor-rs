@@ -77,6 +77,7 @@ pub trait InfoPart: Debug + Send + Sync + 'static {
 
 #[async_trait]
 pub trait BasePart: Debug + Send + Sync + 'static {
+  fn as_any(&self) -> &dyn std::any::Any;
   // ReceiveTimeout returns the current timeout
   async fn get_receive_timeout(&self) -> Duration;
 
