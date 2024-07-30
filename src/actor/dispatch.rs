@@ -1,4 +1,5 @@
 pub mod dead_letter_process;
+mod dead_letter_test;
 pub mod default_mailbox;
 pub mod dispatcher;
 mod dispatcher_test;
@@ -9,4 +10,3 @@ pub mod mailbox_middleware;
 pub mod mailbox_producer;
 pub mod message_invoker;
 pub mod unbounded;
-mod dead_letter_test;
