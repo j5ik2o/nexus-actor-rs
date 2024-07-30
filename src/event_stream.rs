@@ -27,18 +27,18 @@ impl EventStream {
     }
   }
 
-  pub async fn subscribe(&self, handler: EventHandler) -> Subscription {
+  pub async fn subscribe_handler(&self, handler: EventHandler) -> Subscription {
     let subscription = Subscription::new(self.counter.fetch_add(1, Ordering::SeqCst), Arc::new(handler), None);
     let mut subscriptions = self.subscriptions.write().await;
     subscriptions.push(subscription.clone());
     subscription
   }
 
-  pub async fn subscribe_f<F, Fut>(&self, f: F) -> Subscription
+  pub async fn subscribe<F, Fut>(&self, f: F) -> Subscription
   where
     F: Fn(MessageHandle) -> Fut + Send + Sync + 'static,
     Fut: Future<Output = ()> + Send + 'static, {
-    self.subscribe(EventHandler::new(f)).await
+    self.subscribe_handler(EventHandler::new(f)).await
   }
 
   pub async fn subscribe_with_predicate(&self, handler: EventHandler, predicate: Predicate) -> Subscription {

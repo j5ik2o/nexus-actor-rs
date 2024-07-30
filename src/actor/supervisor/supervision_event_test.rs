@@ -70,14 +70,14 @@ mod test {
       system
         .get_event_stream()
         .await
-        .subscribe(EventHandler::new(move |evt| {
+        .subscribe(move |evt| {
           let tx = tx.clone();
           async move {
             if evt.as_any().downcast_ref::<SupervisorEvent>().is_some() {
               tx.try_send(()).unwrap();
             }
           }
-        }))
+        })
         .await;
 
       let props = Props::from_actor_producer_with_opts(

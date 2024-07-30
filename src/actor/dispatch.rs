@@ -9,3 +9,4 @@ pub mod mailbox_middleware;
 pub mod mailbox_producer;
 pub mod message_invoker;
 pub mod unbounded;
+mod dead_letter_test;
