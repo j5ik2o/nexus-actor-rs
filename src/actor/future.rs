@@ -16,14 +16,14 @@ use crate::actor::process::{Process, ProcessHandle};
 use crate::log::log_field::LogField;
 
 #[derive(Debug, Clone)]
-pub enum FutureError {
+pub enum ActorFutureError {
   Timeout,
   DeadLetter,
 }
 
-impl Message for FutureError {
+impl Message for ActorFutureError {
   fn eq_message(&self, other: &dyn Message) -> bool {
-    other.as_any().is::<FutureError>()
+    other.as_any().is::<ActorFutureError>()
   }
 
   fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
@@ -31,27 +31,27 @@ impl Message for FutureError {
   }
 }
 
-impl std::error::Error for FutureError {}
+impl std::error::Error for ActorFutureError {}
 
-impl std::fmt::Display for FutureError {
+impl std::fmt::Display for ActorFutureError {
   fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
     match self {
-      FutureError::Timeout => write!(f, "future: timeout"),
-      FutureError::DeadLetter => write!(f, "future: dead letter"),
+      ActorFutureError::Timeout => write!(f, "future: timeout"),
+      ActorFutureError::DeadLetter => write!(f, "future: dead letter"),
     }
   }
 }
 
 #[derive(Debug, Clone)]
-pub struct Future {
-  inner: Arc<Mutex<FutureInner>>,
+pub struct ActorFuture {
+  inner: Arc<Mutex<ActorFutureInner>>,
   notify: Arc<Notify>,
 }
 
-static_assertions::assert_impl_all!(Future: Send, Sync);
+static_assertions::assert_impl_all!(ActorFuture: Send, Sync);
 
 #[derive(Clone)]
-struct Completion(Arc<dyn Fn(Option<MessageHandle>, Option<FutureError>) -> BoxFuture<'static, ()> + Send>);
+struct Completion(Arc<dyn Fn(Option<MessageHandle>, Option<ActorFutureError>) -> BoxFuture<'static, ()> + Send>);
 
 unsafe impl Send for Completion {}
 
@@ -60,14 +60,14 @@ unsafe impl Sync for Completion {}
 impl Completion {
   fn new<F, Fut>(f: F) -> Self
   where
-    F: Fn(Option<MessageHandle>, Option<FutureError>) -> Fut + Send + 'static,
+    F: Fn(Option<MessageHandle>, Option<ActorFutureError>) -> Fut + Send + 'static,
     Fut: core::future::Future<Output = ()> + Send + 'static, {
     Self(Arc::new(move |message, error| {
       Box::pin(f(message, error)) as BoxFuture<'static, ()>
     }))
   }
 
-  async fn run(&self, result: Option<MessageHandle>, error: Option<FutureError>) {
+  async fn run(&self, result: Option<MessageHandle>, error: Option<ActorFutureError>) {
     (self.0)(result, error).await
   }
 }
@@ -79,26 +79,26 @@ impl Debug for Completion {
 }
 
 #[derive(Debug)]
-struct FutureInner {
+struct ActorFutureInner {
   actor_system: ActorSystem,
   pid: Option<ExtendedPid>,
   done: bool,
   result: Option<MessageHandle>,
-  error: Option<FutureError>,
+  error: Option<ActorFutureError>,
   pipes: Vec<ExtendedPid>,
   completions: Vec<Completion>,
 }
 
-static_assertions::assert_impl_all!(FutureInner: Send, Sync);
+static_assertions::assert_impl_all!(ActorFutureInner: Send, Sync);
 
 #[derive(Debug)]
-pub struct FutureProcess {
-  future: Arc<Mutex<Future>>,
+pub struct ActorFutureProcess {
+  future: Arc<Mutex<ActorFuture>>,
 }
 
-impl FutureProcess {
+impl ActorFutureProcess {
   pub async fn new(system: ActorSystem, duration: Duration) -> Arc<Self> {
-    let inner = Arc::new(Mutex::new(FutureInner {
+    let inner = Arc::new(Mutex::new(ActorFutureInner {
       actor_system: system.clone(),
       pid: None,
       done: false,
@@ -109,9 +109,9 @@ impl FutureProcess {
     }));
     let notify = Arc::new(Notify::new());
 
-    let future = Future { inner, notify };
+    let future = ActorFuture { inner, notify };
 
-    let future_process = Arc::new(FutureProcess {
+    let future_process = Arc::new(ActorFutureProcess {
       future: Arc::new(Mutex::new(future.clone())),
     });
 
@@ -166,7 +166,7 @@ impl FutureProcess {
     future.get_pid().await.clone()
   }
 
-  pub async fn get_future(&self) -> Future {
+  pub async fn get_future(&self) -> ActorFuture {
     let future = self.future.lock().await.clone();
     future.clone()
   }
@@ -182,7 +182,7 @@ impl FutureProcess {
     future_mg.pipe_to(pid).await;
   }
 
-  pub async fn result(&self) -> Result<MessageHandle, FutureError> {
+  pub async fn result(&self) -> Result<MessageHandle, ActorFutureError> {
     let future_mg = self.future.lock().await.clone();
     future_mg.result().await
   }
@@ -192,13 +192,13 @@ impl FutureProcess {
     future_mg.complete(result).await;
   }
 
-  pub async fn fail(&self, error: FutureError) {
+  pub async fn fail(&self, error: ActorFutureError) {
     let future_mg = self.future.lock().await.clone();
     future_mg.fail(error).await;
   }
 
   async fn handle_timeout(&self) {
-    let error = FutureError::Timeout;
+    let error = ActorFutureError::Timeout;
     {
       let future_mg = self.future.lock().await;
       future_mg.fail(error.clone()).await;
@@ -219,14 +219,14 @@ impl FutureProcess {
 }
 
 #[async_trait]
-impl Process for FutureProcess {
+impl Process for ActorFutureProcess {
   async fn send_user_message(&self, _: Option<&ExtendedPid>, message_handle: MessageHandle) {
     let future = self.future.lock().await.clone();
     tokio::spawn({
       let future = future.clone();
       async move {
         if message_handle.to_typed::<DeadLetterResponse>().is_some() {
-          future.fail(FutureError::DeadLetter).await;
+          future.fail(ActorFutureError::DeadLetter).await;
         } else {
           future.complete(message_handle.clone()).await;
         }
@@ -235,7 +235,7 @@ impl Process for FutureProcess {
     });
   }
 
-  async fn send_system_message(&self, _pid: &ExtendedPid, message_handle: MessageHandle) {
+  async fn send_system_message(&self, _: &ExtendedPid, message_handle: MessageHandle) {
     let future = self.future.lock().await.clone();
     tokio::spawn({
       let future = future.clone();
@@ -255,8 +255,8 @@ impl Process for FutureProcess {
   }
 }
 
-impl Future {
-  pub async fn result(&self) -> Result<MessageHandle, FutureError> {
+impl ActorFuture {
+  pub async fn result(&self) -> Result<MessageHandle, ActorFutureError> {
     loop {
       {
         let inner = self.inner.lock().await;
@@ -272,7 +272,7 @@ impl Future {
     }
   }
 
-  pub async fn wait(&self) -> Option<FutureError> {
+  pub async fn wait(&self) -> Option<ActorFutureError> {
     self.result().await.err()
   }
 
@@ -294,7 +294,7 @@ impl Future {
     }
   }
 
-  async fn send_to_pipes(&self, inner: &mut FutureInner) {
+  async fn send_to_pipes(&self, inner: &mut ActorFutureInner) {
     let message = if let Some(error) = &inner.error {
       MessageHandle::new(error.clone())
     } else {
@@ -321,7 +321,7 @@ impl Future {
     }
   }
 
-  pub async fn fail(&self, error: FutureError) {
+  pub async fn fail(&self, error: ActorFutureError) {
     let mut inner = self.inner.lock().await;
     if !inner.done {
       inner.error = Some(error);
@@ -334,7 +334,7 @@ impl Future {
 
   pub async fn continue_with<F, Fut>(&self, continuation: F)
   where
-    F: Fn(Option<MessageHandle>, Option<FutureError>) -> Fut + Send + Sync + 'static,
+    F: Fn(Option<MessageHandle>, Option<ActorFutureError>) -> Fut + Send + Sync + 'static,
     Fut: core::future::Future<Output = ()> + Send + 'static, {
     let mut inner = self.inner.lock().await;
     if inner.done {
@@ -344,7 +344,7 @@ impl Future {
     }
   }
 
-  async fn run_completions(&self, inner: &mut FutureInner) {
+  async fn run_completions(&self, inner: &mut ActorFutureInner) {
     for completion in inner.completions.drain(..) {
       completion.run(inner.result.clone(), inner.error.clone()).await;
     }

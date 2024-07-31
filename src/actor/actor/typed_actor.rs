@@ -108,8 +108,7 @@ impl<A: BehaviorActor + 'static> Actor for TypedWrapper<A> {
     let mut behavior_guard = self.behavior.lock().await;
     if let Some(current_behavior) = behavior_guard.take() {
       let mut actor_context = TypedActorContext::new(context_handle.clone());
-      let result = current_behavior.receive(&mut actor_context).await;
-      match result {
+      match current_behavior.receive(&mut actor_context).await {
         Ok(Behavior::Same) => {
           *behavior_guard = Some(current_behavior);
           Ok(())
@@ -121,7 +120,7 @@ impl<A: BehaviorActor + 'static> Actor for TypedWrapper<A> {
           Ok(())
         }
         Ok(Behavior::Ignore) => {
-          *behavior_guard = Some(result.unwrap());
+          *behavior_guard = Some(current_behavior.receive(&mut actor_context).await.unwrap());
           Ok(())
         }
         Ok(Behavior::Unhandled) => {

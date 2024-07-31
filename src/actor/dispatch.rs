@@ -1,4 +1,5 @@
 pub mod dead_letter_process;
+mod dead_letter_test;
 pub mod default_mailbox;
 pub mod dispatcher;
 mod dispatcher_test;

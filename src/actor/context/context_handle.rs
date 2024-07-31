@@ -1,3 +1,4 @@
+use std::any::Any;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -11,11 +12,12 @@ use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::actor::props::Props;
 use crate::actor::actor::spawner::SpawnError;
 use crate::actor::actor_system::ActorSystem;
+use crate::actor::context::actor_context::ActorContext;
 use crate::actor::context::{
   BasePart, Context, ExtensionContext, ExtensionPart, InfoPart, MessagePart, ReceiverContext, ReceiverPart,
   SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart,
 };
-use crate::actor::future::Future;
+use crate::actor::future::ActorFuture;
 use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::message::message_or_envelope::MessageEnvelope;
 use crate::actor::message::readonly_message_headers::ReadonlyMessageHeadersHandle;
@@ -32,6 +34,11 @@ impl ContextHandle {
 
   pub fn new(c: impl Context + 'static) -> Self {
     ContextHandle(Arc::new(Mutex::new(c)))
+  }
+
+  pub(crate) async fn to_actor_context(&self) -> Option<ActorContext> {
+    let mg = self.0.lock().await;
+    mg.as_any().downcast_ref::<ActorContext>().cloned()
   }
 }
 
@@ -102,7 +109,7 @@ impl SenderPart for ContextHandle {
     mg.request_with_custom_sender(pid, message_handle, sender).await
   }
 
-  async fn request_future(&self, pid: ExtendedPid, message_handle: MessageHandle, timeout: Duration) -> Future {
+  async fn request_future(&self, pid: ExtendedPid, message_handle: MessageHandle, timeout: Duration) -> ActorFuture {
     let mg = self.0.lock().await;
     mg.request_future(pid, message_handle, timeout).await
   }
@@ -158,6 +165,10 @@ impl SpawnerPart for ContextHandle {
 
 #[async_trait]
 impl BasePart for ContextHandle {
+  fn as_any(&self) -> &dyn Any {
+    self
+  }
+
   async fn get_receive_timeout(&self) -> Duration {
     let mg = self.0.lock().await;
     mg.get_receive_timeout().await
@@ -208,7 +219,7 @@ impl BasePart for ContextHandle {
     mg.forward(pid).await
   }
 
-  async fn reenter_after(&self, f: Future, continuation: Continuer) {
+  async fn reenter_after(&self, f: ActorFuture, continuation: Continuer) {
     let mg = self.0.lock().await;
     mg.reenter_after(f, continuation).await
   }
@@ -221,7 +232,7 @@ impl StopperPart for ContextHandle {
     mg.stop(pid).await
   }
 
-  async fn stop_future_with_timeout(&mut self, pid: &ExtendedPid, timeout: Duration) -> Future {
+  async fn stop_future_with_timeout(&mut self, pid: &ExtendedPid, timeout: Duration) -> ActorFuture {
     let mut mg = self.0.lock().await;
     mg.stop_future_with_timeout(pid, timeout).await
   }
@@ -231,7 +242,7 @@ impl StopperPart for ContextHandle {
     mg.poison(pid).await
   }
 
-  async fn poison_future_with_timeout(&mut self, pid: &ExtendedPid, timeout: Duration) -> Future {
+  async fn poison_future_with_timeout(&mut self, pid: &ExtendedPid, timeout: Duration) -> ActorFuture {
     let mut mg = self.0.lock().await;
     mg.poison_future_with_timeout(pid, timeout).await
   }

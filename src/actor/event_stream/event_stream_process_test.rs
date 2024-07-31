@@ -8,7 +8,6 @@ mod tests {
   use crate::actor::context::SenderPart;
   use crate::actor::message::message::Message;
   use crate::actor::message::message_handle::MessageHandle;
-  use crate::event_stream::event_handler::EventHandler;
 
   #[derive(Debug, Clone)]
   struct EsTestMsg;
@@ -36,14 +35,14 @@ mod tests {
       let event_stream = system.get_event_stream().await;
 
       let subscription = event_stream
-        .subscribe(EventHandler::new(move |evt| {
+        .subscribe(move |evt| {
           let cloned_tx = tx.clone();
           async move {
             if evt.as_any().is::<EsTestMsg>() {
               cloned_tx.send(()).await.unwrap();
             }
           }
-        }))
+        })
         .await;
 
       let pid = system.new_local_pid("eventstream").await;

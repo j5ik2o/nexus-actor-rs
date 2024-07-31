@@ -8,7 +8,7 @@ use crate::actor::actor::actor_handle::ActorHandle;
 use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::{InfoPart, MessagePart, SenderContext, SenderPart};
-use crate::actor::future::Future;
+use crate::actor::future::ActorFuture;
 use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::message::message_or_envelope::MessageEnvelope;
 use crate::actor::message::readonly_message_headers::ReadonlyMessageHeadersHandle;
@@ -76,7 +76,7 @@ impl SenderPart for SenderContextHandle {
     mg.request_with_custom_sender(pid, message_handle, sender).await
   }
 
-  async fn request_future(&self, pid: ExtendedPid, message_handle: MessageHandle, timeout: Duration) -> Future {
+  async fn request_future(&self, pid: ExtendedPid, message_handle: MessageHandle, timeout: Duration) -> ActorFuture {
     let mg = self.0.lock().await;
     mg.request_future(pid, message_handle, timeout).await
   }

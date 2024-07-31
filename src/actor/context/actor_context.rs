@@ -1,3 +1,4 @@
+use std::any::Any;
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
@@ -28,7 +29,7 @@ use crate::actor::context::{
 };
 use crate::actor::dispatch::mailbox_message::MailboxMessage;
 use crate::actor::dispatch::message_invoker::MessageInvoker;
-use crate::actor::future::FutureProcess;
+use crate::actor::future::ActorFutureProcess;
 use crate::actor::log::P_LOG;
 use crate::actor::message::auto_receive_message::AutoReceiveMessage;
 use crate::actor::message::continuation::Continuation;
@@ -147,7 +148,7 @@ impl ActorContext {
     }
   }
 
-  async fn ensure_extras(&mut self) -> ActorContextExtras {
+  pub(crate) async fn ensure_extras(&mut self) -> ActorContextExtras {
     if self.get_extras().await.is_none() {
       let ctxd = self.clone();
       let ctxd = if let Some(decorator) = &self.get_props().await.get_context_decorator_chain() {
@@ -589,6 +590,10 @@ impl InfoPart for ActorContext {
 
 #[async_trait]
 impl BasePart for ActorContext {
+  fn as_any(&self) -> &dyn Any {
+    self
+  }
+
   async fn get_receive_timeout(&self) -> Duration {
     let inner_mg = self.inner.lock().await;
     inner_mg
@@ -729,7 +734,7 @@ impl BasePart for ActorContext {
     }
   }
 
-  async fn reenter_after(&self, future: crate::actor::future::Future, continuer: Continuer) {
+  async fn reenter_after(&self, future: crate::actor::future::ActorFuture, continuer: Continuer) {
     let message = self.get_message_or_envelop().await;
     let system = self.get_actor_system().await;
     let self_ref = self.get_self_opt().await.unwrap();
@@ -827,8 +832,8 @@ impl SenderPart for ActorContext {
     pid: ExtendedPid,
     message_handle: MessageHandle,
     timeout: Duration,
-  ) -> crate::actor::future::Future {
-    let future_process = FutureProcess::new(self.get_actor_system().await, timeout.clone()).await;
+  ) -> crate::actor::future::ActorFuture {
+    let future_process = ActorFutureProcess::new(self.get_actor_system().await, timeout.clone()).await;
     let future_pid = future_process.get_pid().await;
     let moe = MessageEnvelope::new(message_handle).with_sender(future_pid);
     self.send_user_message(pid, MessageHandle::new(moe)).await;
@@ -914,8 +919,12 @@ impl StopperPart for ActorContext {
     pid.ref_process(inner_mg.actor_system.clone()).await.stop(&pid).await;
   }
 
-  async fn stop_future_with_timeout(&mut self, pid: &ExtendedPid, timeout: Duration) -> crate::actor::future::Future {
-    let future_process = FutureProcess::new(self.get_actor_system().await, timeout).await;
+  async fn stop_future_with_timeout(
+    &mut self,
+    pid: &ExtendedPid,
+    timeout: Duration,
+  ) -> crate::actor::future::ActorFuture {
+    let future_process = ActorFutureProcess::new(self.get_actor_system().await, timeout).await;
     pid
       .send_system_message(
         self.get_actor_system().await,
@@ -935,8 +944,12 @@ impl StopperPart for ActorContext {
       .await;
   }
 
-  async fn poison_future_with_timeout(&mut self, pid: &ExtendedPid, timeout: Duration) -> crate::actor::future::Future {
-    let future_process = FutureProcess::new(self.get_actor_system().await, timeout).await;
+  async fn poison_future_with_timeout(
+    &mut self,
+    pid: &ExtendedPid,
+    timeout: Duration,
+  ) -> crate::actor::future::ActorFuture {
+    let future_process = ActorFutureProcess::new(self.get_actor_system().await, timeout).await;
 
     pid
       .send_system_message(

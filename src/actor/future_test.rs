@@ -10,7 +10,7 @@ mod tests {
 
   use crate::actor::actor::pid::ExtendedPid;
   use crate::actor::actor_system::ActorSystem;
-  use crate::actor::future::{FutureError, FutureProcess};
+  use crate::actor::future::{ActorFutureError, ActorFutureProcess};
   use crate::actor::message::message::Message;
   use crate::actor::message::message_handle::MessageHandle;
   use crate::actor::process::{Process, ProcessHandle};
@@ -77,7 +77,7 @@ mod tests {
 
     let barrier = AsyncBarrier::new(4);
 
-    let future_process = FutureProcess::new(system, Duration::from_secs(1)).await;
+    let future_process = ActorFutureProcess::new(system, Duration::from_secs(1)).await;
 
     future_process.pipe_to(a1.get_pid()).await;
     future_process.pipe_to(a2.get_pid()).await;
@@ -132,7 +132,7 @@ mod tests {
 
     let barrier = AsyncBarrier::new(4);
 
-    let future_process = FutureProcess::new(system, Duration::from_millis(100)).await;
+    let future_process = ActorFutureProcess::new(system, Duration::from_millis(100)).await;
 
     future_process.pipe_to(a1.get_pid()).await;
     future_process.pipe_to(a2.get_pid()).await;
@@ -149,7 +149,7 @@ mod tests {
 
     let err = future_process.result().await;
     assert!(err.is_err());
-    assert!(matches!(err.unwrap_err(), FutureError::Timeout));
+    assert!(matches!(err.unwrap_err(), ActorFutureError::Timeout));
 
     barrier.wait().await;
 
@@ -170,7 +170,7 @@ mod tests {
   #[tokio::test]
   async fn test_new_future_timeout_no_race() {
     let system = ActorSystem::new().await;
-    let future_process = FutureProcess::new(system, Duration::from_millis(200)).await;
+    let future_process = ActorFutureProcess::new(system, Duration::from_millis(200)).await;
     let barrier = AsyncBarrier::new(2);
 
     tokio::spawn({
@@ -189,7 +189,7 @@ mod tests {
     assert!(result.is_ok(), "Expected Ok, got {:?}", result);
   }
 
-  async fn assert_future_success(future_process: &FutureProcess) -> MessageHandle {
+  async fn assert_future_success(future_process: &ActorFutureProcess) -> MessageHandle {
     match future_process.result().await {
       Ok(res) => res,
       Err(e) => panic!("Future failed: {:?}", e),
@@ -199,28 +199,28 @@ mod tests {
   #[tokio::test]
   async fn test_future_result_dead_letter_response() {
     let system = ActorSystem::new().await;
-    let future_process = FutureProcess::new(system, Duration::from_secs(1)).await;
-    future_process.fail(FutureError::DeadLetter).await;
+    let future_process = ActorFutureProcess::new(system, Duration::from_secs(1)).await;
+    future_process.fail(ActorFutureError::DeadLetter).await;
 
     let result = future_process.result().await;
-    assert!(matches!(result.unwrap_err(), FutureError::DeadLetter));
+    assert!(matches!(result.unwrap_err(), ActorFutureError::DeadLetter));
   }
 
   #[tokio::test]
   async fn test_future_result_timeout() {
     let system = ActorSystem::new().await;
-    let future_process = FutureProcess::new(system, Duration::from_millis(50)).await;
+    let future_process = ActorFutureProcess::new(system, Duration::from_millis(50)).await;
 
     sleep(Duration::from_millis(100)).await;
 
     let result = future_process.result().await;
-    assert!(matches!(result.unwrap_err(), FutureError::Timeout));
+    assert!(matches!(result.unwrap_err(), ActorFutureError::Timeout));
   }
 
   #[tokio::test]
   async fn test_future_result_success() {
     let system = ActorSystem::new().await;
-    let future_process = FutureProcess::new(system, Duration::from_secs(1)).await;
+    let future_process = ActorFutureProcess::new(system, Duration::from_secs(1)).await;
     future_process
       .complete(MessageHandle::new("response".to_string()))
       .await;
