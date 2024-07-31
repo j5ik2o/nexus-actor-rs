@@ -4,10 +4,14 @@ mod test {
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::context::{SenderPart, SpawnerPart, StopperPart};
   use crate::actor::dispatch::dead_letter_process::DeadLetterEvent;
+  use crate::actor::future::ActorFutureProcess;
   use crate::actor::interaction_test::tests::BlackHoleActor;
   use crate::actor::message::message_handle::MessageHandle;
+  use crate::actor::message::system_message::SystemMessage;
+  use crate::actor::message::watch::Watch;
   use std::env;
   use std::sync::Arc;
+  use std::time::Duration;
   use tokio::sync::Mutex;
   use tracing_subscriber::EnvFilter;
 
@@ -52,5 +56,32 @@ mod test {
     system.get_event_stream().await.unsubscribe(sub).await;
 
     assert!(*done.lock().await);
+  }
+
+  #[tokio::test]
+  async fn test_dead_letter_watch_responds_with_terminate() {
+    let _ = env::set_var("RUST_LOG", "debug");
+    let _ = tracing_subscriber::fmt()
+      .with_env_filter(EnvFilter::from_default_env())
+      .try_init();
+
+    let system = ActorSystem::new().await;
+    let mut root_context = system.get_root_context().await;
+    let pid = root_context
+      .spawn(Props::from_actor_producer(|_| async { BlackHoleActor }).await)
+      .await;
+    let _ = root_context.stop_future(&pid).await.result().await.unwrap();
+    let f = ActorFutureProcess::new(system.clone(), Duration::from_secs(5)).await;
+
+    pid
+      .send_system_message(
+        system.clone(),
+        MessageHandle::new(SystemMessage::Watch(Watch {
+          watcher: Some(f.get_pid().await.inner_pid.clone()),
+        })),
+      )
+      .await;
+
+    f.result().await.unwrap();
   }
 }
