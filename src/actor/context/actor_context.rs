@@ -695,17 +695,11 @@ impl BasePart for ActorContext {
       mg.receive_timeout = Some(d.clone());
     }
 
-    self.ensure_extras().await;
+    let mut extra = self.ensure_extras().await;
 
     if d > Duration::from_secs(0) {
       let context = Arc::new(Mutex::new(self.clone()));
-      self
-        .get_extras()
-        .await
-        .as_mut()
-        .unwrap()
-        .init_or_reset_receive_timeout_timer(d, context)
-        .await;
+      extra.init_or_reset_receive_timeout_timer(d, context).await;
     }
   }
 

@@ -142,8 +142,7 @@ impl ActorContextExtras {
 
   pub async fn kill_receive_timeout_timer(&self) {
     let mut mg = self.inner.lock().await;
-    let timer = mg.receive_timeout_timer.clone();
-    if timer.is_some() {
+    if mg.receive_timeout_timer.is_some() {
       mg.receive_timeout_timer = None
     }
   }
