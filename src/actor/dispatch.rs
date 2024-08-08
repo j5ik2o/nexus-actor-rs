@@ -8,5 +8,6 @@ pub mod mailbox_handle;
 pub mod mailbox_message;
 pub mod mailbox_middleware;
 pub mod mailbox_producer;
+mod mailbox_test;
 pub mod message_invoker;
 pub mod unbounded;
