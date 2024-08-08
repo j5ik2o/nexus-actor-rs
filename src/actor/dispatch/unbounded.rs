@@ -95,7 +95,7 @@ pub fn unbounded_priority_mailbox_creator_with_opts(
 }
 
 pub fn unbounded_priority_mailbox_creator() -> MailboxProducer {
-  unbounded_priority_mailbox_creator_with_opts(vec![])
+  unbounded_priority_mailbox_creator_with_opts([])
 }
 
 pub fn unbounded_mpsc_mailbox_creator_with_opts(
@@ -117,5 +117,5 @@ pub fn unbounded_mpsc_mailbox_creator_with_opts(
 }
 
 pub fn unbounded_mpsc_mailbox_creator() -> MailboxProducer {
-  unbounded_mpsc_mailbox_creator_with_opts(vec![])
+  unbounded_mpsc_mailbox_creator_with_opts([])
 }

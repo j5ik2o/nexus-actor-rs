@@ -1,3 +1,4 @@
+mod bounded;
 pub mod dead_letter_process;
 mod dead_letter_test;
 pub mod default_mailbox;
