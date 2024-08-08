@@ -139,10 +139,7 @@ impl ActorContext {
       if extras.get_receive_timeout_timer().await.is_some() {
         self.cancel_receive_timeout().await;
         self
-          .send(
-            self.get_self_opt().await.unwrap(),
-            MessageHandle::new(ReceiveTimeout {}),
-          )
+          .send(self.get_self_opt().await.unwrap(), MessageHandle::new(ReceiveTimeout))
           .await;
       }
     }
