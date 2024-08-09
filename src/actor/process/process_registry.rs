@@ -159,7 +159,7 @@ impl ProcessRegistry {
   }
 }
 
-fn uint64_to_id(u: u64) -> String {
+pub(crate) fn uint64_to_id(u: u64) -> String {
   const DIGITS: &[u8] = b"0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ~+";
   let mut buf = [0u8; 13];
   let mut i = 12;

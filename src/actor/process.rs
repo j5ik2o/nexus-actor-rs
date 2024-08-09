@@ -7,6 +7,7 @@ use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::message::message_handle::MessageHandle;
 
 pub mod process_registry;
+mod process_registry_test;
 
 #[async_trait]
 pub trait Process: Debug + Send + Sync + 'static {

@@ -2,11 +2,14 @@
 mod tests {
   use crate::actor::actor::actor_error::ActorError;
   use crate::actor::actor::actor_inner_error::ActorInnerError;
+  use crate::actor::dispatch::bounded::BoundedMailboxQueue;
   use crate::actor::dispatch::dispatcher::{DispatcherHandle, TokioRuntimeContextDispatcher};
   use crate::actor::dispatch::mailbox::Mailbox;
   use crate::actor::dispatch::message_invoker::{MessageInvoker, MessageInvokerHandle};
   use crate::actor::dispatch::unbounded::unbounded_mpsc_mailbox_creator;
   use crate::actor::message::message_handle::MessageHandle;
+  use crate::util::queue::ring_queue::RingQueue;
+  use crate::util::queue::{QueueReader, QueueWriter};
   use async_trait::async_trait;
   use rand::rngs::SmallRng;
   use rand::Rng;
@@ -177,5 +180,30 @@ mod tests {
       assert_eq!(mg.get_count(), max);
       assert!(mg.is_assert_flg());
     }
+  }
+
+  #[tokio::test]
+  async fn test_bounded_mailbox() {
+    let size = 3;
+    let mut m = BoundedMailboxQueue::new(RingQueue::new(size), size, false);
+    m.offer(MessageHandle::new("1".to_string())).await.unwrap();
+    m.offer(MessageHandle::new("2".to_string())).await.unwrap();
+    m.offer(MessageHandle::new("3".to_string())).await.unwrap();
+    let result = m.poll().await.unwrap();
+    let value = result.unwrap().to_typed::<String>().unwrap();
+    assert_eq!(value, "1".to_string());
+  }
+
+  #[tokio::test]
+  async fn test_bounded_dropping_mailbox() {
+    let size = 3;
+    let mut m = BoundedMailboxQueue::new(RingQueue::new(size), size, true);
+    m.offer(MessageHandle::new("1".to_string())).await.unwrap();
+    m.offer(MessageHandle::new("2".to_string())).await.unwrap();
+    m.offer(MessageHandle::new("3".to_string())).await.unwrap();
+    m.offer(MessageHandle::new("4".to_string())).await.unwrap();
+    let result = m.poll().await.unwrap();
+    let value = result.unwrap().to_typed::<String>().unwrap();
+    assert_eq!(value, "2".to_string());
   }
 }
