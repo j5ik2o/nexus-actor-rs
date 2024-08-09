@@ -1,28 +1,46 @@
-pub mod actor;
-pub mod actor_error;
-pub mod actor_handle;
-pub mod actor_inner_error;
-pub mod actor_process;
-pub mod actor_producer;
-pub mod actor_receiver;
-pub mod context_decorator;
-pub mod context_decorator_chain;
-pub mod context_handler;
-pub mod continuer;
-pub mod middleware_chain;
-pub mod pid;
-pub mod pid_set;
+mod actor;
+mod actor_error;
+mod actor_example_test;
+mod actor_handle;
+mod actor_inner_error;
+mod actor_process;
+mod actor_producer;
+mod actor_receiver;
+mod child_test;
+mod context_decorator;
+mod context_decorator_chain;
+mod context_handler;
+mod continuer;
+mod middleware_chain;
+mod pid;
+mod pid_set;
 mod pid_set_test;
-pub mod props;
-pub mod receiver_middleware;
-pub mod receiver_middleware_chain;
-pub mod restart_statistics;
-pub mod sender_middleware;
-pub mod sender_middleware_chain;
-pub mod spawn_middleware;
-pub mod spawner;
-pub mod taks;
+mod props;
+mod receive_timeout_test;
+mod receiver_middleware;
+mod receiver_middleware_chain;
+mod restart_statistics;
+mod sender_middleware;
+mod sender_middleware_chain;
+mod spawn_example_test;
+mod spawn_middleware;
+mod spawn_named_example_test;
+mod spawn_test;
+mod spawner;
+mod taks;
 mod typed_actor;
+
+pub use {
+  self::actor::*, self::actor_error::*, self::actor_handle::*, self::actor_inner_error::*, self::actor_process::*,
+  self::actor_producer::*, self::actor_receiver::*, self::context_decorator::*, self::context_decorator_chain::*,
+  self::context_handler::*, self::continuer::*, self::middleware_chain::*, self::pid::*, self::props::*,
+  self::receiver_middleware::*, self::receiver_middleware_chain::*, self::restart_statistics::*,
+  self::sender_middleware::*, self::sender_middleware_chain::*, self::spawn_middleware::*, self::spawner::*,
+  self::taks::*,
+};
+
+pub(crate) use self::pid_set::*;
+
 // include!(concat!(env!("OUT_DIR"), "/actor.rs"));
 
 #[derive(Debug, Clone, PartialEq)]

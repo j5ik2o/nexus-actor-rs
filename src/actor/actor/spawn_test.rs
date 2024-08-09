@@ -12,9 +12,9 @@ mod tests {
   use crate::actor::actor::actor_error::ActorError;
   use crate::actor::actor::props::Props;
   use crate::actor::actor_system::ActorSystem;
-  use crate::actor::context::context_handle::ContextHandle;
+  use crate::actor::context::ContextHandle;
   use crate::actor::context::SpawnerPart;
-  use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
+  use crate::actor::supervisor::SupervisorStrategyHandle;
 
   #[derive(Debug, Clone)]
   struct MyActor {

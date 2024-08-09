@@ -8,16 +8,16 @@ mod test {
   use tokio::time::sleep;
   use tracing_subscriber::EnvFilter;
 
-  use crate::actor::actor::actor::Actor;
-  use crate::actor::actor::actor_error::ActorError;
+  use crate::actor::actor::Actor;
+  use crate::actor::actor::ActorError;
 
-  use crate::actor::actor::actor_inner_error::ActorInnerError;
-  use crate::actor::actor::props::Props;
+  use crate::actor::actor::ActorInnerError;
+  use crate::actor::actor::Props;
   use crate::actor::actor_system::ActorSystem;
-  use crate::actor::context::context_handle::ContextHandle;
+  use crate::actor::context::ContextHandle;
   use crate::actor::context::{MessagePart, SenderPart, SpawnerPart};
-  use crate::actor::message::message::Message;
-  use crate::actor::message::message_handle::MessageHandle;
+  use crate::actor::message::Message;
+  use crate::actor::message::MessageHandle;
   use crate::actor::supervisor::exponential_backoff_strategy::ExponentialBackoffStrategy;
   use crate::actor::supervisor::strategy_all_for_one::AllForOneStrategy;
   use crate::actor::supervisor::strategy_one_for_one::OneForOneStrategy;

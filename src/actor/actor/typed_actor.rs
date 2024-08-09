@@ -1,9 +1,9 @@
 use crate::actor::actor::actor::Actor;
 use crate::actor::actor::actor_error::ActorError;
 use crate::actor::actor::actor_inner_error::ActorInnerError;
-use crate::actor::context::context_handle::ContextHandle;
+use crate::actor::context::ContextHandle;
 use crate::actor::context::{BasePart, InfoPart, MessagePart, StopperPart};
-use crate::actor::message::message::Message;
+use crate::actor::message::Message;
 use async_trait::async_trait;
 use futures::future::BoxFuture;
 use std::fmt::{Debug, Formatter};
@@ -156,8 +156,8 @@ mod tests {
   use crate::actor::actor::typed_actor::{Behavior, BehaviorActor, TypedWrapper};
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::context::{SenderPart, SpawnerPart};
-  use crate::actor::message::message::Message;
-  use crate::actor::message::message_handle::MessageHandle;
+  use crate::actor::message::Message;
+  use crate::actor::message::MessageHandle;
   use std::any::Any;
   use std::time::Duration;
   use tokio::time::sleep;

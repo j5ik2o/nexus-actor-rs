@@ -3,11 +3,11 @@ use std::fmt::Debug;
 use async_trait::async_trait;
 
 use crate::actor::actor::actor_error::ActorError;
-use crate::actor::context::context_handle::ContextHandle;
+use crate::actor::context::ContextHandle;
 use crate::actor::context::MessagePart;
-use crate::actor::message::auto_receive_message::AutoReceiveMessage;
-use crate::actor::message::terminate_info::TerminateInfo;
-use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
+use crate::actor::message::AutoReceiveMessage;
+use crate::actor::message::TerminateInfo;
+use crate::actor::supervisor::SupervisorStrategyHandle;
 
 #[async_trait]
 pub trait Actor: Debug + Send + Sync + 'static {

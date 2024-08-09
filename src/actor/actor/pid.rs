@@ -6,7 +6,7 @@ use tokio::sync::Mutex;
 use crate::actor::actor::actor_process::ActorProcess;
 use crate::actor::actor::Pid;
 use crate::actor::actor_system::ActorSystem;
-use crate::actor::message::message_handle::MessageHandle;
+use crate::actor::message::MessageHandle;
 use crate::actor::process::{Process, ProcessHandle};
 
 impl Pid {

@@ -10,7 +10,7 @@ use crate::actor::dispatch::mailbox_handle::MailboxHandle;
 use crate::actor::dispatch::mailbox_message::MailboxMessage;
 use crate::actor::dispatch::mailbox_middleware::{MailboxMiddleware, MailboxMiddlewareHandle};
 use crate::actor::dispatch::message_invoker::{MessageInvoker, MessageInvokerHandle};
-use crate::actor::message::message_handle::MessageHandle;
+use crate::actor::message::MessageHandle;
 use crate::util::queue::{QueueError, QueueReader, QueueWriter};
 
 #[derive(Debug)]

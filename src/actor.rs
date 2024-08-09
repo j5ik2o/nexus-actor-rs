@@ -1,6 +1,5 @@
 pub mod actor;
 pub mod actor_system;
-pub mod auto_respond;
 pub mod context;
 pub mod dispatch;
 pub mod event_stream;
@@ -13,11 +12,5 @@ pub mod process;
 pub mod supervisor;
 pub mod util;
 
-mod actor_example_test;
 mod actor_system_test;
-pub mod child_test;
 pub mod interaction_test;
-mod receive_timeout_test;
-mod spawn_example_test;
-mod spawn_named_example_test;
-mod spawn_test;

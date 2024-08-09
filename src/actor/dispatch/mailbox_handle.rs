@@ -6,7 +6,7 @@ use tokio::sync::Mutex;
 use crate::actor::dispatch::dispatcher::DispatcherHandle;
 use crate::actor::dispatch::mailbox::Mailbox;
 use crate::actor::dispatch::message_invoker::MessageInvokerHandle;
-use crate::actor::message::message_handle::MessageHandle;
+use crate::actor::message::MessageHandle;
 
 #[derive(Debug, Clone)]
 pub struct MailboxHandle(Arc<Mutex<dyn Mailbox>>);

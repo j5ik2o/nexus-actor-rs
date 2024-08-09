@@ -4,10 +4,10 @@ pub mod tests {
   use crate::actor::actor::actor_error::ActorError;
   use crate::actor::actor::props::Props;
   use crate::actor::actor_system::ActorSystem;
-  use crate::actor::context::context_handle::ContextHandle;
+  use crate::actor::context::ContextHandle;
   use crate::actor::context::{BasePart, MessagePart, SpawnerPart, StopperPart};
-  use crate::actor::message::receive_timeout::ReceiveTimeout;
-  use crate::actor::util::async_barrier::AsyncBarrier;
+  use crate::actor::message::ReceiveTimeout;
+  use crate::actor::util::AsyncBarrier;
   use async_trait::async_trait;
   use std::env;
   use std::time::Duration;

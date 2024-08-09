@@ -5,8 +5,8 @@ use tokio::sync::Mutex;
 
 use crate::actor::actor::actor::Actor;
 use crate::actor::actor::actor_error::ActorError;
-use crate::actor::context::context_handle::ContextHandle;
-use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
+use crate::actor::context::ContextHandle;
+use crate::actor::supervisor::SupervisorStrategyHandle;
 
 #[derive(Debug, Clone)]
 pub struct ActorHandle(Arc<Mutex<dyn Actor>>);

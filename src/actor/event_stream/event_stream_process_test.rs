@@ -6,8 +6,8 @@ mod tests {
 
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::context::SenderPart;
-  use crate::actor::message::message::Message;
-  use crate::actor::message::message_handle::MessageHandle;
+  use crate::actor::message::Message;
+  use crate::actor::message::MessageHandle;
 
   #[derive(Debug, Clone)]
   struct EsTestMsg;

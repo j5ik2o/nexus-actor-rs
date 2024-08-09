@@ -1,14 +1,14 @@
 #[cfg(test)]
 mod tests {
-  use crate::actor::actor::actor_error::ActorError;
-  use crate::actor::actor::actor_inner_error::ActorInnerError;
+  use crate::actor::actor::ActorError;
+  use crate::actor::actor::ActorInnerError;
   use crate::actor::dispatch::bounded::BoundedMailboxQueue;
   use crate::actor::dispatch::dispatcher::{DispatcherHandle, TokioRuntimeContextDispatcher};
   use crate::actor::dispatch::mailbox::Mailbox;
   use crate::actor::dispatch::message_invoker::{MessageInvoker, MessageInvokerHandle};
   use crate::actor::dispatch::unbounded::unbounded_mpsc_mailbox_creator;
-  use crate::actor::message::message_handle::MessageHandle;
-  use crate::util::queue::ring_queue::RingQueue;
+  use crate::actor::message::MessageHandle;
+  use crate::util::queue::RingQueue;
   use crate::util::queue::{QueueReader, QueueWriter};
   use async_trait::async_trait;
   use rand::rngs::SmallRng;

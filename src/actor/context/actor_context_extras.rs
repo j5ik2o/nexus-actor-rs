@@ -2,15 +2,15 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
 
-use crate::actor::actor::pid::ExtendedPid;
-use crate::actor::actor::pid_set::PidSet;
-use crate::actor::actor::restart_statistics::RestartStatistics;
+use crate::actor::actor::ExtendedPid;
+use crate::actor::actor::PidSet;
+use crate::actor::actor::RestartStatistics;
 use crate::actor::context::actor_context::ActorContext;
 use crate::actor::context::context_handle::ContextHandle;
 use crate::actor::context::receive_timeout_timer::ReceiveTimeoutTimer;
 use crate::actor::context::receiver_context_handle::ReceiverContextHandle;
 use crate::actor::context::sender_context_handle::SenderContextHandle;
-use crate::actor::message::message_handles::MessageHandles;
+use crate::actor::message::MessageHandles;
 use crate::ctxext::extensions::ContextExtensions;
 
 #[derive(Debug, Clone)]

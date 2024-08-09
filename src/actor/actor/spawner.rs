@@ -6,7 +6,7 @@ use crate::actor::actor::actor_error::ActorError;
 use crate::actor::actor::pid::ExtendedPid;
 use crate::actor::actor::props::Props;
 use crate::actor::actor_system::ActorSystem;
-use crate::actor::context::spawner_context_handle::SpawnerContextHandle;
+use crate::actor::context::SpawnerContextHandle;
 use futures::future::BoxFuture;
 use thiserror::Error;
 

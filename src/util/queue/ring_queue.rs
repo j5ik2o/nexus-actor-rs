@@ -9,7 +9,7 @@ use crate::util::element::Element;
 use crate::util::queue::{QueueBase, QueueError, QueueReader, QueueSize, QueueWriter};
 
 #[derive(Debug, Clone)]
-pub struct RingQueue<E> {
+pub(crate) struct RingQueue<E> {
   buffer: Arc<Mutex<Vec<Option<E>>>>,
   head: Arc<AtomicUsize>,
   tail: Arc<AtomicUsize>,

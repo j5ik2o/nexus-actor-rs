@@ -3,8 +3,8 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
-use crate::actor::actor::pid::ExtendedPid;
-use crate::actor::message::message_handle::MessageHandle;
+use crate::actor::actor::ExtendedPid;
+use crate::actor::message::MessageHandle;
 
 pub mod process_registry;
 mod process_registry_test;

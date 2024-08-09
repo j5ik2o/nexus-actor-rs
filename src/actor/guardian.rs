@@ -5,16 +5,16 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use tokio::sync::Mutex;
 
-use crate::actor::actor::actor_inner_error::ActorInnerError;
-use crate::actor::actor::pid::ExtendedPid;
+use crate::actor::actor::ActorInnerError;
+use crate::actor::actor::ExtendedPid;
 use crate::actor::actor_system::ActorSystem;
-use crate::actor::dispatch::mailbox_message::MailboxMessage;
-use crate::actor::message::failure::Failure;
-use crate::actor::message::message_handle::MessageHandle;
-use crate::actor::message::system_message::SystemMessage;
+use crate::actor::dispatch::MailboxMessage;
+use crate::actor::message::Failure;
+use crate::actor::message::MessageHandle;
+use crate::actor::message::SystemMessage;
 use crate::actor::process::{Process, ProcessHandle};
-use crate::actor::supervisor::supervisor_strategy::{Supervisor, SupervisorHandle, SupervisorStrategy};
-use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
+use crate::actor::supervisor::SupervisorStrategyHandle;
+use crate::actor::supervisor::{Supervisor, SupervisorHandle, SupervisorStrategy};
 use crate::log::log_field::LogField;
 
 #[derive(Debug, Clone)]

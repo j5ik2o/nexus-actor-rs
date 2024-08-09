@@ -3,9 +3,9 @@ use crate::actor::dispatch::mailbox_handle::MailboxHandle;
 use crate::actor::dispatch::mailbox_middleware::MailboxMiddlewareHandle;
 use crate::actor::dispatch::mailbox_producer::MailboxProducer;
 use crate::actor::dispatch::unbounded::UnboundedMailboxQueue;
-use crate::actor::message::message_handle::MessageHandle;
-use crate::util::queue::mpsc_unbounded_channel_queue::MpscUnboundedChannelQueue;
-use crate::util::queue::ring_queue::RingQueue;
+use crate::actor::message::MessageHandle;
+use crate::util::queue::MpscUnboundedChannelQueue;
+use crate::util::queue::RingQueue;
 use crate::util::queue::{QueueBase, QueueError, QueueReader, QueueSize, QueueWriter};
 use async_trait::async_trait;
 use std::fmt::Debug;
@@ -18,7 +18,7 @@ pub struct BoundedMailboxQueue {
 }
 
 impl BoundedMailboxQueue {
-  pub fn new(user_mailbox: RingQueue<MessageHandle>, initial_capacity: usize, dropping: bool) -> Self {
+  pub(crate) fn new(user_mailbox: RingQueue<MessageHandle>, initial_capacity: usize, dropping: bool) -> Self {
     BoundedMailboxQueue {
       user_mailbox,
       initial_capacity,

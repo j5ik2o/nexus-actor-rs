@@ -1,12 +1,12 @@
 use async_trait::async_trait;
-use nexus_acto_rs::actor::actor::actor::Actor;
-use nexus_acto_rs::actor::actor::actor_error::ActorError;
-use nexus_acto_rs::actor::actor::props::Props;
+use nexus_acto_rs::actor::actor::Actor;
+use nexus_acto_rs::actor::actor::ActorError;
+use nexus_acto_rs::actor::actor::Props;
 use nexus_acto_rs::actor::actor_system::ActorSystem;
-use nexus_acto_rs::actor::context::context_handle::ContextHandle;
+use nexus_acto_rs::actor::context::ContextHandle;
 use nexus_acto_rs::actor::context::{MessagePart, SenderPart, SpawnerPart};
-use nexus_acto_rs::actor::message::message::Message;
-use nexus_acto_rs::actor::message::message_handle::MessageHandle;
+use nexus_acto_rs::actor::message::Message;
+use nexus_acto_rs::actor::message::MessageHandle;
 use std::any::Any;
 use std::time::Duration;
 use tokio::time::sleep;

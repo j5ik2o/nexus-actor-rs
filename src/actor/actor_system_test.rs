@@ -6,17 +6,17 @@ mod tests {
   use tokio::time::sleep;
   use tracing_subscriber::EnvFilter;
 
-  use crate::actor::actor::actor::Actor;
-  use crate::actor::actor::actor_error::ActorError;
-  use crate::actor::actor::props::Props;
+  use crate::actor::actor::Actor;
+  use crate::actor::actor::ActorError;
+  use crate::actor::actor::Props;
   use crate::actor::actor_system::{ActorSystem, Config, ConfigOption};
-  use crate::actor::context::context_handle::ContextHandle;
+  use crate::actor::context::ContextHandle;
   use crate::actor::context::{InfoPart, SenderPart, SpawnerPart};
-  use crate::actor::message::message::Message;
-  use crate::actor::message::message_handle::MessageHandle;
-  use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
+  use crate::actor::message::Message;
+  use crate::actor::message::MessageHandle;
+  use crate::actor::supervisor::SupervisorStrategyHandle;
 
-  use crate::actor::util::async_barrier::AsyncBarrier;
+  use crate::actor::util::AsyncBarrier;
   use crate::log::log::LogLevel;
 
   #[tokio::test]
