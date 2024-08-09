@@ -1,4 +1,4 @@
-use crate::actor::message::message_handle::MessageHandle;
+use crate::actor::message::MessageHandle;
 use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
 

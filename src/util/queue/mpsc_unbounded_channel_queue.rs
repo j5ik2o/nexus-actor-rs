@@ -16,7 +16,7 @@ struct MpscUnboundedChannelQueueInner<E> {
 }
 
 #[derive(Debug, Clone)]
-pub struct MpscUnboundedChannelQueue<E> {
+pub(crate) struct MpscUnboundedChannelQueue<E> {
   sender: mpsc::UnboundedSender<E>,
   inner: Arc<Mutex<MpscUnboundedChannelQueueInner<E>>>,
 }

@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use futures::future::BoxFuture;
 
-use crate::actor::context::context_handle::ContextHandle;
+use crate::actor::context::ContextHandle;
 
 // ContextDecoratorChain
 #[derive(Clone)]

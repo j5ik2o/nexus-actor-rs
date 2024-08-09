@@ -1,7 +1,7 @@
 use std::any::Any;
 use std::fmt::Debug;
 
-use crate::util::queue::priority_queue::DEFAULT_PRIORITY;
+use crate::util::queue::DEFAULT_PRIORITY;
 
 pub trait Message: Debug + Send + Sync + 'static {
   fn get_priority(&self) -> i8 {

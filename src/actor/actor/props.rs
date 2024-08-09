@@ -27,22 +27,21 @@ use crate::actor::actor::sender_middleware_chain::SenderMiddlewareChain;
 use crate::actor::actor::spawn_middleware::SpawnMiddleware;
 use crate::actor::actor::spawner::{SpawnError, Spawner};
 use crate::actor::actor_system::ActorSystem;
-use crate::actor::context::actor_context::ActorContext;
-use crate::actor::context::context_handle::ContextHandle;
-use crate::actor::context::spawner_context_handle::SpawnerContextHandle;
+use crate::actor::context::ActorContext;
+use crate::actor::context::ContextHandle;
+use crate::actor::context::SpawnerContextHandle;
 use crate::actor::context::{InfoPart, ReceiverPart};
-use crate::actor::dispatch::dispatcher::*;
-use crate::actor::dispatch::mailbox::Mailbox;
-use crate::actor::dispatch::mailbox_handle::MailboxHandle;
-use crate::actor::dispatch::mailbox_producer::MailboxProducer;
-use crate::actor::dispatch::message_invoker::{MessageInvoker, MessageInvokerHandle};
-use crate::actor::dispatch::unbounded::unbounded_mailbox_creator_with_opts;
-use crate::actor::message::auto_receive_message::AutoReceiveMessage;
-use crate::actor::message::message_handle::MessageHandle;
-use crate::actor::message::system_message::SystemMessage;
+use crate::actor::dispatch::unbounded_mailbox_creator_with_opts;
+use crate::actor::dispatch::Mailbox;
+use crate::actor::dispatch::MailboxHandle;
+use crate::actor::dispatch::MailboxProducer;
+use crate::actor::dispatch::*;
+use crate::actor::message::AutoReceiveMessage;
+use crate::actor::message::MessageHandle;
+use crate::actor::message::SystemMessage;
 use crate::actor::process::ProcessHandle;
-use crate::actor::supervisor::supervisor_strategy::DEFAULT_SUPERVISION_STRATEGY;
-use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
+use crate::actor::supervisor::SupervisorStrategyHandle;
+use crate::actor::supervisor::DEFAULT_SUPERVISION_STRATEGY;
 
 #[derive(Debug, Clone)]
 pub struct Props {

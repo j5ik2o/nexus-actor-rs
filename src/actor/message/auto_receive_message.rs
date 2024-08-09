@@ -1,13 +1,13 @@
 use std::any::Any;
 use std::fmt::Display;
 
-use crate::actor::actor::pid::ExtendedPid;
+use crate::actor::actor::ExtendedPid;
 use crate::actor::message::message::Message;
 use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::message::terminate_info::TerminateInfo;
 
 #[derive(Debug, Clone)]
-pub enum AutoReceiveMessage {
+pub(crate) enum AutoReceiveMessage {
   PreStart,
   PostStart,
   PreRestart,

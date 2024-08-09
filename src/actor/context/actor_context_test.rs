@@ -6,17 +6,17 @@ mod tests {
 
   use tracing_subscriber::EnvFilter;
 
-  use crate::actor::actor::actor_error::ActorError;
-  use crate::actor::actor::actor_inner_error::ActorInnerError;
-  use crate::actor::actor::continuer::Continuer;
-  use crate::actor::actor::props::Props;
+  use crate::actor::actor::ActorError;
+  use crate::actor::actor::ActorInnerError;
+  use crate::actor::actor::Continuer;
+  use crate::actor::actor::Props;
   use crate::actor::actor_system::ActorSystem;
-  use crate::actor::auto_respond::AutoRespond;
   use crate::actor::context::{BasePart, InfoPart, MessagePart, SenderPart, SpawnerPart};
-  use crate::actor::message::message::Message;
-  use crate::actor::message::message_handle::MessageHandle;
-  use crate::actor::message::response::ResponseHandle;
-  use crate::actor::message::touched::Touched;
+  use crate::actor::message::AutoRespond;
+  use crate::actor::message::Message;
+  use crate::actor::message::MessageHandle;
+  use crate::actor::message::ResponseHandle;
+  use crate::actor::message::Touched;
 
   #[tokio::test]
   async fn test_actor_continue_future_in_actor() {

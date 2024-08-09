@@ -1,14 +1,14 @@
 #[cfg(test)]
 mod test {
-  use crate::actor::actor::props::Props;
+  use crate::actor::actor::Props;
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::context::{SenderPart, SpawnerPart, StopperPart};
   use crate::actor::dispatch::dead_letter_process::DeadLetterEvent;
   use crate::actor::future::ActorFutureProcess;
   use crate::actor::interaction_test::tests::BlackHoleActor;
-  use crate::actor::message::message_handle::MessageHandle;
-  use crate::actor::message::system_message::SystemMessage;
-  use crate::actor::message::watch::Watch;
+  use crate::actor::message::MessageHandle;
+  use crate::actor::message::SystemMessage;
+  use crate::actor::message::Watch;
   use std::env;
   use std::sync::Arc;
   use std::time::Duration;

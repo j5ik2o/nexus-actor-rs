@@ -4,11 +4,11 @@ mod tests {
   use std::sync::atomic::{AtomicI32, Ordering};
   use std::sync::Arc;
 
-  use crate::actor::message::message::Message;
-  use crate::actor::message::message_handle::MessageHandle;
+  use crate::actor::message::Message;
+  use crate::actor::message::MessageHandle;
   use crate::event_stream::event_handler::EventHandler;
+  use crate::event_stream::event_stream::EventStream;
   use crate::event_stream::predicate::Predicate;
-  use crate::event_stream::EventStream;
   use tokio::sync::Mutex;
 
   #[derive(Debug)]

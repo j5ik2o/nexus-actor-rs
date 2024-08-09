@@ -4,10 +4,10 @@ use crate::actor::dispatch::default_mailbox::DefaultMailbox;
 use crate::actor::dispatch::mailbox_handle::MailboxHandle;
 use crate::actor::dispatch::mailbox_middleware::MailboxMiddlewareHandle;
 use crate::actor::dispatch::mailbox_producer::MailboxProducer;
-use crate::actor::message::message_handle::MessageHandle;
-use crate::util::queue::mpsc_unbounded_channel_queue::MpscUnboundedChannelQueue;
-use crate::util::queue::priority_queue::PriorityQueue;
-use crate::util::queue::ring_queue::RingQueue;
+use crate::actor::message::MessageHandle;
+use crate::util::queue::MpscUnboundedChannelQueue;
+use crate::util::queue::PriorityQueue;
+use crate::util::queue::RingQueue;
 use crate::util::queue::{QueueBase, QueueError, QueueReader, QueueSize, QueueWriter};
 
 #[derive(Debug, Clone)]

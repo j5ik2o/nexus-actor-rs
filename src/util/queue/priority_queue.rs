@@ -10,12 +10,12 @@ use crate::util::queue::{QueueBase, QueueError, QueueReader, QueueSize, QueueWri
 pub const PRIORITY_LEVELS: usize = 8;
 pub const DEFAULT_PRIORITY: i8 = (PRIORITY_LEVELS / 2) as i8;
 
-pub trait PriorityMessage: Element {
+pub(crate) trait PriorityMessage: Element {
   fn get_priority(&self) -> Option<i8>;
 }
 
 #[derive(Debug, Clone)]
-pub struct PriorityQueue<E, Q> {
+pub(crate) struct PriorityQueue<E, Q> {
   priority_queues: Arc<Mutex<Vec<Q>>>,
   phantom_data: PhantomData<E>,
 }

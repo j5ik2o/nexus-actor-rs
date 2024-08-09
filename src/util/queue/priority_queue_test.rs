@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-  use crate::actor::message::message::Message;
+  use crate::actor::message::Message;
   use crate::util::element::Element;
   use crate::util::queue::mpsc_unbounded_channel_queue::MpscUnboundedChannelQueue;
   use crate::util::queue::priority_queue::{PriorityMessage, PriorityQueue};

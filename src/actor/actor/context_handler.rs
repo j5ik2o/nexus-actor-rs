@@ -1,7 +1,7 @@
 use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
 
-use crate::actor::context::context_handle::ContextHandle;
+use crate::actor::context::ContextHandle;
 
 #[derive(Clone)]
 pub struct ContextHandler(Arc<dyn Fn(ContextHandle) + Send + Sync>);

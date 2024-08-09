@@ -5,12 +5,12 @@ use std::time::Duration;
 use async_trait::async_trait;
 use tokio::sync::Mutex;
 
-use crate::actor::actor::actor_error::ActorError;
-use crate::actor::actor::actor_handle::ActorHandle;
-use crate::actor::actor::continuer::Continuer;
-use crate::actor::actor::pid::ExtendedPid;
-use crate::actor::actor::props::Props;
-use crate::actor::actor::spawner::SpawnError;
+use crate::actor::actor::ActorError;
+use crate::actor::actor::ActorHandle;
+use crate::actor::actor::Continuer;
+use crate::actor::actor::ExtendedPid;
+use crate::actor::actor::Props;
+use crate::actor::actor::SpawnError;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::actor_context::ActorContext;
 use crate::actor::context::{
@@ -18,10 +18,10 @@ use crate::actor::context::{
   SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart,
 };
 use crate::actor::future::ActorFuture;
-use crate::actor::message::message_handle::MessageHandle;
-use crate::actor::message::message_or_envelope::MessageEnvelope;
-use crate::actor::message::readonly_message_headers::ReadonlyMessageHeadersHandle;
-use crate::actor::message::response::ResponseHandle;
+use crate::actor::message::MessageEnvelope;
+use crate::actor::message::MessageHandle;
+use crate::actor::message::ReadonlyMessageHeadersHandle;
+use crate::actor::message::ResponseHandle;
 use crate::ctxext::extensions::{ContextExtensionHandle, ContextExtensionId};
 
 #[derive(Debug, Clone)]

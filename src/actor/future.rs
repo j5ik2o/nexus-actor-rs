@@ -7,11 +7,11 @@ use async_trait::async_trait;
 use futures::future::BoxFuture;
 use tokio::sync::{Mutex, Notify};
 
-use crate::actor::actor::pid::ExtendedPid;
+use crate::actor::actor::ExtendedPid;
 use crate::actor::actor_system::ActorSystem;
-use crate::actor::message::dead_letter_response::DeadLetterResponse;
-use crate::actor::message::message::Message;
-use crate::actor::message::message_handle::MessageHandle;
+use crate::actor::message::DeadLetterResponse;
+use crate::actor::message::Message;
+use crate::actor::message::MessageHandle;
 use crate::actor::process::{Process, ProcessHandle};
 use crate::log::log_field::LogField;
 

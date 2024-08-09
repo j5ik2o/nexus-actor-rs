@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use crate::actor::dispatch::dispatcher::DispatcherHandle;
 use crate::actor::dispatch::mailbox_handle::MailboxHandle;
 use crate::actor::dispatch::message_invoker::MessageInvokerHandle;
-use crate::actor::message::message_handle::MessageHandle;
+use crate::actor::message::MessageHandle;
 
 // Mailbox trait
 #[async_trait]

@@ -1,7 +1,7 @@
 use std::any::Any;
 use std::fmt::Debug;
 
-use crate::actor::actor::pid::ExtendedPid;
+use crate::actor::actor::ExtendedPid;
 use crate::actor::message::message::Message;
 use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::message::message_headers::MessageHeaders;

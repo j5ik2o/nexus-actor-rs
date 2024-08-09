@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use crate::actor::message::message::Message;
 use crate::util::element::Element;
-use crate::util::queue::priority_queue::PriorityMessage;
+use crate::util::queue::PriorityMessage;
 
 #[derive(Debug, Clone)]
 pub struct MessageHandle(Arc<dyn Message>);

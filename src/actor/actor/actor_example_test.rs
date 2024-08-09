@@ -10,11 +10,11 @@ mod tests {
   use crate::actor::actor::props::Props;
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::context::{BasePart, MessagePart, SenderPart, SpawnerPart, StopperPart};
-  use crate::actor::message::auto_receive_message::AutoReceiveMessage;
-  use crate::actor::message::message::Message;
-  use crate::actor::message::message_handle::MessageHandle;
-  use crate::actor::message::response::ResponseHandle;
-  use crate::actor::util::async_barrier::AsyncBarrier;
+  use crate::actor::message::AutoReceiveMessage;
+  use crate::actor::message::Message;
+  use crate::actor::message::MessageHandle;
+  use crate::actor::message::ResponseHandle;
+  use crate::actor::util::AsyncBarrier;
 
   #[tokio::test]
   async fn example() {

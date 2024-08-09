@@ -4,15 +4,15 @@ pub mod tests {
   use std::any::Any;
   use std::time::Duration;
 
-  use crate::actor::actor::actor::Actor;
-  use crate::actor::actor::actor_error::ActorError;
-  use crate::actor::actor::props::Props;
+  use crate::actor::actor::Actor;
+  use crate::actor::actor::ActorError;
+  use crate::actor::actor::Props;
   use crate::actor::actor_system::ActorSystem;
-  use crate::actor::context::context_handle::ContextHandle;
+  use crate::actor::context::ContextHandle;
   use crate::actor::context::{BasePart, MessagePart, SenderPart, SpawnerPart};
-  use crate::actor::message::message::Message;
-  use crate::actor::message::message_handle::MessageHandle;
-  use crate::actor::message::response::ResponseHandle;
+  use crate::actor::message::Message;
+  use crate::actor::message::MessageHandle;
+  use crate::actor::message::ResponseHandle;
 
   #[derive(Debug, Clone)]
   pub struct DummyMessage;

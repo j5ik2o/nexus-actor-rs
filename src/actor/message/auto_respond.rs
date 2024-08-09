@@ -6,7 +6,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use futures::future::BoxFuture;
 
-use crate::actor::context::context_handle::ContextHandle;
+use crate::actor::context::ContextHandle;
 use crate::actor::message::message::Message;
 use crate::actor::message::response::ResponseHandle;
 
