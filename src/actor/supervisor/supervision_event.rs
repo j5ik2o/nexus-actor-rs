@@ -7,8 +7,8 @@ use crate::actor::actor_system::ActorSystem;
 use crate::actor::log::P_LOG;
 use crate::actor::message::Message;
 use crate::actor::supervisor::directive::Directive;
-use crate::event_stream::subscription::Subscription;
-use crate::log::log_field::LogField;
+use crate::event_stream::Subscription;
+use crate::log::LogField;
 
 #[derive(Debug, Clone)]
 pub struct SupervisorEvent {

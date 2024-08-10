@@ -138,13 +138,13 @@ impl<A: BehaviorActor + 'static> Actor for TypedWrapper<A> {
         }
         Err(err) => {
           *behavior_guard = Some(current_behavior);
-          return Err(err);
+          Err(err)
         }
       }
     } else {
-      return Err(ActorError::BehaviorNotInitialized(ActorInnerError::new(
+      Err(ActorError::BehaviorNotInitialized(ActorInnerError::new(
         "Behavior not initialized".to_string(),
-      )));
+      )))
     }
   }
 }

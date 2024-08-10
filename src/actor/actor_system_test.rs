@@ -17,7 +17,7 @@ mod tests {
   use crate::actor::supervisor::SupervisorStrategyHandle;
 
   use crate::actor::util::AsyncBarrier;
-  use crate::log::log::LogLevel;
+  use crate::log::LogLevel;
 
   #[tokio::test]
   async fn test_actor_system_new() {
