@@ -15,11 +15,11 @@ use crate::actor::process::process_registry::ProcessRegistry;
 use crate::actor::process::ProcessHandle;
 use crate::actor::supervisor::subscribe_supervision;
 use crate::ctxext::extensions::ContextExtensions;
-use crate::event_stream::event_stream::EventStream;
-use crate::log::io_encoder::IoEncoder;
-use crate::log::log::{LogLevel, Logger};
-use crate::log::log_event::LogEvent;
-use crate::log::log_event_stream::LogEventStream;
+use crate::event_stream::EventStream;
+use crate::log::IoEncoder;
+use crate::log::LogEvent;
+use crate::log::LogEventStream;
+use crate::log::{LogLevel, Logger};
 
 pub async fn write_event(event: &LogEvent) -> Vec<u8> {
   let mut buf = Vec::new();

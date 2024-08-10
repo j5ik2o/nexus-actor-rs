@@ -13,7 +13,7 @@ use crate::actor::message::DeadLetterResponse;
 use crate::actor::message::Message;
 use crate::actor::message::MessageHandle;
 use crate::actor::process::{Process, ProcessHandle};
-use crate::log::log_field::LogField;
+use crate::log::LogField;
 
 #[derive(Debug, Clone)]
 pub enum ActorFutureError {

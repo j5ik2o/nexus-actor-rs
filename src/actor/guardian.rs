@@ -15,7 +15,7 @@ use crate::actor::message::SystemMessage;
 use crate::actor::process::{Process, ProcessHandle};
 use crate::actor::supervisor::SupervisorStrategyHandle;
 use crate::actor::supervisor::{Supervisor, SupervisorHandle, SupervisorStrategy};
-use crate::log::log_field::LogField;
+use crate::log::LogField;
 
 #[derive(Debug, Clone)]
 pub struct GuardiansValue {
