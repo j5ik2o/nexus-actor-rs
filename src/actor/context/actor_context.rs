@@ -29,7 +29,6 @@ use crate::actor::context::{
 use crate::actor::dispatch::MailboxMessage;
 use crate::actor::dispatch::MessageInvoker;
 use crate::actor::future::ActorFutureProcess;
-use crate::actor::log::P_LOG;
 use crate::actor::message::AutoReceiveMessage;
 use crate::actor::message::Continuation;
 use crate::actor::message::Failure;
@@ -309,7 +308,7 @@ impl ActorContext {
       .invoke_user_message(MessageHandle::new(AutoReceiveMessage::PostRestart))
       .await;
     if result.is_err() {
-      P_LOG.error("Failed to handle Started message").await;
+      tracing::error!("Failed to handle Restarted message");
       return result;
     }
 
@@ -328,7 +327,7 @@ impl ActorContext {
       .invoke_user_message(MessageHandle::new(AutoReceiveMessage::PostStop))
       .await;
     if result.is_err() {
-      P_LOG.error("Failed to handle Stopped message").await;
+      tracing::error!("Failed to handle Stopped message");
       return result;
     }
     tracing::debug!("ActorContext::finalize_stop: send Terminated");
@@ -379,7 +378,7 @@ impl ActorContext {
             self.cancel_receive_timeout().await;
             let result = self.restart().await;
             if result.is_err() {
-              P_LOG.error("Failed to restart actor").await;
+              tracing::error!("Failed to restart actor");
               return result;
             }
           }
@@ -388,7 +387,7 @@ impl ActorContext {
             self.cancel_receive_timeout().await;
             let result = self.finalize_stop().await;
             if result.is_err() {
-              P_LOG.error("Failed to finalize stop").await;
+              tracing::error!("Failed to finalize stop");
               return result;
             }
           }
@@ -430,13 +429,13 @@ impl ActorContext {
       .invoke_user_message(MessageHandle::new(AutoReceiveMessage::PreStop))
       .await;
     if result.is_err() {
-      P_LOG.error("Failed to handle Stopping message").await;
+      tracing::error!("Failed to handle Stopping message");
       return result;
     }
     self.stop_all_children().await;
     let result = self.try_restart_or_terminate().await;
     if result.is_err() {
-      P_LOG.error("Failed to try_restart_or_terminate").await;
+      tracing::error!("Failed to try_restart_or_terminate");
       return result;
     }
     tracing::debug!("ActorContext::handle_stop: finished");
@@ -456,13 +455,13 @@ impl ActorContext {
       .invoke_user_message(MessageHandle::new(AutoReceiveMessage::PreRestart))
       .await;
     if result.is_err() {
-      P_LOG.error("Failed to handle Restarting message").await;
+      tracing::error!("Failed to handle Restarting message");
       return result;
     }
     self.stop_all_children().await;
     let result = self.try_restart_or_terminate().await;
     if result.is_err() {
-      P_LOG.error("Failed to try_restart_or_terminate").await;
+      tracing::error!("Failed to try_restart_or_terminate");
       return result;
     }
 
@@ -528,12 +527,12 @@ impl ActorContext {
     let msg = MessageHandle::new(AutoReceiveMessage::Terminated(terminated.clone()));
     let result = self.invoke_user_message(msg.clone()).await;
     if result.is_err() {
-      P_LOG.error("Failed to handle Terminated message").await;
+      tracing::error!("Failed to handle Terminated message");
       return result;
     }
     let result = self.try_restart_or_terminate().await;
     if result.is_err() {
-      P_LOG.error("Failed to try_restart_or_terminate").await;
+      tracing::error!("Failed to try_restart_or_terminate");
       return result;
     }
     Ok(())
@@ -644,7 +643,7 @@ impl BasePart for ActorContext {
         let msg = extras.get_stash().await.pop().await.unwrap();
         let result = self.invoke_user_message(msg).await;
         if result.is_err() {
-          P_LOG.error("Failed to handle stashed message").await;
+          tracing::error!("Failed to handle stashed message");
           return result;
         }
       }
@@ -1116,18 +1115,12 @@ impl Supervisor for ActorContext {
       .await
       .developer_supervision_logging
     {
-      tracing::info!(
+      tracing::error!(
         "[Supervision] Actor: {}, failed with message: {}, exception: {}",
         self_pid,
         message_handle,
         reason
       );
-      P_LOG
-        .error(&format!(
-          "[Supervision] Actor: {}, failed with message: {}, exception: {}",
-          self_pid, message_handle, reason
-        ))
-        .await;
     }
 
     let mut cloned_self = self.clone();

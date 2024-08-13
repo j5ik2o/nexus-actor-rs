@@ -16,36 +16,12 @@ use crate::actor::process::ProcessHandle;
 use crate::actor::supervisor::subscribe_supervision;
 use crate::ctxext::extensions::ContextExtensions;
 use crate::event_stream::EventStream;
-use crate::log::IoEncoder;
-use crate::log::LogEvent;
-use crate::log::LogEventStream;
-use crate::log::{LogLevel, Logger};
-
-pub async fn write_event(event: &LogEvent) -> Vec<u8> {
-  let mut buf = Vec::new();
-  if !event.message.is_empty() {
-    buf.extend_from_slice(event.message.as_bytes());
-    buf.push(b' ');
-  }
-  let mut encoder = IoEncoder::new(&mut buf);
-  for field in &event.context {
-    field.encode(&mut encoder);
-    encoder.write_space();
-  }
-  for field in &event.fields {
-    field.encode(&mut encoder);
-    encoder.write_space();
-  }
-  buf
-}
 
 #[derive(Debug, Clone)]
 struct ActorSystemInner {
   process_registry: Option<ProcessRegistry>,
   root_context: Option<RootContext>,
   event_stream: Arc<EventStream>,
-  log_event_stream: Arc<LogEventStream>,
-  logger: Arc<Logger>,
   guardians: Option<GuardiansValue>,
   dead_letter: Option<DeadLetterProcess>,
   extensions: ContextExtensions,
@@ -56,28 +32,6 @@ struct ActorSystemInner {
 impl ActorSystemInner {
   async fn new(config: Config) -> Self {
     let id = Uuid::new_v4().to_string();
-
-    let log_event_stream = LogEventStream::new();
-    let logger = Arc::new(Logger::new(
-      log_event_stream.clone(),
-      config.log_level,
-      &config.log_prefix,
-    ));
-
-    log_event_stream
-      .subscribe(|event| async move {
-        let buf = write_event(&event).await;
-        let buf = std::str::from_utf8(&buf).unwrap();
-        match event.level {
-          LogLevel::Off => {}
-          LogLevel::Debug => tracing::debug!("{}", buf),
-          LogLevel::Info => tracing::info!("{}", buf),
-          LogLevel::Warn => tracing::warn!("{}", buf),
-          LogLevel::Error => tracing::error!("{}", buf),
-          _ => {}
-        }
-      })
-      .await;
     let myself = ActorSystemInner {
       id: id.clone(),
       config,
@@ -85,8 +39,8 @@ impl ActorSystemInner {
       root_context: None,
       guardians: None,
       event_stream: Arc::new(EventStream::new()),
-      logger: logger.clone(),
-      log_event_stream,
+      // logger: logger.clone(),
+      // log_event_stream,
       dead_letter: None,
       extensions: ContextExtensions::new(),
     };
@@ -148,9 +102,9 @@ impl ActorSystem {
     ExtendedPid::new(pid, self.clone())
   }
 
-  pub async fn get_logger(&self) -> Arc<Logger> {
-    self.inner.lock().await.logger.clone()
-  }
+  // pub async fn get_logger(&self) -> Arc<Logger> {
+  //   self.inner.lock().await.logger.clone()
+  // }
 
   pub async fn get_address(&self) -> String {
     self.get_process_registry().await.get_address()
@@ -219,7 +173,6 @@ impl ActorSystem {
 #[derive(Debug, Clone)]
 pub struct Config {
   // pub metrics_provider: Option<Arc<dyn MetricsProvider>>,
-  pub log_level: LogLevel,
   pub log_prefix: String,
   pub dispatcher_throughput: usize,
   pub dead_letter_throttle_interval: Duration,
@@ -233,7 +186,6 @@ impl Default for Config {
   fn default() -> Self {
     Config {
       // metrics_provider: None,
-      log_level: LogLevel::Info,
       log_prefix: "".to_string(),
       dispatcher_throughput: 300,
       dead_letter_throttle_interval: Duration::from_secs(1),
@@ -247,7 +199,6 @@ impl Default for Config {
 
 pub enum ConfigOption {
   // SetMetricsProvider(Arc<dyn MetricsProvider>),
-  SetLogLevel(LogLevel),
   SetLogPrefix(String),
   SetDispatcherThroughput(usize),
   SetDeadLetterThrottleInterval(Duration),
@@ -261,9 +212,6 @@ impl ConfigOption {
       // ConfigOption::SetMetricsProvider(provider) => {
       //   config.metrics_provider = Some(Arc::clone(provider));
       // },
-      ConfigOption::SetLogLevel(level) => {
-        config.log_level = *level;
-      }
       ConfigOption::SetLogPrefix(prefix) => {
         config.log_prefix = prefix.clone();
       }
