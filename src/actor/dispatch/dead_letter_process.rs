@@ -37,7 +37,7 @@ impl DeadLetterProcess {
       .dead_letter_throttle_interval
       .clone();
     let func = ThrottleCallback::new(move |i: usize| async move {
-        tracing::info!("DeadLetterProcess: Throttling dead letters, count: {}", i)
+      tracing::info!("DeadLetterProcess: Throttling dead letters, count: {}", i)
     });
     let throttle = Throttle::new(dead_letter_throttle_count, dead_letter_throttle_interval, func).await;
 
@@ -78,7 +78,16 @@ impl DeadLetterProcess {
 
             if let Some(is_ignore_dead_letter) = dead_letter.message_handle.to_typed::<IgnoreDeadLetterLogging>() {
               if cloned_throttle.should_throttle() == Valve::Open {
-                  tracing::debug!("DeadLetterProcess: Message from {} to {} was not delivered, message: {:?}", dead_letter.sender.as_ref().unwrap(), dead_letter.pid.as_ref().map(|v| v.to_string()).unwrap_or("None".to_string()), is_ignore_dead_letter);
+                tracing::debug!(
+                  "DeadLetterProcess: Message from {} to {} was not delivered, message: {:?}",
+                  dead_letter.sender.as_ref().unwrap(),
+                  dead_letter
+                    .pid
+                    .as_ref()
+                    .map(|v| v.to_string())
+                    .unwrap_or("None".to_string()),
+                  is_ignore_dead_letter
+                );
               }
             }
           }
