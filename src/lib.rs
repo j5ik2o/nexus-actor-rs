@@ -2,7 +2,6 @@
 pub mod actor;
 pub mod ctxext;
 pub mod event_stream;
-pub mod log;
 pub mod util;
 
 pub fn add(left: usize, right: usize) -> usize {

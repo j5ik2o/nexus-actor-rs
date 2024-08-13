@@ -15,7 +15,6 @@ use crate::actor::message::SystemMessage;
 use crate::actor::process::{Process, ProcessHandle};
 use crate::actor::supervisor::SupervisorStrategyHandle;
 use crate::actor::supervisor::{Supervisor, SupervisorHandle, SupervisorStrategy};
-use crate::log::LogField;
 
 #[derive(Debug, Clone)]
 pub struct GuardiansValue {
@@ -88,15 +87,7 @@ impl GuardianProcess {
       .await
       .add_process(ph, &format!("guardian-{}", id));
     if !ok {
-      guardians
-        .actor_system
-        .get_logger()
-        .await
-        .error_with_fields(
-          "failed to register guardian process",
-          [LogField::display("pid", pid.clone())],
-        )
-        .await
+      tracing::error!("failed to register guardian process: pid = {}", pid);
     }
     guardian.pid = Arc::new(Some(pid));
     guardian

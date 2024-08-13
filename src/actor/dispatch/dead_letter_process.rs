@@ -5,7 +5,6 @@ use async_trait::async_trait;
 use crate::actor::actor::ExtendedPid;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::SenderPart;
-use crate::actor::log::P_LOG;
 use crate::actor::message::unwrap_envelope;
 use crate::actor::message::DeadLetterResponse;
 use crate::actor::message::IgnoreDeadLetterLogging;
@@ -38,9 +37,7 @@ impl DeadLetterProcess {
       .dead_letter_throttle_interval
       .clone();
     let func = ThrottleCallback::new(move |i: usize| async move {
-      P_LOG
-        .info(&format!("DeadLetterProcess: Throttling dead letters, count: {}", i))
-        .await;
+        tracing::info!("DeadLetterProcess: Throttling dead letters, count: {}", i)
     });
     let throttle = Throttle::new(dead_letter_throttle_count, dead_letter_throttle_interval, func).await;
 
@@ -81,18 +78,7 @@ impl DeadLetterProcess {
 
             if let Some(is_ignore_dead_letter) = dead_letter.message_handle.to_typed::<IgnoreDeadLetterLogging>() {
               if cloned_throttle.should_throttle() == Valve::Open {
-                P_LOG
-                  .debug(&format!(
-                    "DeadLetterProcess: Message from {} to {} was not delivered, message: {:?}",
-                    dead_letter.sender.as_ref().unwrap(),
-                    dead_letter
-                      .pid
-                      .as_ref()
-                      .map(|v| v.to_string())
-                      .unwrap_or("None".to_string()),
-                    is_ignore_dead_letter,
-                  ))
-                  .await
+                  tracing::debug!("DeadLetterProcess: Message from {} to {} was not delivered, message: {:?}", dead_letter.sender.as_ref().unwrap(), dead_letter.pid.as_ref().map(|v| v.to_string()).unwrap_or("None".to_string()), is_ignore_dead_letter);
               }
             }
           }

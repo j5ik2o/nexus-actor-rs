@@ -13,7 +13,6 @@ use crate::actor::message::DeadLetterResponse;
 use crate::actor::message::Message;
 use crate::actor::message::MessageHandle;
 use crate::actor::process::{Process, ProcessHandle};
-use crate::log::LogField;
 
 #[derive(Debug, Clone)]
 pub enum ActorFutureError {
@@ -123,14 +122,7 @@ impl ActorFutureProcess {
       &format!("future_{}", id),
     );
     if !ok {
-      system
-        .get_logger()
-        .await
-        .error_with_fields(
-          "failed to register future process",
-          [LogField::display("pid", pid.to_string())],
-        )
-        .await;
+      tracing::error!("failed to register future process: pid = {}", pid);
     }
 
     future_process.set_pid(pid).await;
@@ -143,10 +135,10 @@ impl ActorFutureProcess {
 
         tokio::select! {
             _ = future.notify.notified() => {
-               system.get_logger().await.debug("Future completed").await;
+              tracing::debug!("Future completed");
             }
             _ = tokio::time::sleep(duration) => {
-                system.get_logger().await.debug("Future timed out").await;
+                tracing::debug!("Future timed out");
                 future_process_clone.handle_timeout().await;
             }
         }
