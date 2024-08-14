@@ -11,10 +11,10 @@ use crate::actor::actor::Props;
 use crate::actor::actor::SpawnError;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::future::ActorFuture;
-use crate::actor::message::MessageEnvelope;
-use crate::actor::message::MessageHandle;
 use crate::actor::message::ReadonlyMessageHeadersHandle;
 use crate::actor::message::ResponseHandle;
+use crate::actor::message::{Message, MessageEnvelope};
+use crate::actor::message::{MessageHandle, TypedMessageEnvelope};
 use crate::ctxext::extensions::{ContextExtensionHandle, ContextExtensionId};
 
 mod actor_context;
@@ -28,10 +28,11 @@ mod root_context;
 mod sender_context_handle;
 mod spawner_context_handle;
 mod state;
+mod typed_root_context;
 
 pub use {
   self::actor_context::*, self::context_handle::*, self::mock_context::*, self::receiver_context_handle::*,
-  self::root_context::*, self::sender_context_handle::*, self::spawner_context_handle::*,
+  self::root_context::*, self::sender_context_handle::*, self::spawner_context_handle::*, self::typed_root_context::*,
 };
 
 pub trait Context:
@@ -50,6 +51,10 @@ pub trait Context:
 pub trait ExtensionContext: ExtensionPart + Send + Sync + 'static {}
 
 pub trait SenderContext: InfoPart + SenderPart + MessagePart + Send + Sync + 'static {}
+
+pub trait TypedSenderContext<M: Message>:
+  InfoPart + TypedSenderPart<M> + TypedMessagePart<M> + Send + Sync + 'static {
+}
 
 pub trait ReceiverContext: InfoPart + ReceiverPart + MessagePart + ExtensionPart + Send + Sync + 'static {}
 
@@ -141,6 +146,28 @@ pub trait MessagePart: Debug + Send + Sync + 'static {
 }
 
 #[async_trait]
+pub trait TypedMessagePart<M: Message>: Debug + Send + Sync + 'static {
+  async fn get_message_envelope_opt(&self) -> Option<TypedMessageEnvelope<M>>;
+
+  async fn get_message_envelope(&self) -> TypedMessageEnvelope<M> {
+    self
+      .get_message_envelope_opt()
+      .await
+      .expect("message envelope not found")
+  }
+
+  // Message returns the current message to be processed
+  async fn get_message_opt(&self) -> Option<M>;
+
+  async fn get_message(&self) -> M {
+    self.get_message_opt().await.expect("message not found")
+  }
+
+  // MessageHeader returns the meta information for the currently processed message
+  async fn get_message_header_handle(&self) -> Option<ReadonlyMessageHeadersHandle>;
+}
+
+#[async_trait]
 pub trait SenderPart: Debug + Send + Sync + 'static {
   // Sender returns the PID of actor that sent currently processed message
   async fn get_sender(&self) -> Option<ExtendedPid>;
@@ -156,6 +183,24 @@ pub trait SenderPart: Debug + Send + Sync + 'static {
 
   // RequestFuture sends a message to a given PID and returns a Future
   async fn request_future(&self, pid: ExtendedPid, message_handle: MessageHandle, timeout: Duration) -> ActorFuture;
+}
+
+#[async_trait]
+pub trait TypedSenderPart<M: Message>: Debug + Send + Sync + 'static {
+  // Sender returns the PID of actor that sent currently processed message
+  async fn get_sender(&self) -> Option<ExtendedPid>;
+
+  // Send sends a message to the given PID
+  async fn send(&mut self, pid: ExtendedPid, message: M);
+
+  // Request sends a message to the given PID
+  async fn request(&mut self, pid: ExtendedPid, message: M);
+
+  // RequestWithCustomSender sends a message to the given PID and also provides a Sender PID
+  async fn request_with_custom_sender(&mut self, pid: ExtendedPid, message: M, sender: ExtendedPid);
+
+  // RequestFuture sends a message to a given PID and returns a Future
+  async fn request_future(&self, pid: ExtendedPid, message: M, timeout: Duration) -> ActorFuture;
 }
 
 #[async_trait]

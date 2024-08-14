@@ -1,17 +1,17 @@
 use std::fmt::Debug;
 
-use async_trait::async_trait;
-use tracing::instrument;
 use crate::actor::actor::actor_error::ActorError;
 use crate::actor::context::ContextHandle;
 use crate::actor::context::MessagePart;
 use crate::actor::message::AutoReceiveMessage;
 use crate::actor::message::TerminateInfo;
 use crate::actor::supervisor::SupervisorStrategyHandle;
+use async_trait::async_trait;
+use tracing::instrument;
 
 #[async_trait]
 pub trait Actor: Debug + Send + Sync + 'static {
-  #[instrument]
+  #[instrument(skip_all)]
   async fn handle(&mut self, context_handle: ContextHandle) -> Result<(), ActorError> {
     let message_handle = context_handle.get_message_handle().await;
     let arm = message_handle.to_typed::<AutoReceiveMessage>();
@@ -29,7 +29,6 @@ pub trait Actor: Debug + Send + Sync + 'static {
     }
   }
 
-  #[instrument]
   async fn receive(&mut self, context_handle: ContextHandle) -> Result<(), ActorError>;
 
   #[instrument]
