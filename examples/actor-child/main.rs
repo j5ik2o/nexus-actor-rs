@@ -1,13 +1,15 @@
 use async_trait::async_trait;
 use nexus_acto_rs::actor::actor::Actor;
-use nexus_acto_rs::actor::actor::ActorError;
 use nexus_acto_rs::actor::actor::Props;
+use nexus_acto_rs::actor::actor::{ActorError, TypedActor, TypedProps};
 use nexus_acto_rs::actor::actor_system::ActorSystem;
-use nexus_acto_rs::actor::context::ContextHandle;
+use nexus_acto_rs::actor::context::{ContextHandle, TypedContextHandle};
 use nexus_acto_rs::actor::context::{MessagePart, SenderPart, SpawnerPart};
 use nexus_acto_rs::actor::dispatch::unbounded_mpsc_mailbox_creator;
 use nexus_acto_rs::actor::message::Message;
 use nexus_acto_rs::actor::message::MessageHandle;
+use nexus_acto_rs::actor::typed_actor_system::TypedActorSystem;
+use nexus_acto_rs::actor::typed_context::{TypedMessagePart, TypedSenderPart, TypedSpawnerPart};
 use std::env;
 use std::time::Duration;
 use tokio::time::sleep;
@@ -34,15 +36,15 @@ impl Message for Hello {
 struct ChildActor;
 
 #[async_trait]
-impl Actor for ChildActor {
-  async fn post_start(&self, _: ContextHandle) -> Result<(), ActorError> {
+impl TypedActor<Hello> for ChildActor {
+  async fn post_start(&self, _: TypedContextHandle<Hello>) -> Result<(), ActorError> {
     tracing::debug!("ChildActor::started");
     Ok(())
   }
 
-  async fn receive(&mut self, ctx: ContextHandle) -> Result<(), ActorError> {
-    let message_handle = ctx.get_message_handle().await;
-    tracing::debug!("ChildActor::receive: msg = {:?}", message_handle);
+  async fn receive(&mut self, ctx: TypedContextHandle<Hello>) -> Result<(), ActorError> {
+    let message = ctx.get_message().await;
+    tracing::debug!("ChildActor::receive: msg = {:?}", message);
     Ok(())
   }
 }
@@ -51,33 +53,22 @@ impl Actor for ChildActor {
 struct TopActor;
 
 #[async_trait]
-impl Actor for TopActor {
-  async fn post_start(&self, mut context_handle: ContextHandle) -> Result<(), ActorError> {
+impl TypedActor<Hello> for TopActor {
+  async fn post_start(&self, mut context_handle: TypedContextHandle<Hello>) -> Result<(), ActorError> {
     tracing::debug!("TopActor::post_start");
-    let props = Props::from_actor_producer(create_child_actor).await;
-
+    let props = TypedProps::from_actor_producer(move |_| async { ChildActor }).await;
     let pid = context_handle.spawn(props).await;
     for _ in 1..10 {
-      context_handle
-        .send(pid.clone(), MessageHandle::new(Hello("hello-2".to_string())))
-        .await;
+      context_handle.send(pid.clone(), Hello("hello-2".to_string())).await;
     }
     Ok(())
   }
 
-  async fn receive(&mut self, ctx: ContextHandle) -> Result<(), ActorError> {
-    let message_handle = ctx.get_message_handle().await;
-    tracing::debug!("TopActor::receive: msg = {:?}", message_handle);
+  async fn receive(&mut self, ctx: TypedContextHandle<Hello>) -> Result<(), ActorError> {
+    let message = ctx.get_message().await;
+    tracing::debug!("TopActor::receive: msg = {:?}", message);
     Ok(())
   }
-}
-
-async fn create_top_actor(_: ContextHandle) -> TopActor {
-  TopActor
-}
-
-async fn create_child_actor(_: ContextHandle) -> ChildActor {
-  ChildActor
 }
 
 #[tokio::main]
@@ -86,20 +77,19 @@ async fn main() {
   tracing_subscriber::fmt()
     .with_env_filter(EnvFilter::from_default_env())
     .init();
-  let system = ActorSystem::new().await;
+
+  let system: TypedActorSystem<Hello> = ActorSystem::new().await.into();
   let mut root = system.get_root_context().await;
 
-  let props = Props::from_actor_producer_with_opts(
-    create_top_actor,
+  let props = TypedProps::from_actor_producer_with_opts(
+    move |_| async { TopActor },
     [Props::with_mailbox_producer(unbounded_mpsc_mailbox_creator())],
   )
   .await;
 
   let pid = root.spawn(props).await;
   for _ in 1..10 {
-    root
-      .send(pid.clone(), MessageHandle::new(Hello("hello-1".to_string())))
-      .await;
+    root.send(pid.clone(), Hello("hello-1".to_string())).await;
   }
 
   sleep(Duration::from_secs(3)).await;

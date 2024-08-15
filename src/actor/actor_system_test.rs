@@ -9,7 +9,7 @@ mod tests {
   use crate::actor::actor::Actor;
   use crate::actor::actor::ActorError;
   use crate::actor::actor::Props;
-  use crate::actor::actor_system::{ActorSystem, Config, ConfigOption};
+  use crate::actor::actor_system::{ActorSystem, Config};
   use crate::actor::context::ContextHandle;
   use crate::actor::context::{InfoPart, SenderPart, SpawnerPart};
   use crate::actor::message::Message;

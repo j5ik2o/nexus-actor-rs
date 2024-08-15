@@ -1,16 +1,17 @@
 use std::fmt::Debug;
 
-use async_trait::async_trait;
-
 use crate::actor::actor::actor_error::ActorError;
 use crate::actor::context::ContextHandle;
 use crate::actor::context::MessagePart;
 use crate::actor::message::AutoReceiveMessage;
 use crate::actor::message::TerminateInfo;
 use crate::actor::supervisor::SupervisorStrategyHandle;
+use async_trait::async_trait;
+use tracing::instrument;
 
 #[async_trait]
 pub trait Actor: Debug + Send + Sync + 'static {
+  #[instrument(skip_all)]
   async fn handle(&mut self, context_handle: ContextHandle) -> Result<(), ActorError> {
     let message_handle = context_handle.get_message_handle().await;
     let arm = message_handle.to_typed::<AutoReceiveMessage>();
@@ -30,36 +31,43 @@ pub trait Actor: Debug + Send + Sync + 'static {
 
   async fn receive(&mut self, context_handle: ContextHandle) -> Result<(), ActorError>;
 
+  #[instrument]
   async fn pre_start(&self, _: ContextHandle) -> Result<(), ActorError> {
     tracing::debug!("Actor::pre_start");
     Ok(())
   }
 
+  #[instrument]
   async fn post_start(&self, _: ContextHandle) -> Result<(), ActorError> {
     tracing::debug!("Actor::post_start");
     Ok(())
   }
 
+  #[instrument]
   async fn pre_restart(&self, _: ContextHandle) -> Result<(), ActorError> {
     tracing::debug!("Actor::pre_restart");
     Ok(())
   }
 
+  #[instrument]
   async fn post_restart(&self, context_handle: ContextHandle) -> Result<(), ActorError> {
     tracing::debug!("Actor::post_restart");
     self.pre_start(context_handle).await
   }
 
+  #[instrument]
   async fn pre_stop(&self, _: ContextHandle) -> Result<(), ActorError> {
     tracing::debug!("Actor::pre_stop");
     Ok(())
   }
 
+  #[instrument]
   async fn post_stop(&self, _: ContextHandle) -> Result<(), ActorError> {
     tracing::debug!("Actor::post_stop");
     Ok(())
   }
 
+  #[instrument]
   async fn post_child_terminate(&self, _: ContextHandle, _: &TerminateInfo) -> Result<(), ActorError> {
     tracing::debug!("Actor::post_child_terminate");
     Ok(())

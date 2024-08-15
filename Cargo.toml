@@ -31,10 +31,10 @@ uuid = { version = "1.9.0", features = ["v4"] }
 static_assertions = "1.1.0"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-clap = { version = "4.5.9", features = ["derive"] }
 
 [dev-dependencies]
 rstest = "0.22.0"
+clap = { version = "4.5.9", features = ["derive"] }
 
 [build-dependencies]
 prost-build = { version = "0.13.0" }
