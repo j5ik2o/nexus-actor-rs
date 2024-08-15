@@ -131,6 +131,10 @@ impl<M: Message + Clone> TypedMessagePart<M> for TypedActorContext<M> {
       .map(|envelope| TypedMessageEnvelope::new(envelope))
   }
 
+  async fn get_message_handle_opt(&self) -> Option<MessageHandle> {
+    self.underlying.get_message_handle_opt().await
+  }
+
   async fn get_message_opt(&self) -> Option<M> {
     self
       .underlying
@@ -157,15 +161,15 @@ impl<M: Message> TypedSpawnerContext<M> for TypedActorContext<M> {}
 
 #[async_trait]
 impl<M: Message> TypedSpawnerPart for TypedActorContext<M> {
-  async fn spawn<A: Message>(&mut self, props: TypedProps<A>) -> TypedExtendedPid<A> {
+  async fn spawn<A: Message + Clone>(&mut self, props: TypedProps<A>) -> TypedExtendedPid<A> {
     TypedExtendedPid::new(self.underlying.spawn(props.into()).await)
   }
 
-  async fn spawn_prefix<A: Message>(&mut self, props: TypedProps<A>, prefix: &str) -> TypedExtendedPid<A> {
+  async fn spawn_prefix<A: Message + Clone>(&mut self, props: TypedProps<A>, prefix: &str) -> TypedExtendedPid<A> {
     TypedExtendedPid::new(self.underlying.spawn_prefix(props.into(), prefix).await)
   }
 
-  async fn spawn_named<A: Message>(
+  async fn spawn_named<A: Message + Clone>(
     &mut self,
     props: TypedProps<A>,
     id: &str,

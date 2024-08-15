@@ -6,6 +6,7 @@ mod actor_inner_error;
 mod actor_process;
 mod actor_producer;
 mod actor_receiver;
+mod behavior_actor;
 mod child_test;
 mod context_decorator;
 mod context_decorator_chain;
@@ -29,6 +30,9 @@ mod spawn_test;
 mod spawner;
 mod taks;
 mod typed_actor;
+mod typed_actor_handle;
+mod typed_actor_producer;
+mod typed_actor_receiver;
 mod typed_pid;
 mod typed_props;
 
@@ -38,7 +42,8 @@ pub use {
   self::context_handler::*, self::continuer::*, self::middleware_chain::*, self::pid::*, self::props::*,
   self::receiver_middleware::*, self::receiver_middleware_chain::*, self::restart_statistics::*,
   self::sender_middleware::*, self::sender_middleware_chain::*, self::spawn_middleware::*, self::spawner::*,
-  self::taks::*, self::typed_pid::*, self::typed_props::*,
+  self::taks::*, self::typed_actor::*, self::typed_actor_producer::*, self::typed_actor_receiver::*,
+  self::typed_pid::*, self::typed_props::*,
 };
 
 pub(crate) use self::pid_set::*;

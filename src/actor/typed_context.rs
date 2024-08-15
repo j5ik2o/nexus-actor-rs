@@ -2,7 +2,7 @@ use crate::actor::actor::{ActorError, ActorHandle, SpawnError, TypedExtendedPid,
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::{BasePart, ExtensionContext, ExtensionPart};
 use crate::actor::future::ActorFuture;
-use crate::actor::message::{Message, ReadonlyMessageHeadersHandle, TypedMessageEnvelope};
+use crate::actor::message::{Message, MessageHandle, ReadonlyMessageHeadersHandle, TypedMessageEnvelope};
 use async_trait::async_trait;
 use std::fmt::Debug;
 use std::time::Duration;
@@ -58,6 +58,12 @@ pub trait TypedMessagePart<M: Message>: Debug + Send + Sync + 'static {
       .expect("message envelope not found")
   }
 
+  async fn get_message_handle_opt(&self) -> Option<MessageHandle>;
+
+  async fn get_message_handle(&self) -> MessageHandle {
+    self.get_message_handle_opt().await.expect("message handle not found")
+  }
+
   // Message returns the current message to be processed
   async fn get_message_opt(&self) -> Option<M>;
 
@@ -98,17 +104,17 @@ pub trait TypedReceiverPart<M: Message>: Debug + Send + Sync + 'static {
 #[async_trait]
 pub trait TypedSpawnerPart: Send + Sync + 'static {
   // Spawn starts a new child actor based on props and named with a unique id
-  async fn spawn<A: Message>(&mut self, props: TypedProps<A>) -> TypedExtendedPid<A>;
+  async fn spawn<A: Message + Clone>(&mut self, props: TypedProps<A>) -> TypedExtendedPid<A>;
 
   // SpawnPrefix starts a new child actor based on props and named using a prefix followed by a unique id
-  async fn spawn_prefix<A: Message>(&mut self, props: TypedProps<A>, prefix: &str) -> TypedExtendedPid<A>;
+  async fn spawn_prefix<A: Message + Clone>(&mut self, props: TypedProps<A>, prefix: &str) -> TypedExtendedPid<A>;
 
   // SpawnNamed starts a new child actor based on props and named using the specified name
   //
   // ErrNameExists will be returned if id already exists
   //
   // Please do not use name sharing same pattern with system actors, for example "YourPrefix$1", "Remote$1", "future$1"
-  async fn spawn_named<A: Message>(
+  async fn spawn_named<A: Message + Clone>(
     &mut self,
     props: TypedProps<A>,
     id: &str,

@@ -1,274 +1,153 @@
-use crate::actor::actor::actor::Actor;
-use crate::actor::actor::actor_error::ActorError;
-use crate::actor::actor::actor_inner_error::ActorInnerError;
-use crate::actor::context::ContextHandle;
-use crate::actor::context::{BasePart, InfoPart, MessagePart, StopperPart};
-use crate::actor::message::Message;
+use crate::actor::actor::{Actor, ActorError};
+use crate::actor::context::{ContextHandle, TypedContextHandle};
+use crate::actor::message::{AutoReceiveMessage, Message, TerminateInfo};
+use crate::actor::supervisor::SupervisorStrategyHandle;
+use crate::actor::typed_context::TypedMessagePart;
 use async_trait::async_trait;
-use futures::future::BoxFuture;
-use std::fmt::{Debug, Formatter};
-use std::future::Future;
-use std::sync::Arc;
-use tokio::sync::Mutex;
+use std::fmt::Debug;
+use std::marker::PhantomData;
+use tracing::instrument;
 
-type BehaviorFn<M> =
-  Arc<dyn Fn(&mut TypedActorContext<M>) -> BoxFuture<'static, Result<Behavior<M>, ActorError>> + Send + Sync>;
-
-#[derive(Clone)]
-pub enum Behavior<M: Message> {
-  Same,
-  Stopped,
-  Ignore,
-  Unhandled,
-  Func(BehaviorFn<M>),
-}
-
-impl<M: Message> Debug for Behavior<M> {
-  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "Behavior")
-  }
-}
-
-impl<M: Message + Clone> Behavior<M> {
-  pub fn new<F, Fut>(f: F) -> Self
-  where
-    F: Fn(&mut TypedActorContext<M>) -> Fut + Send + Sync + 'static,
-    Fut: Future<Output = Result<Behavior<M>, ActorError>> + Send + 'static, {
-    Behavior::Func(Arc::new(move |ctx| Box::pin(f(ctx))))
-  }
-
-  pub async fn receive(&self, ctx: &mut TypedActorContext<M>) -> Result<Behavior<M>, ActorError> {
-    match self {
-      Behavior::Func(f) => f(ctx).await,
-      Behavior::Same => Ok(self.clone()),
-      Behavior::Stopped => Ok(self.clone()),
-      Behavior::Ignore => Ok(self.clone()),
-      Behavior::Unhandled => Ok(self.clone()),
+#[async_trait]
+pub trait TypedActor<M: Message + Clone>: Debug + Send + Sync + 'static {
+  #[instrument(skip_all)]
+  async fn handle(&mut self, context_handle: TypedContextHandle<M>) -> Result<(), ActorError> {
+    let message_handle = context_handle.get_message_handle().await;
+    let arm = message_handle.to_typed::<AutoReceiveMessage>();
+    match arm {
+      Some(arm) => match arm {
+        AutoReceiveMessage::PreStart => self.pre_start(context_handle).await,
+        AutoReceiveMessage::PostStart => self.post_start(context_handle).await,
+        AutoReceiveMessage::PreRestart => self.pre_restart(context_handle).await,
+        AutoReceiveMessage::PostRestart => self.post_restart(context_handle).await,
+        AutoReceiveMessage::PreStop => self.pre_stop(context_handle).await,
+        AutoReceiveMessage::PostStop => self.post_stop(context_handle).await,
+        AutoReceiveMessage::Terminated(t) => self.post_child_terminate(context_handle, &t).await,
+      },
+      _ => self.receive(context_handle).await,
     }
+  }
+
+  async fn receive(&mut self, context_handle: TypedContextHandle<M>) -> Result<(), ActorError>;
+
+  #[instrument]
+  async fn pre_start(&self, _: TypedContextHandle<M>) -> Result<(), ActorError> {
+    tracing::debug!("Actor::pre_start");
+    Ok(())
+  }
+
+  #[instrument]
+  async fn post_start(&self, _: TypedContextHandle<M>) -> Result<(), ActorError> {
+    tracing::debug!("Actor::post_start");
+    Ok(())
+  }
+
+  #[instrument]
+  async fn pre_restart(&self, _: TypedContextHandle<M>) -> Result<(), ActorError> {
+    tracing::debug!("Actor::pre_restart");
+    Ok(())
+  }
+
+  #[instrument]
+  async fn post_restart(&self, context_handle: TypedContextHandle<M>) -> Result<(), ActorError> {
+    tracing::debug!("Actor::post_restart");
+    self.pre_start(context_handle).await
+  }
+
+  #[instrument]
+  async fn pre_stop(&self, _: TypedContextHandle<M>) -> Result<(), ActorError> {
+    tracing::debug!("Actor::pre_stop");
+    Ok(())
+  }
+
+  #[instrument]
+  async fn post_stop(&self, _: TypedContextHandle<M>) -> Result<(), ActorError> {
+    tracing::debug!("Actor::post_stop");
+    Ok(())
+  }
+
+  #[instrument]
+  async fn post_child_terminate(&self, _: TypedContextHandle<M>, _: &TerminateInfo) -> Result<(), ActorError> {
+    tracing::debug!("Actor::post_child_terminate");
+    Ok(())
+  }
+
+  async fn get_supervisor_strategy(&self) -> Option<SupervisorStrategyHandle> {
+    None
   }
 }
 
 #[derive(Debug, Clone)]
-pub struct TypedActorContext<M: Message> {
-  context_handle: ContextHandle,
-  _phantom: std::marker::PhantomData<M>,
+pub struct TypedActorWrapper<A: TypedActor<M>, M: Message + Clone> {
+  actor: A,
+  phantom_data: PhantomData<M>,
 }
 
-impl<M: Message + Clone> TypedActorContext<M> {
-  pub fn new(context_handle: ContextHandle) -> Self {
+impl<A: TypedActor<M>, M: Message + Clone> TypedActorWrapper<A, M> {
+  pub fn new(actor: A) -> Self {
     Self {
-      context_handle,
-      _phantom: std::marker::PhantomData,
-    }
-  }
-
-  pub fn underlying(&self) -> &ContextHandle {
-    &self.context_handle
-  }
-
-  pub fn underlying_mut(&mut self) -> &mut ContextHandle {
-    &mut self.context_handle
-  }
-
-  pub async fn get_message_opt(&self) -> Option<M> {
-    self.context_handle.get_message_handle().await.to_typed::<M>()
-  }
-
-  pub async fn get_message(&self) -> M {
-    self.get_message_opt().await.unwrap()
-  }
-}
-
-#[async_trait]
-pub trait BehaviorActor: Debug {
-  type Message: Message + Clone;
-
-  fn create_initial_behavior() -> Result<Behavior<Self::Message>, ActorError>;
-}
-
-#[derive(Debug)]
-struct TypedWrapper<A: BehaviorActor> {
-  behavior: Arc<Mutex<Option<Behavior<A::Message>>>>,
-}
-
-impl<A: BehaviorActor> TypedWrapper<A> {
-  fn new() -> Self {
-    match A::create_initial_behavior() {
-      Ok(behavior) => Self {
-        behavior: Arc::new(Mutex::new(Some(behavior))),
-      },
-      Err(err) => panic!("Failed to create initial behavior: {:?}", err),
+      actor,
+      phantom_data: PhantomData,
     }
   }
 }
 
 #[async_trait]
-impl<A: BehaviorActor + 'static> Actor for TypedWrapper<A> {
-  async fn receive(&mut self, mut context_handle: ContextHandle) -> Result<(), ActorError> {
-    let mut behavior_guard = self.behavior.lock().await;
-    if let Some(current_behavior) = behavior_guard.take() {
-      let mut actor_context = TypedActorContext::new(context_handle.clone());
-      match current_behavior.receive(&mut actor_context).await {
-        Ok(Behavior::Same) => {
-          *behavior_guard = Some(current_behavior);
-          Ok(())
-        }
-        Ok(Behavior::Stopped) => {
-          *behavior_guard = Some(current_behavior);
-          let self_pid = context_handle.get_self().await;
-          context_handle.stop(&self_pid).await;
-          Ok(())
-        }
-        Ok(Behavior::Ignore) => {
-          *behavior_guard = Some(current_behavior.receive(&mut actor_context).await.unwrap());
-          Ok(())
-        }
-        Ok(Behavior::Unhandled) => {
-          context_handle.stash().await;
-          *behavior_guard = Some(current_behavior);
-          Ok(())
-        }
-        Ok(new_behavior) => {
-          let result = context_handle.un_stash_all().await;
-          if result.is_err() {
-            return Err(result.unwrap_err());
-          }
-          *behavior_guard = Some(new_behavior);
-          Ok(())
-        }
-        Err(err) => {
-          *behavior_guard = Some(current_behavior);
-          Err(err)
-        }
-      }
-    } else {
-      Err(ActorError::BehaviorNotInitialized(ActorInnerError::new(
-        "Behavior not initialized".to_string(),
-      )))
-    }
-  }
-}
-
-#[cfg(test)]
-mod tests {
-  use crate::actor::actor::actor_error::ActorError;
-  use crate::actor::actor::props::Props;
-  use crate::actor::actor::typed_actor::{Behavior, BehaviorActor, TypedWrapper};
-  use crate::actor::actor_system::ActorSystem;
-  use crate::actor::context::{SenderPart, SpawnerPart};
-  use crate::actor::message::Message;
-  use crate::actor::message::MessageHandle;
-  use std::any::Any;
-  use std::time::Duration;
-  use tokio::time::sleep;
-
-  #[derive(Debug, Clone, PartialEq, Eq)]
-  enum AppMessage {
-    Greet(String),
-    SwitchToFormal,
-    SwitchToInformal,
+impl<A: TypedActor<M>, M: Message + Clone> Actor for TypedActorWrapper<A, M> {
+  #[instrument(skip_all)]
+  async fn handle(&mut self, context_handle: ContextHandle) -> Result<(), ActorError> {
+    let typed_context_handle = TypedContextHandle::new(context_handle);
+    self.actor.handle(typed_context_handle).await
   }
 
-  impl Message for AppMessage {
-    fn eq_message(&self, other: &dyn Message) -> bool {
-      match other.as_any().downcast_ref::<AppMessage>() {
-        Some(other) => self == other,
-        None => false,
-      }
-    }
-
-    fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-      self
-    }
+  async fn receive(&mut self, context_handle: ContextHandle) -> Result<(), ActorError> {
+    let typed_context_handle = TypedContextHandle::new(context_handle);
+    self.actor.receive(typed_context_handle).await
   }
 
-  #[derive(Debug)]
-  struct StateSwitchingActor;
-
-  impl StateSwitchingActor {
-    fn informal_behavior(greeting_count: usize) -> Result<Behavior<AppMessage>, ActorError> {
-      Ok(Behavior::new(move |ctx| {
-        let ctx = ctx.clone();
-        async move {
-          match ctx.get_message().await {
-            AppMessage::Greet(name) => {
-              let new_count = greeting_count + 1;
-              println!("Hey, {}! What's up? (Greetings: {})", name, new_count);
-              Self::informal_behavior(new_count)
-            }
-            AppMessage::SwitchToFormal => {
-              println!("Switching to formal behavior.");
-              Self::formal_behavior(greeting_count)
-            }
-            _ => {
-              println!("Informal: I don't understand that message.");
-              Ok(Behavior::Same)
-            }
-          }
-        }
-      }))
-    }
-
-    fn formal_behavior(greeting_count: usize) -> Result<Behavior<AppMessage>, ActorError> {
-      Ok(Behavior::new(move |ctx| {
-        let ctx = ctx.clone();
-        async move {
-          match ctx.get_message().await {
-            AppMessage::Greet(name) => {
-              let new_count = greeting_count + 1;
-              println!("Good day, {}. How may I assist you? (Greetings: {})", name, new_count);
-              Self::formal_behavior(new_count)
-            }
-            AppMessage::SwitchToInformal => {
-              println!("Switching to informal behavior.");
-              Self::informal_behavior(greeting_count)
-            }
-            _ => {
-              println!("Formal: I do not understand that message.");
-              Ok(Behavior::Same)
-            }
-          }
-        }
-      }))
-    }
+  async fn pre_start(&self, context_handle: ContextHandle) -> Result<(), ActorError> {
+    let typed_context_handle = TypedContextHandle::new(context_handle);
+    self.actor.pre_start(typed_context_handle).await
   }
 
-  impl BehaviorActor for StateSwitchingActor {
-    type Message = AppMessage;
-
-    fn create_initial_behavior() -> Result<Behavior<Self::Message>, ActorError> {
-      Self::informal_behavior(0)
-    }
+  async fn post_start(&self, context_handle: ContextHandle) -> Result<(), ActorError> {
+    let typed_context_handle = TypedContextHandle::new(context_handle);
+    self.actor.post_start(typed_context_handle).await
   }
 
-  #[tokio::test]
-  async fn test() {
-    let system = ActorSystem::new().await;
-    let mut root_context = system.get_root_context().await;
+  async fn pre_restart(&self, context_handle: ContextHandle) -> Result<(), ActorError> {
+    let typed_context_handle = TypedContextHandle::new(context_handle);
+    self.actor.pre_restart(typed_context_handle).await
+  }
 
-    let pid = root_context
-      .spawn(Props::from_actor_producer(|_| async { TypedWrapper::<StateSwitchingActor>::new() }).await)
-      .await;
+  async fn post_restart(&self, context_handle: ContextHandle) -> Result<(), ActorError> {
+    let typed_context_handle = TypedContextHandle::new(context_handle);
+    self.actor.post_restart(typed_context_handle).await
+  }
 
-    root_context
-      .send(pid.clone(), MessageHandle::new(AppMessage::Greet("Alice".to_string())))
-      .await;
-    root_context
-      .send(pid.clone(), MessageHandle::new(AppMessage::SwitchToFormal))
-      .await;
-    root_context
-      .send(pid.clone(), MessageHandle::new(AppMessage::Greet("Bob".to_string())))
-      .await;
-    root_context
-      .send(pid.clone(), MessageHandle::new(AppMessage::SwitchToInformal))
-      .await;
-    root_context
-      .send(
-        pid.clone(),
-        MessageHandle::new(AppMessage::Greet("Charlie".to_string())),
-      )
-      .await;
+  async fn pre_stop(&self, context_handle: ContextHandle) -> Result<(), ActorError> {
+    let typed_context_handle = TypedContextHandle::new(context_handle);
+    self.actor.pre_stop(typed_context_handle).await
+  }
 
-    sleep(Duration::from_secs(1)).await;
+  async fn post_stop(&self, context_handle: ContextHandle) -> Result<(), ActorError> {
+    let typed_context_handle = TypedContextHandle::new(context_handle);
+    self.actor.post_stop(typed_context_handle).await
+  }
+
+  async fn post_child_terminate(
+    &self,
+    context_handle: ContextHandle,
+    terminate_info: &TerminateInfo,
+  ) -> Result<(), ActorError> {
+    let typed_context_handle = TypedContextHandle::new(context_handle);
+    self
+      .actor
+      .post_child_terminate(typed_context_handle, terminate_info)
+      .await
+  }
+
+  async fn get_supervisor_strategy(&self) -> Option<SupervisorStrategyHandle> {
+    self.actor.get_supervisor_strategy().await
   }
 }

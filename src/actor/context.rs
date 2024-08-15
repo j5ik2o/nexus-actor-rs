@@ -3,18 +3,18 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 
+use crate::actor::actor::ActorError;
 use crate::actor::actor::ActorHandle;
 use crate::actor::actor::Continuer;
 use crate::actor::actor::ExtendedPid;
 use crate::actor::actor::Props;
 use crate::actor::actor::SpawnError;
-use crate::actor::actor::{ActorError, TypedExtendedPid};
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::future::ActorFuture;
+use crate::actor::message::MessageEnvelope;
+use crate::actor::message::MessageHandle;
 use crate::actor::message::ReadonlyMessageHeadersHandle;
 use crate::actor::message::ResponseHandle;
-use crate::actor::message::{Message, MessageEnvelope};
-use crate::actor::message::{MessageHandle, TypedMessageEnvelope};
 use crate::ctxext::extensions::{ContextExtensionHandle, ContextExtensionId};
 
 mod actor_context;
@@ -34,7 +34,8 @@ mod typed_root_context;
 
 pub use {
   self::actor_context::*, self::context_handle::*, self::mock_context::*, self::receiver_context_handle::*,
-  self::root_context::*, self::sender_context_handle::*, self::spawner_context_handle::*, self::typed_root_context::*,
+  self::root_context::*, self::sender_context_handle::*, self::spawner_context_handle::*,
+  self::typed_context_handle::*, self::typed_root_context::*,
 };
 
 pub trait Context:

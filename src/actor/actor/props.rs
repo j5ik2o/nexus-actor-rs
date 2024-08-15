@@ -46,7 +46,7 @@ use crate::actor::supervisor::DEFAULT_SUPERVISION_STRATEGY;
 #[derive(Debug, Clone)]
 pub struct Props {
   spawner: Option<Spawner>,
-  producer: Option<ActorProducer>,
+  pub(crate) producer: Option<ActorProducer>,
   mailbox_producer: Option<MailboxProducer>,
   guardian_strategy: Option<SupervisorStrategyHandle>,
   supervisor_strategy: Option<SupervisorStrategyHandle>,
@@ -122,7 +122,13 @@ fn initialize(props: Props, ctx: ActorContext) {
 }
 
 #[derive(Debug, Clone)]
-struct ActorReceiverActor(ActorReceiver);
+pub struct ActorReceiverActor(ActorReceiver);
+
+impl ActorReceiverActor {
+  pub fn new(actor_receiver: ActorReceiver) -> Self {
+    Self(actor_receiver)
+  }
+}
 
 #[async_trait]
 impl Actor for ActorReceiverActor {

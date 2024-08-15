@@ -105,6 +105,10 @@ impl<M: Message + Clone> TypedMessagePart<M> for TypedRootContext<M> {
       .map(|envelope| TypedMessageEnvelope::new(envelope))
   }
 
+  async fn get_message_handle_opt(&self) -> Option<MessageHandle> {
+    self.inner.get_message_handle_opt().await
+  }
+
   async fn get_message_opt(&self) -> Option<M> {
     self
       .inner
@@ -118,19 +122,19 @@ impl<M: Message + Clone> TypedMessagePart<M> for TypedRootContext<M> {
   }
 }
 
-impl<M: Message> TypedSpawnerContext<M> for TypedRootContext<M> {}
+impl<M: Message + Clone> TypedSpawnerContext<M> for TypedRootContext<M> {}
 
 #[async_trait]
-impl<M: Message> TypedSpawnerPart for TypedRootContext<M> {
-  async fn spawn<A: Message>(&mut self, props: TypedProps<A>) -> TypedExtendedPid<A> {
+impl<M: Message + Clone> TypedSpawnerPart for TypedRootContext<M> {
+  async fn spawn<A: Message + Clone>(&mut self, props: TypedProps<A>) -> TypedExtendedPid<A> {
     TypedExtendedPid::new(self.inner.spawn(props.get_underlying().clone()).await)
   }
 
-  async fn spawn_prefix<A: Message>(&mut self, props: TypedProps<A>, prefix: &str) -> TypedExtendedPid<A> {
+  async fn spawn_prefix<A: Message + Clone>(&mut self, props: TypedProps<A>, prefix: &str) -> TypedExtendedPid<A> {
     TypedExtendedPid::new(self.inner.spawn_prefix(props.get_underlying().clone(), prefix).await)
   }
 
-  async fn spawn_named<A: Message>(
+  async fn spawn_named<A: Message + Clone>(
     &mut self,
     props: TypedProps<A>,
     id: &str,

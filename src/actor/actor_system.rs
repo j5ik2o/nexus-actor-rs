@@ -6,11 +6,11 @@ use uuid::Uuid;
 
 use crate::actor::actor::ExtendedPid;
 use crate::actor::actor::Pid;
-use crate::actor::context::{RootContext, TypedRootContext};
+use crate::actor::context::RootContext;
 use crate::actor::dispatch::DeadLetterProcess;
 use crate::actor::event_stream::EventStreamProcess;
 use crate::actor::guardian::GuardiansValue;
-use crate::actor::message::{Message, EMPTY_MESSAGE_HEADER};
+use crate::actor::message::EMPTY_MESSAGE_HEADER;
 use crate::actor::process::process_registry::ProcessRegistry;
 use crate::actor::process::ProcessHandle;
 use crate::actor::supervisor::subscribe_supervision;

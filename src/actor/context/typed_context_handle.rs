@@ -1,6 +1,4 @@
-use crate::actor::actor::{
-  ActorError, ActorHandle, Continuer, ExtendedPid, Props, SpawnError, TypedExtendedPid, TypedProps,
-};
+use crate::actor::actor::{ActorError, ActorHandle, Continuer, ExtendedPid, SpawnError, TypedExtendedPid, TypedProps};
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::{
   BasePart, ContextHandle, ExtensionContext, ExtensionPart, InfoPart, MessagePart, ReceiverPart, SenderPart,
@@ -32,6 +30,10 @@ impl<M: Message> TypedContextHandle<M> {
       underlying,
       phantom_data: PhantomData,
     }
+  }
+
+  pub fn get_underlying(&self) -> &ContextHandle {
+    &self.underlying
   }
 }
 
@@ -117,6 +119,10 @@ impl<M: Message + Clone> TypedMessagePart<M> for TypedContextHandle<M> {
       .map(|envelope| TypedMessageEnvelope::new(envelope))
   }
 
+  async fn get_message_handle_opt(&self) -> Option<MessageHandle> {
+    self.underlying.get_message_handle_opt().await
+  }
+
   async fn get_message_opt(&self) -> Option<M> {
     self
       .underlying
@@ -143,15 +149,15 @@ impl<M: Message> TypedSpawnerContext<M> for TypedContextHandle<M> {}
 
 #[async_trait]
 impl<M: Message> TypedSpawnerPart for TypedContextHandle<M> {
-  async fn spawn<A: Message>(&mut self, props: TypedProps<A>) -> TypedExtendedPid<A> {
+  async fn spawn<A: Message + Clone>(&mut self, props: TypedProps<A>) -> TypedExtendedPid<A> {
     self.underlying.spawn(props.into()).await.into()
   }
 
-  async fn spawn_prefix<A: Message>(&mut self, props: TypedProps<A>, prefix: &str) -> TypedExtendedPid<A> {
+  async fn spawn_prefix<A: Message + Clone>(&mut self, props: TypedProps<A>, prefix: &str) -> TypedExtendedPid<A> {
     self.underlying.spawn_prefix(props.into(), prefix).await.into()
   }
 
-  async fn spawn_named<A: Message>(
+  async fn spawn_named<A: Message + Clone>(
     &mut self,
     props: TypedProps<A>,
     id: &str,
