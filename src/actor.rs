@@ -11,6 +11,5 @@ pub mod interaction_test;
 pub mod message;
 pub mod process;
 pub mod supervisor;
-pub mod typed_actor_system;
 pub mod typed_context;
 pub mod util;

@@ -8,37 +8,45 @@ use crate::actor::typed_context::{
   TypedStopperPart,
 };
 use async_trait::async_trait;
-use std::marker::PhantomData;
 use std::time::Duration;
 
-#[derive(Debug)]
-pub struct TypedRootContext<T> {
-  inner: RootContext,
-  _phantom: PhantomData<T>,
-}
+#[derive(Debug, Clone)]
+pub struct UnitMessage;
 
-impl<T: Message> TypedRootContext<T> {
-  pub fn new(inner: RootContext) -> Self {
-    Self {
-      inner,
-      _phantom: PhantomData::default(),
-    }
+impl Message for UnitMessage {
+  fn eq_message(&self, _other: &dyn Message) -> bool {
+    true
+  }
+
+  fn as_any(&self) -> &(dyn std::any::Any + Send + Sync + 'static) {
+    self
   }
 }
 
-impl<M: Message + Clone> TypedSenderContext<M> for TypedRootContext<M> {}
+#[derive(Debug)]
+pub struct TypedRootContext {
+  inner: RootContext,
+}
+
+impl TypedRootContext {
+  pub fn new(inner: RootContext) -> Self {
+    Self { inner }
+  }
+}
+
+impl TypedSenderContext<UnitMessage> for TypedRootContext {}
 
 #[async_trait]
-impl<M: Message> TypedInfoPart<M> for TypedRootContext<M> {
-  async fn get_parent(&self) -> Option<TypedExtendedPid<M>> {
+impl TypedInfoPart<UnitMessage> for TypedRootContext {
+  async fn get_parent(&self) -> Option<TypedExtendedPid<UnitMessage>> {
     self.inner.get_parent().await.map(|pid| pid.into())
   }
 
-  async fn get_self_opt(&self) -> Option<TypedExtendedPid<M>> {
+  async fn get_self_opt(&self) -> Option<TypedExtendedPid<UnitMessage>> {
     self.inner.get_self_opt().await.map(|pid| pid.into())
   }
 
-  async fn set_self(&mut self, pid: TypedExtendedPid<M>) {
+  async fn set_self(&mut self, pid: TypedExtendedPid<UnitMessage>) {
     self.inner.set_self(pid.into()).await;
   }
 
@@ -52,8 +60,8 @@ impl<M: Message> TypedInfoPart<M> for TypedRootContext<M> {
 }
 
 #[async_trait]
-impl<M: Message> TypedSenderPart<M> for TypedRootContext<M> {
-  async fn get_sender(&self) -> Option<TypedExtendedPid<M>> {
+impl TypedSenderPart<UnitMessage> for TypedRootContext {
+  async fn get_sender(&self) -> Option<TypedExtendedPid<UnitMessage>> {
     self.inner.get_sender().await.map(|pid| TypedExtendedPid::new(pid))
   }
 
@@ -96,8 +104,8 @@ impl<M: Message> TypedSenderPart<M> for TypedRootContext<M> {
 }
 
 #[async_trait]
-impl<M: Message + Clone> TypedMessagePart<M> for TypedRootContext<M> {
-  async fn get_message_envelope_opt(&self) -> Option<TypedMessageEnvelope<M>> {
+impl TypedMessagePart<UnitMessage> for TypedRootContext {
+  async fn get_message_envelope_opt(&self) -> Option<TypedMessageEnvelope<UnitMessage>> {
     self
       .inner
       .get_message_envelope_opt()
@@ -109,12 +117,12 @@ impl<M: Message + Clone> TypedMessagePart<M> for TypedRootContext<M> {
     self.inner.get_message_handle_opt().await
   }
 
-  async fn get_message_opt(&self) -> Option<M> {
+  async fn get_message_opt(&self) -> Option<UnitMessage> {
     self
       .inner
       .get_message_handle_opt()
       .await
-      .and_then(|handle| handle.to_typed::<M>())
+      .and_then(|handle| handle.to_typed::<UnitMessage>())
   }
 
   async fn get_message_header_handle(&self) -> Option<ReadonlyMessageHeadersHandle> {
@@ -122,10 +130,10 @@ impl<M: Message + Clone> TypedMessagePart<M> for TypedRootContext<M> {
   }
 }
 
-impl<M: Message + Clone> TypedSpawnerContext<M> for TypedRootContext<M> {}
+impl TypedSpawnerContext<UnitMessage> for TypedRootContext {}
 
 #[async_trait]
-impl<M: Message + Clone> TypedSpawnerPart for TypedRootContext<M> {
+impl TypedSpawnerPart for TypedRootContext {
   async fn spawn<A: Message + Clone>(&mut self, props: TypedProps<A>) -> TypedExtendedPid<A> {
     TypedExtendedPid::new(self.inner.spawn(props.get_underlying().clone()).await)
   }
@@ -148,20 +156,24 @@ impl<M: Message + Clone> TypedSpawnerPart for TypedRootContext<M> {
 }
 
 #[async_trait]
-impl<M: Message> TypedStopperPart<M> for TypedRootContext<M> {
-  async fn stop(&mut self, pid: &TypedExtendedPid<M>) {
+impl TypedStopperPart<UnitMessage> for TypedRootContext {
+  async fn stop(&mut self, pid: &TypedExtendedPid<UnitMessage>) {
     self.inner.stop(pid.get_underlying()).await;
   }
 
-  async fn stop_future_with_timeout(&mut self, pid: &TypedExtendedPid<M>, timeout: Duration) -> ActorFuture {
+  async fn stop_future_with_timeout(&mut self, pid: &TypedExtendedPid<UnitMessage>, timeout: Duration) -> ActorFuture {
     self.inner.stop_future_with_timeout(pid.get_underlying(), timeout).await
   }
 
-  async fn poison(&mut self, pid: &TypedExtendedPid<M>) {
+  async fn poison(&mut self, pid: &TypedExtendedPid<UnitMessage>) {
     self.inner.poison(pid.get_underlying()).await;
   }
 
-  async fn poison_future_with_timeout(&mut self, pid: &TypedExtendedPid<M>, timeout: Duration) -> ActorFuture {
+  async fn poison_future_with_timeout(
+    &mut self,
+    pid: &TypedExtendedPid<UnitMessage>,
+    timeout: Duration,
+  ) -> ActorFuture {
     self
       .inner
       .poison_future_with_timeout(pid.get_underlying(), timeout)
