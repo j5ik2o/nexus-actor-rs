@@ -610,11 +610,8 @@ impl BasePart for ActorContext {
   }
 
   async fn respond(&self, response: ResponseHandle) {
-    // tracing::debug!("ActorContext::respond: response = {:?}", response);
     let mh = MessageHandle::new(response);
-    // tracing::debug!("ActorContext::respond: mh = {:?}", mh);
     let sender = self.get_sender().await;
-    // tracing::debug!("ActorContext::respond: sender = {:?}", sender);
     if sender.is_none() {
       self
         .get_actor_system()
@@ -626,7 +623,6 @@ impl BasePart for ActorContext {
     } else {
       let mut cloned = self.clone();
       let pid = self.get_sender().await;
-      // tracing::debug!("ActorContext::respond: pid = {:?}", pid);
       cloned.send(pid.unwrap(), mh).await
     }
   }

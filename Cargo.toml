@@ -35,6 +35,8 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 [dev-dependencies]
 rstest = "0.22.0"
 clap = { version = "4.5.9", features = ["derive"] }
+humantime = "2.1"
+governor = "0.6.3"
 
 [build-dependencies]
 prost-build = { version = "0.13.0" }
