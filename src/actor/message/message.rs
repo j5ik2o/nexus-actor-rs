@@ -166,19 +166,6 @@ impl Message for String {
   }
 }
 
-// impl<T: prost::Message + PartialEq + 'static> Message for T {
-//   fn eq_message(&self, other: &dyn Message) -> bool {
-//     match (self.as_any().downcast_ref::<T>(), other.as_any().downcast_ref::<T>()) {
-//       (Some(self_msg), Some(other_msg)) => self_msg == other_msg,
-//       _ => false,
-//     }
-//   }
-//
-//   fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-//     self
-//   }
-// }
-
 // tests/test.rs
 #[cfg(test)]
 mod tests {

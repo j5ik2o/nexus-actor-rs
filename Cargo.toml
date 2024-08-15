@@ -12,7 +12,7 @@ repository = "https://github.com/j5ik2o/NEXUS-ACTo-rs"
 
 [dependencies]
 # prost = "0.13.0"
-prost-types = "0.13"
+# prost-types = "0.13"
 async-trait = "0.1.80"
 futures = "0.3.30"
 tokio = { version = "1.37.0" , features = ["full"] }

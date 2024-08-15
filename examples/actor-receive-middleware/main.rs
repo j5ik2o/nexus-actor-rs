@@ -2,7 +2,6 @@ use nexus_acto_rs::actor::actor::{Logger, Props};
 use nexus_acto_rs::actor::actor_system::ActorSystem;
 use nexus_acto_rs::actor::context::{MessagePart, SenderPart, SpawnerPart};
 use nexus_acto_rs::actor::message::{Message, MessageHandle};
-use std::any::Any;
 use std::env;
 use std::time::Duration;
 use tokio::time::sleep;
