@@ -1,5 +1,4 @@
 use crate::actor::actor::actor_error::ActorError;
-use crate::actor::actor::Props;
 use crate::actor::context::ContextHandle;
 use crate::actor::context::MessagePart;
 use crate::actor::message::AutoReceiveMessage;
@@ -7,12 +6,10 @@ use crate::actor::message::TerminateInfo;
 use crate::actor::supervisor::SupervisorStrategyHandle;
 use crate::actor::Config;
 use async_trait::async_trait;
-use prost::encoding::hash_map::encode_with_default;
 use std::fmt::Debug;
 use std::sync::Arc;
-use std::time::Duration;
 use tokio::sync::Mutex;
-use tracing::{enabled, instrument};
+use tracing::instrument;
 
 #[async_trait]
 pub trait Actor: Debug + Send + Sync + 'static {
