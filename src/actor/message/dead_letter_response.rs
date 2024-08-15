@@ -1,21 +1,10 @@
 use crate::actor::actor::Pid;
 use crate::actor::message::message::Message;
-use std::any::Any;
+use nexus_acto_message_derive_rs::Message;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Message)]
 pub struct DeadLetterResponse {
   pub target: Option<Pid>,
 }
 
-impl Message for DeadLetterResponse {
-  fn eq_message(&self, other: &dyn Message) -> bool {
-    match other.as_any().downcast_ref::<DeadLetterResponse>() {
-      Some(a) => self == a,
-      None => false,
-    }
-  }
-
-  fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-    self
-  }
-}
+impl Eq for DeadLetterResponse {}

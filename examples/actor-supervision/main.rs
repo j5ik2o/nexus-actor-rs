@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use nexus_acto_message_derive_rs::Message;
 use nexus_acto_rs::actor::actor::Actor;
 use nexus_acto_rs::actor::actor::ActorError;
 use nexus_acto_rs::actor::actor::ActorInnerError;
@@ -12,7 +13,6 @@ use nexus_acto_rs::actor::supervisor::Directive;
 use nexus_acto_rs::actor::supervisor::OneForOneStrategy;
 use nexus_acto_rs::actor::supervisor::SupervisorStrategyHandle;
 use nexus_acto_rs::actor::util::AsyncBarrier;
-use std::any::Any;
 use std::env;
 use std::time::Duration;
 use tokio::time::sleep;
@@ -59,25 +59,23 @@ impl Actor for Child {
   }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Message)]
 struct Hello {
   who: String,
   async_barrier: AsyncBarrier,
 }
 
-impl Hello {
-  fn new(who: String, async_barrier: AsyncBarrier) -> Self {
-    Self { who, async_barrier }
+impl PartialEq for Hello {
+  fn eq(&self, other: &Self) -> bool {
+    self.who == other.who
   }
 }
 
-impl Message for Hello {
-  fn eq_message(&self, other: &dyn Message) -> bool {
-    other.eq_message(self)
-  }
+impl Eq for Hello {}
 
-  fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-    self
+impl Hello {
+  fn new(who: String, async_barrier: AsyncBarrier) -> Self {
+    Self { who, async_barrier }
   }
 }
 

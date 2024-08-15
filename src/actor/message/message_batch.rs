@@ -1,7 +1,7 @@
 use crate::actor::message::{Message, MessageHandle};
-use std::any::Any;
+use nexus_acto_message_derive_rs::Message;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Message)]
 pub struct MessageBatch(Vec<MessageHandle>);
 
 impl MessageBatch {
@@ -11,19 +11,5 @@ impl MessageBatch {
 
   pub fn get_messages(&self) -> &Vec<MessageHandle> {
     &self.0
-  }
-}
-
-impl Message for MessageBatch {
-  fn eq_message(&self, other: &dyn Message) -> bool {
-    if let Some(other) = other.as_any().downcast_ref::<MessageBatch>() {
-      self.0 == other.0
-    } else {
-      false
-    }
-  }
-
-  fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-    self
   }
 }

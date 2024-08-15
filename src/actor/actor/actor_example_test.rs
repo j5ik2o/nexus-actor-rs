@@ -1,11 +1,7 @@
 #[cfg(test)]
 mod tests {
-  use std::any::Any;
   use std::env;
   use std::time::Duration;
-
-  use tokio::time::sleep;
-  use tracing_subscriber::EnvFilter;
 
   use crate::actor::actor::props::Props;
   use crate::actor::actor_system::ActorSystem;
@@ -15,6 +11,9 @@ mod tests {
   use crate::actor::message::MessageHandle;
   use crate::actor::message::ResponseHandle;
   use crate::actor::util::AsyncBarrier;
+  use nexus_acto_message_derive_rs::Message;
+  use tokio::time::sleep;
+  use tracing_subscriber::EnvFilter;
 
   #[tokio::test]
   async fn example() {
@@ -41,30 +40,11 @@ mod tests {
     root_context.stop_future(&pid).await.result().await.unwrap();
   }
 
-  #[derive(Debug, Clone)]
+  #[derive(Debug, Clone, PartialEq, Eq, Message)]
   struct Request(pub String);
 
-  impl Message for Request {
-    fn eq_message(&self, other: &dyn Message) -> bool {
-      self.0 == other.as_any().downcast_ref::<Request>().unwrap().0
-    }
-
-    fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-      self
-    }
-  }
-  #[derive(Debug, Clone)]
+  #[derive(Debug, Clone, PartialEq, Eq, Message)]
   struct Reply(pub String);
-
-  impl Message for Reply {
-    fn eq_message(&self, other: &dyn Message) -> bool {
-      self.0 == other.as_any().downcast_ref::<Reply>().unwrap().0
-    }
-
-    fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-      self
-    }
-  }
 
   #[tokio::test]
   async fn example_synchronous() {

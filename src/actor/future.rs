@@ -3,31 +3,21 @@ use std::fmt::Debug;
 use std::sync::Arc;
 use std::time::Duration;
 
-use async_trait::async_trait;
-use futures::future::BoxFuture;
-use tokio::sync::{Mutex, Notify};
-
 use crate::actor::actor::ExtendedPid;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::message::DeadLetterResponse;
 use crate::actor::message::Message;
 use crate::actor::message::MessageHandle;
 use crate::actor::process::{Process, ProcessHandle};
+use async_trait::async_trait;
+use futures::future::BoxFuture;
+use nexus_acto_message_derive_rs::Message;
+use tokio::sync::{Mutex, Notify};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Message)]
 pub enum ActorFutureError {
   Timeout,
   DeadLetter,
-}
-
-impl Message for ActorFutureError {
-  fn eq_message(&self, other: &dyn Message) -> bool {
-    other.as_any().is::<ActorFutureError>()
-  }
-
-  fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-    self
-  }
 }
 
 impl std::error::Error for ActorFutureError {}

@@ -2,7 +2,7 @@
 name = "nexus-acto-rs"
 version = "0.8.4"
 edition = "2021"
-build = "build.rs"
+build = "build.txt"
 description = "A Rust crate for Actors"
 license = "MIT OR Apache-2.0"
 keywords = [ "actors", "actor-model", "async", "tokio" ]
@@ -11,8 +11,8 @@ readme = "README.md"
 repository = "https://github.com/j5ik2o/NEXUS-ACTo-rs"
 
 [dependencies]
-prost = "0.13.0"
-prost-types = "0.13"
+# prost = "0.13.0"
+# prost-types = "0.13"
 async-trait = "0.1.80"
 futures = "0.3.30"
 tokio = { version = "1.37.0" , features = ["full"] }
@@ -31,6 +31,7 @@ uuid = { version = "1.9.0", features = ["v4"] }
 static_assertions = "1.1.0"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+nexus-acto-message-derive-rs = { path = "./message_derive" }
 
 [dev-dependencies]
 rstest = "0.22.0"

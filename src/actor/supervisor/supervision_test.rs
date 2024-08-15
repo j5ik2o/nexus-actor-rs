@@ -1,16 +1,5 @@
 #[cfg(test)]
 mod test {
-  use async_trait::async_trait;
-  use std::any::Any;
-  use std::collections::VecDeque;
-  use std::env;
-  use std::sync::Arc;
-  use std::time::Duration;
-  use thiserror::Error;
-  use tokio::sync::{Mutex, Notify};
-  use tokio::time::Instant;
-  use tracing_subscriber::EnvFilter;
-
   use crate::actor::actor::Actor;
   use crate::actor::actor::ActorError;
   use crate::actor::actor::ActorInnerError;
@@ -29,6 +18,17 @@ mod test {
   use crate::actor::supervisor::strategy_one_for_one::OneForOneStrategy;
   use crate::actor::supervisor::supervisor_strategy::{SupervisorHandle, SupervisorStrategy};
   use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
+  use async_trait::async_trait;
+  use nexus_acto_message_derive_rs::Message;
+  use std::any::Any;
+  use std::collections::VecDeque;
+  use std::env;
+  use std::sync::Arc;
+  use std::time::Duration;
+  use thiserror::Error;
+  use tokio::sync::{Mutex, Notify};
+  use tokio::time::Instant;
+  use tracing_subscriber::EnvFilter;
 
   #[tokio::test]
   async fn test_actor_with_own_supervisor_can_handle_failure() {
@@ -135,28 +135,8 @@ mod test {
   #[derive(Debug, Clone)]
   struct FailingChildActor;
 
-  #[derive(Debug, Clone)]
+  #[derive(Debug, Clone, PartialEq, Eq, Message)]
   struct StringMessage(String);
-
-  impl PartialEq for StringMessage {
-    fn eq(&self, other: &Self) -> bool {
-      self.0 == other.0
-    }
-  }
-
-  impl Message for StringMessage {
-    fn eq_message(&self, other: &dyn Message) -> bool {
-      let other = other.as_any().downcast_ref::<StringMessage>();
-      match other {
-        Some(other) => self.0 == other.0,
-        None => false,
-      }
-    }
-
-    fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-      self
-    }
-  }
 
   #[async_trait]
   impl Actor for ActorWithSupervisor {

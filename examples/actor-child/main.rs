@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use nexus_acto_message_derive_rs::Message;
 use nexus_acto_rs::actor::actor::Props;
 use nexus_acto_rs::actor::actor::{ActorError, TypedActor, TypedProps};
 use nexus_acto_rs::actor::actor_system::ActorSystem;
@@ -11,22 +12,8 @@ use std::time::Duration;
 use tokio::time::sleep;
 use tracing_subscriber::EnvFilter;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Message)]
 struct Hello(pub String);
-
-impl Message for Hello {
-  fn eq_message(&self, other: &dyn Message) -> bool {
-    let other = other.as_any().downcast_ref::<Hello>();
-    match other {
-      Some(other) => self.0 == other.0,
-      None => false,
-    }
-  }
-
-  fn as_any(&self) -> &(dyn std::any::Any + Send + Sync + 'static) {
-    self
-  }
-}
 
 #[derive(Debug)]
 struct ChildActor;

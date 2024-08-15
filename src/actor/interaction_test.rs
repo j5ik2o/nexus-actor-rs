@@ -1,9 +1,5 @@
 #[cfg(test)]
 pub mod tests {
-  use async_trait::async_trait;
-  use std::any::Any;
-  use std::time::Duration;
-
   use crate::actor::actor::Actor;
   use crate::actor::actor::ActorError;
   use crate::actor::actor::Props;
@@ -13,18 +9,12 @@ pub mod tests {
   use crate::actor::message::Message;
   use crate::actor::message::MessageHandle;
   use crate::actor::message::ResponseHandle;
+  use async_trait::async_trait;
+  use nexus_acto_message_derive_rs::Message;
+  use std::time::Duration;
 
-  #[derive(Debug, Clone)]
+  #[derive(Debug, Clone, PartialEq, Eq, Message)]
   pub struct DummyMessage;
-  impl Message for DummyMessage {
-    fn eq_message(&self, other: &dyn Message) -> bool {
-      other.as_any().is::<DummyMessage>()
-    }
-
-    fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-      self
-    }
-  }
 
   #[derive(Debug, Clone)]
   pub struct BlackHoleActor;
@@ -36,30 +26,10 @@ pub mod tests {
     }
   }
 
-  #[derive(Debug, Clone)]
+  #[derive(Debug, Clone, PartialEq, Eq, Message)]
   pub struct EchoRequest;
-  #[derive(Debug, Clone)]
+  #[derive(Debug, Clone, PartialEq, Eq, Message)]
   pub struct EchoResponse;
-
-  impl Message for EchoRequest {
-    fn eq_message(&self, other: &dyn Message) -> bool {
-      other.as_any().is::<EchoRequest>()
-    }
-
-    fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-      self
-    }
-  }
-
-  impl Message for EchoResponse {
-    fn eq_message(&self, other: &dyn Message) -> bool {
-      other.as_any().is::<EchoResponse>()
-    }
-
-    fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-      self
-    }
-  }
 
   #[derive(Debug, Clone)]
   pub struct EchoActor;

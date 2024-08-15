@@ -61,6 +61,14 @@ impl Display for RestartStatistics {
   }
 }
 
+impl PartialEq for RestartStatistics {
+  fn eq(&self, other: &Self) -> bool {
+    Arc::ptr_eq(&self.failure_times, &other.failure_times)
+  }
+}
+
+impl Eq for RestartStatistics {}
+
 impl Default for RestartStatistics {
   fn default() -> Self {
     Self::new()

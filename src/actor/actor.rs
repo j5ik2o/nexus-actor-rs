@@ -6,7 +6,6 @@ mod actor_inner_error;
 mod actor_process;
 mod actor_producer;
 mod actor_receiver;
-mod behavior_actor;
 mod child_test;
 mod context_decorator;
 mod context_decorator_chain;

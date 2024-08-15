@@ -1,19 +1,8 @@
-use std::any::Any;
-
 use crate::actor::message::Message;
+use nexus_acto_message_derive_rs::Message;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Message)]
 pub enum MailboxMessage {
   SuspendMailbox,
   ResumeMailbox,
-}
-
-impl Message for MailboxMessage {
-  fn eq_message(&self, other: &dyn Message) -> bool {
-    other.as_any().is::<MailboxMessage>()
-  }
-
-  fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-    self
-  }
 }

@@ -1,10 +1,7 @@
 #[cfg(test)]
 mod test {
-  use std::any::Any;
   use std::env;
   use std::time::Duration;
-
-  use tracing_subscriber::EnvFilter;
 
   use crate::actor::actor::Props;
   use crate::actor::actor_system::ActorSystem;
@@ -13,19 +10,11 @@ mod test {
   use crate::actor::message::message_handle::MessageHandle;
   use crate::actor::message::readonly_message_headers::ReadonlyMessageHeaders;
   use crate::actor::message::response::ResponseHandle;
+  use nexus_acto_message_derive_rs::Message;
+  use tracing_subscriber::EnvFilter;
 
-  #[derive(Debug)]
+  #[derive(Debug, Clone, PartialEq, Eq, Message)]
   pub struct Length(pub usize);
-
-  impl Message for Length {
-    fn eq_message(&self, other: &dyn Message) -> bool {
-      self.0 == other.as_any().downcast_ref::<Length>().unwrap().0
-    }
-
-    fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-      self
-    }
-  }
 
   #[tokio::test]
   async fn test_normal_message_gives_empty_message_headers() {

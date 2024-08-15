@@ -1,10 +1,7 @@
 #[cfg(test)]
 mod tests {
-  use std::any::Any;
   use std::env;
   use std::time::Duration;
-
-  use tracing_subscriber::EnvFilter;
 
   use crate::actor::actor::ActorError;
   use crate::actor::actor::ActorInnerError;
@@ -17,6 +14,8 @@ mod tests {
   use crate::actor::message::MessageHandle;
   use crate::actor::message::ResponseHandle;
   use crate::actor::message::Touched;
+  use nexus_acto_message_derive_rs::Message;
+  use tracing_subscriber::EnvFilter;
 
   #[tokio::test]
   async fn test_actor_continue_future_in_actor() {
@@ -84,17 +83,8 @@ mod tests {
     assert_eq!(response, "done".to_string());
   }
 
-  #[derive(Debug, Clone)]
+  #[derive(Debug, Clone, PartialEq, Eq, Message)]
   struct DummyAutoRespond {}
-  impl Message for DummyAutoRespond {
-    fn eq_message(&self, other: &dyn Message) -> bool {
-      other.as_any().is::<DummyAutoRespond>()
-    }
-
-    fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-      self
-    }
-  }
 
   #[tokio::test]
   async fn test_actor_context_auto_respond_message() {

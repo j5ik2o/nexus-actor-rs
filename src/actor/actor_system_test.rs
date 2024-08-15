@@ -2,10 +2,6 @@
 mod tests {
   use std::env;
 
-  use async_trait::async_trait;
-  use tokio::time::sleep;
-  use tracing_subscriber::EnvFilter;
-
   use crate::actor::actor::ActorError;
   use crate::actor::actor::{TypedActor, TypedProps};
   use crate::actor::actor_system::ActorSystem;
@@ -16,6 +12,10 @@ mod tests {
   use crate::actor::typed_context::{TypedSenderPart, TypedSpawnerPart};
   use crate::actor::util::AsyncBarrier;
   use crate::actor::Config;
+  use async_trait::async_trait;
+  use nexus_acto_message_derive_rs::Message;
+  use tokio::time::sleep;
+  use tracing_subscriber::EnvFilter;
 
   #[tokio::test]
   async fn test_actor_system_new() {
@@ -38,18 +38,8 @@ mod tests {
     assert_eq!(root.get_self_opt().await, None);
   }
 
-  #[derive(Debug, Clone)]
+  #[derive(Debug, Clone, PartialEq, Eq, Message)]
   struct Hello(pub String);
-
-  impl Message for Hello {
-    fn eq_message(&self, other: &dyn Message) -> bool {
-      self.0 == other.as_any().downcast_ref::<Hello>().unwrap().0
-    }
-
-    fn as_any(&self) -> &(dyn std::any::Any + Send + Sync + 'static) {
-      self
-    }
-  }
 
   #[derive(Debug)]
   struct MyActor {
