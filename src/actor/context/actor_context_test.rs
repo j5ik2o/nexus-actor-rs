@@ -3,8 +3,6 @@ mod tests {
   use std::env;
   use std::time::Duration;
 
-  use tracing_subscriber::EnvFilter;
-  use nexus_acto_message_derive_rs::Message;
   use crate::actor::actor::ActorError;
   use crate::actor::actor::ActorInnerError;
   use crate::actor::actor::Continuer;
@@ -16,6 +14,8 @@ mod tests {
   use crate::actor::message::MessageHandle;
   use crate::actor::message::ResponseHandle;
   use crate::actor::message::Touched;
+  use nexus_acto_message_derive_rs::Message;
+  use tracing_subscriber::EnvFilter;
 
   #[tokio::test]
   async fn test_actor_continue_future_in_actor() {

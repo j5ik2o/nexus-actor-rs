@@ -1,12 +1,12 @@
-use std::any::Any;
-use std::fmt::Debug;
-use nexus_acto_message_derive_rs::Message;
 use crate::actor::actor::ExtendedPid;
-use crate::actor::message::Message;
 use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::message::message_headers::MessageHeaders;
 use crate::actor::message::readonly_message_headers::ReadonlyMessageHeaders;
 use crate::actor::message::system_message::SystemMessage;
+use crate::actor::message::Message;
+use nexus_acto_message_derive_rs::Message;
+use std::any::Any;
+use std::fmt::Debug;
 
 #[derive(Debug, Clone)]
 pub struct TypedMessageEnvelope<T: Message> {

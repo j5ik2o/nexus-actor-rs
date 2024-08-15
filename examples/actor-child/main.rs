@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use nexus_acto_message_derive_rs::Message;
 use nexus_acto_rs::actor::actor::Props;
 use nexus_acto_rs::actor::actor::{ActorError, TypedActor, TypedProps};
 use nexus_acto_rs::actor::actor_system::ActorSystem;
@@ -10,7 +11,6 @@ use std::env;
 use std::time::Duration;
 use tokio::time::sleep;
 use tracing_subscriber::EnvFilter;
-use nexus_acto_message_derive_rs::Message;
 
 #[derive(Debug, Clone, PartialEq, Eq, Message)]
 struct Hello(pub String);

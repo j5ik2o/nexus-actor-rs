@@ -1,6 +1,6 @@
-use nexus_acto_message_derive_rs::Message;
 use crate::actor::actor::Pid;
 use crate::actor::message::message::Message;
+use nexus_acto_message_derive_rs::Message;
 
 #[derive(Debug, Clone, PartialEq, Message)]
 pub struct DeadLetterResponse {

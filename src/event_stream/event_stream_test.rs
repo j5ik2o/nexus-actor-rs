@@ -8,8 +8,8 @@ mod tests {
   use crate::event_stream::event_handler::EventHandler;
   use crate::event_stream::event_stream::EventStream;
   use crate::event_stream::predicate::Predicate;
-  use tokio::sync::Mutex;
   use nexus_acto_message_derive_rs::Message;
+  use tokio::sync::Mutex;
 
   #[derive(Debug, PartialEq, Eq, Message)]
   pub struct TestString(pub String);

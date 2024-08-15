@@ -2,9 +2,6 @@
 mod test {
   use std::sync::Arc;
 
-  use async_trait::async_trait;
-  use tokio::sync::Mutex;
-  use nexus_acto_message_derive_rs::Message;
   use crate::actor::actor::ActorError;
   use crate::actor::actor::ActorInnerError;
   use crate::actor::actor::Task;
@@ -15,6 +12,9 @@ mod test {
   use crate::actor::message::Message;
   use crate::actor::message::MessageHandle;
   use crate::util::queue::MpscUnboundedChannelQueue;
+  use async_trait::async_trait;
+  use nexus_acto_message_derive_rs::Message;
+  use tokio::sync::Mutex;
 
   // TestMessageInvoker implementation
   #[derive(Debug, Clone, PartialEq)]

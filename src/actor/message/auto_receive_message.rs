@@ -1,9 +1,9 @@
-use std::fmt::Display;
-use nexus_acto_message_derive_rs::Message;
 use crate::actor::actor::ExtendedPid;
 use crate::actor::message::message::Message;
 use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::message::terminate_info::TerminateInfo;
+use nexus_acto_message_derive_rs::Message;
+use std::fmt::Display;
 
 #[derive(Debug, Clone, PartialEq, Message)]
 pub(crate) enum AutoReceiveMessage {

@@ -1,5 +1,5 @@
-use nexus_acto_message_derive_rs::Message;
 use crate::actor::message::{Message, MessageHandle};
+use nexus_acto_message_derive_rs::Message;
 
 #[derive(Debug, Clone, PartialEq, Eq, Message)]
 pub struct MessageBatch(Vec<MessageHandle>);
@@ -13,4 +13,3 @@ impl MessageBatch {
     &self.0
   }
 }
-

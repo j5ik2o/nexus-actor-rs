@@ -1,6 +1,6 @@
-use std::fmt::Display;
-use nexus_acto_message_derive_rs::Message;
 use crate::actor::message::message::Message;
+use nexus_acto_message_derive_rs::Message;
+use std::fmt::Display;
 
 #[derive(Debug, Clone, PartialEq, Eq, Message)]
 pub struct IgnoreDeadLetterLogging;

@@ -3,8 +3,6 @@ mod test {
   use std::env;
   use std::time::Duration;
 
-  use tracing_subscriber::EnvFilter;
-  use nexus_acto_message_derive_rs::Message;
   use crate::actor::actor::Props;
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::context::{BasePart, MessagePart, SenderPart, SpawnerPart};
@@ -12,6 +10,8 @@ mod test {
   use crate::actor::message::message_handle::MessageHandle;
   use crate::actor::message::readonly_message_headers::ReadonlyMessageHeaders;
   use crate::actor::message::response::ResponseHandle;
+  use nexus_acto_message_derive_rs::Message;
+  use tracing_subscriber::EnvFilter;
 
   #[derive(Debug, Clone, PartialEq, Eq, Message)]
   pub struct Length(pub usize);

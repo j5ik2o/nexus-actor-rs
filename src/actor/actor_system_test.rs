@@ -2,10 +2,6 @@
 mod tests {
   use std::env;
 
-  use async_trait::async_trait;
-  use tokio::time::sleep;
-  use tracing_subscriber::EnvFilter;
-  use nexus_acto_message_derive_rs::Message;
   use crate::actor::actor::ActorError;
   use crate::actor::actor::{TypedActor, TypedProps};
   use crate::actor::actor_system::ActorSystem;
@@ -16,6 +12,10 @@ mod tests {
   use crate::actor::typed_context::{TypedSenderPart, TypedSpawnerPart};
   use crate::actor::util::AsyncBarrier;
   use crate::actor::Config;
+  use async_trait::async_trait;
+  use nexus_acto_message_derive_rs::Message;
+  use tokio::time::sleep;
+  use tracing_subscriber::EnvFilter;
 
   #[tokio::test]
   async fn test_actor_system_new() {

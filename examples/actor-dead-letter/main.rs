@@ -1,5 +1,6 @@
 use clap::Parser;
 use governor::{Quota, RateLimiter};
+use nexus_acto_message_derive_rs::Message;
 use nexus_acto_rs::actor::actor_system::ActorSystem;
 use nexus_acto_rs::actor::context::SenderPart;
 use nexus_acto_rs::actor::message::{Message, MessageHandle};
@@ -11,7 +12,6 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::sleep;
 use tracing_subscriber::EnvFilter;
-use nexus_acto_message_derive_rs::Message;
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]

@@ -1,19 +1,19 @@
 #[cfg(test)]
 mod tests {
-use std::env;
+  use std::env;
   use std::time::Duration;
 
-  use tokio::time::sleep;
-  use tracing_subscriber::EnvFilter;
-  use nexus_acto_message_derive_rs::Message;
   use crate::actor::actor::props::Props;
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::context::{BasePart, MessagePart, SenderPart, SpawnerPart, StopperPart};
-  use crate::actor::message::Message;
   use crate::actor::message::AutoReceiveMessage;
+  use crate::actor::message::Message;
   use crate::actor::message::MessageHandle;
   use crate::actor::message::ResponseHandle;
   use crate::actor::util::AsyncBarrier;
+  use nexus_acto_message_derive_rs::Message;
+  use tokio::time::sleep;
+  use tracing_subscriber::EnvFilter;
 
   #[tokio::test]
   async fn example() {

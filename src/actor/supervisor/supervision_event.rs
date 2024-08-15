@@ -1,11 +1,11 @@
-use std::sync::Arc;
-use nexus_acto_message_derive_rs::Message;
 use crate::actor::actor::ActorInnerError;
 use crate::actor::actor::ExtendedPid;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::message::Message;
 use crate::actor::supervisor::directive::Directive;
 use crate::event_stream::Subscription;
+use nexus_acto_message_derive_rs::Message;
+use std::sync::Arc;
 
 #[derive(Debug, Clone, PartialEq, Eq, Message)]
 pub struct SupervisorEvent {

@@ -1,11 +1,11 @@
 #[cfg(test)]
 mod tests {
-  use tokio::sync::mpsc;
-  use nexus_acto_message_derive_rs::Message;
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::context::SenderPart;
   use crate::actor::message::Message;
   use crate::actor::message::MessageHandle;
+  use nexus_acto_message_derive_rs::Message;
+  use tokio::sync::mpsc;
 
   #[derive(Debug, Clone, PartialEq, Eq, Message)]
   struct EsTestMsg;

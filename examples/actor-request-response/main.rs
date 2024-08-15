@@ -1,3 +1,4 @@
+use nexus_acto_message_derive_rs::Message;
 use nexus_acto_rs::actor::actor::Props;
 use nexus_acto_rs::actor::actor_system::ActorSystem;
 use nexus_acto_rs::actor::context::{BasePart, MessagePart, SenderPart, SpawnerPart};
@@ -5,7 +6,6 @@ use nexus_acto_rs::actor::message::Message;
 use nexus_acto_rs::actor::message::MessageHandle;
 use nexus_acto_rs::actor::message::ResponseHandle;
 use std::time::Duration;
-use nexus_acto_message_derive_rs::Message;
 
 #[derive(Debug, Clone, PartialEq, Eq, Message)]
 struct Hello {

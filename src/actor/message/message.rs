@@ -1,6 +1,6 @@
+use crate::util::queue::DEFAULT_PRIORITY;
 use std::any::Any;
 use std::fmt::Debug;
-use crate::util::queue::DEFAULT_PRIORITY;
 
 pub trait Message: Debug + Send + Sync + 'static {
   fn get_priority(&self) -> i8 {
@@ -169,8 +169,8 @@ impl Message for String {
 // tests/test.rs
 #[cfg(test)]
 mod tests {
-  use nexus_acto_message_derive_rs::Message;
   use super::*;
+  use nexus_acto_message_derive_rs::Message;
   #[derive(Debug, Clone, PartialEq, Message)]
   pub struct Hello {
     pub who: String,
@@ -178,9 +178,15 @@ mod tests {
 
   #[test]
   fn test_message_derive() {
-    let msg1 = Hello { who: "World".to_string() };
-    let msg2 = Hello { who: "World".to_string() };
-    let msg3 = Hello { who: "Rust".to_string() };
+    let msg1 = Hello {
+      who: "World".to_string(),
+    };
+    let msg2 = Hello {
+      who: "World".to_string(),
+    };
+    let msg3 = Hello {
+      who: "Rust".to_string(),
+    };
 
     assert!(msg1.eq_message(&msg2));
     assert!(!msg1.eq_message(&msg3));

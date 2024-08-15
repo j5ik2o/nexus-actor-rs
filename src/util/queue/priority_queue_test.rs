@@ -5,9 +5,9 @@ mod tests {
   use crate::util::queue::mpsc_unbounded_channel_queue::MpscUnboundedChannelQueue;
   use crate::util::queue::priority_queue::{PriorityMessage, PriorityQueue};
   use crate::util::queue::{QueueBase, QueueReader, QueueSize, QueueWriter};
+  use nexus_acto_message_derive_rs::Message;
   use std::fmt::Debug;
   use std::sync::Arc;
-  use nexus_acto_message_derive_rs::Message;
 
   #[derive(Debug, Clone, PartialEq, Eq, Message)]
   struct TestPriorityMessage {

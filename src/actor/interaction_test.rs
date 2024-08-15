@@ -1,8 +1,5 @@
 #[cfg(test)]
 pub mod tests {
-  use async_trait::async_trait;
-  use std::time::Duration;
-  use nexus_acto_message_derive_rs::Message;
   use crate::actor::actor::Actor;
   use crate::actor::actor::ActorError;
   use crate::actor::actor::Props;
@@ -12,6 +9,9 @@ pub mod tests {
   use crate::actor::message::Message;
   use crate::actor::message::MessageHandle;
   use crate::actor::message::ResponseHandle;
+  use async_trait::async_trait;
+  use nexus_acto_message_derive_rs::Message;
+  use std::time::Duration;
 
   #[derive(Debug, Clone, PartialEq, Eq, Message)]
   pub struct DummyMessage;

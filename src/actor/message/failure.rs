@@ -1,9 +1,9 @@
-use nexus_acto_message_derive_rs::Message;
 use crate::actor::actor::ActorInnerError;
 use crate::actor::actor::ExtendedPid;
 use crate::actor::actor::RestartStatistics;
 use crate::actor::message::message::Message;
 use crate::actor::message::message_handle::MessageHandle;
+use nexus_acto_message_derive_rs::Message;
 
 #[derive(Debug, Clone, PartialEq, Eq, Message)]
 pub struct Failure {
