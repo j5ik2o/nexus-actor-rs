@@ -1,12 +1,14 @@
-use std::fmt::Debug;
-
 use crate::actor::actor::actor_error::ActorError;
 use crate::actor::context::ContextHandle;
 use crate::actor::context::MessagePart;
 use crate::actor::message::AutoReceiveMessage;
 use crate::actor::message::TerminateInfo;
 use crate::actor::supervisor::SupervisorStrategyHandle;
+use crate::actor::Config;
 use async_trait::async_trait;
+use std::fmt::Debug;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 use tracing::instrument;
 
 #[async_trait]
@@ -75,5 +77,28 @@ pub trait Actor: Debug + Send + Sync + 'static {
 
   async fn get_supervisor_strategy(&self) -> Option<SupervisorStrategyHandle> {
     None
+  }
+}
+
+pub struct ActorConfigOption(Arc<Mutex<dyn FnMut(&mut Config) + Send + Sync + 'static>>);
+
+impl ActorConfigOption {
+  pub fn new<F>(f: F) -> Self
+  where
+    F: FnMut(&mut Config) + Send + Sync + 'static, {
+    Self(Arc::new(Mutex::new(f)))
+  }
+
+  pub async fn run(&self, config: &mut Config) {
+    let mut mg = self.0.lock().await;
+    mg(config)
+  }
+
+  async fn configure(options: Vec<ActorConfigOption>) -> Config {
+    let mut config = Config::default();
+    for option in options {
+      option.run(&mut config).await;
+    }
+    config
   }
 }
