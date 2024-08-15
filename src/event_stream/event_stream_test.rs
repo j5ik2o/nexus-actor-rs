@@ -1,6 +1,5 @@
 #[cfg(test)]
 mod tests {
-  use std::any::Any;
   use std::sync::atomic::{AtomicI32, Ordering};
   use std::sync::Arc;
 
@@ -10,18 +9,10 @@ mod tests {
   use crate::event_stream::event_stream::EventStream;
   use crate::event_stream::predicate::Predicate;
   use tokio::sync::Mutex;
+  use nexus_acto_message_derive_rs::Message;
 
-  #[derive(Debug)]
+  #[derive(Debug, PartialEq, Eq, Message)]
   pub struct TestString(pub String);
-  impl Message for TestString {
-    fn eq_message(&self, other: &dyn Message) -> bool {
-      other.as_any().is::<TestString>()
-    }
-
-    fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-      self
-    }
-  }
 
   #[tokio::test]
   async fn test_event_stream_subscribe() {
@@ -145,19 +136,9 @@ mod tests {
     assert!(!*called.lock().await);
   }
 
-  #[derive(Debug)]
+  #[derive(Debug, PartialEq, Eq, Message)]
   struct Event {
     i: i32,
-  }
-
-  impl Message for Event {
-    fn eq_message(&self, other: &dyn Message) -> bool {
-      self.i == other.as_any().downcast_ref::<Event>().unwrap().i
-    }
-
-    fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-      self
-    }
   }
 
   #[tokio::test]

@@ -19,48 +19,17 @@ pub mod tests {
   use std::any::Any;
   use std::time::Duration;
   use tokio::time::sleep;
+  use nexus_acto_message_derive_rs::Message;
 
-  #[derive(Debug, Clone)]
+  #[derive(Debug, Clone, PartialEq, Eq, Message)]
   struct CreateChildMessage;
 
-  impl Message for CreateChildMessage {
-    fn eq_message(&self, other: &dyn Message) -> bool {
-      other.as_any().is::<CreateChildMessage>()
-    }
-
-    fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-      self
-    }
-  }
-  #[derive(Debug, Clone)]
+  #[derive(Debug, Clone, PartialEq, Eq, Message)]
   struct GetChildCountRequest;
 
-  impl Message for GetChildCountRequest {
-    fn eq_message(&self, other: &dyn Message) -> bool {
-      other.as_any().is::<GetChildCountRequest>()
-    }
-
-    fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-      self
-    }
-  }
-  #[derive(Debug, Clone)]
+  #[derive(Debug, Clone, PartialEq, Eq, Message)]
   struct GetChildCountResponse {
     child_count: usize,
-  }
-
-  impl Message for GetChildCountResponse {
-    fn eq_message(&self, other: &dyn Message) -> bool {
-      let other_msg = other.as_any().downcast_ref::<GetChildCountResponse>();
-      match other_msg {
-        Some(other_msg) => self.child_count == other_msg.child_count,
-        None => false,
-      }
-    }
-
-    fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-      self
-    }
   }
 
   #[derive(Debug)]
@@ -112,7 +81,7 @@ pub mod tests {
     assert_eq!(response.child_count, expected);
   }
 
-  #[derive(Debug, Clone)]
+  #[derive(Debug, Clone, PartialEq, Eq)]
   struct GetChildCountMessage2 {
     reply_directly: ExtendedPid,
     reply_after_stop: ExtendedPid,

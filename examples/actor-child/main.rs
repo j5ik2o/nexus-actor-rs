@@ -10,23 +10,10 @@ use std::env;
 use std::time::Duration;
 use tokio::time::sleep;
 use tracing_subscriber::EnvFilter;
+use nexus_acto_message_derive_rs::Message;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Message)]
 struct Hello(pub String);
-
-impl Message for Hello {
-  fn eq_message(&self, other: &dyn Message) -> bool {
-    let other = other.as_any().downcast_ref::<Hello>();
-    match other {
-      Some(other) => self.0 == other.0,
-      None => false,
-    }
-  }
-
-  fn as_any(&self) -> &(dyn std::any::Any + Send + Sync + 'static) {
-    self
-  }
-}
 
 #[derive(Debug)]
 struct ChildActor;

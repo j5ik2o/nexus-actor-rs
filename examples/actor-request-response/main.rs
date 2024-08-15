@@ -4,26 +4,12 @@ use nexus_acto_rs::actor::context::{BasePart, MessagePart, SenderPart, SpawnerPa
 use nexus_acto_rs::actor::message::Message;
 use nexus_acto_rs::actor::message::MessageHandle;
 use nexus_acto_rs::actor::message::ResponseHandle;
-use std::any::Any;
 use std::time::Duration;
+use nexus_acto_message_derive_rs::Message;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Message)]
 struct Hello {
   who: String,
-}
-
-impl Message for Hello {
-  fn eq_message(&self, other: &dyn Message) -> bool {
-    let other_msg = other.as_any().downcast_ref::<Hello>();
-    match other_msg {
-      Some(other_msg) => self.who == other_msg.who,
-      None => false,
-    }
-  }
-
-  fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-    self
-  }
 }
 
 #[tokio::main]

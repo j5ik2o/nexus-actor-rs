@@ -1,8 +1,8 @@
 use std::any::Any;
 use std::fmt::Debug;
-
+use nexus_acto_message_derive_rs::Message;
 use crate::actor::actor::ExtendedPid;
-use crate::actor::message::message::Message;
+use crate::actor::message::Message;
 use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::message::message_headers::MessageHeaders;
 use crate::actor::message::readonly_message_headers::ReadonlyMessageHeaders;
@@ -79,31 +79,11 @@ impl<M: Message> From<TypedMessageEnvelope<M>> for MessageEnvelope {
   }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Message)]
 pub struct MessageEnvelope {
   header: Option<MessageHeaders>,
   message_handle: MessageHandle,
   sender: Option<ExtendedPid>,
-}
-
-impl PartialEq for MessageEnvelope {
-  fn eq(&self, other: &Self) -> bool {
-    self.header == other.header && self.message_handle == other.message_handle && self.sender == other.sender
-  }
-}
-
-impl Message for MessageEnvelope {
-  fn eq_message(&self, other: &dyn Message) -> bool {
-    if let Some(other) = other.as_any().downcast_ref::<Self>() {
-      self.header == other.header && self.message_handle == other.message_handle && self.sender == other.sender
-    } else {
-      false
-    }
-  }
-
-  fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-    self
-  }
 }
 
 impl MessageEnvelope {

@@ -5,11 +5,11 @@ mod tests {
   use crate::util::queue::mpsc_unbounded_channel_queue::MpscUnboundedChannelQueue;
   use crate::util::queue::priority_queue::{PriorityMessage, PriorityQueue};
   use crate::util::queue::{QueueBase, QueueReader, QueueSize, QueueWriter};
-  use std::any::Any;
   use std::fmt::Debug;
   use std::sync::Arc;
+  use nexus_acto_message_derive_rs::Message;
 
-  #[derive(Debug, Clone, PartialEq, Eq)]
+  #[derive(Debug, Clone, PartialEq, Eq, Message)]
   struct TestPriorityMessage {
     message: String,
     priority: i8,
@@ -29,46 +29,18 @@ mod tests {
     }
   }
 
-  impl Message for TestPriorityMessage {
-    fn eq_message(&self, other: &dyn Message) -> bool {
-      if let Some(other) = other.as_any().downcast_ref::<Self>() {
-        self.message == other.message
-      } else {
-        false
-      }
-    }
-
-    fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-      self
-    }
-  }
-
   impl TestMessageBase for TestPriorityMessage {
     fn get_message(&self) -> String {
       self.message.clone()
     }
   }
 
-  #[derive(Debug, Clone)]
+  #[derive(Debug, Clone, PartialEq, Eq, Message)]
   struct TestMessage {
     message: String,
   }
 
   impl Element for TestMessage {}
-
-  impl Message for TestMessage {
-    fn eq_message(&self, other: &dyn Message) -> bool {
-      if let Some(other) = other.as_any().downcast_ref::<Self>() {
-        self.message == other.message
-      } else {
-        false
-      }
-    }
-
-    fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-      self
-    }
-  }
 
   impl TestMessageBase for TestMessage {
     fn get_message(&self) -> String {

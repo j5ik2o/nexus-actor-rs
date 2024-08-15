@@ -10,7 +10,7 @@ mod test {
   use tokio::sync::{Mutex, Notify};
   use tokio::time::Instant;
   use tracing_subscriber::EnvFilter;
-
+  use nexus_acto_message_derive_rs::Message;
   use crate::actor::actor::Actor;
   use crate::actor::actor::ActorError;
   use crate::actor::actor::ActorInnerError;
@@ -135,28 +135,8 @@ mod test {
   #[derive(Debug, Clone)]
   struct FailingChildActor;
 
-  #[derive(Debug, Clone)]
+  #[derive(Debug, Clone, PartialEq, Eq, Message)]
   struct StringMessage(String);
-
-  impl PartialEq for StringMessage {
-    fn eq(&self, other: &Self) -> bool {
-      self.0 == other.0
-    }
-  }
-
-  impl Message for StringMessage {
-    fn eq_message(&self, other: &dyn Message) -> bool {
-      let other = other.as_any().downcast_ref::<StringMessage>();
-      match other {
-        Some(other) => self.0 == other.0,
-        None => false,
-      }
-    }
-
-    fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-      self
-    }
-  }
 
   #[async_trait]
   impl Actor for ActorWithSupervisor {

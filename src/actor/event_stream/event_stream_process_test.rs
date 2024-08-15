@@ -1,26 +1,14 @@
 #[cfg(test)]
 mod tests {
-  use std::any::Any;
-
   use tokio::sync::mpsc;
-
+  use nexus_acto_message_derive_rs::Message;
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::context::SenderPart;
   use crate::actor::message::Message;
   use crate::actor::message::MessageHandle;
 
-  #[derive(Debug, Clone)]
+  #[derive(Debug, Clone, PartialEq, Eq, Message)]
   struct EsTestMsg;
-
-  impl Message for EsTestMsg {
-    fn eq_message(&self, other: &dyn Message) -> bool {
-      other.as_any().is::<EsTestMsg>()
-    }
-
-    fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-      self
-    }
-  }
 
   #[tokio::test]
   async fn test_sends_messages_to_event_stream() {

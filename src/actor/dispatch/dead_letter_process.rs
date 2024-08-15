@@ -1,7 +1,5 @@
-use std::any::Any;
-
 use async_trait::async_trait;
-
+use nexus_acto_message_derive_rs::Message;
 use crate::actor::actor::ExtendedPid;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::SenderPart;
@@ -174,30 +172,9 @@ impl Process for DeadLetterProcess {
   }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Message)]
 pub struct DeadLetterEvent {
   pub pid: Option<ExtendedPid>,
   pub message_handle: MessageHandle,
   pub sender: Option<ExtendedPid>,
-}
-
-impl PartialEq for DeadLetterEvent {
-  fn eq(&self, other: &Self) -> bool {
-    self.pid == other.pid && self.message_handle == other.message_handle && self.sender == other.sender
-  }
-}
-
-impl Eq for DeadLetterEvent {}
-
-impl Message for DeadLetterEvent {
-  fn eq_message(&self, other: &dyn Message) -> bool {
-    match other.as_any().downcast_ref::<DeadLetterEvent>() {
-      Some(a) => self == a,
-      None => false,
-    }
-  }
-
-  fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-    self
-  }
 }

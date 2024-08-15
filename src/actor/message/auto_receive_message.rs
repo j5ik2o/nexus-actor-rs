@@ -1,12 +1,11 @@
-use std::any::Any;
 use std::fmt::Display;
-
+use nexus_acto_message_derive_rs::Message;
 use crate::actor::actor::ExtendedPid;
 use crate::actor::message::message::Message;
 use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::message::terminate_info::TerminateInfo;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Message)]
 pub(crate) enum AutoReceiveMessage {
   PreStart,
   PostStart,
@@ -23,12 +22,6 @@ impl AutoReceiveMessage {
 
 static_assertions::assert_impl_all!(AutoReceiveMessage: Send, Sync);
 
-impl PartialEq for AutoReceiveMessage {
-  fn eq(&self, other: &Self) -> bool {
-    self.eq_message(other)
-  }
-}
-
 impl Eq for AutoReceiveMessage {}
 
 impl Display for AutoReceiveMessage {
@@ -42,25 +35,5 @@ impl Display for AutoReceiveMessage {
       AutoReceiveMessage::PostStop => write!(f, "PostStop"),
       AutoReceiveMessage::Terminated(_) => write!(f, "Terminated"),
     }
-  }
-}
-
-impl Message for AutoReceiveMessage {
-  fn eq_message(&self, other: &dyn Message) -> bool {
-    let msg = other.as_any().downcast_ref::<AutoReceiveMessage>();
-    match (self, msg) {
-      (AutoReceiveMessage::PreStart, Some(&AutoReceiveMessage::PreStart)) => true,
-      (AutoReceiveMessage::PostStart, Some(&AutoReceiveMessage::PostStart)) => true,
-      (AutoReceiveMessage::PreRestart, Some(&AutoReceiveMessage::PreRestart)) => true,
-      (AutoReceiveMessage::PostRestart, Some(&AutoReceiveMessage::PostRestart)) => true,
-      (AutoReceiveMessage::PreStop, Some(&AutoReceiveMessage::PreStop)) => true,
-      (AutoReceiveMessage::PostStop, Some(&AutoReceiveMessage::PostStop)) => true,
-      (AutoReceiveMessage::Terminated(me), Some(&AutoReceiveMessage::Terminated(ref you))) => *me == *you,
-      _ => false,
-    }
-  }
-
-  fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-    self
   }
 }

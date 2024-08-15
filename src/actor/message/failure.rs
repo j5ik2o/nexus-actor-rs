@@ -1,27 +1,16 @@
-use std::any::Any;
-
+use nexus_acto_message_derive_rs::Message;
 use crate::actor::actor::ActorInnerError;
 use crate::actor::actor::ExtendedPid;
 use crate::actor::actor::RestartStatistics;
 use crate::actor::message::message::Message;
 use crate::actor::message::message_handle::MessageHandle;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Message)]
 pub struct Failure {
   pub who: ExtendedPid,
   pub reason: ActorInnerError,
   pub restart_stats: RestartStatistics,
   pub message_handle: MessageHandle,
-}
-
-impl Message for Failure {
-  fn eq_message(&self, other: &dyn Message) -> bool {
-    other.as_any().is::<Failure>()
-  }
-
-  fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-    self
-  }
 }
 
 impl Failure {

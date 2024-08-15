@@ -7,23 +7,13 @@ use nexus_acto_rs::actor::context::ContextHandle;
 use nexus_acto_rs::actor::context::{MessagePart, SenderPart, SpawnerPart};
 use nexus_acto_rs::actor::message::Message;
 use nexus_acto_rs::actor::message::MessageHandle;
-use std::any::Any;
 use std::time::Duration;
 use tokio::time::sleep;
+use nexus_acto_message_derive_rs::Message;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Message)]
 struct Hello {
   who: String,
-}
-
-impl Message for Hello {
-  fn eq_message(&self, other: &dyn Message) -> bool {
-    other.eq_message(self)
-  }
-
-  fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-    self
-  }
 }
 
 #[derive(Debug)]

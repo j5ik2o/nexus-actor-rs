@@ -1,11 +1,10 @@
 #[cfg(test)]
 mod test {
-  use std::any::Any;
   use std::sync::Arc;
 
   use async_trait::async_trait;
   use tokio::sync::Mutex;
-
+  use nexus_acto_message_derive_rs::Message;
   use crate::actor::actor::ActorError;
   use crate::actor::actor::ActorInnerError;
   use crate::actor::actor::Task;
@@ -72,44 +71,14 @@ mod test {
   }
 
   // Test message types
-  #[derive(Debug, Clone)]
+  #[derive(Debug, Clone, PartialEq, Eq, Message)]
   struct TestSystemMessage;
 
-  impl Message for TestSystemMessage {
-    fn eq_message(&self, other: &dyn Message) -> bool {
-      other.as_any().is::<TestSystemMessage>()
-    }
-
-    fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-      self
-    }
-  }
-
-  #[derive(Debug, Clone)]
+  #[derive(Debug, Clone, PartialEq, Eq, Message)]
   struct TestUserMessage;
 
-  impl Message for TestUserMessage {
-    fn eq_message(&self, other: &dyn Message) -> bool {
-      other.as_any().is::<TestUserMessage>()
-    }
-
-    fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-      self
-    }
-  }
-
-  #[derive(Debug, Clone)]
+  #[derive(Debug, Clone, PartialEq, Eq, Message)]
   struct TestTask;
-
-  impl Message for TestTask {
-    fn eq_message(&self, other: &dyn Message) -> bool {
-      other.as_any().is::<TestTask>()
-    }
-
-    fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-      self
-    }
-  }
 
   #[async_trait]
   impl Task for TestTask {

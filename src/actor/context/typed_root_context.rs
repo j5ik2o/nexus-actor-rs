@@ -8,20 +8,11 @@ use crate::actor::typed_context::{
   TypedStopperPart,
 };
 use async_trait::async_trait;
+use nexus_acto_message_derive_rs::Message;
 use std::time::Duration;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Message)]
 pub struct UnitMessage;
-
-impl Message for UnitMessage {
-  fn eq_message(&self, _other: &dyn Message) -> bool {
-    true
-  }
-
-  fn as_any(&self) -> &(dyn std::any::Any + Send + Sync + 'static) {
-    self
-  }
-}
 
 #[derive(Debug)]
 pub struct TypedRootContext {
