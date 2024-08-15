@@ -1,13 +1,11 @@
 use async_trait::async_trait;
-use nexus_acto_rs::actor::actor::Actor;
 use nexus_acto_rs::actor::actor::Props;
 use nexus_acto_rs::actor::actor::{ActorError, TypedActor, TypedProps};
 use nexus_acto_rs::actor::actor_system::ActorSystem;
-use nexus_acto_rs::actor::context::{ContextHandle, TypedContextHandle};
-use nexus_acto_rs::actor::context::{MessagePart, SenderPart, SpawnerPart};
+use nexus_acto_rs::actor::context::TypedContextHandle;
+use nexus_acto_rs::actor::context::{SenderPart, SpawnerPart};
 use nexus_acto_rs::actor::dispatch::unbounded_mpsc_mailbox_creator;
 use nexus_acto_rs::actor::message::Message;
-use nexus_acto_rs::actor::message::MessageHandle;
 use nexus_acto_rs::actor::typed_context::{TypedMessagePart, TypedSenderPart, TypedSpawnerPart};
 use std::env;
 use std::time::Duration;

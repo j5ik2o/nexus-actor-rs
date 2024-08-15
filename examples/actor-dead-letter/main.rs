@@ -3,7 +3,7 @@ use governor::{Quota, RateLimiter};
 use nexus_acto_rs::actor::actor_system::ActorSystem;
 use nexus_acto_rs::actor::context::SenderPart;
 use nexus_acto_rs::actor::message::{Message, MessageHandle};
-use nexus_acto_rs::actor::ConfigOption;
+use nexus_acto_rs::actor::{Config, ConfigOption};
 use std::env;
 use std::num::NonZeroU32;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -55,7 +55,7 @@ async fn main() {
   let btn = Arc::new(AtomicBool::new(true));
   let cloned_btn = btn.clone();
 
-  let config = ConfigOption::configure([
+  let config = Config::from([
     ConfigOption::with_dead_letter_throttle_count(10),
     ConfigOption::with_dead_letter_throttle_interval(Duration::from_secs(1)),
   ]);

@@ -46,4 +46,6 @@ impl ConfigOption {
   pub fn with_dead_letter_request_logging(enabled: bool) -> ConfigOption {
     ConfigOption::SetDeadLetterRequestLogging(enabled)
   }
+
 }
+
