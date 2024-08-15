@@ -67,6 +67,18 @@ impl<M: Message + Clone> TypedMessageEnvelope<M> {
   }
 }
 
+impl<M: Message + Clone> From<MessageEnvelope> for TypedMessageEnvelope<M> {
+  fn from(underlying: MessageEnvelope) -> Self {
+    TypedMessageEnvelope::new(underlying)
+  }
+}
+
+impl<M: Message> From<TypedMessageEnvelope<M>> for MessageEnvelope {
+  fn from(typed: TypedMessageEnvelope<M>) -> Self {
+    typed.underlying
+  }
+}
+
 #[derive(Debug, Clone)]
 pub struct MessageEnvelope {
   header: Option<MessageHeaders>,

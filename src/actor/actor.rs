@@ -29,6 +29,8 @@ mod spawn_test;
 mod spawner;
 mod taks;
 mod typed_actor;
+mod typed_pid;
+mod typed_props;
 
 pub use {
   self::actor::*, self::actor_error::*, self::actor_handle::*, self::actor_inner_error::*, self::actor_process::*,
@@ -36,7 +38,7 @@ pub use {
   self::context_handler::*, self::continuer::*, self::middleware_chain::*, self::pid::*, self::props::*,
   self::receiver_middleware::*, self::receiver_middleware_chain::*, self::restart_statistics::*,
   self::sender_middleware::*, self::sender_middleware_chain::*, self::spawn_middleware::*, self::spawner::*,
-  self::taks::*,
+  self::taks::*, self::typed_pid::*, self::typed_props::*,
 };
 
 pub(crate) use self::pid_set::*;

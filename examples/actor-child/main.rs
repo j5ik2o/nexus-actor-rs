@@ -1,14 +1,16 @@
 use async_trait::async_trait;
 use futures::TryStreamExt;
-use nexus_acto_rs::actor::actor::Actor;
 use nexus_acto_rs::actor::actor::ActorError;
 use nexus_acto_rs::actor::actor::Props;
+use nexus_acto_rs::actor::actor::{Actor, TypedProps};
 use nexus_acto_rs::actor::actor_system::ActorSystem;
-use nexus_acto_rs::actor::context::{ContextHandle, TypedSenderPart};
+use nexus_acto_rs::actor::context::ContextHandle;
 use nexus_acto_rs::actor::context::{MessagePart, SenderPart, SpawnerPart};
 use nexus_acto_rs::actor::dispatch::unbounded_mpsc_mailbox_creator;
 use nexus_acto_rs::actor::message::Message;
 use nexus_acto_rs::actor::message::MessageHandle;
+use nexus_acto_rs::actor::typed_actor_system::TypedActorSystem;
+use nexus_acto_rs::actor::typed_context::{TypedSenderPart, TypedSpawnerPart};
 use std::env;
 use std::time::Duration;
 use tokio::time::sleep;
@@ -87,15 +89,15 @@ async fn main() {
     .with_env_filter(EnvFilter::from_default_env())
     .init();
 
-  let system = ActorSystem::new().await;
-  //  let mut root = system.get_root_context().await;
-  let mut root = system.get_typed_root_context::<Hello>().await;
+  let system: TypedActorSystem<Hello> = ActorSystem::new().await.into();
+  let mut root = system.get_root_context().await;
 
   let props = Props::from_actor_producer_with_opts(
     create_top_actor,
     [Props::with_mailbox_producer(unbounded_mpsc_mailbox_creator())],
   )
-  .await;
+  .await
+  .into();
 
   let pid = root.spawn(props).await;
   for _ in 1..10 {

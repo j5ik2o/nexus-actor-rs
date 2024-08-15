@@ -120,10 +120,6 @@ impl ActorSystem {
     inner_mg.root_context.as_ref().unwrap().clone()
   }
 
-  pub async fn get_typed_root_context<T: Message>(&self) -> TypedRootContext<T> {
-    TypedRootContext::new(self.get_root_context().await)
-  }
-
   pub async fn get_dead_letter(&self) -> ProcessHandle {
     let inner_mg = self.inner.lock().await;
     let dead_letter = inner_mg.dead_letter.as_ref().unwrap().clone();
