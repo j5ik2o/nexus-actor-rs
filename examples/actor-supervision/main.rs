@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use nexus_acto_message_derive_rs::Message;
 use nexus_acto_rs::actor::actor::Actor;
 use nexus_acto_rs::actor::actor::ActorError;
 use nexus_acto_rs::actor::actor::ActorInnerError;
@@ -13,6 +12,7 @@ use nexus_acto_rs::actor::supervisor::Directive;
 use nexus_acto_rs::actor::supervisor::OneForOneStrategy;
 use nexus_acto_rs::actor::supervisor::SupervisorStrategyHandle;
 use nexus_acto_rs::actor::util::AsyncBarrier;
+use nexus_acto_rs::Message;
 use std::env;
 use std::time::Duration;
 use tokio::time::sleep;
