@@ -5,5 +5,6 @@ pub mod actor;
 pub mod ctxext;
 pub mod event_stream;
 pub mod util;
+mod metrics;
 
 pub use nexus_acto_message_derive_rs::Message;
