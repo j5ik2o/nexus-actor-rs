@@ -1,7 +1,8 @@
+use crate::actor::context::ExtensionPart;
+use async_trait::async_trait;
 use std::fmt::Debug;
 use std::sync::atomic::{AtomicI32, Ordering};
 use std::sync::Arc;
-
 use tokio::sync::Mutex;
 
 pub type ContextExtensionId = i32;
@@ -38,13 +39,16 @@ impl ContextExtensions {
       extensions: Arc::new(Mutex::new(vec![None, None, None])),
     }
   }
+}
 
-  pub async fn get(&self, id: ContextExtensionId) -> Option<ContextExtensionHandle> {
+#[async_trait]
+impl ExtensionPart for ContextExtensions {
+  async fn get(&mut self, id: ContextExtensionId) -> Option<ContextExtensionHandle> {
     let mg = self.extensions.lock().await;
     mg.get(id as usize).and_then(|ext| ext.clone())
   }
 
-  pub async fn set(&mut self, extension: ContextExtensionHandle) {
+  async fn set(&mut self, extension: ContextExtensionHandle) {
     let id = extension.extension_id() as usize;
     let len = {
       let mg = self.extensions.lock().await;

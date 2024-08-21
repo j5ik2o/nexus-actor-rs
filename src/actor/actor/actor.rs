@@ -13,6 +13,10 @@ use tracing::instrument;
 
 #[async_trait]
 pub trait Actor: Debug + Send + Sync + 'static {
+  fn get_type_name(&self) -> String {
+    std::any::type_name_of_val(self).replace("*", "")
+  }
+
   #[instrument(skip_all)]
   async fn handle(&mut self, context_handle: ContextHandle) -> Result<(), ActorError> {
     let message_handle = context_handle.get_message_handle().await;
