@@ -11,6 +11,7 @@ mod future_test;
 pub mod guardian;
 pub mod interaction_test;
 pub mod message;
+pub mod metrics;
 pub mod process;
 pub mod supervisor;
 pub mod typed_context;
