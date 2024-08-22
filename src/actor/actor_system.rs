@@ -115,7 +115,7 @@ impl ActorSystem {
   }
 
   pub async fn get_typed_root_context(&self) -> TypedRootContext {
-    TypedRootContext::new(self.get_root_context().await)
+    self.get_root_context().await.to_typed()
   }
 
   pub async fn get_dead_letter(&self) -> ProcessHandle {

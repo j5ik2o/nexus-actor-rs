@@ -62,8 +62,7 @@ async fn main() {
     .init();
 
   let system = ActorSystem::new().await;
-  let mut root = system.get_typed_root_context().await;
-
+  let mut root = system.get_root_context().await.to_typed();
   let props = TypedProps::from_actor_producer_with_opts(
     move |_| async { TopActor },
     [Props::with_mailbox_producer(unbounded_mpsc_mailbox_creator())],
