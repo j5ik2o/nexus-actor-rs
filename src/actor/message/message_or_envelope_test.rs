@@ -23,7 +23,7 @@ mod test {
       .with_env_filter(EnvFilter::from_default_env())
       .try_init();
 
-    let system = ActorSystem::new().await;
+    let system = ActorSystem::new().await.unwrap();
 
     let props = Props::from_actor_receiver(move |ctx| async move {
       let msg = ctx.get_message_envelope_opt().await;

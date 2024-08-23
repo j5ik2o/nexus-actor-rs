@@ -19,7 +19,7 @@ mod tests {
       .try_init();
     let b = AsyncBarrier::new(2);
 
-    let system = ActorSystem::new().await;
+    let system = ActorSystem::new().await.unwrap();
     let cloned_b = b.clone();
 
     let props = Props::from_actor_receiver(move |ctx| {

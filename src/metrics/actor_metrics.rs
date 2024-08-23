@@ -1,8 +1,8 @@
+use crate::actor::MetricsProvider;
 use opentelemetry::metrics::MeterProvider;
 use opentelemetry::metrics::{Counter, Histogram, Meter, ObservableGauge};
-use opentelemetry_sdk::metrics::reader::MetricReader;
-use opentelemetry_sdk::metrics::SdkMeterProvider;
 use std::sync::{Arc, RwLock};
+
 const LIB_NAME: &str = "protoactor";
 
 #[derive(Debug, Clone)]
@@ -23,9 +23,8 @@ pub struct ActorMetrics {
 }
 
 impl ActorMetrics {
-  pub fn new(reader: impl MetricReader) -> Result<Self, opentelemetry::metrics::MetricsError> {
-    let provider = SdkMeterProvider::builder().with_reader(reader).build();
-    let meter = provider.meter(LIB_NAME);
+  pub fn new(meter_provider: Arc<MetricsProvider>) -> Result<Self, opentelemetry::metrics::MetricsError> {
+    let meter = meter_provider.meter(LIB_NAME);
 
     let mailbox_length = Arc::new(RwLock::new(0i64));
     let mailbox_length_clone = mailbox_length.clone();
@@ -157,12 +156,14 @@ impl ActorMetrics {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use opentelemetry_sdk::metrics::ManualReader;
+  use opentelemetry_sdk::metrics::{ManualReader, MeterProviderBuilder};
 
   #[test]
   fn test_actor_metrics() {
     let reader = ManualReader::builder().build();
-    let metrics = ActorMetrics::new(reader).expect("メトリクスの初期化に失敗しました");
+    let meter_provider = MeterProviderBuilder::default().with_reader(reader).build();
+    let meter_provider = MetricsProvider::Sdk(meter_provider);
+    let metrics = ActorMetrics::new(Arc::new(meter_provider)).expect("メトリクスの初期化に失敗しました");
 
     // メトリクスの操作をグループ化
     metrics.increment_actor_failure_count();

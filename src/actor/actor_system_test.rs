@@ -24,7 +24,7 @@ mod tests {
       .with_env_filter(EnvFilter::from_default_env())
       .try_init();
 
-    let system = ActorSystem::new().await;
+    let system = ActorSystem::new().await.unwrap();
     let root = system.get_root_context().await;
     assert_eq!(root.get_self_opt().await, None);
 
@@ -33,7 +33,7 @@ mod tests {
 
   #[tokio::test]
   async fn test_actor_system_new_with_config() {
-    let system = ActorSystem::new_with_config(Config::default()).await;
+    let system = ActorSystem::new_with_config(Config::default()).await.unwrap();
     let root = system.get_root_context().await;
     assert_eq!(root.get_self_opt().await, None);
   }
@@ -67,7 +67,7 @@ mod tests {
 
     let b = AsyncBarrier::new(2);
     let cloned_b = b.clone();
-    let system = ActorSystem::new().await;
+    let system = ActorSystem::new().await.unwrap();
     let mut root_context = system.get_typed_root_context().await;
 
     let props = TypedProps::from_actor_producer(move |_| {

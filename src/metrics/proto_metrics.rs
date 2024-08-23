@@ -1,7 +1,8 @@
+use crate::actor::MetricsProvider;
 use crate::metrics::ActorMetrics;
 use opentelemetry::metrics::MetricsError;
-use opentelemetry_sdk::metrics::reader::MetricReader;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct ProtoMetrics {
@@ -12,8 +13,8 @@ pub struct ProtoMetrics {
 impl ProtoMetrics {
   const INTERNAL_ACTOR_METRICS: &'static str = "internal.actor.metrics";
 
-  pub fn new(reader: impl MetricReader) -> Result<Self, MetricsError> {
-    let actor_metrics = ActorMetrics::new(reader)?;
+  pub fn new(meter_provider: Arc<MetricsProvider>) -> Result<Self, MetricsError> {
+    let actor_metrics = ActorMetrics::new(meter_provider)?;
     let mut myself = ProtoMetrics {
       actor_metrics,
       known_metrics: HashMap::new(),

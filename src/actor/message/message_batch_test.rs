@@ -19,7 +19,7 @@ mod tests {
     let cloned_seen_messages_wg = seen_messages_wg.clone();
     seen_messages_wg.add(1).await;
 
-    let system = ActorSystem::new().await;
+    let system = ActorSystem::new().await.unwrap();
 
     let props = Props::from_actor_receiver(move |ctx| {
       let cloned_seen_messages_wg = cloned_seen_messages_wg.clone();

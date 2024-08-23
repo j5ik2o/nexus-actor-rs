@@ -15,7 +15,7 @@ use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::sender_context_handle::SenderContextHandle;
 use crate::actor::context::spawner_context_handle::SpawnerContextHandle;
 use crate::actor::context::{
-  InfoPart, MessagePart, SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart,
+  InfoPart, MessagePart, SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart, TypedRootContext,
 };
 use crate::actor::future::{ActorFuture, ActorFutureProcess};
 use crate::actor::message::MessageEnvelope;
@@ -81,6 +81,10 @@ impl RootContext {
     } else {
       pid.send_user_message(self.actor_system.clone(), message_handle).await;
     }
+  }
+
+  pub fn to_typed(self) -> TypedRootContext {
+    TypedRootContext::new(self)
   }
 }
 

@@ -1,34 +1,43 @@
+use std::fmt::Debug;
 use std::sync::atomic::{AtomicI32, Ordering};
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 pub type ExtensionId = i32;
 
 static CURRENT_ID: AtomicI32 = AtomicI32::new(0);
 
-pub trait Extension {
+pub trait Extension: Debug {
   fn extension_id(&self) -> ExtensionId;
 }
 
+#[derive(Debug, Clone)]
 pub struct Extensions {
-  extensions: Vec<Option<Box<dyn Extension>>>,
+  extensions: Arc<Mutex<Vec<Option<Arc<dyn Extension + Send + Sync + 'static>>>>>,
 }
 
 impl Extensions {
   pub fn new() -> Self {
     Extensions {
-      extensions: (0..100).map(|_| None).collect(),
+      extensions: Arc::new(Mutex::new((0..100).map(|_| None).collect())),
     }
   }
 
-  pub fn get(&self, id: ExtensionId) -> Option<&dyn Extension> {
-    self.extensions.get(id as usize).and_then(|opt| opt.as_deref())
+  pub async fn get(&self, id: ExtensionId) -> Option<Arc<dyn Extension + Send + Sync + 'static>> {
+    // 戻り値の型を変更
+    let lock = self.extensions.lock().await;
+    let extension = lock.get(id as usize).and_then(|opt| opt.as_ref().map(|e| e.clone())); // map()を使用してクローン
+    drop(lock);
+    extension
   }
 
-  pub fn register(&mut self, extension: Box<dyn Extension>) {
+  pub async fn register(&mut self, extension: Arc<dyn Extension + Send + Sync + 'static>) {
     let id = extension.extension_id() as usize;
-    if id >= self.extensions.len() {
-      self.extensions.resize_with(id + 1, || None);
+    let mut lock = self.extensions.lock().await;
+    if id >= lock.len() {
+      lock.resize_with(id + 1, || None);
     }
-    self.extensions[id] = Some(extension);
+    lock[id] = Some(extension);
   }
 }
 

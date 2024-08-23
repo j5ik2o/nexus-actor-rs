@@ -20,7 +20,7 @@ async fn main() {
     .with_env_filter(EnvFilter::from_default_env())
     .init();
 
-  let system = ActorSystem::new().await;
+  let system = ActorSystem::new().await.unwrap();
   let mut root_context = system.get_root_context().await;
   let props = Props::from_actor_receiver_with_opts(
     |ctx| async move {
