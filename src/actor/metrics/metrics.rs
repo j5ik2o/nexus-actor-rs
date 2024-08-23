@@ -5,9 +5,8 @@ use crate::actor::MetricsProvider;
 use crate::extensions::{next_extension_id, Extension, ExtensionId};
 use crate::metrics::ProtoMetrics;
 use once_cell::sync::Lazy;
-use opentelemetry::metrics::{MeterProvider, MetricsError};
+use opentelemetry::metrics::MetricsError;
 use opentelemetry::KeyValue;
-use opentelemetry_sdk::metrics::reader::MetricReader;
 use std::sync::Arc;
 
 static EXTENSION_ID: Lazy<ExtensionId> = Lazy::new(|| next_extension_id());

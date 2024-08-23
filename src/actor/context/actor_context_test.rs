@@ -24,7 +24,7 @@ mod tests {
       .with_env_filter(EnvFilter::from_default_env())
       .try_init();
 
-    let system = ActorSystem::new().await;
+    let system = ActorSystem::new().await.unwrap();
     let mut root_context = system.get_root_context().await;
 
     let pid = root_context
@@ -93,7 +93,7 @@ mod tests {
       .with_env_filter(EnvFilter::from_default_env())
       .try_init();
 
-    let system = ActorSystem::new().await;
+    let system = ActorSystem::new().await.unwrap();
     let mut root_context = system.get_root_context().await;
 
     let actor_receiver = move |_| async move { Ok(()) };

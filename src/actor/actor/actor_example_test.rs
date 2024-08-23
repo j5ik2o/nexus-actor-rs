@@ -56,7 +56,7 @@ mod tests {
     let async_barrier = AsyncBarrier::new(2);
     let cloned_async_barrier = async_barrier.clone();
 
-    let system = ActorSystem::new().await;
+    let system = ActorSystem::new().await.unwrap();
     let mut root_context = system.get_root_context().await;
 
     let callee_props = Props::from_actor_receiver(move |ctx| async move {

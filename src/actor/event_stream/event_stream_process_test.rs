@@ -18,7 +18,7 @@ mod tests {
     ];
 
     for (_, message) in test_cases {
-      let system = ActorSystem::new().await;
+      let system = ActorSystem::new().await.unwrap();
       let (tx, mut rx) = mpsc::channel(5);
       let event_stream = system.get_event_stream().await;
 

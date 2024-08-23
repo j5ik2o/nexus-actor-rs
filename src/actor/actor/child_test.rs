@@ -58,7 +58,7 @@ pub mod tests {
 
   #[tokio::test]
   async fn test_actor_can_create_children() {
-    let system = ActorSystem::new().await;
+    let system = ActorSystem::new().await.unwrap();
     let mut root_context = system.get_root_context().await;
     let pid = root_context
       .spawn(Props::from_actor_producer(|_| async { CreateChildActor }).await)
@@ -151,7 +151,7 @@ pub mod tests {
     //   .with_env_filter(EnvFilter::from_default_env())
     //   .try_init();
 
-    let system = ActorSystem::new().await;
+    let system = ActorSystem::new().await.unwrap();
     let mut root_context = system.get_root_context().await;
     let a = root_context
       .spawn(Props::from_actor_producer(|_| async { CreateChildThenStopActor { reply_to: None } }).await)
@@ -187,7 +187,7 @@ pub mod tests {
 
   #[tokio::test]
   async fn test_actor_receives_terminated_from_watched() {
-    let system = ActorSystem::new().await;
+    let system = ActorSystem::new().await.unwrap();
     let mut root_context = system.get_root_context().await;
 
     let child = root_context
@@ -234,7 +234,7 @@ pub mod tests {
 
   #[tokio::test]
   async fn test_future_does_timeout() {
-    let system = ActorSystem::new().await;
+    let system = ActorSystem::new().await.unwrap();
     let mut root_context = system.get_root_context().await;
 
     let pid = root_context
@@ -249,7 +249,7 @@ pub mod tests {
 
   #[tokio::test]
   async fn test_future_does_not_timeout() {
-    let system = ActorSystem::new().await;
+    let system = ActorSystem::new().await.unwrap();
     let mut root_context = system.get_root_context().await;
 
     let pid = root_context

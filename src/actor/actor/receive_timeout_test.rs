@@ -49,7 +49,7 @@ pub mod tests {
       .try_init();
     let b = AsyncBarrier::new(2);
 
-    let system = ActorSystem::new().await;
+    let system = ActorSystem::new().await.unwrap();
     let cloned_b = b.clone();
 
     let mut root_context = system.get_root_context().await;

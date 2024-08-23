@@ -1,7 +1,6 @@
 use crate::actor::MetricsProvider;
 use opentelemetry::metrics::MeterProvider;
 use opentelemetry::metrics::{Counter, Histogram, Meter, ObservableGauge};
-use opentelemetry_sdk::metrics::reader::MetricReader;
 use std::sync::{Arc, RwLock};
 
 const LIB_NAME: &str = "protoactor";

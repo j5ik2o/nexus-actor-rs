@@ -14,8 +14,7 @@ use crate::actor::metrics::metrics::Metrics;
 use crate::actor::process::process_registry::ProcessRegistry;
 use crate::actor::process::ProcessHandle;
 use crate::actor::supervisor::subscribe_supervision;
-use crate::actor::{Config, ConfigOption, MetricsProvider};
-use crate::ctxext::extensions::ContextExtensions;
+use crate::actor::{Config, ConfigOption};
 use crate::event_stream::EventStream;
 use crate::extensions::Extensions;
 
