@@ -83,7 +83,8 @@ impl ActorSystem {
       system
         .get_extensions()
         .await
-        .register(Arc::new(Metrics::new(system.clone(), Some(metrics_provider))?)).await;
+        .register(Arc::new(Metrics::new(system.clone(), Some(metrics_provider))?))
+        .await;
     }
 
     let event_stream_process = ProcessHandle::new(EventStreamProcess::new(system.clone()));

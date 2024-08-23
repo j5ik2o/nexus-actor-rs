@@ -162,9 +162,7 @@ mod tests {
   #[test]
   fn test_actor_metrics() {
     let reader = ManualReader::builder().build();
-    let meter_provider = MeterProviderBuilder::default()
-      .with_reader(reader)
-      .build();
+    let meter_provider = MeterProviderBuilder::default().with_reader(reader).build();
     let meter_provider = MetricsProvider::Sdk(meter_provider);
     let metrics = ActorMetrics::new(Arc::new(meter_provider)).expect("メトリクスの初期化に失敗しました");
 

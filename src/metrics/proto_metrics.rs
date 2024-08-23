@@ -1,6 +1,6 @@
 use crate::actor::MetricsProvider;
 use crate::metrics::ActorMetrics;
-use opentelemetry::metrics::{MetricsError};
+use opentelemetry::metrics::MetricsError;
 use std::collections::HashMap;
 use std::sync::Arc;
 
