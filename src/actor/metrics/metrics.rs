@@ -1,14 +1,18 @@
 use crate::actor::actor::Actor;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::Context;
+use crate::actor::MetricsProvider;
 use crate::extensions::{next_extension_id, Extension, ExtensionId};
 use crate::metrics::ProtoMetrics;
 use once_cell::sync::Lazy;
-use opentelemetry::metrics::MetricsError;
+use opentelemetry::metrics::{MeterProvider, MetricsError};
 use opentelemetry::KeyValue;
 use opentelemetry_sdk::metrics::reader::MetricReader;
+use std::sync::Arc;
 
 static EXTENSION_ID: Lazy<ExtensionId> = Lazy::new(|| next_extension_id());
+
+#[derive(Debug)]
 pub struct Metrics {
   metrics: Option<ProtoMetrics>,
   enabled: bool,
@@ -22,12 +26,10 @@ impl Extension for Metrics {
 }
 
 impl Metrics {
-  pub fn new<T>(system: ActorSystem, metric_reader: Option<T>) -> Result<Self, MetricsError>
-  where
-    T: MetricReader + Send + Sync + 'static, {
-    match metric_reader {
-      Some(reader) => Ok(Metrics {
-        metrics: Some(ProtoMetrics::new(reader)?),
+  pub fn new(system: ActorSystem, metric_provider: Option<Arc<MetricsProvider>>) -> Result<Self, MetricsError> {
+    match metric_provider {
+      Some(mp) => Ok(Metrics {
+        metrics: Some(ProtoMetrics::new(mp)?),
         enabled: true,
         actor_system: system,
       }),

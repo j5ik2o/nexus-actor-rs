@@ -14,7 +14,7 @@ struct Hello {
 
 #[tokio::main]
 async fn main() {
-  let system = ActorSystem::new().await;
+  let system = ActorSystem::new().await.unwrap();
   let mut root_context = system.get_root_context().await;
   let props = Props::from_actor_receiver(|ctx| async move {
     if let Some(msg) = ctx.get_message_handle().await.to_typed::<Hello>() {

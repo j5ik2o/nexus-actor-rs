@@ -86,7 +86,7 @@ async fn main() {
     .with_env_filter(EnvFilter::from_default_env())
     .init();
 
-  let system = ActorSystem::new().await;
+  let system = ActorSystem::new().await.unwrap();
   let decider = |_| async {
     println!("occurred error");
     Directive::Stop

@@ -46,7 +46,7 @@ pub mod tests {
 
   #[tokio::test]
   async fn test_actor_can_reply_to_message() {
-    let system = ActorSystem::new().await;
+    let system = ActorSystem::new().await.unwrap();
     let mut root_context = system.get_root_context().await;
     let pid = root_context
       .spawn(Props::from_actor_producer(|_| async { EchoActor }).await)

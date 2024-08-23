@@ -31,7 +31,7 @@ impl Actor for HelloActor {
 
 #[tokio::main]
 async fn main() {
-  let system = ActorSystem::new().await;
+  let system = ActorSystem::new().await.unwrap();
   let mut root_context = system.get_root_context().await;
   let actor_producer = |_| async { HelloActor };
   let pid = root_context

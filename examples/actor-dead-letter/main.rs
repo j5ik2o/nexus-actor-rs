@@ -47,7 +47,7 @@ async fn main() {
     ConfigOption::with_dead_letter_throttle_interval(Duration::from_secs(1)),
   ]);
 
-  let system = ActorSystem::new_with_config(config).await;
+  let system = ActorSystem::new_with_config(config).await.unwrap();
   let mut root = system.get_root_context().await;
   tokio::spawn(async move {
     sleep(Duration::from_secs(args.duration)).await;

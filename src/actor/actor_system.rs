@@ -1,5 +1,5 @@
+use opentelemetry::metrics::MetricsError;
 use std::sync::Arc;
-
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
@@ -10,12 +10,14 @@ use crate::actor::dispatch::DeadLetterProcess;
 use crate::actor::event_stream::EventStreamProcess;
 use crate::actor::guardian::GuardiansValue;
 use crate::actor::message::EMPTY_MESSAGE_HEADER;
+use crate::actor::metrics::metrics::Metrics;
 use crate::actor::process::process_registry::ProcessRegistry;
 use crate::actor::process::ProcessHandle;
 use crate::actor::supervisor::subscribe_supervision;
-use crate::actor::{Config, ConfigOption};
+use crate::actor::{Config, ConfigOption, MetricsProvider};
 use crate::ctxext::extensions::ContextExtensions;
 use crate::event_stream::EventStream;
+use crate::extensions::Extensions;
 
 #[derive(Debug, Clone)]
 struct ActorSystemInner {
@@ -24,7 +26,7 @@ struct ActorSystemInner {
   event_stream: Arc<EventStream>,
   guardians: Option<GuardiansValue>,
   dead_letter: Option<DeadLetterProcess>,
-  extensions: ContextExtensions,
+  extensions: Extensions,
   config: Config,
   id: String,
 }
@@ -40,7 +42,7 @@ impl ActorSystemInner {
       guardians: None,
       event_stream: Arc::new(EventStream::new()),
       dead_letter: None,
-      extensions: ContextExtensions::new(),
+      extensions: Extensions::new(),
     };
     myself
   }
@@ -52,19 +54,19 @@ pub struct ActorSystem {
 }
 
 impl ActorSystem {
-  pub async fn new() -> Self {
+  pub async fn new() -> Result<Self, MetricsError> {
     Self::new_config_options([]).await
   }
 
-  pub async fn new_config_options(options: impl IntoIterator<Item = ConfigOption>) -> Self {
+  pub async fn new_config_options(options: impl IntoIterator<Item = ConfigOption>) -> Result<Self, MetricsError> {
     let options = options.into_iter().collect::<Vec<_>>();
     let config = Config::from(options);
     Self::new_with_config(config).await
   }
 
-  pub async fn new_with_config(config: Config) -> Self {
+  pub async fn new_with_config(config: Config) -> Result<Self, MetricsError> {
     let system = Self {
-      inner: Arc::new(Mutex::new(ActorSystemInner::new(config).await)),
+      inner: Arc::new(Mutex::new(ActorSystemInner::new(config.clone()).await)),
     };
     system
       .set_root_context(RootContext::new(system.clone(), EMPTY_MESSAGE_HEADER.clone(), &[]))
@@ -77,9 +79,12 @@ impl ActorSystem {
 
     subscribe_supervision(&system).await;
 
-    // if let Some(metrics_provider) = &config.metrics_provider {
-    //   system.extensions.register(Metrics::new(metrics_provider.clone()));
-    // }
+    if let Some(metrics_provider) = config.metrics_provider.clone() {
+      system
+        .get_extensions()
+        .await
+        .register(Arc::new(Metrics::new(system.clone(), Some(metrics_provider))?)).await;
+    }
 
     let event_stream_process = ProcessHandle::new(EventStreamProcess::new(system.clone()));
     system
@@ -87,7 +92,7 @@ impl ActorSystem {
       .await
       .add_process(event_stream_process, "eventstream");
 
-    system
+    Ok(system)
   }
 
   pub async fn new_local_pid(&self, id: &str) -> ExtendedPid {
@@ -157,5 +162,10 @@ impl ActorSystem {
   async fn set_dead_letter(&self, dead_letter: DeadLetterProcess) {
     let mut inner_mg = self.inner.lock().await;
     inner_mg.dead_letter = Some(dead_letter);
+  }
+
+  async fn get_extensions(&self) -> Extensions {
+    let inner_mg = self.inner.lock().await;
+    inner_mg.extensions.clone()
   }
 }

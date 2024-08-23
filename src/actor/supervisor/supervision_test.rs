@@ -37,7 +37,7 @@ mod test {
       .with_env_filter(EnvFilter::from_default_env())
       .try_init();
 
-    let system = ActorSystem::new().await;
+    let system = ActorSystem::new().await.unwrap();
     let mut root = system.get_root_context().await;
     let notify = Arc::new(Notify::new());
     let cloned_notify = notify.clone();
@@ -62,7 +62,7 @@ mod test {
       .with_env_filter(EnvFilter::from_default_env())
       .try_init();
     let observer = Observer::new();
-    let system = ActorSystem::new().await;
+    let system = ActorSystem::new().await.unwrap();
     let mut root_context = system.get_root_context().await;
 
     let cloned_observer = observer.clone();

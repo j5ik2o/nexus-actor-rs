@@ -63,7 +63,7 @@ mod test {
     ];
 
     for (_, strategy) in supervisors {
-      let system = ActorSystem::new().await;
+      let system = ActorSystem::new().await.unwrap();
       let (tx, mut rx) = mpsc::channel(100);
 
       system
