@@ -9,6 +9,8 @@ static CURRENT_ID: AtomicI32 = AtomicI32::new(0);
 
 pub trait Extension: Debug {
   fn extension_id(&self) -> ExtensionId;
+
+  fn as_any(&self) -> &dyn std::any::Any;
 }
 
 #[derive(Debug, Clone)]

@@ -164,7 +164,7 @@ impl ActorSystem {
     inner_mg.dead_letter = Some(dead_letter);
   }
 
-  async fn get_extensions(&self) -> Extensions {
+  pub async fn get_extensions(&self) -> Extensions {
     let inner_mg = self.inner.lock().await;
     inner_mg.extensions.clone()
   }

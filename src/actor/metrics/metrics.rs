@@ -7,9 +7,10 @@ use crate::metrics::ProtoMetrics;
 use once_cell::sync::Lazy;
 use opentelemetry::metrics::MetricsError;
 use opentelemetry::KeyValue;
+use std::any::Any;
 use std::sync::Arc;
 
-static EXTENSION_ID: Lazy<ExtensionId> = Lazy::new(|| next_extension_id());
+pub static EXTENSION_ID: Lazy<ExtensionId> = Lazy::new(|| next_extension_id());
 
 #[derive(Debug)]
 pub struct Metrics {
@@ -21,6 +22,10 @@ pub struct Metrics {
 impl Extension for Metrics {
   fn extension_id(&self) -> ExtensionId {
     *EXTENSION_ID
+  }
+
+  fn as_any(&self) -> &dyn Any {
+    self
   }
 }
 
@@ -38,6 +43,10 @@ impl Metrics {
         actor_system: system,
       }),
     }
+  }
+
+  pub fn get_metrics(&self) -> Option<&ProtoMetrics> {
+    self.metrics.as_ref()
   }
 
   pub fn enabled(&self) -> bool {
