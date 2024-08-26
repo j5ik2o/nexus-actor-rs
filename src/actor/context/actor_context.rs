@@ -216,7 +216,7 @@ impl ActorContext {
     self.set_actor(Some(actor)).await;
 
     self
-      .metrics_foreach(|am| async {
+      .metrics_foreach(|am| {
         am.increment_actor_spawn_count();
       })
       .await;
@@ -471,9 +471,7 @@ impl ActorContext {
       return result;
     }
 
-    self
-      .metrics_foreach(|am| async { am.increment_actor_restarted_count() })
-      .await;
+    self.metrics_foreach(|am| am.increment_actor_restarted_count()).await;
     Ok(())
   }
 
@@ -561,10 +559,9 @@ impl ActorContext {
     tracing::debug!("ActorContext::handle_root_failure: finished");
   }
 
-  async fn metrics_foreach<F, Fut>(&mut self, f: F)
+  async fn metrics_foreach<F>(&mut self, f: F)
   where
-    F: Fn(&ActorMetrics) -> Fut,
-    Fut: std::future::Future<Output = ()>, {
+    F: Fn(&ActorMetrics), {
     if self
       .get_actor_system()
       .await
@@ -587,7 +584,7 @@ impl ActorContext {
         if metrics.enabled() {
           if let Some(pm) = metrics.get_metrics() {
             if let Some(am) = pm.get(ProtoMetrics::INTERNAL_ACTOR_METRICS) {
-              f(am).await;
+              f(am);
             }
           }
         }
@@ -940,9 +937,7 @@ impl SpawnerPart for ActorContext {
 #[async_trait]
 impl StopperPart for ActorContext {
   async fn stop(&mut self, pid: &ExtendedPid) {
-    self
-      .metrics_foreach(|am| async { am.increment_actor_stopped_count() })
-      .await;
+    self.metrics_foreach(|am| am.increment_actor_stopped_count()).await;
     let inner_mg = self.inner.lock().await;
     pid.ref_process(inner_mg.actor_system.clone()).await.stop(&pid).await;
   }
@@ -1101,7 +1096,7 @@ impl MessageInvoker for ActorContext {
       let result = self.process_message(message_handle).await;
       let duration = start.elapsed();
       self
-        .metrics_foreach(|am| async {
+        .metrics_foreach(|am| {
           am.record_actor_message_receive_duration(duration.as_secs_f64());
         })
         .await;
@@ -1132,9 +1127,7 @@ impl MessageInvoker for ActorContext {
       reason
     );
 
-    self
-      .metrics_foreach(|am| async { am.increment_actor_failure_count() })
-      .await;
+    self.metrics_foreach(|am| am.increment_actor_failure_count()).await;
 
     let failure = Failure::new(
       self.get_self_opt().await.unwrap(),
