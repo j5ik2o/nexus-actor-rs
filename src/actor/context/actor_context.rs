@@ -3,9 +3,6 @@ use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-use async_trait::async_trait;
-use tokio::sync::Mutex;
-
 use crate::actor::actor::Actor;
 use crate::actor::actor::ActorError;
 use crate::actor::actor::ActorHandle;
@@ -46,9 +43,14 @@ use crate::actor::message::{
 };
 use crate::actor::message::{AutoRespond, AutoResponsive};
 use crate::actor::message::{Unwatch, Watch};
+use crate::actor::metrics::metrics::{Metrics, EXTENSION_ID};
 use crate::actor::process::Process;
 use crate::actor::supervisor::{Supervisor, SupervisorHandle, SupervisorStrategy, DEFAULT_SUPERVISION_STRATEGY};
 use crate::ctxext::extensions::{ContextExtensionHandle, ContextExtensionId};
+use crate::metrics::{ActorMetrics, ProtoMetrics};
+use async_trait::async_trait;
+use tokio::sync::Mutex;
+use tokio::time::Instant;
 
 #[derive(Debug, Clone)]
 pub struct ActorContextInner {
@@ -213,7 +215,11 @@ impl ActorContext {
     let actor = self.get_props().await.get_producer().run(ch).await;
     self.set_actor(Some(actor)).await;
 
-    // TODO: metrics
+    self
+      .metrics_foreach(|am| async {
+        am.increment_actor_spawn_count();
+      })
+      .await;
   }
 
   async fn get_receiver_middleware_chain(&self) -> Option<ReceiverMiddlewareChain> {
@@ -465,7 +471,9 @@ impl ActorContext {
       return result;
     }
 
-    // TODO: Metrics
+    self
+      .metrics_foreach(|am| async { am.increment_actor_restarted_count() })
+      .await;
     Ok(())
   }
 
@@ -551,6 +559,40 @@ impl ActorContext {
       )
       .await;
     tracing::debug!("ActorContext::handle_root_failure: finished");
+  }
+
+  async fn metrics_foreach<F, Fut>(&mut self, f: F)
+  where
+    F: Fn(&ActorMetrics) -> Fut,
+    Fut: std::future::Future<Output = ()>, {
+    if self
+      .get_actor_system()
+      .await
+      .get_config()
+      .await
+      .metrics_provider
+      .is_some()
+    {
+      if let Some(metrics) = self
+        .get_actor_system()
+        .await
+        .get_extensions()
+        .await
+        .get(*EXTENSION_ID)
+        .await
+        .unwrap()
+        .as_any()
+        .downcast_ref::<Metrics>()
+      {
+        if metrics.enabled() {
+          if let Some(pm) = metrics.get_metrics() {
+            if let Some(am) = pm.get(ProtoMetrics::INTERNAL_ACTOR_METRICS) {
+              f(am).await;
+            }
+          }
+        }
+      }
+    }
   }
 }
 
@@ -898,7 +940,9 @@ impl SpawnerPart for ActorContext {
 #[async_trait]
 impl StopperPart for ActorContext {
   async fn stop(&mut self, pid: &ExtendedPid) {
-    // TODO: MetricsProvider
+    self
+      .metrics_foreach(|am| async { am.increment_actor_stopped_count() })
+      .await;
     let inner_mg = self.inner.lock().await;
     pid.ref_process(inner_mg.actor_system.clone()).await.stop(&pid).await;
   }
@@ -1045,7 +1089,26 @@ impl MessageInvoker for ActorContext {
       }
     }
 
-    let result = self.process_message(message_handle).await;
+    let result = if self
+      .get_actor_system()
+      .await
+      .get_config()
+      .await
+      .metrics_provider
+      .is_some()
+    {
+      let start = Instant::now();
+      let result = self.process_message(message_handle).await;
+      let duration = start.elapsed();
+      self
+        .metrics_foreach(|am| async {
+          am.record_actor_message_receive_duration(duration.as_secs_f64());
+        })
+        .await;
+      result
+    } else {
+      self.process_message(message_handle).await
+    };
 
     let receive_timeout = {
       let inner_mg = self.inner.lock().await;
@@ -1063,7 +1126,15 @@ impl MessageInvoker for ActorContext {
   }
 
   async fn escalate_failure(&mut self, reason: ActorInnerError, message_handle: MessageHandle) {
-    // TODO: Metrics
+    tracing::info!(
+      "[ACTOR] Recovering: self = {:?}, reason = {:?}",
+      self.get_self().await,
+      reason
+    );
+
+    self
+      .metrics_foreach(|am| async { am.increment_actor_failure_count() })
+      .await;
 
     let failure = Failure::new(
       self.get_self_opt().await.unwrap(),
