@@ -11,11 +11,13 @@ pub trait Extension: Debug {
   fn extension_id(&self) -> ExtensionId;
 
   fn as_any(&self) -> &dyn std::any::Any;
+
+  fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
 }
 
 #[derive(Debug, Clone)]
 pub struct Extensions {
-  extensions: Arc<Mutex<Vec<Option<Arc<dyn Extension + Send + Sync + 'static>>>>>,
+  extensions: Arc<Mutex<Vec<Option<Arc<Mutex<dyn Extension + Send + Sync + 'static>>>>>>,
 }
 
 impl Extensions {
@@ -25,7 +27,7 @@ impl Extensions {
     }
   }
 
-  pub async fn get(&self, id: ExtensionId) -> Option<Arc<dyn Extension + Send + Sync + 'static>> {
+  pub async fn get(&self, id: ExtensionId) -> Option<Arc<Mutex<dyn Extension + Send + Sync + 'static>>> {
     // 戻り値の型を変更
     let lock = self.extensions.lock().await;
     let extension = lock.get(id as usize).and_then(|opt| opt.as_ref().map(|e| e.clone())); // map()を使用してクローン
@@ -33,8 +35,11 @@ impl Extensions {
     extension
   }
 
-  pub async fn register(&mut self, extension: Arc<dyn Extension + Send + Sync + 'static>) {
-    let id = extension.extension_id() as usize;
+  pub async fn register(&mut self, extension: Arc<Mutex<dyn Extension + Send + Sync + 'static>>) {
+    let id = {
+      let mg = extension.lock().await;
+      mg.extension_id() as usize
+    };
     let mut lock = self.extensions.lock().await;
     if id >= lock.len() {
       lock.resize_with(id + 1, || None);

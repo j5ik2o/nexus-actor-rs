@@ -29,7 +29,7 @@ dashmap = "6.0.0-rc.1"
 siphasher = "1.0.1"
 uuid = { version = "1.9.0", features = ["v4"] }
 static_assertions = "1.1.0"
-nexus-acto-message-derive-rs = { path = "./message_derive" }
+nexus-acto-message-derive-rs = { version = "*", path = "./message_derive" }
 
 tracing = "0.1"
 tracing-futures = "0.2.5"

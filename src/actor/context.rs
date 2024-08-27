@@ -10,7 +10,7 @@ use crate::actor::actor::ExtendedPid;
 use crate::actor::actor::Props;
 use crate::actor::actor::SpawnError;
 use crate::actor::actor_system::ActorSystem;
-use crate::actor::future::ActorFuture;
+use crate::actor::dispatch::future::ActorFuture;
 use crate::actor::message::MessageEnvelope;
 use crate::actor::message::MessageHandle;
 use crate::actor::message::ReadonlyMessageHeadersHandle;

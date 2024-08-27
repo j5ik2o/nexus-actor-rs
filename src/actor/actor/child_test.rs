@@ -8,7 +8,7 @@ pub mod tests {
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::context::ContextHandle;
   use crate::actor::context::{BasePart, MessagePart, SenderPart, SpawnerPart, StopperPart};
-  use crate::actor::future::ActorFutureProcess;
+  use crate::actor::dispatch::future::ActorFutureProcess;
   use crate::actor::interaction_test::tests::BlackHoleActor;
   use crate::actor::message::AutoReceiveMessage;
   use crate::actor::message::Message;

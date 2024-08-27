@@ -120,11 +120,6 @@ impl DefaultMailbox {
     inner_mg.system_messages_count.fetch_sub(1, Ordering::SeqCst);
   }
 
-  async fn get_system_messages_count(&self) -> i32 {
-    let inner_mg = self.inner.lock().await;
-    inner_mg.system_messages_count.load(Ordering::SeqCst)
-  }
-
   async fn increment_user_messages_count(&self) {
     let inner_mg = self.inner.lock().await;
     inner_mg.user_messages_count.fetch_add(1, Ordering::SeqCst);
@@ -133,11 +128,6 @@ impl DefaultMailbox {
   async fn decrement_user_messages_count(&self) {
     let inner_mg = self.inner.lock().await;
     inner_mg.user_messages_count.fetch_sub(1, Ordering::SeqCst);
-  }
-
-  async fn get_user_messages_count(&self) -> i32 {
-    let inner_mg = self.inner.lock().await;
-    inner_mg.user_messages_count.load(Ordering::SeqCst)
   }
 
   async fn get_middlewares(&self) -> Vec<MailboxMiddlewareHandle> {
@@ -256,6 +246,16 @@ impl DefaultMailbox {
 
 #[async_trait]
 impl Mailbox for DefaultMailbox {
+  async fn get_user_messages_count(&self) -> i32 {
+    let inner_mg = self.inner.lock().await;
+    inner_mg.user_messages_count.load(Ordering::SeqCst)
+  }
+
+  async fn get_system_messages_count(&self) -> i32 {
+    let inner_mg = self.inner.lock().await;
+    inner_mg.system_messages_count.load(Ordering::SeqCst)
+  }
+
   async fn process_messages(&self) {
     loop {
       self.run().await;

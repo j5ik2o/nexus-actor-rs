@@ -6,8 +6,6 @@ mod config_option;
 pub mod context;
 pub mod dispatch;
 pub mod event_stream;
-pub mod future;
-mod future_test;
 pub mod guardian;
 pub mod interaction_test;
 pub mod message;

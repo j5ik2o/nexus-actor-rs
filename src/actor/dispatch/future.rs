@@ -8,10 +8,13 @@ use crate::actor::actor_system::ActorSystem;
 use crate::actor::message::DeadLetterResponse;
 use crate::actor::message::Message;
 use crate::actor::message::MessageHandle;
+use crate::actor::metrics::metrics::{Metrics, EXTENSION_ID};
 use crate::actor::process::{Process, ProcessHandle};
+use crate::metrics::ActorMetrics;
 use async_trait::async_trait;
 use futures::future::BoxFuture;
 use nexus_acto_message_derive_rs::Message;
+use opentelemetry::KeyValue;
 use tokio::sync::{Mutex, Notify};
 
 #[derive(Debug, Clone, PartialEq, Eq, Message)]
@@ -80,7 +83,7 @@ struct ActorFutureInner {
 
 static_assertions::assert_impl_all!(ActorFutureInner: Send, Sync);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ActorFutureProcess {
   future: Arc<Mutex<ActorFuture>>,
 }
@@ -115,6 +118,13 @@ impl ActorFutureProcess {
       tracing::error!("failed to register future process: pid = {}", pid);
     }
 
+    future_process
+      .metrics_foreach(|am, _| {
+        let am = am.clone();
+        async move { am.increment_futures_started_count() }
+      })
+      .await;
+
     future_process.set_pid(pid).await;
 
     if duration > Duration::from_secs(0) {
@@ -136,6 +146,33 @@ impl ActorFutureProcess {
     }
 
     future_process
+  }
+
+  async fn metrics_foreach<F, Fut>(&self, f: F)
+  where
+    F: Fn(&ActorMetrics, &Metrics) -> Fut,
+    Fut: std::future::Future<Output = ()>, {
+    if self.get_actor_system().await.get_config().await.is_metrics_enabled() {
+      if let Some(extension_arc) = self
+        .get_actor_system()
+        .await
+        .get_extensions()
+        .await
+        .get(*EXTENSION_ID)
+        .await
+      {
+        let mut extension = extension_arc.lock().await;
+        if let Some(m) = extension.as_any_mut().downcast_mut::<Metrics>() {
+          m.foreach(f).await;
+        }
+      }
+    }
+  }
+
+  async fn get_actor_system(&self) -> ActorSystem {
+    let future = self.future.lock().await.clone();
+    let inner = future.inner.lock().await;
+    inner.actor_system.clone()
   }
 
   pub async fn set_pid(&self, pid: ExtendedPid) {
@@ -198,6 +235,32 @@ impl ActorFutureProcess {
       inner.pipes.clear();
     }
   }
+
+  async fn instrument(&self, future: ActorFuture) {
+    self
+      .metrics_foreach(|am, _| {
+        let cloned_am = am.clone();
+        let cloned_future = future.clone();
+        async move {
+          if {
+            let actor_future_inner = cloned_future.inner.lock().await;
+            actor_future_inner.error.is_none()
+          } {
+            cloned_am.increment_futures_completed_count_with_opts(&[KeyValue::new(
+              "address",
+              self.get_actor_system().await.get_address().await,
+            )])
+          } else {
+            cloned_am.increment_futures_timed_out_count_with_opts(&[KeyValue::new(
+              "address",
+              self.get_actor_system().await.get_address().await,
+            )])
+          }
+        }
+      })
+      .await;
+    future.instrument().await;
+  }
 }
 
 #[async_trait]
@@ -206,13 +269,14 @@ impl Process for ActorFutureProcess {
     let future = self.future.lock().await.clone();
     tokio::spawn({
       let future = future.clone();
+      let cloned_self = self.clone();
       async move {
         if message_handle.to_typed::<DeadLetterResponse>().is_some() {
           future.fail(ActorFutureError::DeadLetter).await;
         } else {
           future.complete(message_handle.clone()).await;
         }
-        future.instrument().await;
+        cloned_self.instrument(future).await;
       }
     });
   }
@@ -221,9 +285,10 @@ impl Process for ActorFutureProcess {
     let future = self.future.lock().await.clone();
     tokio::spawn({
       let future = future.clone();
+      let cloned_self = self.clone();
       async move {
         future.complete(message_handle.clone()).await;
-        future.instrument().await;
+        cloned_self.instrument(future).await;
       }
     });
   }
@@ -336,5 +401,31 @@ impl ActorFuture {
     // Here you would implement your metrics logging
     // This is a placeholder for the actual implementation
     tracing::debug!("Future completed");
+  }
+
+  async fn get_actor_system(&self) -> ActorSystem {
+    let mg = self.inner.lock().await;
+    mg.actor_system.clone()
+  }
+
+  async fn metrics_foreach<F, Fut>(&self, f: F)
+  where
+    F: Fn(&ActorMetrics, &Metrics) -> Fut,
+    Fut: std::future::Future<Output = ()>, {
+    if self.get_actor_system().await.get_config().await.is_metrics_enabled() {
+      if let Some(extension_arc) = self
+        .get_actor_system()
+        .await
+        .get_extensions()
+        .await
+        .get(*EXTENSION_ID)
+        .await
+      {
+        let mut extension = extension_arc.lock().await;
+        if let Some(m) = extension.as_any_mut().downcast_mut::<Metrics>() {
+          m.foreach(f).await;
+        }
+      }
+    }
   }
 }

@@ -1,9 +1,10 @@
 use crate::actor::MetricsProvider;
 use opentelemetry::metrics::MeterProvider;
 use opentelemetry::metrics::{Counter, Histogram, Meter, ObservableGauge};
+use opentelemetry::KeyValue;
 use std::sync::{Arc, RwLock};
 
-const LIB_NAME: &str = "protoactor";
+pub const LIB_NAME: &str = "protoactor";
 
 #[derive(Debug, Clone)]
 pub struct ActorMetrics {
@@ -101,7 +102,15 @@ impl ActorMetrics {
   }
 
   pub fn increment_actor_failure_count(&self) {
-    self.actor_failure_count.add(1, &[]);
+    self.increment_actor_failure_count_with_opts(&[]);
+  }
+
+  pub fn increment_actor_failure_count_with_opts(&self, attributes: &[KeyValue]) {
+    self.actor_failure_count.add(1, attributes);
+  }
+
+  pub fn actor_mailbox_length_observable_gauge(&self) -> ObservableGauge<i64> {
+    self.actor_mailbox_length.clone()
   }
 
   pub fn set_actor_mailbox_length(&self, length: i64) {
@@ -113,39 +122,67 @@ impl ActorMetrics {
   }
 
   pub fn record_actor_message_receive_duration(&self, duration: f64) {
-    self.actor_message_receive_histogram.record(duration, &[]);
+    self.record_actor_message_receive_duration_with_opts(duration, &[]);
+  }
+
+  pub fn record_actor_message_receive_duration_with_opts(&self, duration: f64, attributes: &[KeyValue]) {
+    self.actor_message_receive_histogram.record(duration, attributes);
   }
 
   pub fn increment_actor_restarted_count(&self) {
-    self.actor_restarted_count.add(1, &[]);
+    self.increment_actor_restarted_count_with_opts(&[]);
+  }
+
+  pub fn increment_actor_restarted_count_with_opts(&self, attributes: &[KeyValue]) {
+    self.actor_restarted_count.add(1, attributes);
   }
 
   pub fn increment_actor_spawn_count(&self) {
-    self.actor_spawn_count.add(1, &[]);
+    self.increment_actor_spawn_count_with_opts(&[]);
+  }
+
+  pub fn increment_actor_spawn_count_with_opts(&self, attributes: &[KeyValue]) {
+    self.actor_spawn_count.add(1, attributes);
   }
 
   pub fn increment_actor_stopped_count(&self) {
-    self.actor_stopped_count.add(1, &[]);
+    self.increment_actor_stopped_count_with_opts(&[]);
+  }
+
+  pub fn increment_actor_stopped_count_with_opts(&self, attributes: &[KeyValue]) {
+    self.actor_stopped_count.add(1, attributes);
   }
 
   pub fn increment_dead_letter_count(&self) {
-    self.dead_letter_count.add(1, &[]);
+    self.increment_dead_letter_count_with_opts(&[]);
+  }
+
+  pub fn increment_dead_letter_count_with_opts(&self, attributes: &[KeyValue]) {
+    self.dead_letter_count.add(1, attributes);
   }
 
   pub fn increment_futures_started_count(&self) {
-    self.futures_started_count.add(1, &[]);
+    self.increment_futures_started_count_with_opts(&[])
+  }
+
+  pub fn increment_futures_started_count_with_opts(&self, attributes: &[KeyValue]) {
+    self.futures_started_count.add(1, attributes);
   }
 
   pub fn increment_futures_completed_count(&self) {
-    self.futures_completed_count.add(1, &[]);
+    self.increment_futures_completed_count_with_opts(&[]);
+  }
+
+  pub fn increment_futures_completed_count_with_opts(&self, attributes: &[KeyValue]) {
+    self.futures_completed_count.add(1, attributes);
   }
 
   pub fn increment_futures_timed_out_count(&self) {
-    self.futures_timed_out_count.add(1, &[]);
+    self.increment_futures_timed_out_count_with_opts(&[]);
   }
 
-  pub fn record_thread_pool_latency(&self, latency: f64) {
-    self.thread_pool_latency.record(latency, &[]);
+  pub fn increment_futures_timed_out_count_with_opts(&self, attributes: &[KeyValue]) {
+    self.futures_timed_out_count.add(1, attributes);
   }
 
   pub fn set_actor_mailbox_length_gauge(&mut self, gauge: ObservableGauge<i64>) {
@@ -178,7 +215,7 @@ mod tests {
     // 値を設定するメトリクスをグループ化
     metrics.set_actor_mailbox_length(5);
     metrics.record_actor_message_receive_duration(0.1);
-    metrics.record_thread_pool_latency(0.05);
+    // metrics.record_thread_pool_latency(0.05);
 
     // 検証可能な操作の結果をアサート
     assert_eq!(

@@ -10,7 +10,7 @@ mod tests {
 
   use crate::actor::actor::ExtendedPid;
   use crate::actor::actor_system::ActorSystem;
-  use crate::actor::future::{ActorFutureError, ActorFutureProcess};
+  use crate::actor::dispatch::future::{ActorFutureError, ActorFutureProcess};
   use crate::actor::message::Message;
   use crate::actor::message::MessageHandle;
   use crate::actor::process::{Process, ProcessHandle};

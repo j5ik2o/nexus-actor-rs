@@ -82,7 +82,10 @@ impl ActorSystem {
       system
         .get_extensions()
         .await
-        .register(Arc::new(Metrics::new(system.clone(), Some(metrics_provider))?))
+        .register(Arc::new(Mutex::new(Metrics::new(
+          system.clone(),
+          Some(metrics_provider),
+        )?)))
         .await;
     }
 

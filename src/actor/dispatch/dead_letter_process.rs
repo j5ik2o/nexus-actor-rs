@@ -9,8 +9,10 @@ use crate::actor::message::MessageHandle;
 use crate::actor::message::SystemMessage;
 use crate::actor::message::TerminateInfo;
 use crate::actor::message::TerminateReason;
+use crate::actor::metrics::metrics::{Metrics, EXTENSION_ID};
 use crate::actor::process::{Process, ProcessHandle};
 use crate::actor::util::{Throttle, ThrottleCallback, Valve};
+use crate::metrics::ActorMetrics;
 use async_trait::async_trait;
 use nexus_acto_message_derive_rs::Message;
 
@@ -124,12 +126,31 @@ impl DeadLetterProcess {
 
     myself
   }
+
+  async fn metrics_foreach<F, Fut>(&self, f: F)
+  where
+    F: Fn(&ActorMetrics, &Metrics) -> Fut,
+    Fut: std::future::Future<Output = ()>, {
+    if self.actor_system.get_config().await.is_metrics_enabled() {
+      if let Some(extension_arc) = self.actor_system.get_extensions().await.get(*EXTENSION_ID).await {
+        let mut extension = extension_arc.lock().await;
+        if let Some(m) = extension.as_any_mut().downcast_mut::<Metrics>() {
+          m.foreach(f).await;
+        }
+      }
+    }
+  }
 }
 
 #[async_trait]
 impl Process for DeadLetterProcess {
   async fn send_user_message(&self, pid: Option<&ExtendedPid>, message_handle: MessageHandle) {
-    // TODO: Metrics
+    self
+      .metrics_foreach(|am, _| {
+        let am = am.clone();
+        async move { am.increment_dead_letter_count() }
+      })
+      .await;
 
     let (_, msg, sender) = unwrap_envelope(message_handle.clone());
     self

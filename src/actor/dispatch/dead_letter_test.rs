@@ -4,7 +4,7 @@ mod test {
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::context::{SenderPart, SpawnerPart, StopperPart};
   use crate::actor::dispatch::dead_letter_process::DeadLetterEvent;
-  use crate::actor::future::ActorFutureProcess;
+  use crate::actor::dispatch::future::ActorFutureProcess;
   use crate::actor::interaction_test::tests::BlackHoleActor;
   use crate::actor::message::MessageHandle;
   use crate::actor::message::SystemMessage;

@@ -17,7 +17,7 @@ use crate::actor::context::{
   BasePart, Context, ExtensionContext, ExtensionPart, InfoPart, MessagePart, ReceiverContext, ReceiverPart,
   SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart,
 };
-use crate::actor::future::ActorFuture;
+use crate::actor::dispatch::future::ActorFuture;
 use crate::actor::message::MessageEnvelope;
 use crate::actor::message::MessageHandle;
 use crate::actor::message::ReadonlyMessageHeadersHandle;
