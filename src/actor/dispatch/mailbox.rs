@@ -10,6 +10,9 @@ use crate::actor::message::MessageHandle;
 // Mailbox trait
 #[async_trait]
 pub trait Mailbox: Debug + Send + Sync {
+  async fn get_user_messages_count(&self) -> i32;
+  async fn get_system_messages_count(&self) -> i32;
+
   async fn process_messages(&self);
   async fn post_user_message(&self, message_handle: MessageHandle);
   async fn post_system_message(&self, message_handle: MessageHandle);

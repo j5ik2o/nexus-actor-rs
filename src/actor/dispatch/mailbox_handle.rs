@@ -37,6 +37,16 @@ impl MailboxHandle {
 
 #[async_trait]
 impl Mailbox for MailboxHandle {
+  async fn get_user_messages_count(&self) -> i32 {
+    let mg = self.0.lock().await;
+    mg.get_user_messages_count().await
+  }
+
+  async fn get_system_messages_count(&self) -> i32 {
+    let mg = self.0.lock().await;
+    mg.get_system_messages_count().await
+  }
+
   async fn process_messages(&self) {
     let mg = self.0.lock().await;
     mg.process_messages().await;

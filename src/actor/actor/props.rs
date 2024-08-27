@@ -4,6 +4,8 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use once_cell::sync::Lazy;
+use opentelemetry::metrics::MeterProvider;
+use opentelemetry::KeyValue;
 use tokio::sync::Mutex;
 
 use crate::actor::actor::actor::Actor;
@@ -39,9 +41,11 @@ use crate::actor::dispatch::*;
 use crate::actor::message::AutoReceiveMessage;
 use crate::actor::message::MessageHandle;
 use crate::actor::message::SystemMessage;
+use crate::actor::metrics::metrics::{Metrics, EXTENSION_ID};
 use crate::actor::process::ProcessHandle;
 use crate::actor::supervisor::SupervisorStrategyHandle;
 use crate::actor::supervisor::DEFAULT_SUPERVISION_STRATEGY;
+use crate::metrics::LIB_NAME;
 
 #[derive(Debug, Clone)]
 pub struct Props {
@@ -76,6 +80,30 @@ static DEFAULT_SPAWNER: Lazy<Spawner> = Lazy::new(|| {
         let mut ctx = ActorContext::new(actor_system.clone(), props.clone(), parent_context.get_self_opt().await).await;
         let mut mb = props.produce_mailbox().await;
         // prepare the mailbox number counter
+
+        if let Some(mp) = actor_system.get_config().await.metrics_provider {
+          if let Some(extension_arc) = actor_system.get_extensions().await.get(*EXTENSION_ID).await {
+            let mut extension_mg = extension_arc.lock().await;
+            if let Some(metrics) = extension_mg.as_any_mut().downcast_mut::<Metrics>() {
+              if metrics.enabled() {
+                let actor_mailbox_length_observable_gauge = metrics
+                  .get_metrics()
+                  .unwrap()
+                  .instruments()
+                  .actor_mailbox_length_observable_gauge();
+                metrics.prepare_mailbox_length_gauge();
+                let len = mb.get_user_messages_count().await;
+                let meter = mp.meter(LIB_NAME);
+                let result = meter.register_callback(&[], move |observer| {
+                  observer.observe_i64(&actor_mailbox_length_observable_gauge, len as i64, &[]);
+                });
+                if let Err(e) = result {
+                  tracing::error!("Failed to register mailbox length callback: {:?}", e);
+                }
+              }
+            }
+          }
+        }
 
         let dp = props.get_dispatcher();
         let proc = ActorProcess::new(mb.clone());

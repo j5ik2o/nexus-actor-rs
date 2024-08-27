@@ -4,7 +4,7 @@ use opentelemetry::metrics::{Counter, Histogram, Meter, ObservableGauge};
 use opentelemetry::KeyValue;
 use std::sync::{Arc, RwLock};
 
-const LIB_NAME: &str = "protoactor";
+pub const LIB_NAME: &str = "protoactor";
 
 #[derive(Debug, Clone)]
 pub struct ActorMetrics {
@@ -107,6 +107,10 @@ impl ActorMetrics {
 
   pub fn increment_actor_failure_count_with_opts(&self, attributes: &[KeyValue]) {
     self.actor_failure_count.add(1, attributes);
+  }
+
+  pub fn actor_mailbox_length_observable_gauge(&self) -> ObservableGauge<i64> {
+    self.actor_mailbox_length.clone()
   }
 
   pub fn set_actor_mailbox_length(&self, length: i64) {
