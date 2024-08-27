@@ -4,6 +4,8 @@ mod dead_letter_test;
 mod default_mailbox;
 mod dispatcher;
 mod dispatcher_test;
+pub mod future;
+mod future_test;
 mod mailbox;
 mod mailbox_handle;
 mod mailbox_message;

@@ -8,7 +8,7 @@ use crate::actor::actor::ActorHandle;
 use crate::actor::actor::ExtendedPid;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::{InfoPart, MessagePart, SenderContext, SenderPart};
-use crate::actor::future::ActorFuture;
+use crate::actor::dispatch::future::ActorFuture;
 use crate::actor::message::MessageEnvelope;
 use crate::actor::message::MessageHandle;
 use crate::actor::message::ReadonlyMessageHeadersHandle;

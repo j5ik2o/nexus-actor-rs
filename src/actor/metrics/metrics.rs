@@ -3,7 +3,7 @@ use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::Context;
 use crate::actor::MetricsProvider;
 use crate::extensions::{next_extension_id, Extension, ExtensionId};
-use crate::metrics::ProtoMetrics;
+use crate::metrics::{ActorMetrics, ProtoMetrics};
 use once_cell::sync::Lazy;
 use opentelemetry::metrics::MetricsError;
 use opentelemetry::KeyValue;
@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 pub static EXTENSION_ID: Lazy<ExtensionId> = Lazy::new(|| next_extension_id());
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Metrics {
   metrics: Option<ProtoMetrics>,
   enabled: bool,
@@ -25,6 +25,10 @@ impl Extension for Metrics {
   }
 
   fn as_any(&self) -> &dyn Any {
+    self
+  }
+
+  fn as_any_mut(&mut self) -> &mut dyn Any {
     self
   }
 }
@@ -88,5 +92,18 @@ impl Metrics {
         .replace("*", ""),
       ),
     ]
+  }
+
+  pub async fn foreach<F, Fut>(&mut self, f: F)
+  where
+    F: Fn(&ActorMetrics, &Metrics) -> Fut,
+    Fut: std::future::Future<Output = ()>, {
+    if self.enabled() {
+      if let Some(pm) = self.get_metrics() {
+        if let Some(am) = pm.get(ProtoMetrics::INTERNAL_ACTOR_METRICS) {
+          f(am, self).await;
+        }
+      }
+    }
   }
 }

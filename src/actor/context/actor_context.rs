@@ -23,9 +23,9 @@ use crate::actor::context::{
   BasePart, Context, ExtensionContext, ExtensionPart, InfoPart, MessagePart, ReceiverContext, ReceiverPart,
   SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart,
 };
+use crate::actor::dispatch::future::ActorFutureProcess;
 use crate::actor::dispatch::MailboxMessage;
 use crate::actor::dispatch::MessageInvoker;
-use crate::actor::future::ActorFutureProcess;
 use crate::actor::message::AutoReceiveMessage;
 use crate::actor::message::Continuation;
 use crate::actor::message::Failure;
@@ -47,7 +47,7 @@ use crate::actor::metrics::metrics::{Metrics, EXTENSION_ID};
 use crate::actor::process::Process;
 use crate::actor::supervisor::{Supervisor, SupervisorHandle, SupervisorStrategy, DEFAULT_SUPERVISION_STRATEGY};
 use crate::ctxext::extensions::{ContextExtensionHandle, ContextExtensionId};
-use crate::metrics::{ActorMetrics, ProtoMetrics};
+use crate::metrics::ActorMetrics;
 use async_trait::async_trait;
 use tokio::sync::Mutex;
 use tokio::time::Instant;
@@ -216,8 +216,11 @@ impl ActorContext {
     self.set_actor(Some(actor)).await;
 
     self
-      .metrics_foreach(|am| {
-        am.increment_actor_spawn_count();
+      .metrics_foreach(|am, _| {
+        let am = am.clone();
+        async move {
+          am.increment_actor_spawn_count();
+        }
       })
       .await;
   }
@@ -471,7 +474,12 @@ impl ActorContext {
       return result;
     }
 
-    self.metrics_foreach(|am| am.increment_actor_restarted_count()).await;
+    self
+      .metrics_foreach(|am, _| {
+        let am = am.clone();
+        async move { am.increment_actor_restarted_count() }
+      })
+      .await;
     Ok(())
   }
 
@@ -559,34 +567,22 @@ impl ActorContext {
     tracing::debug!("ActorContext::handle_root_failure: finished");
   }
 
-  async fn metrics_foreach<F>(&mut self, f: F)
+  async fn metrics_foreach<F, Fut>(&self, f: F)
   where
-    F: Fn(&ActorMetrics), {
-    if self
-      .get_actor_system()
-      .await
-      .get_config()
-      .await
-      .metrics_provider
-      .is_some()
-    {
-      if let Some(metrics) = self
+    F: Fn(&ActorMetrics, &Metrics) -> Fut,
+    Fut: std::future::Future<Output = ()>, {
+    if self.get_actor_system().await.get_config().await.is_metrics_enabled() {
+      if let Some(extension_arc) = self
         .get_actor_system()
         .await
         .get_extensions()
         .await
         .get(*EXTENSION_ID)
         .await
-        .unwrap()
-        .as_any()
-        .downcast_ref::<Metrics>()
       {
-        if metrics.enabled() {
-          if let Some(pm) = metrics.get_metrics() {
-            if let Some(am) = pm.get(ProtoMetrics::INTERNAL_ACTOR_METRICS) {
-              f(am);
-            }
-          }
+        let mut extension = extension_arc.lock().await;
+        if let Some(m) = extension.as_any_mut().downcast_mut::<Metrics>() {
+          m.foreach(f).await;
         }
       }
     }
@@ -757,7 +753,7 @@ impl BasePart for ActorContext {
     }
   }
 
-  async fn reenter_after(&self, future: crate::actor::future::ActorFuture, continuer: Continuer) {
+  async fn reenter_after(&self, future: crate::actor::dispatch::future::ActorFuture, continuer: Continuer) {
     let message = self.get_message_or_envelop().await;
     let system = self.get_actor_system().await;
     let self_ref = self.get_self_opt().await.unwrap();
@@ -855,7 +851,7 @@ impl SenderPart for ActorContext {
     pid: ExtendedPid,
     message_handle: MessageHandle,
     timeout: Duration,
-  ) -> crate::actor::future::ActorFuture {
+  ) -> crate::actor::dispatch::future::ActorFuture {
     let future_process = ActorFutureProcess::new(self.get_actor_system().await, timeout.clone()).await;
     let future_pid = future_process.get_pid().await;
     let moe = MessageEnvelope::new(message_handle).with_sender(future_pid);
@@ -937,7 +933,12 @@ impl SpawnerPart for ActorContext {
 #[async_trait]
 impl StopperPart for ActorContext {
   async fn stop(&mut self, pid: &ExtendedPid) {
-    self.metrics_foreach(|am| am.increment_actor_stopped_count()).await;
+    self
+      .metrics_foreach(|am, _| {
+        let am = am.clone();
+        async move { am.increment_actor_stopped_count() }
+      })
+      .await;
     let inner_mg = self.inner.lock().await;
     pid.ref_process(inner_mg.actor_system.clone()).await.stop(&pid).await;
   }
@@ -946,7 +947,7 @@ impl StopperPart for ActorContext {
     &mut self,
     pid: &ExtendedPid,
     timeout: Duration,
-  ) -> crate::actor::future::ActorFuture {
+  ) -> crate::actor::dispatch::future::ActorFuture {
     let future_process = ActorFutureProcess::new(self.get_actor_system().await, timeout).await;
     pid
       .send_system_message(
@@ -971,7 +972,7 @@ impl StopperPart for ActorContext {
     &mut self,
     pid: &ExtendedPid,
     timeout: Duration,
-  ) -> crate::actor::future::ActorFuture {
+  ) -> crate::actor::dispatch::future::ActorFuture {
     let future_process = ActorFutureProcess::new(self.get_actor_system().await, timeout).await;
 
     pid
@@ -1096,8 +1097,11 @@ impl MessageInvoker for ActorContext {
       let result = self.process_message(message_handle).await;
       let duration = start.elapsed();
       self
-        .metrics_foreach(|am| {
-          am.record_actor_message_receive_duration(duration.as_secs_f64());
+        .metrics_foreach(|am, _| {
+          let am = am.clone();
+          async move {
+            am.record_actor_message_receive_duration(duration.as_secs_f64());
+          }
         })
         .await;
       result
@@ -1127,7 +1131,12 @@ impl MessageInvoker for ActorContext {
       reason
     );
 
-    self.metrics_foreach(|am| am.increment_actor_failure_count()).await;
+    self
+      .metrics_foreach(|am, _| {
+        let am = am.clone();
+        async move { am.increment_actor_failure_count() }
+      })
+      .await;
 
     let failure = Failure::new(
       self.get_self_opt().await.unwrap(),
@@ -1182,6 +1191,16 @@ impl Supervisor for ActorContext {
         reason
       );
     }
+
+    self
+      .metrics_foreach(|am, m| {
+        let am = am.clone();
+        let m = m.clone();
+        async move {
+          am.increment_actor_failure_count_with_opts(&m.common_labels(self).await);
+        }
+      })
+      .await;
 
     let mut cloned_self = self.clone();
 
