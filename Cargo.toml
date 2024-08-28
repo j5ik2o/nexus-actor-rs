@@ -1,50 +1,6 @@
-[package]
-name = "nexus-acto-rs"
-version = "0.11.0"
-edition = "2021"
-build = "build.txt"
-description = "A Rust crate for Actors"
-license = "MIT OR Apache-2.0"
-keywords = [ "actors", "actor-model", "async", "tokio" ]
-categories = [ "concurrency", "asynchronous", "network-programming" ]
-readme = "README.md"
-repository = "https://github.com/j5ik2o/NEXUS-ACTo-rs"
-
-[dependencies]
-# prost = "0.13.0"
-# prost-types = "0.13"
-async-trait = "0.1.80"
-futures = "0.3.30"
-tokio = { version = "1.37.0" , features = ["full"] }
-tokio-condvar = "0.3.0"
-thiserror = "1.0.61"
-oni-comb-uri-rs = "0.2.1"
-rand = { version = "0.9.0-alpha.2", features = ["small_rng"] }
-base64-string-rs = "0.0.1"
-time = "0.3.36"
-backtrace = "0.3"
-once_cell = "1.19.0"
-num_enum = "0.7.2"
-dashmap = "6.0.0-rc.1"
-siphasher = "1.0.1"
-uuid = { version = "1.9.0", features = ["v4"] }
-static_assertions = "1.1.0"
-nexus-acto-message-derive-rs = { version = "*", path = "./message_derive" }
-
-tracing = "0.1"
-tracing-futures = "0.2.5"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-tracing-opentelemetry = { version = "0.25.0", features = ["metrics"] }
-opentelemetry = { version = "0.24.0", features = ["metrics"] }
-opentelemetry_sdk = { version = "0.24.1", features = ["metrics", "rt-tokio", "testing"] }
-opentelemetry-stdout = { version = "0.5.0", features = ["metrics"] }
-opentelemetry-otlp = { version = "0.17.0", features = ["grpc-tonic", "trace", "metrics"] }
-
-[dev-dependencies]
-rstest = "0.22.0"
-clap = { version = "4.5.9", features = ["derive"] }
-humantime = "2.1"
-governor = "0.6.3"
-
-[build-dependencies]
-prost-build = { version = "0.13.0" }
+[workspace]
+resolver = "2"
+members = [
+    "core",
+    "message_derive",
+]
