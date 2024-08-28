@@ -9,4 +9,3 @@ pub mod metrics;
 pub mod util;
 
 pub use nexus_actor_message_derive_rs::Message;
-
