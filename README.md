@@ -39,7 +39,7 @@ Specify the version number in ${version}, for example 0.0.1.
 3. If you want to use the latest version, you can check it by running:
 
 ```shell
-cargo search nexus-acto-rs
+cargo search nexus-actor-core-rs
 ```
 
 4. To update the dependencies, run the following command in your project's root directory:
