@@ -1,9 +1,11 @@
 use async_trait::async_trait;
-use nexus_acto_rs::actor::actor::{Props, TypedProps};
-use nexus_acto_rs::actor::actor_system::ActorSystem;
-use nexus_acto_rs::actor::dispatch::{unbounded_mailbox_creator_with_opts, MailboxMiddleware, MailboxMiddlewareHandle};
-use nexus_acto_rs::actor::message::MessageHandle;
-use nexus_acto_rs::actor::typed_context::{TypedSenderPart, TypedSpawnerPart};
+use nexus_actor_core_rs::actor::actor::{Props, TypedProps};
+use nexus_actor_core_rs::actor::actor_system::ActorSystem;
+use nexus_actor_core_rs::actor::dispatch::{
+  unbounded_mailbox_creator_with_opts, MailboxMiddleware, MailboxMiddlewareHandle,
+};
+use nexus_actor_core_rs::actor::message::MessageHandle;
+use nexus_actor_core_rs::actor::typed_context::{TypedSenderPart, TypedSpawnerPart};
 use std::env;
 use tokio::time::sleep;
 use tracing_subscriber::EnvFilter;
