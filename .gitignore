@@ -4,4 +4,5 @@
 
 Cargo.lock
 .DS_Store
-message_derive/target
+message-derive/target
+core/target
