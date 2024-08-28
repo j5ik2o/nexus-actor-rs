@@ -1,10 +1,10 @@
 use clap::Parser;
 use governor::{Quota, RateLimiter};
-use nexus_acto_rs::actor::actor_system::ActorSystem;
-use nexus_acto_rs::actor::context::SenderPart;
-use nexus_acto_rs::actor::message::{Message, MessageHandle};
-use nexus_acto_rs::actor::{Config, ConfigOption};
-use nexus_acto_rs::Message;
+use nexus_actor_core_rs::actor::actor_system::ActorSystem;
+use nexus_actor_core_rs::actor::context::SenderPart;
+use nexus_actor_core_rs::actor::message::{Message, MessageHandle};
+use nexus_actor_core_rs::actor::{Config, ConfigOption};
+use nexus_actor_core_rs::Message;
 use std::env;
 use std::num::NonZeroU32;
 use std::sync::atomic::{AtomicBool, Ordering};

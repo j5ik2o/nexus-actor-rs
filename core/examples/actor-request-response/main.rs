@@ -1,10 +1,10 @@
-use nexus_acto_rs::actor::actor::Props;
-use nexus_acto_rs::actor::actor_system::ActorSystem;
-use nexus_acto_rs::actor::context::{BasePart, MessagePart, SenderPart, SpawnerPart};
-use nexus_acto_rs::actor::message::Message;
-use nexus_acto_rs::actor::message::MessageHandle;
-use nexus_acto_rs::actor::message::ResponseHandle;
-use nexus_acto_rs::Message;
+use nexus_actor_core_rs::actor::actor::Props;
+use nexus_actor_core_rs::actor::actor_system::ActorSystem;
+use nexus_actor_core_rs::actor::context::{BasePart, MessagePart, SenderPart, SpawnerPart};
+use nexus_actor_core_rs::actor::message::Message;
+use nexus_actor_core_rs::actor::message::MessageHandle;
+use nexus_actor_core_rs::actor::message::ResponseHandle;
+use nexus_actor_core_rs::Message;
 use std::time::Duration;
 
 #[derive(Debug, Clone, PartialEq, Eq, Message)]
