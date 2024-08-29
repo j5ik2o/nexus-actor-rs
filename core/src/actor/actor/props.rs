@@ -53,7 +53,6 @@ pub struct Props {
   mailbox_producer: Option<MailboxProducer>,
   guardian_strategy: Option<SupervisorStrategyHandle>,
   supervisor_strategy: Option<SupervisorStrategyHandle>,
-  dispatcher: Option<DispatcherHandle>,
   receiver_middleware: Vec<ReceiverMiddleware>,
   sender_middleware: Vec<SenderMiddleware>,
   spawn_middleware: Vec<SpawnMiddleware>,
@@ -104,7 +103,7 @@ static DEFAULT_SPAWNER: Lazy<Spawner> = Lazy::new(|| {
           }
         }
 
-        let dp = props.get_dispatcher();
+        let dp = DispatcherHandle::new_arc(actor_system.get_config().await.system_dispatcher.clone());
         let proc = ActorProcess::new(mb.clone());
         let proc_handle = ProcessHandle::new(proc);
         let pr = actor_system.get_process_registry().await;
@@ -212,12 +211,6 @@ impl Props {
     })
   }
 
-  pub fn with_dispatcher(dispatcher: DispatcherHandle) -> PropsOption {
-    PropsOption::new(move |props: &mut Props| {
-      props.dispatcher = Some(dispatcher.clone());
-    })
-  }
-
   pub fn with_mailbox_producer(mailbox_producer: MailboxProducer) -> PropsOption {
     PropsOption::new(move |props: &mut Props| {
       props.mailbox_producer = Some(mailbox_producer.clone());
@@ -312,10 +305,6 @@ impl Props {
     self.producer.clone().unwrap()
   }
 
-  fn get_dispatcher(&self) -> DispatcherHandle {
-    self.dispatcher.clone().unwrap_or_else(|| DEFAULT_DISPATCHER.clone())
-  }
-
   pub(crate) fn get_supervisor_strategy(&self) -> SupervisorStrategyHandle {
     self
       .supervisor_strategy
@@ -369,7 +358,6 @@ impl Props {
     let mut props = Props {
       on_init: vec![],
       producer: Some(producer),
-      dispatcher: None,
       mailbox_producer: None,
       context_decorator: vec![],
       guardian_strategy: None,
