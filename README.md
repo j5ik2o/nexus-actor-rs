@@ -1,6 +1,6 @@
 # nexus-actor-rs
 
-[![Workflow Status](https://github.com/j5ik2o/nexus-actor-core-rs/workflows/ci/badge.svg)](https://github.com/j5ik2o/nexus-actor-core-rs/actions?query=workflow%3A%22ci%22)
+[![Workflow Status](https://github.com/j5ik2o/nexus-actor-rs/workflows/ci/badge.svg)](https://github.com/j5ik2o/nexus-actor-rs/actions?query=workflow%3A%22ci%22)
 [![crates.io](https://img.shields.io/crates/v/nexus-actor-core-rs.svg)](https://crates.io/crates/nexus-actor-core-rs)
 [![docs.rs](https://docs.rs/nexus-actor-core-rs/badge.svg)](https://docs.rs/nexus-actor-core-rs)
 [![Renovate](https://img.shields.io/badge/renovate-enabled-brightgreen.svg)](https://renovatebot.com)
