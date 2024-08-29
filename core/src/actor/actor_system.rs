@@ -4,7 +4,6 @@ use tokio::sync::Mutex;
 use uuid::Uuid;
 
 use crate::actor::actor::ExtendedPid;
-use crate::actor::actor::Pid;
 use crate::actor::context::{RootContext, TypedRootContext};
 use crate::actor::dispatch::DeadLetterProcess;
 use crate::actor::event_stream::EventStreamProcess;
@@ -17,6 +16,7 @@ use crate::actor::supervisor::subscribe_supervision;
 use crate::actor::{Config, ConfigOption};
 use crate::event_stream::EventStream;
 use crate::extensions::Extensions;
+use crate::generated::actor::Pid;
 
 #[derive(Debug, Clone)]
 struct ActorSystemInner {
