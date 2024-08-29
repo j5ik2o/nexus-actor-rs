@@ -1,13 +1,13 @@
 # nexus-actor-rs
 
-[![Workflow Status](https://github.com/j5ik2o/NEXUS-ACTo-rs/workflows/ci/badge.svg)](https://github.com/j5ik2o/NEXUS-ACTo-rs/actions?query=workflow%3A%22ci%22)
-[![crates.io](https://img.shields.io/crates/v/NEXUS-ACTo-rs.svg)](https://crates.io/crates/NEXUS-ACTo-rs)
-[![docs.rs](https://docs.rs/nexus-acto-rs/badge.svg)](https://docs.rs/nexus-acto-rs)
+[![Workflow Status](https://github.com/j5ik2o/nexus-actor-core-rs/workflows/ci/badge.svg)](https://github.com/j5ik2o/nexus-actor-core-rs/actions?query=workflow%3A%22ci%22)
+[![crates.io](https://img.shields.io/crates/v/nexus-actor-core-rs.svg)](https://crates.io/crates/nexus-actor-core-rs)
+[![docs.rs](https://docs.rs/nexus-actor-core-rs/badge.svg)](https://docs.rs/nexus-actor-core-rs)
 [![Renovate](https://img.shields.io/badge/renovate-enabled-brightgreen.svg)](https://renovatebot.com)
-[![dependency status](https://deps.rs/repo/github/j5ik2o/NEXUS-ACTo-rs/status.svg)](https://deps.rs/repo/github/j5ik2o/NEXUS-ACTo-rs)
+[![dependency status](https://deps.rs/repo/github/j5ik2o/nexus-actor-rs/status.svg)](https://deps.rs/repo/github/j5ik2o/nexus-actor-rs)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![License](https://img.shields.io/badge/License-APACHE2.0-blue.svg)](https://opensource.org/licenses/apache-2-0)
-[![](https://tokei.rs/b1/github/j5ik2o/NEXUS-ACTo-rs)](https://github.com/XAMPPRocky/tokei)
+[![](https://tokei.rs/b1/github/j5ik2o/nexus-actor-rs)](https://github.com/XAMPPRocky/tokei)
 
 `nexus-actor-rs` embodies the essence of the Actor Model, cleverly combining "Nexus" (connection, linkage, or center) with "actor" and the Rust programming language suffix "rs". This name represents the core principles of our project for the following reasons:
 
