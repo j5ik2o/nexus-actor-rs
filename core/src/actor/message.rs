@@ -26,10 +26,9 @@ mod watch;
 
 pub(crate) use self::auto_receive_message::*;
 pub use {
-  self::auto_respond::*, self::continuation::*, self::dead_letter_response::*, self::failure::*,
-  self::ignore_dead_letter_logging::*, self::message::*, self::message_batch::*, self::message_handle::*,
-  self::message_handles::*, self::message_headers::*, self::message_or_envelope::*, self::messages::*,
-  self::not_influence_receive_timeout::*, self::poison_pill::*, self::readonly_message_headers::*,
-  self::receive_timeout::*, self::response::*, self::system_message::*, self::terminate_info::*,
-  self::terminate_reason::*, self::touched::*, self::watch::*,
+  self::auto_respond::*, self::continuation::*, self::failure::*, self::ignore_dead_letter_logging::*,
+  self::message::*, self::message_batch::*, self::message_handle::*, self::message_handles::*,
+  self::message_headers::*, self::message_or_envelope::*, self::messages::*, self::not_influence_receive_timeout::*,
+  self::readonly_message_headers::*, self::receive_timeout::*, self::response::*, self::system_message::*,
+  self::terminate_info::*, self::terminate_reason::*, self::touched::*,
 };

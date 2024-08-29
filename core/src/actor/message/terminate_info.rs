@@ -1,5 +1,5 @@
-use crate::actor::actor::Pid;
 use crate::actor::message::terminate_reason::TerminateReason;
+use crate::generated::actor::Pid;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct TerminateInfo {
