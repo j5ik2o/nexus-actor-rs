@@ -9,7 +9,7 @@
 [![License](https://img.shields.io/badge/License-APACHE2.0-blue.svg)](https://opensource.org/licenses/apache-2-0)
 [![](https://tokei.rs/b1/github/j5ik2o/NEXUS-ACTo-rs)](https://github.com/XAMPPRocky/tokei)
 
-nexus-actor-rs embodies the essence of the Actor Model, cleverly combining "Nexus" (connection, linkage, or center) with "actor" and the Rust programming language suffix "rs". This name represents the core principles of our project for the following reasons:
+`nexus-actor-rs` embodies the essence of the Actor Model, cleverly combining "Nexus" (connection, linkage, or center) with "actor" and the Rust programming language suffix "rs". This name represents the core principles of our project for the following reasons:
 
 - Connection and Interaction: Nexus symbolizes the central point where various elements connect, reflecting the communication and interaction concepts in the Actor Model. The "actor" part emphasizes the active nature of these connections.
 - Distribution and Integration: It illustrates how the distributed elements (Actors) of a system are interconnected, forming a cohesive whole. The "rs" suffix directly indicates the project's implementation in Rust, known for its focus on safe concurrency.
@@ -17,14 +17,14 @@ nexus-actor-rs embodies the essence of the Actor Model, cleverly combining "Nexu
 - Abstract yet Tangible Concept: While Nexus represents the essential structure and behavior of the system, "actor-rs" grounds it in the concrete implementation of actors in Rust.
 - Multifaceted Meaning: nexus-actor-rs comprehensively expresses the diverse aspects of the Actor Model—computation, communication, structure, and interaction—while also clearly indicating the project's technical foundation.
 
-nexus-actor-rs integrates the core characteristics of the Actor Model—distribution, interaction, modularity, and resilience—into a single, memorable concept. It represents not just the essence of the system's structure and behavior, but also embodies the practical spirit of the Rust community.
+`nexus-actor-rs` integrates the core characteristics of the Actor Model—distribution, interaction, modularity, and resilience—into a single, memorable concept. It represents not just the essence of the system's structure and behavior, but also embodies the practical spirit of the Rust community.
 This name serves as a nexus itself, connecting the theoretical underpinnings of the Actor Model with the practical implementation in Rust, all while clearly communicating its purpose and technology stack.
 
 ---
 
 ## Installation
 
-To add nexus-actor-rs to your project, follow these steps:
+To add `nexus-actor-core-rs` to your project, follow these steps:
 
 1. Open your `Cargo.toml` file.
 
@@ -48,6 +48,6 @@ cargo search nexus-actor-core-rs
 cargo update
 ```
 
-Now nexus-actor-rs is installed and ready to use in your project.
+Now `nexus-actor-rs` is installed and ready to use in your project.
 
 Note: As versions may be updated regularly, it's recommended to check for the latest version.
