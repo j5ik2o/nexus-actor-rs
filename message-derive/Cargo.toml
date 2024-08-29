@@ -2,6 +2,12 @@
 name = "nexus-actor-message-derive-rs"
 version = "0.11.1"
 edition = "2021"
+description = "A Rust crate for Actors message"
+license = "MIT OR Apache-2.0"
+keywords = [ "actors", "actor-model", "async", "tokio" ]
+categories = [ "concurrency", "asynchronous", "network-programming" ]
+readme = "../README.md"
+repository = "https://github.com/j5ik2o/nexus-actor-rs"
 
 [lib]
 proc-macro = true
