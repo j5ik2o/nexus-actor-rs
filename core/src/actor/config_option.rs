@@ -1,9 +1,12 @@
 use crate::actor::config::Config;
+use crate::actor::dispatch::Dispatcher;
+use std::sync::Arc;
 use std::time::Duration;
 
 pub enum ConfigOption {
   // SetMetricsProvider(Arc<dyn MetricsProvider>),
   SetLogPrefix(String),
+  SetSystemDispatcher(Arc<dyn Dispatcher>),
   SetDispatcherThroughput(usize),
   SetDeadLetterThrottleInterval(Duration),
   SetDeadLetterThrottleCount(usize),
@@ -17,6 +20,9 @@ impl ConfigOption {
       // ConfigOption::SetMetricsProvider(provider) => {
       //   config.metrics_provider = Some(Arc::clone(provider));
       // },
+      ConfigOption::SetSystemDispatcher(dispatcher) => {
+        config.system_dispatcher = Arc::clone(dispatcher);
+      }
       ConfigOption::SetLogPrefix(prefix) => {
         config.log_prefix = prefix.clone();
       }

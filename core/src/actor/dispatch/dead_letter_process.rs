@@ -39,7 +39,14 @@ impl DeadLetterProcess {
     let func = ThrottleCallback::new(move |i: usize| async move {
       tracing::info!("DeadLetterProcess: Throttling dead letters, count: {}", i)
     });
-    let throttle = Throttle::new(dead_letter_throttle_count, dead_letter_throttle_interval, func).await;
+    let dispatcher = myself.actor_system.get_config().await.system_dispatcher.clone();
+    let throttle = Throttle::new(
+      dispatcher,
+      dead_letter_throttle_count,
+      dead_letter_throttle_interval,
+      func,
+    )
+    .await;
 
     let cloned_self = myself.clone();
     myself
