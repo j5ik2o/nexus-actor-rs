@@ -5,6 +5,7 @@ use std::time::Duration;
 
 use crate::actor::actor::ExtendedPid;
 use crate::actor::actor_system::ActorSystem;
+use crate::actor::dispatch::Runnable;
 use crate::actor::message::DeadLetterResponse;
 use crate::actor::message::Message;
 use crate::actor::message::MessageHandle;
@@ -130,19 +131,24 @@ impl ActorFutureProcess {
     if duration > Duration::from_secs(0) {
       let future_process_clone = Arc::clone(&future_process);
 
-      tokio::spawn(async move {
-        let future = future_process_clone.get_future().await;
+      system
+        .get_config()
+        .await
+        .system_dispatcher
+        .schedule(Runnable::new(move || async move {
+          let future = future_process_clone.get_future().await;
 
-        tokio::select! {
-            _ = future.notify.notified() => {
-              tracing::debug!("Future completed");
-            }
-            _ = tokio::time::sleep(duration) => {
-                tracing::debug!("Future timed out");
-                future_process_clone.handle_timeout().await;
-            }
-        }
-      });
+          tokio::select! {
+              _ = future.notify.notified() => {
+                tracing::debug!("Future completed");
+              }
+              _ = tokio::time::sleep(duration) => {
+                  tracing::debug!("Future timed out");
+                  future_process_clone.handle_timeout().await;
+              }
+          }
+        }))
+        .await;
     }
 
     future_process
@@ -266,31 +272,45 @@ impl ActorFutureProcess {
 #[async_trait]
 impl Process for ActorFutureProcess {
   async fn send_user_message(&self, _: Option<&ExtendedPid>, message_handle: MessageHandle) {
+    let cloned_self = self.clone();
     let future = self.future.lock().await.clone();
-    tokio::spawn({
-      let future = future.clone();
-      let cloned_self = self.clone();
-      async move {
-        if message_handle.to_typed::<DeadLetterResponse>().is_some() {
-          future.fail(ActorFutureError::DeadLetter).await;
-        } else {
-          future.complete(message_handle.clone()).await;
+    let dispatcher = {
+      let mg = future.inner.lock().await;
+      mg.actor_system.get_config().await.system_dispatcher.clone()
+    };
+    dispatcher
+      .schedule(Runnable::new(move || {
+        let future = future.clone();
+        let cloned_self = cloned_self.clone();
+        async move {
+          if message_handle.to_typed::<DeadLetterResponse>().is_some() {
+            future.fail(ActorFutureError::DeadLetter).await;
+          } else {
+            future.complete(message_handle.clone()).await;
+          }
+          cloned_self.instrument(future).await;
         }
-        cloned_self.instrument(future).await;
-      }
-    });
+      }))
+      .await;
   }
 
   async fn send_system_message(&self, _: &ExtendedPid, message_handle: MessageHandle) {
+    let cloned_self = self.clone();
     let future = self.future.lock().await.clone();
-    tokio::spawn({
-      let future = future.clone();
-      let cloned_self = self.clone();
-      async move {
-        future.complete(message_handle.clone()).await;
-        cloned_self.instrument(future).await;
-      }
-    });
+    let dispatcher = {
+      let mg = future.inner.lock().await;
+      mg.actor_system.get_config().await.system_dispatcher.clone()
+    };
+    dispatcher
+      .schedule(Runnable::new(move || {
+        let future = future.clone();
+        let cloned_self = cloned_self.clone();
+        async move {
+          future.complete(message_handle.clone()).await;
+          cloned_self.instrument(future).await;
+        }
+      }))
+      .await;
   }
 
   async fn stop(&self, _pid: &ExtendedPid) {}

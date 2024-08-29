@@ -10,6 +10,8 @@ use crate::actor::context::context_handle::ContextHandle;
 use crate::actor::context::receive_timeout_timer::ReceiveTimeoutTimer;
 use crate::actor::context::receiver_context_handle::ReceiverContextHandle;
 use crate::actor::context::sender_context_handle::SenderContextHandle;
+use crate::actor::context::InfoPart;
+use crate::actor::dispatch::Runnable;
 use crate::actor::message::MessageHandles;
 use crate::ctxext::extensions::ContextExtensions;
 
@@ -118,12 +120,19 @@ impl ActorContextExtras {
     }
 
     let context = context.clone();
-    tokio::spawn(async move {
-      let mut mg = timer.lock().await;
-      mg.as_mut().await;
-      let mut locked_context = context.lock().await;
-      locked_context.receive_timeout_handler().await;
-    });
+    let dispatcher = {
+      let mg = context.lock().await;
+      mg.get_actor_system().await.get_config().await.system_dispatcher.clone()
+    };
+
+    dispatcher
+      .schedule(Runnable::new(move || async move {
+        let mut mg = timer.lock().await;
+        mg.as_mut().await;
+        let mut locked_context = context.lock().await;
+        locked_context.receive_timeout_handler().await;
+      }))
+      .await;
   }
 
   pub async fn reset_receive_timeout_timer(&self, duration: Duration) {

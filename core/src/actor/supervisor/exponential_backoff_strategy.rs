@@ -8,6 +8,7 @@ use crate::actor::actor::ActorInnerError;
 use crate::actor::actor::ExtendedPid;
 use crate::actor::actor::RestartStatistics;
 use crate::actor::actor_system::ActorSystem;
+use crate::actor::dispatch::Runnable;
 use crate::actor::message::MessageHandle;
 use crate::actor::supervisor::directive::Directive;
 use crate::actor::supervisor::supervisor_strategy::{log_failure, Supervisor, SupervisorHandle, SupervisorStrategy};
@@ -60,12 +61,15 @@ impl SupervisorStrategy for ExponentialBackoffStrategy {
     let supervisor = supervisor.clone();
     let child = child.clone();
     let reason = reason.clone();
+    let dispatcher = &actor_system.get_config().await.system_dispatcher;
 
-    tokio::spawn(async move {
-      tokio::time::sleep(dur).await;
-      log_failure(&actor_system, &child, reason.clone(), Directive::Restart).await;
-      supervisor.restart_children(&[child]).await;
-    });
+    dispatcher
+      .schedule(Runnable::new(move || async move {
+        tokio::time::sleep(dur).await;
+        log_failure(&actor_system, &child, reason.clone(), Directive::Restart).await;
+        supervisor.restart_children(&[child]).await;
+      }))
+      .await;
   }
 
   fn as_any(&self) -> &dyn Any {

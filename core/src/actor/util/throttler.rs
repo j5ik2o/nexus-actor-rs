@@ -2,6 +2,7 @@ use std::future::Future;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
+use crate::actor::dispatch::{Dispatcher, Runnable};
 use futures::future::BoxFuture;
 use tokio::sync::Mutex;
 use tokio::time::{interval, Duration};
@@ -38,23 +39,31 @@ impl ThrottleCallback {
 }
 
 impl Throttle {
-  pub async fn new(max_events_in_period: usize, period: Duration, throttled_callback: ThrottleCallback) -> Arc<Self> {
+  pub async fn new(
+    dispatcher: Arc<dyn Dispatcher>,
+    max_events_in_period: usize,
+    period: Duration,
+    throttled_callback: ThrottleCallback,
+  ) -> Arc<Self> {
     let throttle = Arc::new(Self {
       current_events: Arc::new(AtomicUsize::new(0)),
       max_events_in_period,
     });
 
     let throttle_clone = Arc::clone(&throttle);
-    tokio::spawn(async move {
-      let mut interval = interval(period);
-      loop {
-        interval.tick().await;
-        let times_called = throttle_clone.current_events.swap(0, Ordering::SeqCst);
-        if times_called > max_events_in_period {
-          throttled_callback.run(times_called - max_events_in_period).await;
+
+    dispatcher
+      .schedule(Runnable::new(move || async move {
+        let mut interval = interval(period);
+        loop {
+          interval.tick().await;
+          let times_called = throttle_clone.current_events.swap(0, Ordering::SeqCst);
+          if times_called > max_events_in_period {
+            throttled_callback.run(times_called - max_events_in_period).await;
+          }
         }
-      }
-    });
+      }))
+      .await;
 
     throttle
   }

@@ -1,3 +1,4 @@
+use crate::actor::dispatch::{Dispatcher, TokioRuntimeContextDispatcher};
 use crate::actor::ConfigOption;
 use opentelemetry::global::GlobalMeterProvider;
 use opentelemetry::metrics::noop::NoopMeterProvider;
@@ -53,6 +54,7 @@ impl MeterProvider for MetricsProvider {
 pub struct Config {
   pub metrics_provider: Option<Arc<MetricsProvider>>,
   pub log_prefix: String,
+  pub system_dispatcher: Arc<dyn Dispatcher>,
   pub dispatcher_throughput: usize,
   pub dead_letter_throttle_interval: Duration,
   pub dead_letter_throttle_count: usize,
@@ -66,6 +68,7 @@ impl Default for Config {
     Config {
       metrics_provider: None,
       log_prefix: "".to_string(),
+      system_dispatcher: Arc::new(TokioRuntimeContextDispatcher::new().unwrap()),
       dispatcher_throughput: 300,
       dead_letter_throttle_interval: Duration::from_secs(1),
       dead_letter_throttle_count: 10,
