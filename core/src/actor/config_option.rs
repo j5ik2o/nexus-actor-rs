@@ -6,7 +6,7 @@ use std::time::Duration;
 pub enum ConfigOption {
   // SetMetricsProvider(Arc<dyn MetricsProvider>),
   SetLogPrefix(String),
-  SetDispatcher(Arc<dyn Dispatcher>),
+  SetSystemDispatcher(Arc<dyn Dispatcher>),
   SetDispatcherThroughput(usize),
   SetDeadLetterThrottleInterval(Duration),
   SetDeadLetterThrottleCount(usize),
@@ -20,7 +20,7 @@ impl ConfigOption {
       // ConfigOption::SetMetricsProvider(provider) => {
       //   config.metrics_provider = Some(Arc::clone(provider));
       // },
-      ConfigOption::SetDispatcher(dispatcher) => {
+      ConfigOption::SetSystemDispatcher(dispatcher) => {
         config.system_dispatcher = Arc::clone(dispatcher);
       }
       ConfigOption::SetLogPrefix(prefix) => {
