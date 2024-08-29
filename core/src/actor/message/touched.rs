@@ -1,5 +1,5 @@
-use crate::actor::actor::Pid;
 use crate::actor::message::message::Message;
+use crate::generated::actor::Pid;
 use std::any::Any;
 
 #[derive(Debug, Clone, PartialEq)]

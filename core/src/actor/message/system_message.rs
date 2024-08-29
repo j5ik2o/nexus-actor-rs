@@ -1,8 +1,7 @@
-use std::any::Any;
-
 use crate::actor::message::message::Message;
 use crate::actor::message::terminate_info::TerminateInfo;
-use crate::actor::message::watch::{Unwatch, Watch};
+use crate::generated::actor::{Unwatch, Watch};
+use std::any::Any;
 
 #[derive(Debug, Clone)]
 pub enum SystemMessage {

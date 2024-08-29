@@ -31,7 +31,6 @@ use crate::actor::message::Continuation;
 use crate::actor::message::Failure;
 use crate::actor::message::MessageHandle;
 use crate::actor::message::NotInfluenceReceiveTimeoutHandle;
-use crate::actor::message::PoisonPill;
 use crate::actor::message::ReadonlyMessageHeadersHandle;
 use crate::actor::message::ReceiveTimeout;
 use crate::actor::message::ResponseHandle;
@@ -42,11 +41,11 @@ use crate::actor::message::{
   unwrap_envelope_header, unwrap_envelope_message, unwrap_envelope_sender, wrap_envelope, MessageEnvelope,
 };
 use crate::actor::message::{AutoRespond, AutoResponsive};
-use crate::actor::message::{Unwatch, Watch};
 use crate::actor::metrics::metrics::{Metrics, EXTENSION_ID};
 use crate::actor::process::Process;
 use crate::actor::supervisor::{Supervisor, SupervisorHandle, SupervisorStrategy, DEFAULT_SUPERVISION_STRATEGY};
 use crate::ctxext::extensions::{ContextExtensionHandle, ContextExtensionId};
+use crate::generated::actor::{PoisonPill, Unwatch, Watch};
 use crate::metrics::ActorMetrics;
 use async_trait::async_trait;
 use tokio::sync::Mutex;
@@ -964,7 +963,7 @@ impl StopperPart for ActorContext {
   async fn poison(&mut self, pid: &ExtendedPid) {
     let inner_mg = self.inner.lock().await;
     pid
-      .send_user_message(inner_mg.actor_system.clone(), MessageHandle::new(PoisonPill))
+      .send_user_message(inner_mg.actor_system.clone(), MessageHandle::new(PoisonPill {}))
       .await;
   }
 

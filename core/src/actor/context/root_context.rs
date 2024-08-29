@@ -21,12 +21,11 @@ use crate::actor::dispatch::future::{ActorFuture, ActorFutureProcess};
 use crate::actor::message::MessageEnvelope;
 use crate::actor::message::MessageHandle;
 use crate::actor::message::MessageHeaders;
-use crate::actor::message::PoisonPill;
 use crate::actor::message::ReadonlyMessageHeadersHandle;
 use crate::actor::message::SystemMessage;
-use crate::actor::message::Watch;
 use crate::actor::process::Process;
 use crate::actor::supervisor::SupervisorStrategyHandle;
+use crate::generated::actor::{PoisonPill, Watch};
 
 #[derive(Debug, Clone)]
 pub struct RootContext {
@@ -257,7 +256,7 @@ impl StopperPart for RootContext {
 
   async fn poison(&mut self, pid: &ExtendedPid) {
     pid
-      .send_user_message(self.get_actor_system().await.clone(), MessageHandle::new(PoisonPill))
+      .send_user_message(self.get_actor_system().await.clone(), MessageHandle::new(PoisonPill {}))
       .await
   }
 

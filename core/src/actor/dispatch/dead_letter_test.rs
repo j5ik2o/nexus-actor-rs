@@ -8,7 +8,7 @@ mod test {
   use crate::actor::interaction_test::tests::BlackHoleActor;
   use crate::actor::message::MessageHandle;
   use crate::actor::message::SystemMessage;
-  use crate::actor::message::Watch;
+  use crate::generated::actor::Watch;
   use std::env;
   use std::sync::Arc;
   use std::time::Duration;
