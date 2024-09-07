@@ -1,8 +1,8 @@
 use crate::actor::config::Config;
 use crate::actor::dispatch::Dispatcher;
+use crate::actor::MetricsProvider;
 use std::sync::Arc;
 use std::time::Duration;
-use crate::actor::MetricsProvider;
 
 pub enum ConfigOption {
   SetMetricsProvider(Arc<MetricsProvider>),

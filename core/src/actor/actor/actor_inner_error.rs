@@ -8,15 +8,17 @@ use backtrace::Backtrace;
 #[derive(Clone)]
 pub struct ActorInnerError {
   inner_error: Option<Arc<dyn Any + Send + Sync>>,
+  pub(crate) code: i32,
   backtrace: Backtrace,
 }
 
 impl ActorInnerError {
-  pub fn new<T>(inner_error: T) -> Self
+  pub fn new<T>(inner_error: T, code: i32) -> Self
   where
     T: Send + Sync + 'static, {
     Self {
       inner_error: Some(Arc::new(inner_error)),
+      code,
       backtrace: Backtrace::new(),
     }
   }
@@ -117,8 +119,10 @@ impl std::hash::Hash for ActorInnerError {
 
 impl From<std::io::Error> for ActorInnerError {
   fn from(error: std::io::Error) -> Self {
+    let error_arc = Arc::new(error);
     ActorInnerError {
-      inner_error: Some(Arc::new(error)),
+      inner_error: Some(error_arc.clone()),
+      code: 0,
       backtrace: Backtrace::new(),
     }
   }
@@ -126,12 +130,12 @@ impl From<std::io::Error> for ActorInnerError {
 
 impl From<String> for ActorInnerError {
   fn from(s: String) -> Self {
-    Self::new(s)
+    Self::new(s, 0)
   }
 }
 
 impl From<&str> for ActorInnerError {
   fn from(s: &str) -> Self {
-    Self::new(s.to_string())
+    Self::new(s.to_string(), 0)
   }
 }

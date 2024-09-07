@@ -49,7 +49,7 @@ pub mod tests {
         };
         context_handle.respond(ResponseHandle::new(reply)).await;
       } else {
-        return Err(ActorError::ReceiveError(ActorInnerError::new("Unknown message")));
+        return Err(ActorError::ReceiveError(ActorInnerError::new("Unknown message", 0)));
       }
 
       Ok(())

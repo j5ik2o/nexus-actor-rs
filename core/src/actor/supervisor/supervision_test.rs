@@ -197,7 +197,7 @@ mod test {
       tracing::debug!("FailingChildActor::receive: msg = {:?}", message_handle);
       if let Some(StringMessage(msg)) = message_handle.to_typed::<StringMessage>() {
         tracing::debug!("FailingChildActor::receive: msg = {:?}", msg);
-        Err(ActorError::ReceiveError(ActorInnerError::new("error")))
+        Err(ActorError::ReceiveError(ActorInnerError::new("error", 0)))
       } else {
         Ok(())
       }

@@ -58,10 +58,10 @@ mod tests {
                 .await;
               Ok(())
             } else {
-              Err(ActorError::ReceiveError(ActorInnerError::new(format!(
-                "unknown message: msg = {}",
-                msg
-              ))))
+              Err(ActorError::ReceiveError(ActorInnerError::new(
+                format!("unknown message: msg = {}", msg),
+                0,
+              )))
             }
           } else {
             Ok(())

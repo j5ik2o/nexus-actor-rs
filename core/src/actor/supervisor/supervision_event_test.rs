@@ -32,7 +32,7 @@ mod test {
   impl Actor for PanicActor {
     async fn receive(&mut self, ctx: ContextHandle) -> Result<(), ActorError> {
       if ctx.get_message_handle().await.to_typed::<String>().is_some() {
-        Err(ActorError::ReceiveError(ActorInnerError::new("Boom!".to_string())))
+        Err(ActorError::ReceiveError(ActorInnerError::new("Boom!".to_string(), 0)))
       } else {
         Ok(())
       }
