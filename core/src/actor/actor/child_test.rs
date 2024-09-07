@@ -2,7 +2,7 @@
 pub mod tests {
   use crate::actor::actor::actor::Actor;
   use crate::actor::actor::actor_error::ActorError;
-  use crate::actor::actor::actor_inner_error::ActorInnerError;
+  use crate::actor::actor::actor_inner_error::ErrorReason;
   use crate::actor::actor::pid::ExtendedPid;
   use crate::actor::actor::props::Props;
   use crate::actor::actor_system::ActorSystem;
@@ -49,7 +49,7 @@ pub mod tests {
         };
         context_handle.respond(ResponseHandle::new(reply)).await;
       } else {
-        return Err(ActorError::ReceiveError(ActorInnerError::new("Unknown message", 0)));
+        return Err(ActorError::ReceiveError(ErrorReason::new("Unknown message", 0)));
       }
 
       Ok(())
@@ -101,6 +101,10 @@ pub mod tests {
     fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
       self
     }
+
+    fn get_type_name(&self) -> String {
+      std::any::type_name_of_val(self).to_string()
+    }
   }
 
   #[derive(Debug, Clone)]
@@ -129,7 +133,7 @@ pub mod tests {
       }
     }
 
-    async fn post_stop(&self, mut context_handle: ContextHandle) -> Result<(), ActorError> {
+    async fn post_stop(&mut self, mut context_handle: ContextHandle) -> Result<(), ActorError> {
       tracing::debug!(
         "post_stop: children.len = {:?}",
         context_handle.get_children().await.len()

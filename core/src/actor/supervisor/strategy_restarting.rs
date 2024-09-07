@@ -2,7 +2,7 @@ use std::any::Any;
 
 use async_trait::async_trait;
 
-use crate::actor::actor::ActorInnerError;
+use crate::actor::actor::ErrorReason;
 use crate::actor::actor::ExtendedPid;
 use crate::actor::actor::RestartStatistics;
 use crate::actor::actor_system::ActorSystem;
@@ -11,7 +11,7 @@ use crate::actor::supervisor::directive::Directive;
 use crate::actor::supervisor::supervisor_strategy::{log_failure, Supervisor, SupervisorHandle, SupervisorStrategy};
 
 #[derive(Debug, Clone)]
-pub struct RestartingStrategy {}
+pub struct RestartingStrategy;
 
 impl RestartingStrategy {
   pub fn new() -> Self {
@@ -41,7 +41,7 @@ impl SupervisorStrategy for RestartingStrategy {
     supervisor: SupervisorHandle,
     child: ExtendedPid,
     _: RestartStatistics,
-    reason: ActorInnerError,
+    reason: ErrorReason,
     _: MessageHandle,
   ) {
     // always restart

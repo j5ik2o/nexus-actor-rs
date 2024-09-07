@@ -1,20 +1,24 @@
-use std::error::Error;
-use std::fmt::{Display, Formatter};
+use crate::actor::actor::actor_inner_error::ErrorReason;
+use thiserror::Error;
 
-use crate::actor::actor::actor_inner_error::ActorInnerError;
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum ActorError {
-  ReceiveError(ActorInnerError),
-  RestartError(ActorInnerError),
-  StopError(ActorInnerError),
-  InitializationError(ActorInnerError),
-  CommunicationError(ActorInnerError),
-  BehaviorNotInitialized(ActorInnerError),
+  #[error("Receive error: {0}")]
+  ReceiveError(ErrorReason),
+  #[error("Restart error: {0}")]
+  RestartError(ErrorReason),
+  #[error("Stop error: {0}")]
+  StopError(ErrorReason),
+  #[error("Initialization error: {0}")]
+  InitializationError(ErrorReason),
+  #[error("Communication error: {0}")]
+  CommunicationError(ErrorReason),
+  #[error("Behavior not initialized: {0}")]
+  BehaviorNotInitialized(ErrorReason),
 }
 
 impl ActorError {
-  pub fn reason(&self) -> Option<&ActorInnerError> {
+  pub fn reason(&self) -> Option<&ErrorReason> {
     match self {
       ActorError::ReceiveError(e)
       | ActorError::RestartError(e)
@@ -26,28 +30,4 @@ impl ActorError {
   }
 }
 
-impl Display for ActorError {
-  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    match self {
-      ActorError::ReceiveError(e) => write!(f, "Receive error: {}", e),
-      ActorError::RestartError(e) => write!(f, "Restart error: {}", e),
-      ActorError::StopError(e) => write!(f, "Stop error: {}", e),
-      ActorError::InitializationError(e) => write!(f, "Initialization error: {}", e),
-      ActorError::CommunicationError(e) => write!(f, "Communication error: {}", e),
-      ActorError::BehaviorNotInitialized(e) => write!(f, "Behavior not initialized: {}", e),
-    }
-  }
-}
-
-impl Error for ActorError {
-  fn source(&self) -> Option<&(dyn Error + 'static)> {
-    match self {
-      ActorError::ReceiveError(e)
-      | ActorError::RestartError(e)
-      | ActorError::StopError(e)
-      | ActorError::InitializationError(e)
-      | ActorError::CommunicationError(e)
-      | ActorError::BehaviorNotInitialized(e) => Some(e),
-    }
-  }
-}
+static_assertions::assert_impl_all!(ActorError: Send, Sync);

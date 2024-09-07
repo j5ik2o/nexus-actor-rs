@@ -21,6 +21,15 @@ impl WaitGroup {
     }
   }
 
+  pub fn with_count(count: usize) -> Self {
+    WaitGroup {
+      inner: Arc::new(Inner {
+        count: Mutex::new(count),
+        notify: Notify::new(),
+      }),
+    }
+  }
+
   pub async fn add(&self, n: usize) {
     let mut count = self.inner.count.lock().await;
     *count += n;

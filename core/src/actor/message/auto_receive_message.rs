@@ -2,6 +2,7 @@ use crate::actor::actor::ExtendedPid;
 use crate::actor::message::message::Message;
 use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::message::terminate_info::TerminateInfo;
+use crate::generated::actor::Terminated;
 use nexus_actor_message_derive_rs::Message;
 use std::fmt::Display;
 
@@ -13,7 +14,7 @@ pub(crate) enum AutoReceiveMessage {
   PostRestart,
   PreStop,
   PostStop,
-  Terminated(TerminateInfo),
+  Terminated(Terminated),
 }
 
 impl AutoReceiveMessage {

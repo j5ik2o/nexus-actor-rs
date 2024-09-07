@@ -128,7 +128,7 @@ impl PartialEq<Self> for QueueSize {
   }
 }
 
-impl PartialOrd<QueueSize> for QueueSize {
+impl PartialOrd<Self> for QueueSize {
   fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
     match (self, other) {
       (QueueSize::Limitless, QueueSize::Limitless) => Some(Ordering::Equal),

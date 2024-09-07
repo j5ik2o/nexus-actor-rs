@@ -5,6 +5,7 @@ use crate::actor::message::AutoReceiveMessage;
 use crate::actor::message::TerminateInfo;
 use crate::actor::supervisor::SupervisorStrategyHandle;
 use crate::actor::Config;
+use crate::generated::actor::Terminated;
 use async_trait::async_trait;
 use std::fmt::Debug;
 use std::sync::Arc;
@@ -14,10 +15,10 @@ use tracing::instrument;
 #[async_trait]
 pub trait Actor: Debug + Send + Sync + 'static {
   fn get_type_name(&self) -> String {
-    std::any::type_name_of_val(self).replace("*", "")
+    std::any::type_name_of_val(self).to_string()
   }
 
-  #[instrument(skip_all)]
+  // #[instrument(skip_all)]
   async fn handle(&mut self, context_handle: ContextHandle) -> Result<(), ActorError> {
     let message_handle = context_handle.get_message_handle().await;
     let arm = message_handle.to_typed::<AutoReceiveMessage>();
@@ -37,49 +38,49 @@ pub trait Actor: Debug + Send + Sync + 'static {
 
   async fn receive(&mut self, context_handle: ContextHandle) -> Result<(), ActorError>;
 
-  #[instrument]
-  async fn pre_start(&self, _: ContextHandle) -> Result<(), ActorError> {
+  //#[instrument]
+  async fn pre_start(&mut self, _: ContextHandle) -> Result<(), ActorError> {
     tracing::debug!("Actor::pre_start");
     Ok(())
   }
 
-  #[instrument]
-  async fn post_start(&self, _: ContextHandle) -> Result<(), ActorError> {
+  //#[instrument]
+  async fn post_start(&mut self, _: ContextHandle) -> Result<(), ActorError> {
     tracing::debug!("Actor::post_start");
     Ok(())
   }
 
-  #[instrument]
-  async fn pre_restart(&self, _: ContextHandle) -> Result<(), ActorError> {
+  //#[instrument]
+  async fn pre_restart(&mut self, _: ContextHandle) -> Result<(), ActorError> {
     tracing::debug!("Actor::pre_restart");
     Ok(())
   }
 
-  #[instrument]
-  async fn post_restart(&self, context_handle: ContextHandle) -> Result<(), ActorError> {
+  //#[instrument]
+  async fn post_restart(&mut self, context_handle: ContextHandle) -> Result<(), ActorError> {
     tracing::debug!("Actor::post_restart");
     self.pre_start(context_handle).await
   }
 
-  #[instrument]
-  async fn pre_stop(&self, _: ContextHandle) -> Result<(), ActorError> {
+  //#[instrument]
+  async fn pre_stop(&mut self, _: ContextHandle) -> Result<(), ActorError> {
     tracing::debug!("Actor::pre_stop");
     Ok(())
   }
 
-  #[instrument]
-  async fn post_stop(&self, _: ContextHandle) -> Result<(), ActorError> {
+  //#[instrument]
+  async fn post_stop(&mut self, _: ContextHandle) -> Result<(), ActorError> {
     tracing::debug!("Actor::post_stop");
     Ok(())
   }
 
-  #[instrument]
-  async fn post_child_terminate(&self, _: ContextHandle, _: &TerminateInfo) -> Result<(), ActorError> {
+  //#[instrument]
+  async fn post_child_terminate(&mut self, _: ContextHandle, _: &Terminated) -> Result<(), ActorError> {
     tracing::debug!("Actor::post_child_terminate");
     Ok(())
   }
 
-  async fn get_supervisor_strategy(&self) -> Option<SupervisorStrategyHandle> {
+  async fn get_supervisor_strategy(&mut self) -> Option<SupervisorStrategyHandle> {
     None
   }
 }

@@ -1,16 +1,21 @@
 use std::fmt::Display;
+use std::hash::Hash;
 use std::sync::Arc;
-
-use tokio::sync::Mutex;
 
 use crate::actor::actor::actor_process::ActorProcess;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::message::MessageHandle;
 use crate::actor::process::{Process, ProcessHandle};
 use crate::generated::actor::Pid;
-
+use regex::Regex;
+use tokio::sync::Mutex;
+fn is_valid_address(input: &str) -> bool {
+  let re = Regex::new(r"^((\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})|([a-zA-Z0-9\-\.]+)):\d+$").unwrap();
+  re.is_match(input)
+}
 impl Pid {
   pub(crate) fn new(address: &str, id: &str) -> Self {
+    assert!(is_valid_address(address));
     Pid {
       address: address.to_string(),
       id: id.to_string(),
@@ -30,11 +35,24 @@ impl std::fmt::Display for Pid {
   }
 }
 
+impl Hash for Pid {
+  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    self.address.hash(state);
+    self.id.hash(state);
+    self.request_id.hash(state);
+  }
+}
+
 #[derive(Debug, Clone)]
 pub struct ExtendedPid {
   pub(crate) inner_pid: Pid,
-  actor_system: ActorSystem,
   process_handle: Arc<Mutex<Option<ProcessHandle>>>,
+}
+
+impl Hash for ExtendedPid {
+  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    self.inner_pid.hash(state);
+  }
 }
 
 impl Display for ExtendedPid {
@@ -54,10 +72,9 @@ impl Eq for ExtendedPid {}
 static_assertions::assert_impl_all!(ExtendedPid: Send, Sync);
 
 impl ExtendedPid {
-  pub fn new(pid: Pid, actor_system: ActorSystem) -> Self {
+  pub fn new(pid: Pid) -> Self {
     Self {
       inner_pid: pid,
-      actor_system,
       process_handle: Arc::new(Mutex::new(None)),
     }
   }
@@ -98,6 +115,7 @@ impl ExtendedPid {
   }
 
   pub async fn send_user_message(&self, actor_system: ActorSystem, message_handle: MessageHandle) {
+    tracing::debug!("Sending user message to pid: {}", self);
     self
       .ref_process(actor_system)
       .await

@@ -36,7 +36,8 @@ mod tests {
       let (pid, ok) = actor_system
         .get_process_registry()
         .await
-        .add_process(ProcessHandle::new(process.clone()), &format!("mock_{}", id));
+        .add_process(ProcessHandle::new(process.clone()), &format!("mock_{}", id))
+        .await;
       if !ok {
         panic!("failed to register mock process");
       }

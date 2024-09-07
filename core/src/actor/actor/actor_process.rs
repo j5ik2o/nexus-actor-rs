@@ -48,15 +48,16 @@ impl ActorProcess {
 #[async_trait]
 impl Process for ActorProcess {
   async fn send_user_message(&self, _: Option<&ExtendedPid>, message_handle: MessageHandle) {
+    tracing::info!("ActorProcess::send_user_message: {:?}", message_handle);
     self.mailbox.post_user_message(message_handle).await;
   }
 
   async fn send_system_message(&self, _: &ExtendedPid, message_handle: MessageHandle) {
+    tracing::info!("ActorProcess::send_system_message: {:?}", message_handle);
     self.mailbox.post_system_message(message_handle).await;
   }
 
   async fn stop(&self, pid: &ExtendedPid) {
-    tracing::debug!("ActorProcess::stop: {:?}", pid);
     self.set_dead();
     let stop_message = MessageHandle::new(SystemMessage::Stop);
     self.send_system_message(pid, stop_message).await;

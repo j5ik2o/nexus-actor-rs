@@ -43,8 +43,8 @@ pub struct MessageEnvelope {
   pub target: i32,
   #[prost(int32, tag = "4")]
   pub sender: i32,
-  #[prost(int32, tag = "5")]
-  pub serializer_id: i32,
+  #[prost(uint32, tag = "5")]
+  pub serializer_id: u32,
   #[prost(message, optional, tag = "6")]
   pub message_header: ::core::option::Option<MessageHeader>,
   #[prost(uint32, tag = "7")]

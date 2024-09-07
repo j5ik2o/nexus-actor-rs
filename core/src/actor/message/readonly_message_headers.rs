@@ -39,3 +39,11 @@ impl ReadonlyMessageHeaders for ReadonlyMessageHeadersHandle {
     self.0.to_map()
   }
 }
+
+impl PartialEq for ReadonlyMessageHeadersHandle {
+  fn eq(&self, other: &Self) -> bool {
+    Arc::ptr_eq(&self.0, &other.0)
+  }
+}
+
+impl Eq for ReadonlyMessageHeadersHandle {}

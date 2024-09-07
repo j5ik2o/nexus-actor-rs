@@ -4,8 +4,8 @@ mod tests {
   use std::time::Duration;
 
   use crate::actor::actor::ActorError;
-  use crate::actor::actor::ActorInnerError;
   use crate::actor::actor::Continuer;
+  use crate::actor::actor::ErrorReason;
   use crate::actor::actor::Props;
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::context::{BasePart, InfoPart, MessagePart, SenderPart, SpawnerPart};
@@ -58,7 +58,7 @@ mod tests {
                 .await;
               Ok(())
             } else {
-              Err(ActorError::ReceiveError(ActorInnerError::new(
+              Err(ActorError::ReceiveError(ErrorReason::new(
                 format!("unknown message: msg = {}", msg),
                 0,
               )))

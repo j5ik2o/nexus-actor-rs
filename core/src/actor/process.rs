@@ -53,6 +53,7 @@ impl ProcessHandle {
 #[async_trait]
 impl Process for ProcessHandle {
   async fn send_user_message(&self, pid: Option<&ExtendedPid>, message_handle: MessageHandle) {
+    tracing::debug!("ProcessHandle#send_user_message: {:?}", message_handle);
     self.0.send_user_message(pid, message_handle).await;
   }
 

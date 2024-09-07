@@ -3,24 +3,24 @@ use std::sync::Arc;
 
 use tokio::sync::Mutex;
 
-use crate::actor::actor::pid::ExtendedPid;
+use crate::generated::actor::Pid;
 
 #[derive(Debug, Clone)]
 pub(crate) struct PidSet {
-  pids: Arc<Mutex<Vec<ExtendedPid>>>,
-  lookup: Arc<Mutex<HashMap<String, ExtendedPid>>>,
+  pids: Arc<Mutex<Vec<Pid>>>,
+  lookup: Arc<Mutex<HashMap<String, Pid>>>,
 }
 
 impl PidSet {
-  pub(crate) fn key(&self, pid: &ExtendedPid) -> String {
-    format!("{}:{}", pid.address(), pid.id())
+  pub(crate) fn key(&self, pid: &Pid) -> String {
+    format!("{}", pid.id)
   }
 
   pub(crate) async fn new() -> Self {
     Self::new_with_pids(&[]).await
   }
 
-  pub(crate) async fn new_with_pids(pids: &[ExtendedPid]) -> Self {
+  pub(crate) async fn new_with_pids(pids: &[Pid]) -> Self {
     let mut set = PidSet {
       pids: Arc::new(Mutex::new(Vec::new())),
       lookup: Arc::new(Mutex::new(HashMap::new())),
@@ -38,17 +38,17 @@ impl PidSet {
     }
   }
 
-  pub(crate) async fn index_of(&self, v: &ExtendedPid) -> Option<usize> {
+  pub(crate) async fn index_of(&self, v: &Pid) -> Option<usize> {
     let pids_mg = self.pids.lock().await;
     pids_mg.iter().position(|pid| *v == *pid)
   }
 
-  pub(crate) async fn contains(&self, v: &ExtendedPid) -> bool {
+  pub(crate) async fn contains(&self, v: &Pid) -> bool {
     let mg = self.lookup.lock().await;
     mg.contains_key(&self.key(v))
   }
 
-  pub(crate) async fn add(&mut self, v: ExtendedPid) {
+  pub(crate) async fn add(&mut self, v: Pid) {
     self.ensure_init().await;
     if self.contains(&v).await {
       return;
@@ -64,7 +64,7 @@ impl PidSet {
     }
   }
 
-  pub(crate) async fn remove(&mut self, v: &ExtendedPid) -> bool {
+  pub(crate) async fn remove(&mut self, v: &Pid) -> bool {
     self.ensure_init().await;
     if let Some(i) = self.index_of(v).await {
       {
@@ -101,21 +101,21 @@ impl PidSet {
     self.len().await == 0
   }
 
-  pub(crate) async fn to_vec(&self) -> Vec<ExtendedPid> {
+  pub(crate) async fn to_vec(&self) -> Vec<Pid> {
     let pids_mg = self.pids.lock().await;
     pids_mg.clone()
   }
 
   pub(crate) async fn for_each<F>(&self, mut f: F)
   where
-    F: FnMut(usize, &ExtendedPid), {
+    F: FnMut(usize, &Pid), {
     let pids_mg = self.pids.lock().await;
     for (i, pid) in pids_mg.iter().enumerate() {
       f(i, pid);
     }
   }
 
-  pub(crate) async fn get(&self, index: usize) -> Option<ExtendedPid> {
+  pub(crate) async fn get(&self, index: usize) -> Option<Pid> {
     let pids_mg = self.pids.lock().await;
     pids_mg.get(index).cloned()
   }

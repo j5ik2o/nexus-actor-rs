@@ -108,7 +108,7 @@ static DEFAULT_SPAWNER: Lazy<Spawner> = Lazy::new(|| {
         let proc_handle = ProcessHandle::new(proc);
         let pr = actor_system.get_process_registry().await;
 
-        let (pid, absent) = pr.add_process(proc_handle, &name);
+        let (pid, absent) = pr.add_process(proc_handle, &name).await;
         if !absent {
           return Err(SpawnError::ErrNameExists(pid.clone()));
         }
@@ -166,7 +166,7 @@ impl Actor for ActorReceiverActor {
     Ok(())
   }
 
-  async fn get_supervisor_strategy(&self) -> Option<SupervisorStrategyHandle> {
+  async fn get_supervisor_strategy(&mut self) -> Option<SupervisorStrategyHandle> {
     None
   }
 }

@@ -78,6 +78,7 @@ impl RootContext {
       let me = MessageEnvelope::new(message_handle);
       self.sender_middleware_chain.clone().unwrap().run(sch, pid, me).await;
     } else {
+      tracing::debug!("Sending user message to pid: {}", pid);
       pid.send_user_message(self.actor_system.clone(), message_handle).await;
     }
   }

@@ -6,18 +6,18 @@ use std::sync::Arc;
 use backtrace::Backtrace;
 
 #[derive(Clone)]
-pub struct ActorInnerError {
-  inner_error: Option<Arc<dyn Any + Send + Sync>>,
+pub struct ErrorReason {
+  reason: Option<Arc<dyn Any + Send + Sync>>,
   pub(crate) code: i32,
   backtrace: Backtrace,
 }
 
-impl ActorInnerError {
-  pub fn new<T>(inner_error: T, code: i32) -> Self
+impl ErrorReason {
+  pub fn new<T>(reason: T, code: i32) -> Self
   where
     T: Send + Sync + 'static, {
     Self {
-      inner_error: Some(Arc::new(inner_error)),
+      reason: Some(Arc::new(reason)),
       code,
       backtrace: Backtrace::new(),
     }
@@ -28,7 +28,7 @@ impl ActorInnerError {
   }
 
   pub fn is_type<T: Send + Sync + 'static>(&self) -> bool {
-    match self.inner_error.as_ref() {
+    match self.reason.as_ref() {
       Some(m) => m.is::<T>(),
       None => false,
     }
@@ -37,17 +37,17 @@ impl ActorInnerError {
   pub fn take<T>(&mut self) -> Result<T, TakeError>
   where
     T: Send + Sync + 'static, {
-    match self.inner_error.take() {
+    match self.reason.take() {
       Some(v) => match v.downcast::<T>() {
         Ok(arc_v) => match Arc::try_unwrap(arc_v) {
           Ok(v) => Ok(v),
           Err(arc_v) => {
-            self.inner_error = Some(arc_v);
+            self.reason = Some(arc_v);
             Err(TakeError::StillShared)
           }
         },
         Err(original) => {
-          self.inner_error = Some(original.clone());
+          self.reason = Some(original.clone());
           Err(TakeError::TypeMismatch {
             expected: std::any::type_name::<T>(),
             found: original.type_id(),
@@ -65,6 +65,8 @@ impl ActorInnerError {
   }
 }
 
+static_assertions::assert_impl_all!(ErrorReason: Send, Sync);
+
 #[derive(Debug)]
 pub enum TakeError {
   TypeMismatch {
@@ -75,29 +77,29 @@ pub enum TakeError {
   AlreadyTaken,
 }
 
-impl Display for ActorInnerError {
+impl Display for ErrorReason {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    match &self.inner_error {
+    match &self.reason {
       Some(error) => write!(f, "ActorInnerError: {:?}", error),
       None => write!(f, "ActorInnerError: Error has been taken"),
     }
   }
 }
 
-impl Debug for ActorInnerError {
+impl Debug for ErrorReason {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     f.debug_struct("ActorInnerError")
-      .field("inner_error", &self.inner_error)
+      .field("inner_error", &self.reason)
       .field("backtrace", &self.backtrace)
       .finish()
   }
 }
 
-impl Error for ActorInnerError {}
+impl Error for ErrorReason {}
 
-impl PartialEq for ActorInnerError {
+impl PartialEq for ErrorReason {
   fn eq(&self, other: &Self) -> bool {
-    match (&self.inner_error, &other.inner_error) {
+    match (&self.reason, &other.reason) {
       (Some(a), Some(b)) => Arc::ptr_eq(a, b),
       (None, None) => true,
       _ => false,
@@ -105,36 +107,36 @@ impl PartialEq for ActorInnerError {
   }
 }
 
-impl Eq for ActorInnerError {}
+impl Eq for ErrorReason {}
 
-impl std::hash::Hash for ActorInnerError {
+impl std::hash::Hash for ErrorReason {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    self.inner_error.is_some().hash(state);
-    if let Some(error) = &self.inner_error {
+    self.reason.is_some().hash(state);
+    if let Some(error) = &self.reason {
       error.type_id().hash(state);
     }
     std::ptr::addr_of!(self.backtrace).hash(state);
   }
 }
 
-impl From<std::io::Error> for ActorInnerError {
+impl From<std::io::Error> for ErrorReason {
   fn from(error: std::io::Error) -> Self {
     let error_arc = Arc::new(error);
-    ActorInnerError {
-      inner_error: Some(error_arc.clone()),
+    ErrorReason {
+      reason: Some(error_arc.clone()),
       code: 0,
       backtrace: Backtrace::new(),
     }
   }
 }
 
-impl From<String> for ActorInnerError {
+impl From<String> for ErrorReason {
   fn from(s: String) -> Self {
     Self::new(s, 0)
   }
 }
 
-impl From<&str> for ActorInnerError {
+impl From<&str> for ErrorReason {
   fn from(s: &str) -> Self {
     Self::new(s.to_string(), 0)
   }

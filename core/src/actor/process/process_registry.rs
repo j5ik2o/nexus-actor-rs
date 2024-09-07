@@ -21,7 +21,7 @@ const LOCAL_ADDRESS: &str = "nonhost";
 pub struct ProcessRegistry {
   sequence_id: Arc<AtomicU64>,
   actor_system: ActorSystem,
-  address: String,
+  address: Arc<Mutex<String>>,
   local_pids: SliceMap,
   remote_handlers: Arc<Mutex<Vec<AddressResolver>>>,
 }
@@ -92,7 +92,7 @@ impl ProcessRegistry {
     ProcessRegistry {
       sequence_id: Arc::new(AtomicU64::new(0)),
       actor_system,
-      address: LOCAL_ADDRESS.to_string(),
+      address: Arc::new(Mutex::new(LOCAL_ADDRESS.to_string())),
       local_pids: SliceMap::new(),
       remote_handlers: Arc::new(Mutex::new(Vec::new())),
     }
@@ -103,8 +103,14 @@ impl ProcessRegistry {
     mg.push(handler);
   }
 
-  pub fn get_address(&self) -> String {
-    self.address.clone()
+  pub async fn set_address(&mut self, address: String) {
+    let mut mg = self.address.lock().await;
+    *mg = address;
+  }
+
+  pub async fn get_address(&self) -> String {
+    let mg = self.address.lock().await;
+    mg.clone()
   }
 
   pub fn next_id(&self) -> String {
@@ -112,14 +118,14 @@ impl ProcessRegistry {
     uint64_to_id(counter)
   }
 
-  pub fn add_process(&self, process: ProcessHandle, id: &str) -> (ExtendedPid, bool) {
+  pub async fn add_process(&self, process: ProcessHandle, id: &str) -> (ExtendedPid, bool) {
     let bucket = self.local_pids.get_bucket(&id);
     let pid = Pid {
-      address: self.address.clone(),
+      address: self.get_address().await.clone(),
       id: id.to_string(),
       request_id: 0,
     };
-    let pid = ExtendedPid::new(pid, self.actor_system.clone());
+    let pid = ExtendedPid::new(pid);
     let inserted = bucket.insert(id.to_string(), process).is_none();
     (pid, inserted)
   }
@@ -134,27 +140,44 @@ impl ProcessRegistry {
   }
 
   pub async fn get_process(&self, pid: &ExtendedPid) -> Option<ProcessHandle> {
-    if pid.address() != LOCAL_ADDRESS && pid.address() != self.address {
+    tracing::info!("Getting process for pid: {:?}", pid);
+    tracing::info!("pid.address() = {}", pid.address());
+    tracing::info!("self.get_address().await = {}", self.get_address().await);
+    let is_remote = pid.address() != LOCAL_ADDRESS && pid.address() != self.get_address().await;
+    tracing::info!(">>> is_remote = {}", is_remote);
+    if is_remote {
       {
+        tracing::debug!("Looking for remote process");
         let mg = self.remote_handlers.lock().await;
+        tracing::debug!("Remote handlers: {:?}", mg);
         for handler in mg.iter() {
           if let Some(process) = handler.run(pid).await {
+            tracing::info!("Remote process found");
             return Some(process);
           }
         }
       }
+      tracing::info!("!!!Remote process not found, returning DeadLetter!!!");
       return Some(self.actor_system.get_dead_letter().await);
     }
 
+    tracing::debug!("Looking for local process");
     self.get_local_process(pid.id()).await
   }
 
   pub async fn get_local_process(&self, id: &str) -> Option<ProcessHandle> {
+    tracing::info!("Getting local process for id: {:?}", id);
     let bucket = self.local_pids.get_bucket(id);
     let result = bucket.get(id);
     match result {
-      Some(r) => Some(r.clone()),
-      None => Some(self.actor_system.get_dead_letter().await),
+      Some(r) => {
+        tracing::info!("Local process found");
+        Some(r.clone())
+      }
+      None => {
+        tracing::info!("Local process not found, returning DeadLetter");
+        Some(self.actor_system.get_dead_letter().await)
+      }
     }
   }
 }

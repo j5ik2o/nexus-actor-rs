@@ -8,6 +8,8 @@ pub trait Message: Debug + Send + Sync + 'static {
   }
   fn eq_message(&self, other: &dyn Message) -> bool;
   fn as_any(&self) -> &(dyn Any + Send + Sync + 'static);
+
+  fn get_type_name(&self) -> String;
 }
 
 impl Message for i8 {
@@ -20,6 +22,10 @@ impl Message for i8 {
 
   fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
     self
+  }
+
+  fn get_type_name(&self) -> String {
+    std::any::type_name_of_val(self).to_string()
   }
 }
 
@@ -34,6 +40,10 @@ impl Message for u8 {
   fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
     self
   }
+
+  fn get_type_name(&self) -> String {
+    std::any::type_name_of_val(self).to_string()
+  }
 }
 
 impl Message for i16 {
@@ -46,6 +56,10 @@ impl Message for i16 {
 
   fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
     self
+  }
+
+  fn get_type_name(&self) -> String {
+    std::any::type_name_of_val(self).to_string()
   }
 }
 
@@ -60,6 +74,10 @@ impl Message for u16 {
   fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
     self
   }
+
+  fn get_type_name(&self) -> String {
+    std::any::type_name_of_val(self).to_string()
+  }
 }
 
 impl Message for i32 {
@@ -72,6 +90,10 @@ impl Message for i32 {
 
   fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
     self
+  }
+
+  fn get_type_name(&self) -> String {
+    std::any::type_name_of_val(self).to_string()
   }
 }
 
@@ -86,6 +108,10 @@ impl Message for u32 {
   fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
     self
   }
+
+  fn get_type_name(&self) -> String {
+    std::any::type_name_of_val(self).to_string()
+  }
 }
 
 impl Message for i64 {
@@ -98,6 +124,10 @@ impl Message for i64 {
 
   fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
     self
+  }
+
+  fn get_type_name(&self) -> String {
+    std::any::type_name_of_val(self).to_string()
   }
 }
 
@@ -112,6 +142,10 @@ impl Message for u64 {
   fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
     self
   }
+
+  fn get_type_name(&self) -> String {
+    std::any::type_name_of_val(self).to_string()
+  }
 }
 
 impl Message for f32 {
@@ -124,6 +158,10 @@ impl Message for f32 {
 
   fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
     self
+  }
+
+  fn get_type_name(&self) -> String {
+    std::any::type_name_of_val(self).to_string()
   }
 }
 
@@ -138,6 +176,10 @@ impl Message for f64 {
   fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
     self
   }
+
+  fn get_type_name(&self) -> String {
+    std::any::type_name_of_val(self).to_string()
+  }
 }
 
 impl Message for bool {
@@ -151,6 +193,10 @@ impl Message for bool {
   fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
     self
   }
+
+  fn get_type_name(&self) -> String {
+    std::any::type_name_of_val(self).to_string()
+  }
 }
 
 impl Message for String {
@@ -163,6 +209,10 @@ impl Message for String {
 
   fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
     self
+  }
+
+  fn get_type_name(&self) -> String {
+    std::any::type_name_of_val(self).to_string()
   }
 }
 

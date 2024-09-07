@@ -111,10 +111,12 @@ impl ActorFutureProcess {
     let process_registry = system.get_process_registry().await;
     let id = process_registry.next_id();
 
-    let (pid, ok) = process_registry.add_process(
-      ProcessHandle::new_arc(future_process.clone()),
-      &format!("future_{}", id),
-    );
+    let (pid, ok) = process_registry
+      .add_process(
+        ProcessHandle::new_arc(future_process.clone()),
+        &format!("future_{}", id),
+      )
+      .await;
     if !ok {
       tracing::error!("failed to register future process: pid = {}", pid);
     }
@@ -420,7 +422,7 @@ impl ActorFuture {
   async fn instrument(&self) {
     // Here you would implement your metrics logging
     // This is a placeholder for the actual implementation
-    tracing::debug!("Future completed");
+    // tracing::debug!("Future completed");
   }
 
   async fn get_actor_system(&self) -> ActorSystem {

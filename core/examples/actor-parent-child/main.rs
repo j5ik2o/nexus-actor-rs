@@ -20,7 +20,7 @@ struct ChildActor;
 
 #[async_trait]
 impl TypedActor<Hello> for ChildActor {
-  async fn post_start(&self, _: TypedContextHandle<Hello>) -> Result<(), ActorError> {
+  async fn post_start(&mut self, _: TypedContextHandle<Hello>) -> Result<(), ActorError> {
     tracing::debug!("ChildActor::started");
     Ok(())
   }
@@ -37,7 +37,7 @@ struct TopActor;
 
 #[async_trait]
 impl TypedActor<Hello> for TopActor {
-  async fn post_start(&self, mut context_handle: TypedContextHandle<Hello>) -> Result<(), ActorError> {
+  async fn post_start(&mut self, mut context_handle: TypedContextHandle<Hello>) -> Result<(), ActorError> {
     tracing::debug!("TopActor::post_start");
     let props = TypedProps::from_actor_producer(move |_| async { ChildActor }).await;
     let pid = context_handle.spawn(props).await;
