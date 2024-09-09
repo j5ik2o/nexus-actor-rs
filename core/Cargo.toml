@@ -46,9 +46,14 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-opentelemetry = { version = "0.25.0", features = ["metrics"] }
 opentelemetry = { version = "0.24.0", features = ["metrics"] }
 opentelemetry_sdk = { version = "0.24.1", features = ["metrics", "rt-tokio", "testing"] }
+<<<<<<< HEAD
 opentelemetry-stdout = { version = "0.5.0", features = ["metrics"] }
 opentelemetry-otlp = { version = "0.17.0", features = ["grpc-tonic", "trace", "metrics"] }
 regex = "1.10.6"
+=======
+opentelemetry-stdout = { version = "0.25.0", features = ["metrics"] }
+opentelemetry-otlp = { version = "0.25.0", features = ["grpc-tonic", "trace", "metrics"] }
+>>>>>>> 03a05a4 (chore(deps): Update opentelemetry-rust monorepo to 0.25.0)
 
 [dev-dependencies]
 rstest = "0.22.0"
