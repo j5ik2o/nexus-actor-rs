@@ -37,7 +37,7 @@ nexus-actor-message-derive-rs = { version = "0.*.*", path = "../message-derive" 
 tracing = "0.1"
 tracing-futures = "0.2.5"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-tracing-opentelemetry = { version = "0.25.0", features = ["metrics"] }
+tracing-opentelemetry = { version = "0.26.0", features = ["metrics"] }
 opentelemetry = { version = "0.24.0", features = ["metrics"] }
 opentelemetry_sdk = { version = "0.24.1", features = ["metrics", "rt-tokio", "testing"] }
 opentelemetry-stdout = { version = "0.25.0", features = ["metrics"] }
