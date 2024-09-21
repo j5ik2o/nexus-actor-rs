@@ -93,7 +93,7 @@ impl EndpointSupervisor {
 
 #[async_trait]
 impl Actor for EndpointSupervisor {
-  async fn receive(&mut self, mut context_handle: ContextHandle) -> Result<(), ActorError> {
+  async fn receive(&mut self, context_handle: ContextHandle) -> Result<(), ActorError> {
     tracing::debug!("EndpointSupervisor::receive");
     let address_opt = context_handle.get_message_handle().await.to_typed::<String>();
     if address_opt.is_none() {

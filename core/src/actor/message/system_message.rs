@@ -1,5 +1,4 @@
 use crate::actor::message::message::Message;
-use crate::actor::message::terminate_info::TerminateInfo;
 use crate::generated::actor::{Terminated, Unwatch, Watch};
 use std::any::Any;
 

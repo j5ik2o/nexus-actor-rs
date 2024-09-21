@@ -1,7 +1,7 @@
-use crate::actor::actor::{Actor, ExtendedPid};
+use crate::actor::actor::ExtendedPid;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::SenderPart;
-use crate::actor::message::{Message, MessageEnvelope, MessageHandle, MessageHeaders, SystemMessage};
+use crate::actor::message::{MessageEnvelope, MessageHandle, MessageHeaders, SystemMessage};
 use crate::actor::process::Process;
 use crate::generated::actor::{Pid, Stop, Terminated, Unwatch, Watch};
 use crate::generated::cluster::{DeliverBatchRequestTransport, PubSubAutoRespondBatchTransport, PubSubBatchTransport};
@@ -13,12 +13,10 @@ use crate::generated::remote::{
   ListProcessesResponse, MessageBatch, RemoteMessage, ServerConnection,
 };
 use crate::remote::endpoint_manager::{EndpointManager, RequestKeyWrapper};
-use crate::remote::messages::RemoteTerminate;
 use crate::remote::remote::Remote;
 use crate::remote::serializer::{
-  deserialize, deserialize_any, deserialize_message, AnyDowncastExt, RootSerialized, SerializerId,
+  deserialize, deserialize_message, RootSerialized, SerializerId,
 };
-use std::any::Any;
 use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Weak};
@@ -199,7 +197,7 @@ impl EndpointReader {
               .send(target.clone(), MessageHandle::new(terminated))
               .await;
           }
-          if let Some(stop) = m.as_any().downcast_ref::<Stop>() {
+          if let Some(_) = m.as_any().downcast_ref::<Stop>() {
             let system_message = SystemMessage::of_stop();
             let ref_process = self
               .get_actor_system()

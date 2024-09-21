@@ -2,7 +2,6 @@ use crate::actor::actor::actor_error::ActorError;
 use crate::actor::context::ContextHandle;
 use crate::actor::context::MessagePart;
 use crate::actor::message::AutoReceiveMessage;
-use crate::actor::message::TerminateInfo;
 use crate::actor::supervisor::SupervisorStrategyHandle;
 use crate::actor::Config;
 use crate::generated::actor::Terminated;
@@ -10,7 +9,6 @@ use async_trait::async_trait;
 use std::fmt::Debug;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tracing::instrument;
 
 #[async_trait]
 pub trait Actor: Debug + Send + Sync + 'static {

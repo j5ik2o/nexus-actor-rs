@@ -1,9 +1,9 @@
-use crate::actor::message::{Message, MessageHandle};
+use crate::actor::message::Message;
 use dashmap::DashMap;
 use once_cell::sync::Lazy;
 use prost::Message as ProstMessage;
 use serde::{Deserialize, Serialize};
-use std::any::{Any, TypeId};
+use std::any::Any;
 use std::fmt::{Display, Formatter};
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::marker::PhantomData;
@@ -451,7 +451,7 @@ mod tests {
     let bytes = serialize_any(&msg, &SerializerId::Proto, std::any::type_name::<TestMessage>()).unwrap();
     // let deserialized = deserialize_any(&bytes, &SerializerId::Proto, std::any::type_name::<TestMessage>()).unwrap();
     let deserialized = deserialize::<TestMessage>(&bytes, &SerializerId::Proto).unwrap();
-    // assert_eq!(msg, deserialized);
+    assert_eq!(msg, deserialized);
   }
 
   #[test]

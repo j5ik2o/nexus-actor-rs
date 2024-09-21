@@ -18,7 +18,6 @@ fn is_valid_address(input: &str) -> bool {
 
 impl Pid {
   pub(crate) fn new(address: &str, id: &str) -> Self {
-    assert!(is_valid_address(address));
     Pid {
       address: address.to_string(),
       id: id.to_string(),

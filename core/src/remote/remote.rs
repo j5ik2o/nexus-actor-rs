@@ -15,7 +15,6 @@ use crate::remote::messages::RemoteDeliver;
 use crate::remote::remote_process::RemoteProcess;
 use crate::remote::serializer::SerializerId;
 use dashmap::DashMap;
-use futures::future::BoxFuture;
 use once_cell::sync::Lazy;
 use std::any::Any;
 use std::future::Future;
@@ -304,23 +303,23 @@ mod tests {
   use crate::actor::message::Message;
   use crate::actor::message::{MessageHandle, ResponseHandle};
   use crate::actor::util::WaitGroup;
-  use crate::generated::actor::Pid;
-  use crate::generated::remote::connect_request::ConnectionType;
-  use crate::generated::remote::remote_message::MessageType;
-  use crate::generated::remote::remoting_client::RemotingClient;
-  use crate::generated::remote::{ConnectRequest, RemoteMessage, ServerConnection};
+  
+  
+  
+  
+  
   use crate::remote::config::Config;
   use crate::remote::config_option::ConfigOption;
-  use crate::remote::endpoint_writer::EndpointWriter;
+  
   use crate::remote::remote::Remote;
-  use crate::remote::serializer::{initialize_proto_serializers, initialize_serializers};
+  use crate::remote::serializer::initialize_proto_serializers;
   use nexus_actor_message_derive_rs::Message;
   use std::env;
   use std::time::Duration;
-  use tokio::sync::mpsc;
+  
   use tokio::time::sleep;
-  use tonic::codegen::tokio_stream::wrappers::ReceiverStream;
-  use tonic::transport::Channel;
+  
+  
   use tracing_subscriber::EnvFilter;
 
   #[tokio::test]
@@ -479,7 +478,7 @@ mod tests {
 
     client_wait_group.wait().await;
 
-    let mut root_context = client_system.get_root_context().await;
+    let root_context = client_system.get_root_context().await;
 
     let response = root_context
       .request_future(

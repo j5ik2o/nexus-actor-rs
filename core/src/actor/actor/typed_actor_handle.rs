@@ -1,7 +1,7 @@
 use crate::actor::actor::typed_actor::TypedActor;
 use crate::actor::actor::{Actor, ActorError, ActorHandle};
 use crate::actor::context::TypedContextHandle;
-use crate::actor::message::{Message, TerminateInfo};
+use crate::actor::message::Message;
 use crate::actor::supervisor::SupervisorStrategyHandle;
 use crate::generated::actor::Terminated;
 use async_trait::async_trait;

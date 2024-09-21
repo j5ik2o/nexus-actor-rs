@@ -3,7 +3,6 @@ use crate::actor::context::SenderPart;
 use crate::actor::message::MessageHandle;
 use crate::remote::endpoint::Endpoint;
 use crate::remote::endpoint_manager::EndpointManager;
-use once_cell::sync::OnceCell;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use std::time::Duration;

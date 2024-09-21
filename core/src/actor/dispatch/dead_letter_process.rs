@@ -6,7 +6,6 @@ use crate::actor::message::IgnoreDeadLetterLogging;
 use crate::actor::message::Message;
 use crate::actor::message::MessageHandle;
 use crate::actor::message::SystemMessage;
-use crate::actor::message::TerminateInfo;
 use crate::actor::message::TerminateReason;
 use crate::actor::metrics::metrics::{Metrics, EXTENSION_ID};
 use crate::actor::process::{Process, ProcessHandle};

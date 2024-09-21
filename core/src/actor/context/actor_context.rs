@@ -35,7 +35,6 @@ use crate::actor::message::ReadonlyMessageHeadersHandle;
 use crate::actor::message::ReceiveTimeout;
 use crate::actor::message::ResponseHandle;
 use crate::actor::message::SystemMessage;
-use crate::actor::message::TerminateInfo;
 use crate::actor::message::TerminateReason;
 use crate::actor::message::{
   unwrap_envelope_header, unwrap_envelope_message, unwrap_envelope_sender, wrap_envelope, MessageEnvelope,
@@ -473,7 +472,6 @@ impl ActorContext {
   }
 
   async fn handle_child_failure(&mut self, f: &Failure) {
-    let self_pid = self.get_self_opt().await.unwrap();
     let mut actor = self.get_actor().await.unwrap();
     if let Some(s) = actor.get_supervisor_strategy().await {
       s.handle_child_failure(
