@@ -25,7 +25,7 @@ use std::time::Instant;
 use thiserror::Error;
 use tokio::sync::Mutex;
 use tonic::transport::Channel;
-use tonic::{Code, IntoRequest, Response, Streaming};
+use tonic::{Code, Response, Streaming};
 
 #[derive(Debug, Clone)]
 pub struct EndpointWriter {

@@ -298,7 +298,7 @@ impl Extension for Remote {
 
 #[cfg(test)]
 mod tests {
-  use crate::actor::actor::{Actor, ActorError, ExtendedPid, Props};
+  use crate::actor::actor::{Actor, ActorError, Props};
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::context::{BasePart, ContextHandle, MessagePart, SenderPart, SpawnerPart};
   use crate::actor::message::Message;
@@ -341,7 +341,7 @@ mod tests {
       assert!(result.is_ok());
     });
     sleep(Duration::from_secs(3)).await;
-    assert_eq!("127.0.0.1", system.get_address().await);
+    assert_eq!("127.0.0.1:8080", system.get_address().await);
     let result = remote.shutdown(true).await;
     assert!(result.is_ok());
     sleep(Duration::from_secs(1)).await;
@@ -369,7 +369,7 @@ mod tests {
       assert!(result.is_ok());
     });
     sleep(Duration::from_secs(3)).await;
-    assert_eq!("localhost", system.get_address().await);
+    assert_eq!("localhost:8080", system.get_address().await);
     let result = remote.shutdown(true).await;
     assert!(result.is_ok());
     sleep(Duration::from_secs(1)).await;
