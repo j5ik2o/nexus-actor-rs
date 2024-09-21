@@ -230,6 +230,7 @@ impl Hash for SerializerKey {
   fn hash<H: Hasher>(&self, state: &mut H) {
     self.serializer_id.hash(state);
     self.type_name.hash(state);
+    self.is_any.hash(state);
   }
 }
 
