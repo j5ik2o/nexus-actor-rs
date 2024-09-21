@@ -440,7 +440,7 @@ mod tests {
     // サーバー側のセットアップ
     let server_wait_group = WaitGroup::with_count(1);
     let server_system = ActorSystem::new().await.unwrap();
-    let server_config = Config::from([ConfigOption::with_host("localhost1"), ConfigOption::with_port(8090)]).await;
+    let server_config = Config::from([ConfigOption::with_host("127.0.0.1"), ConfigOption::with_port(8090)]).await;
     let mut server_remote = Remote::new(server_system.clone(), server_config).await;
     let cloned_server_wait_group = server_wait_group.clone();
     tokio::spawn(async move {
@@ -465,7 +465,7 @@ mod tests {
 
     let client_wait_group = WaitGroup::with_count(1);
     let client_system = ActorSystem::new().await.unwrap();
-    let client_config = Config::from([ConfigOption::with_host("localhost2"), ConfigOption::with_port(8091)]).await;
+    let client_config = Config::from([ConfigOption::with_host("127.0.0.1"), ConfigOption::with_port(8091)]).await;
     let mut client_remote = Remote::new(client_system.clone(), client_config).await;
     let cloned_client_wait_group = client_wait_group.clone();
     tokio::spawn(async move {
