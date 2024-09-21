@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use nexus_actor_core_rs::actor::actor::Actor;
 use nexus_actor_core_rs::actor::actor::ActorError;
-use nexus_actor_core_rs::actor::actor::ActorInnerError;
+use nexus_actor_core_rs::actor::actor::ErrorReason;
 use nexus_actor_core_rs::actor::actor::Props;
 use nexus_actor_core_rs::actor::actor_system::ActorSystem;
 use nexus_actor_core_rs::actor::context::ContextHandle;
@@ -55,7 +55,7 @@ impl Actor for Child {
     let msg = message_handle.to_typed::<Hello>().unwrap();
     println!("Hello, {}", msg.who);
     msg.async_barrier.wait().await;
-    Err(ActorError::ReceiveError(ActorInnerError::new("Ouch".to_string())))
+    Err(ActorError::ReceiveError(ErrorReason::new("Ouch".to_string(), 0)))
   }
 }
 

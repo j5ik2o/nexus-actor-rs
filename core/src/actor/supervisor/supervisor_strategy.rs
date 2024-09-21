@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
 
-use crate::actor::actor::ActorInnerError;
+use crate::actor::actor::ErrorReason;
 use crate::actor::actor::ExtendedPid;
 use crate::actor::actor::RestartStatistics;
 use crate::actor::actor_system::ActorSystem;
@@ -19,17 +19,17 @@ use crate::actor::supervisor::supervision_event::SupervisorEvent;
 use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
 
 #[derive(Clone)]
-pub struct Decider(Arc<dyn Fn(ActorInnerError) -> BoxFuture<'static, Directive> + Send + Sync>);
+pub struct Decider(Arc<dyn Fn(ErrorReason) -> BoxFuture<'static, Directive> + Send + Sync>);
 
 impl Decider {
   pub fn new<F, Fut>(f: F) -> Self
   where
-    F: Fn(ActorInnerError) -> Fut + Send + Sync + 'static,
+    F: Fn(ErrorReason) -> Fut + Send + Sync + 'static,
     Fut: Future<Output = Directive> + Send + 'static, {
     Decider(Arc::new(move |error| Box::pin(f(error))))
   }
 
-  pub async fn run(&self, reason: ActorInnerError) -> Directive {
+  pub async fn run(&self, reason: ErrorReason) -> Directive {
     (self.0)(reason).await
   }
 }
@@ -50,7 +50,7 @@ impl Eq for Decider {}
 
 impl std::hash::Hash for Decider {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    (self.0.as_ref() as *const dyn Fn(ActorInnerError) -> BoxFuture<'static, Directive>).hash(state);
+    (self.0.as_ref() as *const dyn Fn(ErrorReason) -> BoxFuture<'static, Directive>).hash(state);
   }
 }
 
@@ -62,7 +62,7 @@ pub trait SupervisorStrategy: Debug + Send + Sync {
     supervisor: SupervisorHandle,
     child: ExtendedPid,
     rs: RestartStatistics,
-    reason: ActorInnerError,
+    reason: ErrorReason,
     message_handle: MessageHandle,
   );
 
@@ -72,7 +72,7 @@ pub trait SupervisorStrategy: Debug + Send + Sync {
 #[async_trait]
 pub trait Supervisor: Debug + Send + Sync + 'static {
   async fn get_children(&self) -> Vec<ExtendedPid>;
-  async fn escalate_failure(&self, reason: ActorInnerError, message_handle: MessageHandle);
+  async fn escalate_failure(&self, reason: ErrorReason, message_handle: MessageHandle);
   async fn restart_children(&self, pids: &[ExtendedPid]);
   async fn stop_children(&self, pids: &[ExtendedPid]);
   async fn resume_children(&self, pids: &[ExtendedPid]);
@@ -112,7 +112,7 @@ impl Supervisor for SupervisorHandle {
     mg.get_children().await
   }
 
-  async fn escalate_failure(&self, reason: ActorInnerError, message_handle: MessageHandle) {
+  async fn escalate_failure(&self, reason: ErrorReason, message_handle: MessageHandle) {
     let mg = self.0.lock().await;
     mg.escalate_failure(reason, message_handle).await;
   }
@@ -133,12 +133,7 @@ impl Supervisor for SupervisorHandle {
   }
 }
 
-pub async fn log_failure(
-  actor_system: &ActorSystem,
-  child: &ExtendedPid,
-  reason: ActorInnerError,
-  directive: Directive,
-) {
+pub async fn log_failure(actor_system: &ActorSystem, child: &ExtendedPid, reason: ErrorReason, directive: Directive) {
   actor_system
     .get_event_stream()
     .await

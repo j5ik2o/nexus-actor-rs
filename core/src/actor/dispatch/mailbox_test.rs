@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
   use crate::actor::actor::ActorError;
-  use crate::actor::actor::ActorInnerError;
+  use crate::actor::actor::ErrorReason;
   use crate::actor::dispatch::bounded::BoundedMailboxQueue;
   use crate::actor::dispatch::dispatcher::{DispatcherHandle, TokioRuntimeContextDispatcher};
   use crate::actor::dispatch::mailbox::Mailbox;
@@ -63,7 +63,7 @@ mod tests {
       Ok(())
     }
 
-    async fn escalate_failure(&mut self, _: ActorInnerError, _: MessageHandle) {}
+    async fn escalate_failure(&mut self, _: ErrorReason, _: MessageHandle) {}
   }
 
   #[tokio::test]

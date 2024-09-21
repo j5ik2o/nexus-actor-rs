@@ -3,7 +3,7 @@ mod test {
   use std::sync::Arc;
 
   use crate::actor::actor::ActorError;
-  use crate::actor::actor::ActorInnerError;
+  use crate::actor::actor::ErrorReason;
   use crate::actor::actor::Task;
   use crate::actor::dispatch::default_mailbox::DefaultMailbox;
   use crate::actor::dispatch::dispatcher::{CurrentThreadDispatcher, DispatcherHandle};
@@ -58,7 +58,7 @@ mod test {
       Ok(())
     }
 
-    async fn escalate_failure(&mut self, reason: ActorInnerError, _: MessageHandle) {
+    async fn escalate_failure(&mut self, reason: ErrorReason, _: MessageHandle) {
       let reason_msg = if reason.is_type::<&str>() {
         reason.clone().take::<&str>().unwrap().to_string()
       } else if reason.is_type::<String>() {

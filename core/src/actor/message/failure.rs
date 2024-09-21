@@ -1,4 +1,4 @@
-use crate::actor::actor::ActorInnerError;
+use crate::actor::actor::ErrorReason;
 use crate::actor::actor::ExtendedPid;
 use crate::actor::actor::RestartStatistics;
 use crate::actor::message::message::Message;
@@ -8,7 +8,7 @@ use nexus_actor_message_derive_rs::Message;
 #[derive(Debug, Clone, PartialEq, Eq, Message)]
 pub struct Failure {
   pub who: ExtendedPid,
-  pub reason: ActorInnerError,
+  pub reason: ErrorReason,
   pub restart_stats: RestartStatistics,
   pub message_handle: MessageHandle,
 }
@@ -16,7 +16,7 @@ pub struct Failure {
 impl Failure {
   pub fn new(
     who: ExtendedPid,
-    reason: ActorInnerError,
+    reason: ErrorReason,
     restart_stats: RestartStatistics,
     message_handle: MessageHandle,
   ) -> Self {

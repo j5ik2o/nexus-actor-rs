@@ -169,11 +169,11 @@ impl ActorContextExtras {
 
   pub async fn add_child(&mut self, pid: ExtendedPid) {
     let mut mg = self.inner.lock().await;
-    mg.children.add(pid).await;
+    mg.children.add(pid.inner_pid).await;
   }
 
   pub async fn remove_child(&mut self, pid: &ExtendedPid) {
     let mut mg = self.inner.lock().await;
-    mg.children.remove(pid).await;
+    mg.children.remove(&pid.inner_pid).await;
   }
 }

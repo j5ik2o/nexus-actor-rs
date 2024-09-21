@@ -3,7 +3,7 @@ use std::any::Any;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::actor::actor::ActorInnerError;
+use crate::actor::actor::ErrorReason;
 use crate::actor::actor::ExtendedPid;
 use crate::actor::actor::RestartStatistics;
 use crate::actor::actor_system::ActorSystem;
@@ -32,7 +32,7 @@ impl AllForOneStrategy {
 
   pub fn with_decider<F, Fut>(mut self, decider: F) -> Self
   where
-    F: Fn(ActorInnerError) -> Fut + Send + Sync + 'static,
+    F: Fn(ErrorReason) -> Fut + Send + Sync + 'static,
     Fut: futures::future::Future<Output = Directive> + Send + 'static, {
     self.decider = Arc::new(Decider::new(decider));
     self
@@ -61,7 +61,7 @@ impl SupervisorStrategy for AllForOneStrategy {
     supervisor: SupervisorHandle,
     child: ExtendedPid,
     mut rs: RestartStatistics,
-    reason: ActorInnerError,
+    reason: ErrorReason,
     message_handle: MessageHandle,
   ) {
     let directive = self.decider.run(reason.clone()).await;

@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
-use crate::actor::actor::ActorInnerError;
+use crate::actor::actor::ErrorReason;
 use crate::actor::actor::ExtendedPid;
 use crate::actor::actor::RestartStatistics;
 use crate::actor::actor_system::ActorSystem;
@@ -51,7 +51,7 @@ impl SupervisorStrategy for SupervisorStrategyHandle {
     supervisor: SupervisorHandle,
     child: ExtendedPid,
     rs: RestartStatistics,
-    reason: ActorInnerError,
+    reason: ErrorReason,
     message_handle: MessageHandle,
   ) {
     self

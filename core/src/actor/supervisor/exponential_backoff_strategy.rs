@@ -4,7 +4,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use rand::Rng;
 
-use crate::actor::actor::ActorInnerError;
+use crate::actor::actor::ErrorReason;
 use crate::actor::actor::ExtendedPid;
 use crate::actor::actor::RestartStatistics;
 use crate::actor::actor_system::ActorSystem;
@@ -48,7 +48,7 @@ impl SupervisorStrategy for ExponentialBackoffStrategy {
     supervisor: SupervisorHandle,
     child: ExtendedPid,
     mut rs: RestartStatistics,
-    reason: ActorInnerError,
+    reason: ErrorReason,
     _: MessageHandle,
   ) {
     self.set_failure_count(&mut rs).await;

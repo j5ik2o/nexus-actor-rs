@@ -24,7 +24,7 @@ mod tests {
 
   #[async_trait]
   impl Actor for MyActor {
-    async fn post_start(&self, _: ContextHandle) -> Result<(), ActorError> {
+    async fn post_start(&mut self, _: ContextHandle) -> Result<(), ActorError> {
       tracing::debug!("MyActor started");
       self.is_started.store(true, Ordering::SeqCst);
       self.received.notify_one();
@@ -35,7 +35,7 @@ mod tests {
       Ok(())
     }
 
-    async fn get_supervisor_strategy(&self) -> Option<SupervisorStrategyHandle> {
+    async fn get_supervisor_strategy(&mut self) -> Option<SupervisorStrategyHandle> {
       None
     }
   }
@@ -64,7 +64,9 @@ mod tests {
 
     let props = Props::from_actor_producer(actor_producer).await;
 
-    system.get_root_context().await.spawn(props).await;
+    let pid = system.get_root_context().await.spawn(props).await;
+
+    tracing::info!("pid = {:?}", pid);
 
     actor.received.notified().await;
 

@@ -5,7 +5,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use tokio::sync::Mutex;
 
-use crate::actor::actor::ActorInnerError;
+use crate::actor::actor::ErrorReason;
 use crate::actor::actor::ExtendedPid;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::dispatch::MailboxMessage;
@@ -85,7 +85,8 @@ impl GuardianProcess {
       .actor_system
       .get_process_registry()
       .await
-      .add_process(ph, &format!("guardian-{}", id));
+      .add_process(ph, &format!("guardian-{}", id))
+      .await;
     if !ok {
       tracing::error!("failed to register guardian process: pid = {}", pid);
     }
@@ -135,7 +136,7 @@ impl Supervisor for GuardianProcess {
     panic!("guardian does not hold its children PIDs");
   }
 
-  async fn escalate_failure(&self, _: ActorInnerError, _: MessageHandle) {
+  async fn escalate_failure(&self, _: ErrorReason, _: MessageHandle) {
     panic!("guardian cannot escalate failure");
   }
 

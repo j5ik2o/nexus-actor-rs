@@ -11,6 +11,7 @@ readme = "../README.md"
 repository = "https://github.com/j5ik2o/nexus-actor-rs"
 
 [dependencies]
+chrono = "0.4"
 prost = "0.13.0"
 prost-types = "0.13"
 tonic = "0.12.2"
@@ -18,6 +19,7 @@ tonic-types = "0.12.2"
 async-trait = "0.1.80"
 futures = "0.3.30"
 tokio = { version = "1.37.0" , features = ["full"] }
+# tokio-stream = "0.1.16"
 tokio-condvar = "0.3.0"
 thiserror = "1.0.61"
 oni-comb-uri-rs = "0.2.1"
@@ -27,11 +29,16 @@ time = "0.3.36"
 backtrace = "0.3"
 once_cell = "1.19.0"
 num_enum = "0.7.2"
+im = "15.0.0"
 dashmap = "6.0.0-rc.1"
 siphasher = "1.0.1"
 uuid = { version = "1.9.0", features = ["v4"] }
 static_assertions = "1.1.0"
 nexus-actor-message-derive-rs = { version = "0.*.*", path = "../message-derive" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+strum = { version = "0.26", features = ["derive"] }
+strum_macros = "0.26"
 
 
 tracing = "0.1"
@@ -42,6 +49,7 @@ opentelemetry = { version = "0.24.0", features = ["metrics"] }
 opentelemetry_sdk = { version = "0.24.1", features = ["metrics", "rt-tokio", "testing"] }
 opentelemetry-stdout = { version = "0.25.0", features = ["metrics"] }
 opentelemetry-otlp = { version = "0.25.0", features = ["grpc-tonic", "trace", "metrics"] }
+regex = "1.10.6"
 
 [dev-dependencies]
 rstest = "0.22.0"

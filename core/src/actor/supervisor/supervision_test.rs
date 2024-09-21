@@ -2,7 +2,7 @@
 mod test {
   use crate::actor::actor::Actor;
   use crate::actor::actor::ActorError;
-  use crate::actor::actor::ActorInnerError;
+  use crate::actor::actor::ErrorReason;
   use crate::actor::actor::ExtendedPid;
   use crate::actor::actor::Props;
   use crate::actor::actor::ReceiverMiddleware;
@@ -140,7 +140,7 @@ mod test {
 
   #[async_trait]
   impl Actor for ActorWithSupervisor {
-    async fn post_start(&self, mut ctx: ContextHandle) -> Result<(), ActorError> {
+    async fn post_start(&mut self, mut ctx: ContextHandle) -> Result<(), ActorError> {
       tracing::debug!("ActorWithSupervisor::post_start");
       let props = Props::from_actor_producer(|_| async { FailingChildActor }).await;
       let child = ctx.spawn(props).await;
@@ -155,7 +155,7 @@ mod test {
       Ok(())
     }
 
-    async fn get_supervisor_strategy(&self) -> Option<SupervisorStrategyHandle> {
+    async fn get_supervisor_strategy(&mut self) -> Option<SupervisorStrategyHandle> {
       Some(SupervisorStrategyHandle::new(self.clone()))
     }
   }
@@ -168,7 +168,7 @@ mod test {
       _: SupervisorHandle,
       child: ExtendedPid,
       rs: RestartStatistics,
-      _: ActorInnerError,
+      _: ErrorReason,
       message_handle: MessageHandle,
     ) {
       tracing::debug!(
@@ -187,7 +187,7 @@ mod test {
 
   #[async_trait]
   impl Actor for FailingChildActor {
-    async fn post_start(&self, _: ContextHandle) -> Result<(), ActorError> {
+    async fn post_start(&mut self, _: ContextHandle) -> Result<(), ActorError> {
       tracing::debug!("FailingChildActor::post_start");
       Ok(())
     }
@@ -197,7 +197,7 @@ mod test {
       tracing::debug!("FailingChildActor::receive: msg = {:?}", message_handle);
       if let Some(StringMessage(msg)) = message_handle.to_typed::<StringMessage>() {
         tracing::debug!("FailingChildActor::receive: msg = {:?}", msg);
-        Err(ActorError::ReceiveError(ActorInnerError::new("error")))
+        Err(ActorError::ReceiveError(ErrorReason::new("error", 0)))
       } else {
         Ok(())
       }

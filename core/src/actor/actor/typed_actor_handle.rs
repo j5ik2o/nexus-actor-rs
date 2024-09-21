@@ -1,8 +1,9 @@
 use crate::actor::actor::typed_actor::TypedActor;
 use crate::actor::actor::{Actor, ActorError, ActorHandle};
 use crate::actor::context::TypedContextHandle;
-use crate::actor::message::{Message, TerminateInfo};
+use crate::actor::message::Message;
 use crate::actor::supervisor::SupervisorStrategyHandle;
+use crate::generated::actor::Terminated;
 use async_trait::async_trait;
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -47,8 +48,8 @@ impl<M: Message + Clone> TypedActor<M> for TypedActorHandle<M> {
     mg.receive(context_handle).await
   }
 
-  async fn get_supervisor_strategy(&self) -> Option<SupervisorStrategyHandle> {
-    let mg = self.0.lock().await;
+  async fn get_supervisor_strategy(&mut self) -> Option<SupervisorStrategyHandle> {
+    let mut mg = self.0.lock().await;
     mg.get_supervisor_strategy().await
   }
 }
@@ -78,51 +79,51 @@ impl<M: Message + Clone> TypedActor<M> for TypeWrapperActorHandle<M> {
     self.underlying.receive(context_handle.get_underlying().clone()).await
   }
 
-  async fn pre_start(&self, context_handle: TypedContextHandle<M>) -> Result<(), ActorError> {
+  async fn pre_start(&mut self, context_handle: TypedContextHandle<M>) -> Result<(), ActorError> {
     self.underlying.pre_start(context_handle.get_underlying().clone()).await
   }
 
-  async fn post_start(&self, context_handle: TypedContextHandle<M>) -> Result<(), ActorError> {
+  async fn post_start(&mut self, context_handle: TypedContextHandle<M>) -> Result<(), ActorError> {
     self
       .underlying
       .post_start(context_handle.get_underlying().clone())
       .await
   }
 
-  async fn pre_restart(&self, context_handle: TypedContextHandle<M>) -> Result<(), ActorError> {
+  async fn pre_restart(&mut self, context_handle: TypedContextHandle<M>) -> Result<(), ActorError> {
     self
       .underlying
       .pre_restart(context_handle.get_underlying().clone())
       .await
   }
 
-  async fn post_restart(&self, context_handle: TypedContextHandle<M>) -> Result<(), ActorError> {
+  async fn post_restart(&mut self, context_handle: TypedContextHandle<M>) -> Result<(), ActorError> {
     self
       .underlying
       .post_restart(context_handle.get_underlying().clone())
       .await
   }
 
-  async fn pre_stop(&self, context_handle: TypedContextHandle<M>) -> Result<(), ActorError> {
+  async fn pre_stop(&mut self, context_handle: TypedContextHandle<M>) -> Result<(), ActorError> {
     self.underlying.pre_stop(context_handle.get_underlying().clone()).await
   }
 
-  async fn post_stop(&self, context_handle: TypedContextHandle<M>) -> Result<(), ActorError> {
+  async fn post_stop(&mut self, context_handle: TypedContextHandle<M>) -> Result<(), ActorError> {
     self.underlying.post_stop(context_handle.get_underlying().clone()).await
   }
 
   async fn post_child_terminate(
-    &self,
+    &mut self,
     context_handle: TypedContextHandle<M>,
-    terminate_info: &TerminateInfo,
+    terminated: &Terminated,
   ) -> Result<(), ActorError> {
     self
       .underlying
-      .post_child_terminate(context_handle.get_underlying().clone(), terminate_info)
+      .post_child_terminate(context_handle.get_underlying().clone(), terminated)
       .await
   }
 
-  async fn get_supervisor_strategy(&self) -> Option<SupervisorStrategyHandle> {
+  async fn get_supervisor_strategy(&mut self) -> Option<SupervisorStrategyHandle> {
     self.underlying.get_supervisor_strategy().await
   }
 }

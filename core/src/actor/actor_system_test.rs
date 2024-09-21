@@ -53,7 +53,7 @@ mod tests {
       Ok(())
     }
 
-    async fn get_supervisor_strategy(&self) -> Option<SupervisorStrategyHandle> {
+    async fn get_supervisor_strategy(&mut self) -> Option<SupervisorStrategyHandle> {
       None
     }
   }

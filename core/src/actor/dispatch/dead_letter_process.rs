@@ -6,12 +6,12 @@ use crate::actor::message::IgnoreDeadLetterLogging;
 use crate::actor::message::Message;
 use crate::actor::message::MessageHandle;
 use crate::actor::message::SystemMessage;
-use crate::actor::message::TerminateInfo;
 use crate::actor::message::TerminateReason;
 use crate::actor::metrics::metrics::{Metrics, EXTENSION_ID};
 use crate::actor::process::{Process, ProcessHandle};
 use crate::actor::util::{Throttle, ThrottleCallback, Valve};
-use crate::generated::actor::DeadLetterResponse;
+use crate::generated::actor::{DeadLetterResponse, Terminated};
+
 use crate::metrics::ActorMetrics;
 use async_trait::async_trait;
 use nexus_actor_message_derive_rs::Message;
@@ -53,7 +53,8 @@ impl DeadLetterProcess {
       .actor_system
       .get_process_registry()
       .await
-      .add_process(ProcessHandle::new(myself.clone()), "deadletter");
+      .add_process(ProcessHandle::new(myself.clone()), "deadletter")
+      .await;
     myself
       .actor_system
       .get_event_stream()
@@ -115,13 +116,13 @@ impl DeadLetterProcess {
             if let Some(SystemMessage::Watch(watch)) = dle.message_handle.to_typed::<SystemMessage>() {
               let actor_system = cloned_self.actor_system.clone();
               let pid = watch.watcher.clone().unwrap();
-              let e_pid = ExtendedPid::new(pid.clone(), actor_system.clone());
+              let e_pid = ExtendedPid::new(pid.clone());
               e_pid
                 .send_system_message(
                   actor_system,
-                  MessageHandle::new(SystemMessage::Terminate(TerminateInfo {
+                  MessageHandle::new(SystemMessage::Terminate(Terminated {
                     who: Some(pid),
-                    why: TerminateReason::NotFound,
+                    why: TerminateReason::NotFound as i32,
                   })),
                 )
                 .await;
@@ -152,6 +153,7 @@ impl DeadLetterProcess {
 #[async_trait]
 impl Process for DeadLetterProcess {
   async fn send_user_message(&self, pid: Option<&ExtendedPid>, message_handle: MessageHandle) {
+    tracing::debug!("DeadLetterProcess: send_user_message: msg = {:?}", message_handle);
     self
       .metrics_foreach(|am, _| {
         let am = am.clone();

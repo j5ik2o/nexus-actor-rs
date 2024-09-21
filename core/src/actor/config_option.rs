@@ -1,10 +1,11 @@
 use crate::actor::config::Config;
 use crate::actor::dispatch::Dispatcher;
+use crate::actor::MetricsProvider;
 use std::sync::Arc;
 use std::time::Duration;
 
 pub enum ConfigOption {
-  // SetMetricsProvider(Arc<dyn MetricsProvider>),
+  SetMetricsProvider(Arc<MetricsProvider>),
   SetLogPrefix(String),
   SetSystemDispatcher(Arc<dyn Dispatcher>),
   SetDispatcherThroughput(usize),
@@ -17,9 +18,9 @@ pub enum ConfigOption {
 impl ConfigOption {
   pub(crate) fn apply(&self, config: &mut Config) {
     match self {
-      // ConfigOption::SetMetricsProvider(provider) => {
-      //   config.metrics_provider = Some(Arc::clone(provider));
-      // },
+      ConfigOption::SetMetricsProvider(provider) => {
+        config.metrics_provider = Some(Arc::clone(provider));
+      }
       ConfigOption::SetSystemDispatcher(dispatcher) => {
         config.system_dispatcher = Arc::clone(dispatcher);
       }

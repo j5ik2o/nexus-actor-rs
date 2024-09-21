@@ -10,7 +10,7 @@ use crate::actor::context::SpawnerContextHandle;
 use futures::future::BoxFuture;
 use thiserror::Error;
 
-#[derive(Debug, Clone, Error)]
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum SpawnError {
   #[error("Name already exists: {0}")]
   ErrNameExists(ExtendedPid),

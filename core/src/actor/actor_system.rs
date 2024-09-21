@@ -93,7 +93,8 @@ impl ActorSystem {
     system
       .get_process_registry()
       .await
-      .add_process(event_stream_process, "eventstream");
+      .add_process(event_stream_process, "eventstream")
+      .await;
 
     Ok(system)
   }
@@ -102,14 +103,19 @@ impl ActorSystem {
     let pr = self.get_process_registry().await;
     let pid = Pid {
       id: id.to_string(),
-      address: pr.get_address(),
+      address: pr.get_address().await,
       request_id: 0,
     };
-    ExtendedPid::new(pid, self.clone())
+    ExtendedPid::new(pid)
+  }
+
+  pub async fn get_id(&self) -> String {
+    let inner_mg = self.inner.lock().await;
+    inner_mg.id.clone()
   }
 
   pub async fn get_address(&self) -> String {
-    self.get_process_registry().await.get_address()
+    self.get_process_registry().await.get_address().await
   }
 
   pub async fn get_config(&self) -> Config {

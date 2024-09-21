@@ -35,7 +35,7 @@ pub mod tests {
       Ok(())
     }
 
-    async fn post_start(&self, mut ctx: ContextHandle) -> Result<(), ActorError> {
+    async fn post_start(&mut self, mut ctx: ContextHandle) -> Result<(), ActorError> {
       ctx.set_receive_timeout(&Duration::from_millis(100)).await;
       Ok(())
     }

@@ -11,7 +11,7 @@ mod test {
   use crate::actor::actor::Actor;
   use crate::actor::actor::ActorError;
 
-  use crate::actor::actor::ActorInnerError;
+  use crate::actor::actor::ErrorReason;
   use crate::actor::actor::Props;
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::context::ContextHandle;
@@ -32,7 +32,7 @@ mod test {
   impl Actor for PanicActor {
     async fn receive(&mut self, ctx: ContextHandle) -> Result<(), ActorError> {
       if ctx.get_message_handle().await.to_typed::<String>().is_some() {
-        Err(ActorError::ReceiveError(ActorInnerError::new("Boom!".to_string())))
+        Err(ActorError::ReceiveError(ErrorReason::new("Boom!".to_string(), 0)))
       } else {
         Ok(())
       }

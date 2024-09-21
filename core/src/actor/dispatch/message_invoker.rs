@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use tokio::sync::Mutex;
 
 use crate::actor::actor::ActorError;
-use crate::actor::actor::ActorInnerError;
+use crate::actor::actor::ErrorReason;
 use crate::actor::message::MessageHandle;
 
 // MessageInvoker trait
@@ -13,7 +13,7 @@ use crate::actor::message::MessageHandle;
 pub trait MessageInvoker: Debug + Send + Sync {
   async fn invoke_system_message(&mut self, message_handle: MessageHandle) -> Result<(), ActorError>;
   async fn invoke_user_message(&mut self, message_handle: MessageHandle) -> Result<(), ActorError>;
-  async fn escalate_failure(&mut self, reason: ActorInnerError, message_handle: MessageHandle);
+  async fn escalate_failure(&mut self, reason: ErrorReason, message_handle: MessageHandle);
 }
 
 #[derive(Debug, Clone)]
@@ -51,7 +51,7 @@ impl MessageInvoker for MessageInvokerHandle {
     mg.invoke_user_message(message_handle).await
   }
 
-  async fn escalate_failure(&mut self, reason: ActorInnerError, message_handle: MessageHandle) {
+  async fn escalate_failure(&mut self, reason: ErrorReason, message_handle: MessageHandle) {
     let mut mg = self.0.lock().await;
     mg.escalate_failure(reason, message_handle).await;
   }

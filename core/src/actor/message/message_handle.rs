@@ -54,6 +54,10 @@ impl Message for MessageHandle {
   fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
     self.0.as_any()
   }
+
+  fn get_type_name(&self) -> String {
+    self.0.get_type_name()
+  }
 }
 
 impl PartialEq for MessageHandle {

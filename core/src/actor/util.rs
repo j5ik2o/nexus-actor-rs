@@ -1,5 +1,6 @@
 mod async_barrier;
 mod count_down_latch;
+pub mod stack;
 mod throttler;
 mod throttler_test;
 mod wait_group;
