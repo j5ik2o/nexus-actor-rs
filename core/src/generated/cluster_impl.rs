@@ -1,6 +1,6 @@
-use std::any::Any;
 use crate::actor::message::Message;
 use crate::generated::cluster::{DeliverBatchRequestTransport, PubSubAutoRespondBatchTransport, PubSubBatchTransport};
+use std::any::Any;
 
 impl Message for PubSubBatchTransport {
   fn eq_message(&self, other: &dyn Message) -> bool {

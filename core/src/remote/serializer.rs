@@ -399,12 +399,10 @@ pub fn initialize_proto_serializers<T: Message + Default + ProstMessage + Send +
 
 pub trait RootSerializable: Message + Sync + Send {
   fn serialize(&self) -> Result<Arc<dyn RootSerialized>, SerializerError>;
-
 }
 
 pub trait RootSerialized: Message + Sync + Send {
   fn deserialize(&self) -> Result<Arc<dyn RootSerializable>, SerializerError>;
-
 }
 
 #[cfg(test)]
