@@ -397,16 +397,12 @@ pub fn initialize_proto_serializers<T: Message + Default + ProstMessage + Send +
   Ok(())
 }
 
-pub trait RootSerializable: Sync + Send {
+pub trait RootSerializable: Message + Sync + Send {
   fn serialize(&self) -> Result<Arc<dyn RootSerialized>, SerializerError>;
-
-  fn as_any(&self) -> &dyn Any;
 }
 
-pub trait RootSerialized: Sync + Send {
+pub trait RootSerialized: Message + Sync + Send {
   fn deserialize(&self) -> Result<Arc<dyn RootSerializable>, SerializerError>;
-
-  fn as_any(&self) -> &dyn Any;
 }
 
 #[cfg(test)]
