@@ -303,23 +303,18 @@ mod tests {
   use crate::actor::message::Message;
   use crate::actor::message::{MessageHandle, ResponseHandle};
   use crate::actor::util::WaitGroup;
-  
-  
-  
-  
-  
+
   use crate::remote::config::Config;
   use crate::remote::config_option::ConfigOption;
-  
+
   use crate::remote::remote::Remote;
   use crate::remote::serializer::initialize_proto_serializers;
   use nexus_actor_message_derive_rs::Message;
   use std::env;
   use std::time::Duration;
-  
+
   use tokio::time::sleep;
-  
-  
+
   use tracing_subscriber::EnvFilter;
 
   #[tokio::test]

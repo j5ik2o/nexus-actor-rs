@@ -3,8 +3,6 @@ mod tests {
 
   use crate::actor::actor::pid_set::PidSet;
 
-  
-
   use crate::generated::actor::Pid;
 
   #[tokio::test]

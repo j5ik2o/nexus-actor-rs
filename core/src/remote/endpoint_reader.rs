@@ -14,9 +14,7 @@ use crate::generated::remote::{
 };
 use crate::remote::endpoint_manager::{EndpointManager, RequestKeyWrapper};
 use crate::remote::remote::Remote;
-use crate::remote::serializer::{
-  deserialize, deserialize_message, RootSerialized, SerializerId,
-};
+use crate::remote::serializer::{deserialize, deserialize_message, RootSerialized, SerializerId};
 use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Weak};
