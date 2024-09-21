@@ -615,5 +615,4 @@ pub mod remoting_server {
     impl<T> tonic::server::NamedService for RemotingServer<T> {
         const NAME: &'static str = SERVICE_NAME;
     }
-
 }

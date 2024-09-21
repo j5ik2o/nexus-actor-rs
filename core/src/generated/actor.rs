@@ -80,5 +80,4 @@ impl TerminatedReason {
             _ => None,
         }
     }
-
 }
