@@ -2,12 +2,23 @@ use crate::generated::cluster::{
   DeliverBatchRequestTransport, PubSubAutoRespondBatchTransport, PubSubBatchTransport, Subscribers,
 };
 use crate::remote::serializer::{RootSerializable, RootSerialized, SerializerError};
-use std::any::Any;
 use std::sync::Arc;
+use nexus_actor_message_derive_rs::Message;
+use crate::actor::message::Message;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Message)]
 pub struct PubSubBatch {
-  envelopes: Vec<Arc<dyn prost::Message>>,
+  envelopes: Vec<Arc<dyn Message>>,
+}
+
+impl PartialEq for PubSubBatch {
+  fn eq(&self, other: &Self) -> bool {
+    self.envelopes.iter().all(|e| {
+      other.envelopes.iter().any(|o| {
+        e.eq_message(&*o.clone())
+      })
+    })
+  }
 }
 
 impl RootSerializable for PubSubBatch {
@@ -15,12 +26,9 @@ impl RootSerializable for PubSubBatch {
     todo!()
   }
 
-  fn as_any(&self) -> &dyn Any {
-    self
-  }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Message)]
 pub struct DeliverBatchRequest {
   subscribers: Subscribers,
   pub_sub_batch: PubSubBatch,
@@ -32,14 +40,21 @@ impl RootSerializable for DeliverBatchRequest {
     todo!()
   }
 
-  fn as_any(&self) -> &dyn Any {
-    self
-  }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Message)]
 pub struct PubSubAutoResponseBatch {
-  envelopes: Vec<Arc<dyn prost::Message>>,
+  envelopes: Vec<Arc<dyn Message>>,
+}
+
+impl PartialEq for PubSubAutoResponseBatch {
+  fn eq(&self, other: &Self) -> bool {
+    self.envelopes.iter().all(|e| {
+      other.envelopes.iter().any(|o| {
+        e.eq_message(&*o.clone())
+      })
+    })
+  }
 }
 
 impl RootSerializable for PubSubAutoResponseBatch {
@@ -47,9 +62,6 @@ impl RootSerializable for PubSubAutoResponseBatch {
     todo!()
   }
 
-  fn as_any(&self) -> &dyn Any {
-    self
-  }
 }
 
 impl RootSerialized for PubSubBatchTransport {
@@ -57,9 +69,6 @@ impl RootSerialized for PubSubBatchTransport {
     todo!()
   }
 
-  fn as_any(&self) -> &dyn Any {
-    self
-  }
 }
 
 impl RootSerialized for DeliverBatchRequestTransport {
@@ -67,9 +76,6 @@ impl RootSerialized for DeliverBatchRequestTransport {
     todo!()
   }
 
-  fn as_any(&self) -> &dyn Any {
-    self
-  }
 }
 
 impl RootSerialized for PubSubAutoRespondBatchTransport {
@@ -77,7 +83,4 @@ impl RootSerialized for PubSubAutoRespondBatchTransport {
     todo!()
   }
 
-  fn as_any(&self) -> &dyn Any {
-    self
-  }
 }
