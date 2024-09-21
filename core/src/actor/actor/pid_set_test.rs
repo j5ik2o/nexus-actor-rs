@@ -3,16 +3,9 @@ mod tests {
 
   use crate::actor::actor::pid_set::PidSet;
 
-  use crate::generated::actor::Pid;
+  use crate::actor::actor_system::ActorSystem;
 
-  // async fn new_pid(address: &str, id: &str, request_id: u32) -> Pid {
-  //   let pid = Pid {
-  //     address: address.to_string(),
-  //     id: id.to_string(),
-  //     request_id,
-  //   };
-  //   pid
-  // }
+  use crate::generated::actor::Pid;
 
   #[tokio::test]
   async fn test_pid_set_empty() {

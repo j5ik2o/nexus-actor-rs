@@ -18,4 +18,5 @@ impl Message for PoisonPill {
   fn get_type_name(&self) -> String {
     std::any::type_name_of_val(self).to_string()
   }
+
 }
