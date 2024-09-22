@@ -1,5 +1,5 @@
 use crate::actor::actor::ExtendedPid;
-use crate::actor::message::{unwrap_envelope, MessageHandle, ReadonlyMessageHeadersHandle};
+use crate::actor::message::{unwrap_envelope, MessageHandle, ReadonlyMessageHeadersHandle, SystemMessage};
 use crate::actor::process::Process;
 use crate::generated::actor::{Pid, Stop, Unwatch, Watch};
 use crate::remote::messages::{RemoteUnwatch, RemoteWatch};
@@ -41,7 +41,7 @@ impl Process for RemoteProcess {
   async fn send_user_message(&self, pid: Option<&ExtendedPid>, message_handle: MessageHandle) {
     tracing::debug!("Sending user message to remote process");
     let (header_opt, msg, sender_opt) = unwrap_envelope(message_handle);
-    let pid = pid.cloned().unwrap().inner_pid;
+    let pid = pid.cloned().expect("not found").inner_pid;
 
     let header_opt = header_opt.map(|h| ReadonlyMessageHeadersHandle::new(h));
     let sender_opt = sender_opt.map(|e| e.inner_pid.clone());
@@ -80,7 +80,9 @@ impl Process for RemoteProcess {
   }
 
   async fn stop(&self, pid: &ExtendedPid) {
-    self.send_system_message(pid, MessageHandle::new(Stop {})).await;
+    self
+      .send_system_message(pid, MessageHandle::new(SystemMessage::Stop))
+      .await;
   }
 
   fn set_dead(&self) {}
