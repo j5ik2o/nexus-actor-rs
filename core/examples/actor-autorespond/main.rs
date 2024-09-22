@@ -1,18 +1,16 @@
-use std::env;
-use std::time::Duration;
-use tracing_subscriber::EnvFilter;
 use nexus_actor_core_rs::actor::actor::Props;
 use nexus_actor_core_rs::actor::actor_system::ActorSystem;
 use nexus_actor_core_rs::actor::context::{SenderPart, SpawnerPart};
-use nexus_actor_message_derive_rs::Message;
 use nexus_actor_core_rs::actor::message::{AutoRespond, Message, MessageHandle, ResponseHandle};
+use nexus_actor_message_derive_rs::Message;
+use std::env;
+use std::time::Duration;
+use tracing_subscriber::EnvFilter;
 
 #[derive(Debug, Clone, PartialEq, Message)]
 pub struct MyAutoResponder {
-  name: String
+  name: String,
 }
-
-
 
 #[tokio::main]
 async fn main() {
@@ -28,10 +26,17 @@ async fn main() {
 
   let pid = root.spawn(props).await;
   let msg = AutoRespond::new(|_| async {
-    ResponseHandle::new(MyAutoResponder { name: "hello".to_string() })
+    ResponseHandle::new(MyAutoResponder {
+      name: "hello".to_string(),
+    })
   });
 
-  let response = root.request_future(pid, MessageHandle::new(msg), Duration::from_secs(10)).await.result().await.unwrap();
+  let response = root
+    .request_future(pid, MessageHandle::new(msg), Duration::from_secs(10))
+    .await
+    .result()
+    .await
+    .unwrap();
   let typed_response = response.to_typed::<MyAutoResponder>().unwrap();
 
   assert_eq!(typed_response.name, "hello");

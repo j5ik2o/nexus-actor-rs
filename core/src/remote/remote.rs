@@ -409,7 +409,10 @@ mod tests {
       ConfigOption::with_host("127.0.0.1"),
       ConfigOption::with_port(8080),
       ConfigOption::with_kind("someKind", Props::from_async_actor_receiver(|_| async { Ok(()) }).await),
-      ConfigOption::with_kind("someOther", Props::from_async_actor_receiver(|_| async { Ok(()) }).await),
+      ConfigOption::with_kind(
+        "someOther",
+        Props::from_async_actor_receiver(|_| async { Ok(()) }).await,
+      ),
     ])
     .await;
 
