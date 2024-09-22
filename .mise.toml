@@ -1,2 +1,3 @@
 [tools]
 protoc = "27"
+node = "20"
