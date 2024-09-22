@@ -24,10 +24,10 @@ async fn main() {
   let system = ActorSystem::new().await.unwrap();
   let mut root = system.get_root_context().await;
 
-  let props = Props::from_actor_receiver(|_| async { Ok(()) }).await;
+  let props = Props::from_sync_actor_receiver(|_| Ok(())).await;
 
   let pid = root.spawn(props).await;
-  let msg = AutoRespond::new(|ctx| async {
+  let msg = AutoRespond::new(|_| async {
     ResponseHandle::new(MyAutoResponder { name: "hello".to_string() })
   });
 

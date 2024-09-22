@@ -35,7 +35,7 @@ async fn main() {
   let mut root_context = system.get_root_context().await;
   let actor_producer = |_| async { HelloActor };
   let pid = root_context
-    .spawn(Props::from_actor_producer(actor_producer).await)
+    .spawn(Props::from_async_actor_producer(actor_producer).await)
     .await;
   root_context
     .send(

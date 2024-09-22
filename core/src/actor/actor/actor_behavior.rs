@@ -148,7 +148,7 @@ mod tests {
     let system = ActorSystem::new().await.unwrap();
     let mut root_context = system.get_root_context().await;
     let pid = root_context
-      .spawn(Props::from_actor_producer(|_| async { EchoSetBehaviorActor::new().await }).await)
+      .spawn(Props::from_async_actor_producer(|_| async { EchoSetBehaviorActor::new().await }).await)
       .await;
 
     root_context

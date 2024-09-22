@@ -56,7 +56,7 @@ pub mod tests {
 
     let pid = root_context
       .spawn(
-        Props::from_actor_producer(move |_| {
+        Props::from_async_actor_producer(move |_| {
           let cloned_b = cloned_b.clone();
           async move { SetReceiveTimeoutActor::new(cloned_b.clone()) }
         })

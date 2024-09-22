@@ -26,7 +26,7 @@ mod test {
     let mut root_context = system.get_root_context().await;
 
     let a = root_context
-      .spawn(Props::from_actor_producer(|_| async { BlackHoleActor }).await)
+      .spawn(Props::from_async_actor_producer(|_| async { BlackHoleActor }).await)
       .await;
     let cloned_a = a.clone();
 
@@ -68,7 +68,7 @@ mod test {
     let system = ActorSystem::new().await.unwrap();
     let mut root_context = system.get_root_context().await;
     let pid = root_context
-      .spawn(Props::from_actor_producer(|_| async { BlackHoleActor }).await)
+      .spawn(Props::from_async_actor_producer(|_| async { BlackHoleActor }).await)
       .await;
     let _ = root_context.stop_future(&pid).await.result().await.unwrap();
     let f = ActorFutureProcess::new(system.clone(), Duration::from_secs(5)).await;

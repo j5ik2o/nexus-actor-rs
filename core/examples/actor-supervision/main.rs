@@ -32,7 +32,7 @@ impl Actor for Parent {
   async fn receive(&mut self, mut context_handle: ContextHandle) -> Result<(), ActorError> {
     let message_handle = context_handle.get_message_handle().await;
     let msg = message_handle.to_typed::<Hello>().unwrap();
-    let props = Props::from_actor_producer(|_| async { Child::new() }).await;
+    let props = Props::from_async_actor_producer(|_| async { Child::new() }).await;
     let child = context_handle.spawn(props).await;
     context_handle.send(child, MessageHandle::new(msg)).await;
     Ok(())
@@ -93,7 +93,7 @@ async fn main() {
   };
   let supervisor = OneForOneStrategy::new(10, Duration::from_millis(1000)).with_decider(decider);
   let mut root_context = system.get_root_context().await;
-  let props = Props::from_actor_producer_with_opts(
+  let props = Props::from_async_actor_producer_with_opts(
     |_| async { Parent::new() },
     [Props::with_supervisor_strategy(SupervisorStrategyHandle::new(
       supervisor,

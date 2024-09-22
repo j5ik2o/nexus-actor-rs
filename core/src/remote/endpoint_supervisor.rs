@@ -59,7 +59,7 @@ impl EndpointSupervisor {
     mut ctx: ContextHandle,
   ) -> ExtendedPid {
     let config = self.get_config().await;
-    let props = Props::from_actor_producer_with_opts(
+    let props = Props::from_async_actor_producer_with_opts(
       move |_| {
         let cloned_remote = remote.clone();
         let cloned_address = address.clone();
@@ -78,7 +78,7 @@ impl EndpointSupervisor {
     address: String,
     mut ctx: ContextHandle,
   ) -> ExtendedPid {
-    let props = Props::from_actor_producer_with_opts(
+    let props = Props::from_async_actor_producer_with_opts(
       move |_| {
         let cloned_remote = remote.clone();
         let cloned_address = address.clone();

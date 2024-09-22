@@ -49,7 +49,7 @@ pub mod tests {
     let system = ActorSystem::new().await.unwrap();
     let mut root_context = system.get_root_context().await;
     let pid = root_context
-      .spawn(Props::from_actor_producer(|_| async { EchoActor }).await)
+      .spawn(Props::from_async_actor_producer(|_| async { EchoActor }).await)
       .await;
     let result = root_context
       .request_future(pid, MessageHandle::new(EchoRequest), Duration::from_secs(1))

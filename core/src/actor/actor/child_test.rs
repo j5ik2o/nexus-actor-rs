@@ -41,7 +41,7 @@ pub mod tests {
       let msg = context_handle.get_message_handle().await;
       if let Some(_) = msg.to_typed::<CreateChildMessage>() {
         context_handle
-          .spawn(Props::from_actor_producer(|_| async { BlackHoleActor }).await)
+          .spawn(Props::from_async_actor_producer(|_| async { BlackHoleActor }).await)
           .await;
       } else if let Some(_) = msg.to_typed::<GetChildCountRequest>() {
         let reply = GetChildCountResponse {
@@ -61,7 +61,7 @@ pub mod tests {
     let system = ActorSystem::new().await.unwrap();
     let mut root_context = system.get_root_context().await;
     let pid = root_context
-      .spawn(Props::from_actor_producer(|_| async { CreateChildActor }).await)
+      .spawn(Props::from_async_actor_producer(|_| async { CreateChildActor }).await)
       .await;
     let expected = 10;
     for _ in 0..expected {
@@ -119,7 +119,7 @@ pub mod tests {
       tracing::debug!("CreateChildThenStopActor: {:?}", msg);
       if let Some(_) = msg.to_typed::<CreateChildMessage>() {
         context_handle
-          .spawn(Props::from_actor_producer(|_| async { BlackHoleActor }).await)
+          .spawn(Props::from_async_actor_producer(|_| async { BlackHoleActor }).await)
           .await;
         Ok(())
       } else if let Some(msg) = msg.to_typed::<GetChildCountMessage2>() {
@@ -158,7 +158,7 @@ pub mod tests {
     let system = ActorSystem::new().await.unwrap();
     let mut root_context = system.get_root_context().await;
     let a = root_context
-      .spawn(Props::from_actor_producer(|_| async { CreateChildThenStopActor { reply_to: None } }).await)
+      .spawn(Props::from_async_actor_producer(|_| async { CreateChildThenStopActor { reply_to: None } }).await)
       .await;
 
     let count = 10;
@@ -195,7 +195,7 @@ pub mod tests {
     let mut root_context = system.get_root_context().await;
 
     let child = root_context
-      .spawn(Props::from_actor_receiver(|_| async { Ok(()) }).await)
+      .spawn(Props::from_async_actor_receiver(|_| async { Ok(()) }).await)
       .await;
     let cloned_child = child.clone();
     let future = ActorFutureProcess::new(system.clone(), Duration::from_secs(5)).await;
@@ -206,7 +206,7 @@ pub mod tests {
 
     root_context
       .spawn(
-        Props::from_actor_receiver(move |mut ctx| {
+        Props::from_async_actor_receiver(move |mut ctx| {
           let cloned_child = cloned_child.clone();
           let cloned_ab = cloned_ab.clone();
           let cloned_future = cloned_future.clone();
@@ -242,7 +242,7 @@ pub mod tests {
     let mut root_context = system.get_root_context().await;
 
     let pid = root_context
-      .spawn(Props::from_actor_receiver(|_| async { Ok(()) }).await)
+      .spawn(Props::from_async_actor_receiver(|_| async { Ok(()) }).await)
       .await;
     let future = root_context
       .request_future(pid, MessageHandle::new("".to_string()), Duration::from_millis(1))
@@ -258,7 +258,7 @@ pub mod tests {
 
     let pid = root_context
       .spawn(
-        Props::from_actor_receiver(|ctx| async move {
+        Props::from_async_actor_receiver(|ctx| async move {
           let msg = ctx.get_message_handle().await;
           if let Some(_) = msg.to_typed::<String>() {
             sleep(Duration::from_millis(50)).await;

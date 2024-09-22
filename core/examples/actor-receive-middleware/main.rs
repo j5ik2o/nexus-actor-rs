@@ -22,7 +22,7 @@ async fn main() {
 
   let system = ActorSystem::new().await.unwrap();
   let mut root_context = system.get_root_context().await;
-  let props = Props::from_actor_receiver_with_opts(
+  let props = Props::from_async_actor_receiver_with_opts(
     |ctx| async move {
       let message_handle_opt = ctx.get_message_handle_opt().await;
       if let Some(message_handle) = message_handle_opt {

@@ -25,7 +25,7 @@ mod tests {
     let system = ActorSystem::new().await.unwrap();
     let mut root_context = system.get_root_context().await;
 
-    let props = Props::from_actor_receiver(move |ctx| async move {
+    let props = Props::from_async_actor_receiver(move |ctx| async move {
       tracing::debug!("msg = {:?}", ctx.get_message_handle_opt().await.unwrap());
       Ok(())
     })
@@ -59,7 +59,7 @@ mod tests {
     let system = ActorSystem::new().await.unwrap();
     let mut root_context = system.get_root_context().await;
 
-    let callee_props = Props::from_actor_receiver(move |ctx| async move {
+    let callee_props = Props::from_async_actor_receiver(move |ctx| async move {
       let msg = ctx.get_message_handle().await;
       tracing::debug!("callee msg = {:?}", msg);
       if let Some(msg) = msg.to_typed::<Request>() {
@@ -72,7 +72,7 @@ mod tests {
     let callee_pid = root_context.spawn(callee_props).await;
     let cloned_callee_pid = callee_pid.clone();
 
-    let caller_props = Props::from_actor_receiver(move |mut ctx| {
+    let caller_props = Props::from_async_actor_receiver(move |mut ctx| {
       let cloned_async_barrier = cloned_async_barrier.clone();
       let cloned_callee_pid = cloned_callee_pid.clone();
       async move {

@@ -37,7 +37,7 @@ impl<M: Message + Clone> TypedProps<M> {
     A: TypedActor<M>,
     F: Fn(TypedContextHandle<M>) -> Fut + Clone + Send + Sync + 'static,
     Fut: Future<Output = A> + Send + 'static, {
-    Props::from_actor_producer_with_opts(
+    Props::from_async_actor_producer_with_opts(
       move |c| {
         let f = f.clone();
         async move {
@@ -67,7 +67,7 @@ impl<M: Message + Clone> TypedProps<M> {
   where
     F: Fn(TypedContextHandle<M>) -> Fut + Send + Sync + 'static,
     Fut: Future<Output = Result<(), crate::actor::actor::ActorError>> + Send + 'static, {
-    Props::from_actor_receiver_with_opts(
+    Props::from_async_actor_receiver_with_opts(
       move |c| {
         let r = f(TypedContextHandle::new(c));
         Box::pin(r) as futures::future::BoxFuture<'static, Result<(), crate::actor::actor::ActorError>>

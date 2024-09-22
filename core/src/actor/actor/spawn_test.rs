@@ -62,7 +62,7 @@ mod tests {
       }
     };
 
-    let props = Props::from_actor_producer(actor_producer).await;
+    let props = Props::from_async_actor_producer(actor_producer).await;
 
     let pid = system.get_root_context().await.spawn(props).await;
 
