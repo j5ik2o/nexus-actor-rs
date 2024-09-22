@@ -21,7 +21,7 @@ mod tests {
 
     let system = ActorSystem::new().await.unwrap();
 
-    let props = Props::from_actor_receiver(move |ctx| {
+    let props = Props::from_async_actor_receiver(move |ctx| {
       let cloned_seen_messages_wg = cloned_seen_messages_wg.clone();
       async move {
         let message = ctx.get_message_handle().await;

@@ -75,7 +75,9 @@ impl EndpointWatcher {
         if let Some(ref_process) = system.get_process_registry().await.get_local_process(&watcher_id).await {
           let pid = remote_terminate.watcher.unwrap();
           let pid = ExtendedPid::new(pid);
-          ref_process.send_system_message(&pid, MessageHandle::new(msg)).await;
+          ref_process
+            .send_system_message(&pid, MessageHandle::new(SystemMessage::Terminate(msg)))
+            .await;
         }
       }
     }
@@ -96,7 +98,9 @@ impl EndpointWatcher {
                 why,
               };
               let pid = ExtendedPid::new(pid.clone());
-              ref_process.send_system_message(&pid, MessageHandle::new(msg)).await;
+              ref_process
+                .send_system_message(&pid, MessageHandle::new(SystemMessage::Terminate(msg)))
+                .await;
             }
           }
         }
@@ -163,7 +167,9 @@ impl EndpointWatcher {
           why,
         };
         let pid = ExtendedPid::new(watchee.clone());
-        ref_process.send_system_message(&pid, MessageHandle::new(msg)).await;
+        ref_process
+          .send_system_message(&pid, MessageHandle::new(SystemMessage::Terminate(msg)))
+          .await;
       }
     }
     if let Some(endpoint_event) = msg.to_typed::<EndpointEvent>() {

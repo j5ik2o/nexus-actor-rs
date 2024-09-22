@@ -41,7 +41,7 @@ mod test {
     let mut root = system.get_root_context().await;
     let notify = Arc::new(Notify::new());
     let cloned_notify = notify.clone();
-    let props = Props::from_actor_producer(move |_| {
+    let props = Props::from_async_actor_producer(move |_| {
       let cloned_notify = cloned_notify.clone();
       async move {
         ActorWithSupervisor {
@@ -84,7 +84,7 @@ mod test {
       })
     });
 
-    let props = Props::from_actor_producer_with_opts(
+    let props = Props::from_async_actor_producer_with_opts(
       |_| async { FailingChildActor },
       [
         Props::with_receiver_middlewares([middles]),
@@ -142,7 +142,7 @@ mod test {
   impl Actor for ActorWithSupervisor {
     async fn post_start(&mut self, mut ctx: ContextHandle) -> Result<(), ActorError> {
       tracing::debug!("ActorWithSupervisor::post_start");
-      let props = Props::from_actor_producer(|_| async { FailingChildActor }).await;
+      let props = Props::from_async_actor_producer(|_| async { FailingChildActor }).await;
       let child = ctx.spawn(props).await;
       ctx
         .send(child, MessageHandle::new(StringMessage("fail".to_string())))

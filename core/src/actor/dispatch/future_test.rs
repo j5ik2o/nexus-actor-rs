@@ -178,8 +178,16 @@ mod tests {
       let future = future_process.clone();
       let barrier = barrier.clone();
       async move {
-        sleep(Duration::from_millis(100)).await;
-        future.complete(MessageHandle::new("response".to_string())).await;
+        match tokio::time::timeout(
+          Duration::from_millis(100),
+          future.complete(MessageHandle::new("response".to_string())),
+        )
+        .await
+        {
+          Ok(_) => {}
+          Err(_) => panic!("timeout"),
+        }
+
         barrier.wait().await;
       }
     });

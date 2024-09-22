@@ -206,7 +206,7 @@ impl EndpointManager {
 
   async fn start_activator(&mut self) -> Result<(), EndpointManagerError> {
     let cloned_remote = self.remote.clone();
-    let props = Props::from_actor_producer(move |_| {
+    let props = Props::from_async_actor_producer(move |_| {
       let cloned_remote = cloned_remote.clone();
       async move { Activator::new(cloned_remote.clone()) }
     })
@@ -243,7 +243,7 @@ impl EndpointManager {
   async fn start_supervisor(&mut self) -> Result<(), EndpointManagerError> {
     tracing::debug!("Starting supervisor");
     let remote = self.remote.clone();
-    let props = Props::from_actor_producer_with_opts(
+    let props = Props::from_async_actor_producer_with_opts(
       move |_| {
         let remote = remote.clone();
         async move { EndpointSupervisor::new(remote) }

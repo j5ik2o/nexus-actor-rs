@@ -79,7 +79,7 @@ mod test {
         })
         .await;
 
-      let props = Props::from_actor_producer_with_opts(
+      let props = Props::from_async_actor_producer_with_opts(
         move |_| async { PanicActor },
         [Props::with_supervisor_strategy(strategy.clone())],
       )

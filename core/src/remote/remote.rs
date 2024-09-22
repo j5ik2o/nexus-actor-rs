@@ -408,8 +408,11 @@ mod tests {
     let config = Config::from([
       ConfigOption::with_host("127.0.0.1"),
       ConfigOption::with_port(8080),
-      ConfigOption::with_kind("someKind", Props::from_actor_receiver(|_| async { Ok(()) }).await),
-      ConfigOption::with_kind("someOther", Props::from_actor_receiver(|_| async { Ok(()) }).await),
+      ConfigOption::with_kind("someKind", Props::from_async_actor_receiver(|_| async { Ok(()) }).await),
+      ConfigOption::with_kind(
+        "someOther",
+        Props::from_async_actor_receiver(|_| async { Ok(()) }).await,
+      ),
     ])
     .await;
 
@@ -449,7 +452,7 @@ mod tests {
     server_wait_group.wait().await;
 
     // エコーアクターをサーバーに登録して起動
-    let echo_props = Props::from_actor_producer(|_| async { EchoActor }).await;
+    let echo_props = Props::from_async_actor_producer(|_| async { EchoActor }).await;
     let echo_pid = server_system
       .get_root_context()
       .await

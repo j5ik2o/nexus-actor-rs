@@ -22,7 +22,7 @@ mod tests {
     let system = ActorSystem::new().await.unwrap();
     let cloned_b = b.clone();
 
-    let props = Props::from_actor_receiver(move |ctx| {
+    let props = Props::from_async_actor_receiver(move |ctx| {
       let b = cloned_b.clone();
       async move {
         let msg = ctx.get_message_handle().await;

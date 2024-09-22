@@ -29,7 +29,7 @@ mod tests {
 
     let pid = root_context
       .spawn(
-        Props::from_actor_receiver(move |ctx| async move {
+        Props::from_async_actor_receiver(move |ctx| async move {
           if let Some(msg) = ctx.get_message_handle().await.to_typed::<String>() {
             let self_pid = ctx.get_self().await;
             if msg == "request" {
@@ -98,7 +98,7 @@ mod tests {
 
     let actor_receiver = move |_| async move { Ok(()) };
     let pid = root_context
-      .spawn(Props::from_actor_receiver(actor_receiver).await)
+      .spawn(Props::from_async_actor_receiver(actor_receiver).await)
       .await;
 
     let result = root_context
@@ -129,7 +129,7 @@ mod tests {
 
     let actor_receiver = move |_| async move { Ok(()) };
     let pid = root_context
-      .spawn(Props::from_actor_receiver(actor_receiver).await)
+      .spawn(Props::from_async_actor_receiver(actor_receiver).await)
       .await;
 
     let result = root_context
