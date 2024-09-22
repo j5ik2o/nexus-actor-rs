@@ -1,7 +1,7 @@
 use crate::actor::actor::ExtendedPid;
 use crate::actor::message::{unwrap_envelope, MessageHandle, ReadonlyMessageHeadersHandle, SystemMessage};
 use crate::actor::process::Process;
-use crate::generated::actor::{Pid, Stop, Unwatch, Watch};
+use crate::generated::actor::{Pid, Unwatch, Watch};
 use crate::remote::messages::{RemoteUnwatch, RemoteWatch};
 use crate::remote::remote::Remote;
 use crate::remote::serializer::SerializerId;
