@@ -471,7 +471,7 @@ impl ActorContext {
     let mut actor = self.get_actor().await.unwrap();
     if let Some(s) = actor.get_supervisor_strategy().await {
       s.handle_child_failure(
-        &self.get_actor_system().await,
+        self.get_actor_system().await,
         SupervisorHandle::new(self.clone()),
         f.who.clone(),
         f.restart_stats.clone(),
@@ -486,7 +486,7 @@ impl ActorContext {
       .await
       .get_supervisor_strategy()
       .handle_child_failure(
-        &self.get_actor_system().await,
+        self.get_actor_system().await,
         SupervisorHandle::new(self.clone()),
         f.who.clone(),
         f.restart_stats.clone(),
@@ -519,7 +519,7 @@ impl ActorContext {
   async fn handle_root_failure(&mut self, failure: &Failure) {
     DEFAULT_SUPERVISION_STRATEGY
       .handle_child_failure(
-        &self.get_actor_system().await,
+        self.get_actor_system().await,
         SupervisorHandle::new(self.clone()),
         self.get_self_opt().await.unwrap(),
         failure.restart_stats.clone(),

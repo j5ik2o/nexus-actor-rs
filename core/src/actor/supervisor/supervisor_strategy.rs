@@ -58,7 +58,7 @@ impl std::hash::Hash for Decider {
 pub trait SupervisorStrategy: Debug + Send + Sync {
   async fn handle_child_failure(
     &self,
-    actor_system: &ActorSystem,
+    actor_system: ActorSystem,
     supervisor: SupervisorHandle,
     child: ExtendedPid,
     rs: RestartStatistics,
@@ -133,7 +133,7 @@ impl Supervisor for SupervisorHandle {
   }
 }
 
-pub async fn log_failure(actor_system: &ActorSystem, child: &ExtendedPid, reason: ErrorReason, directive: Directive) {
+pub async fn log_failure(actor_system: ActorSystem, child: &ExtendedPid, reason: ErrorReason, directive: Directive) {
   actor_system
     .get_event_stream()
     .await

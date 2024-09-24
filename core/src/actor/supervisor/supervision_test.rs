@@ -164,7 +164,7 @@ mod test {
   impl SupervisorStrategy for ActorWithSupervisor {
     async fn handle_child_failure(
       &self,
-      _: &ActorSystem,
+      _: ActorSystem,
       _: SupervisorHandle,
       child: ExtendedPid,
       rs: RestartStatistics,
