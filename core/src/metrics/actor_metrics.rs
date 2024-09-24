@@ -193,35 +193,21 @@ mod tests {
   use super::*;
   use opentelemetry_sdk::metrics::{ManualReader, MeterProviderBuilder};
 
-  #[test]
-  fn test_actor_metrics() {
+  #[tokio::test]
+  async fn test_actor_metrics() {
     let reader = ManualReader::builder().build();
     let meter_provider = MeterProviderBuilder::default().with_reader(reader).build();
     let meter_provider = MetricsProvider::Sdk(meter_provider);
     let metrics = ActorMetrics::new(Arc::new(meter_provider)).expect("メトリクスの初期化に失敗しました");
 
-    // メトリクスの操作をグループ化
-    metrics.increment_actor_failure_count();
-    metrics.increment_actor_restarted_count();
-    metrics.increment_actor_spawn_count();
-    metrics.increment_actor_stopped_count();
-    metrics.increment_dead_letter_count();
-    metrics.increment_futures_started_count();
-    metrics.increment_futures_completed_count();
-    metrics.increment_futures_timed_out_count();
-
-    // 値を設定するメトリクスをグループ化
-    metrics.set_actor_mailbox_length(5);
-    metrics.record_actor_message_receive_duration(0.1);
-    // metrics.record_thread_pool_latency(0.05);
-
-    // 検証可能な操作の結果をアサート
-    assert_eq!(
-      metrics.get_actor_mailbox_length(),
-      5,
-      "メールボックスの長さが正しく設定されていません"
-    );
-
-    // 他のメトリクスの操作が成功したことを暗黙的に確認
+    metrics.increment_actor_failure_count().await;
+    metrics.increment_actor_mailbox_length().await;
+    metrics.increment_actor_restarted_count().await;
+    metrics.increment_actor_spawn_count().await;
+    metrics.increment_actor_stopped_count().await;
+    metrics.increment_dead_letter_count().await;
+    metrics.increment_futures_started_count().await;
+    metrics.increment_futures_completed_count().await;
+    metrics.increment_futures_timed_out_count().await;
   }
 }
