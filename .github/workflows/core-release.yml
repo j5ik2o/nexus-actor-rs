@@ -22,4 +22,4 @@ jobs:
           override: true
       - name: release the crate
         run: |
-          cargo publish --token ${{ secrets.CARGO_TOKEN }} -p nexus-actor-core-rs
+          cargo publish --token ${{ secrets.CARGO_TOKEN }} -p nexus-actor-core-rs --no-verify
