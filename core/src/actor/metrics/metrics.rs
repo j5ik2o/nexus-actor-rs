@@ -79,7 +79,7 @@ impl Metrics {
     if self.is_enabled() {
       if let Some(pm) = self.get_proto_metrics() {
         if let Some(am) = pm.get(ProtoMetrics::INTERNAL_ACTOR_METRICS) {
-          f(am, self).await;
+          f(&am, self).await;
         }
       }
     }

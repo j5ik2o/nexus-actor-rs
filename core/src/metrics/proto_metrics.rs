@@ -1,8 +1,8 @@
 use crate::actor::MetricsProvider;
 use crate::metrics::ActorMetrics;
+use dashmap::DashMap;
 use opentelemetry::metrics::MetricsError;
 use std::sync::Arc;
-use dashmap::DashMap;
 
 #[derive(Debug, Clone)]
 pub struct ProtoMetrics {
@@ -39,7 +39,7 @@ impl ProtoMetrics {
     Ok(())
   }
 
-  pub fn get(&self, key: &str) -> Option<&ActorMetrics> {
-    self.known_metrics.get(key).map(|e| e.value())
+  pub fn get(&self, key: &str) -> Option<ActorMetrics> {
+    self.known_metrics.get(key).map(|e| e.value().clone())
   }
 }

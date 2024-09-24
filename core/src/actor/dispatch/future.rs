@@ -124,7 +124,7 @@ impl ActorFutureProcess {
     future_process
       .metrics_foreach(|am, _| {
         let am = am.clone();
-        async move { am.increment_futures_started_count() }
+        async move { am.increment_futures_started_count().await }
       })
       .await;
 
@@ -254,15 +254,19 @@ impl ActorFutureProcess {
             let actor_future_inner = cloned_future.inner.lock().await;
             actor_future_inner.error.is_none()
           } {
-            cloned_am.increment_futures_completed_count_with_opts(&[KeyValue::new(
-              "address",
-              self.get_actor_system().await.get_address().await,
-            )])
+            cloned_am
+              .increment_futures_completed_count_with_opts(&[KeyValue::new(
+                "address",
+                self.get_actor_system().await.get_address().await,
+              )])
+              .await
           } else {
-            cloned_am.increment_futures_timed_out_count_with_opts(&[KeyValue::new(
-              "address",
-              self.get_actor_system().await.get_address().await,
-            )])
+            cloned_am
+              .increment_futures_timed_out_count_with_opts(&[KeyValue::new(
+                "address",
+                self.get_actor_system().await.get_address().await,
+              )])
+              .await
           }
         }
       })

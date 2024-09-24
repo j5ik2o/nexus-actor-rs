@@ -218,7 +218,7 @@ impl ActorContext {
       .metrics_foreach(|am, _| {
         let am = am.clone();
         async move {
-          am.increment_actor_spawn_count();
+          am.increment_actor_spawn_count().await;
         }
       })
       .await;
@@ -453,7 +453,7 @@ impl ActorContext {
     self
       .metrics_foreach(|am, _| {
         let am = am.clone();
-        async move { am.increment_actor_restarted_count() }
+        async move { am.increment_actor_restarted_count().await }
       })
       .await;
     Ok(())
@@ -907,7 +907,7 @@ impl StopperPart for ActorContext {
     self
       .metrics_foreach(|am, _| {
         let am = am.clone();
-        async move { am.increment_actor_stopped_count() }
+        async move { am.increment_actor_stopped_count().await }
       })
       .await;
     let inner_mg = self.inner.lock().await;
@@ -1071,7 +1071,7 @@ impl MessageInvoker for ActorContext {
         .metrics_foreach(|am, _| {
           let am = am.clone();
           async move {
-            am.record_actor_message_receive_duration(duration.as_secs_f64());
+            am.record_actor_message_receive_duration(duration.as_secs_f64()).await;
           }
         })
         .await;
@@ -1101,7 +1101,7 @@ impl MessageInvoker for ActorContext {
     self
       .metrics_foreach(|am, _| {
         let am = am.clone();
-        async move { am.increment_actor_failure_count() }
+        async move { am.increment_actor_failure_count().await }
       })
       .await;
 
@@ -1173,7 +1173,8 @@ impl Supervisor for ActorContext {
         let am = am.clone();
         let m = m.clone();
         async move {
-          am.increment_actor_failure_count_with_opts(&m.common_labels(self).await);
+          am.increment_actor_failure_count_with_opts(&m.common_labels(self).await)
+            .await;
         }
       })
       .await;

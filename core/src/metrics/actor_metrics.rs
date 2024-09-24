@@ -1,8 +1,8 @@
 use crate::actor::MetricsProvider;
 use opentelemetry::metrics::MeterProvider;
-use opentelemetry::metrics::{Counter, Histogram, Meter, ObservableGauge};
+use opentelemetry::metrics::{Counter, Histogram, Meter};
 use opentelemetry::KeyValue;
-use std::sync::{Arc};
+use std::sync::Arc;
 use tokio::sync::Mutex;
 
 pub const LIB_NAME: &str = "protoactor";
@@ -25,74 +25,74 @@ struct ActorMetricsInner {
 
 #[derive(Debug, Clone)]
 pub struct ActorMetrics {
-  inner: Arc<Mutex<ActorMetricsInner>>
+  inner: Arc<Mutex<ActorMetricsInner>>,
 }
-
 
 impl ActorMetrics {
   pub fn new(meter_provider: Arc<MetricsProvider>) -> Result<Self, opentelemetry::metrics::MetricsError> {
     let meter = meter_provider.meter(LIB_NAME);
 
     Ok(ActorMetrics {
-      inner: Arc::new(Mutex::new(ActorMetricsInner{
-      meter: meter.clone(),
-      actor_failure_count: meter
-        .u64_counter("nexus_actor_actor_failure_count")
-        .with_description("Number of actor failures")
-        .with_unit("1")
-        .try_init()?,
-      actor_mailbox_length: meter
-        .u64_counter("nexus_actor_actor_mailbox_length")
-        .with_description("Actor mailbox length")
-        .with_unit("1")
-        .try_init()?,
-      actor_message_receive_histogram: meter
-        .f64_histogram("nexus_actor_actor_message_receive_duration_seconds")
-        .with_description("Actor's messages received duration in seconds")
-        .with_unit("s")
-        .try_init()?,
-      actor_restarted_count: meter
-        .u64_counter("nexus_actor_actor_restarted_count")
-        .with_description("Number of actors restarts")
-        .with_unit("1")
-        .try_init()?,
-      actor_spawn_count: meter
-        .u64_counter("nexus_actor_actor_spawn_count")
-        .with_description("Number of actors spawn")
-        .with_unit("1")
-        .try_init()?,
-      actor_stopped_count: meter
-        .u64_counter("nexus_actor_actor_stopped_count")
-        .with_description("Number of actors stopped")
-        .with_unit("1")
-        .try_init()?,
-      dead_letter_count: meter
-        .u64_counter("nexus_actor_deadletter_count")
-        .with_description("Number of deadletters")
-        .with_unit("1")
-        .try_init()?,
-      futures_started_count: meter
-        .u64_counter("nexus_actor_futures_started_count")
-        .with_description("Number of futures started")
-        .with_unit("1")
-        .try_init()?,
-      futures_completed_count: meter
-        .u64_counter("nexus_actor_futures_completed_count")
-        .with_description("Number of futures completed")
-        .with_unit("1")
-        .try_init()?,
-      futures_timed_out_count: meter
-        .u64_counter("nexus_actor_futures_timed_out_count")
-        .with_description("Number of futures timed out")
-        .with_unit("1")
-        .try_init()?,
-      thread_pool_latency: meter
-        .f64_histogram("nexus_actor_thread_pool_latency_duration_seconds")
-        .with_description("History of latency in seconds")
-        .with_unit("s")
-        .try_init()?,
-      //mailbox_length,
-    }))})
+      inner: Arc::new(Mutex::new(ActorMetricsInner {
+        meter: meter.clone(),
+        actor_failure_count: meter
+          .u64_counter("nexus_actor_actor_failure_count")
+          .with_description("Number of actor failures")
+          .with_unit("1")
+          .try_init()?,
+        actor_mailbox_length: meter
+          .u64_counter("nexus_actor_actor_mailbox_length")
+          .with_description("Actor mailbox length")
+          .with_unit("1")
+          .try_init()?,
+        actor_message_receive_histogram: meter
+          .f64_histogram("nexus_actor_actor_message_receive_duration_seconds")
+          .with_description("Actor's messages received duration in seconds")
+          .with_unit("s")
+          .try_init()?,
+        actor_restarted_count: meter
+          .u64_counter("nexus_actor_actor_restarted_count")
+          .with_description("Number of actors restarts")
+          .with_unit("1")
+          .try_init()?,
+        actor_spawn_count: meter
+          .u64_counter("nexus_actor_actor_spawn_count")
+          .with_description("Number of actors spawn")
+          .with_unit("1")
+          .try_init()?,
+        actor_stopped_count: meter
+          .u64_counter("nexus_actor_actor_stopped_count")
+          .with_description("Number of actors stopped")
+          .with_unit("1")
+          .try_init()?,
+        dead_letter_count: meter
+          .u64_counter("nexus_actor_deadletter_count")
+          .with_description("Number of deadletters")
+          .with_unit("1")
+          .try_init()?,
+        futures_started_count: meter
+          .u64_counter("nexus_actor_futures_started_count")
+          .with_description("Number of futures started")
+          .with_unit("1")
+          .try_init()?,
+        futures_completed_count: meter
+          .u64_counter("nexus_actor_futures_completed_count")
+          .with_description("Number of futures completed")
+          .with_unit("1")
+          .try_init()?,
+        futures_timed_out_count: meter
+          .u64_counter("nexus_actor_futures_timed_out_count")
+          .with_description("Number of futures timed out")
+          .with_unit("1")
+          .try_init()?,
+        thread_pool_latency: meter
+          .f64_histogram("nexus_actor_thread_pool_latency_duration_seconds")
+          .with_description("History of latency in seconds")
+          .with_unit("s")
+          .try_init()?,
+        // mailbox_length,
+      })),
+    })
   }
 
   pub async fn increment_actor_failure_count(&self) {
@@ -114,7 +114,9 @@ impl ActorMetrics {
   }
 
   pub async fn record_actor_message_receive_duration(&self, duration: f64) {
-    self.record_actor_message_receive_duration_with_opts(duration, &[]).await;
+    self
+      .record_actor_message_receive_duration_with_opts(duration, &[])
+      .await;
   }
 
   pub async fn record_actor_message_receive_duration_with_opts(&self, duration: f64, attributes: &[KeyValue]) {
@@ -184,7 +186,6 @@ impl ActorMetrics {
     let inner_mg = self.inner.lock().await;
     inner_mg.futures_timed_out_count.add(1, attributes);
   }
-
 }
 
 #[cfg(test)]

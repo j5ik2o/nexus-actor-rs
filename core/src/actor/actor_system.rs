@@ -78,14 +78,11 @@ impl ActorSystem {
 
     subscribe_supervision(&system).await;
 
-    if let Some(metrics_provider) = config.metrics_provider.clone() {
+    if config.metrics_provider.is_some() {
       system
         .get_extensions()
         .await
-        .register(Arc::new(Mutex::new(Metrics::new(
-          system.clone(),
-          Some(metrics_provider),
-        )?)))
+        .register(Arc::new(Mutex::new(Metrics::new(system.clone()).await?)))
         .await;
     }
 
