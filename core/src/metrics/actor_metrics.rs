@@ -2,15 +2,16 @@ use crate::actor::MetricsProvider;
 use opentelemetry::metrics::MeterProvider;
 use opentelemetry::metrics::{Counter, Histogram, Meter, ObservableGauge};
 use opentelemetry::KeyValue;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc};
+use tokio::sync::Mutex;
 
 pub const LIB_NAME: &str = "protoactor";
 
 #[derive(Debug, Clone)]
-pub struct ActorMetrics {
+struct ActorMetricsInner {
   meter: Meter,
   actor_failure_count: Counter<u64>,
-  actor_mailbox_length: ObservableGauge<i64>,
+  actor_mailbox_length: Counter<u64>,
   actor_message_receive_histogram: Histogram<f64>,
   actor_restarted_count: Counter<u64>,
   actor_spawn_count: Counter<u64>,
@@ -20,38 +21,31 @@ pub struct ActorMetrics {
   futures_completed_count: Counter<u64>,
   futures_timed_out_count: Counter<u64>,
   thread_pool_latency: Histogram<f64>,
-  mailbox_length: Arc<RwLock<i64>>,
 }
+
+#[derive(Debug, Clone)]
+pub struct ActorMetrics {
+  inner: Arc<Mutex<ActorMetricsInner>>
+}
+
 
 impl ActorMetrics {
   pub fn new(meter_provider: Arc<MetricsProvider>) -> Result<Self, opentelemetry::metrics::MetricsError> {
     let meter = meter_provider.meter(LIB_NAME);
 
-    let mailbox_length = Arc::new(RwLock::new(0i64));
-    let mailbox_length_clone = mailbox_length.clone();
-
-    let actor_mailbox_length = meter
-      .i64_observable_gauge("nexus_actor_actor_mailbox_length")
-      .with_description("Actor mailbox length")
-      .with_unit("1")
-      .try_init()?;
-
-    let cloned_actor_mailbox_length = actor_mailbox_length.clone();
-
-    meter.register_callback(&[actor_mailbox_length.as_any()], move |observer| {
-      if let Ok(length) = mailbox_length_clone.read() {
-        observer.observe_i64(&cloned_actor_mailbox_length, *length, &[]);
-      }
-    })?;
-
     Ok(ActorMetrics {
+      inner: Arc::new(Mutex::new(ActorMetricsInner{
       meter: meter.clone(),
       actor_failure_count: meter
         .u64_counter("nexus_actor_actor_failure_count")
         .with_description("Number of actor failures")
         .with_unit("1")
         .try_init()?,
-      actor_mailbox_length,
+      actor_mailbox_length: meter
+        .u64_counter("nexus_actor_actor_mailbox_length")
+        .with_description("Actor mailbox length")
+        .with_unit("1")
+        .try_init()?,
       actor_message_receive_histogram: meter
         .f64_histogram("nexus_actor_actor_message_receive_duration_seconds")
         .with_description("Actor's messages received duration in seconds")
@@ -97,97 +91,100 @@ impl ActorMetrics {
         .with_description("History of latency in seconds")
         .with_unit("s")
         .try_init()?,
-      mailbox_length,
-    })
+      //mailbox_length,
+    }))})
   }
 
-  pub fn increment_actor_failure_count(&self) {
-    self.increment_actor_failure_count_with_opts(&[]);
+  pub async fn increment_actor_failure_count(&self) {
+    self.increment_actor_failure_count_with_opts(&[]).await;
   }
 
-  pub fn increment_actor_failure_count_with_opts(&self, attributes: &[KeyValue]) {
-    self.actor_failure_count.add(1, attributes);
+  pub async fn increment_actor_failure_count_with_opts(&self, attributes: &[KeyValue]) {
+    let inner_mg = self.inner.lock().await;
+    inner_mg.actor_failure_count.add(1, attributes);
   }
 
-  pub fn actor_mailbox_length_observable_gauge(&self) -> ObservableGauge<i64> {
-    self.actor_mailbox_length.clone()
+  pub async fn increment_actor_mailbox_length(&self) {
+    self.increment_actor_mailbox_length_with_opts(&[]).await;
   }
 
-  pub fn set_actor_mailbox_length(&self, length: i64) {
-    *self.mailbox_length.write().unwrap() = length;
+  pub async fn increment_actor_mailbox_length_with_opts(&self, attributes: &[KeyValue]) {
+    let inner_mg = self.inner.lock().await;
+    inner_mg.actor_mailbox_length.add(1, attributes);
   }
 
-  pub fn get_actor_mailbox_length(&self) -> i64 {
-    *self.mailbox_length.read().unwrap()
+  pub async fn record_actor_message_receive_duration(&self, duration: f64) {
+    self.record_actor_message_receive_duration_with_opts(duration, &[]).await;
   }
 
-  pub fn record_actor_message_receive_duration(&self, duration: f64) {
-    self.record_actor_message_receive_duration_with_opts(duration, &[]);
+  pub async fn record_actor_message_receive_duration_with_opts(&self, duration: f64, attributes: &[KeyValue]) {
+    let inner_mg = self.inner.lock().await;
+    inner_mg.actor_message_receive_histogram.record(duration, attributes);
   }
 
-  pub fn record_actor_message_receive_duration_with_opts(&self, duration: f64, attributes: &[KeyValue]) {
-    self.actor_message_receive_histogram.record(duration, attributes);
+  pub async fn increment_actor_restarted_count(&self) {
+    self.increment_actor_restarted_count_with_opts(&[]).await;
   }
 
-  pub fn increment_actor_restarted_count(&self) {
-    self.increment_actor_restarted_count_with_opts(&[]);
+  pub async fn increment_actor_restarted_count_with_opts(&self, attributes: &[KeyValue]) {
+    let inner_mg = self.inner.lock().await;
+    inner_mg.actor_restarted_count.add(1, attributes);
   }
 
-  pub fn increment_actor_restarted_count_with_opts(&self, attributes: &[KeyValue]) {
-    self.actor_restarted_count.add(1, attributes);
+  pub async fn increment_actor_spawn_count(&self) {
+    self.increment_actor_spawn_count_with_opts(&[]).await;
   }
 
-  pub fn increment_actor_spawn_count(&self) {
-    self.increment_actor_spawn_count_with_opts(&[]);
+  pub async fn increment_actor_spawn_count_with_opts(&self, attributes: &[KeyValue]) {
+    let inner_mg = self.inner.lock().await;
+    inner_mg.actor_spawn_count.add(1, attributes);
   }
 
-  pub fn increment_actor_spawn_count_with_opts(&self, attributes: &[KeyValue]) {
-    self.actor_spawn_count.add(1, attributes);
+  pub async fn increment_actor_stopped_count(&self) {
+    self.increment_actor_stopped_count_with_opts(&[]).await;
   }
 
-  pub fn increment_actor_stopped_count(&self) {
-    self.increment_actor_stopped_count_with_opts(&[]);
+  pub async fn increment_actor_stopped_count_with_opts(&self, attributes: &[KeyValue]) {
+    let inner_mg = self.inner.lock().await;
+    inner_mg.actor_stopped_count.add(1, attributes);
   }
 
-  pub fn increment_actor_stopped_count_with_opts(&self, attributes: &[KeyValue]) {
-    self.actor_stopped_count.add(1, attributes);
+  pub async fn increment_dead_letter_count(&self) {
+    self.increment_dead_letter_count_with_opts(&[]).await;
   }
 
-  pub fn increment_dead_letter_count(&self) {
-    self.increment_dead_letter_count_with_opts(&[]);
+  pub async fn increment_dead_letter_count_with_opts(&self, attributes: &[KeyValue]) {
+    let inner_mg = self.inner.lock().await;
+    inner_mg.dead_letter_count.add(1, attributes);
   }
 
-  pub fn increment_dead_letter_count_with_opts(&self, attributes: &[KeyValue]) {
-    self.dead_letter_count.add(1, attributes);
+  pub async fn increment_futures_started_count(&self) {
+    self.increment_futures_started_count_with_opts(&[]).await
   }
 
-  pub fn increment_futures_started_count(&self) {
-    self.increment_futures_started_count_with_opts(&[])
+  pub async fn increment_futures_started_count_with_opts(&self, attributes: &[KeyValue]) {
+    let inner_mg = self.inner.lock().await;
+    inner_mg.futures_started_count.add(1, attributes);
   }
 
-  pub fn increment_futures_started_count_with_opts(&self, attributes: &[KeyValue]) {
-    self.futures_started_count.add(1, attributes);
+  pub async fn increment_futures_completed_count(&self) {
+    self.increment_futures_completed_count_with_opts(&[]).await;
   }
 
-  pub fn increment_futures_completed_count(&self) {
-    self.increment_futures_completed_count_with_opts(&[]);
+  pub async fn increment_futures_completed_count_with_opts(&self, attributes: &[KeyValue]) {
+    let inner_mg = self.inner.lock().await;
+    inner_mg.futures_completed_count.add(1, attributes);
   }
 
-  pub fn increment_futures_completed_count_with_opts(&self, attributes: &[KeyValue]) {
-    self.futures_completed_count.add(1, attributes);
+  pub async fn increment_futures_timed_out_count(&self) {
+    self.increment_futures_timed_out_count_with_opts(&[]).await;
   }
 
-  pub fn increment_futures_timed_out_count(&self) {
-    self.increment_futures_timed_out_count_with_opts(&[]);
+  pub async fn increment_futures_timed_out_count_with_opts(&self, attributes: &[KeyValue]) {
+    let inner_mg = self.inner.lock().await;
+    inner_mg.futures_timed_out_count.add(1, attributes);
   }
 
-  pub fn increment_futures_timed_out_count_with_opts(&self, attributes: &[KeyValue]) {
-    self.futures_timed_out_count.add(1, attributes);
-  }
-
-  pub fn set_actor_mailbox_length_gauge(&mut self, gauge: ObservableGauge<i64>) {
-    self.actor_mailbox_length = gauge;
-  }
 }
 
 #[cfg(test)]

@@ -1,20 +1,18 @@
 use crate::actor::actor::Actor;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::Context;
-use crate::actor::MetricsProvider;
 use crate::extensions::{next_extension_id, Extension, ExtensionId};
 use crate::metrics::{ActorMetrics, ProtoMetrics};
 use once_cell::sync::Lazy;
 use opentelemetry::metrics::MetricsError;
 use opentelemetry::KeyValue;
 use std::any::Any;
-use std::sync::Arc;
 
 pub static EXTENSION_ID: Lazy<ExtensionId> = Lazy::new(|| next_extension_id());
 
 #[derive(Debug, Clone)]
 pub struct Metrics {
-  metrics: Option<ProtoMetrics>,
+  proto_metrics: Option<ProtoMetrics>,
   enabled: bool,
   actor_system: ActorSystem,
 }
@@ -34,47 +32,27 @@ impl Extension for Metrics {
 }
 
 impl Metrics {
-  pub fn new(system: ActorSystem, metric_provider: Option<Arc<MetricsProvider>>) -> Result<Self, MetricsError> {
-    match metric_provider {
+  pub async fn new(system: ActorSystem) -> Result<Self, MetricsError> {
+    match system.clone().get_config().await.metrics_provider {
       Some(mp) => Ok(Metrics {
-        metrics: Some(ProtoMetrics::new(mp)?),
+        proto_metrics: Some(ProtoMetrics::new(mp)?),
         enabled: true,
         actor_system: system,
       }),
       None => Ok(Metrics {
-        metrics: None,
+        proto_metrics: None,
         enabled: false,
         actor_system: system,
       }),
     }
   }
 
-  pub fn get_metrics(&self) -> Option<&ProtoMetrics> {
-    self.metrics.as_ref()
+  pub fn get_proto_metrics(&self) -> Option<&ProtoMetrics> {
+    self.proto_metrics.as_ref()
   }
 
-  pub fn enabled(&self) -> bool {
+  pub fn is_enabled(&self) -> bool {
     self.enabled
-  }
-
-  pub fn prepare_mailbox_length_gauge(&mut self) {
-    if let Some(metrics) = &mut self.metrics {
-      let meter = opentelemetry::global::meter("nexus_actor");
-      match meter
-        .i64_observable_gauge("nexus_actor_actor_mailbox_length")
-        .with_description("Actor's Mailbox Length")
-        .with_unit("1")
-        .try_init()
-      {
-        Ok(gauge) => {
-          metrics.instruments_mut().set_actor_mailbox_length_gauge(gauge);
-        }
-        Err(err) => {
-          let error_msg = format!("Failed to create ActorMailBoxLength instrument: {}", err);
-          tracing::error!("{}", error_msg);
-        }
-      }
-    }
   }
 
   pub async fn common_labels(&self, ctx: &impl Context) -> Vec<KeyValue> {
@@ -98,8 +76,8 @@ impl Metrics {
   where
     F: Fn(&ActorMetrics, &Metrics) -> Fut,
     Fut: std::future::Future<Output = ()>, {
-    if self.enabled() {
-      if let Some(pm) = self.get_metrics() {
+    if self.is_enabled() {
+      if let Some(pm) = self.get_proto_metrics() {
         if let Some(am) = pm.get(ProtoMetrics::INTERNAL_ACTOR_METRICS) {
           f(am, self).await;
         }
