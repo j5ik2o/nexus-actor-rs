@@ -426,7 +426,6 @@ impl ActorFuture {
   async fn instrument(&self) {
     // Here you would implement your metrics logging
     // This is a placeholder for the actual implementation
-    // tracing::debug!("Future completed");
   }
 
   async fn get_actor_system(&self) -> ActorSystem {
