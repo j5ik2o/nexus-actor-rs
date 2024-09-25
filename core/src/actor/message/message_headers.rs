@@ -1,18 +1,18 @@
+use dashmap::DashMap;
+use once_cell::sync::Lazy;
 use std::collections::HashMap;
 use std::sync::Arc;
-
-use once_cell::sync::Lazy;
 
 use crate::actor::message::readonly_message_headers::ReadonlyMessageHeaders;
 
 #[derive(Debug, Default, Clone)]
 pub struct MessageHeaders {
-  inner: HashMap<String, String>,
+  inner: Arc<DashMap<String, String>>,
 }
 
 impl PartialEq for MessageHeaders {
   fn eq(&self, other: &Self) -> bool {
-    self.inner == other.inner
+    self.to_map() == other.to_map()
   }
 }
 
@@ -20,11 +20,15 @@ impl Eq for MessageHeaders {}
 
 impl MessageHeaders {
   pub fn new() -> Self {
-    Self { inner: HashMap::new() }
+    Self {
+      inner: Arc::new(DashMap::new()),
+    }
   }
 
   pub fn with_values(values: HashMap<String, String>) -> Self {
-    Self { inner: values }
+    Self {
+      inner: Arc::new(DashMap::from_iter(values)),
+    }
   }
 
   pub fn set(&mut self, key: String, value: String) {
@@ -32,17 +36,17 @@ impl MessageHeaders {
   }
 
   pub fn to_map(&self) -> HashMap<String, String> {
-    self.inner.clone()
+    HashMap::from_iter((&*self.inner).clone())
   }
 }
 
 impl ReadonlyMessageHeaders for MessageHeaders {
-  fn get(&self, key: &str) -> Option<&String> {
-    self.inner.get(key)
+  fn get(&self, key: &str) -> Option<String> {
+    self.inner.get(key).map(|e| e.value().clone())
   }
 
-  fn keys(&self) -> Vec<&String> {
-    self.inner.keys().collect()
+  fn keys(&self) -> Vec<String> {
+    self.inner.iter().map(|e| e.key().clone()).collect()
   }
 
   fn length(&self) -> usize {
@@ -50,7 +54,7 @@ impl ReadonlyMessageHeaders for MessageHeaders {
   }
 
   fn to_map(&self) -> HashMap<String, String> {
-    self.inner.clone()
+    HashMap::from_iter((&*self.inner).clone())
   }
 }
 

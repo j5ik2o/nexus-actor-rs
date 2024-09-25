@@ -125,7 +125,7 @@ impl MessageEnvelope {
   }
 
   pub fn get_header_value(&self, key: &str) -> Option<String> {
-    self.header.as_ref().and_then(|h| h.get(key).cloned())
+    self.header.as_ref().and_then(|h| h.get(key))
   }
 
   pub fn set_header(&mut self, key: String, value: String) {
