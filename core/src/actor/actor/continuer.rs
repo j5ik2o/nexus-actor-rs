@@ -48,3 +48,5 @@ impl std::hash::Hash for Continuer {
       .hash(state);
   }
 }
+
+static_assertions::assert_impl_all!(Continuer: Send, Sync);

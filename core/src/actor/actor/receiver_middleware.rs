@@ -10,9 +10,7 @@ unsafe impl Send for ReceiverMiddleware {}
 unsafe impl Sync for ReceiverMiddleware {}
 
 impl ReceiverMiddleware {
-  pub fn new<F>(f: F) -> Self
-  where
-    F: Fn(ReceiverMiddlewareChain) -> ReceiverMiddlewareChain + Send + Sync + 'static, {
+  pub fn new(f: impl Fn(ReceiverMiddlewareChain) -> ReceiverMiddlewareChain + Send + Sync + 'static) -> Self {
     ReceiverMiddleware(Arc::new(f))
   }
 
@@ -40,3 +38,5 @@ impl std::hash::Hash for ReceiverMiddleware {
     (self.0.as_ref() as *const dyn Fn(ReceiverMiddlewareChain) -> ReceiverMiddlewareChain).hash(state);
   }
 }
+
+static_assertions::assert_impl_all!(ReceiverMiddleware: Send, Sync);

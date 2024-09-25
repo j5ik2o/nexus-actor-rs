@@ -81,3 +81,5 @@ impl Default for RestartStatistics {
     Self::new()
   }
 }
+
+static_assertions::assert_impl_all!(RestartStatistics: Send, Sync);

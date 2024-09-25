@@ -38,3 +38,5 @@ impl std::hash::Hash for ContextHandler {
     (self.0.as_ref() as *const dyn Fn(ContextHandle)).hash(state);
   }
 }
+
+static_assertions::assert_impl_all!(ContextHandler: Send, Sync);

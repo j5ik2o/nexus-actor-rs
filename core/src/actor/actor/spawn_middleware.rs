@@ -38,3 +38,5 @@ impl SpawnMiddleware {
     self.0(next)
   }
 }
+
+static_assertions::assert_impl_all!(SpawnMiddleware: Send, Sync);

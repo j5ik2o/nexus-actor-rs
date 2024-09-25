@@ -28,7 +28,7 @@ impl Eq for ActorProcess {}
 impl std::hash::Hash for ActorProcess {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
     self.mailbox.hash(state);
-    self.dead.hash(state);
+    (self.dead.as_ref() as *const AtomicBool).hash(state);
   }
 }
 

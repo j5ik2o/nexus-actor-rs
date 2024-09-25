@@ -47,3 +47,5 @@ impl std::hash::Hash for ContextDecoratorChain {
     (self.0.as_ref() as *const dyn Fn(ContextHandle) -> BoxFuture<'static, ContextHandle>).hash(state);
   }
 }
+
+static_assertions::assert_impl_all!(ContextDecoratorChain: Send, Sync);

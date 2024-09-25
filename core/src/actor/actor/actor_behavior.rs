@@ -53,3 +53,5 @@ impl Actor for ActorBehavior {
     Ok(())
   }
 }
+
+static_assertions::assert_impl_all!(ActorBehavior: Send, Sync);

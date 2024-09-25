@@ -23,7 +23,8 @@ pub struct Spawner(
   Arc<
     dyn Fn(ActorSystem, String, Props, SpawnerContextHandle) -> BoxFuture<'static, Result<ExtendedPid, SpawnError>>
       + Send
-      + Sync,
+      + Sync
+      + 'static,
   >,
 );
 
@@ -74,3 +75,5 @@ impl Spawner {
     (self.0)(actor_system, name.to_string(), props, parent_context).await
   }
 }
+
+static_assertions::assert_impl_all!(Spawner: Send, Sync);

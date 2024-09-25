@@ -38,3 +38,5 @@ impl std::hash::Hash for ContextDecorator {
     (self.0.as_ref() as *const dyn Fn(ContextDecoratorChain) -> ContextDecoratorChain).hash(state);
   }
 }
+
+static_assertions::assert_impl_all!(ContextDecorator: Send, Sync);

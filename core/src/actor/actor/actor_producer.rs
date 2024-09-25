@@ -59,3 +59,5 @@ impl std::hash::Hash for ActorProducer {
     (self.0.as_ref() as *const dyn Fn(ContextHandle) -> BoxFuture<'static, ActorHandle>).hash(state);
   }
 }
+
+static_assertions::assert_impl_all!(ActorProducer: Send, Sync);

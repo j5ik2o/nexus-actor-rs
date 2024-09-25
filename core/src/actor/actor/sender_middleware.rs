@@ -38,3 +38,5 @@ impl SenderMiddleware {
     (self.0)(next)
   }
 }
+
+static_assertions::assert_impl_all!(SenderMiddleware: Send, Sync);
