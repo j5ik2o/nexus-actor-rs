@@ -17,7 +17,7 @@ use futures::future::BoxFuture;
 use nexus_actor_message_derive_rs::Message;
 use opentelemetry::KeyValue;
 use thiserror::Error;
-use tokio::sync::{Mutex, Notify, RwLock};
+use tokio::sync::{Notify, RwLock};
 
 #[derive(Debug, Clone, PartialEq, Eq, Message, Error)]
 pub enum ActorFutureError {
