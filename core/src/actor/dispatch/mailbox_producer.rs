@@ -19,8 +19,8 @@ impl Debug for MailboxProducer {
 }
 
 impl PartialEq for MailboxProducer {
-  fn eq(&self, _other: &Self) -> bool {
-    Arc::ptr_eq(&self.0, &_other.0)
+  fn eq(&self, other: &Self) -> bool {
+    Arc::ptr_eq(&self.0, &other.0)
   }
 }
 

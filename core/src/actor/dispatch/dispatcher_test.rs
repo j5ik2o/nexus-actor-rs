@@ -14,7 +14,7 @@ mod test {
   use crate::util::queue::MpscUnboundedChannelQueue;
   use async_trait::async_trait;
   use nexus_actor_message_derive_rs::Message;
-  use tokio::sync::Mutex;
+  use tokio::sync::{Mutex, RwLock};
 
   // TestMessageInvoker implementation
   #[derive(Debug, Clone, PartialEq)]
@@ -88,7 +88,7 @@ mod test {
   #[tokio::test]
   async fn test_mailbox_with_test_invoker() {
     let mut mailbox = DefaultMailbox::new(MpscUnboundedChannelQueue::new(), MpscUnboundedChannelQueue::new());
-    let invoker = Arc::new(Mutex::new(TestMessageInvoker::new()));
+    let invoker = Arc::new(RwLock::new(TestMessageInvoker::new()));
     let invoker_handle = MessageInvokerHandle::new(invoker.clone());
     let dispatcher = Arc::new(CurrentThreadDispatcher::new().unwrap());
     let dispatcher_handle = DispatcherHandle::new_arc(dispatcher.clone());
@@ -107,7 +107,7 @@ mod test {
     // メッセージが処理されるのを少し待つ
     tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 
-    let invoker_mg = invoker.lock().await;
+    let invoker_mg = invoker.read().await;
     let received = invoker_mg.get_received().await;
     assert_eq!(received.len(), 3);
     assert_eq!(received[0], ReceivedMessage::System);

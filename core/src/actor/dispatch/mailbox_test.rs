@@ -16,7 +16,7 @@ mod tests {
   use std::env;
   use std::sync::Arc;
   use std::time::Duration;
-  use tokio::sync::Mutex;
+  use tokio::sync::{Mutex, RwLock};
   use tokio::time::sleep;
   use tracing_subscriber::EnvFilter;
 
@@ -77,7 +77,7 @@ mod tests {
     let c = 10;
 
     let mbox_producer = unbounded_mpsc_mailbox_creator();
-    let message_invoker = Arc::new(Mutex::new(TestMessageInvoker::new(max)));
+    let message_invoker = Arc::new(RwLock::new(TestMessageInvoker::new(max)));
     let mut mailbox = mbox_producer.run().await;
 
     let dispatcher = TokioRuntimeContextDispatcher::new().unwrap();
@@ -118,7 +118,7 @@ mod tests {
     sleep(Duration::from_secs(1)).await;
 
     {
-      let mg = message_invoker.lock().await;
+      let mg = message_invoker.read().await;
       assert_eq!(mg.get_count(), max);
       assert!(mg.is_assert_flg());
     }
@@ -135,7 +135,7 @@ mod tests {
     let c = 10;
 
     let mbox_producer = unbounded_mpsc_mailbox_creator();
-    let message_invoker = Arc::new(Mutex::new(TestMessageInvoker::new(max)));
+    let message_invoker = Arc::new(RwLock::new(TestMessageInvoker::new(max)));
     let mut mailbox = mbox_producer.run().await;
 
     let dispatcher = TokioRuntimeContextDispatcher::new().unwrap();
@@ -176,7 +176,7 @@ mod tests {
     sleep(Duration::from_secs(1)).await;
 
     {
-      let mg = message_invoker.lock().await;
+      let mg = message_invoker.read().await;
       assert_eq!(mg.get_count(), max);
       assert!(mg.is_assert_flg());
     }

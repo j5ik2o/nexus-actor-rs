@@ -1,40 +1,40 @@
 use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, RwLock};
 
 #[derive(Debug, Clone)]
-pub struct SleepContainer(Arc<Mutex<Pin<Box<tokio::time::Sleep>>>>);
+pub struct SleepContainer(Arc<RwLock<Pin<Box<tokio::time::Sleep>>>>);
 impl SleepContainer {
   pub fn from_sleep(sleep: tokio::time::Sleep) -> Self {
-    SleepContainer(Arc::new(Mutex::new(Box::pin(sleep))))
+    SleepContainer(Arc::new(RwLock::new(Box::pin(sleep))))
   }
 
   pub fn new(duration: Duration) -> Self {
     Self::from_sleep(tokio::time::sleep(duration))
   }
 
-  pub fn from_underlying(underlying: Arc<Mutex<Pin<Box<tokio::time::Sleep>>>>) -> Self {
+  pub fn from_underlying(underlying: Arc<RwLock<Pin<Box<tokio::time::Sleep>>>>) -> Self {
     Self(underlying)
   }
 
   pub async fn init(&mut self, instant: tokio::time::Instant) {
-    let mut timer = self.0.lock().await;
+    let mut timer = self.0.write().await;
     *timer = Box::pin(tokio::time::sleep_until(instant));
   }
 
   pub async fn reset(&mut self, instant: tokio::time::Instant) {
-    let mut sleep = self.0.lock().await;
+    let mut sleep = self.0.write().await;
     sleep.as_mut().reset(instant);
   }
 
   pub async fn stop(&mut self) {
-    let mut sleep = self.0.lock().await;
+    let mut sleep = self.0.write().await;
     sleep.as_mut().reset(tokio::time::Instant::now());
   }
 
   pub async fn wait(&self) {
-    let mut sleep = self.0.lock().await;
+    let mut sleep = self.0.write().await;
     sleep.as_mut().await;
   }
 }
@@ -51,7 +51,7 @@ impl ReceiveTimeoutTimer {
     ReceiveTimeoutTimer(SleepContainer::from_sleep(sleep))
   }
 
-  pub fn from_underlying(underlying: Arc<Mutex<Pin<Box<tokio::time::Sleep>>>>) -> Self {
+  pub fn from_underlying(underlying: Arc<RwLock<Pin<Box<tokio::time::Sleep>>>>) -> Self {
     ReceiveTimeoutTimer(SleepContainer::from_underlying(underlying))
   }
 
