@@ -13,6 +13,9 @@ use crate::actor::message::response::ResponseHandle;
 #[derive(Clone)]
 pub struct AutoRespond(Arc<dyn Fn(ContextHandle) -> BoxFuture<'static, ResponseHandle> + Send + Sync + 'static>);
 
+unsafe impl Send for AutoRespond {}
+unsafe impl Sync for AutoRespond {}
+
 impl AutoRespond {
   pub fn new<F, Fut>(f: F) -> Self
   where

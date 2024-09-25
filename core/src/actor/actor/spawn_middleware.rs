@@ -6,6 +6,9 @@ use crate::actor::actor::spawner::Spawner;
 #[derive(Clone)]
 pub struct SpawnMiddleware(Arc<dyn Fn(Spawner) -> Spawner + Send + Sync + 'static>);
 
+unsafe impl Send for SpawnMiddleware {}
+unsafe impl Sync for SpawnMiddleware {}
+
 impl Debug for SpawnMiddleware {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "SpawnMiddleware")

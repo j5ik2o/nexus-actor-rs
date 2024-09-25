@@ -6,6 +6,9 @@ use crate::actor::actor::sender_middleware_chain::SenderMiddlewareChain;
 #[derive(Clone)]
 pub struct SenderMiddleware(Arc<dyn Fn(SenderMiddlewareChain) -> SenderMiddlewareChain + Send + Sync + 'static>);
 
+unsafe impl Send for SenderMiddleware {}
+unsafe impl Sync for SenderMiddleware {}
+
 impl Debug for SenderMiddleware {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "SenderMiddleware")

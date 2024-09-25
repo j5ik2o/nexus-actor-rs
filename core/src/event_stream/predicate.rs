@@ -6,6 +6,9 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct Predicate(Arc<dyn Fn(MessageHandle) -> bool + Send + Sync + 'static>);
 
+unsafe impl Send for Predicate {}
+unsafe impl Sync for Predicate {}
+
 impl Predicate {
   pub fn new(f: impl Fn(MessageHandle) -> bool + Send + Sync + 'static) -> Self {
     Predicate(Arc::new(f))

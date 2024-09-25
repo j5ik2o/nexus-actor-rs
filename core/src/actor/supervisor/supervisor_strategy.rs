@@ -21,6 +21,9 @@ use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHand
 #[derive(Clone)]
 pub struct Decider(Arc<dyn Fn(ErrorReason) -> BoxFuture<'static, Directive> + Send + Sync + 'static>);
 
+unsafe impl Send for Decider {}
+unsafe impl Sync for Decider {}
+
 impl Decider {
   pub fn new<F, Fut>(f: F) -> Self
   where
