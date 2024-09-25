@@ -44,3 +44,5 @@ impl MailboxProducer {
     (self.0)().await
   }
 }
+
+static_assertions::assert_impl_all!(MailboxProducer: Send, Sync);
