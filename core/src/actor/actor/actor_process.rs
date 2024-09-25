@@ -59,8 +59,9 @@ impl Process for ActorProcess {
 
   async fn stop(&self, pid: &ExtendedPid) {
     self.set_dead();
-    let stop_message = MessageHandle::new(SystemMessage::Stop);
-    self.send_system_message(pid, stop_message).await;
+    self
+      .send_system_message(pid, MessageHandle::new(SystemMessage::Stop))
+      .await;
   }
 
   fn set_dead(&self) {

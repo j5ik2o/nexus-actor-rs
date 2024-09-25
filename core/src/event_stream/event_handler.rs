@@ -8,6 +8,9 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct EventHandler(Arc<dyn Fn(MessageHandle) -> BoxFuture<'static, ()> + Send + Sync + 'static>);
 
+unsafe impl Send for EventHandler {}
+unsafe impl Sync for EventHandler {}
+
 impl EventHandler {
   pub fn new<F, Fut>(f: F) -> Self
   where

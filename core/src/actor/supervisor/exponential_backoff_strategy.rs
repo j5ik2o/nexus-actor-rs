@@ -13,7 +13,7 @@ use crate::actor::message::MessageHandle;
 use crate::actor::supervisor::directive::Directive;
 use crate::actor::supervisor::supervisor_strategy::{log_failure, Supervisor, SupervisorHandle, SupervisorStrategy};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ExponentialBackoffStrategy {
   backoff_window: Duration,
   initial_backoff: Option<Duration>,
@@ -44,7 +44,7 @@ impl ExponentialBackoffStrategy {
 impl SupervisorStrategy for ExponentialBackoffStrategy {
   async fn handle_child_failure(
     &self,
-    actor_system: &ActorSystem,
+    actor_system: ActorSystem,
     supervisor: SupervisorHandle,
     child: ExtendedPid,
     mut rs: RestartStatistics,
@@ -57,16 +57,13 @@ impl SupervisorStrategy for ExponentialBackoffStrategy {
     let noise = rand::thread_rng().gen_range(0..500);
     let dur = Duration::from_nanos(backoff + noise);
 
-    let actor_system = actor_system.clone();
-    let supervisor = supervisor.clone();
-    let child = child.clone();
-    let reason = reason.clone();
-    let dispatcher = &actor_system.get_config().await.system_dispatcher;
-
-    dispatcher
+    actor_system
+      .get_config()
+      .await
+      .system_dispatcher
       .schedule(Runnable::new(move || async move {
         tokio::time::sleep(dur).await;
-        log_failure(&actor_system, &child, reason.clone(), Directive::Restart).await;
+        log_failure(actor_system.clone(), &child, reason.clone(), Directive::Restart).await;
         supervisor.restart_children(&[child]).await;
       }))
       .await;

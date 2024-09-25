@@ -157,7 +157,7 @@ impl Process for DeadLetterProcess {
     self
       .metrics_foreach(|am, _| {
         let am = am.clone();
-        async move { am.increment_dead_letter_count() }
+        async move { am.increment_dead_letter_count().await }
       })
       .await;
 

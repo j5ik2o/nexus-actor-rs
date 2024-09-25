@@ -8,7 +8,9 @@ use crate::actor::context::ContextHandle;
 
 // ContextDecoratorChain
 #[derive(Clone)]
-pub struct ContextDecoratorChain(Arc<dyn Fn(ContextHandle) -> BoxFuture<'static, ContextHandle> + Send + Sync>);
+pub struct ContextDecoratorChain(
+  Arc<dyn Fn(ContextHandle) -> BoxFuture<'static, ContextHandle> + Send + Sync + 'static>,
+);
 
 unsafe impl Send for ContextDecoratorChain {}
 unsafe impl Sync for ContextDecoratorChain {}
@@ -45,3 +47,5 @@ impl std::hash::Hash for ContextDecoratorChain {
     (self.0.as_ref() as *const dyn Fn(ContextHandle) -> BoxFuture<'static, ContextHandle>).hash(state);
   }
 }
+
+static_assertions::assert_impl_all!(ContextDecoratorChain: Send, Sync);

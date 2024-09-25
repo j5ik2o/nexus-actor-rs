@@ -46,7 +46,7 @@ impl RootContext {
           let actor_system = actor_system.clone();
           async move {
             target
-              .send_user_message(actor_system, envelope.get_message_handle().clone())
+              .send_user_message(actor_system, envelope.get_message_handle())
               .await
           }
         }),

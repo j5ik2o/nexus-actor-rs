@@ -106,7 +106,7 @@ impl Process for GuardianProcess {
       self
         .strategy
         .handle_child_failure(
-          &self.guardians.actor_system,
+          self.guardians.actor_system.clone(),
           SupervisorHandle::new(self.clone()),
           failure.who.clone(),
           failure.restart_stats.clone(),

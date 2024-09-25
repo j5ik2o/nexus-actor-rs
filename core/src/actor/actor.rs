@@ -1,5 +1,6 @@
 mod actor;
 mod actor_behavior;
+mod actor_behavior_test;
 mod actor_error;
 mod actor_example_test;
 mod actor_handle;

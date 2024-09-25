@@ -57,7 +57,7 @@ impl AllForOneStrategy {
 impl SupervisorStrategy for AllForOneStrategy {
   async fn handle_child_failure(
     &self,
-    actor_system: &ActorSystem,
+    actor_system: ActorSystem,
     supervisor: SupervisorHandle,
     child: ExtendedPid,
     mut rs: RestartStatistics,

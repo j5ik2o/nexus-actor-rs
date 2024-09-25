@@ -1,4 +1,5 @@
 use std::fmt::{Display, Formatter};
+use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -69,8 +70,16 @@ impl PartialEq for RestartStatistics {
 
 impl Eq for RestartStatistics {}
 
+impl Hash for RestartStatistics {
+  fn hash<H: Hasher>(&self, state: &mut H) {
+    Arc::as_ptr(&self.failure_times).hash(state);
+  }
+}
+
 impl Default for RestartStatistics {
   fn default() -> Self {
     Self::new()
   }
 }
+
+static_assertions::assert_impl_all!(RestartStatistics: Send, Sync);

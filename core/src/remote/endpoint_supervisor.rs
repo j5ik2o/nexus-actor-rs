@@ -129,7 +129,7 @@ impl Actor for EndpointSupervisor {
 impl SupervisorStrategy for EndpointSupervisor {
   async fn handle_child_failure(
     &self,
-    _actor_system: &ActorSystem,
+    _actor_system: ActorSystem,
     supervisor: SupervisorHandle,
     child: ExtendedPid,
     _rs: RestartStatistics,

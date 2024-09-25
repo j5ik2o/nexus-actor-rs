@@ -53,3 +53,5 @@ impl std::hash::Hash for ReceiverMiddlewareChain {
       .hash(state);
   }
 }
+
+static_assertions::assert_impl_all!(ReceiverMiddlewareChain: Send, Sync);

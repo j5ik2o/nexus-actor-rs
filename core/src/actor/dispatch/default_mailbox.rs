@@ -2,7 +2,7 @@ use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, RwLock};
 
 use crate::actor::dispatch::dispatcher::{Dispatcher, DispatcherHandle, Runnable};
 use crate::actor::dispatch::mailbox::Mailbox;
@@ -23,8 +23,8 @@ struct DefaultMailboxInner {
   user_messages_count: Arc<AtomicI32>,
   system_messages_count: Arc<AtomicI32>,
   suspended: Arc<AtomicBool>,
-  invoker_opt: Arc<Mutex<Option<MessageInvokerHandle>>>,
-  dispatcher_opt: Arc<Mutex<Option<DispatcherHandle>>>,
+  invoker_opt: Arc<RwLock<Option<MessageInvokerHandle>>>,
+  dispatcher_opt: Arc<RwLock<Option<DispatcherHandle>>>,
   middlewares: Vec<MailboxMiddlewareHandle>,
 }
 
@@ -39,7 +39,7 @@ impl DefaultMailbox {
     user_mailbox: impl QueueWriter<MessageHandle> + QueueReader<MessageHandle> + Clone + 'static,
     system_mailbox: impl QueueWriter<MessageHandle> + QueueReader<MessageHandle> + Clone + 'static,
   ) -> Self {
-    DefaultMailbox {
+    Self {
       inner: Arc::new(Mutex::new(DefaultMailboxInner {
         user_mailbox_sender: Arc::new(Mutex::new(user_mailbox.clone())),
         user_mailbox_receiver: Arc::new(Mutex::new(user_mailbox)),
@@ -49,8 +49,8 @@ impl DefaultMailbox {
         user_messages_count: Arc::new(AtomicI32::new(0)),
         system_messages_count: Arc::new(AtomicI32::new(0)),
         suspended: Arc::new(AtomicBool::new(false)),
-        invoker_opt: Arc::new(Mutex::new(None)),
-        dispatcher_opt: Arc::new(Mutex::new(None)),
+        invoker_opt: Arc::new(RwLock::new(None)),
+        dispatcher_opt: Arc::new(RwLock::new(None)),
         middlewares: vec![],
       })),
     }
@@ -66,25 +66,25 @@ impl DefaultMailbox {
 
   async fn get_message_invoker_opt(&self) -> Option<MessageInvokerHandle> {
     let inner_mg = self.inner.lock().await;
-    let invoker_opt_mg = inner_mg.invoker_opt.lock().await;
+    let invoker_opt_mg = inner_mg.invoker_opt.read().await;
     invoker_opt_mg.clone()
   }
 
   async fn set_message_invoker_opt(&mut self, message_invoker: Option<MessageInvokerHandle>) {
     let inner_mg = self.inner.lock().await;
-    let mut invoker_opt_mg = inner_mg.invoker_opt.lock().await;
+    let mut invoker_opt_mg = inner_mg.invoker_opt.write().await;
     *invoker_opt_mg = message_invoker;
   }
 
   async fn get_dispatcher_opt(&self) -> Option<DispatcherHandle> {
     let inner_mg = self.inner.lock().await;
-    let dispatcher_opt = inner_mg.dispatcher_opt.lock().await;
+    let dispatcher_opt = inner_mg.dispatcher_opt.read().await;
     dispatcher_opt.clone()
   }
 
   async fn set_dispatcher_opt(&mut self, dispatcher_opt: Option<DispatcherHandle>) {
     let inner_mg = self.inner.lock().await;
-    let mut dispatcher_opt_mg = inner_mg.dispatcher_opt.lock().await;
+    let mut dispatcher_opt_mg = inner_mg.dispatcher_opt.write().await;
     *dispatcher_opt_mg = dispatcher_opt;
   }
 

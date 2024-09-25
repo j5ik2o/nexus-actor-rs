@@ -8,7 +8,9 @@ use crate::actor::actor::actor_error::ActorError;
 use crate::actor::context::ContextHandle;
 
 #[derive(Clone)]
-pub struct ActorReceiver(Arc<dyn Fn(ContextHandle) -> BoxFuture<'static, Result<(), ActorError>> + Send + Sync>);
+pub struct ActorReceiver(
+  Arc<dyn Fn(ContextHandle) -> BoxFuture<'static, Result<(), ActorError>> + Send + Sync + 'static>,
+);
 
 unsafe impl Send for ActorReceiver {}
 unsafe impl Sync for ActorReceiver {}
@@ -47,3 +49,5 @@ impl std::hash::Hash for ActorReceiver {
     (self.0.as_ref() as *const dyn Fn(ContextHandle) -> BoxFuture<'static, Result<(), ActorError>>).hash(state);
   }
 }
+
+static_assertions::assert_impl_all!(ActorReceiver: Send, Sync);

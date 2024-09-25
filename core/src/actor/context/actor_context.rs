@@ -167,14 +167,12 @@ impl ActorContext {
 
   async fn default_receive(&mut self) -> Result<(), ActorError> {
     let message = self.get_message_handle_opt().await.expect("Failed to retrieve message");
-    // tracing::debug!("ActorContext::default_receive: pid = {}, message = {:?}", self.get_self().await, message);
     if message.to_typed::<PoisonPill>().is_some() {
       let me = self.get_self().await;
       self.stop(&me).await;
       Ok(())
     } else {
       let context = self.receive_with_context().await;
-      // tracing::debug!("ActorContext::default_receive: pid = {}, context = {:?}", self.get_self().await, context);
       let mut actor_opt = self.get_actor().await;
 
       let actor = actor_opt.as_mut().unwrap();
@@ -218,7 +216,7 @@ impl ActorContext {
       .metrics_foreach(|am, _| {
         let am = am.clone();
         async move {
-          am.increment_actor_spawn_count();
+          am.increment_actor_spawn_count().await;
         }
       })
       .await;
@@ -271,7 +269,6 @@ impl ActorContext {
     let props = self.get_props().await;
 
     if props.get_receiver_middleware_chain().is_some() {
-      // tracing::debug!("ActorContext::process_message: get_receiver_middleware_chain");
       let extras = self.ensure_extras().await;
       let receiver_context = extras.get_receiver_context().await;
       let message_envelope = wrap_envelope(message_handle.clone());
@@ -280,7 +277,6 @@ impl ActorContext {
     }
 
     if props.get_context_decorator_chain().is_some() {
-      // tracing::debug!("ActorContext::process_message: get_context_decorator_chain");
       let extras = self.ensure_extras().await;
       let mut receiver_context = extras.get_receiver_context().await;
       let message_envelope = wrap_envelope(message_handle.clone());
@@ -453,7 +449,7 @@ impl ActorContext {
     self
       .metrics_foreach(|am, _| {
         let am = am.clone();
-        async move { am.increment_actor_restarted_count() }
+        async move { am.increment_actor_restarted_count().await }
       })
       .await;
     Ok(())
@@ -475,7 +471,7 @@ impl ActorContext {
     let mut actor = self.get_actor().await.unwrap();
     if let Some(s) = actor.get_supervisor_strategy().await {
       s.handle_child_failure(
-        &self.get_actor_system().await,
+        self.get_actor_system().await,
         SupervisorHandle::new(self.clone()),
         f.who.clone(),
         f.restart_stats.clone(),
@@ -490,7 +486,7 @@ impl ActorContext {
       .await
       .get_supervisor_strategy()
       .handle_child_failure(
-        &self.get_actor_system().await,
+        self.get_actor_system().await,
         SupervisorHandle::new(self.clone()),
         f.who.clone(),
         f.restart_stats.clone(),
@@ -523,7 +519,7 @@ impl ActorContext {
   async fn handle_root_failure(&mut self, failure: &Failure) {
     DEFAULT_SUPERVISION_STRATEGY
       .handle_child_failure(
-        &self.get_actor_system().await,
+        self.get_actor_system().await,
         SupervisorHandle::new(self.clone()),
         self.get_self_opt().await.unwrap(),
         failure.restart_stats.clone(),
@@ -907,7 +903,7 @@ impl StopperPart for ActorContext {
     self
       .metrics_foreach(|am, _| {
         let am = am.clone();
-        async move { am.increment_actor_stopped_count() }
+        async move { am.increment_actor_stopped_count().await }
       })
       .await;
     let inner_mg = self.inner.lock().await;
@@ -1071,7 +1067,7 @@ impl MessageInvoker for ActorContext {
         .metrics_foreach(|am, _| {
           let am = am.clone();
           async move {
-            am.record_actor_message_receive_duration(duration.as_secs_f64());
+            am.record_actor_message_receive_duration(duration.as_secs_f64()).await;
           }
         })
         .await;
@@ -1101,7 +1097,7 @@ impl MessageInvoker for ActorContext {
     self
       .metrics_foreach(|am, _| {
         let am = am.clone();
-        async move { am.increment_actor_failure_count() }
+        async move { am.increment_actor_failure_count().await }
       })
       .await;
 
@@ -1173,7 +1169,8 @@ impl Supervisor for ActorContext {
         let am = am.clone();
         let m = m.clone();
         async move {
-          am.increment_actor_failure_count_with_opts(&m.common_labels(self).await);
+          am.increment_actor_failure_count_with_opts(&m.common_labels(self).await)
+            .await;
         }
       })
       .await;

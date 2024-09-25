@@ -47,7 +47,7 @@ impl SupervisorStrategyHandle {
 impl SupervisorStrategy for SupervisorStrategyHandle {
   async fn handle_child_failure(
     &self,
-    actor_system: &ActorSystem,
+    actor_system: ActorSystem,
     supervisor: SupervisorHandle,
     child: ExtendedPid,
     rs: RestartStatistics,

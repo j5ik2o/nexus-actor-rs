@@ -4,7 +4,7 @@ use std::sync::Arc;
 use crate::actor::context::ContextHandle;
 
 #[derive(Clone)]
-pub struct ContextHandler(Arc<dyn Fn(ContextHandle) + Send + Sync>);
+pub struct ContextHandler(Arc<dyn Fn(ContextHandle) + Send + Sync + 'static>);
 
 unsafe impl Send for ContextHandler {}
 unsafe impl Sync for ContextHandler {}
@@ -38,3 +38,5 @@ impl std::hash::Hash for ContextHandler {
     (self.0.as_ref() as *const dyn Fn(ContextHandle)).hash(state);
   }
 }
+
+static_assertions::assert_impl_all!(ContextHandler: Send, Sync);

@@ -7,7 +7,10 @@ use futures::future::BoxFuture;
 use crate::actor::dispatch::mailbox_handle::MailboxHandle;
 
 #[derive(Clone)]
-pub struct MailboxProducer(Arc<dyn Fn() -> BoxFuture<'static, MailboxHandle> + Send + Sync>);
+pub struct MailboxProducer(Arc<dyn Fn() -> BoxFuture<'static, MailboxHandle> + Send + Sync + 'static>);
+
+unsafe impl Send for MailboxProducer {}
+unsafe impl Sync for MailboxProducer {}
 
 impl Debug for MailboxProducer {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -41,3 +44,5 @@ impl MailboxProducer {
     (self.0)().await
   }
 }
+
+static_assertions::assert_impl_all!(MailboxProducer: Send, Sync);

@@ -150,7 +150,7 @@ mod tests {
 
     let err = future_process.result().await;
     assert!(err.is_err());
-    assert!(matches!(err.unwrap_err(), ActorFutureError::Timeout));
+    assert!(matches!(err.unwrap_err(), ActorFutureError::TimeoutError));
 
     barrier.wait().await;
 
@@ -209,10 +209,10 @@ mod tests {
   async fn test_future_result_dead_letter_response() {
     let system = ActorSystem::new().await.unwrap();
     let future_process = ActorFutureProcess::new(system, Duration::from_secs(1)).await;
-    future_process.fail(ActorFutureError::DeadLetter).await;
+    future_process.fail(ActorFutureError::DeadLetterError).await;
 
     let result = future_process.result().await;
-    assert!(matches!(result.unwrap_err(), ActorFutureError::DeadLetter));
+    assert!(matches!(result.unwrap_err(), ActorFutureError::DeadLetterError));
   }
 
   #[tokio::test]
@@ -223,7 +223,7 @@ mod tests {
     sleep(Duration::from_millis(100)).await;
 
     let result = future_process.result().await;
-    assert!(matches!(result.unwrap_err(), ActorFutureError::Timeout));
+    assert!(matches!(result.unwrap_err(), ActorFutureError::TimeoutError));
   }
 
   #[tokio::test]

@@ -37,7 +37,7 @@ impl std::hash::Hash for RestartingStrategy {
 impl SupervisorStrategy for RestartingStrategy {
   async fn handle_child_failure(
     &self,
-    actor_system: &ActorSystem,
+    actor_system: ActorSystem,
     supervisor: SupervisorHandle,
     child: ExtendedPid,
     _: RestartStatistics,

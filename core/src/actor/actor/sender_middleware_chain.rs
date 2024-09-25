@@ -49,3 +49,5 @@ impl SenderMiddlewareChain {
     (self.0)(context, target, envelope).await;
   }
 }
+
+static_assertions::assert_impl_all!(SenderMiddlewareChain: Send, Sync);
