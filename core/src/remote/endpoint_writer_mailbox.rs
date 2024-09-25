@@ -6,24 +6,24 @@ use crate::util::queue::{MpscUnboundedChannelQueue, QueueBase, QueueError, Queue
 use async_trait::async_trait;
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicUsize, Ordering};
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, RwLock};
 
 #[derive(Debug, Clone)]
 pub struct EndpointWriterMailbox {
-  user_mailbox: Arc<Mutex<RingQueue<MessageHandle>>>,
-  system_mailbox: Arc<Mutex<MpscUnboundedChannelQueue<MessageHandle>>>,
+  user_mailbox: Arc<RwLock<RingQueue<MessageHandle>>>,
+  system_mailbox: Arc<RwLock<MpscUnboundedChannelQueue<MessageHandle>>>,
   scheduler_status: Arc<AtomicBool>,
   has_more_messages: Arc<AtomicI32>,
   batch_size: Arc<AtomicUsize>,
   suspended: Arc<AtomicBool>,
-  invoker_opt: Arc<Mutex<Option<MessageInvokerHandle>>>,
-  dispatcher_opt: Arc<Mutex<Option<DispatcherHandle>>>,
+  invoker_opt: Arc<RwLock<Option<MessageInvokerHandle>>>,
+  dispatcher_opt: Arc<RwLock<Option<DispatcherHandle>>>,
 }
 
 impl EndpointWriterMailbox {
   pub fn new(batch_size: usize, initial_size: usize) -> Self {
-    let user_mailbox = Arc::new(Mutex::new(RingQueue::new(initial_size)));
-    let system_mailbox = Arc::new(Mutex::new(MpscUnboundedChannelQueue::new()));
+    let user_mailbox = Arc::new(RwLock::new(RingQueue::new(initial_size)));
+    let system_mailbox = Arc::new(RwLock::new(MpscUnboundedChannelQueue::new()));
     Self {
       user_mailbox,
       system_mailbox,
@@ -31,18 +31,18 @@ impl EndpointWriterMailbox {
       has_more_messages: Arc::new(AtomicI32::new(0)),
       batch_size: Arc::new(AtomicUsize::new(batch_size)),
       suspended: Arc::new(AtomicBool::new(false)),
-      invoker_opt: Arc::new(Mutex::new(None)),
-      dispatcher_opt: Arc::new(Mutex::new(None)),
+      invoker_opt: Arc::new(RwLock::new(None)),
+      dispatcher_opt: Arc::new(RwLock::new(None)),
     }
   }
 
   async fn get_dispatcher_opt(&self) -> Option<DispatcherHandle> {
-    let inner_mg = self.dispatcher_opt.lock().await;
+    let inner_mg = self.dispatcher_opt.read().await;
     inner_mg.clone()
   }
 
   async fn get_message_invoker_opt(&self) -> Option<MessageInvokerHandle> {
-    let mg = self.invoker_opt.lock().await;
+    let mg = self.invoker_opt.read().await;
     mg.clone()
   }
 
@@ -55,12 +55,12 @@ impl EndpointWriterMailbox {
   }
 
   async fn poll_system_mailbox(&self) -> Result<Option<MessageHandle>, QueueError<MessageHandle>> {
-    let mut mg = self.system_mailbox.lock().await;
+    let mut mg = self.system_mailbox.write().await;
     mg.poll().await
   }
 
   async fn poll_user_mailbox(&self) -> Result<Option<MessageHandle>, QueueError<MessageHandle>> {
-    let mut mg = self.user_mailbox.lock().await;
+    let mut mg = self.user_mailbox.write().await;
     mg.poll().await
   }
 
@@ -143,12 +143,12 @@ impl EndpointWriterMailbox {
 #[async_trait]
 impl Mailbox for EndpointWriterMailbox {
   async fn get_user_messages_count(&self) -> i32 {
-    let mg = self.user_mailbox.lock().await;
+    let mg = self.user_mailbox.read().await;
     mg.len().await.to_usize() as i32
   }
 
   async fn get_system_messages_count(&self) -> i32 {
-    let mg = self.system_mailbox.lock().await;
+    let mg = self.system_mailbox.read().await;
     mg.len().await.to_usize() as i32
   }
 
@@ -172,7 +172,7 @@ impl Mailbox for EndpointWriterMailbox {
   async fn post_user_message(&self, message_handle: MessageHandle) {
     tracing::info!("EndpointWriterMailbox::post_user_message: {:?}", message_handle);
     {
-      let mut mg = self.user_mailbox.lock().await;
+      let mut mg = self.user_mailbox.write().await;
       mg.offer(message_handle).await.unwrap();
     }
     self.schedule().await;
@@ -181,7 +181,7 @@ impl Mailbox for EndpointWriterMailbox {
   async fn post_system_message(&self, message_handle: MessageHandle) {
     tracing::info!("EndpointWriterMailbox::post_system_message: {:?}", message_handle);
     {
-      let mut mg = self.system_mailbox.lock().await;
+      let mut mg = self.system_mailbox.write().await;
       mg.offer(message_handle).await.unwrap();
     }
     self.schedule().await;
@@ -193,11 +193,11 @@ impl Mailbox for EndpointWriterMailbox {
     dispatcher_handle: Option<DispatcherHandle>,
   ) {
     {
-      let mut invoker_opt = self.invoker_opt.lock().await;
+      let mut invoker_opt = self.invoker_opt.write().await;
       *invoker_opt = message_invoker_handle;
     }
     {
-      let mut dispatcher_opt = self.dispatcher_opt.lock().await;
+      let mut dispatcher_opt = self.dispatcher_opt.write().await;
       *dispatcher_opt = dispatcher_handle;
     }
   }

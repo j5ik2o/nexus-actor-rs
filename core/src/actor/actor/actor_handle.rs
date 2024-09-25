@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, RwLock};
 
 use crate::actor::actor::actor::Actor;
 use crate::actor::actor::actor_error::ActorError;
@@ -9,7 +9,7 @@ use crate::actor::context::ContextHandle;
 use crate::actor::supervisor::SupervisorStrategyHandle;
 
 #[derive(Debug, Clone)]
-pub struct ActorHandle(Arc<Mutex<dyn Actor>>);
+pub struct ActorHandle(Arc<RwLock<dyn Actor>>);
 
 impl PartialEq for ActorHandle {
   fn eq(&self, other: &Self) -> bool {
@@ -21,34 +21,34 @@ impl Eq for ActorHandle {}
 
 impl std::hash::Hash for ActorHandle {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    (self.0.as_ref() as *const Mutex<dyn Actor>).hash(state);
+    (self.0.as_ref() as *const RwLock<dyn Actor>).hash(state);
   }
 }
 
 impl ActorHandle {
-  pub fn new_arc(actor: Arc<Mutex<dyn Actor>>) -> Self {
+  pub fn new_arc(actor: Arc<RwLock<dyn Actor>>) -> Self {
     ActorHandle(actor)
   }
 
   pub fn new(actor: impl Actor + 'static) -> Self {
-    ActorHandle(Arc::new(Mutex::new(actor)))
+    ActorHandle(Arc::new(RwLock::new(actor)))
   }
 }
 
 #[async_trait]
 impl Actor for ActorHandle {
   async fn handle(&mut self, c: ContextHandle) -> Result<(), ActorError> {
-    let mut mg = self.0.lock().await;
+    let mut mg = self.0.write().await;
     mg.handle(c).await
   }
 
   async fn receive(&mut self, context_handle: ContextHandle) -> Result<(), ActorError> {
-    let mut mg = self.0.lock().await;
+    let mut mg = self.0.write().await;
     mg.receive(context_handle).await
   }
 
   async fn get_supervisor_strategy(&mut self) -> Option<SupervisorStrategyHandle> {
-    let mut mg = self.0.lock().await;
+    let mut mg = self.0.write().await;
     mg.get_supervisor_strategy().await
   }
 }

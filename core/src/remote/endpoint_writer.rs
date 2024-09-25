@@ -22,7 +22,7 @@ use futures::{StreamExt, TryFutureExt};
 use std::sync::{Arc, Weak};
 use std::time::Instant;
 use thiserror::Error;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, RwLock};
 use tonic::transport::Channel;
 use tonic::{Code, Response, Streaming};
 
@@ -30,8 +30,8 @@ use tonic::{Code, Response, Streaming};
 pub struct EndpointWriter {
   config: Config,
   address: String,
-  conn: Arc<Mutex<Option<Channel>>>,
-  stream: Arc<Mutex<Option<RemotingClient<Channel>>>>,
+  conn: Arc<RwLock<Option<Channel>>>,
+  stream: Arc<RwLock<Option<RemotingClient<Channel>>>>,
   remote: Weak<Remote>,
 }
 
@@ -54,39 +54,39 @@ impl EndpointWriter {
     Self {
       config,
       address,
-      conn: Arc::new(Mutex::new(None)),
-      stream: Arc::new(Mutex::new(None)),
+      conn: Arc::new(RwLock::new(None)),
+      stream: Arc::new(RwLock::new(None)),
       remote,
     }
   }
 
   pub async fn take_conn(&mut self) -> Option<Channel> {
-    let mut mg = self.conn.lock().await;
+    let mut mg = self.conn.write().await;
     mg.take()
   }
 
   pub async fn get_conn(&self) -> Option<Channel> {
-    let mg = self.conn.lock().await;
+    let mg = self.conn.read().await;
     mg.clone()
   }
 
   async fn set_conn(&mut self, conn: Channel) {
-    let mut mg = self.conn.lock().await;
+    let mut mg = self.conn.write().await;
     *mg = Some(conn);
   }
 
   async fn get_stream(&self) -> Option<RemotingClient<Channel>> {
-    let mg = self.stream.lock().await;
+    let mg = self.stream.read().await;
     mg.clone()
   }
 
   async fn take_stream(&self) -> Option<RemotingClient<Channel>> {
-    let mut mg = self.stream.lock().await;
+    let mut mg = self.stream.write().await;
     mg.take()
   }
 
   async fn set_stream(&self, stream: RemotingClient<Channel>) {
-    let mut mg = self.stream.lock().await;
+    let mut mg = self.stream.write().await;
     *mg = Some(stream);
   }
 

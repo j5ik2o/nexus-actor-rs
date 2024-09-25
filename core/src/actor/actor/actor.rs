@@ -8,7 +8,7 @@ use crate::generated::actor::Terminated;
 use async_trait::async_trait;
 use std::fmt::Debug;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, RwLock};
 
 #[async_trait]
 pub trait Actor: Debug + Send + Sync + 'static {
@@ -83,17 +83,17 @@ pub trait Actor: Debug + Send + Sync + 'static {
   }
 }
 
-pub struct ActorConfigOption(Arc<Mutex<dyn FnMut(&mut Config) + Send + Sync + 'static>>);
+pub struct ActorConfigOption(Arc<RwLock<dyn FnMut(&mut Config) + Send + Sync + 'static>>);
 
 impl ActorConfigOption {
   pub fn new<F>(f: F) -> Self
   where
     F: FnMut(&mut Config) + Send + Sync + 'static, {
-    Self(Arc::new(Mutex::new(f)))
+    Self(Arc::new(RwLock::new(f)))
   }
 
   pub async fn run(&self, config: &mut Config) {
-    let mut mg = self.0.lock().await;
+    let mut mg = self.0.write().await;
     mg(config)
   }
 

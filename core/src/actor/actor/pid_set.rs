@@ -1,14 +1,14 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, RwLock};
 
 use crate::generated::actor::Pid;
 
 #[derive(Debug, Clone)]
 pub(crate) struct PidSet {
-  pids: Arc<Mutex<Vec<Pid>>>,
-  lookup: Arc<Mutex<HashMap<String, Pid>>>,
+  pids: Arc<RwLock<Vec<Pid>>>,
+  lookup: Arc<RwLock<HashMap<String, Pid>>>,
 }
 
 impl PidSet {
@@ -22,8 +22,8 @@ impl PidSet {
 
   pub(crate) async fn new_with_pids(pids: &[Pid]) -> Self {
     let mut set = PidSet {
-      pids: Arc::new(Mutex::new(Vec::new())),
-      lookup: Arc::new(Mutex::new(HashMap::new())),
+      pids: Arc::new(RwLock::new(Vec::new())),
+      lookup: Arc::new(RwLock::new(HashMap::new())),
     };
     for pid in pids {
       set.add(pid.clone()).await;
@@ -32,19 +32,19 @@ impl PidSet {
   }
 
   pub(crate) async fn ensure_init(&mut self) {
-    let mut mg = self.lookup.lock().await;
+    let mut mg = self.lookup.write().await;
     if mg.is_empty() {
       *mg = HashMap::new();
     }
   }
 
   pub(crate) async fn index_of(&self, v: &Pid) -> Option<usize> {
-    let pids_mg = self.pids.lock().await;
+    let pids_mg = self.pids.read().await;
     pids_mg.iter().position(|pid| *v == *pid)
   }
 
   pub(crate) async fn contains(&self, v: &Pid) -> bool {
-    let mg = self.lookup.lock().await;
+    let mg = self.lookup.read().await;
     mg.contains_key(&self.key(v))
   }
 
@@ -55,11 +55,11 @@ impl PidSet {
     }
     let key = self.key(&v);
     {
-      let mut lookup_mg = self.lookup.lock().await;
+      let mut lookup_mg = self.lookup.write().await;
       lookup_mg.insert(key, v.clone());
     }
     {
-      let mut pids_mg = self.pids.lock().await;
+      let mut pids_mg = self.pids.write().await;
       pids_mg.push(v);
     }
   }
@@ -68,11 +68,11 @@ impl PidSet {
     self.ensure_init().await;
     if let Some(i) = self.index_of(v).await {
       {
-        let mut lookup_mg = self.lookup.lock().await;
+        let mut lookup_mg = self.lookup.write().await;
         lookup_mg.remove(&self.key(v));
       }
       {
-        let mut pids_mg = self.pids.lock().await;
+        let mut pids_mg = self.pids.write().await;
         pids_mg.remove(i);
       }
       true
@@ -82,17 +82,17 @@ impl PidSet {
   }
 
   pub(crate) async fn len(&self) -> usize {
-    let pids_mg = self.pids.lock().await;
+    let pids_mg = self.pids.read().await;
     pids_mg.len()
   }
 
   pub(crate) async fn clear(&mut self) {
     {
-      let mut pids_mg = self.pids.lock().await;
+      let mut pids_mg = self.pids.write().await;
       pids_mg.clear();
     }
     {
-      let mut lookup_mg = self.lookup.lock().await;
+      let mut lookup_mg = self.lookup.write().await;
       lookup_mg.clear();
     }
   }
@@ -102,21 +102,21 @@ impl PidSet {
   }
 
   pub(crate) async fn to_vec(&self) -> Vec<Pid> {
-    let pids_mg = self.pids.lock().await;
+    let pids_mg = self.pids.read().await;
     pids_mg.clone()
   }
 
   pub(crate) async fn for_each<F>(&self, mut f: F)
   where
     F: FnMut(usize, &Pid), {
-    let pids_mg = self.pids.lock().await;
+    let pids_mg = self.pids.read().await;
     for (i, pid) in pids_mg.iter().enumerate() {
       f(i, pid);
     }
   }
 
   pub(crate) async fn get(&self, index: usize) -> Option<Pid> {
-    let pids_mg = self.pids.lock().await;
+    let pids_mg = self.pids.read().await;
     pids_mg.get(index).cloned()
   }
 }

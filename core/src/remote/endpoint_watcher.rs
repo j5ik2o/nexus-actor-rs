@@ -10,14 +10,14 @@ use crate::remote::serializer::SerializerId;
 use async_trait::async_trait;
 use dashmap::DashMap;
 use std::sync::{Arc, Weak};
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, RwLock};
 
 #[derive(Debug, Clone)]
 pub struct EndpointWatcher {
   remote: Weak<Remote>,
   address: String,
   watched: Arc<DashMap<String, PidSet>>,
-  state: Arc<Mutex<State>>,
+  state: Arc<RwLock<State>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -32,7 +32,7 @@ impl EndpointWatcher {
       remote,
       address,
       watched: Arc::new(DashMap::new()),
-      state: Arc::new(Mutex::new(State::Connected)),
+      state: Arc::new(RwLock::new(State::Connected)),
     }
   }
 
@@ -106,7 +106,7 @@ impl EndpointWatcher {
         }
         self.watched.clear();
         {
-          let mut state = self.state.lock().await;
+          let mut state = self.state.write().await;
           *state = State::Terminated;
         }
         ctx.stop(&ctx.get_self().await).await;
@@ -175,7 +175,7 @@ impl EndpointWatcher {
     if let Some(endpoint_event) = msg.to_typed::<EndpointEvent>() {
       if endpoint_event.is_connected() {
         {
-          let mut state = self.state.lock().await;
+          let mut state = self.state.write().await;
           *state = State::Connected;
         }
       }
@@ -189,7 +189,7 @@ impl EndpointWatcher {
 impl Actor for EndpointWatcher {
   async fn receive(&mut self, context_handle: ContextHandle) -> Result<(), ActorError> {
     let state = {
-      let state = self.state.lock().await;
+      let state = self.state.read().await;
       state.clone()
     };
     match state {

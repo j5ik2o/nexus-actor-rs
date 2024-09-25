@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use once_cell::sync::Lazy;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, RwLock};
 
 use crate::actor::actor::actor::Actor;
 use crate::actor::actor::actor_error::ActorError;
@@ -88,7 +88,7 @@ static DEFAULT_SPAWNER: Lazy<Spawner> = Lazy::new(|| {
 
       initialize(props, ctx.clone());
 
-      let mut mi = MessageInvokerHandle::new(Arc::new(Mutex::new(ctx.clone())));
+      let mut mi = MessageInvokerHandle::new(Arc::new(RwLock::new(ctx.clone())));
 
       mb.register_handlers(Some(mi.clone()), Some(dp.clone())).await;
       tracing::debug!("mailbox handlers registered: {}", name);

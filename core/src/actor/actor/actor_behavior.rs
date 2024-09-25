@@ -3,38 +3,38 @@ use crate::actor::context::{ContextHandle, InfoPart};
 use crate::actor::util::stack::Stack;
 use async_trait::async_trait;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, RwLock};
 
 #[derive(Debug, Clone)]
 pub struct ActorBehavior {
-  stack: Arc<Mutex<Stack<ActorReceiver>>>,
+  stack: Arc<RwLock<Stack<ActorReceiver>>>,
 }
 
 impl ActorBehavior {
   pub fn new() -> Self {
     Self {
-      stack: Arc::new(Mutex::new(Stack::new())),
+      stack: Arc::new(RwLock::new(Stack::new())),
     }
   }
 
   pub async fn reset(&mut self, receiver: ActorReceiver) {
-    let mut mg = self.stack.lock().await;
+    let mut mg = self.stack.write().await;
     mg.clear();
     mg.push(receiver);
   }
 
   pub async fn become_stacked(&mut self, receiver: ActorReceiver) {
-    let mut mg = self.stack.lock().await;
+    let mut mg = self.stack.write().await;
     mg.push(receiver);
   }
 
   pub async fn un_become_stacked(&mut self) {
-    let mut mg = self.stack.lock().await;
+    let mut mg = self.stack.write().await;
     mg.pop();
   }
 
   pub async fn clear(&mut self) {
-    let mut mg = self.stack.lock().await;
+    let mut mg = self.stack.write().await;
     mg.clear();
   }
 }
@@ -43,7 +43,7 @@ impl ActorBehavior {
 impl Actor for ActorBehavior {
   async fn receive(&mut self, context_handle: ContextHandle) -> Result<(), ActorError> {
     if let Some(behavior) = {
-      let mg = self.stack.lock().await;
+      let mg = self.stack.read().await;
       mg.peek()
     } {
       behavior.run(context_handle.clone()).await?;

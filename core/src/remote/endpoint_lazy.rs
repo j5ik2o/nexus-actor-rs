@@ -6,12 +6,12 @@ use crate::remote::endpoint_manager::EndpointManager;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, RwLock};
 
 #[derive(Debug, Clone)]
 pub struct EndpointLazy {
   unloaded: Arc<AtomicBool>,
-  endpoint: Arc<Mutex<Option<Endpoint>>>,
+  endpoint: Arc<RwLock<Option<Endpoint>>>,
   endpoint_manager: EndpointManager,
   address: String,
 }
@@ -21,7 +21,7 @@ impl EndpointLazy {
     tracing::debug!(">>> EndpointLazy::new: address={}", address);
     Self {
       unloaded: Arc::new(AtomicBool::new(false)),
-      endpoint: Arc::new(Mutex::new(None)),
+      endpoint: Arc::new(RwLock::new(None)),
       endpoint_manager,
       address: address.to_string(),
     }
@@ -32,7 +32,7 @@ impl EndpointLazy {
   }
 
   pub(crate) async fn get(&self) -> Result<Endpoint, Box<dyn std::error::Error>> {
-    let mut endpoint = self.endpoint.lock().await;
+    let mut endpoint = self.endpoint.write().await;
     if let Some(ep) = endpoint.as_ref() {
       Ok(ep.clone())
     } else {
