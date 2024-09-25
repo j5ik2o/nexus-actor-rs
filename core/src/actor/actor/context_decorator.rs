@@ -4,7 +4,7 @@ use std::sync::Arc;
 use crate::actor::actor::context_decorator_chain::ContextDecoratorChain;
 
 #[derive(Clone)]
-pub struct ContextDecorator(Arc<dyn Fn(ContextDecoratorChain) -> ContextDecoratorChain + Send + Sync>);
+pub struct ContextDecorator(Arc<dyn Fn(ContextDecoratorChain) -> ContextDecoratorChain + Send + Sync + 'static>);
 
 unsafe impl Send for ContextDecorator {}
 unsafe impl Sync for ContextDecorator {}

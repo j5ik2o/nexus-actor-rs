@@ -52,7 +52,9 @@ impl SliceMap {
 }
 
 #[derive(Clone)]
-pub struct AddressResolver(Arc<dyn Fn(&ExtendedPid) -> BoxFuture<'static, Option<ProcessHandle>> + Send + Sync>);
+pub struct AddressResolver(
+  Arc<dyn Fn(&ExtendedPid) -> BoxFuture<'static, Option<ProcessHandle>> + Send + Sync + 'static>,
+);
 
 impl Debug for AddressResolver {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 // Predicate is a function used to filter messages before being forwarded to a subscriber
 #[derive(Clone)]
-pub struct Predicate(Arc<dyn Fn(MessageHandle) -> bool + Send + Sync>);
+pub struct Predicate(Arc<dyn Fn(MessageHandle) -> bool + Send + Sync + 'static>);
 
 impl Predicate {
   pub fn new(f: impl Fn(MessageHandle) -> bool + Send + Sync + 'static) -> Self {

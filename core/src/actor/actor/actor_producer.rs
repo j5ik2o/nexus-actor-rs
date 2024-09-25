@@ -8,7 +8,7 @@ use crate::actor::context::ContextHandle;
 use futures::future::BoxFuture;
 
 #[derive(Clone)]
-pub struct ActorProducer(Arc<dyn Fn(ContextHandle) -> BoxFuture<'static, ActorHandle> + Send + Sync>);
+pub struct ActorProducer(Arc<dyn Fn(ContextHandle) -> BoxFuture<'static, ActorHandle> + Send + Sync + 'static>);
 
 unsafe impl Send for ActorProducer {}
 unsafe impl Sync for ActorProducer {}

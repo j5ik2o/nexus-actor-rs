@@ -55,7 +55,7 @@ impl Message for Continuation {
 }
 
 #[derive(Clone)]
-pub struct ContinuationCallback(Arc<dyn Fn() -> BoxFuture<'static, ()> + Send + Sync>);
+pub struct ContinuationCallback(Arc<dyn Fn() -> BoxFuture<'static, ()> + Send + Sync + 'static>);
 
 impl ContinuationCallback {
   pub fn new<F, Fut>(f: F) -> Self

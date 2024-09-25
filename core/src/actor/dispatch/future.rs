@@ -44,16 +44,17 @@ pub struct ActorFuture {
 static_assertions::assert_impl_all!(ActorFuture: Send, Sync);
 
 #[derive(Clone)]
-struct Completion(Arc<dyn Fn(Option<MessageHandle>, Option<ActorFutureError>) -> BoxFuture<'static, ()> + Send>);
+struct Completion(
+  Arc<dyn Fn(Option<MessageHandle>, Option<ActorFutureError>) -> BoxFuture<'static, ()> + Send + Sync + 'static>,
+);
 
 unsafe impl Send for Completion {}
-
 unsafe impl Sync for Completion {}
 
 impl Completion {
   fn new<F, Fut>(f: F) -> Self
   where
-    F: Fn(Option<MessageHandle>, Option<ActorFutureError>) -> Fut + Send + 'static,
+    F: Fn(Option<MessageHandle>, Option<ActorFutureError>) -> Fut + Send + Sync + 'static,
     Fut: core::future::Future<Output = ()> + Send + 'static, {
     Self(Arc::new(move |message, error| {
       Box::pin(f(message, error)) as BoxFuture<'static, ()>

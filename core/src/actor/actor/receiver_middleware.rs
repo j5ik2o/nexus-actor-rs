@@ -4,7 +4,7 @@ use std::sync::Arc;
 use crate::actor::actor::receiver_middleware_chain::ReceiverMiddlewareChain;
 
 #[derive(Clone)]
-pub struct ReceiverMiddleware(Arc<dyn Fn(ReceiverMiddlewareChain) -> ReceiverMiddlewareChain + Send + Sync>);
+pub struct ReceiverMiddleware(Arc<dyn Fn(ReceiverMiddlewareChain) -> ReceiverMiddlewareChain + Send + Sync + 'static>);
 
 unsafe impl Send for ReceiverMiddleware {}
 unsafe impl Sync for ReceiverMiddleware {}

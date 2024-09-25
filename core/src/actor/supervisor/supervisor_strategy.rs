@@ -19,7 +19,7 @@ use crate::actor::supervisor::supervision_event::SupervisorEvent;
 use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
 
 #[derive(Clone)]
-pub struct Decider(Arc<dyn Fn(ErrorReason) -> BoxFuture<'static, Directive> + Send + Sync>);
+pub struct Decider(Arc<dyn Fn(ErrorReason) -> BoxFuture<'static, Directive> + Send + Sync + 'static>);
 
 impl Decider {
   pub fn new<F, Fut>(f: F) -> Self

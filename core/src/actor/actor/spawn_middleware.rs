@@ -4,7 +4,7 @@ use std::sync::Arc;
 use crate::actor::actor::spawner::Spawner;
 
 #[derive(Clone)]
-pub struct SpawnMiddleware(Arc<dyn Fn(Spawner) -> Spawner + Send + Sync>);
+pub struct SpawnMiddleware(Arc<dyn Fn(Spawner) -> Spawner + Send + Sync + 'static>);
 
 impl Debug for SpawnMiddleware {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
