@@ -19,6 +19,9 @@ pub trait MessageInvoker: Debug + Send + Sync {
 #[derive(Debug, Clone)]
 pub struct MessageInvokerHandle(Arc<Mutex<dyn MessageInvoker>>);
 
+unsafe impl Send for MessageInvokerHandle {}
+unsafe impl Sync for MessageInvokerHandle {}
+
 impl MessageInvokerHandle {
   pub fn new(invoker: Arc<Mutex<dyn MessageInvoker>>) -> Self {
     MessageInvokerHandle(invoker)
@@ -56,3 +59,5 @@ impl MessageInvoker for MessageInvokerHandle {
     mg.escalate_failure(reason, message_handle).await;
   }
 }
+
+static_assertions::assert_impl_all!(MessageInvokerHandle: Send, Sync);
