@@ -22,7 +22,7 @@ struct RequestMoreWork {
 }
 
 impl RequestMoreWork {
-  pub fn new(items: u32) -> Self {
+  fn new(items: u32) -> Self {
     Self { items }
   }
 }
@@ -35,7 +35,7 @@ struct RequestWorkBehavior {
 }
 
 impl RequestWorkBehavior {
-  pub fn new(actor_system: ActorSystem, tokens: u64, producer: ExtendedPid) -> Self {
+  fn new(actor_system: ActorSystem, tokens: u64, producer: ExtendedPid) -> Self {
     Self {
       tokens: Arc::new(AtomicU64::new(tokens)),
       producer,
@@ -43,7 +43,7 @@ impl RequestWorkBehavior {
     }
   }
 
-  pub async fn request_more(&mut self) {
+  async fn request_more(&mut self) {
     self.tokens.store(50, std::sync::atomic::Ordering::Relaxed);
     self
       .actor_system
@@ -82,7 +82,7 @@ struct Producer {
 }
 
 impl Producer {
-  pub fn new(wait_group: WaitGroup) -> Self {
+  fn new(wait_group: WaitGroup) -> Self {
     Self {
       requested_task: 0,
       produced_tasks: 0,
@@ -149,7 +149,7 @@ struct Consumer {
 }
 
 impl Consumer {
-  pub fn new(wait_group: WaitGroup) -> Self {
+  fn new(wait_group: WaitGroup) -> Self {
     Self { wait_group }
   }
 }

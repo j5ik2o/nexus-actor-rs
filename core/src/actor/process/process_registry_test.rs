@@ -13,6 +13,6 @@ mod tests {
       s = uint64_to_id(u64::from(i) << 5);
     }
     let duration = start.elapsed();
-    println!("uint64_to_id: {:?}, last result: {}", duration, s);
+    tracing::debug!("uint64_to_id: {:?}, last result: {}", duration, s);
   }
 }

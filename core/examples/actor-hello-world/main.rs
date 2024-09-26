@@ -26,14 +26,14 @@ impl Actor for HelloActor {
   async fn receive(&mut self, ctx: ContextHandle) -> Result<(), ActorError> {
     let message_handle = ctx.get_message_handle().await;
     let hello = message_handle.to_typed::<Hello>().unwrap();
-    println!("Hello, {}!", hello.who);
+    tracing::info!("Hello, {}!", hello.who);
     Ok(())
   }
 }
 
 #[tokio::main]
 async fn main() {
-  let _ = env::set_var("RUST_LOG", "debug");
+  let _ = env::set_var("RUST_LOG", "actor_hello_world=info");
   let _ = tracing_subscriber::fmt()
     .with_env_filter(EnvFilter::from_default_env())
     .init();

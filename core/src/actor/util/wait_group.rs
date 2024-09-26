@@ -67,12 +67,12 @@ async fn test_main() {
     tokio::spawn(async move {
       // 非同期の作業をシミュレート
       tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-      println!("Task {} completed", i);
+      tracing::info!("Task {} completed", i);
       wg.done().await;
     });
   }
 
   wg.add(3).await;
   wg.wait().await;
-  println!("All tasks completed");
+  tracing::debug!("All tasks completed");
 }
