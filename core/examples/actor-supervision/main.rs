@@ -93,8 +93,8 @@ async fn main() {
   };
   let supervisor = OneForOneStrategy::new(10, Duration::from_millis(1000)).with_decider(decider);
   let mut root_context = system.get_root_context().await;
-  let props = Props::from_async_actor_producer_with_opts(
-    |_| async { Parent::new() },
+  let props = Props::from_sync_actor_producer_with_opts(
+    |_| Parent::new(),
     [Props::with_supervisor_strategy(SupervisorStrategyHandle::new(
       supervisor,
     ))],

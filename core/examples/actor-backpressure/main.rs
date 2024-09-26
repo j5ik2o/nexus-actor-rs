@@ -58,9 +58,9 @@ impl RequestWorkBehavior {
 impl MailboxMiddleware for RequestWorkBehavior {
   async fn mailbox_started(&mut self) {}
 
-  async fn message_posted(&mut self, message_handle: MessageHandle) {}
+  async fn message_posted(&mut self, _message_handle: MessageHandle) {}
 
-  async fn message_received(&mut self, message_handle: MessageHandle) {
+  async fn message_received(&mut self, _message_handle: MessageHandle) {
     let token_count = self.tokens.load(std::sync::atomic::Ordering::Relaxed);
     if token_count > 0 {
       self.tokens.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
@@ -78,11 +78,11 @@ struct Producer {
   requested_task: u32,
   produced_tasks: u32,
   worker: Option<ExtendedPid>,
-  wait_group: Arc<WaitGroup>,
+  wait_group: WaitGroup,
 }
 
 impl Producer {
-  pub fn new(wait_group: Arc<WaitGroup>) -> Self {
+  pub fn new(wait_group: WaitGroup) -> Self {
     Self {
       requested_task: 0,
       produced_tasks: 0,
@@ -145,11 +145,11 @@ struct Produce;
 
 #[derive(Debug, Clone)]
 struct Consumer {
-  wait_group: Arc<WaitGroup>,
+  wait_group: WaitGroup,
 }
 
 impl Consumer {
-  pub fn new(wait_group: Arc<WaitGroup>) -> Self {
+  pub fn new(wait_group: WaitGroup) -> Self {
     Self { wait_group }
   }
 }
@@ -180,7 +180,7 @@ async fn main() {
 
   let system = ActorSystem::new().await.expect("Failed to create an actor system");
 
-  let wait_group = Arc::new(WaitGroup::with_count(100));
+  let wait_group = WaitGroup::with_count(100);
   let props = Props::from_sync_actor_producer({
     let cloned_wait_group = wait_group.clone();
     move |_| Producer::new(cloned_wait_group.clone())
