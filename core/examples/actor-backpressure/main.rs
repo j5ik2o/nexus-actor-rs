@@ -95,8 +95,6 @@ impl Producer {
 #[async_trait]
 impl Actor for Producer {
   async fn receive(&mut self, mut ctx: ContextHandle) -> Result<(), ActorError> {
-    tracing::info!("Requested tasks: {:?}", self.requested_task);
-    tracing::info!("Produced tasks: {:?}", self.produced_tasks);
     if let Some(request_more_work) = ctx.get_message_handle().await.to_typed::<RequestMoreWork>() {
       self.requested_task += request_more_work.items;
       self.produced_tasks = 0;
@@ -107,15 +105,13 @@ impl Actor for Producer {
       ctx
         .send(
           self.worker.clone().expect("Not found"),
-          MessageHandle::new(Work {
-            id: self.produced_tasks,
-          }),
+          MessageHandle::new(Task::new(self.produced_tasks)),
         )
         .await;
+      tracing::info!("Producer: produced a task: {:?}", self.produced_tasks);
       if self.requested_task > 0 {
         self.requested_task -= 1;
         ctx.send(ctx.get_self().await, MessageHandle::new(Produce)).await;
-        tracing::info!("Produced a task: {:?}", self.produced_tasks);
       }
     }
     Ok(())
@@ -157,8 +153,8 @@ impl Consumer {
 #[async_trait]
 impl Actor for Consumer {
   async fn receive(&mut self, context_handle: ContextHandle) -> Result<(), ActorError> {
-    if let Some(work) = context_handle.get_message_handle().await.to_typed::<Work>() {
-      tracing::info!("Received consumer: {:?}", work);
+    if let Some(task) = context_handle.get_message_handle().await.to_typed::<Task>() {
+      tracing::info!("Consumer: received task: {:?}", task);
       sleep(std::time::Duration::from_millis(100)).await;
       self.wait_group.done().await;
     }
@@ -167,8 +163,14 @@ impl Actor for Consumer {
 }
 
 #[derive(Debug, Clone, PartialEq, Message)]
-struct Work {
+struct Task {
   id: u32,
+}
+
+impl Task {
+  fn new(id: u32) -> Self {
+    Self { id }
+  }
 }
 
 #[tokio::main]

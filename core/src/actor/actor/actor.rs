@@ -9,6 +9,7 @@ use async_trait::async_trait;
 use std::fmt::Debug;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use tracing::instrument;
 
 #[async_trait]
 pub trait Actor: Debug + Send + Sync + 'static {
@@ -16,7 +17,7 @@ pub trait Actor: Debug + Send + Sync + 'static {
     std::any::type_name_of_val(self).to_string()
   }
 
-  // #[instrument(skip_all)]
+  #[instrument(skip_all)]
   async fn handle(&mut self, context_handle: ContextHandle) -> Result<(), ActorError> {
     let message_handle = context_handle.get_message_handle().await;
     let arm = message_handle.to_typed::<AutoReceiveMessage>();

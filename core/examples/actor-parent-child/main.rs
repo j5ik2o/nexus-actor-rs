@@ -39,7 +39,7 @@ struct TopActor;
 impl TypedActor<Hello> for TopActor {
   async fn post_start(&mut self, mut context_handle: TypedContextHandle<Hello>) -> Result<(), ActorError> {
     tracing::debug!("TopActor::post_start");
-    let props = TypedProps::from_actor_producer(move |_| async { ChildActor }).await;
+    let props = TypedProps::from_async_actor_producer(move |_| async { ChildActor }).await;
     let pid = context_handle.spawn(props).await;
     for _ in 1..10 {
       context_handle.send(pid.clone(), Hello("hello-2".to_string())).await;
@@ -63,7 +63,7 @@ async fn main() {
 
   let system = ActorSystem::new().await.unwrap();
   let mut root = system.get_root_context().await.to_typed();
-  let props = TypedProps::from_actor_producer_with_opts(
+  let props = TypedProps::from_async_actor_producer_with_opts(
     move |_| async { TopActor },
     [Props::with_mailbox_producer(unbounded_mpsc_mailbox_creator())],
   )
