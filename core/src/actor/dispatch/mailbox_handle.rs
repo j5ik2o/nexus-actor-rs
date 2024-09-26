@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::RwLock;
 
 use crate::actor::dispatch::dispatcher::DispatcherHandle;
 use crate::actor::dispatch::mailbox::Mailbox;

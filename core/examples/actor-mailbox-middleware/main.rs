@@ -21,19 +21,19 @@ impl MailboxLogger {
 
 #[async_trait]
 impl MailboxMiddleware for MailboxLogger {
-  async fn mailbox_started(&self) {
+  async fn mailbox_started(&mut self) {
     tracing::info!("Mailbox started");
   }
 
-  async fn message_posted(&self, message_handle: MessageHandle) {
+  async fn message_posted(&mut self, message_handle: MessageHandle) {
     tracing::info!("Message posted: {:?}", message_handle);
   }
 
-  async fn message_received(&self, message_handle: MessageHandle) {
+  async fn message_received(&mut self, message_handle: MessageHandle) {
     tracing::info!("Message received: {:?}", message_handle);
   }
 
-  async fn mailbox_empty(&self) {
+  async fn mailbox_empty(&mut self) {
     tracing::info!("Mailbox empty");
   }
 }

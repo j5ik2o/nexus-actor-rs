@@ -1,7 +1,7 @@
 use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::RwLock;
 
 #[derive(Debug, Clone)]
 pub struct SleepContainer(Arc<RwLock<Pin<Box<tokio::time::Sleep>>>>);

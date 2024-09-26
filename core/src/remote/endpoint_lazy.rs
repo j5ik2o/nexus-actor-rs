@@ -6,7 +6,7 @@ use crate::remote::endpoint_manager::EndpointManager;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::RwLock;
 
 #[derive(Debug, Clone)]
 pub struct EndpointLazy {
