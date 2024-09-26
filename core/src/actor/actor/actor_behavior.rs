@@ -3,7 +3,7 @@ use crate::actor::context::{ContextHandle, InfoPart};
 use crate::actor::util::stack::Stack;
 use async_trait::async_trait;
 use std::sync::Arc;
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::RwLock;
 
 #[derive(Debug, Clone)]
 pub struct ActorBehavior {

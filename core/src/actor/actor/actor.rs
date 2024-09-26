@@ -8,7 +8,7 @@ use crate::generated::actor::Terminated;
 use async_trait::async_trait;
 use std::fmt::Debug;
 use std::sync::Arc;
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::RwLock;
 
 #[async_trait]
 pub trait Actor: Debug + Send + Sync + 'static {

@@ -6,7 +6,7 @@ use crate::util::queue::{MpscUnboundedChannelQueue, QueueBase, QueueError, Queue
 use async_trait::async_trait;
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicUsize, Ordering};
 use std::sync::Arc;
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::RwLock;
 
 #[derive(Debug, Clone)]
 pub struct EndpointWriterMailbox {

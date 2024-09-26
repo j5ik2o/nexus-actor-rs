@@ -22,7 +22,7 @@ use futures::{StreamExt, TryFutureExt};
 use std::sync::{Arc, Weak};
 use std::time::Instant;
 use thiserror::Error;
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::RwLock;
 use tonic::transport::Channel;
 use tonic::{Code, Response, Streaming};
 

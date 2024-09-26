@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use futures::channel::mpsc::unbounded;
 use nexus_actor_core_rs::actor::actor::{Actor, ActorError, ExtendedPid, Props};
 use nexus_actor_core_rs::actor::actor_system::ActorSystem;
 use nexus_actor_core_rs::actor::context::{ContextHandle, InfoPart, MessagePart, SenderPart, SpawnerPart};
@@ -14,7 +13,6 @@ use std::env;
 use std::fmt::Debug;
 use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 use tokio::time::sleep;
 use tracing_subscriber::EnvFilter;
 

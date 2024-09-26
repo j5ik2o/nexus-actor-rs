@@ -10,7 +10,7 @@ use crate::remote::serializer::SerializerId;
 use async_trait::async_trait;
 use dashmap::DashMap;
 use std::sync::{Arc, Weak};
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::RwLock;
 
 #[derive(Debug, Clone)]
 pub struct EndpointWatcher {

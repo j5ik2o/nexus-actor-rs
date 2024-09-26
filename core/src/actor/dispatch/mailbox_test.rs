@@ -16,7 +16,7 @@ mod tests {
   use std::env;
   use std::sync::Arc;
   use std::time::Duration;
-  use tokio::sync::{Mutex, RwLock};
+  use tokio::sync::RwLock;
   use tokio::time::sleep;
   use tracing_subscriber::EnvFilter;
 
