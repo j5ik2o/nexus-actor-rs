@@ -371,6 +371,33 @@ impl Props {
     Self::from_async_actor_receiver_with_opts(f, []).await
   }
 
+  pub async fn from_sync_actor_producer_with_opts<A, F>(f: F, opts: impl IntoIterator<Item = PropsOption>) -> Props
+  where
+    A: Actor,
+    F: Fn(ContextHandle) -> A + Clone + Send + Sync + 'static, {
+    let f_arc = Arc::new(f);
+    Self::from_async_actor_producer_with_opts(
+      move |ctx| {
+        let cloned_f_arc = f_arc.clone();
+        async move { (*cloned_f_arc)(ctx.clone()) }
+      },
+      opts,
+    )
+    .await
+  }
+
+  pub async fn from_sync_actor_producer<A, F>(f: F) -> Props
+  where
+    A: Actor,
+    F: Fn(ContextHandle) -> A + Clone + Send + Sync + 'static, {
+    let f_arc = Arc::new(f);
+    Self::from_async_actor_producer(move |ctx| {
+      let cloned_f_arc = f_arc.clone();
+      async move { (*cloned_f_arc)(ctx.clone()) }
+    })
+    .await
+  }
+
   pub async fn from_sync_actor_receiver_with_opts<F>(f: F, opts: impl IntoIterator<Item = PropsOption>) -> Props
   where
     F: Fn(ContextHandle) -> Result<(), ActorError> + Send + Sync + 'static, {
