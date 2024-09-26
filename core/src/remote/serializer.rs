@@ -446,7 +446,7 @@ mod tests {
     };
     let bytes = serialize_any(&msg, &SerializerId::Proto, std::any::type_name::<TestMessage>()).unwrap();
     // let deserialized = deserialize_any(&bytes, &SerializerId::Proto, std::any::type_name::<TestMessage>()).unwrap();
-    let deserialized = deserialize::<TestMessage>(&bytes, &SerializerId::Proto).unwrap();
+    let _deserialized = deserialize::<TestMessage>(&bytes, &SerializerId::Proto).unwrap();
     // assert_eq!(msg, deserialized);
   }
 

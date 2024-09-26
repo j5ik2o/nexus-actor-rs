@@ -47,7 +47,7 @@ impl Actor for HelloActor {
     Ok(())
   }
 
-  async fn pre_restart(&mut self, ctx: ContextHandle) -> Result<(), ActorError> {
+  async fn pre_restart(&mut self, _: ContextHandle) -> Result<(), ActorError> {
     tracing::info!("Restarting, actor is about restart");
     Ok(())
   }

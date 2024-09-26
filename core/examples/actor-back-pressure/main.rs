@@ -146,7 +146,7 @@ impl Actor for Producer {
 
   // Create a consumer when the actor starts
   async fn post_start(&mut self, mut ctx: ContextHandle) -> Result<(), ActorError> {
-    self.consumer = Some(ctx.spawn(self.consumer_props(ctx).await).await);
+    self.consumer = Some(ctx.spawn(self.consumer_props(ctx.clone()).await).await);
     Ok(())
   }
 }
