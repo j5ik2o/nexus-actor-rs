@@ -122,9 +122,8 @@ impl Actor for Producer {
   }
 
   async fn post_start(&mut self, mut ctx: ContextHandle) -> Result<(), ActorError> {
-    let actor_system = ctx.get_actor_system().await;
     let mb = unbounded_mailbox_creator_with_opts([MailboxMiddlewareHandle::new(RequestWorkBehavior::new(
-      actor_system,
+      ctx.get_actor_system().await,
       0,
       ctx.get_self().await,
     ))]);
@@ -179,7 +178,8 @@ async fn main() {
     .with_env_filter(EnvFilter::from_default_env())
     .init();
 
-  let system = ActorSystem::new().await.unwrap();
+  let system = ActorSystem::new().await.expect("Failed to create an actor system");
+
   let wait_group = Arc::new(WaitGroup::with_count(100));
   let props = Props::from_sync_actor_producer({
     let cloned_wait_group = wait_group.clone();
