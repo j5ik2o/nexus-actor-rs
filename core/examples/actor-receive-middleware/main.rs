@@ -15,7 +15,7 @@ struct Hello {
 
 #[tokio::main]
 async fn main() {
-  let _ = env::set_var("RUST_LOG", "debug");
+  let _ = env::set_var("RUST_LOG", "actor_receive-middleware=info");
   let _ = tracing_subscriber::fmt()
     .with_env_filter(EnvFilter::from_default_env())
     .init();

@@ -21,7 +21,7 @@ struct HelloActor {
 }
 
 impl HelloActor {
-  pub fn new(wait_group: WaitGroup) -> Self {
+  fn new(wait_group: WaitGroup) -> Self {
     Self {
       error: true,
       wait_group,
@@ -34,7 +34,7 @@ impl Actor for HelloActor {
   async fn receive(&mut self, ctx: ContextHandle) -> Result<(), ActorError> {
     let message_handle = ctx.get_message_handle().await;
     let hello = message_handle.to_typed::<Hello>().unwrap();
-    println!("Hello, {}!", hello.who);
+    tracing::info!("Hello, {}!", hello.who);
     if self.error {
       Err(ActorError::ReceiveError(ErrorReason::new("Ouch".to_string(), 0)))
     } else {

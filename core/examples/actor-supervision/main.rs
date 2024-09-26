@@ -53,7 +53,7 @@ impl Actor for Child {
   async fn receive(&mut self, ctx: ContextHandle) -> Result<(), ActorError> {
     let message_handle = ctx.get_message_handle().await;
     let msg = message_handle.to_typed::<Hello>().unwrap();
-    println!("Hello, {}", msg.who);
+    tracing::info!("Hello, {}", msg.who);
     msg.async_barrier.wait().await;
     Err(ActorError::ReceiveError(ErrorReason::new("Ouch".to_string(), 0)))
   }
@@ -81,14 +81,14 @@ impl Hello {
 
 #[tokio::main]
 async fn main() {
-  let _ = env::set_var("RUST_LOG", "debug");
+  let _ = env::set_var("RUST_LOG", "actor_supervision=info");
   let _ = tracing_subscriber::fmt()
     .with_env_filter(EnvFilter::from_default_env())
     .init();
 
   let system = ActorSystem::new().await.unwrap();
   let decider = |_| async {
-    println!("occurred error");
+    tracing::error!("occurred error");
     Directive::Stop
   };
   let supervisor = OneForOneStrategy::new(10, Duration::from_millis(1000)).with_decider(decider);

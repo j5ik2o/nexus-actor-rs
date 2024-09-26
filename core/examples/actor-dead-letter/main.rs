@@ -33,7 +33,7 @@ struct Hello {
 
 #[tokio::main]
 async fn main() {
-  let _ = env::set_var("RUST_LOG", "debug");
+  let _ = env::set_var("RUST_LOG", "actor_dead_letter=info");
   let _ = tracing_subscriber::fmt()
     .with_env_filter(EnvFilter::from_default_env())
     .init();
@@ -59,7 +59,7 @@ async fn main() {
     NonZeroU32::new(args.rate).unwrap_or(NonZeroU32::new(1).unwrap()),
   ));
 
-  println!("started");
+  tracing::info!("started");
 
   tokio::spawn(async move {
     while cloned_btn.load(Ordering::SeqCst) {
@@ -73,5 +73,5 @@ async fn main() {
 
   sleep(Duration::from_secs(1)).await;
 
-  println!("done");
+  tracing::info!("done");
 }

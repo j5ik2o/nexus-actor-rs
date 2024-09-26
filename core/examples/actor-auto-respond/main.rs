@@ -14,7 +14,7 @@ pub struct MyAutoResponder {
 
 #[tokio::main]
 async fn main() {
-  let _ = env::set_var("RUST_LOG", "debug");
+  let _ = env::set_var("RUST_LOG", "actor_auto_respond=info");
   let _ = tracing_subscriber::fmt()
     .with_env_filter(EnvFilter::from_default_env())
     .init();
