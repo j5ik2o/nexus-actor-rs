@@ -21,15 +21,15 @@ impl<M: Message + Clone> TypedProps<M> {
     }
   }
 
-  pub async fn from_actor_producer<A, F, Fut>(f: F) -> TypedProps<M>
+  pub async fn from_async_actor_producer<A, F, Fut>(f: F) -> TypedProps<M>
   where
     A: TypedActor<M>,
     F: Fn(TypedContextHandle<M>) -> Fut + Clone + Send + Sync + 'static,
     Fut: Future<Output = A> + Send + 'static, {
-    Self::from_actor_producer_with_opts(f, []).await
+    Self::from_async_actor_producer_with_opts(f, []).await
   }
 
-  pub async fn from_actor_producer_with_opts<A, F, Fut>(
+  pub async fn from_async_actor_producer_with_opts<A, F, Fut>(
     f: F,
     opts: impl IntoIterator<Item = PropsOption>,
   ) -> TypedProps<M>
@@ -53,14 +53,14 @@ impl<M: Message + Clone> TypedProps<M> {
     .into()
   }
 
-  pub async fn from_actor_receiver<F, Fut>(f: F) -> TypedProps<M>
+  pub async fn from_async_actor_receiver<F, Fut>(f: F) -> TypedProps<M>
   where
     F: Fn(TypedContextHandle<M>) -> Fut + Send + Sync + 'static,
     Fut: Future<Output = Result<(), crate::actor::actor::ActorError>> + Send + 'static, {
-    Self::from_actor_receiver_with_opts(f, []).await
+    Self::from_async_actor_receiver_with_opts(f, []).await
   }
 
-  pub async fn from_actor_receiver_with_opts<F, Fut>(
+  pub async fn from_async_actor_receiver_with_opts<F, Fut>(
     f: F,
     opts: impl IntoIterator<Item = PropsOption>,
   ) -> TypedProps<M>

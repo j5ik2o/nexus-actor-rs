@@ -49,7 +49,7 @@ async fn main() {
 
   let system = ActorSystem::new().await.unwrap();
   let mut root_context = system.get_root_context().await.to_typed();
-  let props = TypedProps::from_actor_receiver_with_opts(
+  let props = TypedProps::from_async_actor_receiver_with_opts(
     move |_| async move { Ok(()) },
     [Props::with_mailbox_producer(unbounded_mailbox_creator_with_opts([
       MailboxMiddlewareHandle::new(MailboxLogger::new()),

@@ -70,7 +70,7 @@ mod tests {
     let system = ActorSystem::new().await.unwrap();
     let mut root_context = system.get_typed_root_context().await;
 
-    let props = TypedProps::from_actor_producer(move |_| {
+    let props = TypedProps::from_async_actor_producer(move |_| {
       let cloned_b = b.clone();
       async move { MyActor { b: cloned_b.clone() } }
     })
