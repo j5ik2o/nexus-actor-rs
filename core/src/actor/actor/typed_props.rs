@@ -6,6 +6,7 @@ use crate::actor::context::TypedContextHandle;
 use crate::actor::message::Message;
 use std::future::Future;
 use std::marker::PhantomData;
+use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct TypedProps<M: Message> {
@@ -53,6 +54,36 @@ impl<M: Message + Clone> TypedProps<M> {
     .into()
   }
 
+  pub async fn from_sync_actor_producer<A, F>(f: F) -> TypedProps<M>
+  where
+    A: TypedActor<M>,
+    F: Fn(TypedContextHandle<M>) -> A + Clone + Send + Sync + 'static, {
+    let f = Arc::new(f);
+    Self::from_async_actor_producer(move |ctx| {
+      let f = f.clone();
+      async move { f(ctx) }
+    })
+    .await
+  }
+
+  pub async fn from_sync_actor_producer_with_opts<A, F>(
+    f: F,
+    opts: impl IntoIterator<Item = PropsOption>,
+  ) -> TypedProps<M>
+  where
+    A: TypedActor<M>,
+    F: Fn(TypedContextHandle<M>) -> A + Clone + Send + Sync + 'static, {
+    let f = Arc::new(f);
+    Self::from_async_actor_producer_with_opts(
+      move |ctx| {
+        let f = f.clone();
+        async move { f(ctx) }
+      },
+      opts,
+    )
+    .await
+  }
+
   pub async fn from_async_actor_receiver<F, Fut>(f: F) -> TypedProps<M>
   where
     F: Fn(TypedContextHandle<M>) -> Fut + Send + Sync + 'static,
@@ -76,6 +107,23 @@ impl<M: Message + Clone> TypedProps<M> {
     )
     .await
     .into()
+  }
+
+  pub async fn from_sync_actor_receiver_with_opts<F>(
+    f: F,
+    opts: impl IntoIterator<Item = PropsOption>,
+  ) -> TypedProps<M>
+  where
+    F: Fn(TypedContextHandle<M>) -> Result<(), crate::actor::actor::ActorError> + Send + Sync + 'static, {
+    let f = Arc::new(f);
+    Self::from_async_actor_receiver_with_opts(
+      move |ctx| {
+        let f = f.clone();
+        async move { f(ctx) }
+      },
+      opts,
+    )
+    .await
   }
 
   pub fn with_actor_producer(producer: TypedActorProducer<M>) -> PropsOption {
