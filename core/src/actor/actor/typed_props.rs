@@ -113,7 +113,7 @@ impl<M: Message + Clone> TypedProps<M> {
   where
     F: Fn(TypedContextHandle<M>) -> Result<(), crate::actor::actor::ActorError> + Send + Sync + 'static, {
     let f = Arc::new(f);
-    Self::from_async_actor_receiver_with_opts(move |ctx| {
+    Self::from_async_actor_receiver(move |ctx| {
       let f = f.clone();
       async move { f(ctx) }
     })
