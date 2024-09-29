@@ -52,7 +52,7 @@ opentelemetry-otlp = { version = "0.25.0", features = ["grpc-tonic", "trace", "m
 regex = "1.10.6"
 
 [dev-dependencies]
-rstest = "0.22.0"
+rstest = "0.23.0"
 clap = { version = "4.5.9", features = ["derive"] }
 humantime = "2.1"
 governor = "0.6.3"
