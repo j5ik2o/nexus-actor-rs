@@ -7,7 +7,7 @@ mod tests {
   use crate::actor::context::{MessagePart, SpawnerPart};
   use crate::actor::message::AutoReceiveMessage;
   use crate::actor::message::Message;
-  use nexus_actor_utils_rs::utils::AsyncBarrier;
+  use nexus_actor_utils_rs::concurrent::AsyncBarrier;
   use tracing_subscriber::EnvFilter;
 
   #[tokio::test]

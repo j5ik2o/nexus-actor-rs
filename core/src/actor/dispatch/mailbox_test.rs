@@ -8,9 +8,8 @@ mod tests {
   use crate::actor::dispatch::message_invoker::{MessageInvoker, MessageInvokerHandle};
   use crate::actor::dispatch::unbounded::unbounded_mpsc_mailbox_creator;
   use crate::actor::message::MessageHandle;
-  use crate::util::queue::RingQueue;
-  use crate::util::queue::{QueueReader, QueueWriter};
   use async_trait::async_trait;
+  use nexus_actor_utils_rs::collections::{QueueReader, QueueWriter, RingQueue};
   use rand::rngs::SmallRng;
   use rand::Rng;
   use std::env;

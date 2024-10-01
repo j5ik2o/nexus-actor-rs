@@ -1,9 +1,6 @@
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
 use std::sync::Arc;
 
-use async_trait::async_trait;
-use tokio::sync::{Mutex, RwLock};
-
 use crate::actor::dispatch::dispatcher::{Dispatcher, DispatcherHandle, Runnable};
 use crate::actor::dispatch::mailbox::Mailbox;
 use crate::actor::dispatch::mailbox_handle::MailboxHandle;
@@ -11,7 +8,9 @@ use crate::actor::dispatch::mailbox_message::MailboxMessage;
 use crate::actor::dispatch::mailbox_middleware::{MailboxMiddleware, MailboxMiddlewareHandle};
 use crate::actor::dispatch::message_invoker::{MessageInvoker, MessageInvokerHandle};
 use crate::actor::message::MessageHandle;
-use crate::util::queue::{QueueError, QueueReader, QueueWriter};
+use async_trait::async_trait;
+use nexus_actor_utils_rs::collections::{QueueError, QueueReader, QueueWriter};
+use tokio::sync::{Mutex, RwLock};
 
 #[derive(Debug)]
 struct DefaultMailboxInner {

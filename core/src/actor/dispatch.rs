@@ -13,6 +13,8 @@ mod mailbox_middleware;
 mod mailbox_producer;
 mod mailbox_test;
 mod message_invoker;
+pub mod throttler;
+mod throttler_test;
 mod unbounded;
 
 pub use {

@@ -13,6 +13,5 @@ pub mod metrics;
 pub mod process;
 pub mod supervisor;
 pub mod typed_context;
-pub mod util;
 
 pub use {self::config::*, self::config_option::*};

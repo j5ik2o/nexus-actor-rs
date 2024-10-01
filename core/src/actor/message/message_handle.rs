@@ -1,10 +1,8 @@
+use crate::actor::message::message::Message;
+use nexus_actor_utils_rs::collections::{Element, PriorityMessage};
 use std::any::Any;
 use std::fmt::{Debug, Display, Formatter};
 use std::sync::Arc;
-
-use crate::actor::message::message::Message;
-use crate::util::element::Element;
-use crate::util::queue::PriorityMessage;
 
 #[derive(Debug, Clone)]
 pub struct MessageHandle(Arc<dyn Message>);
