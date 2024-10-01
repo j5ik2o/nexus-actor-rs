@@ -6,21 +6,21 @@ use tokio::sync::RwLock;
 use crate::generated::actor::Pid;
 
 #[derive(Debug, Clone)]
-pub(crate) struct PidSet {
+pub struct PidSet {
   pids: Arc<RwLock<Vec<Pid>>>,
   lookup: Arc<RwLock<HashMap<String, Pid>>>,
 }
 
 impl PidSet {
-  pub(crate) fn key(&self, pid: &Pid) -> String {
+  pub fn key(&self, pid: &Pid) -> String {
     format!("{}", pid.id)
   }
 
-  pub(crate) async fn new() -> Self {
+  pub async fn new() -> Self {
     Self::new_with_pids(&[]).await
   }
 
-  pub(crate) async fn new_with_pids(pids: &[Pid]) -> Self {
+  pub async fn new_with_pids(pids: &[Pid]) -> Self {
     let mut set = PidSet {
       pids: Arc::new(RwLock::new(Vec::new())),
       lookup: Arc::new(RwLock::new(HashMap::new())),
@@ -31,24 +31,24 @@ impl PidSet {
     set
   }
 
-  pub(crate) async fn ensure_init(&mut self) {
+  pub async fn ensure_init(&mut self) {
     let mut mg = self.lookup.write().await;
     if mg.is_empty() {
       *mg = HashMap::new();
     }
   }
 
-  pub(crate) async fn index_of(&self, v: &Pid) -> Option<usize> {
+  pub async fn index_of(&self, v: &Pid) -> Option<usize> {
     let pids_mg = self.pids.read().await;
     pids_mg.iter().position(|pid| *v == *pid)
   }
 
-  pub(crate) async fn contains(&self, v: &Pid) -> bool {
+  pub async fn contains(&self, v: &Pid) -> bool {
     let mg = self.lookup.read().await;
     mg.contains_key(&self.key(v))
   }
 
-  pub(crate) async fn add(&mut self, v: Pid) {
+  pub async fn add(&mut self, v: Pid) {
     self.ensure_init().await;
     if self.contains(&v).await {
       return;
@@ -64,7 +64,7 @@ impl PidSet {
     }
   }
 
-  pub(crate) async fn remove(&mut self, v: &Pid) -> bool {
+  pub async fn remove(&mut self, v: &Pid) -> bool {
     self.ensure_init().await;
     if let Some(i) = self.index_of(v).await {
       {
@@ -81,12 +81,12 @@ impl PidSet {
     }
   }
 
-  pub(crate) async fn len(&self) -> usize {
+  pub async fn len(&self) -> usize {
     let pids_mg = self.pids.read().await;
     pids_mg.len()
   }
 
-  pub(crate) async fn clear(&mut self) {
+  pub async fn clear(&mut self) {
     {
       let mut pids_mg = self.pids.write().await;
       pids_mg.clear();
@@ -97,16 +97,16 @@ impl PidSet {
     }
   }
 
-  pub(crate) async fn is_empty(&self) -> bool {
+  pub async fn is_empty(&self) -> bool {
     self.len().await == 0
   }
 
-  pub(crate) async fn to_vec(&self) -> Vec<Pid> {
+  pub async fn to_vec(&self) -> Vec<Pid> {
     let pids_mg = self.pids.read().await;
     pids_mg.clone()
   }
 
-  pub(crate) async fn for_each<F>(&self, mut f: F)
+  pub async fn for_each<F>(&self, mut f: F)
   where
     F: FnMut(usize, &Pid), {
     let pids_mg = self.pids.read().await;
@@ -115,7 +115,7 @@ impl PidSet {
     }
   }
 
-  pub(crate) async fn get(&self, index: usize) -> Option<Pid> {
+  pub async fn get(&self, index: usize) -> Option<Pid> {
     let pids_mg = self.pids.read().await;
     pids_mg.get(index).cloned()
   }

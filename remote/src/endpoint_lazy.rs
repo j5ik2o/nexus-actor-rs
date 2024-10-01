@@ -1,8 +1,8 @@
-use crate::actor::actor::ExtendedPid;
-use crate::actor::context::SenderPart;
-use crate::actor::message::MessageHandle;
-use crate::remote::endpoint::Endpoint;
-use crate::remote::endpoint_manager::EndpointManager;
+use crate::endpoint::Endpoint;
+use crate::endpoint_manager::EndpointManager;
+use nexus_actor_core_rs::actor::actor::ExtendedPid;
+use nexus_actor_core_rs::actor::context::SenderPart;
+use nexus_actor_core_rs::actor::message::MessageHandle;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use std::time::Duration;

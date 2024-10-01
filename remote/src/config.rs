@@ -1,7 +1,7 @@
-use crate::actor::actor::Props;
-use crate::remote::config::server_config::ServerConfig;
-use crate::remote::config_option::ConfigOption;
+use crate::config::server_config::ServerConfig;
+use crate::config_option::ConfigOption;
 use dashmap::DashMap;
+use nexus_actor_core_rs::actor::actor::Props;
 use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 use std::sync::Arc;

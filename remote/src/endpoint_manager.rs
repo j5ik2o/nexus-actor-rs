@@ -1,22 +1,22 @@
-use crate::actor::actor::{ExtendedPid, Props, SpawnError};
-use crate::actor::actor_system::ActorSystem;
-use crate::actor::context::{SenderPart, SpawnerPart, StopperPart};
-use crate::actor::dispatch::future::ActorFutureError;
-use crate::actor::dispatch::DeadLetterEvent;
-use crate::actor::message::MessageHandle;
-use crate::actor::supervisor::{RestartingStrategy, SupervisorStrategyHandle};
-use crate::event_stream::{EventHandler, Predicate, Subscription};
-use crate::generated::actor::Pid;
+use crate::activator_actor::Activator;
+use crate::endpoint::Endpoint;
+use crate::endpoint_lazy::EndpointLazy;
+use crate::endpoint_supervisor::EndpointSupervisor;
 use crate::generated::remote::RemoteMessage;
-use crate::remote::activator_actor::Activator;
-use crate::remote::endpoint::Endpoint;
-use crate::remote::endpoint_lazy::EndpointLazy;
-use crate::remote::endpoint_supervisor::EndpointSupervisor;
-use crate::remote::messages::{
+use crate::messages::{
   EndpointEvent, EndpointTerminatedEvent, Ping, Pong, RemoteDeliver, RemoteTerminate, RemoteUnwatch, RemoteWatch,
 };
-use crate::remote::remote::Remote;
+use crate::remote::Remote;
 use dashmap::DashMap;
+use nexus_actor_core_rs::actor::actor::{ExtendedPid, Props, SpawnError};
+use nexus_actor_core_rs::actor::actor_system::ActorSystem;
+use nexus_actor_core_rs::actor::context::{SenderPart, SpawnerPart, StopperPart};
+use nexus_actor_core_rs::actor::dispatch::future::ActorFutureError;
+use nexus_actor_core_rs::actor::dispatch::DeadLetterEvent;
+use nexus_actor_core_rs::actor::message::MessageHandle;
+use nexus_actor_core_rs::actor::supervisor::{RestartingStrategy, SupervisorStrategyHandle};
+use nexus_actor_core_rs::event_stream::{EventHandler, Predicate, Subscription};
+use nexus_actor_core_rs::generated::actor::Pid;
 use nexus_actor_utils_rs::collections::DashMapExtension;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};

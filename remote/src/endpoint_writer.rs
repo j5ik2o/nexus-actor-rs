@@ -1,10 +1,5 @@
-use crate::actor::actor::{Actor, ActorError, ErrorReason, ExtendedPid};
-use crate::actor::actor_system::ActorSystem;
-use crate::actor::context::{BasePart, ContextHandle, InfoPart, MessagePart, SenderPart, StopperPart};
-use crate::actor::dispatch::DeadLetterEvent;
-use crate::actor::message::{Message, MessageHandle, ReadonlyMessageHeaders};
 use crate::cluster::messages::{DeliverBatchRequest, PubSubAutoResponseBatch, PubSubBatch};
-use crate::generated::actor::{DeadLetterResponse, Pid};
+use crate::config::Config;
 use crate::generated::cluster::{DeliverBatchRequestTransport, PubSubAutoRespondBatchTransport, PubSubBatchTransport};
 use crate::generated::remote::connect_request::ConnectionType;
 use crate::generated::remote::remote_message::MessageType;
@@ -12,13 +7,19 @@ use crate::generated::remote::remoting_client::RemotingClient;
 use crate::generated::remote::{
   ConnectRequest, ConnectResponse, MessageBatch, MessageEnvelope, MessageHeader, RemoteMessage, ServerConnection,
 };
-use crate::remote::config::Config;
-use crate::remote::messages::{EndpointConnectedEvent, EndpointEvent, EndpointTerminatedEvent, RemoteDeliver};
-use crate::remote::remote::Remote;
-use crate::remote::serializer::{serialize, serialize_any, RootSerializable, SerializerId};
+use crate::messages::{EndpointConnectedEvent, EndpointEvent, EndpointTerminatedEvent, RemoteDeliver};
+use crate::remote::Remote;
+use crate::serializer::RootSerializable;
+use crate::serializer::{serialize, serialize_any, SerializerId};
 use async_trait::async_trait;
 use dashmap::DashMap;
 use futures::{StreamExt, TryFutureExt};
+use nexus_actor_core_rs::actor::actor::{Actor, ActorError, ErrorReason, ExtendedPid};
+use nexus_actor_core_rs::actor::actor_system::ActorSystem;
+use nexus_actor_core_rs::actor::context::{BasePart, ContextHandle, InfoPart, MessagePart, SenderPart, StopperPart};
+use nexus_actor_core_rs::actor::dispatch::DeadLetterEvent;
+use nexus_actor_core_rs::actor::message::{Message, MessageHandle, ReadonlyMessageHeaders};
+use nexus_actor_core_rs::generated::actor::{DeadLetterResponse, Pid};
 use std::sync::{Arc, Weak};
 use std::time::Instant;
 use thiserror::Error;

@@ -1,16 +1,18 @@
-use crate::actor::actor::{Actor, ActorError, ErrorReason, ExtendedPid, Props, RestartStatistics};
-use crate::actor::actor_system::ActorSystem;
-use crate::actor::context::{BasePart, ContextHandle, MessagePart, SpawnerPart};
-use crate::actor::dispatch::{MailboxHandle, MailboxProducer};
-use crate::actor::message::{MessageHandle, ResponseHandle};
-use crate::actor::supervisor::{Supervisor, SupervisorHandle, SupervisorStrategy, SupervisorStrategyHandle};
-use crate::remote::config::Config;
-use crate::remote::endpoint::Endpoint;
-use crate::remote::endpoint_watcher::EndpointWatcher;
-use crate::remote::endpoint_writer::EndpointWriter;
-use crate::remote::endpoint_writer_mailbox::EndpointWriterMailbox;
-use crate::remote::remote::Remote;
+use crate::config::Config;
+use crate::endpoint::Endpoint;
+use crate::endpoint_watcher::EndpointWatcher;
+use crate::endpoint_writer::EndpointWriter;
+use crate::endpoint_writer_mailbox::EndpointWriterMailbox;
+use crate::remote::Remote;
 use async_trait::async_trait;
+use nexus_actor_core_rs::actor::actor::{Actor, ActorError, ErrorReason, ExtendedPid, Props, RestartStatistics};
+use nexus_actor_core_rs::actor::actor_system::ActorSystem;
+use nexus_actor_core_rs::actor::context::{BasePart, ContextHandle, MessagePart, SpawnerPart};
+use nexus_actor_core_rs::actor::dispatch::{MailboxHandle, MailboxProducer};
+use nexus_actor_core_rs::actor::message::{MessageHandle, ResponseHandle};
+use nexus_actor_core_rs::actor::supervisor::{
+  Supervisor, SupervisorHandle, SupervisorStrategy, SupervisorStrategyHandle,
+};
 use std::any::Any;
 use std::sync::Weak;
 

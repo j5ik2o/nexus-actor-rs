@@ -1,5 +1,5 @@
-use crate::actor::message::Message;
 use crate::generated::cluster::{DeliverBatchRequestTransport, PubSubAutoRespondBatchTransport, PubSubBatchTransport};
+use nexus_actor_core_rs::actor::message::Message;
 use std::any::Any;
 
 impl Message for PubSubBatchTransport {

@@ -1,20 +1,20 @@
-use crate::actor::actor::Props;
-use crate::actor::actor_system::ActorSystem;
-use crate::actor::message::{MessageHandle, ReadonlyMessageHeadersHandle};
-use crate::actor::process::process_registry::AddressResolver;
-use crate::actor::process::ProcessHandle;
-use crate::extensions::{next_extension_id, Extension, ExtensionId};
-use crate::generated::actor::Pid;
+use crate::block_list::BlockList;
+use crate::config::server_config::ServerConfig;
+use crate::config::Config;
+use crate::endpoint_manager::EndpointManager;
+use crate::endpoint_reader::EndpointReader;
 use crate::generated::remote::remoting_server::RemotingServer;
-use crate::remote::block_list::BlockList;
-use crate::remote::config::server_config::ServerConfig;
-use crate::remote::config::Config;
-use crate::remote::endpoint_manager::EndpointManager;
-use crate::remote::endpoint_reader::EndpointReader;
-use crate::remote::messages::RemoteDeliver;
-use crate::remote::remote_process::RemoteProcess;
-use crate::remote::serializer::SerializerId;
+use crate::messages::RemoteDeliver;
+use crate::remote_process::RemoteProcess;
+use crate::serializer::SerializerId;
 use dashmap::DashMap;
+use nexus_actor_core_rs::actor::actor::Props;
+use nexus_actor_core_rs::actor::actor_system::ActorSystem;
+use nexus_actor_core_rs::actor::message::{MessageHandle, ReadonlyMessageHeadersHandle};
+use nexus_actor_core_rs::actor::process::process_registry::AddressResolver;
+use nexus_actor_core_rs::actor::process::ProcessHandle;
+use nexus_actor_core_rs::extensions::{next_extension_id, Extension, ExtensionId};
+use nexus_actor_core_rs::generated::actor::Pid;
 use once_cell::sync::Lazy;
 use std::any::Any;
 use std::future::Future;
@@ -297,17 +297,17 @@ impl Extension for Remote {
 
 #[cfg(test)]
 mod tests {
-  use crate::actor::actor::{Actor, ActorError, Props};
-  use crate::actor::actor_system::ActorSystem;
-  use crate::actor::context::{BasePart, ContextHandle, MessagePart, SenderPart, SpawnerPart};
-  use crate::actor::message::Message;
-  use crate::actor::message::{MessageHandle, ResponseHandle};
+  use nexus_actor_core_rs::actor::actor::{Actor, ActorError, Props};
+  use nexus_actor_core_rs::actor::actor_system::ActorSystem;
+  use nexus_actor_core_rs::actor::context::{BasePart, ContextHandle, MessagePart, SenderPart, SpawnerPart};
+  use nexus_actor_core_rs::actor::message::Message;
+  use nexus_actor_core_rs::actor::message::{MessageHandle, ResponseHandle};
 
-  use crate::remote::config::Config;
-  use crate::remote::config_option::ConfigOption;
+  use crate::config::Config;
+  use crate::config_option::ConfigOption;
 
-  use crate::remote::remote::Remote;
-  use crate::remote::serializer::initialize_proto_serializers;
+  use crate::remote::Remote;
+  use crate::serializer::initialize_proto_serializers;
   use nexus_actor_message_derive_rs::Message;
   use std::env;
   use std::time::Duration;

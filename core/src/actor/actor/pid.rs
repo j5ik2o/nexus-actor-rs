@@ -17,7 +17,7 @@ fn is_valid_address(input: &str) -> bool {
 }
 
 impl Pid {
-  pub(crate) fn new(address: &str, id: &str) -> Self {
+  pub fn new(address: &str, id: &str) -> Self {
     Pid {
       address: address.to_string(),
       id: id.to_string(),
@@ -47,7 +47,7 @@ impl Hash for Pid {
 
 #[derive(Debug, Clone)]
 pub struct ExtendedPid {
-  pub(crate) inner_pid: Pid,
+  pub inner_pid: Pid,
   process_handle: Arc<Mutex<Option<ProcessHandle>>>,
 }
 

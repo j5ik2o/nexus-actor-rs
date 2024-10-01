@@ -1,5 +1,5 @@
-use crate::actor::message::Message;
 use dashmap::DashMap;
+use nexus_actor_core_rs::actor::message::Message;
 use once_cell::sync::Lazy;
 use prost::Message as ProstMessage;
 use serde::{Deserialize, Serialize};
@@ -407,7 +407,7 @@ pub trait RootSerialized: Message {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::actor::message::Message;
+  use nexus_actor_core_rs::actor::message::Message;
   use nexus_actor_message_derive_rs::Message;
   use std::env;
   use tracing_subscriber::EnvFilter;

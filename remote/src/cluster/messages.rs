@@ -1,8 +1,8 @@
-use crate::actor::message::Message;
 use crate::generated::cluster::{
   DeliverBatchRequestTransport, PubSubAutoRespondBatchTransport, PubSubBatchTransport, Subscribers,
 };
-use crate::remote::serializer::{RootSerializable, RootSerialized, SerializerError};
+use crate::serializer::{RootSerializable, RootSerialized, SerializerError};
+use nexus_actor_core_rs::actor::message::Message;
 use nexus_actor_message_derive_rs::Message;
 use std::sync::Arc;
 

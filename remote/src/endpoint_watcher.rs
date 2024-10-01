@@ -1,14 +1,14 @@
-use crate::actor::actor::{Actor, ActorError, ExtendedPid, PidSet};
-use crate::actor::actor_system::ActorSystem;
-use crate::actor::context::{ContextHandle, InfoPart, MessagePart, StopperPart};
-use crate::actor::message::{MessageHandle, SystemMessage};
-use crate::actor::process::Process;
-use crate::generated::actor::{Terminated, TerminatedReason, Unwatch, Watch};
-use crate::remote::messages::{EndpointEvent, RemoteTerminate, RemoteUnwatch, RemoteWatch};
-use crate::remote::remote::Remote;
-use crate::remote::serializer::SerializerId;
+use crate::messages::{EndpointEvent, RemoteTerminate, RemoteUnwatch, RemoteWatch};
+use crate::remote::Remote;
+use crate::serializer::SerializerId;
 use async_trait::async_trait;
 use dashmap::DashMap;
+use nexus_actor_core_rs::actor::actor::{Actor, ActorError, ExtendedPid, PidSet};
+use nexus_actor_core_rs::actor::actor_system::ActorSystem;
+use nexus_actor_core_rs::actor::context::{ContextHandle, InfoPart, MessagePart, StopperPart};
+use nexus_actor_core_rs::actor::message::{MessageHandle, SystemMessage};
+use nexus_actor_core_rs::actor::process::Process;
+use nexus_actor_core_rs::generated::actor::{Terminated, TerminatedReason, Unwatch, Watch};
 use std::sync::{Arc, Weak};
 use tokio::sync::RwLock;
 

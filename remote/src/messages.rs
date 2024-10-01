@@ -1,13 +1,13 @@
-use crate::actor::message::ReadonlyMessageHeadersHandle;
-use crate::actor::message::{Message, MessageHandle};
-use crate::generated::actor::Pid;
 use crate::generated::remote::connect_request::ConnectionType;
 use crate::generated::remote::remote_message::MessageType;
 use crate::generated::remote::{
   ClientConnection, ConnectRequest, ConnectResponse, DisconnectRequest, MessageBatch, MessageEnvelope, MessageHeader,
   RemoteMessage, ServerConnection,
 };
-use crate::Message;
+use nexus_actor_core_rs::actor::message::ReadonlyMessageHeadersHandle;
+use nexus_actor_core_rs::actor::message::{Message, MessageHandle};
+use nexus_actor_core_rs::generated::actor::Pid;
+use nexus_actor_core_rs::Message;
 use std::collections::HashMap;
 use std::hash::{DefaultHasher, Hash, Hasher};
 

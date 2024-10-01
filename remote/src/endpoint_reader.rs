@@ -1,9 +1,11 @@
-use crate::actor::actor::ExtendedPid;
-use crate::actor::actor_system::ActorSystem;
-use crate::actor::context::SenderPart;
-use crate::actor::message::{MessageEnvelope, MessageHandle, MessageHeaders, SystemMessage};
-use crate::actor::process::Process;
-use crate::generated::actor::{Pid, Stop, Terminated, Unwatch, Watch};
+use nexus_actor_core_rs::actor::actor::ExtendedPid;
+use nexus_actor_core_rs::actor::actor_system::ActorSystem;
+use nexus_actor_core_rs::actor::context::SenderPart;
+use nexus_actor_core_rs::actor::message::{MessageEnvelope, MessageHandle, MessageHeaders, SystemMessage};
+use nexus_actor_core_rs::actor::process::Process;
+use nexus_actor_core_rs::generated::actor::{Pid, Stop, Terminated, Unwatch, Watch};
+
+use crate::endpoint_manager::{EndpointManager, RequestKeyWrapper};
 use crate::generated::cluster::{DeliverBatchRequestTransport, PubSubAutoRespondBatchTransport, PubSubBatchTransport};
 use crate::generated::remote;
 use crate::generated::remote::connect_request::ConnectionType;
@@ -12,9 +14,8 @@ use crate::generated::remote::{
   ConnectRequest, GetProcessDiagnosticsRequest, GetProcessDiagnosticsResponse, ListProcessesRequest,
   ListProcessesResponse, MessageBatch, RemoteMessage, ServerConnection,
 };
-use crate::remote::endpoint_manager::{EndpointManager, RequestKeyWrapper};
-use crate::remote::remote::Remote;
-use crate::remote::serializer::{deserialize, deserialize_message, RootSerialized, SerializerId};
+use crate::remote::Remote;
+use crate::serializer::{deserialize, deserialize_message, RootSerialized, SerializerId};
 use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Weak};

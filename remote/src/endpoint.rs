@@ -1,6 +1,6 @@
-use crate::actor::message::Message;
-use crate::generated::actor::Pid;
-use crate::Message;
+use nexus_actor_core_rs::actor::message::Message;
+use nexus_actor_core_rs::generated::actor::Pid;
+use nexus_actor_core_rs::Message;
 
 #[derive(Debug, Clone, PartialEq, Message)]
 pub struct Endpoint {

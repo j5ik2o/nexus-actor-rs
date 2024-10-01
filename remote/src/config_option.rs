@@ -1,5 +1,5 @@
-use crate::actor::actor::Props;
-use crate::remote::config::Config;
+use crate::config::Config;
+use nexus_actor_core_rs::actor::actor::Props;
 
 #[derive(Debug, Clone)]
 pub enum ConfigOption {

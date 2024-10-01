@@ -1,8 +1,8 @@
-use crate::actor::dispatch::{
+use async_trait::async_trait;
+use nexus_actor_core_rs::actor::dispatch::{
   Dispatcher, DispatcherHandle, Mailbox, MailboxHandle, MailboxMessage, MessageInvoker, MessageInvokerHandle, Runnable,
 };
-use crate::actor::message::MessageHandle;
-use async_trait::async_trait;
+use nexus_actor_core_rs::actor::message::MessageHandle;
 use nexus_actor_utils_rs::collections::{
   MpscUnboundedChannelQueue, QueueBase, QueueError, QueueReader, QueueWriter, RingQueue,
 };

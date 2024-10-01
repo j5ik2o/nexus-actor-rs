@@ -8,7 +8,7 @@ use backtrace::Backtrace;
 #[derive(Clone)]
 pub struct ErrorReason {
   reason: Option<Arc<dyn Any + Send + Sync>>,
-  pub(crate) code: i32,
+  pub code: i32,
   backtrace: Backtrace,
 }
 

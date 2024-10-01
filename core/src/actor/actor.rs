@@ -42,10 +42,8 @@ pub use {
   self::actor::*, self::actor_behavior::*, self::actor_error::*, self::actor_handle::*, self::actor_inner_error::*,
   self::actor_process::*, self::actor_producer::*, self::actor_receiver::*, self::context_decorator::*,
   self::context_decorator_chain::*, self::context_handler::*, self::continuer::*, self::middleware::*,
-  self::middleware_chain::*, self::pid::*, self::props::*, self::receiver_middleware::*,
+  self::middleware_chain::*, self::pid::*, self::pid_set::*, self::props::*, self::receiver_middleware::*,
   self::receiver_middleware_chain::*, self::restart_statistics::*, self::sender_middleware::*,
   self::sender_middleware_chain::*, self::spawn_middleware::*, self::spawner::*, self::taks::*, self::typed_actor::*,
   self::typed_actor_producer::*, self::typed_actor_receiver::*, self::typed_pid::*, self::typed_props::*,
 };
-
-pub(crate) use self::pid_set::*;
