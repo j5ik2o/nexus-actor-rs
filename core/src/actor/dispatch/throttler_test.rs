@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
+  use crate::actor::dispatch::throttler::{Throttle, ThrottleCallback, Valve};
   use crate::actor::dispatch::TokioRuntimeContextDispatcher;
-  use crate::actor::util::throttler::{Throttle, ThrottleCallback, Valve};
   use std::sync::Arc;
   use std::time::Duration;
   use tokio::sync::Mutex;

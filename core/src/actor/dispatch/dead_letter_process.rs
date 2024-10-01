@@ -9,9 +9,9 @@ use crate::actor::message::SystemMessage;
 use crate::actor::message::TerminateReason;
 use crate::actor::metrics::metrics::{Metrics, EXTENSION_ID};
 use crate::actor::process::{Process, ProcessHandle};
-use crate::actor::util::{Throttle, ThrottleCallback, Valve};
 use crate::generated::actor::{DeadLetterResponse, Terminated};
 
+use crate::actor::dispatch::throttler::{Throttle, ThrottleCallback, Valve};
 use crate::metrics::ActorMetrics;
 use async_trait::async_trait;
 use nexus_actor_message_derive_rs::Message;
