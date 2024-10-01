@@ -10,10 +10,10 @@ mod tests {
   use crate::actor::message::Message;
   use crate::actor::supervisor::SupervisorStrategyHandle;
   use crate::actor::typed_context::{TypedSenderPart, TypedSpawnerPart};
-  use crate::actor::util::AsyncBarrier;
   use crate::actor::Config;
   use async_trait::async_trait;
   use nexus_actor_message_derive_rs::Message;
+  use nexus_actor_utils_rs::utils::AsyncBarrier;
   use tokio::time::sleep;
   use tracing_subscriber::EnvFilter;
 

@@ -4,7 +4,7 @@ mod tests {
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::context::{MessagePart, SenderPart, SpawnerPart};
   use crate::actor::message::{MessageBatch, MessageHandle};
-  use crate::actor::util::WaitGroup;
+  use nexus_actor_utils_rs::utils::WaitGroup;
   use std::env;
   use tracing_subscriber::EnvFilter;
 

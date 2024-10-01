@@ -10,8 +10,8 @@ mod tests {
   use crate::actor::message::Message;
   use crate::actor::message::MessageHandle;
   use crate::actor::message::ResponseHandle;
-  use crate::actor::util::AsyncBarrier;
   use nexus_actor_message_derive_rs::Message;
+  use nexus_actor_utils_rs::utils::AsyncBarrier;
   use tokio::time::sleep;
   use tracing_subscriber::EnvFilter;
 
