@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod tests {
-  use crate::util::element::Element;
-  use crate::util::queue::mpsc_unbounded_channel_queue::MpscUnboundedChannelQueue;
-  use crate::util::queue::{QueueBase, QueueError, QueueReader, QueueSize, QueueWriter};
+  use crate::collections::element::Element;
+  use crate::collections::queue::mpsc_bounded_channel_queue::MpscBoundedChannelQueue;
+  use crate::collections::{QueueBase, QueueError, QueueReader, QueueSize, QueueWriter};
 
   #[derive(Debug, Clone, PartialEq)]
   struct TestElement(i32);
@@ -11,14 +11,14 @@ mod tests {
 
   #[tokio::test]
   async fn test_new_queue() {
-    let queue = MpscUnboundedChannelQueue::<TestElement>::new();
-    assert_eq!(queue.capacity().await, QueueSize::Limitless);
+    let queue = MpscBoundedChannelQueue::<TestElement>::new(10);
+    assert_eq!(queue.capacity().await, QueueSize::Limited(10));
     assert_eq!(queue.len().await, QueueSize::Limited(0));
   }
 
   #[tokio::test]
   async fn test_offer_and_poll() {
-    let mut queue = MpscUnboundedChannelQueue::<TestElement>::new();
+    let mut queue = MpscBoundedChannelQueue::<TestElement>::new(5);
 
     // Offer elements
     for i in 0..5 {
@@ -40,8 +40,25 @@ mod tests {
   }
 
   #[tokio::test]
+  async fn test_offer_to_full_queue() {
+    let mut queue = MpscBoundedChannelQueue::<TestElement>::new(2);
+
+    assert!(queue.offer(TestElement(1)).await.is_ok());
+    assert!(queue.offer(TestElement(2)).await.is_ok());
+
+    // This should fail as the queue is full
+    match queue.offer(TestElement(3)).await {
+      Err(QueueError::OfferError(_)) => (),
+      other => panic!("Expected OfferError, got {:?}", other),
+    }
+
+    // Ensure the queue size is still 2
+    assert_eq!(queue.len().await, QueueSize::Limited(2));
+  }
+
+  #[tokio::test]
   async fn test_clean_up() {
-    let mut queue = MpscUnboundedChannelQueue::<TestElement>::new();
+    let mut queue = MpscBoundedChannelQueue::<TestElement>::new(5);
 
     for i in 0..3 {
       assert!(queue.offer(TestElement(i)).await.is_ok());
@@ -50,29 +67,21 @@ mod tests {
     queue.clean_up().await;
 
     assert_eq!(queue.len().await, QueueSize::Limited(0));
-
-    // Poll should return PoolError
     match queue.poll().await {
       Err(QueueError::PoolError) => (),
       other => panic!("Expected PoolError after clean_up, got {:?}", other),
     }
 
-    // Offer should return OfferError
+    // Additional test to ensure offer also fails after clean_up
     match queue.offer(TestElement(4)).await {
       Err(QueueError::OfferError(_)) => (),
       other => panic!("Expected OfferError after clean_up, got {:?}", other),
-    }
-
-    // Another poll should still return PoolError
-    match queue.poll().await {
-      Err(QueueError::PoolError) => (),
-      other => panic!("Expected PoolError after clean_up, got {:?}", other),
     }
   }
 
   #[tokio::test]
   async fn test_concurrent_operations() {
-    let queue = MpscUnboundedChannelQueue::<TestElement>::new();
+    let queue = MpscBoundedChannelQueue::<TestElement>::new(100);
     let mut handles = vec![];
 
     // Spawn 10 tasks to offer elements
@@ -104,26 +113,6 @@ mod tests {
     }
 
     // Check final queue state
-    assert_eq!(queue.len().await, QueueSize::Limited(0));
-  }
-
-  #[tokio::test]
-  async fn test_offer_to_large_queue() {
-    let mut queue = MpscUnboundedChannelQueue::<TestElement>::new();
-
-    // Offer a large number of elements
-    for i in 0..10000 {
-      assert!(queue.offer(TestElement(i)).await.is_ok());
-    }
-
-    assert_eq!(queue.len().await, QueueSize::Limited(10000));
-
-    // Poll all elements
-    for i in 0..10000 {
-      let element = queue.poll().await.unwrap().unwrap();
-      assert_eq!(element, TestElement(i));
-    }
-
     assert_eq!(queue.len().await, QueueSize::Limited(0));
   }
 }

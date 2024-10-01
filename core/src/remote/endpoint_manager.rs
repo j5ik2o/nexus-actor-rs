@@ -16,8 +16,8 @@ use crate::remote::messages::{
   EndpointEvent, EndpointTerminatedEvent, Ping, Pong, RemoteDeliver, RemoteTerminate, RemoteUnwatch, RemoteWatch,
 };
 use crate::remote::remote::Remote;
-use crate::util::dash_map_ext::DashMapExtension;
 use dashmap::DashMap;
+use nexus_actor_utils_rs::collections::DashMapExtension;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicBool, Ordering};

@@ -1,12 +1,11 @@
 use std::fmt::Debug;
 use std::sync::Arc;
 
+use crate::collections::element::Element;
+use crate::collections::{QueueBase, QueueError, QueueReader, QueueSize, QueueWriter};
 use async_trait::async_trait;
 use tokio::sync::mpsc::error::{SendError, TryRecvError};
 use tokio::sync::{mpsc, Mutex};
-
-use crate::util::element::Element;
-use crate::util::queue::{QueueBase, QueueError, QueueReader, QueueSize, QueueWriter};
 
 #[derive(Debug)]
 struct MpscBoundedQueueInner<E> {
@@ -17,7 +16,7 @@ struct MpscBoundedQueueInner<E> {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct MpscBoundedChannelQueue<E> {
+pub struct MpscBoundedChannelQueue<E> {
   sender: mpsc::Sender<E>,
   inner: Arc<Mutex<MpscBoundedQueueInner<E>>>,
 }

@@ -314,7 +314,7 @@ mod tests {
 
   use tokio::time::sleep;
 
-  use nexus_actor_utils_rs::utils::WaitGroup;
+  use nexus_actor_utils_rs::concurrent::WaitGroup;
   use tracing_subscriber::EnvFilter;
 
   #[tokio::test]

@@ -2,14 +2,13 @@ use std::mem;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 
+use crate::collections::element::Element;
+use crate::collections::queue::{QueueBase, QueueError, QueueReader, QueueSize, QueueWriter};
 use async_trait::async_trait;
 use tokio::sync::Mutex;
 
-use crate::util::element::Element;
-use crate::util::queue::{QueueBase, QueueError, QueueReader, QueueSize, QueueWriter};
-
 #[derive(Debug, Clone)]
-pub(crate) struct RingQueue<E> {
+pub struct RingQueue<E> {
   buffer: Arc<Mutex<Vec<Option<E>>>>,
   head: Arc<AtomicUsize>,
   tail: Arc<AtomicUsize>,

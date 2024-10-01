@@ -9,6 +9,5 @@ pub mod extensions;
 pub mod generated;
 pub mod metrics;
 pub mod remote;
-pub mod util;
 
 pub use nexus_actor_message_derive_rs::Message;

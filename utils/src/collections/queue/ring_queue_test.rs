@@ -1,7 +1,6 @@
 #[cfg(test)]
 mod tests {
-  use crate::util::queue::ring_queue::RingQueue;
-  use crate::util::queue::{QueueBase, QueueError, QueueReader, QueueWriter};
+  use crate::collections::{QueueBase, QueueError, QueueReader, QueueWriter, RingQueue};
 
   #[tokio::test]
   async fn test_push_pop() {

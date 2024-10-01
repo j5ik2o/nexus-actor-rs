@@ -4,10 +4,10 @@ use crate::actor::dispatch::mailbox_middleware::MailboxMiddlewareHandle;
 use crate::actor::dispatch::mailbox_producer::MailboxProducer;
 use crate::actor::dispatch::unbounded::UnboundedMailboxQueue;
 use crate::actor::message::MessageHandle;
-use crate::util::queue::MpscUnboundedChannelQueue;
-use crate::util::queue::RingQueue;
-use crate::util::queue::{QueueBase, QueueError, QueueReader, QueueSize, QueueWriter};
 use async_trait::async_trait;
+use nexus_actor_utils_rs::collections::{
+  MpscUnboundedChannelQueue, QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, RingQueue,
+};
 use std::fmt::Debug;
 
 #[derive(Debug, Clone)]

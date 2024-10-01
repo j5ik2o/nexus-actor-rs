@@ -1,21 +1,20 @@
 use std::marker::PhantomData;
 use std::sync::Arc;
 
+use crate::collections::element::Element;
+use crate::collections::{QueueBase, QueueError, QueueReader, QueueSize, QueueWriter};
 use async_trait::async_trait;
 use tokio::sync::Mutex;
-
-use crate::util::element::Element;
-use crate::util::queue::{QueueBase, QueueError, QueueReader, QueueSize, QueueWriter};
 
 pub const PRIORITY_LEVELS: usize = 8;
 pub const DEFAULT_PRIORITY: i8 = (PRIORITY_LEVELS / 2) as i8;
 
-pub(crate) trait PriorityMessage: Element {
+pub trait PriorityMessage: Element {
   fn get_priority(&self) -> Option<i8>;
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct PriorityQueue<E, Q> {
+pub struct PriorityQueue<E, Q> {
   priority_queues: Arc<Mutex<Vec<Q>>>,
   phantom_data: PhantomData<E>,
 }

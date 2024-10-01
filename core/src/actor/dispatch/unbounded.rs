@@ -1,14 +1,12 @@
-use async_trait::async_trait;
-
 use crate::actor::dispatch::default_mailbox::DefaultMailbox;
 use crate::actor::dispatch::mailbox_handle::MailboxHandle;
 use crate::actor::dispatch::mailbox_middleware::MailboxMiddlewareHandle;
 use crate::actor::dispatch::mailbox_producer::MailboxProducer;
 use crate::actor::message::MessageHandle;
-use crate::util::queue::MpscUnboundedChannelQueue;
-use crate::util::queue::PriorityQueue;
-use crate::util::queue::RingQueue;
-use crate::util::queue::{QueueBase, QueueError, QueueReader, QueueSize, QueueWriter};
+use async_trait::async_trait;
+use nexus_actor_utils_rs::collections::{
+  MpscUnboundedChannelQueue, PriorityQueue, QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, RingQueue,
+};
 
 #[derive(Debug, Clone)]
 pub struct UnboundedMailboxQueue<Q: QueueReader<MessageHandle> + QueueWriter<MessageHandle>> {

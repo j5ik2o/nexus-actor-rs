@@ -1,7 +1,7 @@
 use crate::actor::actor::{Actor, ActorError, ActorReceiver};
 use crate::actor::context::{ContextHandle, InfoPart};
-use crate::actor::util::stack::Stack;
 use async_trait::async_trait;
+use nexus_actor_utils_rs::collections::Stack;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 

@@ -1,4 +1,4 @@
-use crate::util::queue::DEFAULT_PRIORITY;
+use nexus_actor_utils_rs::collections::DEFAULT_PRIORITY;
 use std::any::Any;
 use std::fmt::Debug;
 

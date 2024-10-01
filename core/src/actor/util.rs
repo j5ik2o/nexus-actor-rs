@@ -1,4 +1,3 @@
-pub mod stack;
 mod throttler;
 mod throttler_test;
 

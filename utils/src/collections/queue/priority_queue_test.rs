@@ -1,15 +1,13 @@
 #[cfg(test)]
 mod tests {
-  use crate::actor::message::Message;
-  use crate::util::element::Element;
-  use crate::util::queue::mpsc_unbounded_channel_queue::MpscUnboundedChannelQueue;
-  use crate::util::queue::priority_queue::{PriorityMessage, PriorityQueue};
-  use crate::util::queue::{QueueBase, QueueReader, QueueSize, QueueWriter};
-  use nexus_actor_message_derive_rs::Message;
+  use crate::collections::element::Element;
+  use crate::collections::{
+    MpscUnboundedChannelQueue, PriorityMessage, PriorityQueue, QueueBase, QueueReader, QueueSize, QueueWriter,
+  };
   use std::fmt::Debug;
   use std::sync::Arc;
 
-  #[derive(Debug, Clone, PartialEq, Eq, Message)]
+  #[derive(Debug, Clone, PartialEq, Eq)]
   struct TestPriorityMessage {
     message: String,
     priority: i8,
@@ -35,7 +33,7 @@ mod tests {
     }
   }
 
-  #[derive(Debug, Clone, PartialEq, Eq, Message)]
+  #[derive(Debug, Clone, PartialEq, Eq)]
   struct TestMessage {
     message: String,
   }

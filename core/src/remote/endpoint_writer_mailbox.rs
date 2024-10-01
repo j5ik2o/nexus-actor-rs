@@ -2,8 +2,10 @@ use crate::actor::dispatch::{
   Dispatcher, DispatcherHandle, Mailbox, MailboxHandle, MailboxMessage, MessageInvoker, MessageInvokerHandle, Runnable,
 };
 use crate::actor::message::MessageHandle;
-use crate::util::queue::{MpscUnboundedChannelQueue, QueueBase, QueueError, QueueReader, QueueWriter, RingQueue};
 use async_trait::async_trait;
+use nexus_actor_utils_rs::collections::{
+  MpscUnboundedChannelQueue, QueueBase, QueueError, QueueReader, QueueWriter, RingQueue,
+};
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicUsize, Ordering};
 use std::sync::Arc;
 use tokio::sync::RwLock;
