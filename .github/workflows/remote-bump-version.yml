@@ -1,4 +1,4 @@
-name: core-bump-version
+name: remote-bump-version
 on:
   workflow_dispatch:
   schedule:
