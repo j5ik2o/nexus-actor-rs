@@ -1,6 +1,5 @@
 use crate::cluster::messages::{DeliverBatchRequest, PubSubAutoResponseBatch, PubSubBatch};
 use crate::config::Config;
-use crate::generated::cluster::{DeliverBatchRequestTransport, PubSubAutoRespondBatchTransport, PubSubBatchTransport};
 use crate::generated::remote::connect_request::ConnectionType;
 use crate::generated::remote::remote_message::MessageType;
 use crate::generated::remote::remoting_client::RemotingClient;
@@ -363,52 +362,37 @@ impl EndpointWriter {
       let s_id = u32::try_from(serializer_id.clone()).unwrap();
       tracing::info!("EndpointWriter: serializer_id = {:?}", s_id);
 
-      let deliver_batch_request_opt = message.to_typed::<DeliverBatchRequest>();
-      let pub_sub_auto_respond_batch_opt = message.to_typed::<PubSubAutoResponseBatch>();
-      let pub_sub_batch_opt = message.to_typed::<PubSubBatch>();
+      let request_opt = message.to_typed::<Arc<dyn RootSerializable>>();
+      let v = request_opt.map(|request| request.serialize());
 
-      let v = match (
-        deliver_batch_request_opt,
-        pub_sub_auto_respond_batch_opt,
-        pub_sub_batch_opt,
-      ) {
-        (Some(deliver_batch_request), _, _) => Some(deliver_batch_request.serialize()),
-        (_, Some(pub_sub_auto_respond_batch), _) => Some(pub_sub_auto_respond_batch.serialize()),
-        (_, _, Some(pub_sub_batch)) => Some(pub_sub_batch.serialize()),
-        _ => None,
-      };
+      // let deliver_batch_request_opt = message.to_typed::<DeliverBatchRequest>();
+      // let pub_sub_auto_respond_batch_opt = message.to_typed::<PubSubAutoResponseBatch>();
+      // let pub_sub_batch_opt = message.to_typed::<PubSubBatch>();
+      //
+      // let v = match (
+      //   deliver_batch_request_opt,
+      //   pub_sub_auto_respond_batch_opt,
+      //   pub_sub_batch_opt,
+      // ) {
+      //   (Some(deliver_batch_request), _, _) => Some(deliver_batch_request.serialize()),
+      //   (_, Some(pub_sub_auto_respond_batch), _) => Some(pub_sub_auto_respond_batch.serialize()),
+      //   (_, _, Some(pub_sub_batch)) => Some(pub_sub_batch.serialize()),
+      //   _ => None,
+      // };
 
-      if let Some(Err(e)) = v {
+      if let Some(Err(e)) = &v {
         tracing::error!("Failed to serialize message: {:?}", e);
         continue;
       }
 
       let result = if let Some(Ok(msg)) = v {
         tracing::info!("EndpointWriter: serialize message");
-        let deliver_batch_request_transport_opt = msg.as_any().downcast_ref::<DeliverBatchRequestTransport>().cloned();
-        let pub_sub_auto_respond_batch_transport_opt =
-          msg.as_any().downcast_ref::<PubSubAutoRespondBatchTransport>().cloned();
-        let pub_sub_batch_transport_opt = msg.as_any().downcast_ref::<PubSubBatchTransport>().cloned();
-
-        let result = match (
-          deliver_batch_request_transport_opt,
-          pub_sub_auto_respond_batch_transport_opt,
-          pub_sub_batch_transport_opt,
-        ) {
-          (Some(deliver_batch_request_transport), _, _) => {
-            Some(serialize(&deliver_batch_request_transport, &serializer_id))
-          }
-          (_, Some(pub_sub_auto_respond_batch_transport), _) => {
-            Some(serialize(&pub_sub_auto_respond_batch_transport, &serializer_id))
-          }
-          (_, _, Some(pub_sub_batch_transport)) => Some(serialize(&pub_sub_batch_transport, &serializer_id)),
-          _ => None,
-        };
-        if let Some(Err(e)) = result {
+        let result = serialize_any(msg.as_any(), &serializer_id, &msg.get_type_name());
+        if let Err(e) = &result {
           tracing::error!("Failed to serialize message: {:?}", e);
           continue;
         }
-        result
+        Some(result)
       } else {
         tracing::info!("EndpointWriter: serialize_any message");
         Some(serialize_any(
