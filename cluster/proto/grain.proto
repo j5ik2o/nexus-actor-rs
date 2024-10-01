@@ -1,0 +1,19 @@
+syntax = "proto3";
+package cluster;
+
+message GrainRequest {
+  int32 method_index = 1;
+  bytes message_data = 2;
+  string message_type_name = 3;
+}
+
+message GrainResponse {
+  bytes message_data = 1;
+  string message_type_name = 2;
+}
+
+message GrainErrorResponse {
+  string reason = 1;
+  string message = 2;
+  map<string, string> metadata = 3;
+};

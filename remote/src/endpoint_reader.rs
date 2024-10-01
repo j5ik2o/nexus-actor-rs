@@ -6,7 +6,6 @@ use nexus_actor_core_rs::actor::process::Process;
 use nexus_actor_core_rs::generated::actor::{Pid, Stop, Terminated, Unwatch, Watch};
 
 use crate::endpoint_manager::{EndpointManager, RequestKeyWrapper};
-use crate::generated::cluster::{DeliverBatchRequestTransport, PubSubAutoRespondBatchTransport, PubSubBatchTransport};
 use crate::generated::remote;
 use crate::generated::remote::connect_request::ConnectionType;
 use crate::generated::remote::remoting_server::Remoting;
@@ -15,7 +14,7 @@ use crate::generated::remote::{
   ListProcessesResponse, MessageBatch, RemoteMessage, ServerConnection,
 };
 use crate::remote::Remote;
-use crate::serializer::{deserialize, deserialize_message, RootSerialized, SerializerId};
+use crate::serializer::{deserialize, deserialize_any, deserialize_message, RootSerialized, SerializerId};
 use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Weak};
@@ -25,16 +24,6 @@ use tokio::sync::{mpsc, Mutex};
 use tonic::codegen::tokio_stream::wrappers::ReceiverStream;
 use tonic::codegen::tokio_stream::{Stream, StreamExt};
 use tonic::{Request, Response, Status, Streaming};
-
-macro_rules! try_deserialize_all {
-    ($data:expr, $serializer_id:expr, $($t:ty),+) => {
-        (
-            $(
-                deserialize::<$t>($data, $serializer_id).ok(),
-            )+
-        )
-    }
-}
 
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum EndpointReaderError {
@@ -164,29 +153,32 @@ impl EndpointReader {
       // TODO
       let serializer_id = SerializerId::try_from(envelope.serializer_id).expect("Invalid serializer id");
 
-      let (pub_sub_batch_transport_opt, deliver_batch_request_transport_opt, pub_sub_auto_respond_batch_transport_opt) = try_deserialize_all!(
+      let result = match deserialize_any(
         &data,
         &serializer_id,
-        PubSubBatchTransport,
-        DeliverBatchRequestTransport,
-        PubSubAutoRespondBatchTransport
-      );
-
-      let result = match (
-        pub_sub_batch_transport_opt,
-        deliver_batch_request_transport_opt,
-        pub_sub_auto_respond_batch_transport_opt,
+        "nexus_actor_remote_rs::generated::cluster::PubSubBatchTransport",
       ) {
-        (Some(pub_sub_batch_transport), _, _) => Some(pub_sub_batch_transport.deserialize()),
-        (_, Some(deliver_batch_request_transport), _) => Some(deliver_batch_request_transport.deserialize()),
-        (_, _, Some(pub_sub_auto_respond_batch_transport)) => Some(pub_sub_auto_respond_batch_transport.deserialize()),
-        _ => None,
+        Ok(v) => Some(v),
+        Err(e) => match deserialize_any(
+          &data,
+          &serializer_id,
+          "nexus_actor_remote_rs::generated::cluster::DeliverBatchRequestTransport",
+        ) {
+          Ok(v) => Some(v),
+          Err(e) => match deserialize_any(
+            &data,
+            &serializer_id,
+            "nexus_actor_remote_rs::generated::cluster::PubSubAutoRespondBatchTransport",
+          ) {
+            Ok(v) => Some(v),
+            Err(e) => None,
+          },
+        },
       };
 
       match result {
         Some(message) => {
-          let m = message.map_err(|e| EndpointReaderError::DeserializationError(e.to_string()))?;
-          if let Some(t) = m.as_any().downcast_ref::<Terminated>() {
+          if let Some(t) = message.downcast_ref::<Terminated>() {
             let terminated = SystemMessage::of_terminate(t.clone());
             self
               .get_actor_system()
@@ -196,7 +188,7 @@ impl EndpointReader {
               .send(target.clone(), MessageHandle::new(terminated))
               .await;
           }
-          if let Some(_) = m.as_any().downcast_ref::<Stop>() {
+          if let Some(_) = message.downcast_ref::<Stop>() {
             let system_message = SystemMessage::of_stop();
             let ref_process = self
               .get_actor_system()
@@ -210,7 +202,7 @@ impl EndpointReader {
               .send_system_message(&target, MessageHandle::new(system_message))
               .await;
           }
-          if let Some(watch) = m.as_any().downcast_ref::<Watch>() {
+          if let Some(watch) = message.downcast_ref::<Watch>() {
             let system_message = SystemMessage::of_watch(watch.clone());
             let ref_process = self
               .get_actor_system()
@@ -224,7 +216,7 @@ impl EndpointReader {
               .send_system_message(&target, MessageHandle::new(system_message))
               .await;
           }
-          if let Some(unwatch) = m.as_any().downcast_ref::<Unwatch>() {
+          if let Some(unwatch) = message.downcast_ref::<Unwatch>() {
             let system_message = SystemMessage::of_unwatch(unwatch.clone());
             let ref_process = self
               .get_actor_system()
