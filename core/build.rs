@@ -1,9 +1,8 @@
 extern crate prost_build;
 
 fn main() {
-  //  prost_build::compile_protos(&["proto/actor.proto"], &["proto/"]).unwrap();
   tonic_build::configure()
-    .out_dir("src/generated")
+    .out_dir("generated")
     .compile(
       &[
         "proto/google/protobuf/duration.proto",
@@ -14,6 +13,7 @@ fn main() {
         "proto/grain.proto",
         "proto/pubsub.proto",
         "proto/gossip.proto",
+        "proto/examples/remote-activate/messages.proto",
       ],
       &["proto/"],
     )

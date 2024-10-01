@@ -302,7 +302,6 @@ mod tests {
   use crate::actor::context::{BasePart, ContextHandle, MessagePart, SenderPart, SpawnerPart};
   use crate::actor::message::Message;
   use crate::actor::message::{MessageHandle, ResponseHandle};
-  use crate::actor::util::WaitGroup;
 
   use crate::remote::config::Config;
   use crate::remote::config_option::ConfigOption;
@@ -315,6 +314,7 @@ mod tests {
 
   use tokio::time::sleep;
 
+  use nexus_actor_utils_rs::utils::WaitGroup;
   use tracing_subscriber::EnvFilter;
 
   #[tokio::test]

@@ -2,14 +2,13 @@
 mod tests {
   use std::env;
 
-  use tracing_subscriber::EnvFilter;
-
   use crate::actor::actor::props::Props;
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::context::{MessagePart, SpawnerPart};
   use crate::actor::message::AutoReceiveMessage;
   use crate::actor::message::Message;
-  use crate::actor::util::AsyncBarrier;
+  use nexus_actor_utils_rs::utils::AsyncBarrier;
+  use tracing_subscriber::EnvFilter;
 
   #[tokio::test]
   async fn example_root_context_spawn() {

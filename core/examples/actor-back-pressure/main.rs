@@ -7,8 +7,8 @@ use nexus_actor_core_rs::actor::dispatch::{
 };
 use nexus_actor_core_rs::actor::message::Message;
 use nexus_actor_core_rs::actor::message::MessageHandle;
-use nexus_actor_core_rs::actor::util::WaitGroup;
 use nexus_actor_message_derive_rs::Message;
+use nexus_actor_utils_rs::utils::WaitGroup;
 use std::env;
 use std::fmt::Debug;
 use std::sync::atomic::AtomicU64;

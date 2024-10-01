@@ -7,8 +7,8 @@ pub mod tests {
   use crate::actor::context::ContextHandle;
   use crate::actor::context::{BasePart, MessagePart, SpawnerPart, StopperPart};
   use crate::actor::message::ReceiveTimeout;
-  use crate::actor::util::AsyncBarrier;
   use async_trait::async_trait;
+  use nexus_actor_utils_rs::utils::AsyncBarrier;
   use std::env;
   use std::time::Duration;
   use tracing_subscriber::EnvFilter;

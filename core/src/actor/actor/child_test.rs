@@ -14,9 +14,9 @@ pub mod tests {
   use crate::actor::message::Message;
   use crate::actor::message::MessageHandle;
   use crate::actor::message::ResponseHandle;
-  use crate::actor::util::AsyncBarrier;
   use async_trait::async_trait;
   use nexus_actor_message_derive_rs::Message;
+  use nexus_actor_utils_rs::utils::AsyncBarrier;
   use std::any::Any;
   use std::time::Duration;
   use tokio::time::sleep;
