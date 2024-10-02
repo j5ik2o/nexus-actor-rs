@@ -1,1 +1,1 @@
-mod generated;
+pub mod generated;
