@@ -52,10 +52,13 @@ jobs:
         id: semver_level
         if: steps.changes.outputs.count > 0
         run: |
-          SEMVER_LEVEL=$(git log ${{ steps.defines.outputs.prev_tag }}..HEAD --pretty=format:"%h%x09%H%x09%s" \
-            --no-merges -P --grep='^(build|ci|feat|fix|docs|style|refactor|perf|test|revert|chore)(\(.*\))?:' \
-            -- "${{ steps.defines.outputs.target_dir }}/*" | python3 "${GITHUB_WORKSPACE}"/.github/semver-level.py)
-          SEMVER_LEVEL=${SEMVER_LEVEL:-patch}
+          if [[ ${{ steps.defines.outputs.prev_tag }} == *-v0.0.0 ]]; then
+            SEMVER_LEVEL=patch
+          else
+            SEMVER_LEVEL=$(git log ${{ steps.defines.outputs.prev_tag }}..HEAD --pretty=format:"%h%x09%H%x09%s" \
+              --no-merges -P --grep='^(build|ci|feat|fix|docs|style|refactor|perf|test|revert|chore)(\(.*\))?:' \
+              -- "${{ steps.defines.outputs.target_dir }}/*" | python3 "${GITHUB_WORKSPACE}"/.github/semver-level.py)
+          fi
           echo "SEMVER_LEVEL=$SEMVER_LEVEL"
           echo "::set-output name=value::$SEMVER_LEVEL"
       - name: Get the next version
