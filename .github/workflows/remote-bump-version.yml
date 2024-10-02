@@ -1,4 +1,4 @@
-name: utils-bump-version
+name: remote-bump-version
 on:
   workflow_dispatch:
     inputs:
