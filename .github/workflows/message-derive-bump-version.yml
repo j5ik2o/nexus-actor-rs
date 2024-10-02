@@ -52,7 +52,7 @@ jobs:
         id: semver_level
         if: steps.changes.outputs.count > 0
         run: |
-          if [[ ${{ steps.defines.outputs.prev_tag }} == *-v0.0.0 ]]; then
+          if [[ "${{ github.event.inputs.force_bump }}" == "true" ]]; then
             SEMVER_LEVEL=patch
           else
             SEMVER_LEVEL=$(git log ${{ steps.defines.outputs.prev_tag }}..HEAD --pretty=format:"%h%x09%H%x09%s" \
