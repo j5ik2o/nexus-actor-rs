@@ -19,6 +19,12 @@ impl RestartingStrategy {
   }
 }
 
+impl Default for RestartingStrategy {
+  fn default() -> Self {
+    RestartingStrategy::new()
+  }
+}
+
 impl PartialEq for RestartingStrategy {
   fn eq(&self, _other: &Self) -> bool {
     true

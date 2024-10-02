@@ -45,7 +45,7 @@ impl Process for RemoteProcess {
     let (header_opt, msg, sender_opt) = unwrap_envelope(message_handle);
     let pid = pid.cloned().expect("not found").inner_pid;
 
-    let header_opt = header_opt.map(|h| ReadonlyMessageHeadersHandle::new(h));
+    let header_opt = header_opt.map(ReadonlyMessageHeadersHandle::new);
     let sender_opt = sender_opt.map(|e| e.inner_pid.clone());
     self
       .remote

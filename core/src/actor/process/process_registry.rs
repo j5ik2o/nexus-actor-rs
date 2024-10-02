@@ -51,6 +51,7 @@ impl SliceMap {
   }
 }
 
+#[allow(clippy::type_complexity)]
 #[derive(Clone)]
 pub struct AddressResolver(
   Arc<dyn Fn(&ExtendedPid) -> BoxFuture<'static, Option<ProcessHandle>> + Send + Sync + 'static>,
@@ -121,7 +122,7 @@ impl ProcessRegistry {
   }
 
   pub async fn add_process(&self, process: ProcessHandle, id: &str) -> (ExtendedPid, bool) {
-    let bucket = self.local_pids.get_bucket(&id);
+    let bucket = self.local_pids.get_bucket(id);
     let pid = Pid {
       address: self.get_address().await.clone(),
       id: id.to_string(),

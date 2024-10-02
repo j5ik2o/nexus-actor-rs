@@ -47,7 +47,7 @@ impl Message for SystemMessage {
       (SystemMessage::Stop, Some(&SystemMessage::Stop)) => true,
       (SystemMessage::Watch(_), Some(&SystemMessage::Watch(_))) => true,
       (SystemMessage::Unwatch(_), Some(&SystemMessage::Unwatch(_))) => true,
-      (SystemMessage::Terminate(me), Some(&SystemMessage::Terminate(ref you))) => *me == *you,
+      (SystemMessage::Terminate(me), Some(SystemMessage::Terminate(you))) => *me == *you,
       _ => false,
     }
   }

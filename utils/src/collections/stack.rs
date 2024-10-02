@@ -34,3 +34,9 @@ impl<T> Stack<T> {
     self.items.clear();
   }
 }
+
+impl<T> Default for Stack<T> {
+  fn default() -> Self {
+    Stack::new()
+  }
+}

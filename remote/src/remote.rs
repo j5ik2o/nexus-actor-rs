@@ -31,7 +31,7 @@ pub enum RemoteError {
   ServerError,
 }
 
-pub static EXTENSION_ID: Lazy<ExtensionId> = Lazy::new(|| next_extension_id());
+pub static EXTENSION_ID: Lazy<ExtensionId> = Lazy::new(next_extension_id);
 
 #[derive(Debug, Clone)]
 struct Shutdown {
@@ -174,8 +174,7 @@ impl Remote {
       .collect::<Vec<_>>();
     let socket_addr = socket_addrs
       .into_iter()
-      .filter_map(|addr| if addr.is_ipv4() { Some(addr) } else { None })
-      .next()
+      .find(|addr| addr.is_ipv4())
       .expect("Failed to resolve hostname");
 
     let mut process_registry = self.actor_system.get_process_registry().await;
@@ -205,14 +204,12 @@ impl Remote {
     self.set_endpoint_reader(endpoint_reader.clone()).await;
 
     let router = server.add_service(RemotingServer::new(endpoint_reader));
-    if let Err(_) = router
-      .serve_with_shutdown(socket_addr, async {
-        tracing::info!("Server started: {}", socket_addr);
-        on_start().await;
-        rx.await.ok();
-      })
-      .await
-    {
+    let shutdown_future = async {
+      tracing::info!("Server started: {}", socket_addr);
+      on_start().await;
+      rx.await.ok();
+    };
+    if router.serve_with_shutdown(socket_addr, shutdown_future).await.is_err() {
       return Err(RemoteError::ServerError);
     }
     Ok(())

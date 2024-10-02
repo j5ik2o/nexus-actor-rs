@@ -8,7 +8,7 @@ use crate::actor::actor_system::ActorSystem;
 use crate::actor::dispatch::Runnable;
 use crate::actor::message::Message;
 use crate::actor::message::MessageHandle;
-use crate::actor::metrics::metrics::{Metrics, EXTENSION_ID};
+use crate::actor::metrics::metrics_impl::{Metrics, EXTENSION_ID};
 use crate::actor::process::{Process, ProcessHandle};
 use crate::generated::actor::DeadLetterResponse;
 use crate::metrics::ActorMetrics;

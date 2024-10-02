@@ -129,7 +129,7 @@ impl ExtendedPid {
     self
       .ref_process(actor_system)
       .await
-      .send_system_message(&self, message_handle)
+      .send_system_message(self, message_handle)
       .await;
   }
 }

@@ -39,6 +39,12 @@ impl ActorBehavior {
   }
 }
 
+impl Default for ActorBehavior {
+  fn default() -> Self {
+    ActorBehavior::new()
+  }
+}
+
 #[async_trait]
 impl Actor for ActorBehavior {
   async fn receive(&mut self, context_handle: ContextHandle) -> Result<(), ActorError> {

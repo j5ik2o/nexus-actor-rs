@@ -30,15 +30,15 @@ use tonic::{Request, Streaming};
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum EndpointManagerError {
   #[error("Failed to start activator: {0}")]
-  ActivatorStartedError(SpawnError),
+  ActivatorStarted(SpawnError),
   #[error("Failed to start supervisor: {0}")]
-  SupervisorStartedError(SpawnError),
+  SupervisorStarted(SpawnError),
   #[error("Failed to stop activator: {0}")]
-  ActivatorStoppedError(ActorFutureError),
+  ActivatorStopped(ActorFutureError),
   #[error("Failed to stop supervisor: {0}")]
-  SupervisorStoppedError(ActorFutureError),
+  SupervisorStopped(ActorFutureError),
   #[error("Failed to wait for activator: {0}")]
-  WaitingError(String),
+  Waiting(String),
 }
 
 #[derive(Debug, Clone)]
@@ -74,6 +74,7 @@ pub(crate) struct EndpointManager {
   endpoint_supervisor: Arc<Mutex<Option<Pid>>>,
   activator_pid: Arc<Mutex<Option<Pid>>>,
   stopped: Arc<AtomicBool>,
+  #[allow(clippy::type_complexity)]
   endpoint_reader_connections: Arc<DashMap<RequestKeyWrapper, Arc<Mutex<Option<mpsc::Sender<bool>>>>>>,
 }
 
@@ -171,11 +172,11 @@ impl EndpointManager {
     let msg = f
       .result()
       .await
-      .map_err(|e| EndpointManagerError::WaitingError(e.to_string()))?;
+      .map_err(|e| EndpointManagerError::Waiting(e.to_string()))?;
     if msg.is_typed::<Pong>() {
       Ok(())
     } else {
-      Err(EndpointManagerError::WaitingError("type mismatch".to_string()))
+      Err(EndpointManagerError::Waiting("type mismatch".to_string()))
     }
   }
 
@@ -220,7 +221,7 @@ impl EndpointManager {
       }
       Err(e) => {
         tracing::error!("Failed to start activator: {:?}", e);
-        Err(EndpointManagerError::ActivatorStartedError(e))
+        Err(EndpointManagerError::ActivatorStarted(e))
       }
     }
   }
@@ -236,7 +237,7 @@ impl EndpointManager {
       .await;
     match f.result().await {
       Ok(_) => Ok(()),
-      Err(e) => Err(EndpointManagerError::ActivatorStoppedError(e)),
+      Err(e) => Err(EndpointManagerError::ActivatorStopped(e)),
     }
   }
 
@@ -270,7 +271,7 @@ impl EndpointManager {
       }
       Err(e) => {
         tracing::error!("Failed to start supervisor: {:?}", e);
-        Err(EndpointManagerError::SupervisorStartedError(e))
+        Err(EndpointManagerError::SupervisorStarted(e))
       }
     }
   }
@@ -287,7 +288,7 @@ impl EndpointManager {
     f.result()
       .await
       .map(|_| ())
-      .map_err(|e| EndpointManagerError::SupervisorStoppedError(e))
+      .map_err(EndpointManagerError::SupervisorStopped)
   }
 
   pub async fn endpoint_event(&self, endpoint_event: EndpointEvent) {
@@ -361,10 +362,7 @@ impl EndpointManager {
   pub(crate) async fn remote_deliver(&self, message: RemoteDeliver) {
     if self.stopped.load(Ordering::SeqCst) {
       let pid = ExtendedPid::new(message.target.clone());
-      let sender = match message.sender {
-        Some(sender) => Some(ExtendedPid::new(sender)),
-        None => None,
-      };
+      let sender = message.sender.map(ExtendedPid::new);
       self
         .get_actor_system()
         .await
@@ -445,6 +443,7 @@ impl EndpointManager {
       .clone()
   }
 
+  #[allow(clippy::type_complexity)]
   pub(crate) fn get_endpoint_reader_connections(
     &self,
   ) -> Arc<DashMap<RequestKeyWrapper, Arc<Mutex<Option<mpsc::Sender<bool>>>>>> {

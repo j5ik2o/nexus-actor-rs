@@ -71,7 +71,7 @@ impl Config {
 
   pub async fn get_port(&self) -> Option<u16> {
     let mg = self.inner.lock().await;
-    mg.port.clone()
+    mg.port
   }
 
   pub async fn set_port(&mut self, port: u16) {
@@ -176,7 +176,7 @@ impl Config {
 
   pub async fn get_retry_interval(&self) -> Duration {
     let mg = self.inner.lock().await;
-    mg.retry_interval.clone()
+    mg.retry_interval
   }
 
   pub async fn set_retry_interval(&mut self, retry_interval: Duration) {

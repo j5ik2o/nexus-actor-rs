@@ -14,7 +14,7 @@ use crate::generated::remote::{
   ListProcessesResponse, MessageBatch, RemoteMessage, ServerConnection,
 };
 use crate::remote::Remote;
-use crate::serializer::{deserialize, deserialize_any, deserialize_message, RootSerialized, SerializerId};
+use crate::serializer::{deserialize_any, deserialize_message, SerializerId};
 use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Weak};
@@ -28,11 +28,11 @@ use tonic::{Request, Response, Status, Streaming};
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum EndpointReaderError {
   #[error("Unknown target")]
-  UnknownTargetError,
+  UnknownTarget,
   #[error("Unknown sender")]
-  UnknownSenderError,
+  UnknownSender,
   #[error("Deserialization error: {0}")]
-  DeserializationError(String),
+  Deserialization(String),
 }
 
 #[derive(Debug, Clone)]
@@ -147,31 +147,31 @@ impl EndpointReader {
       .map(ExtendedPid::new)
       .ok_or_else(|| {
         tracing::error!("EndpointReader received message with unknown target");
-        EndpointReaderError::UnknownTargetError
+        EndpointReaderError::UnknownTarget
       })?;
 
       // TODO
       let serializer_id = SerializerId::try_from(envelope.serializer_id).expect("Invalid serializer id");
 
       let result = match deserialize_any(
-        &data,
+        data,
         &serializer_id,
         "nexus_actor_remote_rs::generated::cluster::PubSubBatchTransport",
       ) {
         Ok(v) => Some(v),
-        Err(e) => match deserialize_any(
-          &data,
+        Err(_) => match deserialize_any(
+          data,
           &serializer_id,
           "nexus_actor_remote_rs::generated::cluster::DeliverBatchRequestTransport",
         ) {
           Ok(v) => Some(v),
-          Err(e) => match deserialize_any(
-            &data,
+          Err(_) => match deserialize_any(
+            data,
             &serializer_id,
             "nexus_actor_remote_rs::generated::cluster::PubSubAutoRespondBatchTransport",
           ) {
             Ok(v) => Some(v),
-            Err(e) => None,
+            Err(_) => None,
           },
         },
       };
@@ -188,7 +188,7 @@ impl EndpointReader {
               .send(target.clone(), MessageHandle::new(terminated))
               .await;
           }
-          if let Some(_) = message.downcast_ref::<Stop>() {
+          if message.downcast_ref::<Stop>().is_some() {
             let system_message = SystemMessage::of_stop();
             let ref_process = self
               .get_actor_system()
@@ -197,7 +197,7 @@ impl EndpointReader {
               .await
               .get_local_process(target.id())
               .await
-              .ok_or(EndpointReaderError::UnknownTargetError)?;
+              .ok_or(EndpointReaderError::UnknownTarget)?;
             ref_process
               .send_system_message(&target, MessageHandle::new(system_message))
               .await;
@@ -211,7 +211,7 @@ impl EndpointReader {
               .await
               .get_local_process(target.id())
               .await
-              .ok_or(EndpointReaderError::UnknownTargetError)?;
+              .ok_or(EndpointReaderError::UnknownTarget)?;
             ref_process
               .send_system_message(&target, MessageHandle::new(system_message))
               .await;
@@ -225,7 +225,7 @@ impl EndpointReader {
               .await
               .get_local_process(target.id())
               .await
-              .ok_or(EndpointReaderError::UnknownTargetError)?;
+              .ok_or(EndpointReaderError::UnknownTarget)?;
             ref_process
               .send_system_message(&target, MessageHandle::new(system_message))
               .await;
@@ -234,7 +234,7 @@ impl EndpointReader {
         None => {
           let type_name = message_batch.type_names.get(envelope.type_id as usize).unwrap();
           let data_arc = deserialize_message(data, &serializer_id, type_name)
-            .map_err(|e| EndpointReaderError::DeserializationError(e.to_string()))?;
+            .map_err(|e| EndpointReaderError::Deserialization(e.to_string()))?;
           let msg_handle = MessageHandle::new_arc(data_arc.clone());
           tracing::info!("EndpointReader received message: {:?}", data_arc);
 
@@ -285,11 +285,7 @@ impl EndpointReader {
 
   async fn get_disconnect_flg(disconnect_rx: Arc<Mutex<Receiver<bool>>>) -> bool {
     let mut disconnect_mg = disconnect_rx.lock().await;
-    if let Some(b) = disconnect_mg.recv().await {
-      b
-    } else {
-      false
-    }
+    disconnect_mg.recv().await.unwrap_or_default()
   }
 
   async fn get_endpoint_manager_opt(&self) -> Option<EndpointManager> {
@@ -311,7 +307,7 @@ impl EndpointReader {
   }
 }
 
-fn deserialize_sender<'a>(pid: &'a mut Pid, index: i32, request_id: u32, arr: &[Pid]) -> Option<Pid> {
+fn deserialize_sender(pid: &mut Pid, index: i32, request_id: u32, arr: &[Pid]) -> Option<Pid> {
   if index == 0 {
     None
   } else {
@@ -326,7 +322,7 @@ fn deserialize_sender<'a>(pid: &'a mut Pid, index: i32, request_id: u32, arr: &[
   }
 }
 
-fn deserialize_target<'a>(pid: &'a mut Pid, index: i32, request_id: u32, arr: &[Pid]) -> Option<Pid> {
+fn deserialize_target(pid: &mut Pid, index: i32, request_id: u32, arr: &[Pid]) -> Option<Pid> {
   *pid = arr[index as usize].clone();
   if request_id > 0 {
     *pid = pid.clone();

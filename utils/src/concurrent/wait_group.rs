@@ -57,6 +57,12 @@ impl WaitGroup {
   }
 }
 
+impl Default for WaitGroup {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
 // 使用例
 #[tokio::test]
 async fn test_main() {
