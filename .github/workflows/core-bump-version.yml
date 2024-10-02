@@ -52,7 +52,7 @@ jobs:
         id: semver_level
         if: steps.changes.outputs.count > 0
         run: |
-          if [[ "${{ steps.defines.outputs.prev_tag }}" == "nexus-actor-$TARGET_DIR-rs-v0.0.0" ]]; then
+          if [[ "${{ steps.defines.outputs.prev_tag }}" == "nexus-actor-${TARGET_DIR}-rs-v0.0.0" ]]; then
             SEMVER_LEVEL=patch
           else
             SEMVER_LEVEL=$(git log ${{ steps.defines.outputs.prev_tag }}..HEAD --pretty=format:"%h%x09%H%x09%s" \
