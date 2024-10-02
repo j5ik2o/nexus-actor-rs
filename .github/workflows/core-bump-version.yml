@@ -52,7 +52,8 @@ jobs:
         id: semver_level
         if: steps.changes.outputs.count > 0
         run: |
-          if [[ ${{ steps.defines.outputs.prev_tag }} == *-v0.0.0 ]]; then
+          VERSION=$(echo "${{ steps.defines.outputs.prev_tag }}" | sed -E 's/.*v([0-9]+\.[0-9]+\.[0-9]+)/\1/')
+          if [[ "$VERSION" == "0.0.0" ]]; then
             SEMVER_LEVEL=patch
           else
             SEMVER_LEVEL=$(git log ${{ steps.defines.outputs.prev_tag }}..HEAD --pretty=format:"%h%x09%H%x09%s" \
