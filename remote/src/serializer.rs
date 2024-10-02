@@ -161,10 +161,7 @@ impl SerializerId {
   }
 
   pub fn is_custom(&self) -> bool {
-    match self {
-      SerializerId::Custom(_) => true,
-      _ => false,
-    }
+    matches!(self, SerializerId::Custom(_))
   }
 }
 
@@ -233,7 +230,7 @@ impl Hash for SerializerKey {
   }
 }
 
-static SERIALIZERS: Lazy<DashMap<SerializerKey, Arc<dyn Any + Send + Sync>>> = Lazy::new(|| DashMap::new());
+static SERIALIZERS: Lazy<DashMap<SerializerKey, Arc<dyn Any + Send + Sync>>> = Lazy::new(DashMap::new);
 
 pub fn register_serializer<T: 'static>(
   serializer_id: SerializerId,
@@ -275,7 +272,7 @@ pub trait AnyDowncastExt {
 
 impl AnyDowncastExt for Arc<dyn Any + Send + Sync> {
   fn downcast_arc<T: Any + Send + Sync>(self) -> Result<Arc<T>, Arc<dyn Any + Send + Sync>> {
-    Arc::downcast(self).map_err(|original| original)
+    Arc::downcast(self)
   }
 }
 

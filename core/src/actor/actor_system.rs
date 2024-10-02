@@ -9,7 +9,7 @@ use crate::actor::dispatch::DeadLetterProcess;
 use crate::actor::event_stream::EventStreamProcess;
 use crate::actor::guardian::GuardiansValue;
 use crate::actor::message::EMPTY_MESSAGE_HEADER;
-use crate::actor::metrics::metrics::Metrics;
+use crate::actor::metrics::metrics_impl::Metrics;
 use crate::actor::process::process_registry::ProcessRegistry;
 use crate::actor::process::ProcessHandle;
 use crate::actor::supervisor::subscribe_supervision;
@@ -33,7 +33,7 @@ struct ActorSystemInner {
 impl ActorSystemInner {
   async fn new(config: Config) -> Self {
     let id = Uuid::new_v4().to_string();
-    let myself = ActorSystemInner {
+    Self {
       id: id.clone(),
       config,
       process_registry: None,
@@ -42,8 +42,7 @@ impl ActorSystemInner {
       event_stream: Arc::new(EventStream::new()),
       dead_letter: None,
       extensions: Extensions::new(),
-    };
-    myself
+    }
   }
 }
 

@@ -77,7 +77,7 @@ impl<E: PriorityMessage, Q: QueueReader<E> + QueueWriter<E>> QueueReader<E> for 
 #[async_trait]
 impl<E: PriorityMessage, Q: QueueReader<E> + QueueWriter<E>> QueueWriter<E> for PriorityQueue<E, Q> {
   async fn offer(&mut self, element: E) -> Result<(), QueueError<E>> {
-    let mut item_priority = DEFAULT_PRIORITY.clone();
+    let mut item_priority = DEFAULT_PRIORITY;
     if let Some(priority) = element.get_priority() {
       item_priority = priority;
       if item_priority < 0 {

@@ -41,6 +41,12 @@ impl ContextExtensions {
   }
 }
 
+impl Default for ContextExtensions {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
 #[async_trait]
 impl ExtensionPart for ContextExtensions {
   async fn get(&mut self, id: ContextExtensionId) -> Option<ContextExtensionHandle> {

@@ -50,20 +50,14 @@ pub enum QueueSize {
 
 impl QueueSize {
   fn increment(&mut self) {
-    match self {
-      QueueSize::Limited(c) => {
-        *c += 1;
-      }
-      _ => {}
+    if let QueueSize::Limited(c) = self {
+      *c += 1;
     }
   }
 
   fn decrement(&mut self) {
-    match self {
-      QueueSize::Limited(c) => {
-        *c -= 1;
-      }
-      _ => {}
+    if let QueueSize::Limited(c) = self {
+      *c -= 1;
     }
   }
 
@@ -74,10 +68,7 @@ impl QueueSize {
   /// - `true` - If the queue has no capacity limit. / キューに容量制限がない場合。
   /// - `false` - If the queue has a capacity limit. / キューに容量制限がある場合。
   pub fn is_limitless(&self) -> bool {
-    match self {
-      QueueSize::Limitless => true,
-      _ => false,
-    }
+    matches!(self, QueueSize::Limitless)
   }
 
   /// Converts to an option type.<br/>

@@ -15,6 +15,7 @@ pub trait Extension: Debug {
   fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
 }
 
+#[allow(clippy::type_complexity)]
 #[derive(Debug, Clone)]
 pub struct Extensions {
   extensions: Arc<Mutex<Vec<Option<Arc<Mutex<dyn Extension + Send + Sync + 'static>>>>>>,
@@ -45,6 +46,12 @@ impl Extensions {
       lock.resize_with(id + 1, || None);
     }
     lock[id] = Some(extension);
+  }
+}
+
+impl Default for Extensions {
+  fn default() -> Self {
+    Self::new()
   }
 }
 

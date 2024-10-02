@@ -1,7 +1,7 @@
 fn main() {
   tonic_build::configure()
     .out_dir("generated")
-    .compile(
+    .compile_protos(
       &[
         "proto/remote.proto",
         "proto/cluster.proto",

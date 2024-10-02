@@ -84,6 +84,8 @@ pub trait Actor: Debug + Send + Sync + 'static {
   }
 }
 
+#[allow(clippy::type_complexity)]
+#[derive(Clone)]
 pub struct ActorConfigOption(Arc<RwLock<dyn FnMut(&mut Config) + Send + Sync + 'static>>);
 
 impl ActorConfigOption {
@@ -104,5 +106,11 @@ impl ActorConfigOption {
       option.run(&mut config).await;
     }
     config
+  }
+}
+
+impl Debug for ActorConfigOption {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "ActorConfigOption")
   }
 }

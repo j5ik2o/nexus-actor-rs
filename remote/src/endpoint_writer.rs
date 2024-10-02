@@ -1,4 +1,3 @@
-use crate::cluster::messages::{DeliverBatchRequest, PubSubAutoResponseBatch, PubSubBatch};
 use crate::config::Config;
 use crate::generated::remote::connect_request::ConnectionType;
 use crate::generated::remote::remote_message::MessageType;
@@ -9,7 +8,7 @@ use crate::generated::remote::{
 use crate::messages::{EndpointConnectedEvent, EndpointEvent, EndpointTerminatedEvent, RemoteDeliver};
 use crate::remote::Remote;
 use crate::serializer::RootSerializable;
-use crate::serializer::{serialize, serialize_any, SerializerId};
+use crate::serializer::{serialize_any, SerializerId};
 use async_trait::async_trait;
 use dashmap::DashMap;
 use futures::{StreamExt, TryFutureExt};
@@ -38,15 +37,15 @@ pub struct EndpointWriter {
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum EndpointWriterError {
   #[error("Invalid URL: {0}")]
-  InvalidUrlError(String),
+  InvalidUrl(String),
   #[error("Failed to connect to remote: {0}")]
-  ConnectionError(String),
+  Connection(String),
   #[error("Failed to send connect request: {code}, {message}")]
-  ResponseError { code: Code, message: String },
+  Response { code: Code, message: String },
   #[error("No response")]
-  NoResponseError,
+  NoResponse,
   #[error("No field")]
-  NoFieldError,
+  NoField,
 }
 
 impl EndpointWriter {
@@ -145,10 +144,10 @@ impl EndpointWriter {
 
   async fn create_channel(&self) -> Result<Channel, EndpointWriterError> {
     let address = format!("http://{}", self.address);
-    let endpoint = Channel::from_shared(address).map_err(|e| EndpointWriterError::InvalidUrlError(e.to_string()))?;
+    let endpoint = Channel::from_shared(address).map_err(|e| EndpointWriterError::InvalidUrl(e.to_string()))?;
     endpoint
       .connect()
-      .map_err(|e| EndpointWriterError::ConnectionError(e.to_string()))
+      .map_err(|e| EndpointWriterError::Connection(e.to_string()))
       .await
   }
 
@@ -168,7 +167,7 @@ impl EndpointWriter {
     remote_client
       .receive(request)
       .await
-      .map_err(|status| EndpointWriterError::ResponseError {
+      .map_err(|status| EndpointWriterError::Response {
         code: status.code(),
         message: status.message().to_string(),
       })
@@ -182,8 +181,8 @@ impl EndpointWriter {
     let result = streaming.next().await;
 
     match result {
-      None => Err(EndpointWriterError::NoResponseError),
-      Some(Err(e)) => Err(EndpointWriterError::ResponseError {
+      None => Err(EndpointWriterError::NoResponse),
+      Some(Err(e)) => Err(EndpointWriterError::Response {
         code: e.code(),
         message: e.message().to_string(),
       }),
@@ -215,32 +214,29 @@ impl EndpointWriter {
     tokio::spawn(async move {
       let mut cloned_self = cloned_self.clone();
       let mut streaming = streaming_response.into_inner();
+
       while let Some(result) = streaming.next().await {
-        match &result {
+        let terminated_event = match result {
           Err(e) => {
             tracing::error!("EndpointWriter failed to receive message: {}", e);
-            let terminated = EndpointEvent::EndpointTerminated(EndpointTerminatedEvent {
+            Some(EndpointEvent::EndpointTerminated(EndpointTerminatedEvent {
               address: cloned_self.address.clone(),
-            });
-            cloned_self.publish_stream(MessageHandle::new(terminated)).await;
-            return;
+            }))
           }
-          Ok(msg) => match &msg.message_type {
-            None => {
-              return;
+          Ok(msg) => {
+            if let Some(MessageType::DisconnectRequest(_)) = msg.message_type {
+              Some(EndpointEvent::EndpointTerminated(EndpointTerminatedEvent {
+                address: cloned_self.address.clone(),
+              }))
+            } else {
+              None
             }
-            Some(message_type) => match message_type {
-              MessageType::DisconnectRequest(_) => {
-                let terminated = EndpointEvent::EndpointTerminated(EndpointTerminatedEvent {
-                  address: cloned_self.address.clone(),
-                });
-                cloned_self.publish_stream(MessageHandle::new(terminated)).await;
-              }
-              _ => {
-                return;
-              }
-            },
-          },
+          }
+        };
+
+        if let Some(event) = terminated_event {
+          cloned_self.publish_stream(MessageHandle::new(event)).await;
+          return;
         }
       }
     });
@@ -265,7 +261,7 @@ impl EndpointWriter {
 
   fn get_connect_response(remote_message: RemoteMessage) -> Result<ConnectResponse, EndpointWriterError> {
     match &remote_message.message_type {
-      None => Err(EndpointWriterError::NoFieldError),
+      None => Err(EndpointWriterError::NoField),
       Some(message_type) => match message_type {
         MessageType::ConnectResponse(response) => Ok(response.clone()),
         _ => {
@@ -273,7 +269,7 @@ impl EndpointWriter {
             "EndpointWriter failed to receive connect response: {:?}",
             remote_message
           );
-          Err(EndpointWriterError::ConnectionError("Unknown message type".to_string()))
+          Err(EndpointWriterError::Connection("Unknown message type".to_string()))
         }
       },
     }
@@ -300,13 +296,10 @@ impl EndpointWriter {
 
     for msg in msg_list {
       let typed_msg = msg.to_typed::<EndpointEvent>();
-      match typed_msg {
-        Some(EndpointEvent::EndpointTerminated(_)) => {
-          tracing::info!("EndpointWriter received EndpointTerminated");
-          ctx.stop(&ctx.get_self().await).await;
-          return Ok(());
-        }
-        _ => {}
+      if let Some(EndpointEvent::EndpointTerminated(_)) = typed_msg {
+        tracing::info!("EndpointWriter received EndpointTerminated");
+        ctx.stop(&ctx.get_self().await).await;
+        return Ok(());
       }
 
       let rd = msg
@@ -314,9 +307,6 @@ impl EndpointWriter {
         .expect("Failed to convert to RemoteDeliver");
 
       tracing::info!("EndpointWriter: get {:?}", rd);
-
-      let header;
-      let message;
 
       if self.get_stream().await.is_none() {
         let actor_system = self.get_actor_system().await;
@@ -347,7 +337,7 @@ impl EndpointWriter {
         continue;
       }
 
-      header = if rd.header.as_ref().map_or(true, |h| h.length() == 0) {
+      let header = if rd.header.as_ref().map_or(true, |h| h.length() == 0) {
         None
       } else {
         Some(MessageHeader {
@@ -355,11 +345,11 @@ impl EndpointWriter {
         })
       };
 
-      message = rd.message;
+      let message = rd.message;
 
       tracing::info!("message = {:?}", message);
 
-      let s_id = u32::try_from(serializer_id.clone()).unwrap();
+      let s_id = u32::from(serializer_id.clone());
       tracing::info!("EndpointWriter: serializer_id = {:?}", s_id);
 
       let request_opt = message.to_typed::<Arc<dyn RootSerializable>>();
@@ -410,7 +400,7 @@ impl EndpointWriter {
 
       let type_id = add_to_lookup(&mut type_names, message.get_type_name(), &mut type_names_arr);
       let target_id = add_to_target_lookup(&mut target_names, &rd.target, &mut target_names_arr);
-      let target_request_id = rd.target.request_id.clone();
+      let target_request_id = rd.target.request_id;
 
       let sender_id = add_to_sender_lookup(&mut sender_names, rd.sender.as_ref(), &mut sender_names_arr);
       let sender_request_id = if rd.sender.is_none() {
@@ -463,7 +453,7 @@ impl EndpointWriter {
       ctx.stop(&ctx.get_self().await).await;
     }
 
-    let _ = response
+    response
       .map(|_| ())
       .map_err(|e| ActorError::ReceiveError(ErrorReason::from(e.to_string())))?;
     Ok(())

@@ -11,6 +11,12 @@ impl IgnoreDeadLetterLogging {
   }
 }
 
+impl Default for IgnoreDeadLetterLogging {
+  fn default() -> Self {
+    IgnoreDeadLetterLogging::new()
+  }
+}
+
 static_assertions::assert_impl_all!(IgnoreDeadLetterLogging: Send, Sync);
 
 impl Display for IgnoreDeadLetterLogging {

@@ -32,10 +32,11 @@ impl GuardiansValue {
 
   pub async fn get_guardian_pid(&self, s: SupervisorStrategyHandle) -> ExtendedPid {
     let handle = s.clone();
-    match {
+    let res = {
       let guardians = self.guardians.lock().await;
       guardians.get(&handle).cloned()
-    } {
+    };
+    match res {
       Some(guardian) => {
         let pid = guardian.pid.clone();
         let op = match &*pid {

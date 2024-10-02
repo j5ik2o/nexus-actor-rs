@@ -74,6 +74,6 @@ impl std::hash::Hash for MessageHandle {
 
 impl Display for MessageHandle {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "{}", self.to_string())
+    write!(f, "{:?}", self.0)
   }
 }

@@ -86,6 +86,12 @@ impl<E: Element> QueueWriter<E> for MpscUnboundedChannelQueue<E> {
   }
 }
 
+impl Default for MpscUnboundedChannelQueue<i32> {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
 #[async_trait]
 impl<E: Element> QueueReader<E> for MpscUnboundedChannelQueue<E> {
   async fn poll(&mut self) -> Result<Option<E>, QueueError<E>> {

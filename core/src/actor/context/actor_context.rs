@@ -40,7 +40,7 @@ use crate::actor::message::{
   unwrap_envelope_header, unwrap_envelope_message, unwrap_envelope_sender, wrap_envelope, MessageEnvelope,
 };
 use crate::actor::message::{AutoRespond, AutoResponsive};
-use crate::actor::metrics::metrics::{Metrics, EXTENSION_ID};
+use crate::actor::metrics::metrics_impl::{Metrics, EXTENSION_ID};
 use crate::actor::process::Process;
 use crate::actor::supervisor::{Supervisor, SupervisorHandle, SupervisorStrategy, DEFAULT_SUPERVISION_STRATEGY};
 use crate::ctxext::extensions::{ContextExtensionHandle, ContextExtensionId};
@@ -388,12 +388,9 @@ impl ActorContext {
   }
 
   async fn handle_start(&mut self) -> Result<(), ActorError> {
-    let result = self
+    self
       .invoke_user_message(MessageHandle::new(AutoReceiveMessage::PostStart))
-      .await;
-    if result.is_err() {
-      return result;
-    }
+      .await?;
     Ok(())
   }
 
@@ -587,11 +584,10 @@ impl BasePart for ActorContext {
 
   async fn get_receive_timeout(&self) -> Duration {
     let inner_mg = self.inner.lock().await;
-    inner_mg
+    *inner_mg
       .receive_timeout
       .as_ref()
       .expect("Failed to retrieve receive_timeout")
-      .clone()
   }
 
   async fn get_children(&self) -> Vec<ExtendedPid> {
@@ -687,7 +683,7 @@ impl BasePart for ActorContext {
     };
     {
       let mut mg = self.inner.lock().await;
-      mg.receive_timeout = Some(d.clone());
+      mg.receive_timeout = Some(d);
     }
 
     let mut extra = self.ensure_extras().await;
@@ -991,16 +987,10 @@ impl MessageInvoker for ActorContext {
           }
         }
         SystemMessage::Stop => {
-          let result = self.handle_stop().await;
-          if result.is_err() {
-            return result;
-          }
+          self.handle_stop().await?;
         }
         SystemMessage::Restart => {
-          let result = self.handle_restart().await;
-          if result.is_err() {
-            return result;
-          }
+          self.handle_restart().await?;
         }
         SystemMessage::Watch(watch) => {
           self.handle_watch(&watch).await;
@@ -1009,10 +999,7 @@ impl MessageInvoker for ActorContext {
           self.handle_unwatch(&unwatch).await;
         }
         SystemMessage::Terminate(t) => {
-          let result = self.handle_terminated(&t).await;
-          if result.is_err() {
-            return result;
-          }
+          self.handle_terminated(&t).await?;
         }
       }
     }

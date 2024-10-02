@@ -22,7 +22,7 @@ impl ConfigOption {
         config.set_advertised_host(advertised_host.clone()).await;
       }
       ConfigOption::PutKind(kind, props) => {
-        config.put_kind(&kind, props.clone()).await;
+        config.put_kind(kind, props.clone()).await;
       }
     }
   }

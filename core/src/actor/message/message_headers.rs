@@ -36,7 +36,7 @@ impl MessageHeaders {
   }
 
   pub fn to_map(&self) -> HashMap<String, String> {
-    HashMap::from_iter((&*self.inner).clone())
+    HashMap::from_iter((*self.inner).clone())
   }
 }
 
@@ -54,7 +54,7 @@ impl ReadonlyMessageHeaders for MessageHeaders {
   }
 
   fn to_map(&self) -> HashMap<String, String> {
-    HashMap::from_iter((&*self.inner).clone())
+    HashMap::from_iter((*self.inner).clone())
   }
 }
 

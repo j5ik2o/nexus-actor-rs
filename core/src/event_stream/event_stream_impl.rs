@@ -74,3 +74,9 @@ impl EventStream {
     self.counter.load(Ordering::SeqCst)
   }
 }
+
+impl Default for EventStream {
+  fn default() -> Self {
+    Self::new()
+  }
+}

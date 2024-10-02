@@ -8,7 +8,7 @@ use opentelemetry::metrics::MetricsError;
 use opentelemetry::KeyValue;
 use std::any::Any;
 
-pub static EXTENSION_ID: Lazy<ExtensionId> = Lazy::new(|| next_extension_id());
+pub static EXTENSION_ID: Lazy<ExtensionId> = Lazy::new(next_extension_id);
 
 #[derive(Debug, Clone)]
 pub struct Metrics {
@@ -60,14 +60,11 @@ impl Metrics {
       KeyValue::new("address", self.actor_system.get_address().await.to_string()),
       KeyValue::new(
         "actor_type",
-        format!(
-          "{}",
-          ctx
-            .get_actor()
-            .await
-            .map_or_else(|| "".to_string(), |e| e.get_type_name())
-        )
-        .replace("*", ""),
+        ctx
+          .get_actor()
+          .await
+          .map_or_else(|| "".to_string(), |e| e.get_type_name())
+          .replace("*", ""),
       ),
     ]
   }

@@ -6,7 +6,7 @@ mod tests {
   use crate::actor::message::Message;
   use crate::actor::message::MessageHandle;
   use crate::event_stream::event_handler::EventHandler;
-  use crate::event_stream::event_stream::EventStream;
+  use crate::event_stream::event_stream_impl::EventStream;
   use crate::event_stream::predicate::Predicate;
   use nexus_actor_message_derive_rs::Message;
   use tokio::sync::Mutex;

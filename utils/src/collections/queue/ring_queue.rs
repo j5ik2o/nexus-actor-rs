@@ -1,4 +1,3 @@
-use std::mem;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 
@@ -55,7 +54,7 @@ impl<E: Element> RingQueue<E> {
     let mut count = 0;
     let mut i = head;
     while i != tail {
-      new_buffer[count] = mem::replace(&mut buffer[i], None);
+      new_buffer[count] = buffer[i].take();
       i = (i + 1) % old_capacity;
       count += 1;
     }

@@ -263,11 +263,17 @@ impl Mailbox for DefaultMailbox {
       let system_messages_count = self.get_system_messages_count().await;
       let user_messages_count = self.get_user_messages_count().await;
 
-      if system_messages_count > 0 || (!self.is_suspended().await && user_messages_count > 0) {
-        if self.compare_exchange_scheduler_status(false, true).await.is_ok() {
-          continue;
-        }
+      if (system_messages_count > 0 || (!self.is_suspended().await && user_messages_count > 0))
+        && self.compare_exchange_scheduler_status(false, true).await.is_ok()
+      {
+        continue;
       }
+
+      // if system_messages_count > 0 || (!self.is_suspended().await && user_messages_count > 0) {
+      //   if self.compare_exchange_scheduler_status(false, true).await.is_ok() {
+      //     continue;
+      //   }
+      // }
 
       break;
     }

@@ -7,6 +7,7 @@ use futures::future::BoxFuture;
 use crate::actor::dispatch::future::ActorFutureError;
 use crate::actor::message::MessageHandle;
 
+#[allow(clippy::type_complexity)]
 #[derive(Clone)]
 pub struct Continuer(
   Arc<dyn Fn(Option<MessageHandle>, Option<ActorFutureError>) -> BoxFuture<'static, ()> + Send + Sync + 'static>,
