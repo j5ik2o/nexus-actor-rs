@@ -1,3 +1,4 @@
+mod consensus_check;
 pub mod generated;
 mod gossip;
 mod gossip_state;
