@@ -33,8 +33,8 @@ jobs:
           LATEST_TAG=${LATEST_TAG:-nexus-actor-$TARGET_DIR-rs-v0.0.0}
           echo "LATEST_TAG=$LATEST_TAG"
           echo "target_dir=$TARGET_DIR" >> $GITHUB_OUTPUT
+          echo "package_id=nexus-actor-$TARGET_DIR-rs" >> $GITHUB_OUTPUT
           echo "prev_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
-          echo "target_dir=$TARGET_DIR" >> $GITHUB_OUTPUT
       - name: Calculate changes or force bump
         id: changes
         run: |
