@@ -32,9 +32,9 @@ jobs:
           LATEST_TAG=$(git tag -l --sort=-taggerdate | grep $TARGET_DIR | head -n 1)
           LATEST_TAG=${LATEST_TAG:-nexus-actor-$TARGET_DIR-rs-v0.0.0}
           echo "LATEST_TAG=$LATEST_TAG"
-          echo "::set-output name=target_dir::$TARGET_DIR"
-          echo "::set-output name=package_id::nexus-actor-$TARGET_DIR-rs"
-          echo "::set-output name=prev_tag::$LATEST_TAG"
+          echo "target_dir=$TARGET_DIR" >> $GITHUB_OUTPUT
+          echo "package_id=nexus-actor-$TARGET_DIR-rs" >> $GITHUB_OUTPUT
+          echo "prev_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
       - name: Calculate changes or force bump
         id: changes
         run: |
@@ -47,7 +47,7 @@ jobs:
               -- "${{ steps.defines.outputs.target_dir }}/*" | awk 'END{print NR}')
           fi
           echo "COUNT=$COUNT"
-          echo "::set-output name=count::$COUNT"
+          echo "count=$COUNT" >> $GITHUB_OUTPUT
       - name: Calculate semver level
         id: semver_level
         if: steps.changes.outputs.count > 0
@@ -60,15 +60,15 @@ jobs:
               -- "${{ steps.defines.outputs.target_dir }}/*" | python3 "${GITHUB_WORKSPACE}"/.github/semver-level.py)
           fi
           echo "SEMVER_LEVEL=$SEMVER_LEVEL"
-          echo "::set-output name=value::$SEMVER_LEVEL"
+          echo "value=$SEMVER_LEVEL" >> $GITHUB_OUTPUT
       - name: Get the next version
         id: versions
         if: steps.changes.outputs.count > 0
         run: |
           NEXT_VERSION=$(echo ${{ steps.defines.outputs.prev_tag }} | python3 "${GITHUB_WORKSPACE}"/.github/next-semver.py ${{ steps.semver_level.outputs.value }})
           echo "NEXT_VERSION=$NEXT_VERSION"
-          echo "::set-output name=next_version::$NEXT_VERSION"
-          echo "::set-output name=next_tag::nexus-actor-${{ steps.defines.outputs.target_dir }}-rs-v$NEXT_VERSION"
+          echo "next_version=$NEXT_VERSION" >> $GITHUB_OUTPUT
+          echo "next_tag=nexus-actor-${{ steps.defines.outputs.target_dir }}-rs-v$NEXT_VERSION" >> $GITHUB_OUTPUT
       - name: bump version
         if: steps.changes.outputs.count > 0
         run: |
@@ -84,7 +84,7 @@ jobs:
           git commit -m "${{ steps.defines.outputs.target_dir }}'s version up to ${{ steps.versions.outputs.next_tag }}"
           git push origin main
           COMMIT_SHA=$(git rev-parse HEAD)
-          echo "::set-output name=commit_sha::$COMMIT_SHA"
+          echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
       - name: tagging and push tag
         id: tag_version
         if: steps.changes.outputs.count > 0
