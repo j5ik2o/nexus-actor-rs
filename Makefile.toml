@@ -12,3 +12,83 @@ script = '''
 #!/usr/bin/env bash
 cargo +nightly fmt
 '''
+
+[tasks.sort-dependencies]
+workspace = false
+script_runner = "@rust"
+script = '''
+//! ```cargo
+//! [dependencies]
+//! toml_edit = "0.22.0"
+//! ```
+use std::fs;
+use std::path::Path;
+use toml_edit::{Document, Item, Table};
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let cargo_toml_paths = [
+        "Cargo.toml",
+        "utils/Cargo.toml",
+        "message-derive/Cargo.toml",
+        "core/Cargo.toml",
+        "remote/Cargo.toml",
+        "cluster/Cargo.toml",
+    ];
+
+    for path in cargo_toml_paths.iter() {
+        let path = Path::new(path);
+        if path.exists() {
+            backup_cargo_toml(path)?;
+            sort_dependencies(path)?;
+        } else {
+            println!("警告: {}が見つかりません", path.display());
+        }
+    }
+
+    Ok(())
+}
+
+// Cargo.toml -> Cargo.toml.bak ファイルのバックアップを作成
+fn backup_cargo_toml(file_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    let backup_path = file_path.with_extension("toml.bak");
+    fs::copy(file_path, &backup_path)?;
+    println!("バックアップを作成しました: {}", backup_path.display());
+    Ok(())
+}
+
+fn sort_table(table: &mut Table) {
+    let mut keys: Vec<_> = table.iter().map(|(k, _)| k.to_string()).collect();
+    keys.sort();
+
+    let sorted_table = keys.into_iter()
+        .filter_map(|k| table.get(&k).map(|v| (k, v.clone())))
+        .collect();
+
+    *table = sorted_table;
+}
+
+fn sort_dependencies(file_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    // Cargo.tomlファイルを読み込む
+    let content = fs::read_to_string(file_path)?;
+    let mut doc = content.parse::<Document>()?;
+
+    // ソートするセクションのリスト
+    let sections = ["workspace.dependencies", "dependencies", "dev-dependencies", "build-dependencies"];
+
+    for section in sections.iter() {
+        if let Some(deps) = doc.get_mut(section) {
+            if let Item::Table(table) = deps {
+                sort_table(table);
+                println!("{}の{}をソートしました。", file_path.display(), section);
+            }
+        }
+    }
+
+    // 変更を保存
+    fs::write(file_path, doc.to_string())?;
+    println!("{}の更新が完了しました。", file_path.display());
+
+    Ok(())
+}
+'''
+
