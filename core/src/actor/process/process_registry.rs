@@ -92,7 +92,7 @@ impl AddressResolver {
 
 impl ProcessRegistry {
   pub fn new(actor_system: ActorSystem) -> Self {
-    ProcessRegistry {
+    Self {
       sequence_id: Arc::new(AtomicU64::new(0)),
       actor_system,
       address: Arc::new(RwLock::new(LOCAL_ADDRESS.to_string())),
@@ -168,11 +168,14 @@ impl ProcessRegistry {
   }
 }
 
-pub(crate) fn uint64_to_id(u: u64) -> String {
-  const DIGITS: &[u8] = b"0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ~+";
+const DIGITS: &[u8; 64] = b"0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ~+";
+
+pub fn uint64_to_id(u: u64) -> String {
+  // 最大13文字 (62進数で11桁 + '$' + 潜在的な追加の1文字)
   let mut buf = [0u8; 13];
-  let mut i = 12;
+  let mut i = buf.len() - 1;
   let mut u = u;
+
   while u >= 64 {
     buf[i] = DIGITS[(u & 0x3f) as usize];
     u >>= 6;
@@ -181,5 +184,7 @@ pub(crate) fn uint64_to_id(u: u64) -> String {
   buf[i] = DIGITS[u as usize];
   i -= 1;
   buf[i] = b'$';
-  String::from_utf8(buf[i..].to_vec()).unwrap()
+
+  // 使用された部分のスライスを文字列に変換
+  unsafe { std::str::from_utf8_unchecked(&buf[i..]).to_string() }
 }
