@@ -54,6 +54,7 @@ impl Message for Continuation {
   }
 }
 
+#[allow(clippy::type_complexity)]
 #[derive(Clone)]
 pub struct ContinuationCallback(Arc<dyn Fn() -> BoxFuture<'static, ()> + Send + Sync + 'static>);
 

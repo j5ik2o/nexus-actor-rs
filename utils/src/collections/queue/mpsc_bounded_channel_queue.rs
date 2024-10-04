@@ -5,7 +5,7 @@ use crate::collections::element::Element;
 use crate::collections::{QueueBase, QueueError, QueueReader, QueueSize, QueueWriter};
 use async_trait::async_trait;
 use tokio::sync::mpsc::error::{SendError, TryRecvError};
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::{mpsc, RwLock};
 
 #[derive(Debug)]
 struct MpscBoundedQueueInner<E> {
@@ -18,7 +18,7 @@ struct MpscBoundedQueueInner<E> {
 #[derive(Debug, Clone)]
 pub struct MpscBoundedChannelQueue<E> {
   sender: mpsc::Sender<E>,
-  inner: Arc<Mutex<MpscBoundedQueueInner<E>>>,
+  inner: Arc<RwLock<MpscBoundedQueueInner<E>>>,
 }
 
 impl<T> MpscBoundedChannelQueue<T> {
@@ -26,7 +26,7 @@ impl<T> MpscBoundedChannelQueue<T> {
     let (sender, receiver) = mpsc::channel(buffer);
     Self {
       sender,
-      inner: Arc::new(Mutex::new(MpscBoundedQueueInner {
+      inner: Arc::new(RwLock::new(MpscBoundedQueueInner {
         receiver,
         count: 0,
         capacity: buffer,
@@ -36,7 +36,7 @@ impl<T> MpscBoundedChannelQueue<T> {
   }
 
   async fn try_recv(&self) -> Result<T, TryRecvError> {
-    let mut inner_mg = self.inner.lock().await;
+    let mut inner_mg = self.inner.write().await;
     if inner_mg.is_closed {
       return Err(TryRecvError::Disconnected);
     }
@@ -44,7 +44,7 @@ impl<T> MpscBoundedChannelQueue<T> {
   }
 
   async fn try_send(&self, element: T) -> Result<(), SendError<T>> {
-    let inner_mg = self.inner.lock().await;
+    let inner_mg = self.inner.read().await;
     if inner_mg.is_closed {
       return Err(SendError(element));
     }
@@ -60,12 +60,12 @@ impl<T> MpscBoundedChannelQueue<T> {
   }
 
   async fn increment_count(&self) {
-    let mut inner_mg = self.inner.lock().await;
+    let mut inner_mg = self.inner.write().await;
     inner_mg.count += 1;
   }
 
   async fn decrement_count(&self) {
-    let mut inner_mg = self.inner.lock().await;
+    let mut inner_mg = self.inner.write().await;
     inner_mg.count = inner_mg.count.saturating_sub(1);
   }
 }
@@ -73,12 +73,12 @@ impl<T> MpscBoundedChannelQueue<T> {
 #[async_trait]
 impl<E: Element> QueueBase<E> for MpscBoundedChannelQueue<E> {
   async fn len(&self) -> QueueSize {
-    let inner_mg = self.inner.lock().await;
+    let inner_mg = self.inner.read().await;
     QueueSize::Limited(inner_mg.count)
   }
 
   async fn capacity(&self) -> QueueSize {
-    let inner_mg = self.inner.lock().await;
+    let inner_mg = self.inner.read().await;
     QueueSize::Limited(inner_mg.capacity)
   }
 }
@@ -110,7 +110,7 @@ impl<E: Element> QueueReader<E> for MpscBoundedChannelQueue<E> {
   }
 
   async fn clean_up(&mut self) {
-    let mut inner_mg = self.inner.lock().await;
+    let mut inner_mg = self.inner.write().await;
     inner_mg.count = 0;
     inner_mg.receiver.close();
     inner_mg.is_closed = true;
