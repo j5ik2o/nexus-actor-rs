@@ -133,7 +133,7 @@ impl ProcessRegistry {
     (pid, inserted)
   }
 
-  pub fn remove_process(&self, pid: &ExtendedPid) {
+  pub async fn remove_process(&self, pid: &ExtendedPid) {
     let bucket = self.local_pids.get_bucket(pid.id());
     if let Some((_, process)) = bucket.remove(pid.id()) {
       if let Some(actor_process) = process.as_any().downcast_ref::<ActorProcess>() {

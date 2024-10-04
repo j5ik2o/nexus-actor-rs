@@ -317,7 +317,8 @@ impl ActorContext {
       .await
       .get_process_registry()
       .await
-      .remove_process(&self.get_self_opt().await.unwrap());
+      .remove_process(&self.get_self_opt().await.unwrap())
+      .await;
     let result = self
       .invoke_user_message(MessageHandle::new(AutoReceiveMessage::PostStop))
       .await;
