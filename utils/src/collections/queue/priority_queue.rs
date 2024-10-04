@@ -4,7 +4,7 @@ use std::sync::Arc;
 use crate::collections::element::Element;
 use crate::collections::{QueueBase, QueueError, QueueReader, QueueSize, QueueWriter};
 use async_trait::async_trait;
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::{RwLock};
 
 pub const PRIORITY_LEVELS: usize = 8;
 pub const DEFAULT_PRIORITY: i8 = (PRIORITY_LEVELS / 2) as i8;

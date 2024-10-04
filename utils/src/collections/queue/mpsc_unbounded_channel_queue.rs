@@ -5,7 +5,7 @@ use crate::collections::element::Element;
 use crate::collections::{QueueBase, QueueError, QueueReader, QueueSize, QueueWriter};
 use async_trait::async_trait;
 use tokio::sync::mpsc::error::{SendError, TryRecvError};
-use tokio::sync::{mpsc, Mutex, RwLock};
+use tokio::sync::{mpsc, RwLock};
 
 #[derive(Debug)]
 struct MpscUnboundedChannelQueueInner<E> {
