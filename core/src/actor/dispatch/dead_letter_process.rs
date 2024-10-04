@@ -11,7 +11,7 @@ use crate::actor::metrics::metrics_impl::{Metrics, EXTENSION_ID};
 use crate::actor::process::{Process, ProcessHandle};
 use crate::generated::actor::{DeadLetterResponse, Terminated};
 
-use crate::actor::dispatch::throttler::{Throttle, ThrottleCallback, Valve};
+use crate::actor::dispatch::throttler::{Throttle, Valve};
 use crate::metrics::ActorMetrics;
 use async_trait::async_trait;
 use nexus_actor_message_derive_rs::Message;
@@ -36,9 +36,8 @@ impl DeadLetterProcess {
       .await
       .dead_letter_throttle_interval
       .clone();
-    let func = ThrottleCallback::new(move |i: usize| async move {
-      tracing::info!("DeadLetterProcess: Throttling dead letters, count: {}", i)
-    });
+    let func =
+      move |i: usize| async move { tracing::info!("DeadLetterProcess: Throttling dead letters, count: {}", i) };
     let dispatcher = myself.actor_system.get_config().await.system_dispatcher.clone();
     let throttle = Throttle::new(
       dispatcher,

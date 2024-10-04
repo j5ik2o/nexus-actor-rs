@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-  use crate::actor::dispatch::throttler::{Throttle, ThrottleCallback, Valve};
+  use crate::actor::dispatch::throttler::{Throttle, Valve};
   use crate::actor::dispatch::TokioRuntimeContextDispatcher;
   use std::sync::Arc;
   use std::time::Duration;
@@ -12,18 +12,13 @@ mod tests {
     let callback_called_clone = Arc::clone(&callback_called);
     let dispatcher = Arc::new(TokioRuntimeContextDispatcher::new().unwrap());
 
-    let throttle = Throttle::new(
-      dispatcher,
-      10,
-      Duration::from_millis(100),
-      ThrottleCallback::new(move |_| {
-        let callback_called = callback_called_clone.clone();
-        async move {
-          let mut called = callback_called.lock().await;
-          *called = true;
-        }
-      }),
-    )
+    let throttle = Throttle::new(dispatcher, 10, Duration::from_millis(100), move |_| {
+      let callback_called = callback_called_clone.clone();
+      async move {
+        let mut called = callback_called.lock().await;
+        *called = true;
+      }
+    })
     .await;
 
     assert_eq!(throttle.should_throttle(), Valve::Open);
