@@ -12,7 +12,6 @@ mod message_handles;
 mod message_headers;
 mod message_or_envelope;
 mod message_or_envelope_test;
-mod messages;
 mod not_influence_receive_timeout;
 mod readonly_message_headers;
 mod receive_timeout;
