@@ -60,4 +60,3 @@ impl Message for SystemMessage {
     std::any::type_name_of_val(self).to_string()
   }
 }
-
