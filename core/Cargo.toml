@@ -16,7 +16,7 @@ backtrace = "0.3"
 base64-string-rs = "0.0.1"
 chrono = "0.4"
 dashmap = { workspace = true }
-futures = "0.3.30"
+futures = { workspace = true }
 im = "15.0.0"
 nexus-actor-message-derive-rs = { version = "0.*", path = "../message-derive" }
 nexus-actor-utils-rs = { version = "0.*", path = "../utils" }
