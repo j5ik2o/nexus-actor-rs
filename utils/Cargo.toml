@@ -10,11 +10,12 @@ readme = "../README.md"
 repository = "https://github.com/j5ik2o/nexus-actor-rs"
 
 [dependencies]
+futures = { workspace = true }
 async-trait = { workspace = true }
 dashmap = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-condvar = "0.3.0"
-tracing = "0.1"
+tracing = { workspace = true }
 
 
