@@ -61,10 +61,3 @@ impl Message for SystemMessage {
   }
 }
 
-impl SystemMessage {
-  fn as_any(&self) -> &dyn Any {
-    self
-  }
-
-  fn system_message(&self) {}
-}
