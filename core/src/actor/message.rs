@@ -23,9 +23,8 @@ mod typed_message_or_envelope;
 
 pub(crate) use self::auto_receive_message::*;
 pub use self::{
-  auto_respond::*, continuation::*, failure::*, ignore_dead_letter_logging::*,
-  message::*, message_batch::*, message_handle::*, message_handles::*,
-  message_headers::*, message_or_envelope::*, not_influence_receive_timeout::*,
-  readonly_message_headers::*, receive_timeout::*, response::*, system_message::*,
-  terminate_reason::*, touched::*, typed_message_or_envelope::*,
+  auto_respond::*, continuation::*, failure::*, ignore_dead_letter_logging::*, message::*, message_batch::*,
+  message_handle::*, message_handles::*, message_headers::*, message_or_envelope::*, not_influence_receive_timeout::*,
+  readonly_message_headers::*, receive_timeout::*, response::*, system_message::*, terminate_reason::*, touched::*,
+  typed_message_or_envelope::*,
 };
