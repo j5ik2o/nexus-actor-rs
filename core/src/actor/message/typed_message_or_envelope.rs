@@ -1,6 +1,6 @@
-use std::any::Any;
 use crate::actor::actor::ExtendedPid;
 use crate::actor::message::{Message, MessageEnvelope, MessageHeaders};
+use std::any::Any;
 
 #[derive(Debug, Clone)]
 pub struct TypedMessageEnvelope<T: Message> {
