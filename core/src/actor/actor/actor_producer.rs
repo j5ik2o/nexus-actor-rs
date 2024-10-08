@@ -7,6 +7,7 @@ use crate::actor::actor::actor_handle::ActorHandle;
 use crate::actor::context::ContextHandle;
 use futures::future::BoxFuture;
 
+#[allow(clippy::type_complexity)]
 #[derive(Clone)]
 pub struct ActorProducer(Arc<dyn Fn(ContextHandle) -> BoxFuture<'static, ActorHandle> + Send + Sync + 'static>);
 

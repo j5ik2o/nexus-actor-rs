@@ -10,6 +10,7 @@ use crate::actor::context::ContextHandle;
 use crate::actor::message::message::Message;
 use crate::actor::message::response::ResponseHandle;
 
+#[allow(clippy::type_complexity)]
 #[derive(Clone)]
 pub struct AutoRespond(Arc<dyn Fn(ContextHandle) -> BoxFuture<'static, ResponseHandle> + Send + Sync + 'static>);
 

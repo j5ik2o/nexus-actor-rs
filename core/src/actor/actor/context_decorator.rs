@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use crate::actor::actor::context_decorator_chain::ContextDecoratorChain;
 
+#[allow(clippy::type_complexity)]
 #[derive(Clone)]
 pub struct ContextDecorator(Arc<dyn Fn(ContextDecoratorChain) -> ContextDecoratorChain + Send + Sync + 'static>);
 

@@ -24,14 +24,14 @@ impl Subscription {
   pub fn activate(&self) -> bool {
     self
       .active
-      .compare_exchange(0, 1, Ordering::SeqCst, Ordering::Relaxed)
+      .compare_exchange(0, 1, Ordering::SeqCst, Ordering::SeqCst)
       .is_ok()
   }
 
   pub fn deactivate(&self) -> bool {
     self
       .active
-      .compare_exchange(1, 0, Ordering::SeqCst, Ordering::Relaxed)
+      .compare_exchange(1, 0, Ordering::SeqCst, Ordering::SeqCst)
       .is_ok()
   }
 

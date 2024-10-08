@@ -3,29 +3,28 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use tokio::sync::RwLock;
+use nexus_actor_utils_rs::concurrent::SynchronizedRw;
 
 #[derive(Debug, Clone)]
 pub struct RestartStatistics {
-  failure_times: Arc<RwLock<Vec<Instant>>>,
+  failure_times: Arc<SynchronizedRw<Vec<Instant>>>,
 }
 
 impl RestartStatistics {
   pub fn new() -> Self {
     Self {
-      failure_times: Arc::new(RwLock::new(vec![])),
+      failure_times: Arc::new(SynchronizedRw::new(vec![])),
     }
   }
 
   pub fn with_values(failure_times: impl IntoIterator<Item = Instant>) -> Self {
     Self {
-      failure_times: Arc::new(RwLock::new(failure_times.into_iter().collect())),
+      failure_times: Arc::new(SynchronizedRw::new(failure_times.into_iter().collect())),
     }
   }
 
   pub async fn failure_count(&self) -> usize {
-    let mg = self.failure_times.read().await;
-    mg.len()
+    self.failure_times.read(|t| t.len()).await
   }
 
   pub async fn fail(&mut self) {
@@ -33,26 +32,27 @@ impl RestartStatistics {
   }
 
   pub async fn push(&mut self, time: Instant) {
-    let mut mg = self.failure_times.write().await;
-    mg.push(time);
+    self.failure_times.write(|t| t.push(time)).await;
   }
 
   pub async fn reset(&mut self) {
-    let mut mg = self.failure_times.write().await;
-    mg.clear();
+    self.failure_times.write(|t| t.clear()).await;
   }
 
   pub async fn number_of_failures(&self, within_duration: Duration) -> u32 {
     if within_duration == Duration::ZERO {
-      let mg = self.failure_times.read().await;
-      return mg.len() as u32;
+      return self.failure_times.read(|t| t.len() as u32).await;
     }
 
     let curr_time = Instant::now();
-    let mg = self.failure_times.read().await;
-    mg.iter()
-      .filter(|&&t| curr_time.duration_since(t) < within_duration)
-      .count() as u32
+    self
+      .failure_times
+      .read(|t| {
+        t.iter()
+          .filter(|&&t| curr_time.duration_since(t) < within_duration)
+          .count() as u32
+      })
+      .await
   }
 }
 

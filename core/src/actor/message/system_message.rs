@@ -60,11 +60,3 @@ impl Message for SystemMessage {
     std::any::type_name_of_val(self).to_string()
   }
 }
-
-impl SystemMessage {
-  fn as_any(&self) -> &dyn Any {
-    self
-  }
-
-  fn system_message(&self) {}
-}

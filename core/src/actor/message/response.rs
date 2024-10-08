@@ -33,6 +33,8 @@ impl PartialEq for ResponseHandle {
   }
 }
 
+impl Eq for ResponseHandle {}
+
 impl Message for ResponseHandle {
   fn eq_message(&self, other: &dyn Message) -> bool {
     match (

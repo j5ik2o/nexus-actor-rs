@@ -6,6 +6,7 @@ use futures::future::BoxFuture;
 
 use crate::actor::context::ContextHandle;
 
+#[allow(clippy::type_complexity)]
 // ContextDecoratorChain
 #[derive(Clone)]
 pub struct ContextDecoratorChain(

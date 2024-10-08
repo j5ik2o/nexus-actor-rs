@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use crate::actor::actor::receiver_middleware_chain::ReceiverMiddlewareChain;
 
+#[allow(clippy::type_complexity)]
 #[derive(Clone)]
 pub struct ReceiverMiddleware(Arc<dyn Fn(ReceiverMiddlewareChain) -> ReceiverMiddlewareChain + Send + Sync + 'static>);
 

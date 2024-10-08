@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use crate::actor::context::ContextHandle;
 
+#[allow(clippy::type_complexity)]
 #[derive(Clone)]
 pub struct ContextHandler(Arc<dyn Fn(ContextHandle) + Send + Sync + 'static>);
 

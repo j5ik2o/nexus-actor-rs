@@ -11,7 +11,7 @@ use nexus_actor_message_derive_rs::Message;
 use nexus_actor_utils_rs::concurrent::WaitGroup;
 use std::env;
 use std::fmt::Debug;
-use std::sync::atomic::AtomicU64;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use tokio::time::sleep;
 use tracing_subscriber::EnvFilter;
@@ -47,7 +47,7 @@ impl RequestTaskBehavior {
 
   // Replenish tokens and request new tasks
   async fn request_more(&mut self) {
-    self.tokens.store(50, std::sync::atomic::Ordering::Relaxed);
+    self.tokens.store(50, Ordering::SeqCst);
     self
       .actor_system
       .get_root_context()
@@ -65,9 +65,9 @@ impl MailboxMiddleware for RequestTaskBehavior {
 
   // Consume a token when a message is received and request more if needed
   async fn message_received(&mut self, _message_handle: MessageHandle) {
-    let token_count = self.tokens.load(std::sync::atomic::Ordering::Relaxed);
+    let token_count = self.tokens.load(std::sync::atomic::Ordering::SeqCst);
     if token_count > 0 {
-      self.tokens.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
+      self.tokens.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
     }
     if token_count == 0 {
       self.request_more().await;
