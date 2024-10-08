@@ -31,8 +31,7 @@ impl<T: ?Sized> Synchronized<T> {
   where
     F: FnOnce(&MutexGuard<T>) -> Fut + Send + 'static,
     Fut: Future<Output = R> + Send + 'static,
-    R: Send + 'static,
-  {
+    R: Send + 'static, {
     let guard = self.inner.lock().await;
     f(&guard).await
   }
@@ -49,8 +48,7 @@ impl<T: ?Sized> Synchronized<T> {
   where
     F: FnOnce(&mut MutexGuard<T>) -> Fut + Send + 'static,
     Fut: Future<Output = R> + Send + 'static,
-    R: Send + 'static,
-  {
+    R: Send + 'static, {
     let mut guard = self.inner.lock().await;
     f(&mut guard).await
   }
@@ -104,8 +102,7 @@ impl<T: ?Sized> SynchronizedRw<T> {
   where
     F: FnOnce(&RwLockReadGuard<T>) -> Fut + Send + 'static,
     Fut: Future<Output = R> + Send + 'static,
-    R: Send + 'static,
-  {
+    R: Send + 'static, {
     let guard = self.inner.read().await;
     f(&guard).await
   }
@@ -122,8 +119,7 @@ impl<T: ?Sized> SynchronizedRw<T> {
   where
     F: FnOnce(&mut RwLockWriteGuard<T>) -> Fut + Send + 'static,
     Fut: Future<Output = R> + Send + 'static,
-    R: Send + 'static,
-  {
+    R: Send + 'static, {
     let mut guard = self.inner.write().await;
     f(&mut guard).await
   }
