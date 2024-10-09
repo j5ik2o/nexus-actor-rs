@@ -45,7 +45,7 @@ tonic = "0.12.2"
 tonic-types = "0.12.2"
 tracing = "0.1"
 tracing-futures = "0.2.5"
-tracing-opentelemetry = { version = "0.26.0", features = ["metrics"] }
+tracing-opentelemetry = { version = "0.27.0", features = ["metrics"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 uuid = { version = "1.9.0", features = ["v4"] }
 
