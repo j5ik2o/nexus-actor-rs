@@ -16,34 +16,6 @@ fn is_valid_address(input: &str) -> bool {
   re.is_match(input)
 }
 
-impl Pid {
-  pub fn new(address: &str, id: &str) -> Self {
-    Pid {
-      address: address.to_string(),
-      id: id.to_string(),
-      request_id: 0,
-    }
-  }
-
-  pub(crate) fn with_request_id(mut self, request_id: u32) -> Self {
-    self.request_id = request_id;
-    self
-  }
-}
-
-impl std::fmt::Display for Pid {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    write!(f, "{}-{}-{}", self.address, self.id, self.request_id)
-  }
-}
-
-impl Hash for Pid {
-  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    self.address.hash(state);
-    self.id.hash(state);
-    self.request_id.hash(state);
-  }
-}
 
 #[derive(Debug, Clone)]
 pub struct ExtendedPid {

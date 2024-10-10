@@ -6,6 +6,7 @@ use futures::future::BoxFuture;
 
 use crate::actor::dispatch::mailbox_handle::MailboxHandle;
 
+#[allow(clippy::type_complexity)]
 #[derive(Clone)]
 pub struct MailboxProducer(Arc<dyn Fn() -> BoxFuture<'static, MailboxHandle> + Send + Sync + 'static>);
 

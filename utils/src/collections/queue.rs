@@ -1,8 +1,11 @@
+#![allow(dead_code)]
+
 use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::ops::Add;
 
 use async_trait::async_trait;
+
 use thiserror::Error;
 
 mod mpsc_bounded_channel_queue;
@@ -49,13 +52,13 @@ pub enum QueueSize {
 }
 
 impl QueueSize {
-  fn increment(&mut self) {
+  pub(crate) fn increment(&mut self) {
     if let QueueSize::Limited(c) = self {
       *c += 1;
     }
   }
 
-  fn decrement(&mut self) {
+  pub(crate) fn decrement(&mut self) {
     if let QueueSize::Limited(c) = self {
       *c -= 1;
     }
