@@ -66,8 +66,8 @@ impl Actor for HelloActor {
 
 #[tokio::main]
 async fn main() {
-  let _ = env::set_var("RUST_LOG", "actor_lifecycle_events=info");
-  let _ = tracing_subscriber::fmt()
+  env::set_var("RUST_LOG", "actor_lifecycle_events=info");
+  tracing_subscriber::fmt()
     .with_env_filter(EnvFilter::from_default_env())
     .init();
 

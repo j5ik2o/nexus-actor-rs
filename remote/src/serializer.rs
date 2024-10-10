@@ -431,7 +431,7 @@ mod tests {
 
   #[test]
   fn test_proto_serialization_any() {
-    let _ = env::set_var("RUST_LOG", "nexus_actor_core_rs=info");
+    env::set_var("RUST_LOG", "nexus_actor_core_rs=info");
     let _ = tracing_subscriber::fmt()
       .with_env_filter(EnvFilter::from_default_env())
       .try_init();

@@ -316,7 +316,7 @@ mod tests {
 
   #[tokio::test]
   async fn test_start() {
-    let _ = env::set_var("RUST_LOG", "debug");
+    env::set_var("RUST_LOG", "debug");
     let _ = tracing_subscriber::fmt()
       .with_env_filter(EnvFilter::from_default_env())
       .try_init();
@@ -340,7 +340,7 @@ mod tests {
 
   #[tokio::test]
   async fn test_advertised_host() {
-    let _ = env::set_var("RUST_LOG", "debug");
+    env::set_var("RUST_LOG", "debug");
     let _ = tracing_subscriber::fmt()
       .with_env_filter(EnvFilter::from_default_env())
       .try_init();
@@ -396,7 +396,7 @@ mod tests {
 
   #[tokio::test]
   async fn test_register() {
-    let _ = env::set_var("RUST_LOG", "debug");
+    env::set_var("RUST_LOG", "debug");
     let _ = tracing_subscriber::fmt()
       .with_env_filter(EnvFilter::from_default_env())
       .try_init();
@@ -424,7 +424,7 @@ mod tests {
 
   #[tokio::test]
   async fn test_remote_communication() {
-    let _ = env::set_var("RUST_LOG", "nexus_actor_core_rs=info");
+    env::set_var("RUST_LOG", "nexus_actor_core_rs=info");
     let _ = tracing_subscriber::fmt()
       .with_env_filter(EnvFilter::from_default_env())
       .try_init();
