@@ -37,7 +37,7 @@ siphasher = "1.0.1"
 static_assertions = "1.1.0"
 strum = { version = "0.26", features = ["derive"] }
 strum_macros = "0.26"
-thiserror = "1.0.61"
+thiserror = "2.0.6"
 time = "0.3.36"
 tokio = { version = "1.37.0" , features = ["full"] }
 tokio-condvar = "0.3.0"
