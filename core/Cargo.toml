@@ -51,7 +51,7 @@ uuid = { version = "1.9.0", features = ["v4"] }
 
 [dev-dependencies]
 clap = { version = "4.5.9", features = ["derive"] }
-governor = "0.7.0"
+governor = "0.8.0"
 humantime = "2.1"
 rstest = "0.24.0"
 
