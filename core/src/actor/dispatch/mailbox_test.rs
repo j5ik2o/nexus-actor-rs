@@ -89,7 +89,8 @@ mod tests {
       .await;
 
     let mut join_handles = Vec::new();
-    let rng = SmallRng::from_thread_rng();
+    let mut thread_rng = rand::thread_rng();
+    let rng = SmallRng::from_rng(&mut thread_rng).unwrap();
 
     for j in 0..c {
       let cmax = max / c;
@@ -147,7 +148,8 @@ mod tests {
       .await;
 
     let mut join_handles = Vec::new();
-    let rng = SmallRng::from_thread_rng();
+    let mut thread_rng = rand::thread_rng();
+    let rng = SmallRng::from_rng(&mut thread_rng).unwrap();
 
     for j in 0..c {
       let cmax = max / c;
