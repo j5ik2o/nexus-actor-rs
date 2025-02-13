@@ -12,7 +12,7 @@ mod tests {
   use nexus_actor_utils_rs::collections::{QueueReader, QueueWriter, RingQueue};
   use rand::rngs::SmallRng;
   use rand::Rng;
-  use rand_core::FromRng;
+  use rand::SeedableRng;
   use std::env;
   use std::sync::Arc;
   use std::time::Duration;
