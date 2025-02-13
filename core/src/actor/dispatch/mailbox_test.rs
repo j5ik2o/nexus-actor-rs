@@ -90,8 +90,8 @@ mod tests {
       .await;
 
     let mut join_handles = Vec::new();
-    let mut thread_rng = rand::thread_rng();
-    let rng = SmallRng::from_rng(&mut thread_rng).expect("SmallRng::from_rng is infallible");
+    let mut thread_rng = rand::rng();
+    let rng = SmallRng::from_rng(&mut thread_rng);
 
     for j in 0..c {
       let cmax = max / c;
@@ -100,8 +100,8 @@ mod tests {
 
       let h = tokio::spawn(async move {
         for i in 0..cmax {
-          if rng.gen_range(0..10) == 0 {
-            let wait_time = rng.gen_range(0..1000);
+          if rng.random_range(0..10) == 0 {
+            let wait_time = rng.random_range(0..1000);
             sleep(Duration::from_millis(wait_time)).await;
           }
           mailbox
@@ -149,8 +149,8 @@ mod tests {
       .await;
 
     let mut join_handles = Vec::new();
-    let mut thread_rng = rand::thread_rng();
-    let rng = SmallRng::from_rng(&mut thread_rng).expect("SmallRng::from_rng is infallible");
+    let mut thread_rng = rand::rng();
+    let rng = SmallRng::from_rng(&mut thread_rng);
 
     for j in 0..c {
       let cmax = max / c;
@@ -159,8 +159,8 @@ mod tests {
 
       let h = tokio::spawn(async move {
         for i in 0..cmax {
-          if rng.gen_range(0..10) == 0 {
-            let wait_time = rng.gen_range(0..1000);
+          if rng.random_range(0..10) == 0 {
+            let wait_time = rng.random_range(0..1000);
             sleep(Duration::from_millis(wait_time)).await;
           }
           mailbox
