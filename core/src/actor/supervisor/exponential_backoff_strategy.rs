@@ -54,7 +54,7 @@ impl SupervisorStrategy for ExponentialBackoffStrategy {
     self.set_failure_count(&mut rs).await;
 
     let backoff = rs.failure_count().await as u64 * self.initial_backoff.map(|v| v.as_nanos()).unwrap_or(0) as u64;
-    let noise = rand::thread_rng().gen_range(0..500);
+    let noise = rand::rng().random_range(0..500);
     let dur = Duration::from_nanos(backoff + noise);
 
     actor_system
