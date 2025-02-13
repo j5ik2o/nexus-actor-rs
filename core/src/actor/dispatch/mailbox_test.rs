@@ -91,7 +91,7 @@ mod tests {
 
     let mut join_handles = Vec::new();
     let mut thread_rng = rand::thread_rng();
-    let rng = SmallRng::from_rng(&mut thread_rng).unwrap();
+    let rng = SmallRng::from_rng(&mut thread_rng).expect("SmallRng::from_rng is infallible");
 
     for j in 0..c {
       let cmax = max / c;
@@ -150,7 +150,7 @@ mod tests {
 
     let mut join_handles = Vec::new();
     let mut thread_rng = rand::thread_rng();
-    let rng = SmallRng::from_rng(&mut thread_rng).unwrap();
+    let rng = SmallRng::from_rng(&mut thread_rng).expect("SmallRng::from_rng is infallible");
 
     for j in 0..c {
       let cmax = max / c;
