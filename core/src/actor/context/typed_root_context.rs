@@ -3,10 +3,8 @@ use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::{InfoPart, MessagePart, RootContext, SenderPart, SpawnerPart, StopperPart};
 use crate::actor::dispatch::future::ActorFuture;
 use crate::actor::message::{
-    Message,
-    MessageHandle,
-    readonly_message_headers::ReadonlyMessageHeadersHandle,
-    typed_message_or_envelope::TypedMessageOrEnvelope,
+  readonly_message_headers::ReadonlyMessageHeadersHandle, typed_message_or_envelope::TypedMessageOrEnvelope, Message,
+  MessageHandle,
 };
 use crate::actor::typed_context::{
   TypedInfoPart, TypedMessagePart, TypedSenderContext, TypedSenderPart, TypedSpawnerContext, TypedSpawnerPart,
@@ -101,12 +99,12 @@ impl TypedSenderPart<UnitMessage> for TypedRootContext {
 
 #[async_trait]
 impl TypedMessagePart<UnitMessage> for TypedRootContext {
-  async fn get_message_envelope_opt(&self) -> Option<TypedMessageEnvelope<UnitMessage>> {
+  async fn get_message_envelope_opt(&self) -> Option<TypedMessageOrEnvelope<UnitMessage>> {
     self
       .inner
       .get_message_envelope_opt()
       .await
-      .map(|envelope| TypedMessageEnvelope::new(envelope))
+      .map(|envelope| TypedMessageOrEnvelope::new(envelope))
   }
 
   async fn get_message_handle_opt(&self) -> Option<MessageHandle> {

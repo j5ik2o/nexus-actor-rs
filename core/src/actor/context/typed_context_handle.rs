@@ -111,12 +111,12 @@ impl<M: Message> TypedSenderPart<M> for TypedContextHandle<M> {
 
 #[async_trait]
 impl<M: Message + Clone> TypedMessagePart<M> for TypedContextHandle<M> {
-  async fn get_message_envelope_opt(&self) -> Option<TypedMessageEnvelope<M>> {
+  async fn get_message_envelope_opt(&self) -> Option<TypedMessageOrEnvelope<M>> {
     self
       .underlying
       .get_message_envelope_opt()
       .await
-      .map(|envelope| TypedMessageEnvelope::new(envelope))
+      .map(|envelope| TypedMessageOrEnvelope::new(envelope))
   }
 
   async fn get_message_handle_opt(&self) -> Option<MessageHandle> {
