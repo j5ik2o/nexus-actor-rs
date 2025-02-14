@@ -1,4 +1,5 @@
 use crate::actor::actor::actor_error::ActorError;
+use crate::actor::actor::lifecycle::{Lifecycle, LifecycleEvent};
 use crate::actor::context::ContextHandle;
 use crate::actor::context::MessagePart;
 use crate::actor::message::AutoReceiveMessage;
@@ -12,7 +13,7 @@ use tokio::sync::RwLock;
 use tracing::instrument;
 
 #[async_trait]
-pub trait Actor: Debug + Send + Sync + 'static {
+pub trait Actor: Debug + Send + Sync + Lifecycle + 'static {
   fn get_type_name(&self) -> String {
     std::any::type_name_of_val(self).to_string()
   }
@@ -91,7 +92,8 @@ pub struct ActorConfigOption(Arc<RwLock<dyn FnMut(&mut Config) + Send + Sync + '
 impl ActorConfigOption {
   pub fn new<F>(f: F) -> Self
   where
-    F: FnMut(&mut Config) + Send + Sync + 'static, {
+    F: FnMut(&mut Config) + Send + Sync + 'static,
+  {
     Self(Arc::new(RwLock::new(f)))
   }
 
