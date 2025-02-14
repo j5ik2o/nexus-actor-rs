@@ -6,11 +6,8 @@ use crate::actor::context::{
 };
 use crate::actor::dispatch::future::ActorFuture;
 use crate::actor::message::{
-  Message,
-  MessageHandle,
-  readonly_message_headers::ReadonlyMessageHeadersHandle,
-  response::ResponseHandle,
-  typed_message_or_envelope::TypedMessageOrEnvelope,
+  readonly_message_headers::ReadonlyMessageHeadersHandle, response::ResponseHandle,
+  typed_message_or_envelope::TypedMessageOrEnvelope, Message, MessageHandle,
 };
 use crate::actor::typed_context::{
   TypedContext, TypedInfoPart, TypedMessagePart, TypedReceiverContext, TypedReceiverPart, TypedSenderContext,

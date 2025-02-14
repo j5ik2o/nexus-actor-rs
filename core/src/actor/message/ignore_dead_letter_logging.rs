@@ -6,17 +6,17 @@ use std::fmt::Display;
 pub struct IgnoreDeadLetterLogging;
 
 impl Message for IgnoreDeadLetterLogging {
-    fn eq_message(&self, other: &dyn Message) -> bool {
-        other.as_any().is::<IgnoreDeadLetterLogging>()
-    }
+  fn eq_message(&self, other: &dyn Message) -> bool {
+    other.as_any().is::<IgnoreDeadLetterLogging>()
+  }
 
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
+  fn as_any(&self) -> &dyn Any {
+    self
+  }
 
-    fn message_type(&self) -> &'static str {
-        "IgnoreDeadLetterLogging"
-    }
+  fn message_type(&self) -> &'static str {
+    "IgnoreDeadLetterLogging"
+  }
 }
 
 impl IgnoreDeadLetterLogging {
