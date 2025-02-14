@@ -50,4 +50,22 @@ cargo update
 
 Now `nexus-actor-rs` is installed and ready to use in your project.
 
+## Features
+
+### Core Features
+- Actor Lifecycle Management
+- Message Serialization (Protocol Buffers and JSON)
+- Supervisor Strategies (OneForOne, AllForOne, ExponentialBackoff)
+- Event Stream for System Events
+- Process Registry with PID Cache
+- Cluster Membership Management
+- Remote Actor Communication
+
+### Distributed System Support
+- Cluster Member Management
+- Remote Process Registry
+- PID Caching for Performance
+- Flexible Serialization Options
+- Event Stream for Cluster Events
+
 Note: As versions may be updated regularly, it's recommended to check for the latest version.
