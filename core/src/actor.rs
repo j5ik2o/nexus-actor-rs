@@ -9,6 +9,7 @@ pub mod guardian;
 pub mod interaction_test;
 pub mod message;
 pub mod metrics;
+pub mod pid;
 pub mod process;
 pub mod process_registry;
 pub mod supervisor;
