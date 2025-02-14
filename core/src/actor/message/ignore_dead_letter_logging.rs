@@ -1,9 +1,23 @@
-use crate::actor::message::message::Message;
+use crate::actor::message::Message;
 use nexus_actor_message_derive_rs::Message;
 use std::fmt::Display;
 
-#[derive(Debug, Clone, PartialEq, Eq, Message)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IgnoreDeadLetterLogging;
+
+impl Message for IgnoreDeadLetterLogging {
+    fn eq_message(&self, other: &dyn Message) -> bool {
+        other.as_any().is::<IgnoreDeadLetterLogging>()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn message_type(&self) -> &'static str {
+        "IgnoreDeadLetterLogging"
+    }
+}
 
 impl IgnoreDeadLetterLogging {
   pub fn new() -> Self {

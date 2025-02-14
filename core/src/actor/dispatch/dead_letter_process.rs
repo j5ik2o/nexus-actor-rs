@@ -1,7 +1,7 @@
 use crate::actor::actor::ExtendedPid;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::SenderPart;
-use crate::actor::message::unwrap_envelope;
+use crate::actor::message::message_or_envelope::unwrap_envelope_message;
 use crate::actor::message::IgnoreDeadLetterLogging;
 use crate::actor::message::Message;
 use crate::actor::message::MessageHandle;
@@ -160,7 +160,9 @@ impl Process for DeadLetterProcess {
       })
       .await;
 
-    let (_, msg, sender) = unwrap_envelope(message_handle.clone());
+    let msg_handle = unwrap_envelope_message(message_handle.clone());
+    let msg = msg_handle.as_any();
+    let sender = msg_handle.get_sender();
     self
       .actor_system
       .get_event_stream()

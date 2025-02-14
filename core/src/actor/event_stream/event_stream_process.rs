@@ -22,7 +22,8 @@ impl EventStreamProcess {
 #[async_trait]
 impl Process for EventStreamProcess {
   async fn send_user_message(&self, _: Option<&ExtendedPid>, message_handle: MessageHandle) {
-    let (_, msg, _) = unwrap_envelope_message(message_handle);
+    let msg_handle = unwrap_envelope_message(message_handle);
+    let msg = msg_handle.as_any();
     self.system.get_event_stream().await.publish(msg).await;
   }
 
