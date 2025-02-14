@@ -1,7 +1,7 @@
 use crate::actor::actor::ExtendedPid;
-use crate::actor::message::Message;
 use crate::actor::message::message_headers::MessageHeaders;
 use crate::actor::message::message_or_envelope::MessageEnvelope;
+use crate::actor::message::Message;
 use std::any::Any;
 
 #[derive(Debug, Clone)]
@@ -25,7 +25,7 @@ impl<M: Message> Message for TypedMessageOrEnvelope<M> {
     }
   }
 
-  fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
+  fn as_any(&self) -> &dyn Any {
     self
   }
 

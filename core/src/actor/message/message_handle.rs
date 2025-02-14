@@ -1,4 +1,4 @@
-use crate::actor::message::message::Message;
+use crate::actor::message::Message;
 use nexus_actor_utils_rs::collections::{Element, PriorityMessage};
 use std::any::Any;
 use std::fmt::{Debug, Display, Formatter};
@@ -49,7 +49,7 @@ impl Message for MessageHandle {
     self.0.eq_message(other)
   }
 
-  fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
+  fn as_any(&self) -> &dyn Any {
     self.0.as_any()
   }
 

@@ -1,7 +1,8 @@
 //! Actor module provides core actor system functionality.
 
-pub mod actor;
+// Actor module is now in actor/mod.rs
 pub mod actor_system;
+pub mod config;
 pub mod context;
 pub mod dispatch;
 pub mod event_stream;
@@ -14,6 +15,8 @@ pub mod process;
 pub mod process_registry;
 pub mod supervisor;
 pub mod typed_context;
+
+pub use self::config::*;
 
 pub use self::actor::*;
 pub use self::actor_system::*;

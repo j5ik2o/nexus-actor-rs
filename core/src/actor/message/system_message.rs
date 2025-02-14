@@ -1,4 +1,4 @@
-use crate::actor::message::message::Message;
+use crate::actor::message::Message;
 use crate::generated::actor::{Terminated, Unwatch, Watch};
 use std::any::Any;
 
@@ -52,7 +52,7 @@ impl Message for SystemMessage {
     }
   }
 
-  fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
+  fn as_any(&self) -> &dyn Any {
     self
   }
 

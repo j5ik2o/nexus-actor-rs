@@ -2,7 +2,7 @@ use std::any::Any;
 use std::fmt::Debug;
 use std::sync::Arc;
 
-use crate::actor::message::message::Message;
+use crate::actor::message::Message;
 
 pub trait Response: Message + Debug + Send + Sync + 'static {
   fn eq_response(&self, other: &dyn Response) -> bool;
@@ -46,7 +46,7 @@ impl Message for ResponseHandle {
     }
   }
 
-  fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
+  fn as_any(&self) -> &dyn Any {
     self.0.as_any()
   }
 
