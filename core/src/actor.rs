@@ -7,7 +7,6 @@ pub mod context;
 pub mod dispatch;
 pub mod event_stream;
 pub mod guardian;
-pub mod interaction_test;
 pub mod message;
 pub mod metrics;
 pub mod pid;
@@ -17,6 +16,17 @@ pub mod supervisor;
 pub mod typed_context;
 
 pub use self::{
-  actor::*, actor_system::*, config::*, context::*, dispatch::*, event_stream::*, guardian::*, message::*, metrics::*,
-  process::*, process_registry::*, supervisor::*, typed_context::*,
+    actor::*,
+    actor_system::*,
+    config::*,
+    context::*,
+    dispatch::*,
+    event_stream::*,
+    guardian::*,
+    message::*,
+    metrics::*,
+    process::*,
+    process_registry::*,
+    supervisor::*,
+    typed_context::*,
 };
