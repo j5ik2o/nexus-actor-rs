@@ -77,7 +77,10 @@ pub trait Actor: Debug + Send + Sync + Lifecycle + 'static {
 
   async fn post_child_terminate(&mut self, ctx: ContextHandle, terminated: &Terminated) -> Result<(), ActorError> {
     tracing::debug!("Actor::post_child_terminate");
-    self.terminated(ctx, &terminated.who.unwrap()).await.map_err(|e| ActorError::Other(e))?;
+    self
+      .terminated(ctx, &terminated.who.unwrap())
+      .await
+      .map_err(|e| ActorError::Other(e))?;
     Ok(())
   }
 

@@ -25,9 +25,8 @@ mod touched;
 mod typed_message_or_envelope;
 
 pub use self::{
-    auto_respond::*, continuation::*, failure::*, ignore_dead_letter_logging::*, json_serializer::*,
-    message::*, message_batch::*, message_handle::*, message_handles::*, message_headers::*,
-    message_or_envelope::*, not_influence_receive_timeout::*, proto_serializer::*,
-    readonly_message_headers::*, receive_timeout::*, response::*, serialization::*,
-    system_message::*, terminate_reason::*, touched::*, typed_message_or_envelope::*,
+  auto_respond::*, continuation::*, failure::*, ignore_dead_letter_logging::*, json_serializer::*, message::*,
+  message_batch::*, message_handle::*, message_handles::*, message_headers::*, message_or_envelope::*,
+  not_influence_receive_timeout::*, proto_serializer::*, readonly_message_headers::*, receive_timeout::*, response::*,
+  serialization::*, system_message::*, terminate_reason::*, touched::*, typed_message_or_envelope::*,
 };

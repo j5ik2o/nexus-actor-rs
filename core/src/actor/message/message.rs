@@ -1,244 +1,30 @@
-use nexus_actor_utils_rs::collections::DEFAULT_PRIORITY;
-use std::any::Any;
-use std::fmt::Debug;
+mod auto_receive_message;
+mod auto_respond;
+mod continuation;
+mod dead_letter_response;
+mod failure;
+mod ignore_dead_letter_logging;
+mod message;
+mod message_batch;
+mod message_batch_test;
+mod message_handle;
+mod message_handles;
+mod message_headers;
+mod message_or_envelope;
+mod message_or_envelope_test;
+mod not_influence_receive_timeout;
+mod readonly_message_headers;
+mod receive_timeout;
+mod response;
+mod system_message;
+mod terminate_reason;
+mod touched;
+mod typed_message_or_envelope;
 
-pub trait Message: Debug + Send + Sync + 'static {
-  fn get_priority(&self) -> i8 {
-    DEFAULT_PRIORITY
-  }
-  fn eq_message(&self, other: &dyn Message) -> bool;
-  fn as_any(&self) -> &(dyn Any + Send + Sync + 'static);
-
-  fn get_type_name(&self) -> String;
-}
-
-impl Message for i8 {
-  fn eq_message(&self, other: &dyn Message) -> bool {
-    match other.as_any().downcast_ref::<i8>() {
-      Some(other_i8) => self == other_i8,
-      _ => false,
-    }
-  }
-
-  fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-    self
-  }
-
-  fn get_type_name(&self) -> String {
-    std::any::type_name_of_val(self).to_string()
-  }
-}
-
-impl Message for u8 {
-  fn eq_message(&self, other: &dyn Message) -> bool {
-    match other.as_any().downcast_ref::<u8>() {
-      Some(other_u8) => self == other_u8,
-      _ => false,
-    }
-  }
-
-  fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-    self
-  }
-
-  fn get_type_name(&self) -> String {
-    std::any::type_name_of_val(self).to_string()
-  }
-}
-
-impl Message for i16 {
-  fn eq_message(&self, other: &dyn Message) -> bool {
-    match other.as_any().downcast_ref::<i16>() {
-      Some(other_i16) => self == other_i16,
-      _ => false,
-    }
-  }
-
-  fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-    self
-  }
-
-  fn get_type_name(&self) -> String {
-    std::any::type_name_of_val(self).to_string()
-  }
-}
-
-impl Message for u16 {
-  fn eq_message(&self, other: &dyn Message) -> bool {
-    match other.as_any().downcast_ref::<u16>() {
-      Some(other_u16) => self == other_u16,
-      _ => false,
-    }
-  }
-
-  fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-    self
-  }
-
-  fn get_type_name(&self) -> String {
-    std::any::type_name_of_val(self).to_string()
-  }
-}
-
-impl Message for i32 {
-  fn eq_message(&self, other: &dyn Message) -> bool {
-    match other.as_any().downcast_ref::<i32>() {
-      Some(other_i32) => self == other_i32,
-      _ => false,
-    }
-  }
-
-  fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-    self
-  }
-
-  fn get_type_name(&self) -> String {
-    std::any::type_name_of_val(self).to_string()
-  }
-}
-
-impl Message for u32 {
-  fn eq_message(&self, other: &dyn Message) -> bool {
-    match other.as_any().downcast_ref::<u32>() {
-      Some(other_u32) => self == other_u32,
-      _ => false,
-    }
-  }
-
-  fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-    self
-  }
-
-  fn get_type_name(&self) -> String {
-    std::any::type_name_of_val(self).to_string()
-  }
-}
-
-impl Message for i64 {
-  fn eq_message(&self, other: &dyn Message) -> bool {
-    match other.as_any().downcast_ref::<i64>() {
-      Some(other_i64) => self == other_i64,
-      _ => false,
-    }
-  }
-
-  fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-    self
-  }
-
-  fn get_type_name(&self) -> String {
-    std::any::type_name_of_val(self).to_string()
-  }
-}
-
-impl Message for u64 {
-  fn eq_message(&self, other: &dyn Message) -> bool {
-    match other.as_any().downcast_ref::<u64>() {
-      Some(other_u64) => self == other_u64,
-      _ => false,
-    }
-  }
-
-  fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-    self
-  }
-
-  fn get_type_name(&self) -> String {
-    std::any::type_name_of_val(self).to_string()
-  }
-}
-
-impl Message for f32 {
-  fn eq_message(&self, other: &dyn Message) -> bool {
-    match other.as_any().downcast_ref::<f32>() {
-      Some(other_f32) => self == other_f32,
-      _ => false,
-    }
-  }
-
-  fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-    self
-  }
-
-  fn get_type_name(&self) -> String {
-    std::any::type_name_of_val(self).to_string()
-  }
-}
-
-impl Message for f64 {
-  fn eq_message(&self, other: &dyn Message) -> bool {
-    match other.as_any().downcast_ref::<f64>() {
-      Some(other_f64) => self == other_f64,
-      _ => false,
-    }
-  }
-
-  fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-    self
-  }
-
-  fn get_type_name(&self) -> String {
-    std::any::type_name_of_val(self).to_string()
-  }
-}
-
-impl Message for bool {
-  fn eq_message(&self, other: &dyn Message) -> bool {
-    match other.as_any().downcast_ref::<bool>() {
-      Some(other_bool) => self == other_bool,
-      _ => false,
-    }
-  }
-
-  fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-    self
-  }
-
-  fn get_type_name(&self) -> String {
-    std::any::type_name_of_val(self).to_string()
-  }
-}
-
-impl Message for String {
-  fn eq_message(&self, other: &dyn Message) -> bool {
-    match other.as_any().downcast_ref::<String>() {
-      Some(other_string) => self == other_string,
-      _ => false,
-    }
-  }
-
-  fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-    self
-  }
-
-  fn get_type_name(&self) -> String {
-    std::any::type_name_of_val(self).to_string()
-  }
-}
-
-// tests/test.rs
-#[cfg(test)]
-mod tests {
-  use super::*;
-  use nexus_actor_message_derive_rs::Message;
-  #[derive(Debug, Clone, PartialEq, Message)]
-  pub struct Hello {
-    pub who: String,
-  }
-
-  #[test]
-  fn test_message_derive() {
-    let msg1 = Hello {
-      who: "World".to_string(),
-    };
-    let msg2 = Hello {
-      who: "World".to_string(),
-    };
-    let msg3 = Hello {
-      who: "Rust".to_string(),
-    };
-
-    assert!(msg1.eq_message(&msg2));
-    assert!(!msg1.eq_message(&msg3));
-  }
-}
+pub(crate) use self::auto_receive_message::*;
+pub use self::{
+  auto_respond::*, continuation::*, failure::*, ignore_dead_letter_logging::*, message::*, message_batch::*,
+  message_handle::*, message_handles::*, message_headers::*, message_or_envelope::*, not_influence_receive_timeout::*,
+  readonly_message_headers::*, receive_timeout::*, response::*, system_message::*, terminate_reason::*, touched::*,
+  typed_message_or_envelope::*,
+};
