@@ -6,7 +6,11 @@ use crate::actor::context::{
 };
 use crate::actor::dispatch::future::ActorFuture;
 use crate::actor::message::{
-  Message, MessageHandle, ReadonlyMessageHeadersHandle, ResponseHandle, TypedMessageEnvelope,
+  Message,
+  MessageHandle,
+  readonly_message_headers::ReadonlyMessageHeadersHandle,
+  response::ResponseHandle,
+  typed_message_or_envelope::TypedMessageOrEnvelope,
 };
 use crate::actor::typed_context::{
   TypedContext, TypedInfoPart, TypedMessagePart, TypedReceiverContext, TypedReceiverPart, TypedSenderContext,
@@ -140,7 +144,7 @@ impl<M: Message + Clone> TypedReceiverContext<M> for TypedContextHandle<M> {}
 
 #[async_trait]
 impl<M: Message> TypedReceiverPart<M> for TypedContextHandle<M> {
-  async fn receive(&mut self, envelope: TypedMessageEnvelope<M>) -> Result<(), ActorError> {
+  async fn receive(&mut self, envelope: TypedMessageOrEnvelope<M>) -> Result<(), ActorError> {
     self.underlying.receive(envelope.into()).await
   }
 }
