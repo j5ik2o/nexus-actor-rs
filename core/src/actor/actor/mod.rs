@@ -7,6 +7,7 @@ pub mod props;
 pub mod restart_statistics;
 pub mod spawner;
 pub mod typed_actor;
+pub mod typed_pid;
 
 pub use self::{
     actor::*,
@@ -18,4 +19,5 @@ pub use self::{
     restart_statistics::*,
     spawner::*,
     typed_actor::*,
+    typed_pid::*,
 };
