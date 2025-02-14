@@ -39,44 +39,45 @@ pub trait Actor: Debug + Send + Sync + Lifecycle + 'static {
   async fn receive(&mut self, context_handle: ContextHandle) -> Result<(), ActorError>;
 
   //#[instrument]
-  async fn pre_start(&mut self, _: ContextHandle) -> Result<(), ActorError> {
+  async fn pre_start(&mut self, ctx: ContextHandle) -> Result<(), ActorError> {
     tracing::debug!("Actor::pre_start");
+    self.pre_start(ctx).await.map_err(|e| ActorError::Other(e))?;
     Ok(())
   }
 
-  //#[instrument]
-  async fn post_start(&mut self, _: ContextHandle) -> Result<(), ActorError> {
+  async fn post_start(&mut self, ctx: ContextHandle) -> Result<(), ActorError> {
     tracing::debug!("Actor::post_start");
+    self.post_start(ctx).await.map_err(|e| ActorError::Other(e))?;
     Ok(())
   }
 
-  //#[instrument]
-  async fn pre_restart(&mut self, _: ContextHandle) -> Result<(), ActorError> {
+  async fn pre_restart(&mut self, ctx: ContextHandle) -> Result<(), ActorError> {
     tracing::debug!("Actor::pre_restart");
+    self.pre_restart(ctx, None).await.map_err(|e| ActorError::Other(e))?;
     Ok(())
   }
 
-  //#[instrument]
-  async fn post_restart(&mut self, context_handle: ContextHandle) -> Result<(), ActorError> {
+  async fn post_restart(&mut self, ctx: ContextHandle) -> Result<(), ActorError> {
     tracing::debug!("Actor::post_restart");
-    self.pre_start(context_handle).await
+    self.post_restart(ctx).await.map_err(|e| ActorError::Other(e))?;
+    Ok(())
   }
 
-  //#[instrument]
-  async fn pre_stop(&mut self, _: ContextHandle) -> Result<(), ActorError> {
+  async fn pre_stop(&mut self, ctx: ContextHandle) -> Result<(), ActorError> {
     tracing::debug!("Actor::pre_stop");
+    self.pre_stop(ctx).await.map_err(|e| ActorError::Other(e))?;
     Ok(())
   }
 
-  //#[instrument]
-  async fn post_stop(&mut self, _: ContextHandle) -> Result<(), ActorError> {
+  async fn post_stop(&mut self, ctx: ContextHandle) -> Result<(), ActorError> {
     tracing::debug!("Actor::post_stop");
+    self.post_stop(ctx).await.map_err(|e| ActorError::Other(e))?;
     Ok(())
   }
 
-  //#[instrument]
-  async fn post_child_terminate(&mut self, _: ContextHandle, _: &Terminated) -> Result<(), ActorError> {
+  async fn post_child_terminate(&mut self, ctx: ContextHandle, terminated: &Terminated) -> Result<(), ActorError> {
     tracing::debug!("Actor::post_child_terminate");
+    self.terminated(ctx, &terminated.who.unwrap()).await.map_err(|e| ActorError::Other(e))?;
     Ok(())
   }
 
@@ -92,8 +93,7 @@ pub struct ActorConfigOption(Arc<RwLock<dyn FnMut(&mut Config) + Send + Sync + '
 impl ActorConfigOption {
   pub fn new<F>(f: F) -> Self
   where
-    F: FnMut(&mut Config) + Send + Sync + 'static,
-  {
+    F: FnMut(&mut Config) + Send + Sync + 'static, {
     Self(Arc::new(RwLock::new(f)))
   }
 
