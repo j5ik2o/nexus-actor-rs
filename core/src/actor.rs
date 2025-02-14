@@ -9,6 +9,9 @@ pub mod event_stream;
 pub mod guardian;
 pub mod interaction_test;
 pub mod message;
+
+pub use message::serialization::{MessageSerializer, SerializableMessage, SerializationError};
+pub use message::Message;
 pub mod metrics;
 pub mod process;
 pub mod supervisor;
