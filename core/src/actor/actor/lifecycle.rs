@@ -26,7 +26,7 @@ pub trait Lifecycle: Send + Sync {
 }
 
 #[async_trait]
-impl<T: Send + Sync> Lifecycle for T {
+impl<T: Send + Sync + 'static> Lifecycle for T {
     async fn pre_start(&mut self, _ctx: &dyn Context) -> Result<(), Box<dyn std::error::Error>> {
         Ok(())
     }
