@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use futures::future::BoxFuture;
 
-use crate::actor::message::message::Message;
+use crate::actor::message::Message;
 use crate::actor::message::message_handle::MessageHandle;
 
 #[derive(Clone)]
