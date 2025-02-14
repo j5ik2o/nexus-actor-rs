@@ -1,5 +1,5 @@
 use crate::actor::actor::actor_error::ActorError;
-use crate::actor::actor::lifecycle::{Lifecycle, LifecycleEvent};
+use super::lifecycle::{Lifecycle, LifecycleEvent};
 use crate::actor::context::ContextHandle;
 use crate::actor::context::MessagePart;
 use crate::actor::message::AutoReceiveMessage;
