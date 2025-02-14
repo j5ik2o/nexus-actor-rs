@@ -15,3 +15,9 @@ pub trait Message: Debug + Send + Sync + 'static {
         std::any::type_name::<Self>()
     }
 }
+
+impl<T: Debug + Send + Sync + 'static + PartialEq> Message for T {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
