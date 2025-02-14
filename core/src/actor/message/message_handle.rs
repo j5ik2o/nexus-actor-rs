@@ -53,8 +53,8 @@ impl Message for MessageHandle {
     self.0.as_any()
   }
 
-  fn get_type_name(&self) -> String {
-    self.0.get_type_name()
+  fn message_type(&self) -> &'static str {
+    "MessageHandle"
   }
 }
 

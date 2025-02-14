@@ -7,8 +7,8 @@ use async_trait::async_trait;
 use futures::future::BoxFuture;
 
 use crate::actor::context::ContextHandle;
-use crate::actor::message::Message;
 use crate::actor::message::response::ResponseHandle;
+use crate::actor::message::Message;
 
 #[allow(clippy::type_complexity)]
 #[derive(Clone)]
@@ -37,12 +37,12 @@ impl Message for AutoRespond {
     other.eq_message(self)
   }
 
-  fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
+  fn as_any(&self) -> &dyn Any {
     self
   }
 
-  fn get_type_name(&self) -> String {
-    std::any::type_name_of_val(self).to_string()
+  fn message_type(&self) -> &'static str {
+    "AutoRespond"
   }
 }
 

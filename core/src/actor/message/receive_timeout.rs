@@ -10,7 +10,7 @@ impl Message for ReceiveTimeout {
     other.as_any().is::<ReceiveTimeout>()
   }
 
-  fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
+  fn as_any(&self) -> &dyn Any {
     self
   }
 

@@ -5,8 +5,8 @@ use std::sync::Arc;
 
 use futures::future::BoxFuture;
 
-use crate::actor::message::Message;
 use crate::actor::message::message_handle::MessageHandle;
+use crate::actor::message::Message;
 
 #[derive(Clone)]
 pub(crate) struct Continuation {
@@ -45,12 +45,12 @@ impl Message for Continuation {
     }
   }
 
-  fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
+  fn as_any(&self) -> &dyn Any {
     self
   }
 
-  fn get_type_name(&self) -> String {
-    std::any::type_name_of_val(self).to_string()
+  fn message_type(&self) -> &'static str {
+    "Continuation"
   }
 }
 

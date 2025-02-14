@@ -56,7 +56,7 @@ impl Message for SystemMessage {
     self
   }
 
-  fn get_type_name(&self) -> String {
-    std::any::type_name_of_val(self).to_string()
+  fn message_type(&self) -> &'static str {
+    "SystemMessage"
   }
 }
