@@ -12,16 +12,6 @@ pub mod spawner;
 pub mod types;
 
 pub use self::{
-    actor::*,
-    actor_error::*,
-    actor_handle::*,
-    actor_ref::*,
-    error_reason::*,
-    lifecycle::*,
-    pid::*,
-    process::*,
-    props::*,
-    restart_statistics::*,
-    spawner::*,
-    types::*,
+  actor::*, actor_error::*, actor_handle::*, actor_ref::*, error_reason::*, lifecycle::*, pid::*, process::*, props::*,
+  restart_statistics::*, spawner::*, types::*,
 };

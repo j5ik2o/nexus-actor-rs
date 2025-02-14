@@ -20,22 +20,8 @@ pub mod touched;
 pub mod typed_message_or_envelope;
 
 pub use self::{
-    auto_receive_message::*,
-    auto_respond::*,
-    continuation::*,
-    dead_letter_response::*,
-    failure::*,
-    ignore_dead_letter_logging::*,
-    message::*,
-    message_batch::*,
-    message_handle::*,
-    message_headers::*,
-    message_or_envelope::*,
-    readonly_message_headers::*,
-    receive_timeout::*,
-    response::*,
-    serialization::*,
-    system_message::*,
-    touched::*,
-    typed_message_or_envelope::*,
+  auto_receive_message::*, auto_respond::*, continuation::*, dead_letter_response::*, failure::*,
+  ignore_dead_letter_logging::*, message::*, message_batch::*, message_handle::*, message_headers::*,
+  message_or_envelope::*, readonly_message_headers::*, receive_timeout::*, response::*, serialization::*,
+  system_message::*, touched::*, typed_message_or_envelope::*,
 };
