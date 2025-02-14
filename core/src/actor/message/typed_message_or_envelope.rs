@@ -1,9 +1,11 @@
 use crate::actor::actor::ExtendedPid;
-use crate::actor::message::{Message, MessageEnvelope, MessageHeaders};
+use crate::actor::message::Message;
+use crate::actor::message::message_headers::MessageHeaders;
+use crate::actor::message::message_or_envelope::MessageEnvelope;
 use std::any::Any;
 
 #[derive(Debug, Clone)]
-pub struct TypedMessageEnvelope<T: Message> {
+pub struct TypedMessageOrEnvelope<T: Message> {
   underlying: MessageEnvelope,
   _phantom: std::marker::PhantomData<T>,
 }
