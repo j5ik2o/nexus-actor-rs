@@ -7,8 +7,30 @@ use crate::actor::message::Message;
 use nexus_actor_message_derive_rs::Message;
 use std::fmt::Debug;
 
-#[derive(Debug, Clone, PartialEq, Message)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct MessageEnvelope {
+  pub(crate) message: Box<dyn Message>,
+  pub(crate) sender: Option<Box<dyn Message>>,
+  pub(crate) header: MessageHeaders,
+}
+
+impl Message for MessageEnvelope {
+    fn eq_message(&self, other: &dyn Message) -> bool {
+        if let Some(other) = other.as_any().downcast_ref::<MessageEnvelope>() {
+            self.message.eq_message(&*other.message)
+        } else {
+            false
+        }
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn message_type(&self) -> &'static str {
+        "MessageEnvelope"
+    }
+}
   header: Option<MessageHeaders>,
   message_handle: MessageHandle,
   sender: Option<ExtendedPid>,
