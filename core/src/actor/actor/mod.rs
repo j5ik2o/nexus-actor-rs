@@ -11,7 +11,16 @@ pub mod restart_statistics;
 pub mod spawner;
 pub mod types;
 
-pub use self::{
-  actor::*, actor_error::*, actor_handle::*, actor_ref::*, error_reason::*, lifecycle::*, pid::*, process::*, props::*,
-  restart_statistics::*, spawner::*, types::*,
-};
+// Remove glob imports to avoid ambiguity
+pub use self::actor::*;
+pub use self::actor_error::*;
+pub use self::actor_handle::*;
+pub use self::actor_ref::*;
+pub use self::error_reason::ErrorReason as ErrorReasonStruct;
+pub use self::lifecycle::*;
+pub use self::pid::*;
+pub use self::process::*;
+pub use self::props::*;
+pub use self::restart_statistics::*;
+pub use self::spawner::*;
+pub use self::types::ErrorReason as ErrorReasonType;
