@@ -15,6 +15,7 @@ pub mod process_registry;
 pub mod supervisor;
 pub mod typed_context;
 
+// Re-exports
 pub use self::{
     actor::*,
     actor_system::*,
@@ -25,6 +26,7 @@ pub use self::{
     guardian::*,
     message::*,
     metrics::*,
+    pid::*,
     process::*,
     process_registry::*,
     supervisor::*,
