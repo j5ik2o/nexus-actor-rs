@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 use async_trait::async_trait;
 use crate::actor::context::Context;
+use crate::actor::pid::Pid;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum LifecycleEvent {
@@ -21,9 +22,10 @@ pub trait Lifecycle: Send + Sync {
     async fn post_restart(&mut self, ctx: &dyn Context) -> Result<(), Box<dyn std::error::Error>>;
     async fn pre_stop(&mut self, ctx: &dyn Context) -> Result<(), Box<dyn std::error::Error>>;
     async fn post_stop(&mut self, ctx: &dyn Context) -> Result<(), Box<dyn std::error::Error>>;
-    async fn terminated(&mut self, ctx: &dyn Context, who: &crate::actor::pid::Pid) -> Result<(), Box<dyn std::error::Error>>;
+    async fn terminated(&mut self, ctx: &dyn Context, who: &Pid) -> Result<(), Box<dyn std::error::Error>>;
 }
 
+#[async_trait]
 impl<T: Send + Sync> Lifecycle for T {
     async fn pre_start(&mut self, _ctx: &dyn Context) -> Result<(), Box<dyn std::error::Error>> {
         Ok(())
@@ -49,7 +51,7 @@ impl<T: Send + Sync> Lifecycle for T {
         Ok(())
     }
 
-    async fn terminated(&mut self, _ctx: &dyn Context, _who: &crate::actor::pid::Pid) -> Result<(), Box<dyn std::error::Error>> {
+    async fn terminated(&mut self, _ctx: &dyn Context, _who: &Pid) -> Result<(), Box<dyn std::error::Error>> {
         Ok(())
     }
 }
