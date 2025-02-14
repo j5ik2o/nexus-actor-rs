@@ -10,13 +10,13 @@ pub struct TypedMessageOrEnvelope<T: Message> {
   _phantom: std::marker::PhantomData<T>,
 }
 
-impl<M: Message> PartialEq for TypedMessageEnvelope<M> {
+impl<M: Message> PartialEq for TypedMessageOrEnvelope<M> {
   fn eq(&self, other: &Self) -> bool {
     self.underlying == other.underlying
   }
 }
 
-impl<M: Message> Message for TypedMessageEnvelope<M> {
+impl<M: Message> Message for TypedMessageOrEnvelope<M> {
   fn eq_message(&self, other: &dyn Message) -> bool {
     if let Some(other) = other.as_any().downcast_ref::<Self>() {
       self == other
@@ -29,12 +29,12 @@ impl<M: Message> Message for TypedMessageEnvelope<M> {
     self
   }
 
-  fn get_type_name(&self) -> String {
-    std::any::type_name_of_val(self).to_string()
+  fn message_type(&self) -> &'static str {
+    "TypedMessageOrEnvelope"
   }
 }
 
-impl<M: Message + Clone> TypedMessageEnvelope<M> {
+impl<M: Message + Clone> TypedMessageOrEnvelope<M> {
   pub fn new(underlying: MessageEnvelope) -> Self {
     Self {
       underlying,
@@ -67,14 +67,14 @@ impl<M: Message + Clone> TypedMessageEnvelope<M> {
   }
 }
 
-impl<M: Message + Clone> From<MessageEnvelope> for TypedMessageEnvelope<M> {
+impl<M: Message + Clone> From<MessageEnvelope> for TypedMessageOrEnvelope<M> {
   fn from(underlying: MessageEnvelope) -> Self {
-    TypedMessageEnvelope::new(underlying)
+    TypedMessageOrEnvelope::new(underlying)
   }
 }
 
-impl<M: Message> From<TypedMessageEnvelope<M>> for MessageEnvelope {
-  fn from(typed: TypedMessageEnvelope<M>) -> Self {
+impl<M: Message> From<TypedMessageOrEnvelope<M>> for MessageEnvelope {
+  fn from(typed: TypedMessageOrEnvelope<M>) -> Self {
     typed.underlying
   }
 }
