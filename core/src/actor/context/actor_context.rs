@@ -73,3 +73,15 @@ pub trait SpawnerContext: Context + InfoPart + MessagePart + SpawnerPart {}
 pub trait TypedContext<M: Message>: Context + InfoPart + MessagePart {}
 pub trait RootContext: Context + InfoPart + MessagePart + SenderPart + SpawnerPart + StopperPart {}
 pub trait TypedRootContext<M: Message>: RootContext + TypedContext<M> {}
+
+impl ActorSystem {
+  pub fn new(address: String) -> Self {
+    Self {
+      inner: Arc::new(RwLock::new(ActorSystemInner { address })),
+    }
+  }
+
+  pub async fn address(&self) -> String {
+    self.inner.read().await.address.clone()
+  }
+}
