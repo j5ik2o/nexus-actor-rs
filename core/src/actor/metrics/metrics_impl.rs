@@ -32,7 +32,7 @@ impl Extension for Metrics {
 }
 
 impl Metrics {
-  pub async fn new(system: ActorSystem) -> Result<Self, MetricsError> {
+  pub async fn new(system: ActorSystem) -> Result<Self, Box<dyn std::error::Error>> {
     match system.clone().get_config().await.metrics_provider {
       Some(mp) => Ok(Metrics {
         proto_metrics: Some(ProtoMetrics::new(mp)?),

@@ -3,7 +3,7 @@ use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 use std::sync::Arc;
 
-use backtrace::Backtrace;
+use std::backtrace::Backtrace;
 
 #[derive(Clone)]
 pub struct ErrorReason {
