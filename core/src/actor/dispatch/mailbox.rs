@@ -1,28 +1,17 @@
-use std::fmt::Debug;
+//! Mailbox trait and implementations.
 
 use async_trait::async_trait;
+use std::fmt::Debug;
 
-use crate::actor::dispatch::dispatcher::DispatcherHandle;
-use crate::actor::dispatch::mailbox_handle::MailboxHandle;
-use crate::actor::dispatch::message_invoker::MessageInvokerHandle;
 use crate::actor::message::MessageHandle;
+use nexus_actor_utils_rs::collections::{QueueReader, QueueWriter};
 
-// Mailbox trait
 #[async_trait]
 pub trait Mailbox: Debug + Send + Sync {
-  async fn get_user_messages_count(&self) -> i32;
-  async fn get_system_messages_count(&self) -> i32;
-
-  async fn process_messages(&self);
-  async fn post_user_message(&self, message_handle: MessageHandle);
-  async fn post_system_message(&self, message_handle: MessageHandle);
-  async fn register_handlers(
-    &mut self,
-    message_invoker_handle: Option<MessageInvokerHandle>,
-    dispatcher_handle: Option<DispatcherHandle>,
-  );
-  async fn start(&self);
-  async fn user_message_count(&self) -> i32;
-
-  async fn to_handle(&self) -> MailboxHandle;
+  async fn post_system_message(&self, message: MessageHandle) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
+  async fn post_user_message(&self, message: MessageHandle) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
+  async fn receive_system_message(&self) -> Option<MessageHandle>;
+  async fn receive_user_message(&self) -> Option<MessageHandle>;
 }
+
+pub type MailboxQueue = Box<dyn QueueWriter<MessageHandle> + QueueReader<MessageHandle> + Send + Sync>;

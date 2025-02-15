@@ -5,40 +5,51 @@ use std::fmt::Debug;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::actor::dispatch::mailbox_message::MailboxMessage;
-use crate::actor::message::{Message, MessageHandle};
-use nexus_actor_utils_rs::collections::{Element, QueueBase, QueueError, QueueReader, QueueSize, QueueWriter};
+use crate::actor::dispatch::mailbox::{Mailbox, MailboxQueue};
+use crate::actor::message::MessageHandle;
 
 #[derive(Debug)]
 pub struct DefaultMailbox {
-  system_mailbox: Arc<RwLock<Box<dyn QueueWriter<MessageHandle> + QueueReader<MessageHandle> + Send + Sync>>>,
-  user_mailbox: Arc<RwLock<Box<dyn QueueWriter<MessageHandle> + QueueReader<MessageHandle> + Send + Sync>>>,
+  system_mailbox: Arc<RwLock<MailboxQueue>>,
+  user_mailbox: Arc<RwLock<MailboxQueue>>,
 }
 
 impl DefaultMailbox {
-  pub fn new(
-    system_mailbox: Box<dyn QueueWriter<MessageHandle> + QueueReader<MessageHandle> + Send + Sync>,
-    user_mailbox: Box<dyn QueueWriter<MessageHandle> + QueueReader<MessageHandle> + Send + Sync>,
-  ) -> Self {
+  pub fn new(system_mailbox: MailboxQueue, user_mailbox: MailboxQueue) -> Self {
     Self {
       system_mailbox: Arc::new(RwLock::new(system_mailbox)),
       user_mailbox: Arc::new(RwLock::new(user_mailbox)),
     }
   }
+}
 
-  pub async fn post_system_message(&self, message: MessageHandle) -> Result<(), QueueError<MessageHandle>> {
-    self.system_mailbox.write().await.offer(message).await
+#[async_trait]
+impl Mailbox for DefaultMailbox {
+  async fn post_system_message(&self, message: MessageHandle) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    self
+      .system_mailbox
+      .write()
+      .await
+      .offer(message)
+      .await
+      .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
   }
 
-  pub async fn post_user_message(&self, message: MessageHandle) -> Result<(), QueueError<MessageHandle>> {
-    self.user_mailbox.write().await.offer(message).await
+  async fn post_user_message(&self, message: MessageHandle) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    self
+      .user_mailbox
+      .write()
+      .await
+      .offer(message)
+      .await
+      .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
   }
 
-  pub async fn receive_system_message(&self) -> Option<MessageHandle> {
+  async fn receive_system_message(&self) -> Option<MessageHandle> {
     self.system_mailbox.write().await.poll().await.ok().flatten()
   }
 
-  pub async fn receive_user_message(&self) -> Option<MessageHandle> {
+  async fn receive_user_message(&self) -> Option<MessageHandle> {
     self.user_mailbox.write().await.poll().await.ok().flatten()
   }
 }
