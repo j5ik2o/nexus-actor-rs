@@ -1,14 +1,18 @@
+//! Continuation message implementation.
+
 use crate::actor::message::Message;
 use std::any::Any;
 use std::fmt::Debug;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Continuation {
-  pub message: Box<dyn Message>,
+  pub(crate) id: u64,
 }
 
-impl Message for Continuation {
-  fn as_any(&self) -> &(dyn Any + Send + Sync) {
-    self
+impl Continuation {
+  pub fn new(id: u64) -> Self {
+    Self { id }
   }
 }
+
+// Remove Message implementation to avoid conflict with blanket impl
