@@ -1,12 +1,16 @@
+//! Actor context module provides core actor context functionality.
+
 use async_trait::async_trait;
 use std::fmt::Debug;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+use crate::actor::system::ActorSystem;
 use crate::actor::{Message, MessageHandle, MessageOrEnvelope, Pid, Props, SpawnError};
 
 #[async_trait]
 pub trait Context: Debug + Send + Sync + 'static {
+  fn as_any(&self) -> &dyn std::any::Any;
   async fn parent(&self) -> Option<Pid>;
   async fn self_pid(&self) -> Pid;
   async fn actor_system(&self) -> Arc<RwLock<dyn Debug + Send + Sync>>;
@@ -51,7 +55,3 @@ pub trait StopperPart: Debug + Send + Sync + 'static {
 pub trait ActorContext:
   Context + InfoPart + MessagePart + ReceiverPart + SenderPart + SpawnerPart + StopperPart {
 }
-pub trait ReceiverContext: Context + InfoPart + MessagePart + ReceiverPart {}
-pub trait SenderContext: Context + InfoPart + SenderPart {}
-pub trait SpawnerContext: Context + InfoPart + SpawnerPart {}
-pub trait RootContext: Context + InfoPart + SenderPart + SpawnerPart + StopperPart {}
