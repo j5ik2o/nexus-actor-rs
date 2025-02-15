@@ -1,79 +1,34 @@
 use crate::actor::message::Message;
-use nexus_actor_utils_rs::collections::{Element, PriorityMessage};
 use std::any::Any;
-use std::fmt::{Debug, Display, Formatter};
-use std::sync::Arc;
+use std::fmt::Debug;
 
 #[derive(Debug, Clone)]
-pub struct MessageHandle(Arc<dyn Message>);
-
-impl MessageHandle {
-  pub fn new_arc(msg: Arc<dyn Message>) -> Self {
-    if msg.as_any().downcast_ref::<MessageHandle>().is_some() {
-      panic!("MessageHandle can't be used as a message, {:?}", msg);
-    }
-    MessageHandle(msg)
-  }
-
-  pub fn new(msg: impl Message + Send + Sync + 'static) -> Self {
-    MessageHandle(Arc::new(msg))
-  }
-
-  pub fn to_typed<T: Clone + 'static>(&self) -> Option<T> {
-    if let Some(msg) = self.0.as_any().downcast_ref::<T>() {
-      Some(msg.clone())
-    } else {
-      None
-    }
-  }
-
-  pub fn as_typed<T: 'static>(&self) -> Option<&T> {
-    self.0.as_any().downcast_ref::<T>()
-  }
-
-  pub fn is_typed<T: 'static>(&self) -> bool {
-    self.0.as_any().is::<T>()
-  }
-}
-
-impl Element for MessageHandle {}
-
-impl PriorityMessage for MessageHandle {
-  fn get_priority(&self) -> Option<i8> {
-    Some(self.0.get_priority())
-  }
+pub struct MessageHandle {
+  pub message: Box<dyn Message>,
 }
 
 impl Message for MessageHandle {
-  fn eq_message(&self, other: &dyn Message) -> bool {
-    self.0.eq_message(other)
-  }
-
-  fn as_any(&self) -> &dyn Any {
-    self.0.as_any()
-  }
-
-  fn message_type(&self) -> &'static str {
-    "MessageHandle"
+  fn as_any(&self) -> &(dyn Any + Send + Sync) {
+    self
   }
 }
 
 impl PartialEq for MessageHandle {
   fn eq(&self, other: &Self) -> bool {
-    self.0.eq_message(&*other.0)
+    self.message.eq_message(other.message.as_ref())
   }
 }
 
-impl Eq for MessageHandle {}
-
-impl std::hash::Hash for MessageHandle {
-  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    (self.0.as_ref() as *const dyn Message).hash(state);
+impl MessageHandle {
+  pub fn new(message: Box<dyn Message>) -> Self {
+    Self { message }
   }
-}
 
-impl Display for MessageHandle {
-  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "{:?}", self.0)
+  pub fn get_message(&self) -> &Box<dyn Message> {
+    &self.message
+  }
+
+  pub fn into_message(self) -> Box<dyn Message> {
+    self.message
   }
 }
