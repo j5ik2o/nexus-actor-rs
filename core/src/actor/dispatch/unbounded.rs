@@ -5,14 +5,16 @@ use std::fmt::Debug;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use nexus_actor_utils_rs::collections::{Element, QueueBase, QueueError, QueueReader, QueueSize, QueueWriter};
+use crate::actor::dispatch::mailbox_queue::MailboxQueue;
+use crate::actor::message::MessageHandle;
+use nexus_actor_utils_rs::collections::{QueueBase, QueueError, QueueReader, QueueSize, QueueWriter};
 
-#[derive(Debug, Clone)]
-pub struct UnboundedQueue<T: Element> {
-  queue: Arc<RwLock<Vec<T>>>,
+#[derive(Debug)]
+pub struct UnboundedQueue {
+  queue: Arc<RwLock<Vec<MessageHandle>>>,
 }
 
-impl<T: Element> UnboundedQueue<T> {
+impl UnboundedQueue {
   pub fn new() -> Self {
     Self {
       queue: Arc::new(RwLock::new(Vec::new())),
@@ -21,7 +23,7 @@ impl<T: Element> UnboundedQueue<T> {
 }
 
 #[async_trait]
-impl<T: Element> QueueBase<T> for UnboundedQueue<T> {
+impl QueueBase<MessageHandle> for UnboundedQueue {
   async fn len(&self) -> QueueSize {
     QueueSize::new(self.queue.read().await.len())
   }
@@ -29,11 +31,15 @@ impl<T: Element> QueueBase<T> for UnboundedQueue<T> {
   async fn is_empty(&self) -> bool {
     self.queue.read().await.is_empty()
   }
+
+  async fn capacity(&self) -> QueueSize {
+    QueueSize::new(usize::MAX)
+  }
 }
 
 #[async_trait]
-impl<T: Element> QueueReader<T> for UnboundedQueue<T> {
-  async fn poll(&mut self) -> Result<Option<T>, QueueError<T>> {
+impl QueueReader<MessageHandle> for UnboundedQueue {
+  async fn poll(&mut self) -> Result<Option<MessageHandle>, QueueError<MessageHandle>> {
     Ok(self.queue.write().await.pop())
   }
 
@@ -43,14 +49,17 @@ impl<T: Element> QueueReader<T> for UnboundedQueue<T> {
 }
 
 #[async_trait]
-impl<T: Element> QueueWriter<T> for UnboundedQueue<T> {
-  async fn offer(&mut self, element: T) -> Result<(), QueueError<T>> {
+impl QueueWriter<MessageHandle> for UnboundedQueue {
+  async fn offer(&mut self, element: MessageHandle) -> Result<(), QueueError<MessageHandle>> {
     self.queue.write().await.push(element);
     Ok(())
   }
 }
 
-impl<T: Element> Default for UnboundedQueue<T> {
+#[async_trait]
+impl MailboxQueue for UnboundedQueue {}
+
+impl Default for UnboundedQueue {
   fn default() -> Self {
     Self::new()
   }
