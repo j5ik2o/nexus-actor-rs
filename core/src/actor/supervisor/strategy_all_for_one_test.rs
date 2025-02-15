@@ -8,12 +8,12 @@ mod test {
   use tracing_subscriber::EnvFilter;
 
   use crate::actor::actor::{ErrorReason, ExtendedPid, RestartStatistics};
-  use crate::generated::actor::Pid;
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::message::MessageHandle;
   use crate::actor::supervisor::strategy_all_for_one::AllForOneStrategy;
   use crate::actor::supervisor::supervisor_strategy::{Supervisor, SupervisorHandle};
   use crate::actor::supervisor::SupervisorStrategy;
+  use crate::generated::actor::Pid;
 
   #[derive(Debug)]
   struct MockSupervisor {
@@ -73,12 +73,12 @@ mod test {
   async fn test_handle_child_failure_restart() {
     let _ = env::set_var("RUST_LOG", "debug");
     let _ = tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
-        .try_init();
+      .with_env_filter(EnvFilter::from_default_env())
+      .try_init();
 
     let (actor_system, supervisor, child, rs) = setup_test_environment().await;
     let strategy = AllForOneStrategy::new(3, Duration::from_secs(10))
-        .with_decider(|_| async { crate::actor::supervisor::directive::Directive::Restart });
+      .with_decider(|_| async { crate::actor::supervisor::directive::Directive::Restart });
 
     // Add multiple children to verify all-for-one behavior
     let child2 = ExtendedPid::new(Pid::new("test", "2"));
@@ -91,15 +91,15 @@ mod test {
     }
 
     strategy
-        .handle_child_failure(
-          actor_system,
-          supervisor.clone(),
-          child.clone(),
-          rs,
-          ErrorReason::new("test", 1),
-          MessageHandle::new(String::from("test")),
-        )
-        .await;
+      .handle_child_failure(
+        actor_system,
+        supervisor.clone(),
+        child.clone(),
+        rs,
+        ErrorReason::new("test", 1),
+        MessageHandle::new(String::from("test")),
+      )
+      .await;
 
     tokio::time::sleep(Duration::from_millis(100)).await;
     let mock_supervisor = supervisor.get_supervisor().await;
@@ -120,12 +120,12 @@ mod test {
   async fn test_handle_child_failure_stop() {
     let _ = env::set_var("RUST_LOG", "debug");
     let _ = tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
-        .try_init();
+      .with_env_filter(EnvFilter::from_default_env())
+      .try_init();
 
     let (actor_system, supervisor, child, rs) = setup_test_environment().await;
     let strategy = AllForOneStrategy::new(3, Duration::from_secs(10))
-        .with_decider(|_| async { crate::actor::supervisor::directive::Directive::Stop });
+      .with_decider(|_| async { crate::actor::supervisor::directive::Directive::Stop });
 
     // Add multiple children to verify all-for-one behavior
     let child2 = ExtendedPid::new(Pid::new("test", "2"));
@@ -138,15 +138,15 @@ mod test {
     }
 
     strategy
-        .handle_child_failure(
-          actor_system,
-          supervisor.clone(),
-          child.clone(),
-          rs,
-          ErrorReason::new("test", 1),
-          MessageHandle::new(String::from("test")),
-        )
-        .await;
+      .handle_child_failure(
+        actor_system,
+        supervisor.clone(),
+        child.clone(),
+        rs,
+        ErrorReason::new("test", 1),
+        MessageHandle::new(String::from("test")),
+      )
+      .await;
 
     tokio::time::sleep(Duration::from_millis(100)).await;
     let mock_supervisor = supervisor.get_supervisor().await;
@@ -167,12 +167,12 @@ mod test {
   async fn test_handle_child_failure_escalate() {
     let _ = env::set_var("RUST_LOG", "debug");
     let _ = tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
-        .try_init();
+      .with_env_filter(EnvFilter::from_default_env())
+      .try_init();
 
     let (actor_system, supervisor, child, rs) = setup_test_environment().await;
     let strategy = AllForOneStrategy::new(3, Duration::from_secs(10))
-        .with_decider(|_| async { crate::actor::supervisor::directive::Directive::Escalate });
+      .with_decider(|_| async { crate::actor::supervisor::directive::Directive::Escalate });
 
     // Add multiple children to verify all-for-one behavior
     let child2 = ExtendedPid::new(Pid::new("test", "2"));
@@ -185,15 +185,15 @@ mod test {
     }
 
     strategy
-        .handle_child_failure(
-          actor_system,
-          supervisor.clone(),
-          child,
-          rs,
-          ErrorReason::new("test", 1),
-          MessageHandle::new(String::from("test")),
-        )
-        .await;
+      .handle_child_failure(
+        actor_system,
+        supervisor.clone(),
+        child,
+        rs,
+        ErrorReason::new("test", 1),
+        MessageHandle::new(String::from("test")),
+      )
+      .await;
 
     tokio::time::sleep(Duration::from_millis(100)).await;
     let mock_supervisor = supervisor.get_supervisor().await;
@@ -212,12 +212,12 @@ mod test {
   async fn test_handle_child_failure_resume() {
     let _ = env::set_var("RUST_LOG", "debug");
     let _ = tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
-        .try_init();
+      .with_env_filter(EnvFilter::from_default_env())
+      .try_init();
 
     let (actor_system, supervisor, child, rs) = setup_test_environment().await;
     let strategy = AllForOneStrategy::new(3, Duration::from_secs(10))
-        .with_decider(|_| async { crate::actor::supervisor::directive::Directive::Resume });
+      .with_decider(|_| async { crate::actor::supervisor::directive::Directive::Resume });
 
     // Add multiple children to verify all-for-one behavior
     let child2 = ExtendedPid::new(Pid::new("test", "2"));
@@ -230,15 +230,15 @@ mod test {
     }
 
     strategy
-        .handle_child_failure(
-          actor_system,
-          supervisor.clone(),
-          child.clone(),
-          rs,
-          ErrorReason::new("test", 1),
-          MessageHandle::new(String::from("test")),
-        )
-        .await;
+      .handle_child_failure(
+        actor_system,
+        supervisor.clone(),
+        child.clone(),
+        rs,
+        ErrorReason::new("test", 1),
+        MessageHandle::new(String::from("test")),
+      )
+      .await;
 
     tokio::time::sleep(Duration::from_millis(100)).await;
     let mock_supervisor = supervisor.get_supervisor().await;

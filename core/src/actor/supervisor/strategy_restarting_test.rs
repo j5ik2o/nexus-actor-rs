@@ -8,12 +8,12 @@ mod test {
   use tracing_subscriber::EnvFilter;
 
   use crate::actor::actor::{ErrorReason, ExtendedPid, RestartStatistics};
-  use crate::generated::actor::Pid;
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::message::MessageHandle;
   use crate::actor::supervisor::strategy_restarting::RestartingStrategy;
   use crate::actor::supervisor::supervisor_strategy::{Supervisor, SupervisorHandle};
   use crate::actor::supervisor::SupervisorStrategy;
+  use crate::generated::actor::Pid;
 
   #[derive(Debug)]
   struct MockSupervisor {
@@ -73,22 +73,22 @@ mod test {
   async fn test_handle_child_failure_always_restarts() {
     let _ = env::set_var("RUST_LOG", "debug");
     let _ = tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
-        .try_init();
+      .with_env_filter(EnvFilter::from_default_env())
+      .try_init();
 
     let (actor_system, supervisor, child, rs) = setup_test_environment().await;
     let strategy = RestartingStrategy::new();
 
     strategy
-        .handle_child_failure(
-          actor_system,
-          supervisor.clone(),
-          child.clone(),
-          rs,
-          ErrorReason::new("test", 1),
-          MessageHandle::new(String::from("test")),
-        )
-        .await;
+      .handle_child_failure(
+        actor_system,
+        supervisor.clone(),
+        child.clone(),
+        rs,
+        ErrorReason::new("test", 1),
+        MessageHandle::new(String::from("test")),
+      )
+      .await;
 
     tokio::time::sleep(Duration::from_millis(100)).await;
     let mock_supervisor = supervisor.get_supervisor().await;

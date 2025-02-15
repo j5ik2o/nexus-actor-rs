@@ -10,7 +10,7 @@ mod test {
 
   use crate::actor::actor::{ErrorReason, ExtendedPid, RestartStatistics};
   use crate::actor::actor_system::ActorSystem;
-  use crate::actor::message::{MessageHandle};
+  use crate::actor::message::MessageHandle;
   use crate::actor::supervisor::directive::Directive;
   use crate::actor::supervisor::strategy_one_for_one::OneForOneStrategy;
   use crate::actor::supervisor::supervisor_strategy::{Supervisor, SupervisorHandle, SupervisorStrategy};
