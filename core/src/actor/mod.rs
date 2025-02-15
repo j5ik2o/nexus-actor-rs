@@ -28,11 +28,8 @@ pub use self::{
   actor_handle::ActorHandle,
   actor_ref::ActorRef,
   context::{
-    actor_context::ActorContext, actor_context::Context, actor_context::ExtensionPart, actor_context::InfoPart,
-    actor_context::MessagePart, actor_context::ReceiverContext, actor_context::ReceiverPart,
-    actor_context::RootContext, actor_context::SenderContext, actor_context::SenderPart, actor_context::SpawnerContext,
-    actor_context::SpawnerPart, actor_context::StopperPart, actor_context::TypedContext,
-    actor_context::TypedRootContext,
+    ActorContext, ActorSystem, Context, ExtensionPart, InfoPart, MessagePart, ReceiverContext, ReceiverPart,
+    RootContext, SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart, TypedContext, TypedRootContext,
   },
   dispatch::*,
   error_reason::ErrorReason,
@@ -48,7 +45,6 @@ pub use self::{
   restart_statistics::*,
   spawner::*,
   supervisor::*,
-  typed_context::*,
 };
 
 // Type aliases

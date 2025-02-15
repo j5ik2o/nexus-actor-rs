@@ -12,8 +12,16 @@ pub mod typed_context_handle;
 pub mod typed_root_context;
 
 // Re-exports
-pub use self::{
-  actor_context::*, context_handle::*, mock_context::*, receiver_context_handle::*, root_context::*,
-  sender_context_handle::*, spawner_context_handle::*, typed_actor_context::*, typed_context_handle::*,
-  typed_root_context::*,
+pub use actor_context::{
+  ActorContext, ActorSystem, Context, ExtensionPart, InfoPart, MessagePart, ReceiverContext, ReceiverPart, RootContext,
+  SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart, TypedContext, TypedRootContext,
 };
+pub use context_handle::ContextHandle;
+pub use mock_context::MockContext;
+pub use receiver_context_handle::ReceiverContextHandle;
+pub use root_context::RootContextImpl;
+pub use sender_context_handle::SenderContextHandle;
+pub use spawner_context_handle::SpawnerContextHandle;
+pub use typed_actor_context::TypedActorContext;
+pub use typed_context_handle::TypedContextHandle;
+pub use typed_root_context::TypedRootContextImpl;
