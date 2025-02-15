@@ -3,7 +3,7 @@
 use std::any::Any;
 use std::fmt::Debug;
 
-pub trait Message: Debug + Send + Sync + 'static + Clone {
+pub trait Message: Debug + Send + Sync + 'static + Clone + PartialEq {
     fn as_any(&self) -> &dyn Any;
     fn message_type(&self) -> &'static str {
         std::any::type_name::<Self>()
@@ -17,9 +17,4 @@ pub trait Message: Debug + Send + Sync + 'static + Clone {
     }
 }
 
-// Implement Message for all types that satisfy the trait bounds
-impl<T: Debug + Send + Sync + 'static + Clone + PartialEq> Message for T {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-}
+// Remove blanket implementation to avoid conflicts with derive macro
