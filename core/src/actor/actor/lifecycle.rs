@@ -1,7 +1,6 @@
+use crate::actor::{Context, Message, MessageHandle};
 use async_trait::async_trait;
 use std::fmt::Debug;
-
-use crate::actor::{Context, Message, MessageHandle};
 
 #[async_trait]
 pub trait Lifecycle: Debug + Send + Sync + 'static {
