@@ -34,3 +34,26 @@ pub use self::{
 
 // Re-export generated types
 pub use crate::generated::actor::Pid as GeneratedPid;
+
+// Re-export message traits and types
+pub use message::{
+    Message,
+    MessageHandle,
+    MessageHeaders,
+    SystemMessage,
+    UserMessage,
+    TypedMessageOrEnvelope,
+};
+
+// Re-export process types
+pub use process::{
+    Process,
+    ProcessHandle,
+    new_process_handle,
+    from_box_process,
+    from_arc_process,
+};
+
+// Re-export error types
+pub use error_reason::ErrorReason;
+pub use context::SpawnError;
