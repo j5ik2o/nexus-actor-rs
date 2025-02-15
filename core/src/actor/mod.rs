@@ -5,6 +5,7 @@ pub mod actor_system;
 pub mod config;
 pub mod context;
 pub mod dispatch;
+pub mod error_reason;
 pub mod event_stream;
 pub mod guardian;
 pub mod message;
@@ -12,6 +13,7 @@ pub mod metrics;
 pub mod pid;
 pub mod process;
 pub mod process_registry;
+pub mod restart_statistics;
 pub mod supervisor;
 pub mod typed_context;
 
@@ -21,6 +23,7 @@ pub use self::{
     config::*,
     context::*,
     dispatch::*,
+    error_reason::ErrorReason,
     event_stream::*,
     guardian::*,
     message::*,
@@ -28,6 +31,7 @@ pub use self::{
     pid::{ExtendedPid, Pid, PidExt},
     process::{Process, ProcessHandle, new_process_handle},
     process_registry::*,
+    restart_statistics::RestartStatistics,
     supervisor::*,
     typed_context::*,
 };
@@ -44,7 +48,3 @@ pub use message::{
     UserMessage,
     TypedMessageOrEnvelope,
 };
-
-// Re-export error types
-pub use error_reason::ErrorReason;
-pub use context::SpawnError;
