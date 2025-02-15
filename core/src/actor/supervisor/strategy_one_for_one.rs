@@ -3,7 +3,10 @@ use std::any::Any;
 use std::fmt::Debug;
 use std::time::Duration;
 
-use crate::actor::{ActorError, ActorSystem, Message, MessageHandle, Pid, SupervisorHandle, SupervisorStrategy};
+use crate::actor::{
+  ActorError, ActorSystem, ErrorReason, ExtendedPid, Message, MessageHandle, Pid, RestartStatistics, SupervisorHandle,
+  SupervisorStrategy,
+};
 
 #[derive(Debug, Clone)]
 pub struct OneForOneStrategy {
@@ -21,14 +24,13 @@ impl SupervisorStrategy for OneForOneStrategy {
     &self,
     actor_system: ActorSystem,
     supervisor: SupervisorHandle,
-    who: Option<Pid>,
-    error: ActorError,
+    child: ExtendedPid,
+    rs: RestartStatistics,
+    reason: ErrorReason,
     message_handle: MessageHandle,
   ) {
     // Default implementation restarts the child
-    if let Some(pid) = who {
-      actor_system.restart(&pid).await;
-    }
+    actor_system.restart(&child.into()).await;
   }
 
   fn as_any(&self) -> &dyn Any {
