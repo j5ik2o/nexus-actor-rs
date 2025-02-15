@@ -23,7 +23,7 @@ pub use self::{
   actor_error::ActorError,
   context::{
     ActorContext, Context, MessagePart, ReceiverContext, ReceiverPart, RootContext, SenderContext, SenderPart,
-    SpawnerContext, SpawnerPart, StopperPart, TypedContext,
+    SpawnerContext, SpawnerPart, StopperPart,
   },
   message::{Message, MessageHandle, MessageHeaders, MessageOrEnvelope, TypedMessageEnvelope},
   pid::Pid,
@@ -32,3 +32,10 @@ pub use self::{
   spawner::SpawnError,
   supervisor::SupervisorStrategy,
 };
+
+// Convert SpawnError to ActorError
+impl From<SpawnError> for ActorError {
+  fn from(error: SpawnError) -> Self {
+    ActorError::SpawnFailed(error.to_string())
+  }
+}
