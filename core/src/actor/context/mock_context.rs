@@ -1,103 +1,134 @@
+//! Mock context implementation for testing.
+
 use async_trait::async_trait;
-use std::any::Any;
 use std::fmt::Debug;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
 
-use crate::actor::context::actor_context::{
-  ActorSystem, Context, ExtensionPart, InfoPart, MessagePart, ReceiverContext, ReceiverPart, RootContext,
-  SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart, TypedContext,
+use crate::actor::system::ActorSystem;
+use crate::actor::{
+  ActorContext, ActorError, Context, InfoPart, Message, MessageHandle, MessageOrEnvelope, MessagePart, Pid, Props,
+  ReceiverPart, SenderPart, SpawnerPart, StopperPart,
 };
-use crate::actor::{ActorError, Message, MessageHandle, MessageOrEnvelope, Pid, Props, SpawnError};
 
 #[derive(Debug)]
 pub struct MockContext {
-  inner: Arc<RwLock<ActorSystem>>,
+  actor_system: Arc<RwLock<ActorSystem>>,
+  self_pid: Option<Pid>,
+  parent_pid: Option<Pid>,
+  message: Option<MessageHandle>,
+  message_headers: Option<Arc<RwLock<dyn std::any::Any + Send + Sync>>>,
+  message_envelope: Option<MessageOrEnvelope>,
+  receive_timeout: Duration,
+}
+
+impl MockContext {
+  pub fn new(actor_system: Arc<RwLock<ActorSystem>>) -> Self {
+    Self {
+      actor_system,
+      self_pid: None,
+      parent_pid: None,
+      message: None,
+      message_headers: None,
+      message_envelope: None,
+      receive_timeout: Duration::from_secs(0),
+    }
+  }
 }
 
 #[async_trait]
 impl Context for MockContext {
-  fn as_any(&self) -> &dyn Any {
-    self
-  }
-}
-
-#[async_trait]
-impl InfoPart for MockContext {
   async fn get_self_opt(&self) -> Option<Pid> {
-    None
+    self.self_pid.clone()
   }
 
   async fn get_self(&self) -> Pid {
-    unimplemented!()
+    self.self_pid.clone().expect("No self PID set")
   }
 
   async fn get_parent_opt(&self) -> Option<Pid> {
-    None
+    self.parent_pid.clone()
   }
 
   async fn get_parent(&self) -> Pid {
-    unimplemented!()
+    self.parent_pid.clone().expect("No parent PID set")
   }
 
   async fn get_actor_system(&self) -> Arc<RwLock<ActorSystem>> {
-    self.inner.clone()
+    self.actor_system.clone()
   }
 }
 
 #[async_trait]
 impl MessagePart for MockContext {
-  async fn get_message_headers_opt(&self) -> Option<Arc<RwLock<dyn Any + Send + Sync>>> {
-    None
+  async fn get_message(&self) -> MessageHandle {
+    self.message.clone().expect("No message set")
+  }
+
+  async fn get_message_headers_opt(&self) -> Option<Arc<RwLock<dyn std::any::Any + Send + Sync>>> {
+    self.message_headers.clone()
   }
 
   async fn get_message_envelope_opt(&self) -> Option<MessageOrEnvelope> {
-    None
-  }
-
-  async fn get_message_envelope(&self) -> MessageOrEnvelope {
-    unimplemented!()
+    self.message_envelope.clone()
   }
 
   async fn get_receive_timeout(&self) -> Duration {
-    Duration::from_secs(0)
+    self.receive_timeout
   }
 
-  async fn set_receive_timeout(&self, _duration: Duration) {}
+  async fn set_receive_timeout(&self, duration: Duration) {
+    // Mock implementation
+  }
 
-  async fn cancel_receive_timeout(&self) {}
+  async fn cancel_receive_timeout(&self) {
+    // Mock implementation
+  }
+}
+
+#[async_trait]
+impl ReceiverPart for MockContext {
+  async fn receive(&self, _message: MessageOrEnvelope) {
+    // Mock implementation
+  }
 }
 
 #[async_trait]
 impl SenderPart for MockContext {
-  async fn send(&self, _target: &Pid, _message: MessageHandle) {}
-
-  async fn request(&self, _target: &Pid, _message: MessageHandle) -> Result<Box<dyn Message>, ActorError> {
-    unimplemented!()
+  async fn request(&self, _target: &Pid, message: MessageHandle) -> MessageHandle {
+    message
   }
 
-  async fn forward(&self, _target: &Pid, _message: MessageHandle) {}
+  async fn forward(&self, _target: &Pid, _message: MessageHandle) {
+    // Mock implementation
+  }
 }
 
 #[async_trait]
-impl ExtensionPart for MockContext {
-  async fn get_extension<T: Any + Send + Sync>(&self) -> Option<Arc<RwLock<T>>> {
-    None
+impl SpawnerPart for MockContext {
+  async fn spawn(&self, _props: Props) -> Result<Pid, ActorError> {
+    Ok(Pid::new("mock".to_string(), 0))
   }
 
-  async fn set_extension<T: Any + Send + Sync>(&self, _extension: T) {}
+  async fn spawn_prefix(&self, _props: Props, _prefix: &str) -> Result<Pid, ActorError> {
+    Ok(Pid::new("mock".to_string(), 0))
+  }
 }
 
 #[async_trait]
 impl StopperPart for MockContext {
-  async fn stop(&self, _pid: &Pid) {}
+  async fn watch(&self, _pid: &Pid) {
+    // Mock implementation
+  }
 
-  async fn poison_pill(&self, _pid: &Pid) {}
+  async fn unwatch(&self, _pid: &Pid) {
+    // Mock implementation
+  }
 
-  async fn watch(&self, _pid: &Pid) {}
-
-  async fn unwatch(&self, _pid: &Pid) {}
-
-  async fn handle_failure(&self, _who: Option<Pid>, _error: ActorError, _message: Option<MessageHandle>) {}
+  async fn handle_failure(&self, _who: Option<Pid>, _error: ActorError, _message: Option<MessageHandle>) {
+    // Mock implementation
+  }
 }
+
+impl ActorContext for MockContext {}
