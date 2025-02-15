@@ -6,7 +6,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::actor::actor_error::ActorError;
-use crate::actor::message::{Message, MessageHandle, MessageOrEnvelope};
+use crate::actor::message::{MessageHandle, MessageOrEnvelope};
 use crate::actor::pid::Pid;
 use crate::actor::props::Props;
 use crate::actor::system::ActorSystem;
@@ -15,16 +15,6 @@ use std::time::Duration;
 // Base trait for all context types
 #[async_trait]
 pub trait Context: Debug + Send + Sync {
-  async fn get_self_opt(&self) -> Option<Pid>;
-  async fn get_self(&self) -> Pid;
-  async fn get_parent_opt(&self) -> Option<Pid>;
-  async fn get_parent(&self) -> Pid;
-  async fn get_actor_system(&self) -> Arc<RwLock<ActorSystem>>;
-}
-
-// Trait for context information access
-#[async_trait]
-pub trait InfoPart: Context {
   async fn get_self_opt(&self) -> Option<Pid>;
   async fn get_self(&self) -> Pid;
   async fn get_parent_opt(&self) -> Option<Pid>;
@@ -72,24 +62,19 @@ pub trait StopperPart: Context {
 }
 
 // Main actor context trait combining all functionality
-pub trait ActorContext:
-  Context + InfoPart + MessagePart + ReceiverPart + SenderPart + SpawnerPart + StopperPart {
-}
+pub trait ActorContext: Context + MessagePart + ReceiverPart + SenderPart + SpawnerPart + StopperPart {}
 
 // Implement ActorContext for any type that implements all required traits
-impl<T> ActorContext for T where
-  T: Context + InfoPart + MessagePart + ReceiverPart + SenderPart + SpawnerPart + StopperPart
-{
-}
+impl<T> ActorContext for T where T: Context + MessagePart + ReceiverPart + SenderPart + SpawnerPart + StopperPart {}
 
 // Create new traits that combine specific functionality
-pub trait ReceiverContext: Context + InfoPart + MessagePart + ReceiverPart {}
-pub trait SenderContext: Context + InfoPart + SenderPart {}
-pub trait SpawnerContext: Context + InfoPart + SpawnerPart {}
-pub trait RootContext: Context + InfoPart + SenderPart + SpawnerPart + StopperPart {}
+pub trait ReceiverContext: Context + MessagePart + ReceiverPart {}
+pub trait SenderContext: Context + SenderPart {}
+pub trait SpawnerContext: Context + SpawnerPart {}
+pub trait RootContext: Context + SenderPart + SpawnerPart + StopperPart {}
 
 // Implement the combined traits for any type that implements the required traits
-impl<T> ReceiverContext for T where T: Context + InfoPart + MessagePart + ReceiverPart {}
-impl<T> SenderContext for T where T: Context + InfoPart + SenderPart {}
-impl<T> SpawnerContext for T where T: Context + InfoPart + SpawnerPart {}
-impl<T> RootContext for T where T: Context + InfoPart + SenderPart + SpawnerPart + StopperPart {}
+impl<T> ReceiverContext for T where T: Context + MessagePart + ReceiverPart {}
+impl<T> SenderContext for T where T: Context + SenderPart {}
+impl<T> SpawnerContext for T where T: Context + SpawnerPart {}
+impl<T> RootContext for T where T: Context + SenderPart + SpawnerPart + StopperPart {}
