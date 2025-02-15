@@ -30,7 +30,7 @@ pub use self::{
   message::*,
   metrics::*,
   pid::{ExtendedPid, Pid},
-  process::{new_process_handle, Process, ProcessHandle},
+  process::{Process, ProcessHandle},
   process_registry::*,
   restart_statistics::RestartStatistics,
   supervisor::*,
@@ -39,3 +39,6 @@ pub use self::{
 
 // Re-export message types
 pub use message::{Message, MessageHandle, MessageHeaders, MessageOrEnvelope, SystemMessage, TypedMessageOrEnvelope};
+
+// Re-export process types
+pub use process::{new_process_handle, ActorProcess};
