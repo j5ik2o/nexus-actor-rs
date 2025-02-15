@@ -4,15 +4,12 @@ pub mod actor;
 pub mod event_stream;
 pub mod metrics;
 
+// Re-export key types and traits
 pub use self::{
   actor::{
-    context::{
-      ActorContext, Context, ExtensionPart, InfoPart, MessagePart, ReceiverContext, ReceiverPart, RootContext,
-      SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart, TypedContext,
-    },
-    message::{Message, MessageHandle, MessageHeaders, MessageOrEnvelope, TypedMessageEnvelope},
-    process::{Process, ProcessHandle},
-    ActorError, ActorHandle, ActorSystem, ErrorReason, ExtendedPid, Pid, Props, SpawnError,
+    ActorContext, ActorError, ActorSystem, Context, ExtensionPart, InfoPart, Message, MessageHandle, MessageHeaders,
+    MessageOrEnvelope, MessagePart, Pid, Process, ProcessHandle, Props, ReceiverContext, ReceiverPart, RootContext,
+    SenderContext, SenderPart, SpawnContext, SpawnerPart, StopperPart, TypedContext, TypedMessageEnvelope,
   },
   event_stream::EventStream,
   metrics::{ActorMetrics, ProtoMetrics},
