@@ -33,6 +33,13 @@ pub mod system_message;
 pub mod touched;
 pub mod typed_message_or_envelope;
 
+// Implement Message for all types that satisfy the trait bounds
+impl<T: Debug + Send + Sync + 'static + PartialEq> Message for T {
+  fn as_any(&self) -> &(dyn Any + Send + Sync) {
+    self
+  }
+}
+
 pub use self::{
   auto_receive_message::AutoReceiveMessage,
   auto_respond::AutoRespond,
@@ -49,6 +56,3 @@ pub use self::{
   touched::Touched,
   typed_message_or_envelope::{TypedMessageEnvelope, TypedMessageOrEnvelope},
 };
-
-// Remove blanket implementation to avoid conflicts
-// Each type should implement Message explicitly

@@ -70,5 +70,9 @@ pub trait SenderContext: Context + SenderPart {}
 pub trait SpawnerContext: Context + SpawnerPart {}
 pub trait RootContext: Context + SenderPart + SpawnerPart + StopperPart {}
 
-// Remove blanket implementations to avoid conflicts
-// Each type should implement these traits explicitly
+// Implement blanket implementations
+impl<T> ActorContext for T where T: Context + MessagePart + ReceiverPart + SenderPart + SpawnerPart + StopperPart {}
+impl<T> ReceiverContext for T where T: Context + MessagePart + ReceiverPart {}
+impl<T> SenderContext for T where T: Context + SenderPart {}
+impl<T> SpawnerContext for T where T: Context + SpawnerPart {}
+impl<T> RootContext for T where T: Context + SenderPart + SpawnerPart + StopperPart {}
