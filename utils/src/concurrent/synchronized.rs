@@ -1,5 +1,4 @@
 use futures::future::BoxFuture;
-use futures::FutureExt;
 use std::future::Future;
 use tokio::sync::{Mutex, MutexGuard, RwLock, RwLockReadGuard, RwLockWriteGuard};
 

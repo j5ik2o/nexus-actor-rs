@@ -17,7 +17,6 @@ mod test {
       .try_init();
 
     let initial_backoff = Duration::from_millis(100);
-    let strategy = ExponentialBackoffStrategy::new(Duration::from_secs(10)).with_initial_backoff(initial_backoff);
 
     let mut rs = RestartStatistics::new();
 
