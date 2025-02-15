@@ -1,75 +1,50 @@
-use std::any::Any;
 use std::time::Duration;
-
-use async_trait::async_trait;
-use rand::Rng;
-
-use crate::actor::ErrorReason;
-use crate::actor::ExtendedPid;
-use crate::actor::RestartStatistics;
-use crate::actor::actor_system::ActorSystem;
-use crate::actor::dispatch::Runnable;
-use crate::actor::message::MessageHandle;
-use crate::actor::supervisor::directive::Directive;
-use crate::actor::supervisor::supervisor_strategy::{log_failure, Supervisor, SupervisorHandle, SupervisorStrategy};
+use crate::actor::restart_statistics::RestartStatistics;
+use crate::actor::supervisor::strategy::SupervisorStrategy;
 
 #[derive(Debug, Clone)]
 pub struct ExponentialBackoffStrategy {
-  backoff_window: Duration,
-  initial_backoff: Option<Duration>,
+    backoff_window: Duration,
+    min_backoff: Duration,
+    max_backoff: Duration,
+    random_factor: f64,
 }
 
 impl ExponentialBackoffStrategy {
-  pub fn new(backoff_window: Duration) -> Self {
-    Self {
-      backoff_window,
-      initial_backoff: None,
+    pub fn new(
+        backoff_window: Duration,
+        min_backoff: Duration,
+        max_backoff: Duration,
+        random_factor: f64,
+    ) -> Self {
+        Self {
+            backoff_window,
+            min_backoff,
+            max_backoff,
+            random_factor,
+        }
     }
-  }
 
-  pub fn with_initial_backoff(mut self, initial_backoff: Duration) -> Self {
-    self.initial_backoff = Some(initial_backoff);
-    self
-  }
-
-  pub(crate) async fn set_failure_count(&self, rs: &mut RestartStatistics) {
-    if rs.number_of_failures(self.backoff_window).await == 0 {
-      rs.reset().await;
+    async fn handle_failure(&self, rs: &mut RestartStatistics) -> Duration {
+        if rs.failure_count == 0 {
+            rs.reset();
+            Duration::from_secs(0)
+        } else {
+            rs.failure();
+            self.calculate_delay(rs.failure_count)
+        }
     }
-    rs.fail().await;
-  }
+
+    fn calculate_delay(&self, failures: u32) -> Duration {
+        let backoff = self.min_backoff.as_millis() as f64 * (2_f64.powi(failures as i32 - 1));
+        let jittered = backoff * (1.0 + self.random_factor * rand::random::<f64>());
+        Duration::from_millis(jittered.min(self.max_backoff.as_millis() as f64) as u64)
+    }
 }
 
-#[async_trait]
+#[async_trait::async_trait]
 impl SupervisorStrategy for ExponentialBackoffStrategy {
-  async fn handle_child_failure(
-    &self,
-    actor_system: ActorSystem,
-    supervisor: SupervisorHandle,
-    child: ExtendedPid,
-    mut rs: RestartStatistics,
-    reason: ErrorReason,
-    _: MessageHandle,
-  ) {
-    self.set_failure_count(&mut rs).await;
-
-    let backoff = rs.failure_count().await as u64 * self.initial_backoff.map(|v| v.as_nanos()).unwrap_or(0) as u64;
-    let noise = rand::rng().random_range(0..500);
-    let dur = Duration::from_nanos(backoff + noise);
-
-    actor_system
-      .get_config()
-      .await
-      .system_dispatcher
-      .schedule(Runnable::new(move || async move {
-        tokio::time::sleep(dur).await;
-        log_failure(actor_system.clone(), &child, reason.clone(), Directive::Restart).await;
-        supervisor.restart_children(&[child]).await;
-      }))
-      .await;
-  }
-
-  fn as_any(&self) -> &dyn Any {
-    self
-  }
+    async fn handle_failure(&self, rs: &mut RestartStatistics) -> Duration {
+        self.handle_failure(rs).await
+    }
 }
