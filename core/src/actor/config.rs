@@ -1,51 +1,39 @@
 use crate::actor::dispatch::{Dispatcher, TokioRuntimeContextDispatcher};
 use crate::actor::ConfigOption;
-use opentelemetry::global::GlobalMeterProvider;
-use opentelemetry::metrics::noop::NoopMeterProvider;
+use opentelemetry::global;
 use opentelemetry::metrics::{Meter, MeterProvider};
-use opentelemetry::KeyValue;
-use opentelemetry_sdk::metrics::SdkMeterProvider;
-use std::borrow::Cow;
+use opentelemetry::InstrumentationScope;
+use opentelemetry_sdk::metrics::MeterProvider as SdkMeterProvider;
 use std::sync::Arc;
 use std::time::Duration;
 
 #[derive(Debug)]
 pub enum MetricsProvider {
-  Global(GlobalMeterProvider),
-  Noop(NoopMeterProvider),
+  Noop,
   Sdk(SdkMeterProvider),
 }
 
 impl Clone for MetricsProvider {
   fn clone(&self) -> Self {
     match self {
-      MetricsProvider::Global(provider) => MetricsProvider::Global(provider.clone()),
-      MetricsProvider::Noop(_) => MetricsProvider::Noop(NoopMeterProvider::default()),
       MetricsProvider::Sdk(provider) => MetricsProvider::Sdk(provider.clone()),
+      MetricsProvider::Noop => MetricsProvider::Noop,
     }
   }
 }
 
 impl MeterProvider for MetricsProvider {
-  fn meter(&self, name: impl Into<Cow<'static, str>>) -> Meter {
+  fn meter(&self, name: &'static str) -> Meter {
     match self {
-      MetricsProvider::Global(provider) => provider.meter(name),
-      MetricsProvider::Noop(provider) => provider.meter(name),
+      MetricsProvider::Noop => global::meter("noop"),
       MetricsProvider::Sdk(provider) => provider.meter(name),
     }
   }
 
-  fn versioned_meter(
-    &self,
-    name: impl Into<Cow<'static, str>>,
-    version: Option<impl Into<Cow<'static, str>>>,
-    schema_url: Option<impl Into<Cow<'static, str>>>,
-    attributes: Option<Vec<KeyValue>>,
-  ) -> Meter {
+  fn meter_with_scope(&self, scope: InstrumentationScope) -> Meter {
     match self {
-      MetricsProvider::Global(provider) => provider.versioned_meter(name, version, schema_url, attributes),
-      MetricsProvider::Noop(provider) => provider.versioned_meter(name, version, schema_url, attributes),
-      MetricsProvider::Sdk(provider) => provider.versioned_meter(name, version, schema_url, attributes),
+      MetricsProvider::Noop => global::meter("noop"),
+      MetricsProvider::Sdk(provider) => provider.meter_with_scope(scope),
     }
   }
 }
