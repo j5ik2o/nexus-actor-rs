@@ -17,6 +17,40 @@ mod test {
   use crate::generated::actor::Pid;
 
   #[tokio::test]
+  async fn test_should_stop_with_zero_max_retries() {
+    let _ = env::set_var("RUST_LOG", "debug");
+    let _ = tracing_subscriber::fmt()
+      .with_env_filter(EnvFilter::from_default_env())
+      .try_init();
+
+    let strategy = OneForOneStrategy::new(0, Duration::from_secs(10));
+    let mut rs = RestartStatistics::new();
+    
+    assert!(strategy.should_stop(&mut rs).await);
+    assert_eq!(rs.failure_count().await, 0);
+  }
+
+  #[tokio::test]
+  async fn test_should_stop_within_max_retries() {
+    let _ = env::set_var("RUST_LOG", "debug");
+    let _ = tracing_subscriber::fmt()
+      .with_env_filter(EnvFilter::from_default_env())
+      .try_init();
+
+    let strategy = OneForOneStrategy::new(2, Duration::from_secs(10));
+    let mut rs = RestartStatistics::new();
+    
+    assert!(!strategy.should_stop(&mut rs).await);
+    assert_eq!(rs.failure_count().await, 1);
+
+    assert!(!strategy.should_stop(&mut rs).await);
+    assert_eq!(rs.failure_count().await, 2);
+
+    assert!(strategy.should_stop(&mut rs).await);
+    assert_eq!(rs.failure_count().await, 0); // Reset after exceeding max retries
+  }
+
+  #[tokio::test]
   async fn test_one_for_one_strategy_request_restart_permission() {
     let _ = env::set_var("RUST_LOG", "debug");
     let _ = tracing_subscriber::fmt()
