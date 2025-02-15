@@ -33,7 +33,7 @@ impl ProtoMetrics {
 
   pub fn register(&mut self, key: &str, instance: ActorMetrics) -> Result<(), MetricsError> {
     if self.known_metrics.contains_key(key) {
-      return Err(MetricsError::Other(format!("Key {} already exists", key)));
+      return Err(format!("Key {} already exists", key).into());
     }
     self.known_metrics.insert(key.to_string(), instance);
     Ok(())
