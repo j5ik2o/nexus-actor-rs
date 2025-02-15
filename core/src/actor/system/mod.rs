@@ -22,7 +22,7 @@ impl ActorSystem {
     }
   }
 
-  pub async fn spawn(&self, props: Props) -> Result<Pid, SpawnError> {
+  pub async fn spawn_actor(&self, props: Props, parent_pid: Option<Pid>) -> Result<Pid, SpawnError> {
     let pid = Pid::new("local".to_string(), 0); // TODO: Generate proper PID
     Ok(pid)
   }
