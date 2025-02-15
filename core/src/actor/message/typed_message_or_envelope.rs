@@ -1,31 +1,18 @@
-use crate::actor::message::message_headers::MessageHeaders;
-use crate::actor::message::Message;
+use crate::actor::message::{Message, MessageHeaders};
 use crate::actor::pid::Pid;
 use std::any::Any;
 use std::fmt::Debug;
 
 #[derive(Debug, Clone)]
 pub struct TypedMessageOrEnvelope<T: Message> {
-  pub(crate) message: T,
-  pub(crate) header: Option<MessageHeaders>,
-  pub(crate) sender: Option<Pid>,
+  pub message: T,
+  pub header: Option<MessageHeaders>,
+  pub sender: Option<Pid>,
 }
 
 impl<T: Message> Message for TypedMessageOrEnvelope<T> {
-  fn eq_message(&self, other: &dyn Message) -> bool {
-    if let Some(other) = other.as_any().downcast_ref::<TypedMessageOrEnvelope<T>>() {
-      self.message.eq_message(&other.message)
-    } else {
-      false
-    }
-  }
-
-  fn as_any(&self) -> &dyn Any {
+  fn as_any(&self) -> &(dyn Any + Send + Sync) {
     self
-  }
-
-  fn message_type(&self) -> &'static str {
-    "TypedMessageOrEnvelope"
   }
 }
 
@@ -64,5 +51,3 @@ impl<T: Message> TypedMessageOrEnvelope<T> {
     self.header.as_ref()
   }
 }
-
-pub type TypedMessageEnvelope<T> = TypedMessageOrEnvelope<T>;

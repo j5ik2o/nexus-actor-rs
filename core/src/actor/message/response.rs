@@ -1,56 +1,34 @@
+use crate::actor::message::Message;
 use std::any::Any;
 use std::fmt::Debug;
-use std::sync::Arc;
-
-use crate::actor::message::Message;
-
-pub trait Response: Message + Debug + Send + Sync + 'static {
-  fn eq_response(&self, other: &dyn Response) -> bool;
-}
-
-impl<T: Message + 'static> Response for T {
-  fn eq_response(&self, other: &dyn Response) -> bool {
-    other.eq_message(self)
-  }
-}
 
 #[derive(Debug, Clone)]
-pub struct ResponseHandle(Arc<dyn Response>);
+pub struct ResponseHandle {
+  pub message: Box<dyn Message>,
+}
 
-impl ResponseHandle {
-  pub fn new_arc(response: Arc<dyn Response>) -> Self {
-    ResponseHandle(response)
-  }
-
-  pub fn new(response: impl Response + 'static) -> Self {
-    ResponseHandle(Arc::new(response))
+impl Message for ResponseHandle {
+  fn as_any(&self) -> &(dyn Any + Send + Sync) {
+    self
   }
 }
 
 impl PartialEq for ResponseHandle {
   fn eq(&self, other: &Self) -> bool {
-    self.0.eq_response(other.0.as_ref())
+    self.message.eq_message(other.message.as_ref())
   }
 }
 
-impl Eq for ResponseHandle {}
-
-impl Message for ResponseHandle {
-  fn eq_message(&self, other: &dyn Message) -> bool {
-    match (
-      self.0.as_any().downcast_ref::<ResponseHandle>(),
-      other.as_any().downcast_ref::<ResponseHandle>(),
-    ) {
-      (Some(self_msg), Some(other_msg)) => self_msg == other_msg,
-      _ => false,
-    }
+impl ResponseHandle {
+  pub fn new(message: Box<dyn Message>) -> Self {
+    Self { message }
   }
 
-  fn as_any(&self) -> &dyn Any {
-    self.0.as_any()
+  pub fn get_message(&self) -> &Box<dyn Message> {
+    &self.message
   }
 
-  fn message_type(&self) -> &'static str {
-    "ResponseHandle"
+  pub fn into_message(self) -> Box<dyn Message> {
+    self.message
   }
 }

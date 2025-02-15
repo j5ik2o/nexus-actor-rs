@@ -1,20 +1,12 @@
-use std::any::Any;
-
 use crate::actor::message::Message;
+use std::any::Any;
+use std::fmt::Debug;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ReceiveTimeout;
 
 impl Message for ReceiveTimeout {
-  fn eq_message(&self, other: &dyn Message) -> bool {
-    other.as_any().is::<ReceiveTimeout>()
-  }
-
-  fn as_any(&self) -> &dyn Any {
+  fn as_any(&self) -> &(dyn Any + Send + Sync) {
     self
-  }
-
-  fn message_type(&self) -> &'static str {
-    "ReceiveTimeout"
   }
 }
