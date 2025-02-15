@@ -1,27 +1,19 @@
-//! Nexus Actor Core - A Rust implementation of the Proto.Actor framework
+//! Core module provides the foundational actor system functionality.
 
 pub mod actor;
 pub mod event_stream;
+pub mod metrics;
 
-// Re-exports
-pub use actor::{
-  actor_error::ActorError,
-  actor_handle::ActorHandle,
-  actor_ref::ActorRef,
-  context::actor_context::{
-    Context, ExtensionPart, InfoPart, MessagePart, ReceiverContext, ReceiverPart, RootContext, SenderContext,
-    SenderPart, SpawnerContext, SpawnerPart, StopperPart,
+pub use self::{
+  actor::{
+    context::{
+      ActorContext, Context, ExtensionPart, InfoPart, MessagePart, ReceiverContext, ReceiverPart, RootContext,
+      SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart, TypedContext,
+    },
+    message::{Message, MessageHandle, MessageHeaders, MessageOrEnvelope, TypedMessageEnvelope},
+    process::{Process, ProcessHandle},
+    ActorError, ActorHandle, ActorSystem, ErrorReason, ExtendedPid, Pid, Props, SpawnError,
   },
-  error_reason::ErrorReason,
   event_stream::EventStream,
-  message::Message,
-  pid::Pid,
-  process::{Process, ProcessHandle},
-  props::Props,
-  restart_statistics::RestartStatistics,
-  spawner::Spawner,
-  supervisor::SupervisorStrategy,
-  typed_context::TypedContext,
+  metrics::{ActorMetrics, ProtoMetrics},
 };
-
-pub use event_stream::*;
