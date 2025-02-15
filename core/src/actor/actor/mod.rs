@@ -19,7 +19,7 @@ pub use self::actor_ref::*;
 pub use self::error_reason::ErrorReason;
 pub use self::lifecycle::*;
 pub use self::pid::*;
-pub use self::process::*;
+pub use self::process::Process;
 pub use self::props::*;
 pub use self::restart_statistics::*;
 pub use self::spawner::*;
