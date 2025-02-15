@@ -14,54 +14,6 @@ impl Display for Pid {
   }
 }
 
-impl From<ExtendedPid> for Pid {
-  fn from(pid: ExtendedPid) -> Self {
-    Self {
-      address: pid.address,
-      id: pid.id,
-    }
-  }
-}
-
-impl From<&ExtendedPid> for Pid {
-  fn from(pid: &ExtendedPid) -> Self {
-    Self {
-      address: pid.address.clone(),
-      id: pid.id,
-    }
-  }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ExtendedPid {
-  pub address: String,
-  pub id: u64,
-}
-
-impl From<Pid> for ExtendedPid {
-  fn from(pid: Pid) -> Self {
-    Self {
-      address: pid.address,
-      id: pid.id,
-    }
-  }
-}
-
-impl From<&Pid> for ExtendedPid {
-  fn from(pid: &Pid) -> Self {
-    Self {
-      address: pid.address.clone(),
-      id: pid.id,
-    }
-  }
-}
-
-impl ExtendedPid {
-  pub fn new(pid: impl Into<ExtendedPid>) -> Self {
-    pid.into()
-  }
-}
-
 impl Pid {
   pub fn new(address: String, id: u64) -> Self {
     Self { address, id }
@@ -79,3 +31,5 @@ impl Pid {
     process.stop().await;
   }
 }
+
+// Remove ExtendedPid type and use Pid consistently throughout the codebase

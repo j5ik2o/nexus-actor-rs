@@ -15,4 +15,9 @@ pub trait Message: Debug + Send + Sync + 'static {
   }
 }
 
-// Remove blanket implementation to avoid conflicts
+// Blanket implementation for all types that implement the required traits
+impl<T: Debug + Send + Sync + 'static + PartialEq> Message for T {
+  fn as_any(&self) -> &(dyn Any + Send + Sync) {
+    self
+  }
+}
