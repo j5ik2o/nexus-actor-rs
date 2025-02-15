@@ -21,8 +21,11 @@ pub mod touched;
 pub mod typed_message_or_envelope;
 
 pub use self::{
-  message::Message, message_handle::MessageHandle, message_headers::MessageHeaders,
-  message_or_envelope::MessageOrEnvelope, typed_message_or_envelope::TypedMessageOrEnvelope,
+  auto_receive_message::AutoReceiveMessage, auto_respond::AutoRespond, continuation::Continuation,
+  dead_letter_response::DeadLetterResponse, failure::Failure, ignore_dead_letter_logging::IgnoreDeadLetterLogging,
+  message::Message, message_batch::MessageBatch, message_handle::MessageHandle, message_headers::MessageHeaders,
+  message_or_envelope::MessageOrEnvelope, receive_timeout::ReceiveTimeout, response::ResponseHandle,
+  system_message::SystemMessage, touched::Touched, typed_message_or_envelope::TypedMessageOrEnvelope,
 };
 
 pub type TypedMessageEnvelope<T> = TypedMessageOrEnvelope<T>;
