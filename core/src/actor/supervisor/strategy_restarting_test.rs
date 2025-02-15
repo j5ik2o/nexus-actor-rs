@@ -8,11 +8,12 @@ mod test {
   use tracing_subscriber::EnvFilter;
 
   use crate::actor::actor::{ErrorReason, ExtendedPid, RestartStatistics};
-  use crate::generated::actor::Pid;
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::message::MessageHandle;
   use crate::actor::supervisor::strategy_restarting::RestartingStrategy;
   use crate::actor::supervisor::supervisor_strategy::{Supervisor, SupervisorHandle};
+  use crate::actor::supervisor::SupervisorStrategy;
+  use crate::generated::actor::Pid;
 
   #[derive(Debug)]
   struct MockSupervisor {
@@ -82,7 +83,7 @@ mod test {
       .handle_child_failure(
         actor_system,
         supervisor.clone(),
-        child,
+        child.clone(),
         rs,
         ErrorReason::new("test", 1),
         MessageHandle::new(String::from("test")),
@@ -96,3 +97,4 @@ mod test {
     let last_action = mock_supervisor.last_action.lock().unwrap().clone();
     assert_eq!(last_action.as_str(), "restart");
   }
+}
