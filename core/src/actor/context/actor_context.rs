@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::actor::{ActorError, ActorSystem, Message, MessageHandle, MessageOrEnvelope, Pid, Props, SpawnError};
+use crate::actor::{ActorSystem, Message, MessageHandle, MessageOrEnvelope, Pid, Props, SpawnError};
 
 #[async_trait]
 pub trait Context: Debug + Send + Sync + 'static {
@@ -22,6 +22,7 @@ pub trait InfoPart: Debug + Send + Sync + 'static {
 #[async_trait]
 pub trait MessagePart: Debug + Send + Sync + 'static {
   async fn get_message(&self) -> MessageHandle;
+  async fn get_message_envelope(&self) -> MessageOrEnvelope;
 }
 
 #[async_trait]
