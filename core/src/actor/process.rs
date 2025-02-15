@@ -16,7 +16,7 @@ pub type ProcessHandle = Box<dyn Process + Send + Sync>;
 
 // Helper functions for creating process handles
 impl ProcessHandle {
-    pub fn new(process: Box<dyn Process + Send + Sync>) -> Self {
-        process
+    pub fn new(process: impl Process + Send + Sync + 'static) -> Self {
+        Box::new(process)
     }
 }
