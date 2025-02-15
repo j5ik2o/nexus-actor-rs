@@ -23,28 +23,29 @@ pub mod typed_context;
 
 // Re-exports
 pub use self::{
-  actor::*,
+  actor::Actor,
   actor_error::ActorError,
   actor_handle::ActorHandle,
   actor_ref::ActorRef,
   context::actor_context::{
-    ActorSystem, Context, ExtensionPart, InfoPart, MessagePart, ReceiverContext, ReceiverPart, RootContext,
-    SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart, TypedContext, TypedRootContext,
+    Context, ExtensionPart, InfoPart, MessagePart, ReceiverContext, ReceiverPart, RootContext, SenderContext,
+    SenderPart, SpawnerContext, SpawnerPart, StopperPart,
   },
   dispatch::*,
   error_reason::ErrorReason,
   event_stream::EventStream,
-  guardian::*,
+  guardian::Guardian,
   lifecycle::*,
   message::*,
   metrics::*,
   pid::Pid,
   process::{Process, ProcessHandle},
-  process_registry::*,
+  process_registry::ProcessRegistry,
   props::Props,
   restart_statistics::*,
   spawner::*,
   supervisor::*,
+  typed_context::TypedContext,
 };
 
 // Type aliases

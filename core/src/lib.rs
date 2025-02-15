@@ -9,18 +9,19 @@ pub use actor::{
   actor_handle::ActorHandle,
   actor_ref::ActorRef,
   context::actor_context::{
-    ActorSystem, Context, ExtensionPart, InfoPart, MessagePart, ReceiverContext, ReceiverPart, RootContext,
-    SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart, TypedContext, TypedRootContext,
+    Context, ExtensionPart, InfoPart, MessagePart, ReceiverContext, ReceiverPart, RootContext, SenderContext,
+    SenderPart, SpawnerContext, SpawnerPart, StopperPart,
   },
   error_reason::ErrorReason,
   event_stream::EventStream,
-  message::*,
+  message::Message,
   pid::Pid,
   process::{Process, ProcessHandle},
   props::Props,
-  restart_statistics::*,
-  spawner::*,
-  supervisor::*,
+  restart_statistics::RestartStatistics,
+  spawner::Spawner,
+  supervisor::SupervisorStrategy,
+  typed_context::TypedContext,
 };
 
 pub use event_stream::*;

@@ -14,8 +14,8 @@ pub mod typed_root_context;
 // Re-exports
 pub use self::{
   actor_context::{
-    ActorSystem, Context, ExtensionPart, InfoPart, MessagePart, ReceiverContext, ReceiverPart, RootContext,
-    SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart, TypedContext, TypedRootContext,
+    Context, ExtensionPart, InfoPart, MessagePart, ReceiverContext, ReceiverPart, RootContext, SenderContext,
+    SenderPart, SpawnerContext, SpawnerPart, StopperPart,
   },
   context_handle::ContextHandle,
   mock_context::MockContext,
