@@ -7,7 +7,7 @@ use tokio::sync::RwLock;
 
 use crate::actor::{
   ActorContext, ActorError, ActorHandle, ActorSystem, Message, MessageHandle, MessageOrEnvelope, Pid, Props,
-  ReadonlyMessageHeadersHandle, ResponseHandle, SpawnError,
+  ReadonlyMessageHeadersHandle, ResponseHandle, SpawnError, TypedRootContext,
 };
 
 #[derive(Debug, Clone)]
@@ -25,10 +25,11 @@ impl Context for RootContext {
 #[async_trait]
 impl InfoPart for RootContext {
   async fn get_children(&self) -> Vec<Pid> {
-    self
-      .guardian_strategy
-      .as_ref()
-      .map_or_else(Vec::new, |g| g.read().await.get_children().await)
+    if let Some(g) = &self.guardian_strategy {
+      g.read().await.get_children().await
+    } else {
+      Vec::new()
+    }
   }
 
   async fn get_receive_timeout(&self) -> Duration {
