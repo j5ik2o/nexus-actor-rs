@@ -1,78 +1,51 @@
-use crate::actor::context::ExtensionPart;
 use async_trait::async_trait;
+use std::any::Any;
 use std::fmt::Debug;
-use std::sync::atomic::{AtomicI32, Ordering};
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::RwLock;
 
-pub type ContextExtensionId = i32;
+use crate::actor::{Context, ExtensionPart};
 
-static CURRENT_CONTEXT_EXTENSION_ID: AtomicI32 = AtomicI32::new(0);
-
-pub trait ContextExtension: Debug + Send + Sync + 'static {
-  fn extension_id(&self) -> ContextExtensionId;
-}
-
-#[derive(Debug, Clone)]
-pub struct ContextExtensionHandle(Arc<dyn ContextExtension>);
-
-impl ContextExtensionHandle {
-  pub fn new(extension: Arc<dyn ContextExtension>) -> Self {
-    ContextExtensionHandle(extension)
-  }
-}
-
-impl ContextExtension for ContextExtensionHandle {
-  fn extension_id(&self) -> ContextExtensionId {
-    self.0.extension_id()
-  }
-}
-
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct ContextExtensions {
-  extensions: Arc<Mutex<Vec<Option<ContextExtensionHandle>>>>,
+  extensions: Arc<RwLock<Vec<Box<dyn Any + Send + Sync>>>>,
 }
 
-impl ContextExtensions {
-  pub fn new() -> Self {
-    Self {
-      extensions: Arc::new(Mutex::new(vec![None, None, None])),
-    }
-  }
-}
-
-impl Default for ContextExtensions {
-  fn default() -> Self {
-    Self::new()
+impl Context for ContextExtensions {
+  fn as_any(&self) -> &dyn Any {
+    self
   }
 }
 
 #[async_trait]
 impl ExtensionPart for ContextExtensions {
-  async fn get(&mut self, id: ContextExtensionId) -> Option<ContextExtensionHandle> {
-    let mg = self.extensions.lock().await;
-    mg.get(id as usize).and_then(|ext| ext.clone())
+  async fn register_extension<T: 'static>(&mut self, extension: T) {
+    self.extensions.write().await.push(Box::new(extension));
   }
 
-  async fn set(&mut self, extension: ContextExtensionHandle) {
-    let id = extension.extension_id() as usize;
-    let len = {
-      let mg = self.extensions.lock().await;
-      mg.len()
-    };
-    if id >= len {
-      let len = {
-        let mg = self.extensions.lock().await;
-        mg.len()
-      };
-      let mut mg = self.extensions.lock().await;
-      mg.extend((len..=id).map(|_| None));
+  async fn get_extension<T: 'static>(&self) -> Option<&T> {
+    for ext in self.extensions.read().await.iter() {
+      if let Some(ext) = ext.as_any().downcast_ref::<T>() {
+        return Some(ext);
+      }
     }
-    let mut mg = self.extensions.lock().await;
-    mg[id] = Some(extension);
+    None
+  }
+
+  async fn get_extension_mut<T: 'static>(&mut self) -> Option<&mut T> {
+    for ext in self.extensions.write().await.iter_mut() {
+      if let Some(ext) = ext.as_any_mut().downcast_mut::<T>() {
+        return Some(ext);
+      }
+    }
+    None
   }
 }
 
-pub fn next_context_extension_id() -> ContextExtensionId {
-  CURRENT_CONTEXT_EXTENSION_ID.fetch_add(1, Ordering::SeqCst)
+impl ContextExtensions {
+  pub fn new() -> Self {
+    Self {
+      extensions: Arc::new(RwLock::new(Vec::new())),
+    }
+  }
 }

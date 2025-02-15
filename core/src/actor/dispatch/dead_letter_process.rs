@@ -1,36 +1,47 @@
-use std::fmt::Debug;
 use async_trait::async_trait;
-use crate::actor::message::{Message, MessageHandle};
-use crate::actor::pid::{Pid, PidExt};
-use crate::actor::process::Process;
-use crate::actor::actor_system::ActorSystem;
+use std::fmt::Debug;
 
-#[derive(Debug, Clone)]
+use crate::actor::{event_stream::EventStream, ActorSystem, Message, Pid, Process};
+
+#[derive(Debug)]
 pub struct DeadLetterProcess {
-    actor_system: ActorSystem,
-}
-
-impl DeadLetterProcess {
-    pub fn new(actor_system: ActorSystem) -> Self {
-        Self { actor_system }
-    }
+  system: ActorSystem,
 }
 
 #[async_trait]
 impl Process for DeadLetterProcess {
-    async fn send_user_message(&self, sender: Option<&Pid>, message: Box<dyn Message>) {
-        // Implementation
-    }
+  async fn send_user_message(&self, sender: Option<&Pid>, message: Box<dyn Message>) {
+    let event = DeadLetterEvent {
+      pid: None,
+      message,
+      sender: sender.cloned(),
+    };
+    self.system.event_stream().publish(event).await;
+  }
 
-    async fn send_system_message(&self, message: Box<dyn Message>) {
-        // Implementation
-    }
+  async fn send_system_message(&self, message: Box<dyn Message>) {
+    let event = DeadLetterEvent {
+      pid: None,
+      message,
+      sender: None,
+    };
+    self.system.event_stream().publish(event).await;
+  }
 
-    async fn stop(&self) {
-        // Implementation
-    }
+  async fn stop(&self) {}
 
-    async fn set_dead(&self) {
-        // Implementation
-    }
+  async fn set_dead(&self) {}
+}
+
+impl DeadLetterProcess {
+  pub fn new(system: ActorSystem) -> Self {
+    Self { system }
+  }
+}
+
+#[derive(Debug)]
+pub struct DeadLetterEvent {
+  pub pid: Option<Pid>,
+  pub message: Box<dyn Message>,
+  pub sender: Option<Pid>,
 }

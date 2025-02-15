@@ -1,8 +1,9 @@
 use async_trait::async_trait;
+use std::any::Any;
 use std::fmt::Debug;
 use std::time::Duration;
 
-use crate::actor::{ActorError, Message, MessageHandle, Pid, SupervisorStrategy, SupervisorStrategyHandle};
+use crate::actor::{ActorError, ActorSystem, Message, MessageHandle, Pid, SupervisorHandle, SupervisorStrategy};
 
 #[derive(Debug, Clone)]
 pub struct OneForOneStrategy {
@@ -13,8 +14,25 @@ pub struct OneForOneStrategy {
 #[async_trait]
 impl SupervisorStrategy for OneForOneStrategy {
   async fn handle_failure(&self, who: Option<Pid>, error: ActorError, message: Option<MessageHandle>) -> bool {
-    // Implement one-for-one restart strategy
     true // Always restart for now
+  }
+
+  async fn handle_child_failure(
+    &self,
+    actor_system: ActorSystem,
+    supervisor: SupervisorHandle,
+    who: Option<Pid>,
+    error: ActorError,
+    message_handle: MessageHandle,
+  ) {
+    // Default implementation restarts the child
+    if let Some(pid) = who {
+      actor_system.restart(&pid).await;
+    }
+  }
+
+  fn as_any(&self) -> &dyn Any {
+    self
   }
 }
 
@@ -26,7 +44,7 @@ impl OneForOneStrategy {
     }
   }
 
-  pub fn into_handle(self) -> SupervisorStrategyHandle {
-    SupervisorStrategyHandle::new(self)
+  pub fn into_handle(self) -> SupervisorHandle {
+    SupervisorHandle::new(self)
   }
 }
