@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use std::fmt::Debug;
 
 #[async_trait]
-pub trait Process: Debug + Send + Sync + Clone + 'static {
+pub trait Process: Debug + Send + Sync + 'static {
   async fn send_user_message(&self, sender: Option<&Pid>, message: Box<dyn Message>);
   async fn send_system_message(&self, message: Box<dyn Message>);
   async fn stop(&self);

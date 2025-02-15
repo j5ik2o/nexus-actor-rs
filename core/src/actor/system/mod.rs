@@ -1,41 +1,40 @@
-//! Actor system module provides the core actor system functionality.
+//! Actor system module provides core actor system functionality.
 
 use std::fmt::Debug;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::actor::{Message, MessageHandle, MessageOrEnvelope, Pid, Props, SpawnError};
+use crate::actor::{Message, MessageHandle, Pid, Props, SpawnError};
+use crate::event_stream::EventStream;
 
 #[derive(Debug)]
 pub struct ActorSystem {
-  inner: Arc<RwLock<dyn Debug + Send + Sync>>,
+  event_stream: Arc<RwLock<EventStream>>,
 }
 
 impl ActorSystem {
   pub fn new() -> Self {
     Self {
-      inner: Arc::new(RwLock::new(())),
+      event_stream: Arc::new(RwLock::new(EventStream::new())),
     }
   }
 
   pub async fn spawn(&self, props: Props) -> Result<Pid, SpawnError> {
-    // Implementation will be added later
-    unimplemented!()
+    // Implementation
+    todo!()
   }
 
   pub async fn send(&self, target: &Pid, message: MessageHandle) {
-    // Implementation will be added later
-    unimplemented!()
+    // Implementation
+    todo!()
   }
 
   pub async fn stop(&self, pid: &Pid) {
-    // Implementation will be added later
-    unimplemented!()
+    // Implementation
+    todo!()
   }
-}
 
-impl Default for ActorSystem {
-  fn default() -> Self {
-    Self::new()
+  pub async fn event_stream(&self) -> Arc<RwLock<EventStream>> {
+    self.event_stream.clone()
   }
 }
