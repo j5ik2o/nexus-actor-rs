@@ -19,6 +19,7 @@ pub mod props;
 pub mod restart_statistics;
 pub mod spawner;
 pub mod supervisor;
+pub mod system;
 pub mod types;
 
 // Re-exports with explicit paths to avoid ambiguity
@@ -38,7 +39,8 @@ pub use self::{
   process::{new_process_handle, Process, ProcessHandle},
   props::Props,
   restart_statistics::RestartStatistics,
-  spawner::Spawner,
+  spawner::{SpawnError, Spawner},
   supervisor::SupervisorStrategy,
+  system::ActorSystem,
   types::*,
 };
