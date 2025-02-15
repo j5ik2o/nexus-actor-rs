@@ -2,8 +2,6 @@
 
 use std::any::Any;
 use std::fmt::Debug;
-use std::future::Future;
-use std::pin::Pin;
 use std::time::Duration;
 
 use crate::actor::message::{MessageHandle, MessageOrEnvelope, ReadonlyMessageHeadersHandle, ResponseHandle};
@@ -34,67 +32,62 @@ pub trait Context: Send + Sync + 'static {
   fn as_any(&self) -> &dyn Any;
 }
 
+#[async_trait::async_trait]
 pub trait InfoPart: Context {
-  fn get_children(&self) -> Vec<Pid>;
-  fn get_receive_timeout(&self) -> Duration;
-  fn get_parent(&self) -> Option<Pid>;
-  fn get_self_opt(&self) -> Option<Pid>;
-  fn set_self(&mut self, pid: Pid);
-  fn get_actor(&self) -> Option<ActorHandle>;
-  fn get_actor_system(&self) -> ActorSystem;
+  async fn get_children(&self) -> Vec<Pid>;
+  async fn get_receive_timeout(&self) -> Duration;
+  async fn get_parent(&self) -> Option<Pid>;
+  async fn get_self_opt(&self) -> Option<Pid>;
+  async fn set_self(&mut self, pid: Pid);
+  async fn get_actor(&self) -> Option<ActorHandle>;
+  async fn get_actor_system(&self) -> ActorSystem;
 }
 
+#[async_trait::async_trait]
 pub trait MessagePart: Context {
-  fn get_message(&self) -> MessageHandle;
-  fn get_message_header_handle(&self) -> Option<ReadonlyMessageHeadersHandle>;
-  fn get_message_envelope_opt(&self) -> Option<MessageOrEnvelope>;
-  fn get_message_handle_opt(&self) -> Option<MessageHandle>;
+  async fn get_message(&self) -> MessageHandle;
+  async fn get_message_header_handle(&self) -> Option<ReadonlyMessageHeadersHandle>;
+  async fn get_message_envelope_opt(&self) -> Option<MessageOrEnvelope>;
+  async fn get_message_handle_opt(&self) -> Option<MessageHandle>;
 }
 
+#[async_trait::async_trait]
 pub trait ReceiverPart: Context {
-  fn receive(&self, envelope: MessageOrEnvelope) -> Result<(), ActorError>;
+  async fn receive(&self, envelope: MessageOrEnvelope) -> Result<(), ActorError>;
 }
 
+#[async_trait::async_trait]
 pub trait SenderPart: Context {
-  fn forward(&self, pid: &Pid);
-  fn respond(&self, response: ResponseHandle);
-  fn get_sender(&self) -> Option<Pid>;
-  fn send(&mut self, pid: Pid, message_handle: MessageHandle);
-  fn request(&mut self, pid: Pid, message_handle: MessageHandle);
-  fn request_with_custom_sender(&mut self, pid: Pid, message_handle: MessageHandle, sender: Pid);
-  fn request_future(
-    &self,
-    pid: Pid,
-    message_handle: MessageHandle,
-  ) -> Pin<Box<dyn Future<Output = Result<ResponseHandle, ActorError>> + Send>>;
+  async fn forward(&self, pid: &Pid);
+  async fn respond(&self, response: ResponseHandle);
+  async fn get_sender(&self) -> Option<Pid>;
+  async fn send(&mut self, pid: Pid, message_handle: MessageHandle);
+  async fn request(&mut self, pid: Pid, message_handle: MessageHandle);
+  async fn request_with_custom_sender(&mut self, pid: Pid, message_handle: MessageHandle, sender: Pid);
+  async fn request_future(&self, pid: Pid, message_handle: MessageHandle) -> Result<ResponseHandle, ActorError>;
 }
 
+#[async_trait::async_trait]
 pub trait SpawnerPart: Context {
-  fn spawn(&self, props: Props) -> Result<Pid, SpawnError>;
-  fn spawn_prefix(&self, props: Props, prefix: &str) -> Result<Pid, SpawnError>;
-  fn spawn_named(&mut self, props: Props, id: &str) -> Result<Pid, SpawnError>;
+  async fn spawn(&self, props: Props) -> Result<Pid, SpawnError>;
+  async fn spawn_prefix(&self, props: Props, prefix: &str) -> Result<Pid, SpawnError>;
+  async fn spawn_named(&mut self, props: Props, id: &str) -> Result<Pid, SpawnError>;
 }
 
+#[async_trait::async_trait]
 pub trait StopperPart: Context {
-  fn stop(&self);
-  fn poison_pill(&self);
-  fn stop_future_with_timeout(
-    &mut self,
-    pid: &Pid,
-    timeout: Duration,
-  ) -> Pin<Box<dyn Future<Output = Result<(), ActorError>> + Send>>;
-  fn poison(&mut self, pid: &Pid);
-  fn poison_future_with_timeout(
-    &mut self,
-    pid: &Pid,
-    timeout: Duration,
-  ) -> Pin<Box<dyn Future<Output = Result<(), ActorError>> + Send>>;
+  async fn stop(&self);
+  async fn poison_pill(&self);
+  async fn stop_future_with_timeout(&mut self, pid: &Pid, timeout: Duration) -> Result<(), ActorError>;
+  async fn poison(&mut self, pid: &Pid);
+  async fn poison_future_with_timeout(&mut self, pid: &Pid, timeout: Duration) -> Result<(), ActorError>;
 }
 
+#[async_trait::async_trait]
 pub trait ExtensionPart: Context {
-  fn register_extension<T: 'static>(&mut self, extension: T);
-  fn get_extension<T: 'static>(&self) -> Option<&T>;
-  fn get_extension_mut<T: 'static>(&mut self) -> Option<&mut T>;
+  async fn register_extension<T: 'static>(&mut self, extension: T);
+  async fn get_extension<T: 'static>(&self) -> Option<&T>;
+  async fn get_extension_mut<T: 'static>(&mut self) -> Option<&mut T>;
 }
 
 pub trait ReceiverContext: ReceiverPart + MessagePart + InfoPart {}
