@@ -4,9 +4,9 @@ use crate::actor::context::Context;
 use crate::extensions::{next_extension_id, Extension, ExtensionId};
 use crate::metrics::{ActorMetrics, ProtoMetrics};
 use once_cell::sync::Lazy;
-use std::error::Error;
 use opentelemetry::KeyValue;
 use std::any::Any;
+use std::error::Error;
 
 pub static EXTENSION_ID: Lazy<ExtensionId> = Lazy::new(next_extension_id);
 
