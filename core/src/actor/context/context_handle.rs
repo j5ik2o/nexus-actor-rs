@@ -2,25 +2,25 @@ use std::fmt::Debug;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::actor::{ActorContext, Message, MessageHandle};
+use crate::actor::{Message, MessageHandle, MessageOrEnvelope};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ContextHandle {
-  inner: Arc<RwLock<dyn ActorContext>>,
+  inner: Arc<RwLock<dyn Debug + Send + Sync>>,
 }
 
 impl ContextHandle {
-  pub fn new(context: Arc<RwLock<dyn ActorContext>>) -> Self {
-    Self { inner: context }
+  pub fn new(inner: Arc<RwLock<dyn Debug + Send + Sync>>) -> Self {
+    Self { inner }
   }
 
-  pub async fn get_message_handle(&self) -> MessageHandle {
-    let context = self.inner.read().await;
-    context.get_message().await
+  pub async fn get_message(&self) -> MessageHandle {
+    // Implementation will be added later
+    unimplemented!()
   }
 
-  pub(crate) async fn to_actor_context(&self) -> Option<Box<dyn ActorContext>> {
-    let context = self.inner.read().await;
-    context.as_context()
+  pub async fn get_message_envelope(&self) -> MessageOrEnvelope {
+    // Implementation will be added later
+    unimplemented!()
   }
 }
