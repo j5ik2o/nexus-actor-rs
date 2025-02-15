@@ -1,3 +1,5 @@
+//! Actor module provides core actor system functionality.
+
 pub mod actor;
 pub mod actor_error;
 pub mod actor_handle;
@@ -18,7 +20,7 @@ pub use self::actor_handle::*;
 pub use self::actor_ref::*;
 pub use self::error_reason::ErrorReason;
 pub use self::lifecycle::*;
-pub use self::pid::*;
+pub use self::pid::Pid;
 pub use self::process::Process;
 pub use self::props::*;
 pub use self::restart_statistics::*;
