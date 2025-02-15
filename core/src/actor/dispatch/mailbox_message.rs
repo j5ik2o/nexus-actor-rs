@@ -1,8 +1,12 @@
-use crate::actor::message::Message;
-use nexus_actor_message_derive_rs::Message;
+//! Mailbox message types.
 
-#[derive(Debug, Clone, PartialEq, Eq, Message)]
+use nexus_actor_utils_rs::collections::Element;
+use std::fmt::Debug;
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum MailboxMessage {
   SuspendMailbox,
   ResumeMailbox,
 }
+
+impl Element for MailboxMessage {}
