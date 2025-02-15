@@ -1,6 +1,6 @@
-use crate::actor::actor::ErrorReason;
-use crate::actor::actor::ExtendedPid;
-use crate::actor::actor::RestartStatistics;
+use crate::actor::ErrorReason;
+use crate::actor::ExtendedPid;
+use crate::actor::RestartStatistics;
 use crate::actor::message::message_handle::MessageHandle;
 use crate::actor::message::Message;
 use nexus_actor_message_derive_rs::Message;

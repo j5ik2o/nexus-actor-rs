@@ -1,8 +1,8 @@
 #[cfg(test)]
 pub mod tests {
-  use crate::actor::actor::Actor;
-  use crate::actor::actor::ActorError;
-  use crate::actor::actor::Props;
+  use crate::actor::Actor;
+  use crate::actor::ActorError;
+  use crate::actor::Props;
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::context::ContextHandle;
   use crate::actor::context::{BasePart, MessagePart, SenderPart, SpawnerPart};

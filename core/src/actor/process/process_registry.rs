@@ -9,8 +9,8 @@ use futures::future::BoxFuture;
 use siphasher::sip::SipHasher;
 use tokio::sync::RwLock;
 
-use crate::actor::actor::ActorProcess;
-use crate::actor::actor::ExtendedPid;
+use crate::actor::ActorProcess;
+use crate::actor::ExtendedPid;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::process::{Process, ProcessHandle};
 use crate::generated::actor::Pid;

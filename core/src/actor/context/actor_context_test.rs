@@ -3,10 +3,10 @@ mod tests {
   use std::env;
   use std::time::Duration;
 
-  use crate::actor::actor::ActorError;
-  use crate::actor::actor::Continuer;
-  use crate::actor::actor::ErrorReason;
-  use crate::actor::actor::Props;
+  use crate::actor::ActorError;
+  use crate::actor::Continuer;
+  use crate::actor::ErrorReason;
+  use crate::actor::Props;
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::context::{BasePart, InfoPart, MessagePart, SenderPart, SpawnerPart};
   use crate::actor::message::AutoRespond;

@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod test {
-  use crate::actor::actor::Props;
+  use crate::actor::Props;
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::context::{SenderPart, SpawnerPart, StopperPart};
   use crate::actor::dispatch::dead_letter_process::DeadLetterEvent;

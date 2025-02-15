@@ -1,4 +1,4 @@
-use crate::actor::actor::Actor;
+use crate::actor::Actor;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::Context;
 use crate::extensions::{next_extension_id, Extension, ExtensionId};

@@ -2,8 +2,8 @@
 mod tests {
   use std::env;
 
-  use crate::actor::actor::ActorError;
-  use crate::actor::actor::{TypedActor, TypedProps};
+  use crate::actor::ActorError;
+  use crate::actor::{TypedActor, TypedProps};
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::context::InfoPart;
   use crate::actor::context::TypedContextHandle;

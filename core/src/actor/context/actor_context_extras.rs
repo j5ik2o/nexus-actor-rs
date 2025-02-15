@@ -2,9 +2,9 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
 
-use crate::actor::actor::ExtendedPid;
-use crate::actor::actor::PidSet;
-use crate::actor::actor::RestartStatistics;
+use crate::actor::ExtendedPid;
+use crate::actor::PidSet;
+use crate::actor::RestartStatistics;
 use crate::actor::context::actor_context::ActorContext;
 use crate::actor::context::context_handle::ContextHandle;
 use crate::actor::context::receive_timeout_timer::ReceiveTimeoutTimer;

@@ -1,13 +1,13 @@
 #[cfg(test)]
 mod test {
-  use crate::actor::actor::Actor;
-  use crate::actor::actor::ActorError;
-  use crate::actor::actor::ErrorReason;
-  use crate::actor::actor::ExtendedPid;
-  use crate::actor::actor::Props;
-  use crate::actor::actor::ReceiverMiddleware;
-  use crate::actor::actor::ReceiverMiddlewareChain;
-  use crate::actor::actor::RestartStatistics;
+  use crate::actor::Actor;
+  use crate::actor::ActorError;
+  use crate::actor::ErrorReason;
+  use crate::actor::ExtendedPid;
+  use crate::actor::Props;
+  use crate::actor::ReceiverMiddleware;
+  use crate::actor::ReceiverMiddlewareChain;
+  use crate::actor::RestartStatistics;
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::context::ContextHandle;
   use crate::actor::context::ReceiverContextHandle;

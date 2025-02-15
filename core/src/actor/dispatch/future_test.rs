@@ -4,7 +4,7 @@ mod tests {
   use std::sync::atomic::{AtomicBool, Ordering};
   use std::sync::Arc;
 
-  use crate::actor::actor::ExtendedPid;
+  use crate::actor::ExtendedPid;
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::dispatch::future::{ActorFutureError, ActorFutureProcess};
   use crate::actor::message::Message;

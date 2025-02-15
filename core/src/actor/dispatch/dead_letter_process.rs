@@ -1,4 +1,4 @@
-use crate::actor::actor::ExtendedPid;
+use crate::actor::ExtendedPid;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::SenderPart;
 use crate::actor::message::message_or_envelope::unwrap_envelope_message;

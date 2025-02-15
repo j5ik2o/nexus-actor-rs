@@ -1,4 +1,4 @@
-use crate::actor::actor::{ActorError, ActorHandle, Continuer, ExtendedPid, SpawnError, TypedExtendedPid, TypedProps};
+use crate::actor::{ActorError, ActorHandle, Continuer, ExtendedPid, SpawnError, TypedExtendedPid, TypedProps};
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::{
   ActorContext, BasePart, ExtensionContext, ExtensionPart, InfoPart, MessagePart, ReceiverPart, SenderPart,

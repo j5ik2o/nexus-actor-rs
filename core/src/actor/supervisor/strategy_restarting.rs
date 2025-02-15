@@ -2,9 +2,9 @@ use std::any::Any;
 
 use async_trait::async_trait;
 
-use crate::actor::actor::ErrorReason;
-use crate::actor::actor::ExtendedPid;
-use crate::actor::actor::RestartStatistics;
+use crate::actor::ErrorReason;
+use crate::actor::ExtendedPid;
+use crate::actor::RestartStatistics;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::message::MessageHandle;
 use crate::actor::supervisor::directive::Directive;

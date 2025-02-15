@@ -5,7 +5,7 @@ mod test {
 
   use tracing_subscriber::EnvFilter;
 
-  use crate::actor::actor::RestartStatistics;
+  use crate::actor::RestartStatistics;
   use crate::actor::supervisor::strategy_one_for_one::OneForOneStrategy;
 
   #[tokio::test]

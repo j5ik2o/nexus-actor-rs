@@ -3,7 +3,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
-use crate::actor::actor::ExtendedPid;
+use crate::actor::ExtendedPid;
 use crate::actor::context::{RootContext, TypedRootContext};
 use crate::actor::dispatch::DeadLetterProcess;
 use crate::actor::event_stream::EventStreamProcess;

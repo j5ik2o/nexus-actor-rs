@@ -2,7 +2,7 @@ use std::any::Any;
 
 use async_trait::async_trait;
 
-use crate::actor::actor::ExtendedPid;
+use crate::actor::ExtendedPid;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::message::message_or_envelope::unwrap_envelope_message;
 use crate::actor::message::MessageHandle;

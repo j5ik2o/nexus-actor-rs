@@ -5,12 +5,12 @@ use std::time::Duration;
 use async_trait::async_trait;
 use tokio::sync::RwLock;
 
-use crate::actor::actor::ActorError;
-use crate::actor::actor::ActorHandle;
-use crate::actor::actor::Continuer;
-use crate::actor::actor::ExtendedPid;
-use crate::actor::actor::Props;
-use crate::actor::actor::SpawnError;
+use crate::actor::ActorError;
+use crate::actor::ActorHandle;
+use crate::actor::Continuer;
+use crate::actor::ExtendedPid;
+use crate::actor::Props;
+use crate::actor::SpawnError;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::actor_context::ActorContext;
 use crate::actor::context::{

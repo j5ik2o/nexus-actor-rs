@@ -1,4 +1,4 @@
-use crate::actor::actor::Actor;
+use crate::actor::Actor;
 use crate::actor::context::Context;
 use crate::actor::pid::Pid;
 use crate::actor::restart_statistics::RestartStatistics;

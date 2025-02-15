@@ -3,14 +3,14 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 
-use crate::actor::actor::make_sender_middleware_chain;
-use crate::actor::actor::ActorHandle;
-use crate::actor::actor::ExtendedPid;
-use crate::actor::actor::Props;
-use crate::actor::actor::SenderMiddleware;
-use crate::actor::actor::SenderMiddlewareChain;
-use crate::actor::actor::SpawnError;
-use crate::actor::actor::Spawner;
+use crate::actor::make_sender_middleware_chain;
+use crate::actor::ActorHandle;
+use crate::actor::ExtendedPid;
+use crate::actor::Props;
+use crate::actor::SenderMiddleware;
+use crate::actor::SenderMiddlewareChain;
+use crate::actor::SpawnError;
+use crate::actor::Spawner;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::sender_context_handle::SenderContextHandle;
 use crate::actor::context::spawner_context_handle::SpawnerContextHandle;
