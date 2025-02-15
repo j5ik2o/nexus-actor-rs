@@ -28,3 +28,6 @@ pub use self::{
 };
 
 pub type TypedMessageEnvelope<T> = typed_message_or_envelope::TypedMessageOrEnvelope<T>;
+pub type ReadonlyMessageHeadersHandle = message_headers::ReadonlyMessageHeaders;
+pub type ResponseHandle = response::Response;
+pub type MessageOrEnvelope = message_or_envelope::MessageOrEnvelope;
