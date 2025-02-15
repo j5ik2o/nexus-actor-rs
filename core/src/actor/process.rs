@@ -14,17 +14,15 @@ pub trait Process: Debug + Send + Sync + 'static {
 pub type ActorProcess = Box<dyn Process + Send + Sync>;
 pub type ProcessHandle = Box<dyn Process + Send + Sync>;
 
-// Helper functions for creating process handles
-impl ProcessHandle {
-    pub fn new<P: Process + Send + Sync + 'static>(process: P) -> Self {
-        Box::new(process)
-    }
+// Helper functions
+pub fn new_process_handle<P: Process + Send + Sync + 'static>(process: P) -> ProcessHandle {
+    Box::new(process)
+}
 
-    pub fn from_box(process: Box<dyn Process + Send + Sync>) -> Self {
-        process
-    }
+pub fn from_box_process(process: Box<dyn Process + Send + Sync>) -> ProcessHandle {
+    process
+}
 
-    pub fn from_arc<P: Process + Send + Sync + 'static>(process: P) -> Self {
-        Box::new(process)
-    }
+pub fn from_arc_process<P: Process + Send + Sync + 'static>(process: P) -> ProcessHandle {
+    Box::new(process)
 }
