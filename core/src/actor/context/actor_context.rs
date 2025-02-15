@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::time::Duration;
 use async_trait::async_trait;
 use tokio::sync::RwLock;
 
@@ -13,10 +14,11 @@ use crate::actor::{
     ActorHandle,
     Props,
     SpawnError,
+    ActorSystem,
 };
 
 #[async_trait]
-pub trait ActorContext: Send + Sync {
+pub trait ActorContext: Send + Sync + 'static {
     async fn parent(&self) -> Option<Pid>;
     async fn self_pid(&self) -> Pid;
     async fn actor_system(&self) -> Arc<RwLock<ActorSystem>>;
@@ -72,12 +74,12 @@ impl ActorContext for ActorContextImpl {
 
     async fn watch(&self, pid: &Pid) {
         let system = self.actor_system.read().await;
-        system.watch(self.self_pid(), pid).await;
+        system.watch(&self.self_pid, pid).await;
     }
 
     async fn unwatch(&self, pid: &Pid) {
         let system = self.actor_system.read().await;
-        system.unwatch(self.self_pid(), pid).await;
+        system.unwatch(&self.self_pid, pid).await;
     }
 
     async fn set_receive_timeout(&self, duration: Duration) {
@@ -101,6 +103,7 @@ impl ActorContext for ActorContextImpl {
     }
 
     async fn poison_pill(&self, pid: &Pid) {
+        use crate::actor::message::PoisonPill;
         pid.send_system_message(&*self.process, Box::new(PoisonPill)).await;
     }
 

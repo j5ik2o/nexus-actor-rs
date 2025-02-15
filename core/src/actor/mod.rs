@@ -59,6 +59,8 @@ pub use message::{
 // Re-export error types
 pub use error_reason::ErrorReason;
 pub use context::{
+    ActorContext,
+    ActorContextImpl,
     ActorError,
     ActorHandle,
     Continuer,
