@@ -4,11 +4,11 @@ use std::fmt::Debug;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct AutoRespond {
-  pub message: Box<dyn Message>,
+  pub message_id: String,
 }
 
 impl Message for AutoRespond {
-  fn as_any(&self) -> &(dyn Any + Send + Sync) {
+  fn as_any(&self) -> &dyn Any {
     self
   }
 }

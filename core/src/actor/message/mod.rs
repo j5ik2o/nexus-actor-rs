@@ -1,4 +1,4 @@
-//! Message module provides message-related functionality.
+//! Message module provides message handling functionality.
 
 pub mod auto_receive_message;
 pub mod auto_respond;
@@ -21,11 +21,8 @@ pub mod touched;
 pub mod typed_message_or_envelope;
 
 pub use self::{
-  auto_receive_message::AutoReceiveMessage, auto_respond::AutoRespond, continuation::Continuation,
-  dead_letter_response::DeadLetterResponse, failure::Failure, ignore_dead_letter_logging::IgnoreDeadLetterLogging,
-  message::Message, message_batch::MessageBatch, message_handle::MessageHandle, message_headers::MessageHeaders,
-  message_or_envelope::MessageOrEnvelope, receive_timeout::ReceiveTimeout, response::ResponseHandle,
-  system_message::SystemMessage, touched::Touched, typed_message_or_envelope::TypedMessageOrEnvelope,
+  message::Message, message_handle::MessageHandle, message_headers::MessageHeaders,
+  message_or_envelope::MessageOrEnvelope, typed_message_or_envelope::TypedMessageOrEnvelope,
 };
 
 pub type TypedMessageEnvelope<T> = TypedMessageOrEnvelope<T>;
