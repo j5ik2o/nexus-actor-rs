@@ -1,7 +1,7 @@
 use crate::actor::dispatch::{Dispatcher, TokioRuntimeContextDispatcher};
 use crate::actor::ConfigOption;
-use opentelemetry::metrics::{Meter, MeterProvider, MetricsError};
-use opentelemetry_sdk::metrics::MeterProvider as SdkMeterProvider;
+use opentelemetry::metrics::{Meter, MeterProvider};
+use opentelemetry_sdk::metrics::meter_provider::MeterProvider as SdkMeterProvider;
 use std::borrow::Cow;
 use std::sync::Arc;
 use std::time::Duration;
@@ -24,7 +24,7 @@ impl Clone for MetricsProvider {
 impl MeterProvider for MetricsProvider {
   fn meter(&self, name: impl Into<Cow<'static, str>>) -> Meter {
     match self {
-      MetricsProvider::Noop => opentelemetry::metrics::NoopMeter::new(),
+      MetricsProvider::Noop => opentelemetry::metrics::noop::NoopMeterProvider::default().meter("noop"),
       MetricsProvider::Sdk(provider) => provider.meter(name),
     }
   }
