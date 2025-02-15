@@ -17,15 +17,14 @@ mod test {
       .try_init();
 
     let initial_backoff = Duration::from_millis(100);
-    let strategy = ExponentialBackoffStrategy::new(Duration::from_secs(10))
-      .with_initial_backoff(initial_backoff);
-    
+    let strategy = ExponentialBackoffStrategy::new(Duration::from_secs(10)).with_initial_backoff(initial_backoff);
+
     let mut rs = RestartStatistics::new();
-    
+
     // 2回失敗を記録
     rs.fail().await;
     rs.fail().await;
-    
+
     // バックオフ時間の計算をテスト
     let backoff_nanos = rs.failure_count().await as u64 * initial_backoff.as_nanos() as u64;
     assert!(backoff_nanos > 0);
