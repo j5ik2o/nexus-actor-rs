@@ -23,30 +23,27 @@ pub mod system;
 pub mod types;
 
 // Re-exports with explicit paths to avoid ambiguity
-pub use self::actor::Actor;
-pub use self::actor_error::ActorError;
-pub use self::actor_handle::ActorHandle;
-pub use self::actor_ref::ActorRef;
-pub use self::context::{
-  actor_context::{ActorContext, Context, InfoPart, MessagePart, ReceiverPart, SenderPart, SpawnerPart, StopperPart},
-  mock_context::MockContext,
-  root_context::RootContext,
-  typed_actor_context::TypedActorContext,
-  typed_context_handle::TypedContextHandle,
-  typed_root_context::TypedRootContext,
+pub use self::{
+  actor::Actor,
+  actor_error::ActorError,
+  actor_handle::ActorHandle,
+  actor_ref::ActorRef,
+  context::{
+    actor_context::{ActorContext, Context, InfoPart, MessagePart, ReceiverPart, SenderPart, SpawnerPart, StopperPart},
+    root_context::RootContext,
+    typed_actor_context::TypedActorContext,
+    typed_context_handle::TypedContextHandle,
+    typed_root_context::TypedRootContext,
+  },
+  error_reason::ErrorReason,
+  guardian::GuardianProcess,
+  lifecycle::Lifecycle,
+  message::{Message, MessageHandle, MessageOrEnvelope},
+  pid::Pid,
+  process::{new_process_handle, Process, ProcessHandle},
+  props::Props,
+  restart_statistics::RestartStatistics,
+  spawner::{SpawnError, Spawner},
+  supervisor::{SupervisorStrategy, SupervisorStrategyHandle},
+  system::ActorSystem,
 };
-pub use self::error_reason::ErrorReason;
-pub use self::event_stream::EventStream;
-pub use self::guardian::GuardianProcess;
-pub use self::lifecycle::Lifecycle;
-pub use self::message::{Message, MessageHandle, MessageOrEnvelope};
-pub use self::metrics::MetricsProvider;
-pub use self::pid::Pid;
-pub use self::process::{new_process_handle, Process, ProcessHandle};
-pub use self::process_registry::ProcessRegistry;
-pub use self::props::Props;
-pub use self::restart_statistics::RestartStatistics;
-pub use self::spawner::Spawner;
-pub use self::supervisor::{SupervisorStrategy, SupervisorStrategyHandle};
-pub use self::system::ActorSystem;
-pub use self::types::*;
