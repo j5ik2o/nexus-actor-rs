@@ -55,3 +55,9 @@ pub trait StopperPart: Debug + Send + Sync + 'static {
 pub trait ActorContext:
   Context + InfoPart + MessagePart + ReceiverPart + SenderPart + SpawnerPart + StopperPart {
 }
+
+// Implement ActorContext for any type that implements all required traits
+impl<T> ActorContext for T where
+  T: Context + InfoPart + MessagePart + ReceiverPart + SenderPart + SpawnerPart + StopperPart
+{
+}

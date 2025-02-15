@@ -1,34 +1,26 @@
-use crate::actor::message::Message;
+//! Message handle implementation.
+
 use std::any::Any;
 use std::fmt::Debug;
+use std::sync::Arc;
+use tokio::sync::RwLock;
+
+use crate::actor::message::Message;
 
 #[derive(Debug, Clone)]
 pub struct MessageHandle {
-  pub message: Box<dyn Message>,
-}
-
-impl Message for MessageHandle {
-  fn as_any(&self) -> &(dyn Any + Send + Sync) {
-    self
-  }
-}
-
-impl PartialEq for MessageHandle {
-  fn eq(&self, other: &Self) -> bool {
-    self.message.eq_message(other.message.as_ref())
-  }
+  inner: Arc<RwLock<Box<dyn Message>>>,
 }
 
 impl MessageHandle {
   pub fn new(message: Box<dyn Message>) -> Self {
-    Self { message }
+    Self {
+      inner: Arc::new(RwLock::new(message)),
+    }
   }
 
-  pub fn get_message(&self) -> &Box<dyn Message> {
-    &self.message
-  }
-
-  pub fn into_message(self) -> Box<dyn Message> {
-    self.message
+  pub async fn to_typed<T: Message>(&self) -> Option<T> {
+    let message = self.inner.read().await;
+    message.as_any().downcast_ref::<T>().cloned()
   }
 }
