@@ -20,9 +20,17 @@ pub mod typed_context;
 // Re-exports
 pub use self::{
     actor::*,
-    actor_system::*,
-    config::*,
-    context::*,
+    actor_system::ActorSystem,
+    config::Config,
+    context::{
+        ActorContext,
+        ActorContextImpl,
+        ActorError,
+        ActorHandle,
+        Continuer,
+        Props,
+        SpawnError,
+    },
     dispatch::*,
     error_reason::ErrorReason,
     event_stream::*,
@@ -30,7 +38,7 @@ pub use self::{
     message::*,
     metrics::*,
     pid::{ExtendedPid, Pid},
-    process::{Process, ProcessHandle},
+    process::{Process, ProcessHandle, new_process_handle},
     process_registry::*,
     restart_statistics::RestartStatistics,
     supervisor::*,
@@ -54,16 +62,5 @@ pub use message::{
     MessageBatch,
     AutoRespond,
     Continuation,
-};
-
-// Re-export error types
-pub use error_reason::ErrorReason;
-pub use context::{
-    ActorContext,
-    ActorContextImpl,
-    ActorError,
-    ActorHandle,
-    Continuer,
-    Props,
-    SpawnError,
+    PoisonPill,
 };

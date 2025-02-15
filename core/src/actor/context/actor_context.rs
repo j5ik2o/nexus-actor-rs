@@ -15,6 +15,7 @@ use crate::actor::{
     Props,
     SpawnError,
     ActorSystem,
+    PoisonPill,
 };
 
 #[async_trait]
@@ -103,7 +104,6 @@ impl ActorContext for ActorContextImpl {
     }
 
     async fn poison_pill(&self, pid: &Pid) {
-        use crate::actor::message::PoisonPill;
         pid.send_system_message(&*self.process, Box::new(PoisonPill)).await;
     }
 
