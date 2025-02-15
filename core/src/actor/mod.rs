@@ -50,3 +50,4 @@ pub use self::{
 
 // Type aliases
 pub type SpawnError = Box<dyn std::error::Error + Send + Sync>;
+pub type ActorSystem = crate::actor::context::ActorSystem;
