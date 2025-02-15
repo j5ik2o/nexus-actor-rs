@@ -16,14 +16,11 @@ impl ContextHandle {
 
   pub async fn get_message_handle(&self) -> MessageHandle {
     let context = self.inner.read().await;
-    context.get_message_handle().await
+    context.get_message().await
   }
 
   pub(crate) async fn to_actor_context(&self) -> Option<Box<dyn ActorContext>> {
     let context = self.inner.read().await;
-    context
-      .as_any()
-      .downcast_ref::<dyn ActorContext>()
-      .map(|ctx| Box::new(ctx.clone()))
+    context.as_context()
   }
 }

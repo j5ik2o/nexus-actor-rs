@@ -8,8 +8,8 @@ pub trait Message: Debug + Send + Sync + 'static {
   }
 }
 
-// Implement for all types that implement the required traits
-impl<T: Debug + Send + Sync + 'static + PartialEq> Message for T {
+// Blanket implementation for all types that implement the required traits
+impl<T: Debug + Send + Sync + 'static> Message for T {
   fn as_any(&self) -> &(dyn Any + Send + Sync) {
     self
   }
