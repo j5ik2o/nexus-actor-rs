@@ -18,6 +18,7 @@ futures = { workspace = true }
 futures-util = "0.3.30"
 http = "1.1.0"
 log = "0.4.21"
+nexus-actor-message-derive-rs = { version = "0.*", path = "../message-derive" }
 nexus-actor-utils-rs = { version = "0.*", path = "../utils" }
 num_enum = { workspace = true }
 once_cell = { workspace = true }
