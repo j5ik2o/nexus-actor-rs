@@ -42,3 +42,6 @@ pub use message::{Message, MessageHandle, MessageHeaders, MessageOrEnvelope, Sys
 
 // Re-export process types
 pub use process::{new_process_handle, ActorProcess};
+
+// Re-export error types
+pub use error_reason::ErrorReason as ActorError;

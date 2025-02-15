@@ -7,3 +7,11 @@ pub trait ActorContext: Debug + Send + Sync + 'static {
   async fn get_message(&self) -> MessageHandle;
   fn as_context(&self) -> Option<Box<dyn ActorContext>>;
 }
+
+pub trait MessagePart {
+  async fn get_message(&self) -> MessageHandle;
+}
+
+pub trait BasePart {
+  fn as_context(&self) -> Option<Box<dyn ActorContext>>;
+}
