@@ -6,11 +6,11 @@ pub trait Message: Debug + Send + Sync + 'static {
   fn message_type(&self) -> &'static str {
     std::any::type_name::<Self>()
   }
-}
-
-// Blanket implementation for all types that implement the required traits
-impl<T: Debug + Send + Sync + 'static> Message for T {
-  fn as_any(&self) -> &(dyn Any + Send + Sync) {
-    self
+  fn eq_message(&self, other: &dyn Message) -> bool {
+    if let Some(other) = other.as_any().downcast_ref::<Self>() {
+      self == other
+    } else {
+      false
+    }
   }
 }
