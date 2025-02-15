@@ -10,7 +10,7 @@ use crate::actor::{
   ReadonlyMessageHeadersHandle, ResponseHandle, SpawnError,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RootContext {
   actor_system: ActorSystem,
   guardian_strategy: Option<Arc<RwLock<dyn ActorContext>>>,
@@ -75,13 +75,9 @@ impl MessagePart for RootContext {
 
 #[async_trait]
 impl SenderPart for RootContext {
-  async fn forward(&self, pid: &Pid) {
-    // No-op for root context
-  }
+  async fn forward(&self, _pid: &Pid) {}
 
-  async fn respond(&self, _response: ResponseHandle) {
-    // No-op for root context
-  }
+  async fn respond(&self, _response: ResponseHandle) {}
 
   async fn get_sender(&self) -> Option<Pid> {
     None
@@ -121,25 +117,9 @@ impl SpawnerPart for RootContext {
 
 #[async_trait]
 impl StopperPart for RootContext {
-  async fn stop(&self) {
-    // No-op for root context
-  }
+  async fn stop(&self) {}
 
-  async fn poison_pill(&self) {
-    // No-op for root context
-  }
-
-  async fn stop_future_with_timeout(&mut self, pid: &Pid, timeout: Duration) -> Result<(), ActorError> {
-    self.actor_system.stop_future_with_timeout(pid, timeout).await
-  }
-
-  async fn poison(&mut self, pid: &Pid) {
-    self.actor_system.poison(pid).await;
-  }
-
-  async fn poison_future_with_timeout(&mut self, pid: &Pid, timeout: Duration) -> Result<(), ActorError> {
-    self.actor_system.poison_future_with_timeout(pid, timeout).await
-  }
+  async fn poison_pill(&self) {}
 }
 
 impl RootContext {
@@ -153,5 +133,9 @@ impl RootContext {
   pub fn with_guardian(mut self, guardian: Arc<RwLock<dyn ActorContext>>) -> Self {
     self.guardian_strategy = Some(guardian);
     self
+  }
+
+  pub fn to_typed<M: Message>(&self) -> TypedRootContext<M> {
+    TypedRootContext::new(self.clone())
   }
 }

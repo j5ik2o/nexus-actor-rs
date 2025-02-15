@@ -1,34 +1,32 @@
-use std::time::Duration;
 use async_trait::async_trait;
-use crate::actor::{
-    RestartStatistics,
-    supervisor::strategy::SupervisorStrategy,
-};
+use std::fmt::Debug;
+use std::time::Duration;
+
+use crate::actor::{ActorError, Message, MessageHandle, Pid, SupervisorStrategy, SupervisorStrategyHandle};
 
 #[derive(Debug, Clone)]
 pub struct OneForOneStrategy {
-    max_nr_of_retries: u32,
-    within_duration: Duration,
-}
-
-impl OneForOneStrategy {
-    pub fn new(max_nr_of_retries: u32, within_duration: Duration) -> Self {
-        Self {
-            max_nr_of_retries,
-            within_duration,
-        }
-    }
+  max_retries: i32,
+  within_time: Duration,
 }
 
 #[async_trait]
 impl SupervisorStrategy for OneForOneStrategy {
-    async fn handle_failure(&self, rs: &mut RestartStatistics) -> Duration {
-        rs.failure();
-        if rs.number_of_failures(self.within_duration) > self.max_nr_of_retries {
-            rs.reset();
-            Duration::from_secs(0)
-        } else {
-            Duration::from_millis(100)
-        }
+  async fn handle_failure(&self, who: Option<Pid>, error: ActorError, message: Option<MessageHandle>) -> bool {
+    // Implement one-for-one restart strategy
+    true // Always restart for now
+  }
+}
+
+impl OneForOneStrategy {
+  pub fn new(max_retries: i32, within_time: Duration) -> Self {
+    Self {
+      max_retries,
+      within_time,
     }
+  }
+
+  pub fn into_handle(self) -> SupervisorStrategyHandle {
+    SupervisorStrategyHandle::new(self)
+  }
 }
