@@ -1,9 +1,7 @@
 use crate::actor::dispatch::{Dispatcher, TokioRuntimeContextDispatcher};
 use crate::actor::ConfigOption;
-use opentelemetry::metrics::noop::NoopMeterProvider;
-use opentelemetry::metrics::{Meter, MeterProvider};
-use opentelemetry::KeyValue;
-use opentelemetry_sdk::metrics::MeterProvider as SdkMeterProvider;
+use opentelemetry::metrics::{Meter, MeterProvider, NoopMeterProvider};
+use opentelemetry_sdk::metrics::meter_provider::MeterProvider as SdkMeterProvider;
 use std::borrow::Cow;
 use std::sync::Arc;
 use std::time::Duration;

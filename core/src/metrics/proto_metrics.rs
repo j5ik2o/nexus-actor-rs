@@ -13,7 +13,7 @@ pub struct ProtoMetrics {
 impl ProtoMetrics {
   pub const INTERNAL_ACTOR_METRICS: &'static str = "internal.actor.metrics";
 
-  pub fn new(meter_provider: Arc<MetricsProvider>) -> Result<Self, MetricsError> {
+  pub fn new(meter_provider: Arc<MetricsProvider>) -> Result<Self, Box<dyn std::error::Error>> {
     let actor_metrics = ActorMetrics::new(meter_provider.clone())?;
     let mut myself = ProtoMetrics {
       actor_metrics,
