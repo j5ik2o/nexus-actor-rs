@@ -21,3 +21,15 @@ pub use self::{
   actor::*, actor_error::*, context::*, message::*, pid::*, process::*, props::*, restart_statistics::*, spawner::*,
   supervisor::*, typed_context::*,
 };
+
+// Re-export key types and traits
+pub use self::{
+  actor::actor_system::ActorSystem,
+  context::{
+    actor_context::{ActorContext, Context, ExtensionPart, InfoPart, MessagePart},
+    typed_context::TypedContext,
+  },
+  message::{Message, MessageHandle, MessageHeaders, MessageOrEnvelope, TypedMessageEnvelope},
+  pid::Pid,
+  process::{Process, ProcessHandle},
+};
