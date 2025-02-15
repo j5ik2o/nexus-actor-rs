@@ -1,7 +1,7 @@
+use std::fmt::{Debug, Display, Formatter};
 use crate::actor::process::Process;
 use crate::actor::message::Message;
 use crate::generated::actor::Pid as GeneratedPid;
-use std::fmt::{Debug, Display, Formatter};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Pid {
@@ -15,63 +15,36 @@ impl Display for Pid {
     }
 }
 
-impl From<GeneratedPid> for Pid {
-    fn from(pid: GeneratedPid) -> Self {
-        Self {
-            address: pid.address,
-            id: pid.id,
-        }
-    }
-}
-
-impl From<&GeneratedPid> for Pid {
-    fn from(pid: &GeneratedPid) -> Self {
-        Self {
-            address: pid.address.clone(),
-            id: pid.id,
-        }
-    }
-}
-
-impl From<Pid> for GeneratedPid {
-    fn from(pid: Pid) -> Self {
-        Self {
-            address: pid.address,
-            id: pid.id,
-        }
-    }
-}
-
-impl From<&Pid> for GeneratedPid {
-    fn from(pid: &Pid) -> Self {
-        Self {
-            address: pid.address.clone(),
-            id: pid.id,
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ExtendedPid {
     pub address: String,
     pub id: u64,
 }
 
-impl From<ExtendedPid> for Pid {
-    fn from(pid: ExtendedPid) -> Self {
+impl Display for ExtendedPid {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}@{}", self.id, self.address)
+    }
+}
+
+impl ExtendedPid {
+    pub fn new(pid: Pid) -> Self {
         Self {
             address: pid.address,
             id: pid.id,
         }
     }
-}
 
-impl From<&ExtendedPid> for Pid {
-    fn from(pid: &ExtendedPid) -> Self {
-        Self {
-            address: pid.address.clone(),
-            id: pid.id,
-        }
+    pub async fn send_user_message(&self, process: &impl Process, message: Box<dyn Message>) {
+        process.send_user_message(Some(&self.into()), message).await;
+    }
+
+    pub async fn send_system_message(&self, process: &impl Process, message: Box<dyn Message>) {
+        process.send_system_message(message).await;
+    }
+
+    pub async fn stop(&self, process: &impl Process) {
+        process.stop().await;
     }
 }
 
@@ -86,6 +59,24 @@ impl From<Pid> for ExtendedPid {
 
 impl From<&Pid> for ExtendedPid {
     fn from(pid: &Pid) -> Self {
+        Self {
+            address: pid.address.clone(),
+            id: pid.id,
+        }
+    }
+}
+
+impl From<ExtendedPid> for Pid {
+    fn from(pid: ExtendedPid) -> Self {
+        Self {
+            address: pid.address,
+            id: pid.id,
+        }
+    }
+}
+
+impl From<&ExtendedPid> for Pid {
+    fn from(pid: &ExtendedPid) -> Self {
         Self {
             address: pid.address.clone(),
             id: pid.id,
