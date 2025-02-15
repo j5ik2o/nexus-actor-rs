@@ -1,4 +1,4 @@
-//! Message module.
+//! Message module provides message-related functionality.
 
 pub mod auto_receive_message;
 pub mod auto_respond;
@@ -21,12 +21,8 @@ pub mod touched;
 pub mod typed_message_or_envelope;
 
 pub use self::{
-  auto_receive_message::*, auto_respond::*, continuation::*, dead_letter_response::*, failure::*,
-  ignore_dead_letter_logging::*, json_serializer::*, message::*, message_batch::*, message_handle::*,
-  message_headers::*, message_or_envelope::*, proto_serializer::*, receive_timeout::*, response::*, serialization::*,
-  system_message::*, touched::*, typed_message_or_envelope::*,
+  message::Message, message_handle::MessageHandle, message_or_envelope::MessageOrEnvelope,
+  typed_message_or_envelope::TypedMessageOrEnvelope,
 };
 
-pub type TypedMessageEnvelope<T> = typed_message_or_envelope::TypedMessageOrEnvelope<T>;
-pub type ResponseHandle = Box<dyn response::Response + Send + Sync>;
-pub type ReadonlyMessageHeadersHandle = message_headers::ReadonlyMessageHeaders;
+pub type TypedMessageEnvelope<T> = TypedMessageOrEnvelope<T>;
