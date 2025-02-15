@@ -16,3 +16,7 @@ pub type ProcessHandle = Box<dyn Process + Send + Sync>;
 pub fn new_process_handle<P: Process + Send + Sync + 'static>(process: P) -> ProcessHandle {
   Box::new(process)
 }
+
+pub fn from_box_process(process: Box<dyn Process + Send + Sync>) -> ProcessHandle {
+  process
+}
