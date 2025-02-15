@@ -1,117 +1,49 @@
+use async_trait::async_trait;
+use std::any::Any;
+use std::fmt::Debug;
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::RwLock;
 
-use async_trait::async_trait;
-
-use crate::actor::make_sender_middleware_chain;
-use crate::actor::ActorHandle;
-use crate::actor::ExtendedPid;
-use crate::actor::Props;
-use crate::actor::SenderMiddleware;
-use crate::actor::SenderMiddlewareChain;
-use crate::actor::SpawnError;
-use crate::actor::Spawner;
-use crate::actor::actor_system::ActorSystem;
-use crate::actor::context::sender_context_handle::SenderContextHandle;
-use crate::actor::context::spawner_context_handle::SpawnerContextHandle;
-use crate::actor::context::{
-  InfoPart, MessagePart, SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart, TypedRootContext,
+use crate::actor::{
+  ActorContext, ActorError, ActorHandle, ActorSystem, Message, MessageHandle, MessageOrEnvelope, Pid, Props,
+  ReadonlyMessageHeadersHandle, ResponseHandle, SpawnError,
 };
-use crate::actor::dispatch::future::{ActorFuture, ActorFutureProcess};
-use crate::actor::message::MessageEnvelope;
-use crate::actor::message::MessageHandle;
-use crate::actor::message::MessageHeaders;
-use crate::actor::message::ReadonlyMessageHeadersHandle;
-use crate::actor::message::SystemMessage;
-use crate::actor::process::Process;
-use crate::actor::supervisor::SupervisorStrategyHandle;
-use crate::generated::actor::{PoisonPill, Watch};
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct RootContext {
   actor_system: ActorSystem,
-  sender_middleware_chain: Option<SenderMiddlewareChain>,
-  spawn_middleware: Option<Spawner>,
-  message_headers: Arc<MessageHeaders>,
-  guardian_strategy: Option<SupervisorStrategyHandle>,
+  guardian_strategy: Option<Arc<RwLock<dyn ActorContext>>>,
 }
 
-impl RootContext {
-  pub fn new(actor_system: ActorSystem, headers: Arc<MessageHeaders>, sender_middleware: &[SenderMiddleware]) -> Self {
-    Self {
-      actor_system: actor_system.clone(),
-      sender_middleware_chain: make_sender_middleware_chain(
-        &sender_middleware,
-        SenderMiddlewareChain::new(move |_, target, envelope| {
-          let actor_system = actor_system.clone();
-          async move {
-            target
-              .send_user_message(actor_system, envelope.get_message_handle())
-              .await
-          }
-        }),
-      ),
-      spawn_middleware: None,
-      message_headers: headers,
-      guardian_strategy: None,
-    }
-  }
-
-  pub fn with_actor_system(mut self, actor_system: ActorSystem) -> Self {
-    self.actor_system = actor_system;
+impl Context for RootContext {
+  fn as_any(&self) -> &dyn Any {
     self
-  }
-
-  pub fn with_guardian(mut self, strategy: SupervisorStrategyHandle) -> Self {
-    self.guardian_strategy = Some(strategy);
-    self
-  }
-
-  pub fn with_headers(mut self, headers: Arc<MessageHeaders>) -> Self {
-    self.message_headers = headers;
-    self
-  }
-
-  async fn send_user_message(&self, pid: ExtendedPid, message_handle: MessageHandle) {
-    if self.sender_middleware_chain.is_some() {
-      let sch = SenderContextHandle::new(self.clone());
-      let me = MessageEnvelope::new(message_handle);
-      self.sender_middleware_chain.clone().unwrap().run(sch, pid, me).await;
-    } else {
-      tracing::debug!("Sending user message to pid: {}", pid);
-      pid.send_user_message(self.actor_system.clone(), message_handle).await;
-    }
-  }
-
-  pub fn to_typed(self) -> TypedRootContext {
-    TypedRootContext::new(self)
   }
 }
 
 #[async_trait]
 impl InfoPart for RootContext {
-  async fn get_parent(&self) -> Option<ExtendedPid> {
+  async fn get_children(&self) -> Vec<Pid> {
+    self
+      .guardian_strategy
+      .as_ref()
+      .map_or_else(Vec::new, |g| g.read().await.get_children().await)
+  }
+
+  async fn get_receive_timeout(&self) -> Duration {
+    Duration::from_secs(0)
+  }
+
+  async fn get_parent(&self) -> Option<Pid> {
     None
   }
 
-  async fn get_self_opt(&self) -> Option<ExtendedPid> {
-    if self.guardian_strategy.is_some() {
-      let ssh = self.guardian_strategy.clone().unwrap();
-      Some(
-        self
-          .get_actor_system()
-          .await
-          .get_guardians()
-          .await
-          .get_guardian_pid(ssh)
-          .await,
-      )
-    } else {
-      None
-    }
+  async fn get_self_opt(&self) -> Option<Pid> {
+    None
   }
 
-  async fn set_self(&mut self, _pid: ExtendedPid) {}
+  async fn set_self(&mut self, _pid: Pid) {}
 
   async fn get_actor(&self) -> Option<ActorHandle> {
     None
@@ -123,158 +55,103 @@ impl InfoPart for RootContext {
 }
 
 #[async_trait]
-impl SenderPart for RootContext {
-  async fn get_sender(&self) -> Option<ExtendedPid> {
+impl MessagePart for RootContext {
+  async fn get_message(&self) -> MessageHandle {
+    unimplemented!("Root context does not handle messages")
+  }
+
+  async fn get_message_header_handle(&self) -> Option<ReadonlyMessageHeadersHandle> {
     None
   }
 
-  async fn send(&mut self, pid: ExtendedPid, message_handle: MessageHandle) {
-    self.send_user_message(pid, message_handle).await
-  }
-
-  async fn request(&mut self, pid: ExtendedPid, message_handle: MessageHandle) {
-    self.send_user_message(pid, message_handle).await
-  }
-
-  async fn request_with_custom_sender(&mut self, pid: ExtendedPid, message_handle: MessageHandle, sender: ExtendedPid) {
-    self
-      .send_user_message(
-        pid,
-        MessageHandle::new(MessageEnvelope::new(message_handle).with_sender(sender)),
-      )
-      .await
-  }
-
-  async fn request_future(&self, pid: ExtendedPid, message_handle: MessageHandle, timeout: Duration) -> ActorFuture {
-    let future_process = ActorFutureProcess::new(self.get_actor_system().await, timeout).await;
-    let future_pid = future_process.get_pid().await;
-    let moe = MessageEnvelope::new(message_handle).with_sender(future_pid.clone());
-    self.send_user_message(pid, MessageHandle::new(moe)).await;
-    future_process.get_future().await
-  }
-}
-
-#[async_trait]
-impl MessagePart for RootContext {
-  async fn get_message_envelope_opt(&self) -> Option<MessageEnvelope> {
+  async fn get_message_envelope_opt(&self) -> Option<MessageOrEnvelope> {
     None
   }
 
   async fn get_message_handle_opt(&self) -> Option<MessageHandle> {
     None
   }
-
-  async fn get_message_header_handle(&self) -> Option<ReadonlyMessageHeadersHandle> {
-    Some(ReadonlyMessageHeadersHandle::new_arc(self.message_headers.clone()))
-  }
 }
 
-impl SenderContext for RootContext {}
+#[async_trait]
+impl SenderPart for RootContext {
+  async fn forward(&self, pid: &Pid) {
+    // No-op for root context
+  }
+
+  async fn respond(&self, _response: ResponseHandle) {
+    // No-op for root context
+  }
+
+  async fn get_sender(&self) -> Option<Pid> {
+    None
+  }
+
+  async fn send(&mut self, pid: Pid, message_handle: MessageHandle) {
+    self.actor_system.send_user_message(pid, message_handle).await;
+  }
+
+  async fn request(&mut self, pid: Pid, message_handle: MessageHandle) {
+    self.send(pid, message_handle).await;
+  }
+
+  async fn request_with_custom_sender(&mut self, pid: Pid, message_handle: MessageHandle, _sender: Pid) {
+    self.send(pid, message_handle).await;
+  }
+
+  async fn request_future(&self, pid: Pid, message_handle: MessageHandle) -> Result<ResponseHandle, ActorError> {
+    self.actor_system.request_future(pid, message_handle).await
+  }
+}
 
 #[async_trait]
 impl SpawnerPart for RootContext {
-  async fn spawn(&mut self, props: Props) -> ExtendedPid {
-    match self
-      .spawn_named(
-        props,
-        &self.get_actor_system().await.get_process_registry().await.next_id(),
-      )
-      .await
-    {
-      Ok(pid) => pid,
-      Err(e) => panic!("Failed to spawn actor: {:?}", e),
-    }
+  async fn spawn(&self, props: Props) -> Result<Pid, SpawnError> {
+    self.actor_system.spawn(props).await
   }
 
-  async fn spawn_prefix(&mut self, props: Props, prefix: &str) -> ExtendedPid {
-    match self
-      .spawn_named(
-        props,
-        &format!(
-          "{}-{}",
-          prefix,
-          self.get_actor_system().await.get_process_registry().await.next_id()
-        ),
-      )
-      .await
-    {
-      Ok(pid) => pid,
-      Err(e) => panic!("Failed to spawn actor: {:?}", e),
-    }
+  async fn spawn_prefix(&self, props: Props, prefix: &str) -> Result<Pid, SpawnError> {
+    self.actor_system.spawn_prefix(props, prefix).await
   }
 
-  async fn spawn_named(&mut self, props: Props, id: &str) -> Result<ExtendedPid, SpawnError> {
-    let mut root_context = self.clone();
-    if self.guardian_strategy.is_some() {
-      root_context = root_context.with_guardian(self.guardian_strategy.clone().unwrap());
-    }
-
-    match &root_context.spawn_middleware {
-      Some(sm) => {
-        let sh = SpawnerContextHandle::new(root_context.clone());
-        return sm
-          .run(self.get_actor_system().await.clone(), id, props.clone(), sh)
-          .await;
-      }
-      _ => {}
-    }
-
-    props
-      .clone()
-      .spawn(
-        self.get_actor_system().await.clone(),
-        id,
-        SpawnerContextHandle::new(root_context.clone()),
-      )
-      .await
+  async fn spawn_named(&mut self, props: Props, id: &str) -> Result<Pid, SpawnError> {
+    self.actor_system.spawn_named(props, id).await
   }
 }
 
-impl SpawnerContext for RootContext {}
-
 #[async_trait]
 impl StopperPart for RootContext {
-  async fn stop(&mut self, pid: &ExtendedPid) {
-    pid.ref_process(self.get_actor_system().await).await.stop(pid).await
+  async fn stop(&self) {
+    // No-op for root context
   }
 
-  async fn stop_future_with_timeout(&mut self, pid: &ExtendedPid, timeout: Duration) -> ActorFuture {
-    let future_process = ActorFutureProcess::new(self.get_actor_system().await, timeout).await;
-
-    let future_pid = future_process.get_pid().await.clone();
-    pid
-      .send_system_message(
-        self.get_actor_system().await.clone(),
-        MessageHandle::new(SystemMessage::Watch(Watch {
-          watcher: Some(future_pid.inner_pid),
-        })),
-      )
-      .await;
-    self.stop(pid).await;
-
-    future_process.get_future().await
+  async fn poison_pill(&self) {
+    // No-op for root context
   }
 
-  async fn poison(&mut self, pid: &ExtendedPid) {
-    pid
-      .send_user_message(self.get_actor_system().await.clone(), MessageHandle::new(PoisonPill {}))
-      .await
+  async fn stop_future_with_timeout(&mut self, pid: &Pid, timeout: Duration) -> Result<(), ActorError> {
+    self.actor_system.stop_future_with_timeout(pid, timeout).await
   }
 
-  async fn poison_future_with_timeout(&mut self, pid: &ExtendedPid, timeout: Duration) -> ActorFuture {
-    let future_process = ActorFutureProcess::new(self.get_actor_system().await, timeout).await;
+  async fn poison(&mut self, pid: &Pid) {
+    self.actor_system.poison(pid).await;
+  }
 
-    let future_pid = future_process.get_pid().await.clone();
-    pid
-      .send_system_message(
-        self.get_actor_system().await.clone(),
-        MessageHandle::new(SystemMessage::Watch(Watch {
-          watcher: Some(future_pid.inner_pid),
-        })),
-      )
-      .await;
-    self.poison(pid).await;
+  async fn poison_future_with_timeout(&mut self, pid: &Pid, timeout: Duration) -> Result<(), ActorError> {
+    self.actor_system.poison_future_with_timeout(pid, timeout).await
+  }
+}
 
-    future_process.get_future().await
+impl RootContext {
+  pub fn new(actor_system: ActorSystem) -> Self {
+    Self {
+      actor_system,
+      guardian_strategy: None,
+    }
+  }
+
+  pub fn with_guardian(mut self, guardian: Arc<RwLock<dyn ActorContext>>) -> Self {
+    self.guardian_strategy = Some(guardian);
+    self
   }
 }
