@@ -14,19 +14,19 @@ impl Display for Pid {
     }
 }
 
-impl From<Pid> for ExtendedPid {
-    fn from(pid: Pid) -> Self {
-        ExtendedPid {
+impl From<ExtendedPid> for Pid {
+    fn from(pid: ExtendedPid) -> Self {
+        Self {
             address: pid.address,
             id: pid.id,
         }
     }
 }
 
-impl From<ExtendedPid> for Pid {
-    fn from(pid: ExtendedPid) -> Self {
-        Pid {
-            address: pid.address,
+impl From<&ExtendedPid> for Pid {
+    fn from(pid: &ExtendedPid) -> Self {
+        Self {
+            address: pid.address.clone(),
             id: pid.id,
         }
     }
@@ -36,6 +36,24 @@ impl From<ExtendedPid> for Pid {
 pub struct ExtendedPid {
     pub address: String,
     pub id: u64,
+}
+
+impl From<Pid> for ExtendedPid {
+    fn from(pid: Pid) -> Self {
+        Self {
+            address: pid.address,
+            id: pid.id,
+        }
+    }
+}
+
+impl From<&Pid> for ExtendedPid {
+    fn from(pid: &Pid) -> Self {
+        Self {
+            address: pid.address.clone(),
+            id: pid.id,
+        }
+    }
 }
 
 impl Pid {
