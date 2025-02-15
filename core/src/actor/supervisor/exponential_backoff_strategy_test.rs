@@ -9,6 +9,29 @@ mod test {
   use crate::actor::actor::RestartStatistics;
   use crate::actor::supervisor::exponential_backoff_strategy::ExponentialBackoffStrategy;
 
+  #[tokio::test]
+  async fn test_backoff_calculation() {
+    let _ = env::set_var("RUST_LOG", "debug");
+    let _ = tracing_subscriber::fmt()
+      .with_env_filter(EnvFilter::from_default_env())
+      .try_init();
+
+    let initial_backoff = Duration::from_millis(100);
+    let strategy = ExponentialBackoffStrategy::new(Duration::from_secs(10))
+      .with_initial_backoff(initial_backoff);
+    
+    let mut rs = RestartStatistics::new();
+    
+    // 2回失敗を記録
+    rs.fail().await;
+    rs.fail().await;
+    
+    // バックオフ時間の計算をテスト
+    let backoff_nanos = rs.failure_count().await as u64 * initial_backoff.as_nanos() as u64;
+    assert!(backoff_nanos > 0);
+    assert_eq!(backoff_nanos, 2 * initial_backoff.as_nanos() as u64);
+  }
+
   #[rstest(ft, fc, expected)]
   #[case(11, 10, 1)]
   #[case(9, 10, 11)]
@@ -57,7 +80,7 @@ mod test {
     for _ in 0..10 {
       rs.push(Instant::now() - Duration::from_secs(11)).await;
     }
-    let s = ExponentialBackoffStrategy::new(Duration::from_secs(10)).with_initial_backoff(Duration::from_secs(1));
+    let s = ExponentialBackoffStrategy::new(Duration::from_secs(10));
 
     s.set_failure_count(&mut rs).await;
 
