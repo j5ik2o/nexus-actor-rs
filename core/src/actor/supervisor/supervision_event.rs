@@ -1,30 +1,20 @@
-use crate::actor::ErrorReason;
-use crate::actor::ExtendedPid;
-use crate::actor::actor_system::ActorSystem;
-use crate::actor::message::Message;
-use crate::actor::supervisor::directive::Directive;
-use crate::event_stream::Subscription;
-use nexus_actor_message_derive_rs::Message;
-use std::sync::Arc;
+use async_trait::async_trait;
+use std::fmt::Debug;
 
-#[derive(Debug, Clone, PartialEq, Eq, Message)]
-pub struct SupervisorEvent {
-  pub child: ExtendedPid,
-  pub reason: ErrorReason,
-  pub directive: Directive,
+use crate::actor::{event_stream::EventStream, ActorSystem, Message, MessageHandle, Pid, Process};
+
+#[derive(Debug)]
+pub struct SupervisionEvent {
+  pub who: Option<Pid>,
+  pub message: Option<MessageHandle>,
 }
 
-pub async fn subscribe_supervision(actor_system: &ActorSystem) -> Subscription {
-  actor_system
-    .get_event_stream()
-    .await
-    .subscribe(move |evt| {
-      let evt = evt.as_any().downcast_ref::<SupervisorEvent>().cloned().map(Arc::new);
-      async move {
-        if let Some(supervisor_event) = evt {
-          tracing::debug!("[SUPERVISION]: {:?}", supervisor_event.reason.backtrace());
-        }
-      }
-    })
-    .await
+impl SupervisionEvent {
+  pub async fn publish(self, actor_system: &ActorSystem) {
+    actor_system.event_stream().await.map(|stream| {
+      tokio::spawn(async move {
+        stream.send_user_message(None, Box::new(self)).await;
+      });
+    });
+  }
 }

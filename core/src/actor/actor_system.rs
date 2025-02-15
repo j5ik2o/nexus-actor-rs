@@ -96,14 +96,14 @@ impl ActorSystem {
     }
   }
 
-  pub async fn stop(&self, pid: &Pid) {
+  pub async fn stop(&self, _pid: &Pid) {
     let inner = self.inner.lock().await;
     if let Some(process) = inner.dead_letter.as_ref() {
       process.stop().await;
     }
   }
 
-  pub async fn poison(&self, pid: &Pid) {
+  pub async fn poison(&self, _pid: &Pid) {
     let inner = self.inner.lock().await;
     if let Some(process) = inner.dead_letter.as_ref() {
       process.set_dead().await;
@@ -115,7 +115,7 @@ impl ActorSystem {
     inner
       .event_stream
       .as_ref()
-      .map(|p| Box::new(EventStreamProcess::new(self.clone())))
+      .map(|_| new_process_handle(EventStreamProcess::new(self.clone())))
   }
 
   pub async fn get_config(&self) -> Arc<ActorSystemConfig> {
