@@ -1,19 +1,19 @@
-//! Actor context module provides core actor context functionality.
+//! Actor context trait definitions.
 
 use async_trait::async_trait;
 use std::fmt::Debug;
 use std::sync::Arc;
-use std::time::Duration;
 use tokio::sync::RwLock;
 
 use crate::actor::actor_error::ActorError;
-use crate::actor::spawner::SpawnError;
+use crate::actor::message::{Message, MessageHandle, MessageOrEnvelope};
+use crate::actor::pid::Pid;
+use crate::actor::props::Props;
 use crate::actor::system::ActorSystem;
-use crate::actor::{Message, MessageHandle, MessageOrEnvelope, Pid, Props};
+use std::time::Duration;
 
 #[async_trait]
-pub trait Context: Debug + Send + Sync + 'static {
-  fn as_any(&self) -> &dyn std::any::Any;
+pub trait Context: Debug + Send + Sync {
   async fn get_self_opt(&self) -> Option<Pid>;
   async fn get_self(&self) -> Pid;
   async fn get_parent_opt(&self) -> Option<Pid>;
@@ -22,7 +22,7 @@ pub trait Context: Debug + Send + Sync + 'static {
 }
 
 #[async_trait]
-pub trait InfoPart: Debug + Send + Sync + 'static {
+pub trait InfoPart: Context {
   async fn get_self_opt(&self) -> Option<Pid>;
   async fn get_self(&self) -> Pid;
   async fn get_parent_opt(&self) -> Option<Pid>;
@@ -31,9 +31,8 @@ pub trait InfoPart: Debug + Send + Sync + 'static {
 }
 
 #[async_trait]
-pub trait MessagePart: Debug + Send + Sync + 'static {
+pub trait MessagePart: Context {
   async fn get_message(&self) -> MessageHandle;
-  async fn get_message_envelope(&self) -> MessageOrEnvelope;
   async fn get_message_headers_opt(&self) -> Option<Arc<RwLock<dyn std::any::Any + Send + Sync>>>;
   async fn get_message_envelope_opt(&self) -> Option<MessageOrEnvelope>;
   async fn get_receive_timeout(&self) -> Duration;
@@ -42,27 +41,24 @@ pub trait MessagePart: Debug + Send + Sync + 'static {
 }
 
 #[async_trait]
-pub trait ReceiverPart: Debug + Send + Sync + 'static {
+pub trait ReceiverPart: Context {
   async fn receive(&self, message: MessageOrEnvelope);
 }
 
 #[async_trait]
-pub trait SenderPart: Debug + Send + Sync + 'static {
-  async fn send(&self, target: &Pid, message: MessageHandle);
+pub trait SenderPart: Context {
   async fn request(&self, target: &Pid, message: MessageHandle) -> MessageHandle;
   async fn forward(&self, target: &Pid, message: MessageHandle);
 }
 
 #[async_trait]
-pub trait SpawnerPart: Debug + Send + Sync + 'static {
-  async fn spawn(&self, props: Props) -> Result<Pid, SpawnError>;
-  async fn spawn_prefix(&self, props: Props, prefix: &str) -> Result<Pid, SpawnError>;
+pub trait SpawnerPart: Context {
+  async fn spawn(&self, props: Props) -> Result<Pid, ActorError>;
+  async fn spawn_prefix(&self, props: Props, prefix: &str) -> Result<Pid, ActorError>;
 }
 
 #[async_trait]
-pub trait StopperPart: Debug + Send + Sync + 'static {
-  async fn stop(&self, pid: &Pid);
-  async fn poison_pill(&self, pid: &Pid);
+pub trait StopperPart: Context {
   async fn watch(&self, pid: &Pid);
   async fn unwatch(&self, pid: &Pid);
   async fn handle_failure(&self, who: Option<Pid>, error: ActorError, message: Option<MessageHandle>);
@@ -70,10 +66,4 @@ pub trait StopperPart: Debug + Send + Sync + 'static {
 
 pub trait ActorContext:
   Context + InfoPart + MessagePart + ReceiverPart + SenderPart + SpawnerPart + StopperPart {
-}
-
-// Implement ActorContext for any type that implements all required traits
-impl<T> ActorContext for T where
-  T: Context + InfoPart + MessagePart + ReceiverPart + SenderPart + SpawnerPart + StopperPart
-{
 }
