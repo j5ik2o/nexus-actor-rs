@@ -1,250 +1,163 @@
-use crate::actor::{ActorError, ActorHandle, Continuer, ExtendedPid, SpawnError, TypedExtendedPid, TypedProps};
-use crate::actor::actor_system::ActorSystem;
-use crate::actor::context::{
-  BasePart, ContextHandle, ExtensionContext, ExtensionPart, InfoPart, MessagePart, ReceiverPart, SenderPart,
-  SpawnerPart, StopperPart,
-};
-use crate::actor::dispatch::future::ActorFuture;
-use crate::actor::message::{
-  readonly_message_headers::ReadonlyMessageHeadersHandle, response::ResponseHandle,
-  typed_message_or_envelope::TypedMessageOrEnvelope, Message, MessageHandle,
-};
-use crate::actor::typed_context::{
-  TypedContext, TypedInfoPart, TypedMessagePart, TypedReceiverContext, TypedReceiverPart, TypedSenderContext,
-  TypedSenderPart, TypedSpawnerContext, TypedSpawnerPart, TypedStopperPart,
-};
-use crate::ctxext::extensions::{ContextExtensionHandle, ContextExtensionId};
 use async_trait::async_trait;
 use std::any::Any;
-use std::marker::PhantomData;
-use std::time::Duration;
+use std::fmt::Debug;
+use std::sync::Arc;
+use tokio::sync::RwLock;
 
-#[derive(Debug, Clone)]
+use crate::actor::{
+  ActorContext, ActorError, ActorHandle, ActorSystem, Message, MessageHandle, Pid, Props, SpawnError,
+  TypedMessageEnvelope,
+};
+
+#[derive(Debug)]
 pub struct TypedContextHandle<M: Message> {
-  underlying: ContextHandle,
-  phantom_data: PhantomData<M>,
+  underlying: Arc<RwLock<dyn ActorContext>>,
+  _phantom: std::marker::PhantomData<M>,
 }
 
-impl<M: Message> TypedContextHandle<M> {
-  pub fn new(underlying: ContextHandle) -> Self {
-    Self {
-      underlying,
-      phantom_data: PhantomData,
-    }
-  }
-
-  pub fn get_underlying(&self) -> &ContextHandle {
-    &self.underlying
-  }
-}
-
-impl<M: Message> ExtensionContext for TypedContextHandle<M> {}
-
-#[async_trait]
-impl<M: Message> ExtensionPart for TypedContextHandle<M> {
-  async fn get(&mut self, id: ContextExtensionId) -> Option<ContextExtensionHandle> {
-    self.underlying.get(id).await
-  }
-
-  async fn set(&mut self, ext: ContextExtensionHandle) {
-    self.underlying.set(ext).await
-  }
-}
-
-impl<M: Message + Clone> TypedSenderContext<M> for TypedContextHandle<M> {}
-
-#[async_trait]
-impl<M: Message> TypedInfoPart<M> for TypedContextHandle<M> {
-  async fn get_parent(&self) -> Option<TypedExtendedPid<M>> {
-    self.underlying.get_parent().await.map(|pid| pid.into())
-  }
-
-  async fn get_self_opt(&self) -> Option<TypedExtendedPid<M>> {
-    self.underlying.get_self_opt().await.map(|pid| pid.into())
-  }
-
-  async fn set_self(&mut self, pid: TypedExtendedPid<M>) {
-    self.underlying.set_self(pid.into()).await
-  }
-
-  async fn get_actor(&self) -> Option<ActorHandle> {
-    self.underlying.get_actor().await
-  }
-
-  async fn get_actor_system(&self) -> ActorSystem {
-    self.underlying.get_actor_system().await
-  }
-}
-
-#[async_trait]
-impl<M: Message> TypedSenderPart<M> for TypedContextHandle<M> {
-  async fn get_sender(&self) -> Option<TypedExtendedPid<M>> {
-    self.underlying.get_sender().await.map(|pid| pid.into())
-  }
-
-  async fn send<A: Message>(&mut self, pid: TypedExtendedPid<A>, message: A) {
-    self.underlying.send(pid.into(), MessageHandle::new(message)).await
-  }
-
-  async fn request<A: Message>(&mut self, pid: TypedExtendedPid<A>, message: A) {
-    self.underlying.request(pid.into(), MessageHandle::new(message)).await
-  }
-
-  async fn request_with_custom_sender<A: Message, B: Message>(
-    &mut self,
-    pid: TypedExtendedPid<A>,
-    message: A,
-    sender: TypedExtendedPid<B>,
-  ) {
-    self
-      .underlying
-      .request_with_custom_sender(pid.into(), MessageHandle::new(message), sender.into())
-      .await
-  }
-
-  async fn request_future<A: Message>(&self, pid: TypedExtendedPid<A>, message: A, timeout: Duration) -> ActorFuture {
-    self
-      .underlying
-      .request_future(pid.into(), MessageHandle::new(message), timeout)
-      .await
-  }
-}
-
-#[async_trait]
-impl<M: Message + Clone> TypedMessagePart<M> for TypedContextHandle<M> {
-  async fn get_message_envelope_opt(&self) -> Option<TypedMessageOrEnvelope<M>> {
-    self
-      .underlying
-      .get_message_envelope_opt()
-      .await
-      .map(|envelope| TypedMessageOrEnvelope::new(envelope))
-  }
-
-  async fn get_message_handle_opt(&self) -> Option<MessageHandle> {
-    self.underlying.get_message_handle_opt().await
-  }
-
-  async fn get_message_opt(&self) -> Option<M> {
-    self
-      .underlying
-      .get_message_handle_opt()
-      .await
-      .and_then(|handle| handle.to_typed::<M>())
-  }
-
-  async fn get_message_header_handle(&self) -> Option<ReadonlyMessageHeadersHandle> {
-    self.underlying.get_message_header_handle().await
-  }
-}
-
-impl<M: Message + Clone> TypedReceiverContext<M> for TypedContextHandle<M> {}
-
-#[async_trait]
-impl<M: Message> TypedReceiverPart<M> for TypedContextHandle<M> {
-  async fn receive(&mut self, envelope: TypedMessageOrEnvelope<M>) -> Result<(), ActorError> {
-    self.underlying.receive(envelope.into()).await
-  }
-}
-
-impl<M: Message> TypedSpawnerContext<M> for TypedContextHandle<M> {}
-
-#[async_trait]
-impl<M: Message> TypedSpawnerPart for TypedContextHandle<M> {
-  async fn spawn<A: Message + Clone>(&mut self, props: TypedProps<A>) -> TypedExtendedPid<A> {
-    self.underlying.spawn(props.into()).await.into()
-  }
-
-  async fn spawn_prefix<A: Message + Clone>(&mut self, props: TypedProps<A>, prefix: &str) -> TypedExtendedPid<A> {
-    self.underlying.spawn_prefix(props.into(), prefix).await.into()
-  }
-
-  async fn spawn_named<A: Message + Clone>(
-    &mut self,
-    props: TypedProps<A>,
-    id: &str,
-  ) -> Result<TypedExtendedPid<A>, SpawnError> {
-    self
-      .underlying
-      .spawn_named(props.into(), id)
-      .await
-      .map(|pid| pid.into())
-  }
-}
-
-#[async_trait]
-impl<M: Message> BasePart for TypedContextHandle<M> {
+impl<M: Message> Context for TypedContextHandle<M> {
   fn as_any(&self) -> &dyn Any {
     self
   }
+}
+
+#[async_trait]
+impl<M: Message> InfoPart for TypedContextHandle<M> {
+  async fn get_children(&self) -> Vec<Pid> {
+    self.underlying.read().await.get_children().await
+  }
 
   async fn get_receive_timeout(&self) -> Duration {
-    self.underlying.get_receive_timeout().await
+    self.underlying.read().await.get_receive_timeout().await
   }
 
-  async fn get_children(&self) -> Vec<ExtendedPid> {
-    self.underlying.get_children().await
+  async fn get_parent(&self) -> Option<Pid> {
+    self.underlying.read().await.get_parent().await
   }
 
-  async fn respond(&self, response: ResponseHandle) {
-    self.underlying.respond(response).await
+  async fn get_self_opt(&self) -> Option<Pid> {
+    self.underlying.read().await.get_self_opt().await
   }
 
-  async fn stash(&mut self) {
-    self.underlying.stash().await
+  async fn set_self(&mut self, pid: Pid) {
+    self.underlying.write().await.set_self(pid).await
   }
 
-  async fn un_stash_all(&mut self) -> Result<(), ActorError> {
-    self.underlying.un_stash_all().await
+  async fn get_actor(&self) -> Option<ActorHandle> {
+    self.underlying.read().await.get_actor().await
   }
 
-  async fn watch(&mut self, pid: &ExtendedPid) {
-    self.underlying.watch(pid).await
-  }
-
-  async fn unwatch(&mut self, pid: &ExtendedPid) {
-    self.underlying.unwatch(pid).await
-  }
-
-  async fn set_receive_timeout(&mut self, d: &Duration) {
-    self.underlying.set_receive_timeout(d).await
-  }
-
-  async fn cancel_receive_timeout(&mut self) {
-    self.underlying.cancel_receive_timeout().await
-  }
-
-  async fn forward(&self, pid: &ExtendedPid) {
-    self.underlying.forward(pid).await
-  }
-
-  async fn reenter_after(&self, f: ActorFuture, continuation: Continuer) {
-    self.underlying.reenter_after(f, continuation).await
+  async fn get_actor_system(&self) -> ActorSystem {
+    self.underlying.read().await.get_actor_system().await
   }
 }
 
 #[async_trait]
-impl<M: Message> TypedStopperPart<M> for TypedContextHandle<M> {
-  async fn stop(&mut self, pid: &TypedExtendedPid<M>) {
-    self.underlying.stop(pid.get_underlying()).await
+impl<M: Message> MessagePart for TypedContextHandle<M> {
+  async fn get_message(&self) -> MessageHandle {
+    self.underlying.read().await.get_message().await
   }
 
-  async fn stop_future_with_timeout(&mut self, pid: &TypedExtendedPid<M>, timeout: Duration) -> ActorFuture {
-    self
-      .underlying
-      .stop_future_with_timeout(pid.get_underlying(), timeout)
-      .await
+  async fn get_message_header_handle(&self) -> Option<ReadonlyMessageHeadersHandle> {
+    self.underlying.read().await.get_message_header_handle().await
   }
 
-  async fn poison(&mut self, pid: &TypedExtendedPid<M>) {
-    self.underlying.poison(pid.get_underlying()).await
+  async fn get_message_envelope_opt(&self) -> Option<MessageOrEnvelope> {
+    self.underlying.read().await.get_message_envelope_opt().await
   }
 
-  async fn poison_future_with_timeout(&mut self, pid: &TypedExtendedPid<M>, timeout: Duration) -> ActorFuture {
-    self
-      .underlying
-      .poison_future_with_timeout(pid.get_underlying(), timeout)
-      .await
+  async fn get_message_handle_opt(&self) -> Option<MessageHandle> {
+    self.underlying.read().await.get_message_handle_opt().await
   }
 }
 
-impl<M: Message + Clone> TypedContext<M> for TypedContextHandle<M> {}
+#[async_trait]
+impl<M: Message> ExtensionPart for TypedContextHandle<M> {
+  async fn register_extension<T: 'static>(&mut self, extension: T) {
+    self.underlying.write().await.register_extension(extension).await
+  }
+
+  async fn get_extension<T: 'static>(&self) -> Option<&T> {
+    self.underlying.read().await.get_extension::<T>().await
+  }
+
+  async fn get_extension_mut<T: 'static>(&mut self) -> Option<&mut T> {
+    self.underlying.write().await.get_extension_mut::<T>().await
+  }
+}
+
+impl<M: Message + Clone> TypedContext<M> for TypedContextHandle<M> {
+  async fn get_message(&self) -> M {
+    let msg = self.underlying.read().await.get_message().await;
+    msg.downcast::<M>().expect("Invalid message type")
+  }
+
+  async fn get_message_envelope_opt(&self) -> Option<TypedMessageEnvelope<M>> {
+    let env = self.underlying.read().await.get_message_envelope_opt().await?;
+    Some(TypedMessageEnvelope::new(
+      env.message.downcast::<M>().expect("Invalid message type"),
+      env.header,
+      env.sender,
+    ))
+  }
+
+  async fn get_message_envelope(&self) -> TypedMessageEnvelope<M> {
+    self.get_message_envelope_opt().await.expect("No message envelope")
+  }
+
+  async fn parent(&self) -> Option<Pid> {
+    self.get_parent().await
+  }
+
+  async fn self_pid(&self) -> Pid {
+    self.get_self_opt().await.expect("No self pid")
+  }
+
+  async fn actor_system(&self) -> Arc<RwLock<ActorSystem>> {
+    Arc::new(RwLock::new(self.get_actor_system().await))
+  }
+
+  async fn spawn(&self, props: Props) -> Result<Pid, SpawnError> {
+    self.underlying.read().await.spawn(props).await
+  }
+
+  async fn spawn_prefix(&self, props: Props, prefix: &str) -> Result<Pid, SpawnError> {
+    self.underlying.read().await.spawn_prefix(props, prefix).await
+  }
+
+  async fn watch(&self, pid: &Pid) {
+    self.underlying.read().await.watch(pid).await
+  }
+
+  async fn unwatch(&self, pid: &Pid) {
+    self.underlying.read().await.unwatch(pid).await
+  }
+
+  async fn set_receive_timeout(&self, duration: Duration) {
+    self.underlying.read().await.set_receive_timeout(&duration).await
+  }
+
+  async fn cancel_receive_timeout(&self) {
+    self.underlying.read().await.cancel_receive_timeout().await
+  }
+
+  async fn forward(&self, pid: &Pid, message: MessageHandle) {
+    self.underlying.read().await.forward(pid, message).await
+  }
+
+  async fn forward_system(&self, pid: &Pid, message: MessageHandle) {
+    self.underlying.read().await.forward_system(pid, message).await
+  }
+
+  async fn stop(&self, pid: &Pid) {
+    self.underlying.read().await.stop(pid).await
+  }
+
+  async fn poison_pill(&self, pid: &Pid) {
+    self.underlying.read().await.poison_pill(pid).await
+  }
+
+  async fn handle_failure(&self, who: Option<Pid>, error: ActorError, message: Option<MessageHandle>) {
+    self.underlying.read().await.handle_failure(who, error, message).await
+  }
+}
