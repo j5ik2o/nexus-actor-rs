@@ -67,3 +67,15 @@ pub trait StopperPart: Context {
 pub trait ActorContext:
   Context + InfoPart + MessagePart + ReceiverPart + SenderPart + SpawnerPart + StopperPart {
 }
+
+// Implement ActorContext for any type that implements all required traits
+impl<T> ActorContext for T where
+  T: Context + InfoPart + MessagePart + ReceiverPart + SenderPart + SpawnerPart + StopperPart
+{
+}
+
+// Re-export common context types
+pub type ReceiverContext = dyn Context + InfoPart + MessagePart + ReceiverPart;
+pub type SenderContext = dyn Context + InfoPart + SenderPart;
+pub type SpawnerContext = dyn Context + InfoPart + SpawnerPart;
+pub type RootContext = dyn Context + InfoPart + SenderPart + SpawnerPart + StopperPart;
