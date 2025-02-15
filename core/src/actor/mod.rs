@@ -22,28 +22,31 @@ pub mod supervisor;
 pub mod system;
 pub mod types;
 
-pub use self::{
-  actor::*,
-  actor_error::*,
-  actor_handle::*,
-  actor_ref::*,
-  context::{
-    actor_context::*, mock_context::*, receiver_context_handle::*, root_context::*, sender_context_handle::*,
-    spawner_context_handle::*, typed_actor_context::*, typed_context_handle::*, typed_root_context::*,
-  },
-  error_reason::ErrorReason,
-  event_stream::*,
-  guardian::*,
-  lifecycle::*,
-  message::*,
-  metrics::*,
-  pid::*,
-  process::*,
-  process_registry::*,
-  props::*,
-  restart_statistics::*,
-  spawner::*,
-  supervisor::*,
-  system::*,
-  types::*,
+// Re-exports with explicit paths to avoid ambiguity
+pub use self::actor::Actor;
+pub use self::actor_error::ActorError;
+pub use self::actor_handle::ActorHandle;
+pub use self::actor_ref::ActorRef;
+pub use self::context::{
+  actor_context::{ActorContext, Context, InfoPart, MessagePart, ReceiverPart, SenderPart, SpawnerPart, StopperPart},
+  mock_context::MockContext,
+  root_context::RootContext,
+  typed_actor_context::TypedActorContext,
+  typed_context_handle::TypedContextHandle,
+  typed_root_context::TypedRootContext,
 };
+pub use self::error_reason::ErrorReason;
+pub use self::event_stream::EventStream;
+pub use self::guardian::GuardianProcess;
+pub use self::lifecycle::Lifecycle;
+pub use self::message::{Message, MessageHandle, MessageOrEnvelope};
+pub use self::metrics::MetricsProvider;
+pub use self::pid::Pid;
+pub use self::process::{new_process_handle, Process, ProcessHandle};
+pub use self::process_registry::ProcessRegistry;
+pub use self::props::Props;
+pub use self::restart_statistics::RestartStatistics;
+pub use self::spawner::Spawner;
+pub use self::supervisor::{SupervisorStrategy, SupervisorStrategyHandle};
+pub use self::system::ActorSystem;
+pub use self::types::*;
