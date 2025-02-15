@@ -8,9 +8,4 @@ pub trait Message: Debug + Send + Sync + 'static {
     }
 }
 
-// Implement for all types that satisfy the trait bounds
-impl<T: Debug + Send + Sync + 'static + PartialEq> Message for T {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-}
+// No blanket implementation to avoid conflicts

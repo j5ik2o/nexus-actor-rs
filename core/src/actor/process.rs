@@ -13,15 +13,6 @@ pub trait Process: Debug + Send + Sync + 'static {
 
 pub type ProcessHandle = Box<dyn Process + Send + Sync>;
 
-// Helper functions
 pub fn new_process_handle<P: Process + Send + Sync + 'static>(process: P) -> ProcessHandle {
-    Box::new(process)
-}
-
-pub fn from_box_process(process: Box<dyn Process + Send + Sync>) -> ProcessHandle {
-    process
-}
-
-pub fn from_arc_process<P: Process + Send + Sync + 'static>(process: P) -> ProcessHandle {
     Box::new(process)
 }
