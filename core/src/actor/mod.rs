@@ -57,3 +57,6 @@ pub use process::{
 // Re-export error types
 pub use error_reason::ErrorReason;
 pub use context::SpawnError;
+
+// Re-export conversion traits
+pub use pid::PidExt;
