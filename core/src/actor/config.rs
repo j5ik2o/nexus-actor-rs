@@ -48,6 +48,14 @@ impl MeterProvider for MetricsProvider {
       MetricsProvider::Sdk(provider) => provider.versioned_meter(name, version, schema_url, attributes),
     }
   }
+
+  fn meter_with_scope(&self, scope: opentelemetry::InstrumentationScope) -> Meter {
+    match self {
+      MetricsProvider::Global(provider) => provider.meter_with_scope(scope),
+      MetricsProvider::Noop(provider) => provider.meter_with_scope(scope),
+      MetricsProvider::Sdk(provider) => provider.meter_with_scope(scope),
+    }
+  }
 }
 
 #[derive(Debug, Clone)]

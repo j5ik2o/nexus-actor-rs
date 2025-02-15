@@ -210,7 +210,7 @@ impl DefaultMailbox {
           _ => {
             if let Err(err) = message_invoker.invoke_system_message(msg.clone()).await {
               message_invoker
-                .escalate_failure(err.reason().cloned().unwrap(), msg.clone())
+                .escalate_failure(err.reason().copied().unwrap(), msg.clone())
                 .await;
             }
           }
@@ -230,7 +230,7 @@ impl DefaultMailbox {
         let result = message_invoker.invoke_user_message(message.clone()).await;
         if let Err(e) = result {
           message_invoker
-            .escalate_failure(e.reason().cloned().unwrap(), message.clone())
+            .escalate_failure(e.reason().copied().unwrap(), message.clone())
             .await;
         }
         for mut middleware in self.get_middlewares().await {
