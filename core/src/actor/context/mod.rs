@@ -17,6 +17,3 @@ pub use self::{
   sender_context_handle::*, spawner_context_handle::*, typed_actor_context::*, typed_context_handle::*,
   typed_root_context::*,
 };
-
-// Type aliases
-pub type ActorSystem = crate::actor::context::actor_context::ActorSystem;

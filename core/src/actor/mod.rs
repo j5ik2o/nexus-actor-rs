@@ -28,8 +28,11 @@ pub use self::{
   actor_handle::ActorHandle,
   actor_ref::ActorRef,
   context::{
-    ActorContext, Context, ExtensionPart, InfoPart, MessagePart, ReceiverContext, ReceiverPart, RootContext,
-    SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart, TypedContext, TypedRootContext,
+    actor_context::ActorContext, actor_context::Context, actor_context::ExtensionPart, actor_context::InfoPart,
+    actor_context::MessagePart, actor_context::ReceiverContext, actor_context::ReceiverPart,
+    actor_context::RootContext, actor_context::SenderContext, actor_context::SenderPart, actor_context::SpawnerContext,
+    actor_context::SpawnerPart, actor_context::StopperPart, actor_context::TypedContext,
+    actor_context::TypedRootContext,
   },
   dispatch::*,
   error_reason::ErrorReason,
@@ -50,4 +53,3 @@ pub use self::{
 
 // Type aliases
 pub type SpawnError = Box<dyn std::error::Error + Send + Sync>;
-pub type ActorSystem = crate::actor::context::ActorSystem;
