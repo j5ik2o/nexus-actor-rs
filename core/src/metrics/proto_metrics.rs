@@ -1,7 +1,7 @@
 use crate::actor::MetricsProvider;
 use crate::metrics::ActorMetrics;
 use dashmap::DashMap;
-use opentelemetry::metrics::MetricsError;
+use std::error::Error;
 use std::sync::Arc;
 
 #[derive(Debug, Clone)]

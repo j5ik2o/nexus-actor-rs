@@ -29,7 +29,7 @@ pub struct ActorMetrics {
 }
 
 impl ActorMetrics {
-  pub fn new(meter_provider: Arc<MetricsProvider>) -> Result<Self, opentelemetry::metrics::MetricsError> {
+  pub fn new(meter_provider: Arc<MetricsProvider>) -> Result<Self, Box<dyn std::error::Error>> {
     let meter = meter_provider.meter(LIB_NAME);
 
     Ok(ActorMetrics {

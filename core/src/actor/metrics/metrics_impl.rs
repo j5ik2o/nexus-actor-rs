@@ -4,7 +4,7 @@ use crate::actor::context::Context;
 use crate::extensions::{next_extension_id, Extension, ExtensionId};
 use crate::metrics::{ActorMetrics, ProtoMetrics};
 use once_cell::sync::Lazy;
-use opentelemetry::metrics::MetricsError;
+use std::error::Error;
 use opentelemetry::KeyValue;
 use std::any::Any;
 
