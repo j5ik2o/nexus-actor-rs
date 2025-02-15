@@ -17,9 +17,8 @@ pub enum MetricsProvider {
 impl Clone for MetricsProvider {
   fn clone(&self) -> Self {
     match self {
-      MetricsProvider::Global(provider) => MetricsProvider::Global(provider.clone()),
-      MetricsProvider::Noop(_) => MetricsProvider::Noop(NoopMeterProvider::default()),
       MetricsProvider::Sdk(provider) => MetricsProvider::Sdk(provider.clone()),
+      MetricsProvider::Noop(_) => MetricsProvider::Noop(NoopMeterProvider::default()),
     }
   }
 }

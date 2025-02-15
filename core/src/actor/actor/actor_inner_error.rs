@@ -19,7 +19,7 @@ impl ErrorReason {
     Self {
       reason: Some(Arc::new(reason)),
       code,
-      backtrace: Backtrace::new(),
+      backtrace: Backtrace::capture(),
     }
   }
 
@@ -125,7 +125,7 @@ impl From<std::io::Error> for ErrorReason {
     ErrorReason {
       reason: Some(error_arc.clone()),
       code: 0,
-      backtrace: Backtrace::new(),
+      backtrace: Backtrace::capture(),
     }
   }
 }
