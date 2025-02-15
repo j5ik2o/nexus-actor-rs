@@ -1,4 +1,4 @@
-use opentelemetry::metrics::MetricsError;
+use std::error::Error;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use uuid::Uuid;
@@ -52,17 +52,17 @@ pub struct ActorSystem {
 }
 
 impl ActorSystem {
-  pub async fn new() -> Result<Self, MetricsError> {
+  pub async fn new() -> Result<Self, Box<dyn std::error::Error>> {
     Self::new_config_options([]).await
   }
 
-  pub async fn new_config_options(options: impl IntoIterator<Item = ConfigOption>) -> Result<Self, MetricsError> {
+  pub async fn new_config_options(options: impl IntoIterator<Item = ConfigOption>) -> Result<Self, Box<dyn std::error::Error>> {
     let options = options.into_iter().collect::<Vec<_>>();
     let config = Config::from(options);
     Self::new_with_config(config).await
   }
 
-  pub async fn new_with_config(config: Config) -> Result<Self, MetricsError> {
+  pub async fn new_with_config(config: Config) -> Result<Self, Box<dyn std::error::Error>> {
     let system = Self {
       inner: Arc::new(Mutex::new(ActorSystemInner::new(config.clone()).await)),
     };
