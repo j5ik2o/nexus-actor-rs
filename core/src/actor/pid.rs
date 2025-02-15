@@ -73,6 +73,26 @@ impl PidExt for ExtendedPid {
     }
 }
 
+impl PidExt for GeneratedPid {
+    fn to_extended(&self) -> ExtendedPid {
+        ExtendedPid {
+            address: self.address.clone(),
+            id: self.id,
+        }
+    }
+
+    fn to_pid(&self) -> Pid {
+        Pid {
+            address: self.address.clone(),
+            id: self.id,
+        }
+    }
+
+    fn to_generated(&self) -> GeneratedPid {
+        self.clone()
+    }
+}
+
 impl ExtendedPid {
     pub fn new(pid: impl PidExt) -> Self {
         pid.to_extended()

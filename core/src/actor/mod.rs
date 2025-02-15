@@ -25,8 +25,8 @@ pub use self::{
     guardian::*,
     message::*,
     metrics::*,
-    pid::{ExtendedPid, Pid},
-    process::{new_process_handle, Process},
+    pid::{ExtendedPid, Pid, PidExt},
+    process::{Process, ProcessHandle, new_process_handle},
     process_registry::*,
     supervisor::*,
     typed_context::*,
@@ -45,18 +45,6 @@ pub use message::{
     TypedMessageOrEnvelope,
 };
 
-// Re-export process types
-pub use process::{
-    Process,
-    ProcessHandle,
-    new_process_handle,
-    from_box_process,
-    from_arc_process,
-};
-
 // Re-export error types
 pub use error_reason::ErrorReason;
 pub use context::SpawnError;
-
-// Re-export conversion traits
-pub use pid::PidExt;
