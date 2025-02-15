@@ -5,17 +5,18 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
 
-use crate::actor::{
-  ActorContext, ActorError, ActorHandle, ActorSystem, Message, MessageHandle, MessageOrEnvelope, Pid, Props,
-  ReadonlyMessageHeadersHandle, ResponseHandle, SpawnError,
+use crate::actor::context::actor_context::{
+  ActorSystem, Context, ExtensionPart, InfoPart, MessagePart, ReceiverContext, ReceiverPart, RootContext,
+  SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart, TypedContext,
 };
+use crate::actor::{ActorError, Message, MessageHandle, MessageOrEnvelope, Pid, Props, SpawnError};
 
 #[derive(Debug)]
 pub struct MockContext {
-  actor_system: ActorSystem,
-  extensions: Arc<RwLock<Vec<Box<dyn Any + Send + Sync>>>>,
+  inner: Arc<RwLock<ActorSystem>>,
 }
 
+#[async_trait]
 impl Context for MockContext {
   fn as_any(&self) -> &dyn Any {
     self
@@ -24,40 +25,30 @@ impl Context for MockContext {
 
 #[async_trait]
 impl InfoPart for MockContext {
-  async fn get_children(&self) -> Vec<Pid> {
-    Vec::new()
-  }
-
-  async fn get_receive_timeout(&self) -> Duration {
-    Duration::from_secs(0)
-  }
-
-  async fn get_parent(&self) -> Option<Pid> {
-    None
-  }
-
   async fn get_self_opt(&self) -> Option<Pid> {
     None
   }
 
-  async fn set_self(&mut self, _pid: Pid) {}
+  async fn get_self(&self) -> Pid {
+    unimplemented!()
+  }
 
-  async fn get_actor(&self) -> Option<ActorHandle> {
+  async fn get_parent_opt(&self) -> Option<Pid> {
     None
   }
 
-  async fn get_actor_system(&self) -> ActorSystem {
-    self.actor_system.clone()
+  async fn get_parent(&self) -> Pid {
+    unimplemented!()
+  }
+
+  async fn get_actor_system(&self) -> Arc<RwLock<ActorSystem>> {
+    self.inner.clone()
   }
 }
 
 #[async_trait]
 impl MessagePart for MockContext {
-  async fn get_message(&self) -> MessageHandle {
-    unimplemented!("Mock context does not handle messages")
-  }
-
-  async fn get_message_header_handle(&self) -> Option<ReadonlyMessageHeadersHandle> {
+  async fn get_message_headers_opt(&self) -> Option<Arc<RwLock<dyn Any + Send + Sync>>> {
     None
   }
 
@@ -65,69 +56,48 @@ impl MessagePart for MockContext {
     None
   }
 
-  async fn get_message_handle_opt(&self) -> Option<MessageHandle> {
-    None
+  async fn get_message_envelope(&self) -> MessageOrEnvelope {
+    unimplemented!()
   }
+
+  async fn get_receive_timeout(&self) -> Duration {
+    Duration::from_secs(0)
+  }
+
+  async fn set_receive_timeout(&self, _duration: Duration) {}
+
+  async fn cancel_receive_timeout(&self) {}
 }
 
 #[async_trait]
 impl SenderPart for MockContext {
-  async fn forward(&self, _pid: &Pid) {}
+  async fn send(&self, _target: &Pid, _message: MessageHandle) {}
 
-  async fn respond(&self, _response: ResponseHandle) {}
-
-  async fn get_sender(&self) -> Option<Pid> {
-    None
+  async fn request(&self, _target: &Pid, _message: MessageHandle) -> Result<Box<dyn Message>, ActorError> {
+    unimplemented!()
   }
 
-  async fn send(&mut self, _pid: Pid, _message_handle: MessageHandle) {}
-
-  async fn request(&mut self, _pid: Pid, _message_handle: MessageHandle) {}
-
-  async fn request_with_custom_sender(&mut self, _pid: Pid, _message_handle: MessageHandle, _sender: Pid) {}
-
-  async fn request_future(&self, _pid: Pid, _message_handle: MessageHandle) -> Result<ResponseHandle, ActorError> {
-    Err(ActorError::Unimplemented)
-  }
+  async fn forward(&self, _target: &Pid, _message: MessageHandle) {}
 }
 
 #[async_trait]
 impl ExtensionPart for MockContext {
-  async fn register_extension<T: 'static>(&mut self, extension: T) {
-    self.extensions.write().await.push(Box::new(extension));
-  }
-
-  async fn get_extension<T: 'static>(&self) -> Option<&T> {
-    for ext in self.extensions.read().await.iter() {
-      if let Some(ext) = ext.as_any().downcast_ref::<T>() {
-        return Some(ext);
-      }
-    }
+  async fn get_extension<T: Any + Send + Sync>(&self) -> Option<Arc<RwLock<T>>> {
     None
   }
 
-  async fn get_extension_mut<T: 'static>(&mut self) -> Option<&mut T> {
-    for ext in self.extensions.write().await.iter_mut() {
-      if let Some(ext) = ext.as_any_mut().downcast_mut::<T>() {
-        return Some(ext);
-      }
-    }
-    None
-  }
+  async fn set_extension<T: Any + Send + Sync>(&self, _extension: T) {}
 }
 
 #[async_trait]
 impl StopperPart for MockContext {
-  async fn stop(&self) {}
+  async fn stop(&self, _pid: &Pid) {}
 
-  async fn poison_pill(&self) {}
-}
+  async fn poison_pill(&self, _pid: &Pid) {}
 
-impl MockContext {
-  pub fn new(actor_system: ActorSystem) -> Self {
-    Self {
-      actor_system,
-      extensions: Arc::new(RwLock::new(Vec::new())),
-    }
-  }
+  async fn watch(&self, _pid: &Pid) {}
+
+  async fn unwatch(&self, _pid: &Pid) {}
+
+  async fn handle_failure(&self, _who: Option<Pid>, _error: ActorError, _message: Option<MessageHandle>) {}
 }
