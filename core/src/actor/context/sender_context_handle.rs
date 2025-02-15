@@ -5,14 +5,15 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
 
-use crate::actor::{
-  ActorContext, ActorError, ActorHandle, ActorSystem, Message, MessageHandle, MessageOrEnvelope, Pid, Props,
-  ReadonlyMessageHeadersHandle, ResponseHandle,
-};
+use crate::actor::context::actor_context::{Context, InfoPart, MessagePart, SenderContext, SenderPart};
+use crate::actor::{ActorError, ActorSystem, Message, MessageHandle, MessageOrEnvelope, Pid};
 
 #[derive(Debug)]
-pub struct SenderContextHandle(pub Arc<RwLock<dyn ActorContext>>);
+pub struct SenderContextHandle {
+  inner: Arc<RwLock<ActorSystem>>,
+}
 
+#[async_trait]
 impl Context for SenderContextHandle {
   fn as_any(&self) -> &dyn Any {
     self
@@ -21,88 +22,59 @@ impl Context for SenderContextHandle {
 
 #[async_trait]
 impl InfoPart for SenderContextHandle {
-  async fn get_children(&self) -> Vec<Pid> {
-    self.0.read().await.get_children().await
-  }
-
-  async fn get_receive_timeout(&self) -> Duration {
-    self.0.read().await.get_receive_timeout().await
-  }
-
-  async fn get_parent(&self) -> Option<Pid> {
-    self.0.read().await.get_parent().await
-  }
-
   async fn get_self_opt(&self) -> Option<Pid> {
-    self.0.read().await.get_self_opt().await
+    None
   }
 
-  async fn set_self(&mut self, pid: Pid) {
-    self.0.write().await.set_self(pid).await
+  async fn get_self(&self) -> Pid {
+    unimplemented!()
   }
 
-  async fn get_actor(&self) -> Option<ActorHandle> {
-    self.0.read().await.get_actor().await
+  async fn get_parent_opt(&self) -> Option<Pid> {
+    None
   }
 
-  async fn get_actor_system(&self) -> ActorSystem {
-    self.0.read().await.get_actor_system().await
+  async fn get_parent(&self) -> Pid {
+    unimplemented!()
+  }
+
+  async fn get_actor_system(&self) -> Arc<RwLock<ActorSystem>> {
+    self.inner.clone()
   }
 }
 
 #[async_trait]
 impl MessagePart for SenderContextHandle {
-  async fn get_message(&self) -> MessageHandle {
-    self.0.read().await.get_message().await
-  }
-
-  async fn get_message_header_handle(&self) -> Option<ReadonlyMessageHeadersHandle> {
-    self.0.read().await.get_message_header_handle().await
+  async fn get_message_headers_opt(&self) -> Option<Arc<RwLock<dyn Any + Send + Sync>>> {
+    None
   }
 
   async fn get_message_envelope_opt(&self) -> Option<MessageOrEnvelope> {
-    self.0.read().await.get_message_envelope_opt().await
+    None
   }
 
-  async fn get_message_handle_opt(&self) -> Option<MessageHandle> {
-    self.0.read().await.get_message_handle_opt().await
+  async fn get_message_envelope(&self) -> MessageOrEnvelope {
+    unimplemented!()
   }
+
+  async fn get_receive_timeout(&self) -> Duration {
+    Duration::from_secs(0)
+  }
+
+  async fn set_receive_timeout(&self, _duration: Duration) {}
+
+  async fn cancel_receive_timeout(&self) {}
 }
 
 #[async_trait]
 impl SenderPart for SenderContextHandle {
-  async fn forward(&self, pid: &Pid) {
-    self.0.read().await.forward(pid).await
+  async fn send(&self, _target: &Pid, _message: MessageHandle) {}
+
+  async fn request(&self, _target: &Pid, _message: MessageHandle) -> Result<Box<dyn Message>, ActorError> {
+    unimplemented!()
   }
 
-  async fn respond(&self, response: ResponseHandle) {
-    self.0.read().await.respond(response).await
-  }
-
-  async fn get_sender(&self) -> Option<Pid> {
-    self.0.read().await.get_sender().await
-  }
-
-  async fn send(&mut self, pid: Pid, message_handle: MessageHandle) {
-    self.0.write().await.send(pid, message_handle).await
-  }
-
-  async fn request(&mut self, pid: Pid, message_handle: MessageHandle) {
-    self.0.write().await.request(pid, message_handle).await
-  }
-
-  async fn request_with_custom_sender(&mut self, pid: Pid, message_handle: MessageHandle, sender: Pid) {
-    self
-      .0
-      .write()
-      .await
-      .request_with_custom_sender(pid, message_handle, sender)
-      .await
-  }
-
-  async fn request_future(&self, pid: Pid, message_handle: MessageHandle) -> Result<ResponseHandle, ActorError> {
-    self.0.read().await.request_future(pid, message_handle).await
-  }
+  async fn forward(&self, _target: &Pid, _message: MessageHandle) {}
 }
 
 impl SenderContext for SenderContextHandle {}
