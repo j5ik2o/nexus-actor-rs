@@ -21,26 +21,32 @@ pub mod spawner;
 pub mod supervisor;
 pub mod typed_context;
 
-// Re-exports with explicit paths to avoid ambiguity
+// Re-exports
 pub use self::{
   actor::*,
-  actor_error::*,
-  actor_handle::*,
-  actor_ref::*,
-  context::*,
+  actor_error::ActorError,
+  actor_handle::ActorHandle,
+  actor_ref::ActorRef,
+  context::{
+    ActorContext, Context, ExtensionPart, InfoPart, MessagePart, ReceiverContext, ReceiverPart, RootContext,
+    SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart, TypedContext, TypedRootContext,
+  },
   dispatch::*,
   error_reason::ErrorReason,
-  event_stream::*,
+  event_stream::EventStream,
   guardian::*,
   lifecycle::*,
   message::*,
   metrics::*,
-  pid::{ExtendedPid, Pid},
-  process::{new_process_handle, Process},
+  pid::Pid,
+  process::{Process, ProcessHandle},
   process_registry::*,
-  props::*,
+  props::Props,
   restart_statistics::*,
   spawner::*,
   supervisor::*,
   typed_context::*,
 };
+
+// Type aliases
+pub type SpawnError = Box<dyn std::error::Error + Send + Sync>;
