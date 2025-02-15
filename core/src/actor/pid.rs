@@ -56,6 +56,12 @@ impl From<&Pid> for ExtendedPid {
   }
 }
 
+impl ExtendedPid {
+  pub fn new(pid: impl Into<ExtendedPid>) -> Self {
+    pid.into()
+  }
+}
+
 impl Pid {
   pub fn new(address: String, id: u64) -> Self {
     Self { address, id }
