@@ -32,6 +32,9 @@ pub trait Message: Debug + Send + Sync + 'static {
   }
 }
 
+// Remove blanket implementation to avoid conflicts
+// Instead, provide specific implementations for each type
+
 // Re-exports
 pub use self::{
   auto_receive_message::AutoReceiveMessage,
