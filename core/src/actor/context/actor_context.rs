@@ -1118,6 +1118,10 @@ impl MessageInvoker for ActorContext {
 
 #[async_trait]
 impl Supervisor for ActorContext {
+  fn as_any(&self) -> &dyn std::any::Any {
+    self
+  }
+
   async fn get_children(&self) -> Vec<ExtendedPid> {
     if self.get_extras().await.is_none() {
       return vec![];

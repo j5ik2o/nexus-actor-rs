@@ -133,6 +133,10 @@ impl Process for GuardianProcess {
 
 #[async_trait]
 impl Supervisor for GuardianProcess {
+  fn as_any(&self) -> &dyn std::any::Any {
+    self
+  }
+
   async fn get_children(&self) -> Vec<ExtendedPid> {
     panic!("guardian does not hold its children PIDs");
   }

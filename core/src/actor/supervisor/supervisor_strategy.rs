@@ -74,6 +74,7 @@ pub trait SupervisorStrategy: Debug + Send + Sync {
 
 #[async_trait]
 pub trait Supervisor: Debug + Send + Sync + 'static {
+  fn as_any(&self) -> &dyn std::any::Any;
   async fn get_children(&self) -> Vec<ExtendedPid>;
   async fn escalate_failure(&self, reason: ErrorReason, message_handle: MessageHandle);
   async fn restart_children(&self, pids: &[ExtendedPid]);
@@ -83,6 +84,12 @@ pub trait Supervisor: Debug + Send + Sync + 'static {
 
 #[derive(Debug, Clone)]
 pub struct SupervisorHandle(Arc<Mutex<dyn Supervisor>>);
+
+impl SupervisorHandle {
+  pub async fn get_supervisor(&self) -> Arc<Mutex<dyn Supervisor>> {
+    self.0.clone()
+  }
+}
 
 impl SupervisorHandle {
   pub fn new_arc(s: Arc<Mutex<dyn Supervisor>>) -> Self {
@@ -110,6 +117,10 @@ impl std::hash::Hash for SupervisorHandle {
 
 #[async_trait]
 impl Supervisor for SupervisorHandle {
+  fn as_any(&self) -> &dyn std::any::Any {
+    self
+  }
+
   async fn get_children(&self) -> Vec<ExtendedPid> {
     let mg = self.0.lock().await;
     mg.get_children().await
