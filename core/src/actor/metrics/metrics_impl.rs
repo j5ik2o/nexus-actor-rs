@@ -4,9 +4,9 @@ use crate::actor::context::Context;
 use crate::extensions::{next_extension_id, Extension, ExtensionId};
 use crate::metrics::{ActorMetrics, ProtoMetrics};
 use once_cell::sync::Lazy;
-use opentelemetry::metrics::MetricsError;
 use opentelemetry::KeyValue;
 use std::any::Any;
+use std::error::Error;
 
 pub static EXTENSION_ID: Lazy<ExtensionId> = Lazy::new(next_extension_id);
 
@@ -32,7 +32,7 @@ impl Extension for Metrics {
 }
 
 impl Metrics {
-  pub async fn new(system: ActorSystem) -> Result<Self, MetricsError> {
+  pub async fn new(system: ActorSystem) -> Result<Self, Box<dyn std::error::Error>> {
     match system.clone().get_config().await.metrics_provider {
       Some(mp) => Ok(Metrics {
         proto_metrics: Some(ProtoMetrics::new(mp)?),
