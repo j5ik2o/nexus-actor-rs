@@ -1,7 +1,9 @@
 //! Message handle implementation.
 
-use crate::actor::message::Message;
+use nexus_actor_utils_rs::collections::Element;
 use std::fmt::Debug;
+
+use crate::actor::message::Message;
 
 #[derive(Debug, Clone)]
 pub struct MessageHandle {
@@ -16,8 +18,6 @@ impl MessageHandle {
   pub fn get_message(&self) -> &Box<dyn Message> {
     &self.message
   }
-
-  pub async fn to_typed<T: Message + Clone>(&self) -> Option<T> {
-    self.message.as_any().downcast_ref::<T>().cloned()
-  }
 }
+
+impl Element for MessageHandle {}

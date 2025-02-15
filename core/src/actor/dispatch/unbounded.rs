@@ -5,15 +5,14 @@ use std::fmt::Debug;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::actor::message::MessageHandle;
-use nexus_actor_utils_rs::collections::{QueueBase, QueueError, QueueReader, QueueSize, QueueWriter};
+use nexus_actor_utils_rs::collections::{Element, QueueBase, QueueError, QueueReader, QueueSize, QueueWriter};
 
 #[derive(Debug, Clone)]
-pub struct UnboundedQueue<T: Debug + Send + Sync + 'static> {
+pub struct UnboundedQueue<T: Element> {
   queue: Arc<RwLock<Vec<T>>>,
 }
 
-impl<T: Debug + Send + Sync + 'static> UnboundedQueue<T> {
+impl<T: Element> UnboundedQueue<T> {
   pub fn new() -> Self {
     Self {
       queue: Arc::new(RwLock::new(Vec::new())),
@@ -22,7 +21,7 @@ impl<T: Debug + Send + Sync + 'static> UnboundedQueue<T> {
 }
 
 #[async_trait]
-impl<T: Debug + Send + Sync + 'static> QueueBase for UnboundedQueue<T> {
+impl<T: Element> QueueBase<T> for UnboundedQueue<T> {
   async fn len(&self) -> QueueSize {
     QueueSize::new(self.queue.read().await.len())
   }
@@ -33,25 +32,25 @@ impl<T: Debug + Send + Sync + 'static> QueueBase for UnboundedQueue<T> {
 }
 
 #[async_trait]
-impl<T: Debug + Send + Sync + 'static> QueueReader<T> for UnboundedQueue<T> {
-  async fn dequeue(&mut self) -> Option<T> {
-    self.queue.write().await.pop()
+impl<T: Element> QueueReader<T> for UnboundedQueue<T> {
+  async fn poll(&mut self) -> Result<Option<T>, QueueError<T>> {
+    Ok(self.queue.write().await.pop())
   }
 
-  async fn peek(&self) -> Option<&T> {
-    self.queue.read().await.last()
+  async fn clean_up(&mut self) {
+    self.queue.write().await.clear();
   }
 }
 
 #[async_trait]
-impl<T: Debug + Send + Sync + 'static> QueueWriter<T> for UnboundedQueue<T> {
-  async fn enqueue(&mut self, item: T) -> Result<(), QueueError> {
-    self.queue.write().await.push(item);
+impl<T: Element> QueueWriter<T> for UnboundedQueue<T> {
+  async fn offer(&mut self, element: T) -> Result<(), QueueError<T>> {
+    self.queue.write().await.push(element);
     Ok(())
   }
 }
 
-impl<T: Debug + Send + Sync + 'static> Default for UnboundedQueue<T> {
+impl<T: Element> Default for UnboundedQueue<T> {
   fn default() -> Self {
     Self::new()
   }
