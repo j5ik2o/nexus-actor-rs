@@ -2,11 +2,14 @@
 
 pub mod actor;
 pub mod actor_error;
-pub mod actor_system;
+pub mod actor_handle;
+pub mod actor_ref;
 pub mod context;
 pub mod dispatch;
+pub mod error_reason;
 pub mod event_stream;
 pub mod guardian;
+pub mod lifecycle;
 pub mod message;
 pub mod metrics;
 pub mod pid;
@@ -18,27 +21,32 @@ pub mod spawner;
 pub mod supervisor;
 pub mod typed_context;
 
-// Re-export key types and traits
+// Re-exports with explicit paths to avoid ambiguity
 pub use self::{
   actor::*,
   actor_error::*,
-  actor_system::ActorSystem,
+  actor_handle::*,
+  actor_ref::*,
   context::{
     actor_context::{
-      ActorContext, Context, ExtensionPart, InfoPart, MessagePart, ReceiverContext, ReceiverPart, RootContext,
-      SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart,
+      ActorContext, Context, InfoPart, MessagePart, ReceiverContext, ReceiverPart, RootContext, SenderContext,
+      SenderPart, SpawnerContext, SpawnerPart, StopperPart,
     },
-    typed_context::TypedContext,
+    typed_actor_context::TypedActorContext,
+    typed_context_handle::TypedContextHandle,
+    typed_root_context::TypedRootContext,
   },
-  message::{Message, MessageHandle, MessageHeaders, MessageOrEnvelope, TypedMessageEnvelope},
-  pid::Pid,
+  error_reason::ErrorReason,
+  event_stream::*,
+  guardian::*,
+  lifecycle::*,
+  message::{Message, MessageHandle, MessageOrEnvelope, TypedMessageEnvelope},
+  pid::{ExtendedPid, Pid},
   process::{Process, ProcessHandle},
-  props::Props,
+  process_registry::*,
+  props::*,
   restart_statistics::*,
   spawner::*,
   supervisor::*,
+  typed_context::TypedContext,
 };
-
-// Type aliases
-pub type ErrorReason = Box<dyn std::error::Error + Send + Sync>;
-pub type ActorProcess = Box<dyn Process + Send + Sync>;
