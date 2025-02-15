@@ -1,11 +1,11 @@
 [workspace]
 resolver = "2"
 members = [
-    "utils",
-    "core",
-    "message-derive",
-    "remote",
-    "cluster"
+  "utils"
+  ,"core"
+  ,"message-derive"
+  ,"remote"
+  ,"cluster"
 ]
 
 [workspace.dependencies]
