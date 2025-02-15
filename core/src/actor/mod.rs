@@ -47,3 +47,24 @@ impl Clone for Box<dyn Process + Send + Sync> {
     Box::new(self.as_ref().clone())
   }
 }
+
+// Implement Clone for Process
+impl Clone for dyn Process + Send + Sync {
+  fn clone(&self) -> Box<dyn Process + Send + Sync> {
+    self.clone_box()
+  }
+}
+
+// Add clone_box method to Process trait
+pub trait ProcessClone {
+  fn clone_box(&self) -> Box<dyn Process + Send + Sync>;
+}
+
+impl<T> ProcessClone for T
+where
+  T: Process + Clone + Send + Sync + 'static,
+{
+  fn clone_box(&self) -> Box<dyn Process + Send + Sync> {
+    Box::new(self.clone())
+  }
+}

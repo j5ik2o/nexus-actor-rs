@@ -50,9 +50,5 @@ pub use self::{
   typed_message_or_envelope::{TypedMessageEnvelope, TypedMessageOrEnvelope},
 };
 
-// Implement Message for all types that satisfy the trait bounds
-impl<T: Debug + Send + Sync + 'static + PartialEq> Message for T {
-  fn as_any(&self) -> &(dyn Any + Send + Sync) {
-    self
-  }
-}
+// Remove blanket implementation to avoid conflicts
+// Each type should implement Message explicitly
