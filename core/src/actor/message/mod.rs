@@ -1,4 +1,4 @@
-//! Message module provides message handling functionality.
+//! Message module provides message types and traits.
 
 pub mod auto_receive_message;
 pub mod auto_respond;
@@ -7,7 +7,6 @@ pub mod dead_letter_response;
 pub mod failure;
 pub mod ignore_dead_letter_logging;
 pub mod json_serializer;
-pub mod message;
 pub mod message_batch;
 pub mod message_handle;
 pub mod message_headers;
@@ -21,8 +20,29 @@ pub mod touched;
 pub mod typed_message_or_envelope;
 
 pub use self::{
-  message::Message, message_handle::MessageHandle, message_headers::MessageHeaders,
-  message_or_envelope::MessageOrEnvelope, typed_message_or_envelope::TypedMessageOrEnvelope,
+  auto_receive_message::AutoReceiveMessage, auto_respond::AutoRespond, continuation::Continuation,
+  dead_letter_response::DeadLetterResponse, failure::Failure, ignore_dead_letter_logging::IgnoreDeadLetterLogging,
+  message_batch::MessageBatch, message_handle::MessageHandle, message_headers::MessageHeaders,
+  message_or_envelope::MessageOrEnvelope, receive_timeout::ReceiveTimeout, response::Response,
+  system_message::SystemMessage, touched::Touched, typed_message_or_envelope::TypedMessageOrEnvelope,
 };
 
-pub type TypedMessageEnvelope<T> = TypedMessageOrEnvelope<T>;
+use std::any::Any;
+use std::fmt::Debug;
+
+pub trait Message: Debug + Send + Sync + 'static {
+  fn eq_message(&self, other: &dyn Message) -> bool {
+    if let Some(other) = other.as_any().downcast_ref::<Self>() {
+      self == other
+    } else {
+      false
+    }
+  }
+
+  fn as_any(&self) -> &dyn Any;
+  fn message_type(&self) -> &'static str {
+    std::any::type_name::<Self>()
+  }
+}
+
+// Remove blanket implementation to avoid conflicts
