@@ -14,6 +14,30 @@ impl Display for Pid {
     }
 }
 
+impl From<Pid> for ExtendedPid {
+    fn from(pid: Pid) -> Self {
+        ExtendedPid {
+            address: pid.address,
+            id: pid.id,
+        }
+    }
+}
+
+impl From<ExtendedPid> for Pid {
+    fn from(pid: ExtendedPid) -> Self {
+        Pid {
+            address: pid.address,
+            id: pid.id,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ExtendedPid {
+    pub address: String,
+    pub id: u64,
+}
+
 impl Pid {
     pub fn new(address: String, id: u64) -> Self {
         Self { address, id }
