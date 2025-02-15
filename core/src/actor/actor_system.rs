@@ -56,7 +56,9 @@ impl ActorSystem {
     Self::new_config_options([]).await
   }
 
-  pub async fn new_config_options(options: impl IntoIterator<Item = ConfigOption>) -> Result<Self, Box<dyn std::error::Error>> {
+  pub async fn new_config_options(
+    options: impl IntoIterator<Item = ConfigOption>,
+  ) -> Result<Self, Box<dyn std::error::Error>> {
     let options = options.into_iter().collect::<Vec<_>>();
     let config = Config::from(options);
     Self::new_with_config(config).await
