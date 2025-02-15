@@ -86,9 +86,9 @@ pub trait Supervisor: Debug + Send + Sync + 'static {
 pub struct SupervisorHandle(Arc<Mutex<dyn Supervisor>>);
 
 impl SupervisorHandle {
-    pub async fn get_supervisor(&self) -> Arc<Mutex<dyn Supervisor>> {
-        self.0.clone()
-    }
+  pub async fn get_supervisor(&self) -> Arc<Mutex<dyn Supervisor>> {
+    self.0.clone()
+  }
 }
 
 impl SupervisorHandle {

@@ -1,20 +1,20 @@
 #[cfg(test)]
 mod test {
+  use std::any::Any;
   use std::env;
   use std::sync::{Arc, Mutex};
   use std::time::{Duration, Instant};
-  use std::any::Any;
 
   use async_trait::async_trait;
   use tracing_subscriber::EnvFilter;
 
   use crate::actor::actor::{ErrorReason, ExtendedPid, RestartStatistics};
-  use crate::generated::actor::Pid;
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::message::{Message, MessageHandle};
   use crate::actor::supervisor::directive::Directive;
   use crate::actor::supervisor::strategy_one_for_one::OneForOneStrategy;
   use crate::actor::supervisor::supervisor_strategy::{Supervisor, SupervisorHandle, SupervisorStrategy};
+  use crate::generated::actor::Pid;
 
   #[tokio::test]
   async fn test_one_for_one_strategy_request_restart_permission() {
@@ -106,6 +106,7 @@ mod test {
     fn as_any(&self) -> &dyn Any {
       self
     }
+
     async fn get_children(&self) -> Vec<ExtendedPid> {
       self.children.lock().unwrap().clone()
     }
@@ -165,7 +166,7 @@ mod test {
     let guard = mock_supervisor.lock().await;
     let mock_supervisor = guard.as_any().downcast_ref::<MockSupervisor>().unwrap();
     let last_action = mock_supervisor.last_action.lock().unwrap().clone();
-    assert_eq!(last_action.as_str(),"resume");
+    assert_eq!(last_action.as_str(), "resume");
   }
 
   #[tokio::test]
@@ -194,7 +195,7 @@ mod test {
     let guard = mock_supervisor.lock().await;
     let mock_supervisor = guard.as_any().downcast_ref::<MockSupervisor>().unwrap();
     let last_action = mock_supervisor.last_action.lock().unwrap().clone();
-    assert_eq!(last_action.as_str(),"restart");
+    assert_eq!(last_action.as_str(), "restart");
   }
 
   #[tokio::test]
@@ -223,7 +224,7 @@ mod test {
     let guard = mock_supervisor.lock().await;
     let mock_supervisor = guard.as_any().downcast_ref::<MockSupervisor>().unwrap();
     let last_action = mock_supervisor.last_action.lock().unwrap().clone();
-    assert_eq!(last_action.as_str(),"stop");
+    assert_eq!(last_action.as_str(), "stop");
   }
 
   #[tokio::test]
@@ -252,6 +253,6 @@ mod test {
     let guard = mock_supervisor.lock().await;
     let mock_supervisor = guard.as_any().downcast_ref::<MockSupervisor>().unwrap();
     let last_action = mock_supervisor.last_action.lock().unwrap().clone();
-    assert_eq!(last_action.as_str(),"escalate");
+    assert_eq!(last_action.as_str(), "escalate");
   }
 }
