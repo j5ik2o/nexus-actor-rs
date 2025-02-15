@@ -1,9 +1,8 @@
 use crate::actor::dispatch::{Dispatcher, TokioRuntimeContextDispatcher};
 use crate::actor::ConfigOption;
 use opentelemetry::global;
-use opentelemetry::metrics::{Meter, MeterProvider};
-use opentelemetry_sdk::metrics::MeterProvider as SdkMeterProvider;
-use std::borrow::Cow;
+use opentelemetry::metrics::{InstrumentationScope, Meter, MeterProvider};
+use opentelemetry_sdk::metrics::meter_provider::MeterProvider as SdkMeterProvider;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -27,6 +26,13 @@ impl MeterProvider for MetricsProvider {
     match self {
       MetricsProvider::Noop => global::meter("noop"),
       MetricsProvider::Sdk(provider) => provider.meter(name),
+    }
+  }
+
+  fn meter_with_scope(&self, scope: InstrumentationScope) -> Meter {
+    match self {
+      MetricsProvider::Noop => global::meter("noop"),
+      MetricsProvider::Sdk(provider) => provider.meter_with_scope(scope),
     }
   }
 }
