@@ -32,6 +32,13 @@ pub trait Message: Debug + Send + Sync + 'static {
   }
 }
 
+// Implement Message for all types that satisfy the trait bounds
+impl<T: Debug + Send + Sync + 'static + PartialEq> Message for T {
+  fn as_any(&self) -> &dyn Any {
+    self
+  }
+}
+
 pub use self::{
   auto_receive_message::AutoReceiveMessage, auto_respond::AutoRespond, continuation::Continuation,
   dead_letter_response::DeadLetterResponse, failure::Failure, ignore_dead_letter_logging::IgnoreDeadLetterLogging,

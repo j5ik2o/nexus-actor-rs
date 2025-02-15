@@ -5,8 +5,9 @@ use std::fmt::Debug;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+use crate::actor::spawner::SpawnError;
 use crate::actor::system::ActorSystem;
-use crate::actor::{Message, MessageHandle, MessageOrEnvelope, Pid, Props, SpawnError};
+use crate::actor::{Message, MessageHandle, MessageOrEnvelope, Pid, Props};
 
 #[async_trait]
 pub trait Context: Debug + Send + Sync + 'static {
@@ -56,4 +57,8 @@ pub trait ActorContext:
   Context + InfoPart + MessagePart + ReceiverPart + SenderPart + SpawnerPart + StopperPart {
 }
 
-// Remove blanket implementation to avoid conflicts
+// Implement ActorContext for any type that implements all required traits
+impl<T> ActorContext for T where
+  T: Context + InfoPart + MessagePart + ReceiverPart + SenderPart + SpawnerPart + StopperPart
+{
+}
