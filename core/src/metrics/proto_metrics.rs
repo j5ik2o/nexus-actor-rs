@@ -31,7 +31,7 @@ impl ProtoMetrics {
     &mut self.actor_metrics
   }
 
-  pub fn register(&mut self, key: &str, instance: ActorMetrics) -> Result<(), MetricsError> {
+  pub fn register(&mut self, key: &str, instance: ActorMetrics) -> Result<(), Box<dyn std::error::Error>> {
     if self.known_metrics.contains_key(key) {
       return Err(format!("Key {} already exists", key).into());
     }
