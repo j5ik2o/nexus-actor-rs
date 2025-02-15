@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use std::any::Any;
 use std::fmt::Debug;
 
 use crate::actor::{event_stream::EventStream, ActorSystem, Message, MessageHandle, Pid, Process};
@@ -7,6 +8,12 @@ use crate::actor::{event_stream::EventStream, ActorSystem, Message, MessageHandl
 pub struct SupervisionEvent {
   pub who: Option<Pid>,
   pub message: Option<MessageHandle>,
+}
+
+impl Message for SupervisionEvent {
+  fn as_any(&self) -> &(dyn Any + Send + Sync) {
+    self
+  }
 }
 
 impl SupervisionEvent {
