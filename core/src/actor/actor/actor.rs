@@ -20,7 +20,7 @@ pub trait Actor: Debug + Send + Sync + 'static {
   async fn restarting(&mut self, _ctx: &dyn Context) -> Result<(), ActorError> {
     Ok(())
   }
-  async fn get_supervisor_strategy(&mut self) -> Option<SupervisorStrategy> {
+  async fn get_supervisor_strategy(&mut self) -> Option<Box<dyn SupervisorStrategy>> {
     None
   }
 }
