@@ -1,6 +1,5 @@
 //! Actor module provides core actor system functionality.
 
-// Core modules
 pub mod actor_system;
 pub mod config;
 pub mod context;
@@ -47,4 +46,25 @@ pub use message::{
     SystemMessage,
     UserMessage,
     TypedMessageOrEnvelope,
+    AutoReceiveMessage,
+    DeadLetterResponse,
+    Failure,
+    ReceiveTimeout,
+    Touched,
+    IgnoreDeadLetterLogging,
+    MessageBatch,
+    AutoRespond,
+    Continuation,
+};
+
+// Re-export error types
+pub use error_reason::ErrorReason;
+pub use context::{
+    ActorError,
+    ActorHandle,
+    Continuer,
+    Props,
+    SpawnError,
+    TypedProps,
+    TypedExtendedPid,
 };

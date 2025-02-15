@@ -1,6 +1,6 @@
 use std::fmt::{Debug, Display, Formatter};
 use crate::actor::process::Process;
-use crate::actor::message::{Message, MessageHandle};
+use crate::actor::message::Message;
 use crate::generated::actor::Pid as GeneratedPid;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -126,11 +126,5 @@ impl Pid {
 
     pub async fn stop(&self, process: &impl Process) {
         process.stop().await;
-    }
-}
-
-impl From<MessageHandle> for Box<dyn Message> {
-    fn from(handle: MessageHandle) -> Self {
-        Box::new(handle)
     }
 }
