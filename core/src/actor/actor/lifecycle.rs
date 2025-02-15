@@ -1,4 +1,4 @@
-use crate::actor::{Context, Message, MessageHandle};
+use crate::actor::{Context, MessageHandle};
 use async_trait::async_trait;
 use std::fmt::Debug;
 
