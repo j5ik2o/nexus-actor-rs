@@ -19,29 +19,38 @@ pub mod typed_context;
 
 // Re-exports
 pub use self::{
-  actor::*,
-  actor_system::ActorSystem,
-  config::Config,
-  context::{ActorContext, ActorContextImpl, ActorError, ActorHandle, Props, SpawnError},
-  dispatch::*,
-  error_reason::ErrorReason,
-  event_stream::*,
-  guardian::*,
-  message::*,
-  metrics::*,
-  pid::{ExtendedPid, Pid},
-  process::{Process, ProcessHandle},
-  process_registry::*,
-  restart_statistics::RestartStatistics,
-  supervisor::*,
-  typed_context::*,
+    actor::*,
+    actor_system::ActorSystem,
+    config::Config,
+    context::{
+        ActorContext, ActorError, ActorHandle, Props, SpawnError,
+    },
+    dispatch::*,
+    error_reason::ErrorReason,
+    event_stream::*,
+    guardian::*,
+    message::*,
+    metrics::*,
+    pid::{ExtendedPid, Pid},
+    process::{Process, ProcessHandle},
+    process_registry::*,
+    restart_statistics::RestartStatistics,
+    supervisor::*,
+    typed_context::*,
 };
 
 // Re-export message types
-pub use message::{Message, MessageHandle, MessageHeaders, MessageOrEnvelope, SystemMessage, TypedMessageOrEnvelope};
+pub use message::{
+    Message,
+    MessageHandle,
+    MessageHeaders,
+    SystemMessage,
+    MessageOrEnvelope,
+    TypedMessageOrEnvelope,
+};
 
 // Re-export process types
-pub use process::{new_process_handle, ActorProcess};
-
-// Re-export error types
-pub use error_reason::ErrorReason as ActorError;
+pub use process::{
+    new_process_handle,
+    ActorProcess,
+};
