@@ -17,3 +17,4 @@ pub trait Message: Debug + Send + Sync + 'static {
 }
 
 // Remove blanket implementation to avoid conflicts with derive macro
+// Instead, provide specific implementations for each type that needs it
