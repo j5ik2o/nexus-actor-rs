@@ -21,8 +21,8 @@ pub mod touched;
 pub mod typed_message_or_envelope;
 
 pub use self::{
-  message::Message, message_handle::MessageHandle, message_or_envelope::MessageOrEnvelope,
-  typed_message_or_envelope::TypedMessageOrEnvelope,
+  message::Message, message_handle::MessageHandle, message_headers::MessageHeaders,
+  message_or_envelope::MessageOrEnvelope, typed_message_or_envelope::TypedMessageOrEnvelope,
 };
 
 pub type TypedMessageEnvelope<T> = TypedMessageOrEnvelope<T>;

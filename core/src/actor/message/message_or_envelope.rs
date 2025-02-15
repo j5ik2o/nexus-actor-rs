@@ -1,19 +1,13 @@
-use crate::actor::message::{Message, MessageHeaders};
-use crate::actor::pid::Pid;
-use std::any::Any;
 use std::fmt::Debug;
+
+use crate::actor::message::{message_headers::MessageHeaders, Message};
+use crate::actor::pid::Pid;
 
 #[derive(Debug, Clone)]
 pub struct MessageOrEnvelope {
-  pub message: Box<dyn Message>,
-  pub header: Option<MessageHeaders>,
-  pub sender: Option<Pid>,
-}
-
-impl Message for MessageOrEnvelope {
-  fn as_any(&self) -> &(dyn Any + Send + Sync) {
-    self
-  }
+  pub(crate) message: Box<dyn Message>,
+  pub(crate) header: Option<MessageHeaders>,
+  pub(crate) sender: Option<Pid>,
 }
 
 impl MessageOrEnvelope {
@@ -35,8 +29,8 @@ impl MessageOrEnvelope {
     self
   }
 
-  pub fn get_message(&self) -> &Box<dyn Message> {
-    &self.message
+  pub fn get_message(&self) -> &dyn Message {
+    &*self.message
   }
 
   pub fn into_message(self) -> Box<dyn Message> {
