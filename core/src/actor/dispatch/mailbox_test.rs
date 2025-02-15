@@ -10,9 +10,8 @@ mod tests {
   use crate::actor::message::MessageHandle;
   use async_trait::async_trait;
   use nexus_actor_utils_rs::collections::{QueueReader, QueueWriter, RingQueue};
+  use rand::prelude::*;
   use rand::rngs::SmallRng;
-  use rand::Rng;
-  use rand::SeedableRng;
   use std::env;
   use std::sync::Arc;
   use std::time::Duration;
@@ -90,8 +89,7 @@ mod tests {
       .await;
 
     let mut join_handles = Vec::new();
-    let mut thread_rng = rand::rng();
-    let rng = SmallRng::from_rng(&mut thread_rng);
+    let rng = SmallRng::from_rng(&mut rand::rng());
 
     for j in 0..c {
       let cmax = max / c;
@@ -149,8 +147,7 @@ mod tests {
       .await;
 
     let mut join_handles = Vec::new();
-    let mut thread_rng = rand::rng();
-    let rng = SmallRng::from_rng(&mut thread_rng);
+    let rng = SmallRng::from_rng(&mut rand::rng());
 
     for j in 0..c {
       let cmax = max / c;
