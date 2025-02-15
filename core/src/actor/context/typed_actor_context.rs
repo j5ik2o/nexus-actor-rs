@@ -2,61 +2,74 @@
 
 use async_trait::async_trait;
 use std::fmt::Debug;
-use std::marker::PhantomData;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::RwLock;
 
+use crate::actor::system::ActorSystem;
 use crate::actor::{
-  ActorContext, Context, InfoPart, Message, MessageHandle, MessageOrEnvelope, MessagePart, Pid, Props, ReceiverPart,
-  SenderPart, SpawnerPart, StopperPart,
+  ActorContext, ActorError, Context, InfoPart, Message, MessageHandle, MessageOrEnvelope, MessagePart, Pid, Props,
+  ReceiverPart, SenderPart, SpawnerPart, StopperPart,
 };
 
 #[derive(Debug)]
 pub struct TypedActorContext<M: Message> {
   underlying: Box<dyn ActorContext>,
-  _phantom: PhantomData<M>,
+  _phantom: std::marker::PhantomData<M>,
 }
 
 impl<M: Message> TypedActorContext<M> {
   pub fn new(context: Box<dyn ActorContext>) -> Self {
     Self {
       underlying: context,
-      _phantom: PhantomData,
+      _phantom: std::marker::PhantomData,
     }
   }
 }
 
 #[async_trait]
 impl<M: Message> Context for TypedActorContext<M> {
-  fn as_any(&self) -> &dyn Any {
-    self
+  async fn get_self_opt(&self) -> Option<Pid> {
+    self.underlying.get_self_opt().await
   }
 
-  async fn parent(&self) -> Option<Pid> {
-    self.underlying.parent().await
+  async fn get_self(&self) -> Pid {
+    self.underlying.get_self().await
   }
 
-  async fn self_pid(&self) -> Pid {
-    self.underlying.self_pid().await
+  async fn get_parent_opt(&self) -> Option<Pid> {
+    self.underlying.get_parent_opt().await
   }
 
-  async fn actor_system(&self) -> Arc<RwLock<dyn Debug + Send + Sync>> {
-    self.underlying.actor_system().await
+  async fn get_parent(&self) -> Pid {
+    self.underlying.get_parent().await
+  }
+
+  async fn get_actor_system(&self) -> Arc<RwLock<ActorSystem>> {
+    self.underlying.get_actor_system().await
   }
 }
 
 #[async_trait]
 impl<M: Message> InfoPart for TypedActorContext<M> {
-  async fn parent(&self) -> Option<Pid> {
-    self.underlying.parent().await
+  async fn get_self_opt(&self) -> Option<Pid> {
+    self.underlying.get_self_opt().await
   }
 
-  async fn self_pid(&self) -> Pid {
-    self.underlying.self_pid().await
+  async fn get_self(&self) -> Pid {
+    self.underlying.get_self().await
   }
 
-  async fn actor_system(&self) -> Arc<RwLock<dyn Debug + Send + Sync>> {
-    self.underlying.actor_system().await
+  async fn get_parent_opt(&self) -> Option<Pid> {
+    self.underlying.get_parent_opt().await
+  }
+
+  async fn get_parent(&self) -> Pid {
+    self.underlying.get_parent().await
+  }
+
+  async fn get_actor_system(&self) -> Arc<RwLock<ActorSystem>> {
+    self.underlying.get_actor_system().await
   }
 }
 
@@ -66,8 +79,24 @@ impl<M: Message> MessagePart for TypedActorContext<M> {
     self.underlying.get_message().await
   }
 
-  async fn get_message_envelope(&self) -> MessageOrEnvelope {
-    self.underlying.get_message_envelope().await
+  async fn get_message_headers_opt(&self) -> Option<Arc<RwLock<dyn std::any::Any + Send + Sync>>> {
+    self.underlying.get_message_headers_opt().await
+  }
+
+  async fn get_message_envelope_opt(&self) -> Option<MessageOrEnvelope> {
+    self.underlying.get_message_envelope_opt().await
+  }
+
+  async fn get_receive_timeout(&self) -> Duration {
+    self.underlying.get_receive_timeout().await
+  }
+
+  async fn set_receive_timeout(&self, duration: Duration) {
+    self.underlying.set_receive_timeout(duration).await
+  }
+
+  async fn cancel_receive_timeout(&self) {
+    self.underlying.cancel_receive_timeout().await
   }
 }
 
@@ -80,34 +109,38 @@ impl<M: Message> ReceiverPart for TypedActorContext<M> {
 
 #[async_trait]
 impl<M: Message> SenderPart for TypedActorContext<M> {
-  async fn send(&self, target: &Pid, message: MessageHandle) {
-    self.underlying.send(target, message).await
-  }
-
   async fn request(&self, target: &Pid, message: MessageHandle) -> MessageHandle {
     self.underlying.request(target, message).await
+  }
+
+  async fn forward(&self, target: &Pid, message: MessageHandle) {
+    self.underlying.forward(target, message).await
   }
 }
 
 #[async_trait]
 impl<M: Message> SpawnerPart for TypedActorContext<M> {
-  async fn spawn(&self, props: Props) -> Result<Pid, SpawnError> {
+  async fn spawn(&self, props: Props) -> Result<Pid, ActorError> {
     self.underlying.spawn(props).await
   }
 
-  async fn spawn_prefix(&self, props: Props, prefix: &str) -> Result<Pid, SpawnError> {
+  async fn spawn_prefix(&self, props: Props, prefix: &str) -> Result<Pid, ActorError> {
     self.underlying.spawn_prefix(props, prefix).await
   }
 }
 
 #[async_trait]
 impl<M: Message> StopperPart for TypedActorContext<M> {
-  async fn stop(&self, pid: &Pid) {
-    self.underlying.stop(pid).await
+  async fn watch(&self, pid: &Pid) {
+    self.underlying.watch(pid).await
   }
 
-  async fn poison_pill(&self, pid: &Pid) {
-    self.underlying.poison_pill(pid).await
+  async fn unwatch(&self, pid: &Pid) {
+    self.underlying.unwatch(pid).await
+  }
+
+  async fn handle_failure(&self, who: Option<Pid>, error: ActorError, message: Option<MessageHandle>) {
+    self.underlying.handle_failure(who, error, message).await
   }
 }
 
