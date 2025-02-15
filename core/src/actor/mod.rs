@@ -27,44 +27,10 @@ pub use self::{
     guardian::*,
     message::*,
     metrics::*,
-    pid::{ExtendedPid, Pid, PidExt},
-    process::{Process, ProcessHandle, new_process_handle},
+    pid::{ExtendedPid, Pid},
+    process::{Process, ProcessHandle},
     process_registry::*,
     restart_statistics::RestartStatistics,
     supervisor::*,
     typed_context::*,
-};
-
-// Re-export generated types
-pub use crate::generated::actor::Pid as GeneratedPid;
-
-// Re-export message traits and types
-pub use message::{
-    Message,
-    MessageHandle,
-    MessageHeaders,
-    SystemMessage,
-    UserMessage,
-    TypedMessageOrEnvelope,
-    AutoReceiveMessage,
-    DeadLetterResponse,
-    Failure,
-    ReceiveTimeout,
-    Touched,
-    IgnoreDeadLetterLogging,
-    MessageBatch,
-    AutoRespond,
-    Continuation,
-};
-
-// Re-export error types
-pub use error_reason::ErrorReason;
-pub use context::{
-    ActorError,
-    ActorHandle,
-    Continuer,
-    Props,
-    SpawnError,
-    TypedProps,
-    TypedExtendedPid,
 };
