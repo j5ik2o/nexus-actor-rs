@@ -32,6 +32,7 @@ pub mod system_message;
 pub mod touched;
 pub mod typed_message_or_envelope;
 
+// Re-exports
 pub use self::{
   auto_receive_message::AutoReceiveMessage,
   auto_respond::AutoRespond,

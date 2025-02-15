@@ -14,7 +14,7 @@ use std::time::Duration;
 
 // Base trait for all context types
 #[async_trait]
-pub trait Context: Debug + Send + Sync {
+pub trait Context: Debug + Send + Sync + 'static {
   async fn get_self_opt(&self) -> Option<Pid>;
   async fn get_self(&self) -> Pid;
   async fn get_parent_opt(&self) -> Option<Pid>;
