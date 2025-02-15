@@ -5,13 +5,13 @@ use std::fmt::Debug;
 
 #[derive(Debug, Clone)]
 pub struct TypedMessageOrEnvelope<T: Message> {
-  pub message: T,
-  pub header: Option<MessageHeaders>,
-  pub sender: Option<Pid>,
+  pub(crate) message: T,
+  pub(crate) header: Option<MessageHeaders>,
+  pub(crate) sender: Option<Pid>,
 }
 
 impl<T: Message> Message for TypedMessageOrEnvelope<T> {
-  fn as_any(&self) -> &(dyn Any + Send + Sync) {
+  fn as_any(&self) -> &dyn Any {
     self
   }
 }
@@ -51,3 +51,5 @@ impl<T: Message> TypedMessageOrEnvelope<T> {
     self.header.as_ref()
   }
 }
+
+pub type TypedMessageEnvelope<T> = TypedMessageOrEnvelope<T>;
