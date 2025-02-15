@@ -31,11 +31,19 @@ pub use self::{
   props::Props,
   spawner::SpawnError,
   supervisor::SupervisorStrategy,
+  system::ActorSystem,
 };
 
 // Convert SpawnError to ActorError
 impl From<SpawnError> for ActorError {
   fn from(error: SpawnError) -> Self {
     ActorError::SpawnFailed(error.to_string())
+  }
+}
+
+// Implement Clone for ProcessHandle
+impl Clone for Box<dyn Process + Send + Sync> {
+  fn clone(&self) -> Self {
+    Box::new(self.as_ref().clone())
   }
 }
