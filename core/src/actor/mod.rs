@@ -38,3 +38,7 @@ pub use self::{
   spawner::*,
   supervisor::*,
 };
+
+// Type aliases
+pub type ErrorReason = Box<dyn std::error::Error + Send + Sync>;
+pub type ActorProcess = Box<dyn Process + Send + Sync>;
