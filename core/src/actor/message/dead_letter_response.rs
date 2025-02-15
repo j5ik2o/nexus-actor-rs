@@ -1,5 +1,6 @@
+//! Dead letter response message implementation.
+
 use crate::actor::message::Message;
-use std::any::Any;
 use std::fmt::Debug;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -8,7 +9,7 @@ pub struct DeadLetterResponse {
 }
 
 impl Message for DeadLetterResponse {
-  fn as_any(&self) -> &(dyn Any + Send + Sync) {
+  fn as_any(&self) -> &dyn std::any::Any {
     self
   }
 }
