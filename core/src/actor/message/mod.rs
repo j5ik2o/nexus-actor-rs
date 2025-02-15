@@ -17,7 +17,6 @@ pub trait Message: Debug + Send + Sync + 'static {
   }
 }
 
-// Re-exports
 pub mod auto_receive_message;
 pub mod auto_respond;
 pub mod continuation;
@@ -32,13 +31,6 @@ pub mod response;
 pub mod system_message;
 pub mod touched;
 pub mod typed_message_or_envelope;
-
-// Implement Message for all types that satisfy the trait bounds
-impl<T: Debug + Send + Sync + 'static + PartialEq> Message for T {
-  fn as_any(&self) -> &(dyn Any + Send + Sync) {
-    self
-  }
-}
 
 pub use self::{
   auto_receive_message::AutoReceiveMessage,

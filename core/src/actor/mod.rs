@@ -27,7 +27,7 @@ pub use self::{
   },
   message::{Message, MessageHandle, MessageHeaders, MessageOrEnvelope, TypedMessageEnvelope},
   pid::Pid,
-  process::{Process, ProcessHandle},
+  process::Process,
   props::Props,
   spawner::SpawnError,
   supervisor::SupervisorStrategy,
@@ -38,26 +38,5 @@ pub use self::{
 impl From<SpawnError> for ActorError {
   fn from(error: SpawnError) -> Self {
     ActorError::SpawnFailed(error.to_string())
-  }
-}
-
-// Implement Clone for ProcessHandle
-impl Clone for Box<dyn Process + Send + Sync> {
-  fn clone(&self) -> Self {
-    Box::new(self.as_ref().clone())
-  }
-}
-
-// Add clone_box method to Process trait
-pub trait ProcessClone {
-  fn clone_box(&self) -> Box<dyn Process + Send + Sync>;
-}
-
-impl<T> ProcessClone for T
-where
-  T: Process + Clone + Send + Sync + 'static,
-{
-  fn clone_box(&self) -> Box<dyn Process + Send + Sync> {
-    Box::new(self.clone())
   }
 }
