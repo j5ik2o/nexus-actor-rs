@@ -39,57 +39,57 @@ impl ActorMetrics {
           .u64_counter("nexus_actor_actor_failure_count")
           .with_description("Number of actor failures")
           .with_unit("1")
-          .try_into()?,
+          .build(),
         actor_mailbox_length: meter
           .u64_counter("nexus_actor_actor_mailbox_length")
           .with_description("Actor mailbox length")
           .with_unit("1")
-          .try_into()?,
+          .build(),
         actor_message_receive_histogram: meter
           .f64_histogram("nexus_actor_actor_message_receive_duration_seconds")
           .with_description("Actor's messages received duration in seconds")
           .with_unit("s")
-          .try_into()?,
+          .build(),
         actor_restarted_count: meter
           .u64_counter("nexus_actor_actor_restarted_count")
           .with_description("Number of actors restarts")
           .with_unit("1")
-          .try_into()?,
+          .build(),
         actor_spawn_count: meter
           .u64_counter("nexus_actor_actor_spawn_count")
           .with_description("Number of actors spawn")
           .with_unit("1")
-          .try_into()?,
+          .build(),
         actor_stopped_count: meter
           .u64_counter("nexus_actor_actor_stopped_count")
           .with_description("Number of actors stopped")
           .with_unit("1")
-          .try_into()?,
+          .build(),
         dead_letter_count: meter
           .u64_counter("nexus_actor_deadletter_count")
           .with_description("Number of deadletters")
           .with_unit("1")
-          .try_into()?,
+          .build(),
         futures_started_count: meter
           .u64_counter("nexus_actor_futures_started_count")
           .with_description("Number of futures started")
           .with_unit("1")
-          .try_into()?,
+          .build(),
         futures_completed_count: meter
           .u64_counter("nexus_actor_futures_completed_count")
           .with_description("Number of futures completed")
           .with_unit("1")
-          .try_into()?,
+          .build(),
         futures_timed_out_count: meter
           .u64_counter("nexus_actor_futures_timed_out_count")
           .with_description("Number of futures timed out")
           .with_unit("1")
-          .try_into()?,
+          .build(),
         thread_pool_latency: meter
           .f64_histogram("nexus_actor_thread_pool_latency_duration_seconds")
           .with_description("History of latency in seconds")
           .with_unit("s")
-          .try_into()?,
+          .build(),
         // mailbox_length,
       })),
     })
