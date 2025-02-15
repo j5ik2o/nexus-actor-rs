@@ -1,7 +1,6 @@
 //! Actor context module provides context traits and implementations.
 
 pub mod actor_context;
-pub mod actor_context_extras;
 pub mod context_handle;
 pub mod mock_context;
 pub mod receiver_context_handle;
@@ -17,6 +16,7 @@ pub use self::{
     ActorContext, Context, InfoPart, MessagePart, ReceiverContext, ReceiverPart, RootContext, SenderContext,
     SenderPart, SpawnerContext, SpawnerPart, StopperPart,
   },
+  context_handle::ContextHandle,
   typed_actor_context::TypedActorContext,
   typed_context_handle::TypedContextHandle,
   typed_root_context::TypedRootContext,
