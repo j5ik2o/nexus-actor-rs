@@ -27,9 +27,9 @@ pub use self::{
   actor_error::ActorError,
   actor_handle::ActorHandle,
   actor_ref::ActorRef,
-  context::{
-    ActorContext, ActorSystem, Context, ExtensionPart, InfoPart, MessagePart, ReceiverContext, ReceiverPart,
-    RootContext, SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart, TypedContext, TypedRootContext,
+  context::actor_context::{
+    ActorSystem, Context, ExtensionPart, InfoPart, MessagePart, ReceiverContext, ReceiverPart, RootContext,
+    SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart, TypedContext, TypedRootContext,
   },
   dispatch::*,
   error_reason::ErrorReason,
