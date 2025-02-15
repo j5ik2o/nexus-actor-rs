@@ -23,4 +23,8 @@ impl ProcessHandle {
     pub fn from_box(process: Box<dyn Process + Send + Sync>) -> Self {
         process
     }
+
+    pub fn from_arc<P: Process + Send + Sync + 'static>(process: P) -> Self {
+        Box::new(process)
+    }
 }
