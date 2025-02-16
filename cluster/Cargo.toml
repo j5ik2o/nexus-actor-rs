@@ -13,7 +13,7 @@ repository = "https://github.com/j5ik2o/nexus-actor-rs"
 async-trait = { workspace = true }
 dashmap = { workspace = true }
 futures = { workspace = true }
-nexus-actor-core-rs = { version = "0.*", path = "../core" }
+nexus-actor-core-rs = { version = "1.*", path = "../core" }
 num_enum = "0.7.2"
 once_cell = "1.19.0"
 prost = "0.13.0"
