@@ -20,12 +20,12 @@ prost = "0.13.0"
 prost-types = "0.13"
 thiserror = "2.0.0"
 tokio = { version = "1.37.0" , features = ["full"] }
-tonic = "0.12.3"
-tonic-types = "0.12.3"
+tonic = "0.13.0"
+tonic-types = "0.13.0"
 tracing = "0.1"
 
 [dev-dependencies]
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 [build-dependencies]
-tonic-build = { version = "0.12.2" }
+tonic-build = { version = "0.13.0" }
