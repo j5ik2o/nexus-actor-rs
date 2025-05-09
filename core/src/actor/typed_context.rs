@@ -1,4 +1,4 @@
-use crate::actor::actor::{ActorError, ActorHandle, SpawnError, TypedExtendedPid, TypedProps};
+use crate::actor::core::{ActorError, ActorHandle, SpawnError, TypedExtendedPid, TypedProps};
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::{BasePart, ExtensionContext, ExtensionPart};
 use crate::actor::dispatch::future::ActorFuture;

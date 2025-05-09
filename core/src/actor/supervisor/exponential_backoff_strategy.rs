@@ -4,9 +4,9 @@ use std::time::Duration;
 use async_trait::async_trait;
 use rand::Rng;
 
-use crate::actor::actor::ErrorReason;
-use crate::actor::actor::ExtendedPid;
-use crate::actor::actor::RestartStatistics;
+use crate::actor::core::ErrorReason;
+use crate::actor::core::ExtendedPid;
+use crate::actor::core::RestartStatistics;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::dispatch::Runnable;
 use crate::actor::message::MessageHandle;

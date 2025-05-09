@@ -3,7 +3,7 @@ mod test {
   use std::env;
   use std::time::Duration;
 
-  use crate::actor::actor::Props;
+  use crate::actor::core::Props;
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::context::{BasePart, MessagePart, SenderPart, SpawnerPart};
   use crate::actor::message::message::Message;

@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use nexus_actor_core_rs::actor::actor::{Props, TypedProps};
+use nexus_actor_core_rs::actor::core::{Props, TypedProps};
 use nexus_actor_core_rs::actor::actor_system::ActorSystem;
 use nexus_actor_core_rs::actor::dispatch::{
   unbounded_mailbox_creator_with_opts, MailboxMiddleware, MailboxMiddlewareHandle,

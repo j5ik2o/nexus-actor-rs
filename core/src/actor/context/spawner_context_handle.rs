@@ -3,10 +3,10 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use tokio::sync::RwLock;
 
-use crate::actor::actor::ActorHandle;
-use crate::actor::actor::ExtendedPid;
-use crate::actor::actor::Props;
-use crate::actor::actor::SpawnError;
+use crate::actor::core::ActorHandle;
+use crate::actor::core::ExtendedPid;
+use crate::actor::core::Props;
+use crate::actor::core::SpawnError;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::{InfoPart, SpawnerContext, SpawnerPart};
 

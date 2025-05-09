@@ -1,4 +1,4 @@
-use nexus_actor_core_rs::actor::actor::{Logger, Props};
+use nexus_actor_core_rs::actor::core::{Logger, Props};
 use nexus_actor_core_rs::actor::actor_system::ActorSystem;
 use nexus_actor_core_rs::actor::context::{MessagePart, SenderPart, SpawnerPart};
 use nexus_actor_core_rs::actor::message::{Message, MessageHandle};

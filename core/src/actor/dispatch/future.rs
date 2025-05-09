@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::actor::actor::ExtendedPid;
+use crate::actor::core::ExtendedPid;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::dispatch::Runnable;
 use crate::actor::message::Message;

@@ -5,8 +5,8 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use tokio::sync::Mutex;
 
-use crate::actor::actor::ErrorReason;
-use crate::actor::actor::ExtendedPid;
+use crate::actor::core::ErrorReason;
+use crate::actor::core::ExtendedPid;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::dispatch::MailboxMessage;
 use crate::actor::message::Failure;

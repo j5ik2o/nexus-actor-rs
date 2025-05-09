@@ -4,7 +4,7 @@ use crate::remote::Remote;
 use crate::response_status_code::ResponseStatusCode;
 use async_trait::async_trait;
 use dashmap::DashMap;
-use nexus_actor_core_rs::actor::actor::{Actor, ActorError, ErrorReason, ExtendedPid, Props, SpawnError};
+use nexus_actor_core_rs::actor::core::{Actor, ActorError, ErrorReason, ExtendedPid, Props, SpawnError};
 use nexus_actor_core_rs::actor::actor_system::ActorSystem;
 use nexus_actor_core_rs::actor::context::{BasePart, ContextHandle, InfoPart, MessagePart, SenderPart, SpawnerPart};
 use nexus_actor_core_rs::actor::dispatch::future::{ActorFuture, ActorFutureError};

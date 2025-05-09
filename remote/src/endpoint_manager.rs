@@ -8,7 +8,7 @@ use crate::messages::{
 };
 use crate::remote::Remote;
 use dashmap::DashMap;
-use nexus_actor_core_rs::actor::actor::{ExtendedPid, Props, SpawnError};
+use nexus_actor_core_rs::actor::core::{ExtendedPid, Props, SpawnError};
 use nexus_actor_core_rs::actor::actor_system::ActorSystem;
 use nexus_actor_core_rs::actor::context::{SenderPart, SpawnerPart, StopperPart};
 use nexus_actor_core_rs::actor::dispatch::future::ActorFutureError;

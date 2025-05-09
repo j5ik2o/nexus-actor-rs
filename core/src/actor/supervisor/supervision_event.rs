@@ -1,5 +1,5 @@
-use crate::actor::actor::ErrorReason;
-use crate::actor::actor::ExtendedPid;
+use crate::actor::core::ErrorReason;
+use crate::actor::core::ExtendedPid;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::message::Message;
 use crate::actor::supervisor::directive::Directive;

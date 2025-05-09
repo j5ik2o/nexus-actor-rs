@@ -2,7 +2,7 @@ use crate::messages::{RemoteUnwatch, RemoteWatch};
 use crate::remote::Remote;
 use crate::serializer::SerializerId;
 use async_trait::async_trait;
-use nexus_actor_core_rs::actor::actor::ExtendedPid;
+use nexus_actor_core_rs::actor::core::ExtendedPid;
 use nexus_actor_core_rs::actor::message::{
   unwrap_envelope, MessageHandle, ReadonlyMessageHeadersHandle, SystemMessage,
 };

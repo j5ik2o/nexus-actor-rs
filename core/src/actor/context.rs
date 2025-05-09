@@ -3,12 +3,12 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 
-use crate::actor::actor::ActorError;
-use crate::actor::actor::ActorHandle;
-use crate::actor::actor::Continuer;
-use crate::actor::actor::ExtendedPid;
-use crate::actor::actor::Props;
-use crate::actor::actor::SpawnError;
+use crate::actor::core::ActorError;
+use crate::actor::core::ActorHandle;
+use crate::actor::core::Continuer;
+use crate::actor::core::ExtendedPid;
+use crate::actor::core::Props;
+use crate::actor::core::SpawnError;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::dispatch::future::ActorFuture;
 use crate::actor::message::MessageEnvelope;

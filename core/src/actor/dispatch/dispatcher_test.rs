@@ -2,9 +2,9 @@
 mod test {
   use std::sync::Arc;
 
-  use crate::actor::actor::ActorError;
-  use crate::actor::actor::ErrorReason;
-  use crate::actor::actor::Task;
+  use crate::actor::core::ActorError;
+  use crate::actor::core::ErrorReason;
+  use crate::actor::core::Task;
   use crate::actor::dispatch::default_mailbox::DefaultMailbox;
   use crate::actor::dispatch::dispatcher::{CurrentThreadDispatcher, DispatcherHandle};
   use crate::actor::dispatch::mailbox::Mailbox;

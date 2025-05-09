@@ -4,8 +4,8 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use tokio::sync::RwLock;
 
-use crate::actor::actor::ActorError;
-use crate::actor::actor::ErrorReason;
+use crate::actor::core::ActorError;
+use crate::actor::core::ErrorReason;
 use crate::actor::message::MessageHandle;
 
 // MessageInvoker trait

@@ -7,7 +7,7 @@ mod test {
   use async_trait::async_trait;
   use tracing_subscriber::EnvFilter;
 
-  use crate::actor::actor::{ErrorReason, ExtendedPid, RestartStatistics};
+  use crate::actor::core::{ErrorReason, ExtendedPid, RestartStatistics};
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::message::MessageHandle;
   use crate::actor::supervisor::strategy_all_for_one::AllForOneStrategy;
