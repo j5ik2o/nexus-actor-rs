@@ -1,5 +1,5 @@
-use crate::actor::core::{Actor, ActorError, ActorReceiver};
 use crate::actor::context::{ContextHandle, InfoPart};
+use crate::actor::core::{Actor, ActorError, ActorReceiver};
 use async_trait::async_trait;
 use nexus_actor_utils_rs::collections::Stack;
 use std::sync::Arc;
@@ -65,10 +65,10 @@ static_assertions::assert_impl_all!(ActorBehavior: Send, Sync);
 #[cfg(test)]
 mod tests {
 
-  use crate::actor::core::actor_behavior::ActorBehavior;
-  use crate::actor::core::{Actor, ActorError, ActorReceiver, Props};
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::context::{BasePart, ContextHandle, MessagePart, SenderPart, SpawnerPart};
+  use crate::actor::core::actor_behavior::ActorBehavior;
+  use crate::actor::core::{Actor, ActorError, ActorReceiver, Props};
   use crate::actor::message::{Message, MessageHandle, ResponseHandle};
   use async_trait::async_trait;
   use nexus_actor_message_derive_rs::Message;

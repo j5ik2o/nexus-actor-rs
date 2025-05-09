@@ -16,7 +16,7 @@ mod throttler_test;
 mod unbounded;
 
 pub use {
-    self::bounded::*, self::dead_letter_process::*, self::dispatcher::*, self::mailbox::*, self::mailbox_handle::*,
-    self::mailbox_message::*, self::mailbox_middleware::*, self::mailbox_producer::*, self::message_invoker::*,
-    self::unbounded::*,
+  self::bounded::*, self::dead_letter_process::*, self::dispatcher::*, self::mailbox::*, self::mailbox_handle::*,
+  self::mailbox_message::*, self::mailbox_middleware::*, self::mailbox_producer::*, self::message_invoker::*,
+  self::unbounded::*,
 };

@@ -1,7 +1,7 @@
 use async_trait::async_trait;
-use nexus_actor_core_rs::actor::core::{Actor, ActorError, ExtendedPid, Props};
 use nexus_actor_core_rs::actor::actor_system::ActorSystem;
 use nexus_actor_core_rs::actor::context::{ContextHandle, InfoPart, MessagePart, SenderPart, SpawnerPart};
+use nexus_actor_core_rs::actor::core::{Actor, ActorError, ExtendedPid, Props};
 use nexus_actor_core_rs::actor::dispatch::{
   unbounded_mailbox_creator_with_opts, MailboxMiddleware, MailboxMiddlewareHandle, MailboxProducer,
 };

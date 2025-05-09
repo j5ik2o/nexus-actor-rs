@@ -1,6 +1,6 @@
-use crate::actor::core::Actor;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::Context;
+use crate::actor::core::Actor;
 use crate::extensions::{next_extension_id, Extension, ExtensionId};
 use crate::metrics::{ActorMetrics, ProtoMetrics};
 use once_cell::sync::Lazy;

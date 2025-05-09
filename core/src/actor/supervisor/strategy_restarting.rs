@@ -2,10 +2,10 @@ use std::any::Any;
 
 use async_trait::async_trait;
 
+use crate::actor::actor_system::ActorSystem;
 use crate::actor::core::ErrorReason;
 use crate::actor::core::ExtendedPid;
 use crate::actor::core::RestartStatistics;
-use crate::actor::actor_system::ActorSystem;
 use crate::actor::message::MessageHandle;
 use crate::actor::supervisor::directive::Directive;
 use crate::actor::supervisor::supervisor_strategy::{log_failure, Supervisor, SupervisorHandle, SupervisorStrategy};

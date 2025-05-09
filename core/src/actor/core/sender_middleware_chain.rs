@@ -4,8 +4,8 @@ use std::sync::Arc;
 
 use futures::future::BoxFuture;
 
-use crate::actor::core::pid::ExtendedPid;
 use crate::actor::context::SenderContextHandle;
+use crate::actor::core::pid::ExtendedPid;
 use crate::actor::message::MessageEnvelope;
 
 // SenderFunc

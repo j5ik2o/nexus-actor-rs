@@ -1,5 +1,5 @@
-use crate::actor::core::{ReceiverMiddleware, ReceiverMiddlewareChain};
 use crate::actor::context::ReceiverContextHandle;
+use crate::actor::core::{ReceiverMiddleware, ReceiverMiddlewareChain};
 use crate::actor::message::MessageEnvelope;
 
 pub struct Logger;

@@ -1,7 +1,7 @@
+use crate::actor::context::TypedContextHandle;
 use crate::actor::core::typed_actor::{TypedActor, TypedActorWrapper};
 use crate::actor::core::typed_actor_handle::{TypeWrapperActorHandle, TypedActorHandle};
 use crate::actor::core::{ActorHandle, ActorProducer};
-use crate::actor::context::TypedContextHandle;
 use crate::actor::message::Message;
 use std::fmt::{Debug, Formatter};
 use std::future::Future;

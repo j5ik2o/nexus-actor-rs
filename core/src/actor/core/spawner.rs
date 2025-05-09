@@ -2,11 +2,11 @@ use std::fmt::{Debug, Formatter};
 use std::future::Future;
 use std::sync::Arc;
 
+use crate::actor::actor_system::ActorSystem;
+use crate::actor::context::SpawnerContextHandle;
 use crate::actor::core::actor_error::ActorError;
 use crate::actor::core::pid::ExtendedPid;
 use crate::actor::core::props::Props;
-use crate::actor::actor_system::ActorSystem;
-use crate::actor::context::SpawnerContextHandle;
 use futures::future::BoxFuture;
 use thiserror::Error;
 

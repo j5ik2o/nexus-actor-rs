@@ -1,11 +1,11 @@
 #[cfg(test)]
 pub mod tests {
-  use crate::actor::core::actor::Actor;
-  use crate::actor::core::actor_error::ActorError;
-  use crate::actor::core::props::Props;
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::context::ContextHandle;
   use crate::actor::context::{BasePart, MessagePart, SpawnerPart, StopperPart};
+  use crate::actor::core::actor::Actor;
+  use crate::actor::core::actor_error::ActorError;
+  use crate::actor::core::props::Props;
   use crate::actor::message::ReceiveTimeout;
   use async_trait::async_trait;
   use nexus_actor_utils_rs::concurrent::AsyncBarrier;

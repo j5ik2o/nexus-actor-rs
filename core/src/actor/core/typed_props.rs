@@ -1,8 +1,8 @@
+use crate::actor::context::TypedContextHandle;
 use crate::actor::core::typed_actor::{TypedActor, TypedActorWrapper};
 use crate::actor::core::typed_actor_producer::TypedActorProducer;
 use crate::actor::core::typed_actor_receiver::TypedActorReceiver;
 use crate::actor::core::{ActorHandle, ActorProducer, ActorReceiverActor, Props, PropsOption};
-use crate::actor::context::TypedContextHandle;
 use crate::actor::message::Message;
 use std::future::Future;
 use std::marker::PhantomData;

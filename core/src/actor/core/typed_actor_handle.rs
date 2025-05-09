@@ -1,6 +1,6 @@
+use crate::actor::context::TypedContextHandle;
 use crate::actor::core::typed_actor::TypedActor;
 use crate::actor::core::{Actor, ActorError, ActorHandle};
-use crate::actor::context::TypedContextHandle;
 use crate::actor::message::Message;
 use crate::actor::supervisor::SupervisorStrategyHandle;
 use crate::generated::actor::Terminated;

@@ -1,6 +1,6 @@
-use crate::actor::core::actor_error::ActorError;
 use crate::actor::context::ContextHandle;
 use crate::actor::context::MessagePart;
+use crate::actor::core::actor_error::ActorError;
 use crate::actor::message::AutoReceiveMessage;
 use crate::actor::supervisor::SupervisorStrategyHandle;
 use crate::actor::Config;

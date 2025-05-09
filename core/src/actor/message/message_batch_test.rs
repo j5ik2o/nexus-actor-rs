@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod tests {
-  use crate::actor::core::Props;
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::context::{MessagePart, SenderPart, SpawnerPart};
+  use crate::actor::core::Props;
   use crate::actor::message::{MessageBatch, MessageHandle};
   use nexus_actor_utils_rs::concurrent::WaitGroup;
   use std::env;

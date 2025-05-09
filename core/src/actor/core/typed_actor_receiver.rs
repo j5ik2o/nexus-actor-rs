@@ -1,5 +1,5 @@
-use crate::actor::core::{ActorError, ActorReceiver};
 use crate::actor::context::TypedContextHandle;
+use crate::actor::core::{ActorError, ActorReceiver};
 use crate::actor::message::Message;
 use futures::future::BoxFuture;
 use std::future::Future;

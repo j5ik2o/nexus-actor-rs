@@ -3,9 +3,9 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use tokio::sync::RwLock;
 
+use crate::actor::context::ContextHandle;
 use crate::actor::core::actor::Actor;
 use crate::actor::core::actor_error::ActorError;
-use crate::actor::context::ContextHandle;
 use crate::actor::supervisor::SupervisorStrategyHandle;
 
 #[derive(Debug, Clone)]

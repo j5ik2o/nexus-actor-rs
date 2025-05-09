@@ -8,8 +8,8 @@ use crate::messages::RemoteDeliver;
 use crate::remote_process::RemoteProcess;
 use crate::serializer::SerializerId;
 use dashmap::DashMap;
-use nexus_actor_core_rs::actor::core::Props;
 use nexus_actor_core_rs::actor::actor_system::ActorSystem;
+use nexus_actor_core_rs::actor::core::Props;
 use nexus_actor_core_rs::actor::message::{MessageHandle, ReadonlyMessageHeadersHandle};
 use nexus_actor_core_rs::actor::process::process_registry::AddressResolver;
 use nexus_actor_core_rs::actor::process::ProcessHandle;
@@ -294,9 +294,9 @@ impl Extension for Remote {
 
 #[cfg(test)]
 mod tests {
-  use nexus_actor_core_rs::actor::core::{Actor, ActorError, Props};
   use nexus_actor_core_rs::actor::actor_system::ActorSystem;
   use nexus_actor_core_rs::actor::context::{BasePart, ContextHandle, MessagePart, SenderPart, SpawnerPart};
+  use nexus_actor_core_rs::actor::core::{Actor, ActorError, Props};
   use nexus_actor_core_rs::actor::message::Message;
   use nexus_actor_core_rs::actor::message::{MessageHandle, ResponseHandle};
 

@@ -1,5 +1,5 @@
-use crate::actor::core::ExtendedPid;
 use crate::actor::actor_system::ActorSystem;
+use crate::actor::core::ExtendedPid;
 use crate::actor::message::{Message, MessageHandle};
 use std::fmt::Display;
 

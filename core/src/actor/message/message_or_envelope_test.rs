@@ -3,9 +3,9 @@ mod test {
   use std::env;
   use std::time::Duration;
 
-  use crate::actor::core::Props;
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::context::{BasePart, MessagePart, SenderPart, SpawnerPart};
+  use crate::actor::core::Props;
   use crate::actor::message::message::Message;
   use crate::actor::message::message_handle::MessageHandle;
   use crate::actor::message::readonly_message_headers::ReadonlyMessageHeaders;

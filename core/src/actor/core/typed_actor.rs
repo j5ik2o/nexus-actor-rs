@@ -1,5 +1,5 @@
-use crate::actor::core::{Actor, ActorError};
 use crate::actor::context::{ContextHandle, TypedContextHandle};
+use crate::actor::core::{Actor, ActorError};
 use crate::actor::message::{AutoReceiveMessage, Message};
 use crate::actor::supervisor::SupervisorStrategyHandle;
 use crate::actor::typed_context::TypedMessagePart;

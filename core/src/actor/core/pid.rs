@@ -2,8 +2,8 @@ use std::fmt::Display;
 use std::hash::Hash;
 use std::sync::Arc;
 
-use crate::actor::core::actor_process::ActorProcess;
 use crate::actor::actor_system::ActorSystem;
+use crate::actor::core::actor_process::ActorProcess;
 use crate::actor::message::MessageHandle;
 use crate::actor::process::{Process, ProcessHandle};
 use crate::generated::actor::Pid;

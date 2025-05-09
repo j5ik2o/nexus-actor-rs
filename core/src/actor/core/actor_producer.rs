@@ -2,9 +2,9 @@ use std::fmt::{Debug, Formatter};
 use std::future::Future;
 use std::sync::Arc;
 
+use crate::actor::context::ContextHandle;
 use crate::actor::core::actor::Actor;
 use crate::actor::core::actor_handle::ActorHandle;
-use crate::actor::context::ContextHandle;
 use futures::future::BoxFuture;
 
 #[allow(clippy::type_complexity)]

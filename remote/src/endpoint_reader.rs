@@ -1,6 +1,6 @@
-use nexus_actor_core_rs::actor::core::ExtendedPid;
 use nexus_actor_core_rs::actor::actor_system::ActorSystem;
 use nexus_actor_core_rs::actor::context::SenderPart;
+use nexus_actor_core_rs::actor::core::ExtendedPid;
 use nexus_actor_core_rs::actor::message::{MessageEnvelope, MessageHandle, MessageHeaders, SystemMessage};
 use nexus_actor_core_rs::actor::process::Process;
 use nexus_actor_core_rs::generated::actor::{Pid, Stop, Terminated, Unwatch, Watch};
@@ -163,33 +163,21 @@ impl EndpointReader {
         tracing::debug!("Data preview: {:?}", &data[..preview_len]);
       }
 
-      let result = match deserialize_any(
-        data,
-        &serializer_id,
-        type_pub_sub_batch
-      ) {
+      let result = match deserialize_any(data, &serializer_id, type_pub_sub_batch) {
         Ok(v) => {
           tracing::debug!("Successfully deserialized as PubSubBatchTransport");
           Some(v)
         }
         Err(e1) => {
           tracing::debug!("Failed to deserialize as PubSubBatchTransport: {:?}", e1);
-          match deserialize_any(
-            data,
-            &serializer_id,
-            type_deliver_batch,
-          ) {
+          match deserialize_any(data, &serializer_id, type_deliver_batch) {
             Ok(v) => {
               tracing::debug!("Successfully deserialized as DeliverBatchRequestTransport");
               Some(v)
             }
             Err(e2) => {
               tracing::debug!("Failed to deserialize as DeliverBatchRequestTransport: {:?}", e2);
-              match deserialize_any(
-                data,
-                &serializer_id,
-                type_pub_sub_auto_respond,
-              ) {
+              match deserialize_any(data, &serializer_id, type_pub_sub_auto_respond) {
                 Ok(v) => {
                   tracing::debug!("Successfully deserialized as PubSubAutoRespondBatchTransport");
                   Some(v)
@@ -197,52 +185,43 @@ impl EndpointReader {
                 Err(e3) => {
                   tracing::debug!("Failed to deserialize as PubSubAutoRespondBatchTransport: {:?}", e3);
                   None
-                },
+                }
               }
-            },
+            }
           }
-        },
+        }
       };
 
       tracing::debug!("result = {:?}", result);
 
       let actor_system = self.get_actor_system().await;
-      let mut root_context = actor_system
-          .get_root_context().await;
-      let process_registry = actor_system
-          .get_process_registry()
-          .await;
-      let local_process = process_registry
-          .get_local_process(target.id()).await;
+      let mut root_context = actor_system.get_root_context().await;
+      let process_registry = actor_system.get_process_registry().await;
+      let local_process = process_registry.get_local_process(target.id()).await;
 
       match result {
         Some(message) => {
           if let Some(t) = message.downcast_ref::<Terminated>() {
             let terminated = SystemMessage::of_terminate(t.clone());
-            root_context
-              .send(target.clone(), MessageHandle::new(terminated))
-              .await;
+            root_context.send(target.clone(), MessageHandle::new(terminated)).await;
           }
           if message.downcast_ref::<Stop>().is_some() {
             let system_message = SystemMessage::of_stop();
-            let ref_process = local_process.clone()
-              .ok_or(EndpointReaderError::UnknownTarget)?;
+            let ref_process = local_process.clone().ok_or(EndpointReaderError::UnknownTarget)?;
             ref_process
               .send_system_message(&target, MessageHandle::new(system_message))
               .await;
           }
           if let Some(watch) = message.downcast_ref::<Watch>() {
             let system_message = SystemMessage::of_watch(watch.clone());
-            let ref_process = local_process.clone()
-              .ok_or(EndpointReaderError::UnknownTarget)?;
+            let ref_process = local_process.clone().ok_or(EndpointReaderError::UnknownTarget)?;
             ref_process
               .send_system_message(&target, MessageHandle::new(system_message))
               .await;
           }
           if let Some(unwatch) = message.downcast_ref::<Unwatch>() {
             let system_message = SystemMessage::of_unwatch(unwatch.clone());
-            let ref_process = local_process
-              .ok_or(EndpointReaderError::UnknownTarget)?;
+            let ref_process = local_process.ok_or(EndpointReaderError::UnknownTarget)?;
             ref_process
               .send_system_message(&target, MessageHandle::new(system_message))
               .await;
@@ -278,9 +257,7 @@ impl EndpointReader {
             .with_sender(sender);
           tracing::info!("EndpointReader received message: {:?}", local_me);
           tracing::info!("EndpointReader: target: {:?}", target);
-          root_context
-            .send(target, MessageHandle::new(local_me))
-            .await;
+          root_context.send(target, MessageHandle::new(local_me)).await;
         }
       }
     }

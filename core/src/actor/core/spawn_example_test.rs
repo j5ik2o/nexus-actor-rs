@@ -2,9 +2,9 @@
 mod tests {
   use std::env;
 
-  use crate::actor::core::props::Props;
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::context::{MessagePart, SpawnerPart};
+  use crate::actor::core::props::Props;
   use crate::actor::message::AutoReceiveMessage;
   use crate::actor::message::Message;
   use nexus_actor_utils_rs::concurrent::AsyncBarrier;

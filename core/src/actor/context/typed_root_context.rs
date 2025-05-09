@@ -1,6 +1,6 @@
-use crate::actor::core::{ActorHandle, SpawnError, TypedExtendedPid, TypedProps};
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::{InfoPart, MessagePart, RootContext, SenderPart, SpawnerPart, StopperPart};
+use crate::actor::core::{ActorHandle, SpawnError, TypedExtendedPid, TypedProps};
 use crate::actor::dispatch::future::ActorFuture;
 use crate::actor::message::{Message, MessageHandle, ReadonlyMessageHeadersHandle, TypedMessageEnvelope};
 use crate::actor::typed_context::{

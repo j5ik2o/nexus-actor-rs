@@ -1,5 +1,9 @@
 #[cfg(test)]
 mod test {
+  use crate::actor::actor_system::ActorSystem;
+  use crate::actor::context::ContextHandle;
+  use crate::actor::context::ReceiverContextHandle;
+  use crate::actor::context::{MessagePart, SenderPart, SpawnerPart};
   use crate::actor::core::Actor;
   use crate::actor::core::ActorError;
   use crate::actor::core::ErrorReason;
@@ -8,10 +12,6 @@ mod test {
   use crate::actor::core::ReceiverMiddleware;
   use crate::actor::core::ReceiverMiddlewareChain;
   use crate::actor::core::RestartStatistics;
-  use crate::actor::actor_system::ActorSystem;
-  use crate::actor::context::ContextHandle;
-  use crate::actor::context::ReceiverContextHandle;
-  use crate::actor::context::{MessagePart, SenderPart, SpawnerPart};
   use crate::actor::message::AutoReceiveMessage;
   use crate::actor::message::Message;
   use crate::actor::message::MessageHandle;

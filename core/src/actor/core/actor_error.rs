@@ -18,7 +18,6 @@ pub enum ActorError {
 }
 
 impl ActorError {
-
   pub fn of_receive_error(error_reason: ErrorReason) -> Self {
     ActorError::ReceiveError(error_reason)
   }

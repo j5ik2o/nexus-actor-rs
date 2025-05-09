@@ -11,11 +11,11 @@ mod test {
   use crate::actor::core::Actor;
   use crate::actor::core::ActorError;
 
-  use crate::actor::core::ErrorReason;
-  use crate::actor::core::Props;
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::context::ContextHandle;
   use crate::actor::context::{MessagePart, SenderPart, SpawnerPart};
+  use crate::actor::core::ErrorReason;
+  use crate::actor::core::Props;
   use crate::actor::message::Message;
   use crate::actor::message::MessageHandle;
   use crate::actor::supervisor::exponential_backoff_strategy::ExponentialBackoffStrategy;
