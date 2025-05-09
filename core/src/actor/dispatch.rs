@@ -1,5 +1,6 @@
 mod bounded;
 pub(crate) mod dead_letter_process;
+mod dead_letter_test;
 pub mod default_mailbox;
 pub mod dispatcher;
 pub mod future;
@@ -14,7 +15,6 @@ pub mod message_invoker;
 pub mod throttler;
 mod throttler_test;
 mod unbounded;
-mod dead_letter_test;
 
 pub use {
   self::bounded::*, self::dead_letter_process::*, self::dispatcher::*, self::mailbox::*, self::mailbox_handle::*,
