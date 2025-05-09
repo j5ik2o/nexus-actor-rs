@@ -1,6 +1,6 @@
 [package]
 name = "nexus-actor-core-rs"
-version = "0.19.5"
+version = "1.0.4"
 edition = "2021"
 build = "build.rs"
 description = "Core library for Nexus Actor"
@@ -41,19 +41,19 @@ thiserror = "2.0.0"
 time = "0.3.36"
 tokio = { version = "1.37.0" , features = ["full"] }
 tokio-condvar = "0.3.0"
-tonic = "0.12.2"
-tonic-types = "0.12.2"
+tonic = "0.13.0"
+tonic-types = "0.13.0"
 tracing = "0.1"
 tracing-futures = "0.2.5"
-tracing-opentelemetry = { version = "0.29.0", features = ["metrics"] }
+tracing-opentelemetry = { version = "0.30.0", features = ["metrics"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 uuid = { version = "1.9.0", features = ["v4"] }
 
 [dev-dependencies]
 clap = { version = "4.5.9", features = ["derive"] }
-governor = "0.8.0"
+governor = "0.10.0"
 humantime = "2.1"
-rstest = "0.24.0"
+rstest = "0.25.0"
 
 [build-dependencies]
-tonic-build = { version = "0.12.2" }
+tonic-build = { version = "0.13.0" }
