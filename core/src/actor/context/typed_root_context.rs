@@ -4,8 +4,8 @@ use crate::actor::core::{ActorHandle, SpawnError, TypedExtendedPid, TypedProps};
 use crate::actor::dispatch::future::ActorFuture;
 use crate::actor::message::{Message, MessageHandle, ReadonlyMessageHeadersHandle, TypedMessageEnvelope};
 use crate::actor::typed_context::{
-    TypedInfoPart, TypedMessagePart, TypedSenderContext, TypedSenderPart, TypedSpawnerContext, TypedSpawnerPart,
-    TypedStopperPart,
+  TypedInfoPart, TypedMessagePart, TypedSenderContext, TypedSenderPart, TypedSpawnerContext, TypedSpawnerPart,
+  TypedStopperPart,
 };
 use async_trait::async_trait;
 use nexus_actor_message_derive_rs::Message;

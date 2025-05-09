@@ -1,21 +1,21 @@
 #[cfg(test)]
 mod test {
-    use std::env;
-    use std::sync::{Arc, Mutex};
-    use std::time::Duration;
+  use std::env;
+  use std::sync::{Arc, Mutex};
+  use std::time::Duration;
 
-    use async_trait::async_trait;
-    use tracing_subscriber::EnvFilter;
+  use async_trait::async_trait;
+  use tracing_subscriber::EnvFilter;
 
-    use crate::actor::actor_system::ActorSystem;
-    use crate::actor::core::{ErrorReason, ExtendedPid, RestartStatistics};
-    use crate::actor::message::MessageHandle;
-    use crate::actor::supervisor::supervisor_strategy::{Supervisor, SupervisorStrategy};
-    use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
-    use crate::actor::supervisor::SupervisorHandle;
-    use crate::generated::actor::Pid;
+  use crate::actor::actor_system::ActorSystem;
+  use crate::actor::core::{ErrorReason, ExtendedPid, RestartStatistics};
+  use crate::actor::message::MessageHandle;
+  use crate::actor::supervisor::supervisor_strategy::{Supervisor, SupervisorStrategy};
+  use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
+  use crate::actor::supervisor::SupervisorHandle;
+  use crate::generated::actor::Pid;
 
-    #[derive(Debug)]
+  #[derive(Debug)]
   struct MockSupervisor {
     last_action: Arc<Mutex<String>>,
     children: Arc<Mutex<Vec<ExtendedPid>>>,

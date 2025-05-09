@@ -9,8 +9,8 @@ use crate::actor::context::context_handle::ContextHandle;
 use crate::actor::context::spawner_context_handle::SpawnerContextHandle;
 use crate::actor::context::state::State;
 use crate::actor::context::{
-    BasePart, Context, ExtensionContext, ExtensionPart, InfoPart, MessagePart, ReceiverContext, ReceiverPart,
-    SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart,
+  BasePart, Context, ExtensionContext, ExtensionPart, InfoPart, MessagePart, ReceiverContext, ReceiverPart,
+  SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart,
 };
 use crate::actor::core::Actor;
 use crate::actor::core::ActorError;
@@ -37,7 +37,7 @@ use crate::actor::message::ResponseHandle;
 use crate::actor::message::SystemMessage;
 use crate::actor::message::TerminateReason;
 use crate::actor::message::{
-    unwrap_envelope_header, unwrap_envelope_message, unwrap_envelope_sender, wrap_envelope, MessageEnvelope,
+  unwrap_envelope_header, unwrap_envelope_message, unwrap_envelope_sender, wrap_envelope, MessageEnvelope,
 };
 use crate::actor::message::{AutoRespond, AutoResponsive};
 use crate::actor::metrics::metrics_impl::{Metrics, EXTENSION_ID};

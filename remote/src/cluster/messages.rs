@@ -1,5 +1,5 @@
 use crate::generated::cluster::{
-    DeliverBatchRequestTransport, PubSubAutoRespondBatchTransport, PubSubBatchTransport, Subscribers,
+  DeliverBatchRequestTransport, PubSubAutoRespondBatchTransport, PubSubBatchTransport, Subscribers,
 };
 use crate::serializer::{RootSerializable, RootSerialized, SerializerError};
 use nexus_actor_core_rs::actor::message::Message;

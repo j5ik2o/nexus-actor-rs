@@ -1,14 +1,14 @@
 #[cfg(test)]
 mod tests {
-    use crate::actor::actor_system::ActorSystem;
-    use crate::actor::context::{MessagePart, SenderPart, SpawnerPart};
-    use crate::actor::core::Props;
-    use crate::actor::message::{MessageBatch, MessageHandle};
-    use nexus_actor_utils_rs::concurrent::WaitGroup;
-    use std::env;
-    use tracing_subscriber::EnvFilter;
+  use crate::actor::actor_system::ActorSystem;
+  use crate::actor::context::{MessagePart, SenderPart, SpawnerPart};
+  use crate::actor::core::Props;
+  use crate::actor::message::{MessageBatch, MessageHandle};
+  use nexus_actor_utils_rs::concurrent::WaitGroup;
+  use std::env;
+  use tracing_subscriber::EnvFilter;
 
-    #[tokio::test]
+  #[tokio::test]
   async fn test_actor_receives_each_message_in_amessage_batch() {
     let _ = env::set_var("RUST_LOG", "debug");
     let _ = tracing_subscriber::fmt()

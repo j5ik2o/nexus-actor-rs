@@ -64,18 +64,18 @@ static_assertions::assert_impl_all!(ActorBehavior: Send, Sync);
 
 #[cfg(test)]
 mod tests {
-    use crate::actor::actor_system::ActorSystem;
-    use crate::actor::context::{BasePart, ContextHandle, MessagePart, SenderPart, SpawnerPart};
-    use crate::actor::core::actor_behavior::ActorBehavior;
-    use crate::actor::core::{Actor, ActorError, ActorReceiver, Props};
-    use crate::actor::message::{Message, MessageHandle, ResponseHandle};
-    use async_trait::async_trait;
-    use nexus_actor_message_derive_rs::Message;
-    use std::env;
-    use std::time::Duration;
-    use tracing_subscriber::EnvFilter;
+  use crate::actor::actor_system::ActorSystem;
+  use crate::actor::context::{BasePart, ContextHandle, MessagePart, SenderPart, SpawnerPart};
+  use crate::actor::core::actor_behavior::ActorBehavior;
+  use crate::actor::core::{Actor, ActorError, ActorReceiver, Props};
+  use crate::actor::message::{Message, MessageHandle, ResponseHandle};
+  use async_trait::async_trait;
+  use nexus_actor_message_derive_rs::Message;
+  use std::env;
+  use std::time::Duration;
+  use tracing_subscriber::EnvFilter;
 
-    #[derive(Debug, Clone, PartialEq, Message)]
+  #[derive(Debug, Clone, PartialEq, Message)]
   struct BehaviorMessage;
 
   #[derive(Debug, Clone, PartialEq, Message)]

@@ -1,22 +1,22 @@
 #![cfg(test)]
 mod tests {
-    use std::env;
-    use std::sync::atomic::{AtomicBool, Ordering};
-    use std::sync::Arc;
+  use std::env;
+  use std::sync::atomic::{AtomicBool, Ordering};
+  use std::sync::Arc;
 
-    use async_trait::async_trait;
-    use tokio::sync::Notify;
-    use tracing_subscriber::EnvFilter;
+  use async_trait::async_trait;
+  use tokio::sync::Notify;
+  use tracing_subscriber::EnvFilter;
 
-    use crate::actor::actor_system::ActorSystem;
-    use crate::actor::context::ContextHandle;
-    use crate::actor::context::SpawnerPart;
-    use crate::actor::core::actor::Actor;
-    use crate::actor::core::actor_error::ActorError;
-    use crate::actor::core::props::Props;
-    use crate::actor::supervisor::SupervisorStrategyHandle;
+  use crate::actor::actor_system::ActorSystem;
+  use crate::actor::context::ContextHandle;
+  use crate::actor::context::SpawnerPart;
+  use crate::actor::core::actor::Actor;
+  use crate::actor::core::actor_error::ActorError;
+  use crate::actor::core::props::Props;
+  use crate::actor::supervisor::SupervisorStrategyHandle;
 
-    #[derive(Debug, Clone)]
+  #[derive(Debug, Clone)]
   struct MyActor {
     is_started: Arc<AtomicBool>,
     received: Arc<Notify>,

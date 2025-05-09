@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod tests {
-    use crate::collections::{QueueBase, QueueError, QueueReader, QueueWriter, RingQueue};
+  use crate::collections::{QueueBase, QueueError, QueueReader, QueueWriter, RingQueue};
 
-    #[tokio::test]
+  #[tokio::test]
   async fn test_push_pop() {
     let mut queue = RingQueue::new(5);
     assert!(queue.offer(1).await.is_ok());

@@ -219,9 +219,9 @@ impl Message for String {
 // tests/test.rs
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use nexus_actor_message_derive_rs::Message;
-    #[derive(Debug, Clone, PartialEq, Message)]
+  use super::*;
+  use nexus_actor_message_derive_rs::Message;
+  #[derive(Debug, Clone, PartialEq, Message)]
   pub struct Hello {
     pub who: String,
   }

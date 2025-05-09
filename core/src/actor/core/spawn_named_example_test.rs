@@ -1,16 +1,16 @@
 #![cfg(test)]
 mod tests {
-    use std::env;
+  use std::env;
 
-    use crate::actor::actor_system::ActorSystem;
-    use crate::actor::context::{MessagePart, SpawnerPart};
-    use crate::actor::core::props::Props;
-    use crate::actor::message::AutoReceiveMessage;
-    use crate::actor::message::Message;
-    use nexus_actor_utils_rs::concurrent::AsyncBarrier;
-    use tracing_subscriber::EnvFilter;
+  use crate::actor::actor_system::ActorSystem;
+  use crate::actor::context::{MessagePart, SpawnerPart};
+  use crate::actor::core::props::Props;
+  use crate::actor::message::AutoReceiveMessage;
+  use crate::actor::message::Message;
+  use nexus_actor_utils_rs::concurrent::AsyncBarrier;
+  use tracing_subscriber::EnvFilter;
 
-    #[tokio::test]
+  #[tokio::test]
   async fn example_root_context_spawn_named() {
     let _ = env::set_var("RUST_LOG", "debug");
     let _ = tracing_subscriber::fmt()

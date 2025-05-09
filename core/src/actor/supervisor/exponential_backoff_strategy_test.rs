@@ -1,15 +1,15 @@
 #[cfg(test)]
 mod test {
-    use std::env;
-    use std::time::{Duration, Instant};
+  use std::env;
+  use std::time::{Duration, Instant};
 
-    use rstest::*;
-    use tracing_subscriber::EnvFilter;
+  use rstest::*;
+  use tracing_subscriber::EnvFilter;
 
-    use crate::actor::core::RestartStatistics;
-    use crate::actor::supervisor::exponential_backoff_strategy::ExponentialBackoffStrategy;
+  use crate::actor::core::RestartStatistics;
+  use crate::actor::supervisor::exponential_backoff_strategy::ExponentialBackoffStrategy;
 
-    #[tokio::test]
+  #[tokio::test]
   async fn test_backoff_calculation() {
     let _ = env::set_var("RUST_LOG", "debug");
     let _ = tracing_subscriber::fmt()

@@ -1,31 +1,31 @@
 #[cfg(test)]
 mod test {
-    use std::env;
-    use std::time::Duration;
+  use std::env;
+  use std::time::Duration;
 
-    use async_trait::async_trait;
-    use tokio::sync::mpsc;
-    use tokio::time::sleep;
-    use tracing_subscriber::EnvFilter;
+  use async_trait::async_trait;
+  use tokio::sync::mpsc;
+  use tokio::time::sleep;
+  use tracing_subscriber::EnvFilter;
 
-    use crate::actor::core::Actor;
-    use crate::actor::core::ActorError;
+  use crate::actor::core::Actor;
+  use crate::actor::core::ActorError;
 
-    use crate::actor::actor_system::ActorSystem;
-    use crate::actor::context::ContextHandle;
-    use crate::actor::context::{MessagePart, SenderPart, SpawnerPart};
-    use crate::actor::core::ErrorReason;
-    use crate::actor::core::Props;
-    use crate::actor::message::Message;
-    use crate::actor::message::MessageHandle;
-    use crate::actor::supervisor::exponential_backoff_strategy::ExponentialBackoffStrategy;
-    use crate::actor::supervisor::strategy_all_for_one::AllForOneStrategy;
-    use crate::actor::supervisor::strategy_one_for_one::OneForOneStrategy;
-    use crate::actor::supervisor::strategy_restarting::RestartingStrategy;
-    use crate::actor::supervisor::supervision_event::SupervisorEvent;
-    use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
+  use crate::actor::actor_system::ActorSystem;
+  use crate::actor::context::ContextHandle;
+  use crate::actor::context::{MessagePart, SenderPart, SpawnerPart};
+  use crate::actor::core::ErrorReason;
+  use crate::actor::core::Props;
+  use crate::actor::message::Message;
+  use crate::actor::message::MessageHandle;
+  use crate::actor::supervisor::exponential_backoff_strategy::ExponentialBackoffStrategy;
+  use crate::actor::supervisor::strategy_all_for_one::AllForOneStrategy;
+  use crate::actor::supervisor::strategy_one_for_one::OneForOneStrategy;
+  use crate::actor::supervisor::strategy_restarting::RestartingStrategy;
+  use crate::actor::supervisor::supervision_event::SupervisorEvent;
+  use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
 
-    #[derive(Debug)]
+  #[derive(Debug)]
   struct PanicActor;
 
   #[async_trait]

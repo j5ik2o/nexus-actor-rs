@@ -1,13 +1,13 @@
 #[cfg(test)]
 mod tests {
-    use crate::collections::element::Element;
-    use crate::collections::{
-        MpscUnboundedChannelQueue, PriorityMessage, PriorityQueue, QueueBase, QueueReader, QueueSize, QueueWriter,
-    };
-    use std::fmt::Debug;
-    use std::sync::Arc;
+  use crate::collections::element::Element;
+  use crate::collections::{
+    MpscUnboundedChannelQueue, PriorityMessage, PriorityQueue, QueueBase, QueueReader, QueueSize, QueueWriter,
+  };
+  use std::fmt::Debug;
+  use std::sync::Arc;
 
-    #[derive(Debug, Clone, PartialEq, Eq)]
+  #[derive(Debug, Clone, PartialEq, Eq)]
   struct TestPriorityMessage {
     message: String,
     priority: i8,

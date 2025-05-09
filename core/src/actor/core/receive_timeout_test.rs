@@ -1,19 +1,19 @@
 #[cfg(test)]
 pub mod tests {
-    use crate::actor::actor_system::ActorSystem;
-    use crate::actor::context::ContextHandle;
-    use crate::actor::context::{BasePart, MessagePart, SpawnerPart, StopperPart};
-    use crate::actor::core::actor::Actor;
-    use crate::actor::core::actor_error::ActorError;
-    use crate::actor::core::props::Props;
-    use crate::actor::message::ReceiveTimeout;
-    use async_trait::async_trait;
-    use nexus_actor_utils_rs::concurrent::AsyncBarrier;
-    use std::env;
-    use std::time::Duration;
-    use tracing_subscriber::EnvFilter;
+  use crate::actor::actor_system::ActorSystem;
+  use crate::actor::context::ContextHandle;
+  use crate::actor::context::{BasePart, MessagePart, SpawnerPart, StopperPart};
+  use crate::actor::core::actor::Actor;
+  use crate::actor::core::actor_error::ActorError;
+  use crate::actor::core::props::Props;
+  use crate::actor::message::ReceiveTimeout;
+  use async_trait::async_trait;
+  use nexus_actor_utils_rs::concurrent::AsyncBarrier;
+  use std::env;
+  use std::time::Duration;
+  use tracing_subscriber::EnvFilter;
 
-    #[derive(Debug, Clone)]
+  #[derive(Debug, Clone)]
   struct SetReceiveTimeoutActor {
     barrier: AsyncBarrier,
   }

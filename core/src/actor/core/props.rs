@@ -21,8 +21,8 @@ use crate::actor::core::context_decorator::ContextDecorator;
 use crate::actor::core::context_decorator_chain::ContextDecoratorChain;
 use crate::actor::core::context_handler::ContextHandler;
 use crate::actor::core::middleware_chain::{
-    make_context_decorator_chain, make_receiver_middleware_chain, make_sender_middleware_chain,
-    make_spawn_middleware_chain,
+  make_context_decorator_chain, make_receiver_middleware_chain, make_sender_middleware_chain,
+  make_spawn_middleware_chain,
 };
 use crate::actor::core::pid::ExtendedPid;
 use crate::actor::core::receiver_middleware::ReceiverMiddleware;
