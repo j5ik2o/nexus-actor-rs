@@ -1,36 +1,36 @@
 #[cfg(test)]
 mod test {
-  use crate::actor::actor_system::ActorSystem;
-  use crate::actor::context::ContextHandle;
-  use crate::actor::context::ReceiverContextHandle;
-  use crate::actor::context::{MessagePart, SenderPart, SpawnerPart};
-  use crate::actor::core::Actor;
-  use crate::actor::core::ActorError;
-  use crate::actor::core::ErrorReason;
-  use crate::actor::core::ExtendedPid;
-  use crate::actor::core::Props;
-  use crate::actor::core::ReceiverMiddleware;
-  use crate::actor::core::ReceiverMiddlewareChain;
-  use crate::actor::core::RestartStatistics;
-  use crate::actor::message::AutoReceiveMessage;
-  use crate::actor::message::Message;
-  use crate::actor::message::MessageHandle;
-  use crate::actor::supervisor::strategy_one_for_one::OneForOneStrategy;
-  use crate::actor::supervisor::supervisor_strategy::{SupervisorHandle, SupervisorStrategy};
-  use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
-  use async_trait::async_trait;
-  use nexus_actor_message_derive_rs::Message;
-  use std::any::Any;
-  use std::collections::VecDeque;
-  use std::env;
-  use std::sync::Arc;
-  use std::time::Duration;
-  use thiserror::Error;
-  use tokio::sync::{Mutex, Notify};
-  use tokio::time::Instant;
-  use tracing_subscriber::EnvFilter;
+    use crate::actor::actor_system::ActorSystem;
+    use crate::actor::context::ContextHandle;
+    use crate::actor::context::ReceiverContextHandle;
+    use crate::actor::context::{MessagePart, SenderPart, SpawnerPart};
+    use crate::actor::core::Actor;
+    use crate::actor::core::ActorError;
+    use crate::actor::core::ErrorReason;
+    use crate::actor::core::ExtendedPid;
+    use crate::actor::core::Props;
+    use crate::actor::core::ReceiverMiddleware;
+    use crate::actor::core::ReceiverMiddlewareChain;
+    use crate::actor::core::RestartStatistics;
+    use crate::actor::message::AutoReceiveMessage;
+    use crate::actor::message::Message;
+    use crate::actor::message::MessageHandle;
+    use crate::actor::supervisor::strategy_one_for_one::OneForOneStrategy;
+    use crate::actor::supervisor::supervisor_strategy::{SupervisorHandle, SupervisorStrategy};
+    use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
+    use async_trait::async_trait;
+    use nexus_actor_message_derive_rs::Message;
+    use std::any::Any;
+    use std::collections::VecDeque;
+    use std::env;
+    use std::sync::Arc;
+    use std::time::Duration;
+    use thiserror::Error;
+    use tokio::sync::{Mutex, Notify};
+    use tokio::time::Instant;
+    use tracing_subscriber::EnvFilter;
 
-  #[tokio::test]
+    #[tokio::test]
   async fn test_actor_with_own_supervisor_can_handle_failure() {
     let _ = env::set_var("RUST_LOG", "debug");
     let _ = tracing_subscriber::fmt()

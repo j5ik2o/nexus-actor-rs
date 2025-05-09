@@ -15,7 +15,7 @@ mod supervisor_strategy_handle;
 mod supervisor_strategy_handle_test;
 
 pub use {
-  self::directive::*, self::exponential_backoff_strategy::*, self::strategy_all_for_one::*,
-  self::strategy_one_for_one::*, self::strategy_restarting::*, self::supervision_event::*,
-  self::supervisor_strategy::*, self::supervisor_strategy_handle::*,
+    self::directive::*, self::exponential_backoff_strategy::*, self::strategy_all_for_one::*,
+    self::strategy_one_for_one::*, self::strategy_restarting::*, self::supervision_event::*,
+    self::supervisor_strategy::*, self::supervisor_strategy_handle::*,
 };

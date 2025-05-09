@@ -166,8 +166,8 @@ pub mod remoting_client {
         clippy::wildcard_imports,
         clippy::let_unit_value,
     )]
-    use tonic::codegen::*;
     use tonic::codegen::http::Uri;
+    use tonic::codegen::*;
     #[derive(Debug, Clone)]
     pub struct RemotingClient<T> {
         inner: tonic::client::Grpc<T>,

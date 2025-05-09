@@ -1,8 +1,8 @@
 use crate::generated::remote::connect_request::ConnectionType;
 use crate::generated::remote::remote_message::MessageType;
 use crate::generated::remote::{
-  ClientConnection, ConnectRequest, ConnectResponse, DisconnectRequest, MessageBatch, MessageEnvelope, MessageHeader,
-  RemoteMessage, ServerConnection,
+    ClientConnection, ConnectRequest, ConnectResponse, DisconnectRequest, MessageBatch, MessageEnvelope, MessageHeader,
+    RemoteMessage, ServerConnection,
 };
 use nexus_actor_core_rs::actor::message::ReadonlyMessageHeadersHandle;
 use nexus_actor_core_rs::actor::message::{Message, MessageHandle};

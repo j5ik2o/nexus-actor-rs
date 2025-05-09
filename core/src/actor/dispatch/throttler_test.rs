@@ -1,12 +1,12 @@
 #[cfg(test)]
 mod tests {
-  use crate::actor::dispatch::throttler::{Throttle, Valve};
-  use crate::actor::dispatch::TokioRuntimeContextDispatcher;
-  use std::sync::Arc;
-  use std::time::Duration;
-  use tokio::sync::Mutex;
+    use crate::actor::dispatch::throttler::{Throttle, Valve};
+    use crate::actor::dispatch::TokioRuntimeContextDispatcher;
+    use std::sync::Arc;
+    use std::time::Duration;
+    use tokio::sync::Mutex;
 
-  #[tokio::test]
+    #[tokio::test]
   async fn test_throttler() {
     let callback_called = Arc::new(Mutex::new(false));
     let callback_called_clone = Arc::clone(&callback_called);

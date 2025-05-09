@@ -1,10 +1,10 @@
 use async_trait::async_trait;
 use nexus_actor_core_rs::actor::dispatch::{
-  Dispatcher, DispatcherHandle, Mailbox, MailboxHandle, MailboxMessage, MessageInvoker, MessageInvokerHandle, Runnable,
+    Dispatcher, DispatcherHandle, Mailbox, MailboxHandle, MailboxMessage, MessageInvoker, MessageInvokerHandle, Runnable,
 };
 use nexus_actor_core_rs::actor::message::MessageHandle;
 use nexus_actor_utils_rs::collections::{
-  MpscUnboundedChannelQueue, QueueBase, QueueError, QueueReader, QueueWriter, RingQueue,
+    MpscUnboundedChannelQueue, QueueBase, QueueError, QueueReader, QueueWriter, RingQueue,
 };
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicUsize, Ordering};
 use std::sync::Arc;

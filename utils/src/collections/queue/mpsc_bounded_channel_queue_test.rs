@@ -1,10 +1,10 @@
 #[cfg(test)]
 mod tests {
-  use crate::collections::element::Element;
-  use crate::collections::queue::mpsc_bounded_channel_queue::MpscBoundedChannelQueue;
-  use crate::collections::{QueueBase, QueueError, QueueReader, QueueSize, QueueWriter};
+    use crate::collections::element::Element;
+    use crate::collections::queue::mpsc_bounded_channel_queue::MpscBoundedChannelQueue;
+    use crate::collections::{QueueBase, QueueError, QueueReader, QueueSize, QueueWriter};
 
-  #[derive(Debug, Clone, PartialEq)]
+    #[derive(Debug, Clone, PartialEq)]
   struct TestElement(i32);
 
   impl Element for TestElement {}

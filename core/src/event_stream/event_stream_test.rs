@@ -1,17 +1,17 @@
 #[cfg(test)]
 mod tests {
-  use std::sync::atomic::{AtomicI32, Ordering};
-  use std::sync::Arc;
+    use std::sync::atomic::{AtomicI32, Ordering};
+    use std::sync::Arc;
 
-  use crate::actor::message::Message;
-  use crate::actor::message::MessageHandle;
-  use crate::event_stream::event_handler::EventHandler;
-  use crate::event_stream::event_stream_impl::EventStream;
-  use crate::event_stream::predicate::Predicate;
-  use nexus_actor_message_derive_rs::Message;
-  use tokio::sync::Mutex;
+    use crate::actor::message::Message;
+    use crate::actor::message::MessageHandle;
+    use crate::event_stream::event_handler::EventHandler;
+    use crate::event_stream::event_stream_impl::EventStream;
+    use crate::event_stream::predicate::Predicate;
+    use nexus_actor_message_derive_rs::Message;
+    use tokio::sync::Mutex;
 
-  #[derive(Debug, PartialEq, Eq, Message)]
+    #[derive(Debug, PartialEq, Eq, Message)]
   pub struct TestString(pub String);
 
   #[tokio::test]

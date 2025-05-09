@@ -7,7 +7,7 @@ use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::sender_context_handle::SenderContextHandle;
 use crate::actor::context::spawner_context_handle::SpawnerContextHandle;
 use crate::actor::context::{
-  InfoPart, MessagePart, SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart, TypedRootContext,
+    InfoPart, MessagePart, SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart, TypedRootContext,
 };
 use crate::actor::core::make_sender_middleware_chain;
 use crate::actor::core::ActorHandle;

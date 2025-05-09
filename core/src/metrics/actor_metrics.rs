@@ -190,10 +190,10 @@ impl ActorMetrics {
 
 #[cfg(test)]
 mod tests {
-  use super::*;
-  use opentelemetry_sdk::metrics::{ManualReader, MeterProviderBuilder};
+    use super::*;
+    use opentelemetry_sdk::metrics::{ManualReader, MeterProviderBuilder};
 
-  #[tokio::test]
+    #[tokio::test]
   async fn test_actor_metrics() {
     let reader = ManualReader::builder().build();
     let meter_provider = MeterProviderBuilder::default().with_reader(reader).build();

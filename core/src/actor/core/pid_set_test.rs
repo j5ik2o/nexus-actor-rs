@@ -1,11 +1,10 @@
 #[cfg(test)]
 mod tests {
+    use crate::actor::core::pid_set::PidSet;
 
-  use crate::actor::core::pid_set::PidSet;
+    use crate::generated::actor::Pid;
 
-  use crate::generated::actor::Pid;
-
-  #[tokio::test]
+    #[tokio::test]
   async fn test_pid_set_empty() {
     let s = PidSet::new().await;
     assert!(s.is_empty().await);

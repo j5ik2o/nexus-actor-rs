@@ -1,21 +1,21 @@
 #![cfg(test)]
 mod tests {
-  use std::any::Any;
-  use std::sync::atomic::{AtomicBool, Ordering};
-  use std::sync::Arc;
+    use std::any::Any;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
 
-  use crate::actor::actor_system::ActorSystem;
-  use crate::actor::core::ExtendedPid;
-  use crate::actor::dispatch::future::{ActorFutureError, ActorFutureProcess};
-  use crate::actor::message::Message;
-  use crate::actor::message::MessageHandle;
-  use crate::actor::process::{Process, ProcessHandle};
-  use async_trait::async_trait;
-  use nexus_actor_utils_rs::concurrent::AsyncBarrier;
-  use tokio::sync::Notify;
-  use tokio::time::{sleep, Duration};
+    use crate::actor::actor_system::ActorSystem;
+    use crate::actor::core::ExtendedPid;
+    use crate::actor::dispatch::future::{ActorFutureError, ActorFutureProcess};
+    use crate::actor::message::Message;
+    use crate::actor::message::MessageHandle;
+    use crate::actor::process::{Process, ProcessHandle};
+    use async_trait::async_trait;
+    use nexus_actor_utils_rs::concurrent::AsyncBarrier;
+    use tokio::sync::Notify;
+    use tokio::time::{sleep, Duration};
 
-  #[derive(Debug, Clone)]
+    #[derive(Debug, Clone)]
   struct MockProcess {
     name: String,
     received: Arc<AtomicBool>,

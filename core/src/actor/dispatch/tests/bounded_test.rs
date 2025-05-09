@@ -1,8 +1,7 @@
 #[cfg(test)]
 mod tests {
-  use std::time::Duration;
   use tokio::time::sleep;
-  
+
   use crate::actor::dispatch::bounded::BoundedQueue;
   use crate::actor::message::MessageHandle;
 

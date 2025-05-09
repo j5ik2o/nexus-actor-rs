@@ -1,22 +1,22 @@
 #[cfg(test)]
 mod test {
-  use std::any::Any;
-  use std::env;
-  use std::sync::{Arc, Mutex};
-  use std::time::{Duration, Instant};
+    use std::any::Any;
+    use std::env;
+    use std::sync::{Arc, Mutex};
+    use std::time::{Duration, Instant};
 
-  use async_trait::async_trait;
-  use tracing_subscriber::EnvFilter;
+    use async_trait::async_trait;
+    use tracing_subscriber::EnvFilter;
 
-  use crate::actor::actor_system::ActorSystem;
-  use crate::actor::core::{ErrorReason, ExtendedPid, RestartStatistics};
-  use crate::actor::message::MessageHandle;
-  use crate::actor::supervisor::directive::Directive;
-  use crate::actor::supervisor::strategy_one_for_one::OneForOneStrategy;
-  use crate::actor::supervisor::supervisor_strategy::{Supervisor, SupervisorHandle, SupervisorStrategy};
-  use crate::generated::actor::Pid;
+    use crate::actor::actor_system::ActorSystem;
+    use crate::actor::core::{ErrorReason, ExtendedPid, RestartStatistics};
+    use crate::actor::message::MessageHandle;
+    use crate::actor::supervisor::directive::Directive;
+    use crate::actor::supervisor::strategy_one_for_one::OneForOneStrategy;
+    use crate::actor::supervisor::supervisor_strategy::{Supervisor, SupervisorHandle, SupervisorStrategy};
+    use crate::generated::actor::Pid;
 
-  #[tokio::test]
+    #[tokio::test]
   async fn test_one_for_one_strategy_request_restart_permission() {
     let _ = env::set_var("RUST_LOG", "debug");
     let _ = tracing_subscriber::fmt()

@@ -1,10 +1,9 @@
 #[cfg(test)]
 mod tests {
-  use std::time::{Duration, Instant};
-  use tokio::time::sleep;
-  use crate::actor::context::receive_timeout_timer::ReceiveTimeoutTimer;
+    use crate::actor::context::receive_timeout_timer::ReceiveTimeoutTimer;
+    use tokio::time::sleep;
 
-  #[tokio::test]
+    #[tokio::test]
   async fn test_timer_reset_before_expiration() {
     let mut timer = ReceiveTimeoutTimer::new(Duration::from_millis(100));
     timer.init(Instant::now() + Duration::from_millis(100)).await;

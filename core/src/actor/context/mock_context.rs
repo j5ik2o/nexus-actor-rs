@@ -1,7 +1,7 @@
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::{
-  BasePart, Context, ExtensionContext, ExtensionPart, InfoPart, MessagePart, ReceiverContext, ReceiverPart,
-  SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart,
+    BasePart, Context, ExtensionContext, ExtensionPart, InfoPart, MessagePart, ReceiverContext, ReceiverPart,
+    SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart,
 };
 use crate::actor::core::ActorError;
 use crate::actor::core::ActorHandle;
