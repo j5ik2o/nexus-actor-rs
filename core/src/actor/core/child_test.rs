@@ -2,7 +2,7 @@
 pub mod tests {
   use crate::actor::core::actor::Actor;
   use crate::actor::core::actor_error::ActorError;
-  use crate::actor::core::actor_inner_error::ErrorReason;
+  use crate::actor::core::error_reason::ErrorReason;
   use crate::actor::core::pid::ExtendedPid;
   use crate::actor::core::props::Props;
   use crate::actor::actor_system::ActorSystem;
@@ -58,9 +58,8 @@ pub mod tests {
         };
         context_handle.respond(ResponseHandle::new(reply)).await;
       } else {
-        return Err(ActorError::ReceiveError(ErrorReason::new("Unknown message", 0)));
+        return Err(ActorError::of_receive_error(ErrorReason::new("Unknown message", 1)));
       }
-
       Ok(())
     }
   }

@@ -11,6 +11,7 @@ pub mod process;
 pub mod supervisor;
 pub mod typed_context;
 pub mod core;
-
+mod actor_system_test;
+mod interaction_test;
 
 pub use {self::config::*, self::config_option::*};

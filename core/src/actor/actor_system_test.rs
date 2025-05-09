@@ -1,14 +1,14 @@
   use std::env;
 
-  use nexus_actor_core_rs::actor::core::ActorError;
-  use nexus_actor_core_rs::actor::core::{TypedActor, TypedProps};
-  use nexus_actor_core_rs::actor::actor_system::ActorSystem;
-  use nexus_actor_core_rs::actor::context::InfoPart;
-  use nexus_actor_core_rs::actor::context::TypedContextHandle;
-  use nexus_actor_core_rs::actor::message::Message;
-  use nexus_actor_core_rs::actor::supervisor::SupervisorStrategyHandle;
-  use nexus_actor_core_rs::actor::typed_context::{TypedSenderPart, TypedSpawnerPart};
-  use nexus_actor_core_rs::actor::Config;
+  use crate::actor::core::ActorError;
+  use crate::actor::core::{TypedActor, TypedProps};
+  use crate::actor::actor_system::ActorSystem;
+  use crate::actor::context::InfoPart;
+  use crate::actor::context::TypedContextHandle;
+  use crate::actor::message::Message;
+  use crate::actor::supervisor::SupervisorStrategyHandle;
+  use crate::actor::typed_context::{TypedSenderPart, TypedSpawnerPart};
+  use crate::actor::Config;
   use async_trait::async_trait;
   use nexus_actor_message_derive_rs::Message;
   use nexus_actor_utils_rs::concurrent::AsyncBarrier;

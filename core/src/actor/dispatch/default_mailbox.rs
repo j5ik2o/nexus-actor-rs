@@ -13,7 +13,7 @@ use nexus_actor_utils_rs::collections::{QueueError, QueueReader, QueueWriter};
 use tokio::sync::{Mutex, RwLock};
 
 #[derive(Debug)]
-struct DefaultMailboxInner {
+pub(crate) struct DefaultMailboxInner {
   user_mailbox_sender: Arc<Mutex<dyn QueueWriter<MessageHandle>>>,
   user_mailbox_receiver: Arc<Mutex<dyn QueueReader<MessageHandle>>>,
   system_mailbox_sender: Arc<Mutex<dyn QueueWriter<MessageHandle>>>,
