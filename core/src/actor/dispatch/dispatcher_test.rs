@@ -1,22 +1,22 @@
 #[cfg(test)]
 mod test {
-  use std::sync::Arc;
+    use std::sync::Arc;
 
-  use crate::actor::actor::ActorError;
-  use crate::actor::actor::ErrorReason;
-  use crate::actor::actor::Task;
-  use crate::actor::dispatch::default_mailbox::DefaultMailbox;
-  use crate::actor::dispatch::dispatcher::{CurrentThreadDispatcher, DispatcherHandle};
-  use crate::actor::dispatch::mailbox::Mailbox;
-  use crate::actor::dispatch::message_invoker::{MessageInvoker, MessageInvokerHandle};
-  use crate::actor::message::Message;
-  use crate::actor::message::MessageHandle;
-  use async_trait::async_trait;
-  use nexus_actor_message_derive_rs::Message;
-  use nexus_actor_utils_rs::collections::MpscUnboundedChannelQueue;
-  use tokio::sync::{Mutex, RwLock};
+    use crate::actor::core::ActorError;
+    use crate::actor::core::ErrorReason;
+    use crate::actor::core::Task;
+    use crate::actor::dispatch::default_mailbox::DefaultMailbox;
+    use crate::actor::dispatch::dispatcher::{CurrentThreadDispatcher, DispatcherHandle};
+    use crate::actor::dispatch::mailbox::Mailbox;
+    use crate::actor::dispatch::message_invoker::{MessageInvoker, MessageInvokerHandle};
+    use crate::actor::message::Message;
+    use crate::actor::message::MessageHandle;
+    use async_trait::async_trait;
+    use nexus_actor_message_derive_rs::Message;
+    use nexus_actor_utils_rs::collections::MpscUnboundedChannelQueue;
+    use tokio::sync::{Mutex, RwLock};
 
-  // TestMessageInvoker implementation
+    // TestMessageInvoker implementation
   #[derive(Debug, Clone, PartialEq)]
   enum ReceivedMessage {
     System,

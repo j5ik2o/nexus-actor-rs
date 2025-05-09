@@ -1,6 +1,6 @@
-use crate::actor::actor::ExtendedPid;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::SenderPart;
+use crate::actor::core::ExtendedPid;
 use crate::actor::message::unwrap_envelope;
 use crate::actor::message::IgnoreDeadLetterLogging;
 use crate::actor::message::Message;

@@ -1,6 +1,6 @@
-use crate::actor::actor::{ActorError, ActorHandle, SpawnError, TypedExtendedPid, TypedProps};
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::{BasePart, ExtensionContext, ExtensionPart};
+use crate::actor::core::{ActorError, ActorHandle, SpawnError, TypedExtendedPid, TypedProps};
 use crate::actor::dispatch::future::ActorFuture;
 use crate::actor::message::{Message, MessageHandle, ReadonlyMessageHeadersHandle, TypedMessageEnvelope};
 use async_trait::async_trait;

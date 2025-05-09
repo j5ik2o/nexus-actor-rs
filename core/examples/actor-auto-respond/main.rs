@@ -1,6 +1,6 @@
-use nexus_actor_core_rs::actor::actor::Props;
 use nexus_actor_core_rs::actor::actor_system::ActorSystem;
 use nexus_actor_core_rs::actor::context::{SenderPart, SpawnerPart};
+use nexus_actor_core_rs::actor::core::Props;
 use nexus_actor_core_rs::actor::message::{AutoRespond, Message, MessageHandle, ResponseHandle};
 use nexus_actor_message_derive_rs::Message;
 use std::env;

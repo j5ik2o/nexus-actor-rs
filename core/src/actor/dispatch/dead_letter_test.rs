@@ -1,19 +1,29 @@
 #[cfg(test)]
 mod test {
-  use crate::actor::actor::Props;
   use crate::actor::actor_system::ActorSystem;
-  use crate::actor::context::{SenderPart, SpawnerPart, StopperPart};
+  use crate::actor::context::{ContextHandle, SenderPart, SpawnerPart, StopperPart};
+  use crate::actor::core::{Actor, ActorError, Props};
   use crate::actor::dispatch::dead_letter_process::DeadLetterEvent;
   use crate::actor::dispatch::future::ActorFutureProcess;
-  use crate::actor::interaction_test::tests::BlackHoleActor;
   use crate::actor::message::MessageHandle;
   use crate::actor::message::SystemMessage;
   use crate::generated::actor::Watch;
+  use async_trait::async_trait;
   use std::env;
   use std::sync::Arc;
   use std::time::Duration;
   use tokio::sync::Mutex;
   use tracing_subscriber::EnvFilter;
+
+  #[derive(Debug, Clone)]
+  pub struct BlackHoleActor;
+
+  #[async_trait]
+  impl Actor for BlackHoleActor {
+    async fn receive(&mut self, _: ContextHandle) -> Result<(), ActorError> {
+      Ok(())
+    }
+  }
 
   #[tokio::test]
   async fn test_dead_letter_after_stop() {

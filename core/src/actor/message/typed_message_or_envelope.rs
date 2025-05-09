@@ -1,4 +1,4 @@
-use crate::actor::actor::ExtendedPid;
+use crate::actor::core::ExtendedPid;
 use crate::actor::message::{Message, MessageEnvelope, MessageHeaders};
 use std::any::Any;
 

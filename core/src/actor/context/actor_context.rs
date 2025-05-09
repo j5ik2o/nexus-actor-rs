@@ -3,17 +3,6 @@ use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::actor::actor::Actor;
-use crate::actor::actor::ActorError;
-use crate::actor::actor::ActorHandle;
-use crate::actor::actor::ActorProducer;
-use crate::actor::actor::Continuer;
-use crate::actor::actor::ErrorReason;
-use crate::actor::actor::ExtendedPid;
-use crate::actor::actor::Props;
-use crate::actor::actor::ReceiverMiddlewareChain;
-use crate::actor::actor::SenderMiddlewareChain;
-use crate::actor::actor::SpawnError;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::actor_context_extras::ActorContextExtras;
 use crate::actor::context::context_handle::ContextHandle;
@@ -23,6 +12,17 @@ use crate::actor::context::{
   BasePart, Context, ExtensionContext, ExtensionPart, InfoPart, MessagePart, ReceiverContext, ReceiverPart,
   SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart,
 };
+use crate::actor::core::Actor;
+use crate::actor::core::ActorError;
+use crate::actor::core::ActorHandle;
+use crate::actor::core::ActorProducer;
+use crate::actor::core::Continuer;
+use crate::actor::core::ErrorReason;
+use crate::actor::core::ExtendedPid;
+use crate::actor::core::Props;
+use crate::actor::core::ReceiverMiddlewareChain;
+use crate::actor::core::SenderMiddlewareChain;
+use crate::actor::core::SpawnError;
 use crate::actor::dispatch::future::ActorFutureProcess;
 use crate::actor::dispatch::MailboxMessage;
 use crate::actor::dispatch::MessageInvoker;

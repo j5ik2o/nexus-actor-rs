@@ -1,9 +1,9 @@
 #[cfg(test)]
 mod tests {
-  use crate::actor::context::state::State;
-  use num_enum::TryFromPrimitive;
+    use crate::actor::context::state::State;
+    use num_enum::TryFromPrimitive;
 
-  #[test]
+    #[test]
   fn test_state_primitive_conversions() {
     // Test conversion from primitive to State
     assert_eq!(State::try_from_primitive(0).unwrap(), State::Alive);

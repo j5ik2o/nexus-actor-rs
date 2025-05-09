@@ -3,20 +3,20 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 
-use crate::actor::actor::make_sender_middleware_chain;
-use crate::actor::actor::ActorHandle;
-use crate::actor::actor::ExtendedPid;
-use crate::actor::actor::Props;
-use crate::actor::actor::SenderMiddleware;
-use crate::actor::actor::SenderMiddlewareChain;
-use crate::actor::actor::SpawnError;
-use crate::actor::actor::Spawner;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::sender_context_handle::SenderContextHandle;
 use crate::actor::context::spawner_context_handle::SpawnerContextHandle;
 use crate::actor::context::{
   InfoPart, MessagePart, SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart, TypedRootContext,
 };
+use crate::actor::core::make_sender_middleware_chain;
+use crate::actor::core::ActorHandle;
+use crate::actor::core::ExtendedPid;
+use crate::actor::core::Props;
+use crate::actor::core::SenderMiddleware;
+use crate::actor::core::SenderMiddlewareChain;
+use crate::actor::core::SpawnError;
+use crate::actor::core::Spawner;
 use crate::actor::dispatch::future::{ActorFuture, ActorFutureProcess};
 use crate::actor::message::MessageEnvelope;
 use crate::actor::message::MessageHandle;

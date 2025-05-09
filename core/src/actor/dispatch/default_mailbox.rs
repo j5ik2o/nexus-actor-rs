@@ -13,7 +13,7 @@ use nexus_actor_utils_rs::collections::{QueueError, QueueReader, QueueWriter};
 use tokio::sync::{Mutex, RwLock};
 
 #[derive(Debug)]
-struct DefaultMailboxInner {
+pub(crate) struct DefaultMailboxInner {
   user_mailbox_sender: Arc<Mutex<dyn QueueWriter<MessageHandle>>>,
   user_mailbox_receiver: Arc<Mutex<dyn QueueReader<MessageHandle>>>,
   system_mailbox_sender: Arc<Mutex<dyn QueueWriter<MessageHandle>>>,
@@ -292,7 +292,6 @@ impl Mailbox for DefaultMailbox {
       tracing::error!("Failed to send message: {:?}", e);
     } else {
       self.increment_user_messages_count().await;
-      tracing::debug!("post_user_message: schedule");
       self.schedule().await;
     }
   }
@@ -306,7 +305,6 @@ impl Mailbox for DefaultMailbox {
       tracing::error!("Failed to send message: {:?}", e);
     } else {
       self.increment_system_messages_count().await;
-      tracing::debug!("post_system_message: schedule");
       self.schedule().await;
     }
   }

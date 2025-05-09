@@ -3,11 +3,11 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use tokio::sync::RwLock;
 
-use crate::actor::actor::ActorError;
-use crate::actor::actor::ActorHandle;
-use crate::actor::actor::ExtendedPid;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::{ExtensionPart, InfoPart, MessagePart, ReceiverContext, ReceiverPart};
+use crate::actor::core::ActorError;
+use crate::actor::core::ActorHandle;
+use crate::actor::core::ExtendedPid;
 use crate::actor::message::MessageEnvelope;
 use crate::actor::message::MessageHandle;
 use crate::actor::message::ReadonlyMessageHeadersHandle;

@@ -1,11 +1,13 @@
-use nexus_actor_core_rs::actor::actor::ExtendedPid;
 use nexus_actor_core_rs::actor::actor_system::ActorSystem;
 use nexus_actor_core_rs::actor::context::SenderPart;
+use nexus_actor_core_rs::actor::core::ExtendedPid;
 use nexus_actor_core_rs::actor::message::{MessageEnvelope, MessageHandle, MessageHeaders, SystemMessage};
 use nexus_actor_core_rs::actor::process::Process;
 use nexus_actor_core_rs::generated::actor::{Pid, Stop, Terminated, Unwatch, Watch};
+use std::any::Any as StdAny;
 
 use crate::endpoint_manager::{EndpointManager, RequestKeyWrapper};
+use crate::generated::cluster::{DeliverBatchRequestTransport, PubSubAutoRespondBatchTransport, PubSubBatchTransport};
 use crate::generated::remote;
 use crate::generated::remote::connect_request::ConnectionType;
 use crate::generated::remote::remoting_server::Remoting;
@@ -14,7 +16,7 @@ use crate::generated::remote::{
   ListProcessesResponse, MessageBatch, RemoteMessage, ServerConnection,
 };
 use crate::remote::Remote;
-use crate::serializer::{deserialize_any, deserialize_message, SerializerId};
+use crate::serializer::{deserialize_any, deserialize_message, SerializerError, SerializerId};
 use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Weak};
@@ -122,6 +124,10 @@ impl EndpointReader {
 
   async fn on_message_batch(&self, message_batch: &MessageBatch) -> Result<(), EndpointReaderError> {
     tracing::info!("EndpointReader received message batch: {:?}", message_batch);
+    let type_pub_sub_batch: &'static str = std::any::type_name::<PubSubBatchTransport>();
+    let type_deliver_batch: &'static str = std::any::type_name::<DeliverBatchRequestTransport>();
+    let type_pub_sub_auto_respond: &'static str = std::any::type_name::<PubSubAutoRespondBatchTransport>();
+
     for envelope in &message_batch.envelopes {
       let data = &envelope.message_data;
       let mut sender = Pid::default();
@@ -150,89 +156,84 @@ impl EndpointReader {
         EndpointReaderError::UnknownTarget
       })?;
 
-      // TODO
       let serializer_id = SerializerId::try_from(envelope.serializer_id).expect("Invalid serializer id");
 
-      let result = match deserialize_any(
-        data,
-        &serializer_id,
-        "nexus_actor_remote_rs::generated::cluster::PubSubBatchTransport",
-      ) {
-        Ok(v) => Some(v),
-        Err(_) => match deserialize_any(
-          data,
-          &serializer_id,
-          "nexus_actor_remote_rs::generated::cluster::DeliverBatchRequestTransport",
-        ) {
-          Ok(v) => Some(v),
-          Err(_) => match deserialize_any(
-            data,
-            &serializer_id,
-            "nexus_actor_remote_rs::generated::cluster::PubSubAutoRespondBatchTransport",
-          ) {
-            Ok(v) => Some(v),
-            Err(_) => None,
-          },
-        },
+      if !data.is_empty() {
+        let preview_len = std::cmp::min(data.len(), 16);
+        tracing::debug!("Data preview: {:?}", &data[..preview_len]);
+      }
+
+      let result = match deserialize_any(data, &serializer_id, type_pub_sub_batch) {
+        Ok(v) => {
+          tracing::debug!("Successfully deserialized as PubSubBatchTransport");
+          Some(v)
+        }
+        Err(e1) => {
+          tracing::debug!("Failed to deserialize as PubSubBatchTransport: {:?}", e1);
+          match deserialize_any(data, &serializer_id, type_deliver_batch) {
+            Ok(v) => {
+              tracing::debug!("Successfully deserialized as DeliverBatchRequestTransport");
+              Some(v)
+            }
+            Err(e2) => {
+              tracing::debug!("Failed to deserialize as DeliverBatchRequestTransport: {:?}", e2);
+              match deserialize_any(data, &serializer_id, type_pub_sub_auto_respond) {
+                Ok(v) => {
+                  tracing::debug!("Successfully deserialized as PubSubAutoRespondBatchTransport");
+                  Some(v)
+                }
+                Err(e3) => {
+                  tracing::debug!("Failed to deserialize as PubSubAutoRespondBatchTransport: {:?}", e3);
+                  None
+                }
+              }
+            }
+          }
+        }
       };
+
+      tracing::debug!("result = {:?}", result);
+
+      let actor_system = self.get_actor_system().await;
+      let mut root_context = actor_system.get_root_context().await;
+      let process_registry = actor_system.get_process_registry().await;
+      let local_process = process_registry.get_local_process(target.id()).await;
 
       match result {
         Some(message) => {
           if let Some(t) = message.downcast_ref::<Terminated>() {
             let terminated = SystemMessage::of_terminate(t.clone());
-            self
-              .get_actor_system()
-              .await
-              .get_root_context()
-              .await
-              .send(target.clone(), MessageHandle::new(terminated))
-              .await;
+            root_context.send(target.clone(), MessageHandle::new(terminated)).await;
           }
           if message.downcast_ref::<Stop>().is_some() {
             let system_message = SystemMessage::of_stop();
-            let ref_process = self
-              .get_actor_system()
-              .await
-              .get_process_registry()
-              .await
-              .get_local_process(target.id())
-              .await
-              .ok_or(EndpointReaderError::UnknownTarget)?;
+            let ref_process = local_process.clone().ok_or(EndpointReaderError::UnknownTarget)?;
             ref_process
               .send_system_message(&target, MessageHandle::new(system_message))
               .await;
           }
           if let Some(watch) = message.downcast_ref::<Watch>() {
             let system_message = SystemMessage::of_watch(watch.clone());
-            let ref_process = self
-              .get_actor_system()
-              .await
-              .get_process_registry()
-              .await
-              .get_local_process(target.id())
-              .await
-              .ok_or(EndpointReaderError::UnknownTarget)?;
+            let ref_process = local_process.clone().ok_or(EndpointReaderError::UnknownTarget)?;
             ref_process
               .send_system_message(&target, MessageHandle::new(system_message))
               .await;
           }
           if let Some(unwatch) = message.downcast_ref::<Unwatch>() {
             let system_message = SystemMessage::of_unwatch(unwatch.clone());
-            let ref_process = self
-              .get_actor_system()
-              .await
-              .get_process_registry()
-              .await
-              .get_local_process(target.id())
-              .await
-              .ok_or(EndpointReaderError::UnknownTarget)?;
+            let ref_process = local_process.ok_or(EndpointReaderError::UnknownTarget)?;
             ref_process
               .send_system_message(&target, MessageHandle::new(system_message))
               .await;
           }
         }
         None => {
-          let type_name = message_batch.type_names.get(envelope.type_id as usize).unwrap();
+          let type_name = if envelope.type_id >= 0 && (envelope.type_id as usize) < message_batch.type_names.len() {
+            &message_batch.type_names[envelope.type_id as usize]
+          } else {
+            tracing::warn!("Invalid type_id: {}, using default type name", envelope.type_id);
+            "unknown"
+          };
           let data_arc = deserialize_message(data, &serializer_id, type_name)
             .map_err(|e| EndpointReaderError::Deserialization(e.to_string()))?;
           let msg_handle = MessageHandle::new_arc(data_arc.clone());
@@ -240,13 +241,7 @@ impl EndpointReader {
 
           if sender_opt.is_none() && envelope.message_header.is_none() {
             tracing::info!("EndpointReader received message with no sender and no header");
-            self
-              .get_actor_system()
-              .await
-              .get_root_context()
-              .await
-              .send(target, msg_handle)
-              .await;
+            root_context.send(target, msg_handle).await;
             continue;
           }
 
@@ -262,13 +257,7 @@ impl EndpointReader {
             .with_sender(sender);
           tracing::info!("EndpointReader received message: {:?}", local_me);
           tracing::info!("EndpointReader: target: {:?}", target);
-          self
-            .get_actor_system()
-            .await
-            .get_root_context()
-            .await
-            .send(target, MessageHandle::new(local_me))
-            .await;
+          root_context.send(target, MessageHandle::new(local_me)).await;
         }
       }
     }

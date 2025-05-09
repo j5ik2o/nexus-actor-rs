@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
-  use crate::actor::actor::ActorError;
-  use crate::actor::actor::ErrorReason;
+  use crate::actor::core::ActorError;
+  use crate::actor::core::ErrorReason;
   use crate::actor::dispatch::bounded::BoundedMailboxQueue;
   use crate::actor::dispatch::dispatcher::{DispatcherHandle, TokioRuntimeContextDispatcher};
   use crate::actor::dispatch::mailbox::Mailbox;

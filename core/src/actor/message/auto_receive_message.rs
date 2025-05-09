@@ -1,4 +1,4 @@
-use crate::actor::actor::ExtendedPid;
+use crate::actor::core::ExtendedPid;
 use crate::actor::message::message::Message;
 use crate::actor::message::message_handle::MessageHandle;
 use crate::generated::actor::Terminated;

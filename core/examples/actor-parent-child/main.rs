@@ -1,8 +1,8 @@
 use async_trait::async_trait;
-use nexus_actor_core_rs::actor::actor::Props;
-use nexus_actor_core_rs::actor::actor::{ActorError, TypedActor, TypedProps};
 use nexus_actor_core_rs::actor::actor_system::ActorSystem;
 use nexus_actor_core_rs::actor::context::TypedContextHandle;
+use nexus_actor_core_rs::actor::core::Props;
+use nexus_actor_core_rs::actor::core::{ActorError, TypedActor, TypedProps};
 use nexus_actor_core_rs::actor::dispatch::unbounded_mpsc_mailbox_creator;
 use nexus_actor_core_rs::actor::message::Message;
 use nexus_actor_core_rs::actor::typed_context::{TypedMessagePart, TypedSenderPart, TypedSpawnerPart};

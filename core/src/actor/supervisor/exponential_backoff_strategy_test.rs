@@ -6,7 +6,7 @@ mod test {
   use rstest::*;
   use tracing_subscriber::EnvFilter;
 
-  use crate::actor::actor::RestartStatistics;
+  use crate::actor::core::RestartStatistics;
   use crate::actor::supervisor::exponential_backoff_strategy::ExponentialBackoffStrategy;
 
   #[tokio::test]
