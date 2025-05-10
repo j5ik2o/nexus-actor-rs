@@ -42,7 +42,7 @@
 ### TODO: 統合テストの移行
 ```rust
 // TODO: 統合テストを core/tests/ ディレクトリに移動する
-// - actor_system_test.rs を core/tests/actor_tests/ に移動
+// - tests を core/tests/actor_tests/ に移動
 // - interaction_test.rs を core/tests/integration_tests/ に移動
 // - 他の統合テストも適切なディレクトリに移動
 ```

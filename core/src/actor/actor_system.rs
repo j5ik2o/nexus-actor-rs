@@ -18,6 +18,9 @@ use crate::event_stream::EventStream;
 use crate::extensions::Extensions;
 use crate::generated::actor::Pid;
 
+#[cfg(test)]
+mod tests;
+
 #[derive(Debug, Clone)]
 struct ActorSystemInner {
   process_registry: Option<ProcessRegistry>,

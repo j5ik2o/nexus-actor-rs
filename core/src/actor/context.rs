@@ -19,7 +19,6 @@ use crate::ctxext::extensions::{ContextExtensionHandle, ContextExtensionId};
 
 mod actor_context;
 mod actor_context_extras;
-mod actor_context_test;
 mod context_handle;
 mod mock_context;
 mod receive_timeout_timer;
