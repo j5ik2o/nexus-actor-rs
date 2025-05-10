@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod tests;
+
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, IntoPrimitive, TryFromPrimitive)]

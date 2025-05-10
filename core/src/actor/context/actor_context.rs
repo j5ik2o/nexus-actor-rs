@@ -51,6 +51,9 @@ use async_trait::async_trait;
 use tokio::sync::{Mutex, RwLock};
 use tokio::time::Instant;
 
+#[cfg(test)]
+mod tests;
+
 #[derive(Debug, Clone)]
 pub struct ActorContextInner {
   actor: Option<ActorHandle>,

@@ -216,7 +216,7 @@ impl Message for String {
   }
 }
 
-// tests/test.rs
+// tests/tests
 #[cfg(test)]
 mod tests {
   use super::*;
