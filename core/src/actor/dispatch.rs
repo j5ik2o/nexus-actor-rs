@@ -15,6 +15,7 @@ pub mod message_invoker;
 pub mod throttler;
 mod throttler_test;
 mod unbounded;
+mod dispatcher_test;
 
 pub use {
   self::bounded::*, self::dead_letter_process::*, self::dispatcher::*, self::mailbox::*, self::mailbox_handle::*,

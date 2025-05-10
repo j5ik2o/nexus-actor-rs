@@ -215,8 +215,9 @@ impl DefaultMailbox {
             }
           }
         }
-        for mut middleware in self.get_middlewares().await {
-          middleware.message_received(msg.clone()).await;
+        let mut middlewares = self.get_middlewares().await;
+        for middleware in &mut middlewares {
+          middleware.message_received(&msg).await;
         }
         continue;
       }
@@ -233,8 +234,9 @@ impl DefaultMailbox {
             .escalate_failure(e.reason().cloned().unwrap(), message.clone())
             .await;
         }
-        for mut middleware in self.get_middlewares().await {
-          middleware.message_received(message.clone()).await;
+        let mut middlewares = self.get_middlewares().await;
+        for middleware in &mut middlewares {
+          middleware.message_received(&message).await;
         }
       } else {
         break;
@@ -285,7 +287,7 @@ impl Mailbox for DefaultMailbox {
 
   async fn post_user_message(&self, message_handle: MessageHandle) {
     for mut middleware in self.get_middlewares().await {
-      middleware.message_posted(message_handle.clone()).await;
+      middleware.message_posted(&message_handle).await;
     }
 
     if let Err(e) = self.offer_user_mailbox(message_handle).await {
@@ -298,7 +300,7 @@ impl Mailbox for DefaultMailbox {
 
   async fn post_system_message(&self, message_handle: MessageHandle) {
     for mut middleware in self.get_middlewares().await {
-      middleware.message_posted(message_handle.clone()).await;
+      middleware.message_posted(&message_handle).await;
     }
 
     if let Err(e) = self.offer_system_mailbox(message_handle).await {

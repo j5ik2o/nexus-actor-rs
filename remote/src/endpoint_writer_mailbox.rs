@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use nexus_actor_core_rs::actor::dispatch::{
   Dispatcher, DispatcherHandle, Mailbox, MailboxHandle, MailboxMessage, MessageInvoker, MessageInvokerHandle, Runnable,
 };
-use nexus_actor_core_rs::actor::message::MessageHandle;
+use nexus_actor_core_rs::actor::message::{MessageBatch, MessageHandle};
 use nexus_actor_utils_rs::collections::{
   MpscUnboundedChannelQueue, QueueBase, QueueError, QueueReader, QueueWriter, RingQueue,
 };
@@ -63,6 +63,7 @@ impl EndpointWriterMailbox {
 
   async fn poll_user_mailbox(&self) -> Result<Option<MessageHandle>, QueueError<MessageHandle>> {
     let mut mg = self.user_mailbox.write().await;
+    // mg.poll_many(self.batch_size.load(Ordering::SeqCst)).await
     mg.poll().await
   }
 

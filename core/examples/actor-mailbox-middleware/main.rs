@@ -25,11 +25,11 @@ impl MailboxMiddleware for MailboxLogger {
     tracing::info!("Mailbox started");
   }
 
-  async fn message_posted(&mut self, message_handle: MessageHandle) {
+  async fn message_posted(&mut self, message_handle: &MessageHandle) {
     tracing::info!("Message posted: {:?}", message_handle);
   }
 
-  async fn message_received(&mut self, message_handle: MessageHandle) {
+  async fn message_received(&mut self, message_handle: &MessageHandle) {
     tracing::info!("Message received: {:?}", message_handle);
   }
 

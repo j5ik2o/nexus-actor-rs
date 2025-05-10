@@ -128,6 +128,7 @@ impl ActorContextExtras {
     dispatcher
       .schedule(Runnable::new(move || async move {
         let mut mg = timer.write().await;
+        // FIXME: これ必要？
         mg.as_mut().await;
         let mut locked_context = context.write().await;
         locked_context.receive_timeout_handler().await;
