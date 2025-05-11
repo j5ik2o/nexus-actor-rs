@@ -4,7 +4,6 @@ mod dead_letter_test;
 pub mod default_mailbox;
 pub mod dispatcher;
 pub mod future;
-mod future_test;
 mod mailbox;
 mod mailbox_handle;
 mod mailbox_message;
@@ -15,7 +14,6 @@ pub mod message_invoker;
 pub mod throttler;
 mod throttler_test;
 mod unbounded;
-mod dispatcher_test;
 
 pub use {
   self::bounded::*, self::dead_letter_process::*, self::dispatcher::*, self::mailbox::*, self::mailbox_handle::*,

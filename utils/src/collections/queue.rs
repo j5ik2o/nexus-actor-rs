@@ -288,7 +288,7 @@ pub trait HasContainsBehavior<E: Element>: QueueReader<E> {
 pub trait BlockingQueueBase<E: Element>: QueueBase<E> + Send {
   /// Returns the number of elements that can be inserted into this queue without blocking.
   ///
-  /// # Return Value 
+  /// # Return Value
   /// - `QueueSize::Limitless` - If the queue has no capacity limit.
   /// - `QueueSize::Limited(num)` - If the queue has a capacity limit.
   async fn remaining_capacity(&self) -> QueueSize;

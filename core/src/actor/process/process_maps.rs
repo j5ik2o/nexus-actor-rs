@@ -16,9 +16,7 @@ impl ProcessMaps {
     for _ in 0..CAPACITY {
       local_pids.push(DashMap::new());
     }
-    Self {
-      local_pids,
-    }
+    Self { local_pids }
   }
 
   pub(crate) fn get_map(&self, key: &str) -> &DashMap<String, ProcessHandle> {

@@ -19,6 +19,9 @@ use opentelemetry::KeyValue;
 use thiserror::Error;
 use tokio::sync::{Notify, RwLock};
 
+#[cfg(test)]
+mod tests;
+
 #[derive(Debug, Clone, PartialEq, Eq, Message, Error)]
 pub enum ActorFutureError {
   #[error("future: timeout")]

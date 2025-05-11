@@ -6,6 +6,8 @@ use async_trait::async_trait;
 use futures::future::BoxFuture;
 use tokio::runtime::{Builder, Runtime};
 
+mod tests;
+
 pub struct Runnable(Box<dyn FnOnce() -> BoxFuture<'static, ()> + Send + 'static>);
 
 impl Runnable {

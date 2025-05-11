@@ -6,6 +6,7 @@ pub mod core;
 pub mod dispatch;
 pub mod event_stream;
 pub mod guardian;
+#[cfg(test)]
 mod interaction_test;
 pub mod message;
 pub mod metrics;

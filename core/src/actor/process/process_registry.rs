@@ -13,6 +13,9 @@ use crate::actor::core::ExtendedPid;
 use crate::actor::process::{Process, ProcessHandle, ProcessMaps};
 use crate::generated::actor::Pid;
 
+#[cfg(test)]
+mod tests;
+
 const LOCAL_ADDRESS: &str = "nonhost";
 
 #[derive(Debug, Clone)]
