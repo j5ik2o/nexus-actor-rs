@@ -3,9 +3,16 @@ use std::fmt::Debug;
 use async_trait::async_trait;
 
 use crate::actor::dispatch::dispatcher::DispatcherHandle;
-use crate::actor::dispatch::mailbox_handle::MailboxHandle;
 use crate::actor::dispatch::message_invoker::MessageInvokerHandle;
 use crate::actor::message::MessageHandle;
+
+mod default_mailbox;
+mod mailbox_handle;
+#[cfg(test)]
+mod tests;
+
+pub(crate) use default_mailbox::*;
+pub use mailbox_handle::*;
 
 // Mailbox trait
 #[async_trait]

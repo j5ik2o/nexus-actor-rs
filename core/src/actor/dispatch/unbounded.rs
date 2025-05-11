@@ -1,5 +1,5 @@
-use crate::actor::dispatch::default_mailbox::DefaultMailbox;
-use crate::actor::dispatch::mailbox_handle::MailboxHandle;
+use crate::actor::dispatch::mailbox::DefaultMailbox;
+use crate::actor::dispatch::mailbox::MailboxHandle;
 use crate::actor::dispatch::mailbox_middleware::MailboxMiddlewareHandle;
 use crate::actor::dispatch::mailbox_producer::MailboxProducer;
 use crate::actor::message::MessageHandle;

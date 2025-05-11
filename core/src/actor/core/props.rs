@@ -33,7 +33,6 @@ use crate::actor::core::spawn_middleware::SpawnMiddleware;
 use crate::actor::core::spawner::{SpawnError, Spawner};
 use crate::actor::dispatch::unbounded_mailbox_creator_with_opts;
 use crate::actor::dispatch::Mailbox;
-use crate::actor::dispatch::MailboxHandle;
 use crate::actor::dispatch::MailboxProducer;
 use crate::actor::dispatch::*;
 use crate::actor::message::AutoReceiveMessage;

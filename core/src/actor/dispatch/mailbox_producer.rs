@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use futures::future::BoxFuture;
 
-use crate::actor::dispatch::mailbox_handle::MailboxHandle;
+use crate::actor::dispatch::MailboxHandle;
 
 #[derive(Clone)]
 pub struct MailboxProducer(Arc<dyn Fn() -> BoxFuture<'static, MailboxHandle> + Send + Sync + 'static>);

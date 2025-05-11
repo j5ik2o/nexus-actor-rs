@@ -5,8 +5,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 
 use crate::actor::core::pid::ExtendedPid;
-use crate::actor::dispatch::Mailbox;
-use crate::actor::dispatch::MailboxHandle;
+use crate::actor::dispatch::{Mailbox, MailboxHandle};
 use crate::actor::message::MessageHandle;
 use crate::actor::message::SystemMessage;
 use crate::actor::process::Process;

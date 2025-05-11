@@ -5,6 +5,9 @@ use std::sync::Arc;
 use crate::actor::dispatch::{Dispatcher, Runnable};
 use tokio::time::{interval, Duration};
 
+#[cfg(test)]
+mod tests;
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Valve {
   Open,
