@@ -4,7 +4,6 @@ use crate::actor::context::{
   SpawnerPart, StopperPart,
 };
 use crate::actor::core::{ActorError, ActorHandle, Continuer, ExtendedPid, SpawnError, TypedExtendedPid, TypedProps};
-use crate::actor::dispatch::future::ActorFuture;
 use crate::actor::message::{
   Message, MessageHandle, ReadonlyMessageHeadersHandle, ResponseHandle, TypedMessageEnvelope,
 };
@@ -17,6 +16,7 @@ use async_trait::async_trait;
 use std::any::Any;
 use std::fmt::Debug;
 use std::time::Duration;
+use crate::actor::process::actor_future::ActorFuture;
 
 #[derive(Debug, Clone)]
 pub struct TypedActorContext<M: Message> {

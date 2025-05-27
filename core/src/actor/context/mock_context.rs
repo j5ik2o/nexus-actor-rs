@@ -9,16 +9,17 @@ use crate::actor::core::Continuer;
 use crate::actor::core::ExtendedPid;
 use crate::actor::core::Props;
 use crate::actor::core::SpawnError;
-use crate::actor::dispatch::future::{ActorFuture, ActorFutureProcess};
 use crate::actor::message::MessageEnvelope;
 use crate::actor::message::MessageHandle;
 use crate::actor::message::ReadonlyMessageHeadersHandle;
 use crate::actor::message::ResponseHandle;
+use crate::actor::process::future::{ActorFutureProcess};
 use crate::actor::process::Process;
 use crate::ctxext::extensions::{ContextExtensionHandle, ContextExtensionId};
 use async_trait::async_trait;
 use std::any::Any;
 use std::time::Duration;
+use crate::actor::process::actor_future::ActorFuture;
 
 #[derive(Debug, Clone)]
 pub struct MockContext {

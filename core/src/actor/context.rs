@@ -10,7 +10,6 @@ use crate::actor::core::Continuer;
 use crate::actor::core::ExtendedPid;
 use crate::actor::core::Props;
 use crate::actor::core::SpawnError;
-use crate::actor::dispatch::future::ActorFuture;
 use crate::actor::message::MessageEnvelope;
 use crate::actor::message::MessageHandle;
 use crate::actor::message::ReadonlyMessageHeadersHandle;
@@ -36,6 +35,7 @@ pub use {
   self::root_context::*, self::sender_context_handle::*, self::spawner_context_handle::*,
   self::typed_context_handle::*, self::typed_root_context::*,
 };
+use crate::actor::process::actor_future::ActorFuture;
 
 pub trait Context:
   ExtensionContext

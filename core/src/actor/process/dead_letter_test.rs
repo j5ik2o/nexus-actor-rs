@@ -3,10 +3,10 @@ mod test {
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::context::{ContextHandle, SenderPart, SpawnerPart, StopperPart};
   use crate::actor::core::{Actor, ActorError, Props};
-  use crate::actor::dispatch::dead_letter_process::DeadLetterEvent;
-  use crate::actor::dispatch::future::ActorFutureProcess;
   use crate::actor::message::MessageHandle;
   use crate::actor::message::SystemMessage;
+  use crate::actor::process::dead_letter_process::DeadLetterEvent;
+  use crate::actor::process::future::ActorFutureProcess;
   use crate::generated::actor::Watch;
   use async_trait::async_trait;
   use std::env;

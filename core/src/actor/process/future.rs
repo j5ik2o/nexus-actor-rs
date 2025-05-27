@@ -13,14 +13,15 @@ use crate::actor::process::{Process, ProcessHandle};
 use crate::generated::actor::DeadLetterResponse;
 use crate::metrics::ActorMetrics;
 use async_trait::async_trait;
-use futures::future::BoxFuture;
 use nexus_actor_message_derive_rs::Message;
 use opentelemetry::KeyValue;
 use thiserror::Error;
 use tokio::sync::{Notify, RwLock};
+use crate::actor::process::actor_future::{ActorFuture, ActorFutureInner};
 
 #[cfg(test)]
 mod tests;
+
 
 #[derive(Debug, Clone, PartialEq, Eq, Message, Error)]
 pub enum ActorFutureError {
@@ -28,35 +29,6 @@ pub enum ActorFutureError {
   TimeoutError,
   #[error("future: dead letter")]
   DeadLetterError,
-}
-
-#[derive(Clone)]
-struct Completion(
-  Arc<dyn Fn(Option<MessageHandle>, Option<ActorFutureError>) -> BoxFuture<'static, ()> + Send + Sync + 'static>,
-);
-
-unsafe impl Send for Completion {}
-unsafe impl Sync for Completion {}
-
-impl Completion {
-  fn new<F, Fut>(f: F) -> Self
-  where
-    F: Fn(Option<MessageHandle>, Option<ActorFutureError>) -> Fut + Send + Sync + 'static,
-    Fut: core::future::Future<Output = ()> + Send + 'static, {
-    Self(Arc::new(move |message, error| {
-      Box::pin(f(message, error)) as BoxFuture<'static, ()>
-    }))
-  }
-
-  async fn run(&self, result: Option<MessageHandle>, error: Option<ActorFutureError>) {
-    (self.0)(result, error).await
-  }
-}
-
-impl Debug for Completion {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    write!(f, "Completion")
-  }
 }
 
 #[derive(Debug, Clone)]
@@ -296,152 +268,5 @@ impl Process for ActorFutureProcess {
 
   fn as_any(&self) -> &dyn Any {
     self
-  }
-}
-
-#[derive(Debug)]
-struct ActorFutureInner {
-  actor_system: ActorSystem,
-  pid: Option<ExtendedPid>,
-  done: bool,
-  result: Option<MessageHandle>,
-  error: Option<ActorFutureError>,
-  pipes: Vec<ExtendedPid>,
-  completions: Vec<Completion>,
-}
-
-static_assertions::assert_impl_all!(ActorFutureInner: Send, Sync);
-#[derive(Debug, Clone)]
-pub struct ActorFuture {
-  inner: Arc<RwLock<ActorFutureInner>>,
-  notify: Arc<Notify>,
-}
-
-static_assertions::assert_impl_all!(ActorFuture: Send, Sync);
-
-impl ActorFuture {
-  pub async fn result(&self) -> Result<MessageHandle, ActorFutureError> {
-    loop {
-      {
-        let inner = self.inner.read().await;
-        if inner.done {
-          return if let Some(error) = &inner.error {
-            Err(error.clone())
-          } else {
-            Ok(inner.result.as_ref().unwrap().clone())
-          };
-        }
-      }
-      self.notify.notified().await;
-    }
-  }
-
-  pub async fn wait(&self) -> Option<ActorFutureError> {
-    self.result().await.err()
-  }
-
-  pub async fn set_pid(&mut self, pid: ExtendedPid) {
-    let mut inner = self.inner.write().await;
-    inner.pid = Some(pid);
-  }
-
-  pub async fn get_pid(&self) -> ExtendedPid {
-    let inner = self.inner.read().await;
-    inner.pid.clone().expect("pid not set")
-  }
-
-  pub async fn pipe_to(&self, pid: ExtendedPid) {
-    let mut inner = self.inner.write().await;
-    inner.pipes.push(pid);
-    if inner.done {
-      self.send_to_pipes(&mut inner).await;
-    }
-  }
-
-  async fn send_to_pipes(&self, inner: &mut ActorFutureInner) {
-    let message = if let Some(error) = &inner.error {
-      MessageHandle::new(error.clone())
-    } else {
-      inner.result.as_ref().unwrap().clone()
-    };
-
-    for process in &inner.pipes {
-      process
-        .send_user_message(inner.actor_system.clone(), message.clone())
-        .await;
-    }
-
-    inner.pipes.clear();
-  }
-
-  pub async fn complete(&self, result: MessageHandle) {
-    let mut inner = self.inner.write().await;
-    if !inner.done {
-      inner.result = Some(result);
-      inner.done = true;
-      self.send_to_pipes(&mut inner).await;
-      self.run_completions(&mut inner).await;
-      self.notify.notify_waiters();
-    }
-  }
-
-  pub async fn fail(&self, error: ActorFutureError) {
-    let mut inner = self.inner.write().await;
-    if !inner.done {
-      inner.error = Some(error);
-      inner.done = true;
-      self.send_to_pipes(&mut inner).await;
-      self.run_completions(&mut inner).await;
-      self.notify.notify_waiters();
-    }
-  }
-
-  pub async fn continue_with<F, Fut>(&self, continuation: F)
-  where
-    F: Fn(Option<MessageHandle>, Option<ActorFutureError>) -> Fut + Send + Sync + 'static,
-    Fut: core::future::Future<Output = ()> + Send + 'static, {
-    let mut inner = self.inner.write().await;
-    if inner.done {
-      continuation(inner.result.clone(), inner.error.clone()).await;
-    } else {
-      inner.completions.push(Completion::new(continuation));
-    }
-  }
-
-  async fn run_completions(&self, inner: &mut ActorFutureInner) {
-    for completion in inner.completions.drain(..) {
-      completion.run(inner.result.clone(), inner.error.clone()).await;
-    }
-  }
-
-  async fn instrument(&self) {
-    // Here you would implement your metrics logging
-    // This is a placeholder for the actual implementation
-  }
-
-  async fn get_actor_system(&self) -> ActorSystem {
-    let mg = self.inner.read().await;
-    mg.actor_system.clone()
-  }
-
-  async fn metrics_foreach<F, Fut>(&self, f: F)
-  where
-    F: Fn(&ActorMetrics, &Metrics) -> Fut,
-    Fut: std::future::Future<Output = ()>, {
-    if self.get_actor_system().await.get_config().await.is_metrics_enabled() {
-      if let Some(extension_arc) = self
-        .get_actor_system()
-        .await
-        .get_extensions()
-        .await
-        .get(*EXTENSION_ID)
-        .await
-      {
-        let mut extension = extension_arc.lock().await;
-        if let Some(m) = extension.as_any_mut().downcast_mut::<Metrics>() {
-          m.foreach(f).await;
-        }
-      }
-    }
   }
 }

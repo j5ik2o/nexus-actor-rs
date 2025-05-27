@@ -76,6 +76,14 @@ impl<E> RingQueue<E> {
 
 #[async_trait]
 impl<E: Element> QueueBase<E> for RingQueue<E> {
+  async fn is_empty(&self) -> bool {
+    self.inner.head.load(Ordering::SeqCst) == self.inner.tail.load(Ordering::SeqCst)
+  }
+
+  async fn is_full(&self) -> bool {
+    self.is_full()
+  }
+
   async fn len(&self) -> QueueSize {
     let head = self.inner.head.load(Ordering::SeqCst);
     let tail = self.inner.tail.load(Ordering::SeqCst);
@@ -90,14 +98,6 @@ impl<E: Element> QueueBase<E> for RingQueue<E> {
 
   async fn capacity(&self) -> QueueSize {
     QueueSize::Limited(self.inner.capacity.load(Ordering::SeqCst))
-  }
-
-  async fn is_empty(&self) -> bool {
-    self.inner.head.load(Ordering::SeqCst) == self.inner.tail.load(Ordering::SeqCst)
-  }
-
-  async fn is_full(&self) -> bool {
-    self.is_full()
   }
 }
 
@@ -140,13 +140,6 @@ impl<E: Element> QueueWriter<E> for RingQueue<E> {
     let tail = self.inner.tail.load(Ordering::SeqCst);
     buffer[tail] = Some(element);
     self.inner.tail.store((tail + 1) % buffer.len(), Ordering::SeqCst);
-    Ok(())
-  }
-
-  async fn offer_all(&mut self, elements: Vec<E>) -> Result<(), QueueError<E>> {
-    for element in elements {
-      self.offer(element).await?;
-    }
     Ok(())
   }
 }

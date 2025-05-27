@@ -52,6 +52,8 @@ impl<Q: QueueReader<MessageHandle> + QueueWriter<MessageHandle>> QueueWriter<Mes
   }
 }
 
+// ---
+
 pub fn unbounded_mailbox_creator_with_opts(
   mailbox_stats: impl IntoIterator<Item = MailboxMiddlewareHandle> + Send + Sync,
 ) -> MailboxProducer {

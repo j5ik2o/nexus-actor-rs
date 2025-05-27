@@ -23,7 +23,6 @@ use crate::actor::core::Props;
 use crate::actor::core::ReceiverMiddlewareChain;
 use crate::actor::core::SenderMiddlewareChain;
 use crate::actor::core::SpawnError;
-use crate::actor::dispatch::future::ActorFutureProcess;
 use crate::actor::dispatch::MailboxMessage;
 use crate::actor::dispatch::MessageInvoker;
 use crate::actor::message::AutoReceiveMessage;
@@ -41,6 +40,7 @@ use crate::actor::message::{
 };
 use crate::actor::message::{AutoRespond, AutoResponsive};
 use crate::actor::metrics::metrics_impl::{Metrics, EXTENSION_ID};
+use crate::actor::process::future::ActorFutureProcess;
 use crate::actor::process::Process;
 use crate::actor::supervisor::{Supervisor, SupervisorHandle, SupervisorStrategy, DEFAULT_SUPERVISION_STRATEGY};
 use crate::ctxext::extensions::{ContextExtensionHandle, ContextExtensionId};
@@ -50,6 +50,7 @@ use crate::metrics::ActorMetrics;
 use async_trait::async_trait;
 use tokio::sync::{Mutex, RwLock};
 use tokio::time::Instant;
+use crate::actor::process::actor_future::ActorFuture;
 
 #[cfg(test)]
 mod tests;
@@ -720,7 +721,7 @@ impl BasePart for ActorContext {
     }
   }
 
-  async fn reenter_after(&self, future: crate::actor::dispatch::future::ActorFuture, continuer: Continuer) {
+  async fn reenter_after(&self, future: ActorFuture, continuer: Continuer) {
     let message = self.get_message_or_envelop().await;
     let system = self.get_actor_system().await;
     let self_ref = self.get_self_opt().await.unwrap();
@@ -818,7 +819,7 @@ impl SenderPart for ActorContext {
     pid: ExtendedPid,
     message_handle: MessageHandle,
     timeout: Duration,
-  ) -> crate::actor::dispatch::future::ActorFuture {
+  ) -> ActorFuture {
     let future_process = ActorFutureProcess::new(self.get_actor_system().await, timeout.clone()).await;
     let future_pid = future_process.get_pid().await;
     let moe = MessageEnvelope::new(message_handle).with_sender(future_pid);
@@ -914,7 +915,7 @@ impl StopperPart for ActorContext {
     &mut self,
     pid: &ExtendedPid,
     timeout: Duration,
-  ) -> crate::actor::dispatch::future::ActorFuture {
+  ) -> ActorFuture {
     let future_process = ActorFutureProcess::new(self.get_actor_system().await, timeout).await;
     pid
       .send_system_message(
@@ -939,7 +940,7 @@ impl StopperPart for ActorContext {
     &mut self,
     pid: &ExtendedPid,
     timeout: Duration,
-  ) -> crate::actor::dispatch::future::ActorFuture {
+  ) -> ActorFuture {
     let future_process = ActorFutureProcess::new(self.get_actor_system().await, timeout).await;
 
     pid
