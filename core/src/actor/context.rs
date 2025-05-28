@@ -18,6 +18,7 @@ use crate::ctxext::extensions::{ContextExtensionHandle, ContextExtensionId};
 
 mod actor_context;
 mod actor_context_extras;
+mod base_spawner;
 mod context_handle;
 mod mock_context;
 mod receive_timeout_timer;
@@ -31,9 +32,9 @@ mod typed_context_handle;
 mod typed_root_context;
 
 pub use {
-  self::actor_context::*, self::context_handle::*, self::mock_context::*, self::receiver_context_handle::*,
-  self::root_context::*, self::sender_context_handle::*, self::spawner_context_handle::*,
-  self::typed_context_handle::*, self::typed_root_context::*,
+  self::actor_context::*, self::base_spawner::*, self::context_handle::*, self::mock_context::*, 
+  self::receiver_context_handle::*, self::root_context::*, self::sender_context_handle::*, 
+  self::spawner_context_handle::*, self::typed_context_handle::*, self::typed_root_context::*,
 };
 use crate::actor::process::actor_future::ActorFuture;
 

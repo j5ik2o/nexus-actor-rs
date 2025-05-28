@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+MUST: 必ず日本語で応対すること
+
 ## プロジェクト概要
 
 nexus-actor-rsは、Rustで実装されたアクターモデルライブラリです。分散システムにおける並行処理とメッセージパッシングを安全かつ効率的に実現します。

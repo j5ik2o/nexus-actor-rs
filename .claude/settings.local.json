@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rg:*)",
+      "Bash(grep:*)",
+      "Bash(cargo test:*)",
+      "Bash(./coverage.sh)",
+      "Bash(mkdir:*)",
+      "Bash(rm:*)",
+      "Bash(cargo check:*)",
+      "Bash(ls:*)",
+      "Bash(mv:*)",
+      "Bash(git restore:*)",
+      "Bash(cargo:*)"
+    ],
+    "deny": []
+  }
+}
