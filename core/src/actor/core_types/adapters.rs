@@ -6,6 +6,7 @@ use crate::actor::actor_system::ActorSystem;
 use async_trait::async_trait;
 use std::fmt::{Debug, Formatter};
 use std::time::Duration;
+use std::any::Any;
 
 /// Adapter to make ExtendedPid implement ActorRef
 pub struct PidActorRef {
@@ -150,6 +151,10 @@ impl BaseContext for ContextAdapter {
     
     let mut context_clone = self.context.clone();
     context_clone.stop(&extended_pid).await;
+  }
+  
+  fn as_any(&self) -> &dyn Any {
+    self
   }
 }
 

@@ -2,6 +2,7 @@ use crate::actor::core_types::ActorRef;
 use crate::actor::message::MessageHandle;
 use async_trait::async_trait;
 use std::fmt::Debug;
+use std::any::Any;
 
 /// Base context trait that provides minimal context functionality
 /// This avoids circular dependencies by not depending on specific actor implementations
@@ -27,6 +28,9 @@ pub trait BaseContext: Debug + Send + Sync + 'static {
   
   /// Stop a child actor
   async fn stop_child(&self, child: &dyn ActorRef);
+  
+  /// Get self as Any for downcasting
+  fn as_any(&self) -> &dyn Any;
 }
 
 /// Factory trait for creating actors without circular dependencies

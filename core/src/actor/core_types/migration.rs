@@ -106,7 +106,6 @@ pub struct MigrationHelpers;
 impl MigrationHelpers {
     /// Create Props from a BaseActor instance
     pub async fn props_from_base_actor<B: BaseActor + 'static>(base_actor: B) -> Props {
-        use std::sync::{Arc, Mutex};
         use std::cell::RefCell;
         
         // Thread-local storage for the actor
