@@ -8,12 +8,12 @@ use nexus_actor_core_rs::actor::actor_system::ActorSystem;
 use nexus_actor_core_rs::actor::context::{BasePart, ContextHandle, InfoPart, MessagePart, SenderPart, SpawnerPart};
 use nexus_actor_core_rs::actor::core::{Actor, ActorError, ErrorReason, ExtendedPid, Props, SpawnError};
 use nexus_actor_core_rs::actor::message::{MessageHandle, ResponseHandle};
-use nexus_actor_core_rs::actor::process::future::{ActorFutureError};
+use nexus_actor_core_rs::actor::process::actor_future::ActorFuture;
+use nexus_actor_core_rs::actor::process::future::ActorFutureError;
 use nexus_actor_core_rs::generated::actor::Pid;
 use std::sync::Weak;
 use std::time::Duration;
 use thiserror::Error;
-use nexus_actor_core_rs::actor::process::actor_future::ActorFuture;
 
 #[derive(Debug, Clone)]
 pub struct Activator {

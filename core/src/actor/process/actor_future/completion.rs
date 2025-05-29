@@ -4,7 +4,8 @@ use futures::future::BoxFuture;
 use std::fmt::Debug;
 use std::sync::Arc;
 
-type CompletionFunc = Arc<dyn Fn(Option<MessageHandle>, Option<ActorFutureError>) -> BoxFuture<'static, ()> + Send + Sync + 'static>;
+type CompletionFunc =
+  Arc<dyn Fn(Option<MessageHandle>, Option<ActorFutureError>) -> BoxFuture<'static, ()> + Send + Sync + 'static>;
 
 #[derive(Clone)]
 pub(crate) struct Completion(CompletionFunc);

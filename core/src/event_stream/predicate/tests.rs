@@ -27,16 +27,14 @@ async fn test_predicate_thread_safety() {
   let handles: Vec<_> = (0..10)
     .map(|_| {
       let pred = predicate.clone();
-      tokio::spawn(async move {
-        pred.run(MessageHandle::new("test".to_string()))
-      })
+      tokio::spawn(async move { pred.run(MessageHandle::new("test".to_string())) })
     })
     .collect();
 
   for handle in handles {
     assert!(handle.await.unwrap());
   }
-  
+
   tokio::time::sleep(Duration::from_millis(100)).await;
   assert_eq!(*counter.lock().await, 10);
 }
@@ -45,12 +43,12 @@ async fn test_predicate_thread_safety() {
 async fn test_predicate_hash_consistency() {
   let pred1 = Predicate::new(|_| true);
   let pred2 = pred1.clone();
-  
+
   let mut hasher1 = DefaultHasher::new();
   let mut hasher2 = DefaultHasher::new();
   pred1.hash(&mut hasher1);
   pred2.hash(&mut hasher2);
-  
+
   assert_eq!(hasher1.finish(), hasher2.finish());
 }
 
@@ -67,7 +65,7 @@ async fn test_predicate_equality() {
 #[tokio::test]
 async fn test_predicate_message_type_filtering() {
   let predicate = Predicate::new(|msg| msg.as_any().type_id() == std::any::TypeId::of::<String>());
-  
+
   assert!(predicate.run(MessageHandle::new(String::from("test"))));
   assert!(!predicate.run(MessageHandle::new(42)));
 }

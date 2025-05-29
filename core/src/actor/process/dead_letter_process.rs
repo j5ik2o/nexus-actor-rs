@@ -24,16 +24,8 @@ pub struct DeadLetterProcess {
 impl DeadLetterProcess {
   pub async fn new(actor_system: ActorSystem) -> Self {
     let myself = Self { actor_system };
-    let dead_letter_throttle_count = myself
-      .actor_system
-      .get_config()
-      .await
-      .dead_letter_throttle_count;
-    let dead_letter_throttle_interval = myself
-      .actor_system
-      .get_config()
-      .await
-      .dead_letter_throttle_interval;
+    let dead_letter_throttle_count = myself.actor_system.get_config().await.dead_letter_throttle_count;
+    let dead_letter_throttle_interval = myself.actor_system.get_config().await.dead_letter_throttle_interval;
     let func =
       move |i: usize| async move { tracing::info!("DeadLetterProcess: Throttling dead letters, count: {}", i) };
     let dispatcher = myself.actor_system.get_config().await.system_dispatcher.clone();

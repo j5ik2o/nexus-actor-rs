@@ -7,6 +7,7 @@ use crate::actor::core::{ActorError, ActorHandle, Continuer, ExtendedPid, SpawnE
 use crate::actor::message::{
   Message, MessageHandle, ReadonlyMessageHeadersHandle, ResponseHandle, TypedMessageEnvelope,
 };
+use crate::actor::process::actor_future::ActorFuture;
 use crate::actor::typed_context::{
   TypedContext, TypedInfoPart, TypedMessagePart, TypedReceiverContext, TypedReceiverPart, TypedSenderContext,
   TypedSenderPart, TypedSpawnerContext, TypedSpawnerPart, TypedStopperPart,
@@ -16,7 +17,6 @@ use async_trait::async_trait;
 use std::any::Any;
 use std::marker::PhantomData;
 use std::time::Duration;
-use crate::actor::process::actor_future::ActorFuture;
 
 #[derive(Debug, Clone)]
 pub struct TypedContextHandle<M: Message> {

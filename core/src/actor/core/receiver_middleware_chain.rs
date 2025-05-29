@@ -8,7 +8,8 @@ use crate::actor::context::ReceiverContextHandle;
 use crate::actor::core::actor_error::ActorError;
 use crate::actor::message::MessageEnvelope;
 
-type ReceiverMiddlewareFn = Arc<dyn Fn(ReceiverContextHandle, MessageEnvelope) -> BoxFuture<'static, Result<(), ActorError>> + Send + Sync>;
+type ReceiverMiddlewareFn =
+  Arc<dyn Fn(ReceiverContextHandle, MessageEnvelope) -> BoxFuture<'static, Result<(), ActorError>> + Send + Sync>;
 
 // ReceiverMiddlewareChain
 #[derive(Clone)]

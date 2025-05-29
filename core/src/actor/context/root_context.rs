@@ -23,7 +23,7 @@ use crate::actor::message::MessageHeaders;
 use crate::actor::message::ReadonlyMessageHeadersHandle;
 use crate::actor::message::SystemMessage;
 use crate::actor::process::actor_future::ActorFuture;
-use crate::actor::process::future::{ActorFutureProcess};
+use crate::actor::process::future::ActorFutureProcess;
 use crate::actor::process::Process;
 use crate::actor::supervisor::SupervisorStrategyHandle;
 use crate::generated::actor::{PoisonPill, Watch};

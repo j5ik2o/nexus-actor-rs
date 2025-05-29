@@ -45,7 +45,6 @@ pub enum QueueSize {
 }
 
 impl QueueSize {
-
   /// Returns whether the queue has no capacity limit.<br/>
   /// キューに容量制限がないかどうかを返します。
   ///

@@ -103,7 +103,7 @@ impl ActorContextExtras {
   pub async fn init_receive_timeout_timer(&self, duration: Duration) {
     let mut inner_mg = self.inner.write().await;
     match inner_mg.receive_timeout_timer {
-      Some(_) => {},
+      Some(_) => {}
       None => {
         inner_mg.receive_timeout_timer = Some(ReceiveTimeoutTimer::new(duration));
       }

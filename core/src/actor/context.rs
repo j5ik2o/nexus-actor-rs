@@ -31,12 +31,12 @@ mod typed_actor_context;
 mod typed_context_handle;
 mod typed_root_context;
 
+use crate::actor::process::actor_future::ActorFuture;
 pub use {
-  self::actor_context::*, self::base_spawner::*, self::context_handle::*, self::mock_context::*, 
-  self::receiver_context_handle::*, self::root_context::*, self::sender_context_handle::*, 
+  self::actor_context::*, self::base_spawner::*, self::context_handle::*, self::mock_context::*,
+  self::receiver_context_handle::*, self::root_context::*, self::sender_context_handle::*,
   self::spawner_context_handle::*, self::typed_context_handle::*, self::typed_root_context::*,
 };
-use crate::actor::process::actor_future::ActorFuture;
 
 pub trait Context:
   ExtensionContext

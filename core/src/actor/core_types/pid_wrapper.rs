@@ -16,17 +16,17 @@ impl PidWrapper {
       inner: BasicPid::new(address, id),
     }
   }
-  
+
   pub fn from_basic(basic: BasicPid) -> Self {
     PidWrapper { inner: basic }
   }
-  
+
   pub fn from_generated(pid: &Pid) -> Self {
     PidWrapper {
       inner: BasicPid::new(&pid.address, &pid.id).with_request_id(pid.request_id),
     }
   }
-  
+
   pub fn to_generated(&self) -> Pid {
     Pid {
       address: self.inner.address.clone(),
@@ -34,7 +34,7 @@ impl PidWrapper {
       request_id: self.inner.request_id,
     }
   }
-  
+
   pub fn to_basic(&self) -> BasicPid {
     self.inner.clone()
   }
@@ -70,22 +70,26 @@ impl ActorRef for SimplePidRef {
   fn get_id(&self) -> String {
     self.pid.inner.id.clone()
   }
-  
+
   fn get_address(&self) -> String {
     self.pid.inner.address.clone()
   }
-  
+
   async fn tell(&self, _message: MessageHandle) {
     // In a real implementation, this would use the process registry
     // to find the actor and send the message
     todo!("Implement message sending through process registry")
   }
-  
-  async fn request(&self, _message: MessageHandle, _timeout: std::time::Duration) -> Result<MessageHandle, ActorRefError> {
+
+  async fn request(
+    &self,
+    _message: MessageHandle,
+    _timeout: std::time::Duration,
+  ) -> Result<MessageHandle, ActorRefError> {
     // In a real implementation, this would create a future and wait for response
     todo!("Implement request-response through process registry")
   }
-  
+
   fn is_alive(&self) -> bool {
     // In a real implementation, this would check the process registry
     true

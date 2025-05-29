@@ -13,13 +13,13 @@ use crate::actor::message::MessageEnvelope;
 use crate::actor::message::MessageHandle;
 use crate::actor::message::ReadonlyMessageHeadersHandle;
 use crate::actor::message::ResponseHandle;
-use crate::actor::process::future::{ActorFutureProcess};
+use crate::actor::process::actor_future::ActorFuture;
+use crate::actor::process::future::ActorFutureProcess;
 use crate::actor::process::Process;
 use crate::ctxext::extensions::{ContextExtensionHandle, ContextExtensionId};
 use async_trait::async_trait;
 use std::any::Any;
 use std::time::Duration;
-use crate::actor::process::actor_future::ActorFuture;
 
 #[derive(Debug, Clone)]
 pub struct MockContext {

@@ -46,11 +46,11 @@ use crate::actor::supervisor::{Supervisor, SupervisorHandle, SupervisorStrategy,
 use crate::ctxext::extensions::{ContextExtensionHandle, ContextExtensionId};
 use crate::generated::actor::{PoisonPill, Terminated, Unwatch, Watch};
 
+use crate::actor::process::actor_future::ActorFuture;
 use crate::metrics::ActorMetrics;
 use async_trait::async_trait;
 use tokio::sync::{Mutex, RwLock};
 use tokio::time::Instant;
-use crate::actor::process::actor_future::ActorFuture;
 
 #[cfg(test)]
 mod tests;
@@ -768,7 +768,9 @@ impl MessagePart for ActorContext {
   async fn get_message_handle_opt(&self) -> Option<MessageHandle> {
     let inner_mg = self.inner.lock().await;
     let mg = inner_mg.message_or_envelope_opt.read().await;
-    (*mg).as_ref().map(|message_or_envelope| unwrap_envelope_message(message_or_envelope.clone()))
+    (*mg)
+      .as_ref()
+      .map(|message_or_envelope| unwrap_envelope_message(message_or_envelope.clone()))
   }
 
   async fn get_message_header_handle(&self) -> Option<ReadonlyMessageHeadersHandle> {
@@ -810,12 +812,7 @@ impl SenderPart for ActorContext {
     self.send_user_message(pid, message_handle).await;
   }
 
-  async fn request_future(
-    &self,
-    pid: ExtendedPid,
-    message_handle: MessageHandle,
-    timeout: Duration,
-  ) -> ActorFuture {
+  async fn request_future(&self, pid: ExtendedPid, message_handle: MessageHandle, timeout: Duration) -> ActorFuture {
     let future_process = ActorFutureProcess::new(self.get_actor_system().await, timeout).await;
     let future_pid = future_process.get_pid().await;
     let moe = MessageEnvelope::new(message_handle).with_sender(future_pid);
@@ -907,11 +904,7 @@ impl StopperPart for ActorContext {
     pid.ref_process(inner_mg.actor_system.clone()).await.stop(pid).await;
   }
 
-  async fn stop_future_with_timeout(
-    &mut self,
-    pid: &ExtendedPid,
-    timeout: Duration,
-  ) -> ActorFuture {
+  async fn stop_future_with_timeout(&mut self, pid: &ExtendedPid, timeout: Duration) -> ActorFuture {
     let future_process = ActorFutureProcess::new(self.get_actor_system().await, timeout).await;
     pid
       .send_system_message(
@@ -932,11 +925,7 @@ impl StopperPart for ActorContext {
       .await;
   }
 
-  async fn poison_future_with_timeout(
-    &mut self,
-    pid: &ExtendedPid,
-    timeout: Duration,
-  ) -> ActorFuture {
+  async fn poison_future_with_timeout(&mut self, pid: &ExtendedPid, timeout: Duration) -> ActorFuture {
     let future_process = ActorFutureProcess::new(self.get_actor_system().await, timeout).await;
 
     pid

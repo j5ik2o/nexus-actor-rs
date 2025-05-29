@@ -2,6 +2,7 @@ use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::{InfoPart, MessagePart, RootContext, SenderPart, SpawnerPart, StopperPart};
 use crate::actor::core::{ActorHandle, SpawnError, TypedExtendedPid, TypedProps};
 use crate::actor::message::{Message, MessageHandle, ReadonlyMessageHeadersHandle, TypedMessageEnvelope};
+use crate::actor::process::actor_future::ActorFuture;
 use crate::actor::typed_context::{
   TypedInfoPart, TypedMessagePart, TypedSenderContext, TypedSenderPart, TypedSpawnerContext, TypedSpawnerPart,
   TypedStopperPart,
@@ -9,7 +10,6 @@ use crate::actor::typed_context::{
 use async_trait::async_trait;
 use nexus_actor_message_derive_rs::Message;
 use std::time::Duration;
-use crate::actor::process::actor_future::ActorFuture;
 
 #[derive(Debug, Clone, PartialEq, Eq, Message)]
 pub struct UnitMessage;

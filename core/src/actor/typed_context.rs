@@ -2,10 +2,10 @@ use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::{BasePart, ExtensionContext, ExtensionPart};
 use crate::actor::core::{ActorError, ActorHandle, SpawnError, TypedExtendedPid, TypedProps};
 use crate::actor::message::{Message, MessageHandle, ReadonlyMessageHeadersHandle, TypedMessageEnvelope};
+use crate::actor::process::actor_future::ActorFuture;
 use async_trait::async_trait;
 use std::fmt::Debug;
 use std::time::Duration;
-use crate::actor::process::actor_future::ActorFuture;
 
 pub trait TypedContext<M: Message>:
   ExtensionContext

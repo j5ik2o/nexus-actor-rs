@@ -18,7 +18,7 @@ impl BasicPid {
       request_id: 0,
     }
   }
-  
+
   pub fn with_request_id(mut self, request_id: u32) -> Self {
     self.request_id = request_id;
     self
@@ -47,7 +47,10 @@ pub enum SystemMessage {
   /// Stop watching another actor
   Unwatch { watcher: BasicPid },
   /// Actor has terminated
-  Terminated { who: BasicPid, reason: SystemTerminateReason },
+  Terminated {
+    who: BasicPid,
+    reason: SystemTerminateReason,
+  },
   /// Stop the actor
   Stop,
   /// Restart the actor

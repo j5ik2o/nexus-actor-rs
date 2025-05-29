@@ -9,6 +9,7 @@ use crate::actor::dispatch::Runnable;
 use crate::actor::message::Message;
 use crate::actor::message::MessageHandle;
 use crate::actor::metrics::metrics_impl::{Metrics, EXTENSION_ID};
+use crate::actor::process::actor_future::{ActorFuture, ActorFutureInner};
 use crate::actor::process::{Process, ProcessHandle};
 use crate::generated::actor::DeadLetterResponse;
 use crate::metrics::ActorMetrics;
@@ -17,11 +18,9 @@ use nexus_actor_message_derive_rs::Message;
 use opentelemetry::KeyValue;
 use thiserror::Error;
 use tokio::sync::{Notify, RwLock};
-use crate::actor::process::actor_future::{ActorFuture, ActorFutureInner};
 
 #[cfg(test)]
 mod tests;
-
 
 #[derive(Debug, Clone, PartialEq, Eq, Message, Error)]
 pub enum ActorFutureError {

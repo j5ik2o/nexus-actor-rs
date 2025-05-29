@@ -6,12 +6,12 @@ use crate::actor::actor_system::ActorSystem;
 use crate::actor::core::ExtendedPid;
 use crate::actor::message::Message;
 use crate::actor::message::MessageHandle;
+use crate::actor::process::future::{ActorFutureError, ActorFutureProcess};
 use crate::actor::process::{Process, ProcessHandle};
 use async_trait::async_trait;
 use nexus_actor_utils_rs::concurrent::AsyncBarrier;
 use tokio::sync::Notify;
 use tokio::time::{sleep, Duration};
-use crate::actor::process::future::{ActorFutureError, ActorFutureProcess};
 
 #[derive(Debug, Clone)]
 struct MockProcess {
