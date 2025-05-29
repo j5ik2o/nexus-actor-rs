@@ -12,7 +12,12 @@
       "Bash(mv:*)",
       "Bash(git restore:*)",
       "Bash(cargo:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(touch:*)",
+      "Bash(sed:*)",
+      "Bash(chmod:*)",
+      "Bash(/Users/j5ik2o/Sources/nexus-actor-rs/fix_env_set_var.sh:*)",
+      "Bash(python3:*)"
     ],
     "deny": []
   }

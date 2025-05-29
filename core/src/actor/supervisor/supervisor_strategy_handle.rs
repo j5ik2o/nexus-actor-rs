@@ -64,3 +64,6 @@ impl SupervisorStrategy for SupervisorStrategyHandle {
     self
   }
 }
+
+#[cfg(test)]
+mod tests;

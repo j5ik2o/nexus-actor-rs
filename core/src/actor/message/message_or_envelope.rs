@@ -109,3 +109,6 @@ pub fn unwrap_envelope_sender(message_handle: MessageHandle) -> Option<ExtendedP
     None
   }
 }
+
+#[cfg(test)]
+mod tests;

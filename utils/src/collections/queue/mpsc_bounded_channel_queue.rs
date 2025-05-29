@@ -116,3 +116,6 @@ impl<E: Element> QueueReader<E> for MpscBoundedChannelQueue<E> {
     inner_mg.is_closed = true;
   }
 }
+
+#[cfg(test)]
+mod tests;

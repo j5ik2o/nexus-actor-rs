@@ -143,3 +143,6 @@ impl<E: Element> QueueWriter<E> for RingQueue<E> {
     Ok(())
   }
 }
+
+#[cfg(test)]
+mod tests;

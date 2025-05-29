@@ -18,12 +18,20 @@ The circular dependency between core and context modules has been successfully r
    - Migrated internal actors (ActorBehaviorBase, ActorHandleBase)
    - Added dual support for both Actor and BaseActor types
 
-2. **Key Achievements**
+2. **BaseContext Extensions (NEW - 2025/05/28)**
+   - Implemented `BaseContextExt` trait for Props compatibility
+   - Added `spawn_child_with_props` method to BaseContext
+   - Added `spawn_child_actor` factory method for BaseActor
+   - Created helper functions for Props creation from BaseActor
+   - Full Props support now available in BaseContext
+
+3. **Key Achievements**
    - ✅ All 85+ tests passing
    - ✅ Zero breaking changes to existing API
    - ✅ Complete backward compatibility
    - ✅ New cleaner BaseActor trait for new development
    - ✅ Existing code continues to work unchanged
+   - ✅ Props fully integrated with BaseActor system
 
 ### Architecture Improvement
 ```
@@ -48,9 +56,11 @@ After:  core_types → BaseActor → BaseContext → Adapters → Traditional Ac
 - Unclear test coverage
 
 **Next Steps:**
-- Move tests to `tests/` directory structure
-- Separate unit tests from integration tests
-- Establish clear test organization conventions
+- **Unit tests**: MUST stay with implementation (e.g., `foo.rs` and `foo/tests.rs`) - DO NOT move to `tests/`
+- **Integration tests**: Move to `tests/` directory ONLY
+- Remove `*_test.rs` files and reorganize as proper test modules alongside implementation
+- Establish clear test organization conventions per Rust 2018 style
+- IMPORTANT: Only integration tests that test multiple modules together go in `tests/`
 
 ### 3. Module Structure Complexity
 **Current Issues:**
@@ -94,11 +104,19 @@ After:  core_types → BaseActor → BaseContext → Adapters → Traditional Ac
 - Use `BaseActor` trait for all new actors
 - Follow the examples in `examples/actor-base-traits/`
 - Use `BaseSpawnerExt` for convenient actor spawning
+- Props can still be used with `BaseContextExt` trait
 
 ### For Existing Code
 - No immediate changes required
 - Migrate to BaseActor when convenient
 - Use migration helpers for gradual transition
+- Props-based actors work seamlessly with BaseActor system
+
+### Testing Guidelines
+- **Unit tests**: Place alongside implementation (e.g., `foo/tests.rs`)
+- **Integration tests**: Place in `tests/` directory only
+- **No `mod.rs` files**: Use Rust 2018 module style
+- **Test naming**: Use descriptive test names that explain what is being tested
 
 ## Technical Debt Items
 
@@ -127,8 +145,8 @@ nexus-actor-rs/
 
 ## References
 
-- Original circular dependency analysis: `core/circular_dependency_progress.md`
-- Test migration status: Ongoing as part of Phase 5
+- Original circular dependency analysis: Completed and documented
+- Test organization: Unit tests stay with code, only integration tests go to `tests/`
 
 ---
 

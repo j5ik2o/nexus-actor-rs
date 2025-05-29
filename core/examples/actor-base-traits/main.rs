@@ -2,7 +2,7 @@ use nexus_actor_core_rs::actor::actor_system::ActorSystem;
 use nexus_actor_core_rs::actor::context::{ContextHandle, SpawnerPart, SenderPart, StopperPart};
 use nexus_actor_core_rs::actor::core::{Actor, Props, ActorError, ErrorReason};
 use nexus_actor_core_rs::actor::core_types::{
-    ActorBridge, ActorFactory, BaseActor, BaseContext, BaseActorError, Message,
+    ActorBridge, BaseActor, BaseContext, BaseActorError, Message,
 };
 use nexus_actor_core_rs::actor::message::MessageHandle;
 use async_trait::async_trait;
@@ -78,16 +78,6 @@ impl Actor for BridgedGreeter {
 }
 
 impl ActorBridge for BridgedGreeter {}
-
-// Factory for creating base actors
-struct GreeterFactory;
-
-#[async_trait]
-impl ActorFactory for GreeterFactory {
-    async fn create(&self) -> Box<dyn BaseActor> {
-        Box::new(GreeterActor)
-    }
-}
 
 #[tokio::main]
 async fn main() {

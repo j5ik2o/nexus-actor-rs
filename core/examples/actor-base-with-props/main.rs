@@ -82,7 +82,7 @@ struct ParentActor {
 
 #[async_trait]
 impl nexus_actor_core_rs::actor::core::Actor for ParentActor {
-    async fn receive(&mut self, context: nexus_actor_core_rs::actor::context::ContextHandle) -> Result<(), ActorError> {
+    async fn receive(&mut self, mut context: nexus_actor_core_rs::actor::context::ContextHandle) -> Result<(), ActorError> {
         use nexus_actor_core_rs::actor::context::{MessagePart, SpawnerPart};
         
         let msg = context.get_message_handle().await;
@@ -105,7 +105,8 @@ impl nexus_actor_core_rs::actor::core::Actor for ParentActor {
                 }).await;
                 
                 let mut ctx_clone = context.clone();
-                let child_pid = ctx_clone.spawn_named(child_props, &create_child.name).await;
+                let child_pid = ctx_clone.spawn_named(child_props, &create_child.name).await
+                    .expect("Failed to spawn child actor");
                 
                 // 子アクターにメッセージを送信
                 context.send(child_pid, MessageHandle::new(ChildMessage)).await;
@@ -122,7 +123,8 @@ impl nexus_actor_core_rs::actor::core::Actor for ParentActor {
                 }).await;
                 
                 let mut ctx_clone = context.clone();
-                let child_pid = ctx_clone.spawn_named(child_props, &create_child.name).await;
+                let child_pid = ctx_clone.spawn_named(child_props, &create_child.name).await
+                    .expect("Failed to spawn child actor");
                 
                 // 子アクターにメッセージを送信
                 context.send(child_pid, MessageHandle::new(ChildMessage)).await;
@@ -143,12 +145,11 @@ async fn main() {
     
     // 親アクターの作成
     let child_counter = Arc::new(AtomicUsize::new(0));
-    let parent_actor = ParentActor { child_counter: child_counter.clone() };
-    
+    let child_counter_clone = child_counter.clone();
     // 親アクターをspawn（従来のActorなのでそのままPropsを作成）
-    let parent_props = Props::from_async_actor_receiver(move |ctx| {
-        let mut actor = parent_actor;
-        async move { actor.receive(ctx).await }
+    let parent_props = Props::from_async_actor_producer(move |_| {
+        let parent_actor = ParentActor { child_counter: child_counter_clone.clone() };
+        async move { parent_actor }
     }).await;
     let parent_pid = root_context.spawn(parent_props).await;
     

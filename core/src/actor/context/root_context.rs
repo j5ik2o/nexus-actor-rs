@@ -42,7 +42,7 @@ impl RootContext {
     Self {
       actor_system: actor_system.clone(),
       sender_middleware_chain: make_sender_middleware_chain(
-        &sender_middleware,
+        sender_middleware,
         SenderMiddlewareChain::new(move |_, target, envelope| {
           let actor_system = actor_system.clone();
           async move {
@@ -210,14 +210,11 @@ impl SpawnerPart for RootContext {
       root_context = root_context.with_guardian(self.guardian_strategy.clone().unwrap());
     }
 
-    match &root_context.spawn_middleware {
-      Some(sm) => {
-        let sh = SpawnerContextHandle::new(root_context.clone());
-        return sm
-          .run(self.get_actor_system().await.clone(), id, props.clone(), sh)
-          .await;
-      }
-      _ => {}
+    if let Some(sm) = &root_context.spawn_middleware {
+      let sh = SpawnerContextHandle::new(root_context.clone());
+      return sm
+        .run(self.get_actor_system().await.clone(), id, props.clone(), sh)
+        .await;
     }
 
     props

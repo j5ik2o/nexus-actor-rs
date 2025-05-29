@@ -1,4 +1,4 @@
-use crate::actor::message::message::Message;
+use crate::actor::message::message_base::Message;
 use crate::generated::actor::DeadLetterResponse;
 use std::any::Any;
 

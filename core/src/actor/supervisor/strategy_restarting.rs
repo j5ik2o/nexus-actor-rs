@@ -59,3 +59,6 @@ impl SupervisorStrategy for RestartingStrategy {
     self
   }
 }
+
+#[cfg(test)]
+mod tests;

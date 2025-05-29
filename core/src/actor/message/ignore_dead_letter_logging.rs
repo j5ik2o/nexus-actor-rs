@@ -1,4 +1,4 @@
-use crate::actor::message::message::Message;
+use crate::actor::message::message_base::Message;
 use nexus_actor_message_derive_rs::Message;
 use std::fmt::Display;
 

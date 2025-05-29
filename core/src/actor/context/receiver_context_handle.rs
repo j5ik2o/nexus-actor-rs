@@ -66,14 +66,12 @@ impl ReceiverPart for ReceiverContextHandle {
 impl MessagePart for ReceiverContextHandle {
   async fn get_message_envelope_opt(&self) -> Option<MessageEnvelope> {
     let mg = self.0.read().await;
-    let result = mg.get_message_envelope_opt().await;
-    result
+    mg.get_message_envelope_opt().await
   }
 
   async fn get_message_handle_opt(&self) -> Option<MessageHandle> {
     let mg = self.0.read().await;
-    let result = mg.get_message_handle_opt().await;
-    result
+    mg.get_message_handle_opt().await
   }
 
   async fn get_message_header_handle(&self) -> Option<ReadonlyMessageHeadersHandle> {

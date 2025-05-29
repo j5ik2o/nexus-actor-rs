@@ -17,7 +17,7 @@ use tracing_subscriber::EnvFilter;
 
 #[tokio::test]
 async fn test_actor_system_new() {
-  let _ = env::set_var("RUST_LOG", "debug");
+  env::set_var("RUST_LOG", "debug");
   let _ = tracing_subscriber::fmt()
     .with_env_filter(EnvFilter::from_default_env())
     .try_init();
@@ -58,7 +58,7 @@ impl TypedActor<Hello> for MyActor {
 
 #[tokio::test]
 async fn test_actor_system_spawn_actor() {
-  let _ = env::set_var("RUST_LOG", "debug");
+  env::set_var("RUST_LOG", "debug");
   let _ = tracing_subscriber::fmt()
     .with_env_filter(EnvFilter::from_default_env())
     .try_init();

@@ -73,3 +73,6 @@ impl SupervisorStrategy for ExponentialBackoffStrategy {
     self
   }
 }
+
+#[cfg(test)]
+mod tests;

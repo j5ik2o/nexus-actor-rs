@@ -6,13 +6,9 @@ use async_trait::async_trait;
 use thiserror::Error;
 
 mod mpsc_bounded_channel_queue;
-mod mpsc_bounded_channel_queue_test;
 mod mpsc_unbounded_channel_queue;
-mod mpsc_unbounded_channel_queue_test;
 mod priority_queue;
-mod priority_queue_test;
 mod ring_queue;
-mod ring_queue_test;
 
 pub use self::{mpsc_bounded_channel_queue::*, mpsc_unbounded_channel_queue::*, priority_queue::*, ring_queue::*};
 
@@ -49,17 +45,6 @@ pub enum QueueSize {
 }
 
 impl QueueSize {
-  fn increment(&mut self) {
-    if let QueueSize::Limited(c) = self {
-      *c += 1;
-    }
-  }
-
-  fn decrement(&mut self) {
-    if let QueueSize::Limited(c) = self {
-      *c -= 1;
-    }
-  }
 
   /// Returns whether the queue has no capacity limit.<br/>
   /// キューに容量制限がないかどうかを返します。

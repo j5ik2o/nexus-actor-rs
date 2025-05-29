@@ -36,3 +36,6 @@ impl Process for EventStreamProcess {
     self
   }
 }
+
+#[cfg(test)]
+mod tests;

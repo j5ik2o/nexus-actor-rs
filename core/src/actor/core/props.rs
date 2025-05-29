@@ -140,8 +140,10 @@ impl Actor for ActorReceiverActor {
   }
 }
 
+type PropsOptionFn = Arc<Mutex<dyn FnMut(&mut Props) + Send + Sync + 'static>>;
+
 #[derive(Clone)]
-pub struct PropsOption(Arc<Mutex<dyn FnMut(&mut Props) + Send + Sync + 'static>>);
+pub struct PropsOption(PropsOptionFn);
 
 impl PropsOption {
   pub fn new(f: impl FnMut(&mut Props) + Send + Sync + 'static) -> Self {

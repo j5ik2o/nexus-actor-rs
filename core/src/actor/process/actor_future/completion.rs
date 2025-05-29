@@ -4,10 +4,10 @@ use futures::future::BoxFuture;
 use std::fmt::Debug;
 use std::sync::Arc;
 
+type CompletionFunc = Arc<dyn Fn(Option<MessageHandle>, Option<ActorFutureError>) -> BoxFuture<'static, ()> + Send + Sync + 'static>;
+
 #[derive(Clone)]
-pub(crate) struct Completion(
-  Arc<dyn Fn(Option<MessageHandle>, Option<ActorFutureError>) -> BoxFuture<'static, ()> + Send + Sync + 'static>,
-);
+pub(crate) struct Completion(CompletionFunc);
 
 unsafe impl Send for Completion {}
 unsafe impl Sync for Completion {}

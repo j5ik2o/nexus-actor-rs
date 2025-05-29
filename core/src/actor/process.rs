@@ -6,8 +6,8 @@ use async_trait::async_trait;
 use crate::actor::core::ExtendedPid;
 use crate::actor::message::MessageHandle;
 
+mod dead_letter;
 pub(crate) mod dead_letter_process;
-mod dead_letter_test;
 pub mod future;
 mod process_maps;
 pub mod process_registry;

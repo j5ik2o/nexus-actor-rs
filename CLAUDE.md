@@ -140,3 +140,5 @@ cargo doc --open
 - actor-request-response: リクエスト/レスポンスパターン
 - actor-parent-child: 親子アクター階層
 - actor-dead-letter: デッドレター処理
+
+PROJECT_STATUS.mdに沿って作業を進めること

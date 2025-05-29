@@ -18,15 +18,15 @@ pub enum SpawnError {
   ErrPreStart(ActorError),
 }
 
+type SpawnerFn = Arc<
+  dyn Fn(ActorSystem, String, Props, SpawnerContextHandle) -> BoxFuture<'static, Result<ExtendedPid, SpawnError>>
+    + Send
+    + Sync
+    + 'static,
+>;
+
 #[derive(Clone)]
-pub struct Spawner(
-  Arc<
-    dyn Fn(ActorSystem, String, Props, SpawnerContextHandle) -> BoxFuture<'static, Result<ExtendedPid, SpawnError>>
-      + Send
-      + Sync
-      + 'static,
-  >,
-);
+pub struct Spawner(SpawnerFn);
 
 impl Debug for Spawner {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

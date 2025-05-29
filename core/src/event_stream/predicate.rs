@@ -2,6 +2,9 @@ use crate::actor::message::MessageHandle;
 use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
 
+#[cfg(test)]
+mod tests;
+
 // Predicate is a function used to filter messages before being forwarded to a subscriber
 #[derive(Clone)]
 pub struct Predicate(Arc<dyn Fn(MessageHandle) -> bool + Send + Sync + 'static>);

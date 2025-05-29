@@ -114,3 +114,6 @@ impl<E: Element> QueueReader<E> for MpscUnboundedChannelQueue<E> {
     self.sender.closed().await;
   }
 }
+
+#[cfg(test)]
+mod tests;

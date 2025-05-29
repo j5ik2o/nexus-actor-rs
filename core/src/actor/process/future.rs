@@ -193,10 +193,11 @@ impl ActorFutureProcess {
         let cloned_am = am.clone();
         let cloned_future = future.clone();
         async move {
-          if {
+          let res = {
             let actor_future_inner = cloned_future.inner.read().await;
             actor_future_inner.error.is_none()
-          } {
+          };
+          if res {
             cloned_am
               .increment_futures_completed_count_with_opts(&[KeyValue::new(
                 "address",

@@ -7,8 +7,7 @@ pub mod core_types;
 pub mod dispatch;
 pub mod event_stream;
 pub mod guardian;
-#[cfg(test)]
-mod interaction_test;
+mod interaction;
 pub mod message;
 pub mod metrics;
 pub mod process;

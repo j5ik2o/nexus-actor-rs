@@ -65,7 +65,7 @@ impl MessageInvoker for TestMessageInvoker {
 
 #[tokio::test]
 async fn test_unbounded_mpsc_mailbox_user_message_consistency() {
-  let _ = env::set_var("RUST_LOG", "debug");
+  env::set_var("RUST_LOG", "debug");
   let _ = tracing_subscriber::fmt()
     .with_env_filter(EnvFilter::from_default_env())
     .try_init();
@@ -123,7 +123,7 @@ async fn test_unbounded_mpsc_mailbox_user_message_consistency() {
 
 #[tokio::test]
 async fn test_unbounded_mpsc_mailbox_system_message_consistency() {
-  let _ = env::set_var("RUST_LOG", "debug");
+  env::set_var("RUST_LOG", "debug");
   let _ = tracing_subscriber::fmt()
     .with_env_filter(EnvFilter::from_default_env())
     .try_init();

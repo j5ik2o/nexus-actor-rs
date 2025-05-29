@@ -1,4 +1,4 @@
-use crate::actor::message::message::Message;
+use crate::actor::message::message_base::Message;
 use nexus_actor_utils_rs::collections::{Element, PriorityMessage};
 use std::any::Any;
 use std::fmt::{Debug, Display, Formatter};
@@ -15,16 +15,12 @@ impl MessageHandle {
     MessageHandle(msg)
   }
 
-  pub fn new(msg: impl Message + Send + Sync + 'static) -> Self {
+  pub fn new(msg: impl Message + 'static) -> Self {
     MessageHandle(Arc::new(msg))
   }
 
   pub fn to_typed<T: Clone + 'static>(&self) -> Option<T> {
-    if let Some(msg) = self.0.as_any().downcast_ref::<T>() {
-      Some(msg.clone())
-    } else {
-      None
-    }
+    self.0.as_any().downcast_ref::<T>().cloned()
   }
 
   pub fn as_typed<T: 'static>(&self) -> Option<&T> {

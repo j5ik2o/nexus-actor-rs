@@ -28,14 +28,12 @@ impl DeadLetterProcess {
       .actor_system
       .get_config()
       .await
-      .dead_letter_throttle_count
-      .clone();
+      .dead_letter_throttle_count;
     let dead_letter_throttle_interval = myself
       .actor_system
       .get_config()
       .await
-      .dead_letter_throttle_interval
-      .clone();
+      .dead_letter_throttle_interval;
     let func =
       move |i: usize| async move { tracing::info!("DeadLetterProcess: Throttling dead letters, count: {}", i) };
     let dispatcher = myself.actor_system.get_config().await.system_dispatcher.clone();

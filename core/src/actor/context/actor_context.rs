@@ -768,18 +768,14 @@ impl MessagePart for ActorContext {
   async fn get_message_handle_opt(&self) -> Option<MessageHandle> {
     let inner_mg = self.inner.lock().await;
     let mg = inner_mg.message_or_envelope_opt.read().await;
-    if let Some(message_or_envelope) = &*mg {
-      Some(unwrap_envelope_message(message_or_envelope.clone()))
-    } else {
-      None
-    }
+    (*mg).as_ref().map(|message_or_envelope| unwrap_envelope_message(message_or_envelope.clone()))
   }
 
   async fn get_message_header_handle(&self) -> Option<ReadonlyMessageHeadersHandle> {
     let inner_mg = self.inner.lock().await;
     let mg = inner_mg.message_or_envelope_opt.read().await;
     if let Some(moe) = &*mg {
-      unwrap_envelope_header(moe.clone()).map(|x| ReadonlyMessageHeadersHandle::new(x))
+      unwrap_envelope_header(moe.clone()).map(ReadonlyMessageHeadersHandle::new)
     } else {
       None
     }
@@ -820,7 +816,7 @@ impl SenderPart for ActorContext {
     message_handle: MessageHandle,
     timeout: Duration,
   ) -> ActorFuture {
-    let future_process = ActorFutureProcess::new(self.get_actor_system().await, timeout.clone()).await;
+    let future_process = ActorFutureProcess::new(self.get_actor_system().await, timeout).await;
     let future_pid = future_process.get_pid().await;
     let moe = MessageEnvelope::new(message_handle).with_sender(future_pid);
     self.send_user_message(pid, MessageHandle::new(moe)).await;
@@ -908,7 +904,7 @@ impl StopperPart for ActorContext {
       })
       .await;
     let inner_mg = self.inner.lock().await;
-    pid.ref_process(inner_mg.actor_system.clone()).await.stop(&pid).await;
+    pid.ref_process(inner_mg.actor_system.clone()).await.stop(pid).await;
   }
 
   async fn stop_future_with_timeout(
@@ -987,9 +983,7 @@ impl MessageInvoker for ActorContext {
       match sm {
         SystemMessage::Start => {
           let result = self.handle_start().await;
-          if result.is_err() {
-            return result;
-          }
+          result?;
         }
         SystemMessage::Stop => {
           self.handle_stop().await?;
@@ -1031,11 +1025,11 @@ impl MessageInvoker for ActorContext {
 
     let receive_timeout = {
       let inner_mg = self.inner.lock().await;
-      inner_mg.receive_timeout.clone()
+      inner_mg.receive_timeout
     };
 
     if receive_timeout.unwrap_or_else(|| Duration::from_millis(0)) > Duration::from_millis(0) {
-      influence_timeout = !message_handle.to_typed::<NotInfluenceReceiveTimeoutHandle>().is_some();
+      influence_timeout = message_handle.to_typed::<NotInfluenceReceiveTimeoutHandle>().is_none();
       if influence_timeout {
         let mg = self.get_extras().await;
         if let Some(extras) = mg {
@@ -1070,7 +1064,7 @@ impl MessageInvoker for ActorContext {
 
     let receive_timeout = {
       let inner_mg = self.inner.lock().await;
-      inner_mg.receive_timeout.clone()
+      inner_mg.receive_timeout
     };
 
     let t = receive_timeout.unwrap_or_else(|| Duration::from_secs(0));

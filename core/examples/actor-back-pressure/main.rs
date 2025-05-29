@@ -195,8 +195,8 @@ impl Task {
 #[tokio::main]
 async fn main() {
   // Set up logging
-  let _ = env::set_var("RUST_LOG", "actor_backpressure=info");
-  let _ = tracing_subscriber::fmt()
+  env::set_var("RUST_LOG", "actor_backpressure=info");
+  tracing_subscriber::fmt()
     .with_env_filter(EnvFilter::from_default_env())
     .init();
 
