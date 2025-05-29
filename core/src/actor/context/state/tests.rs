@@ -46,6 +46,6 @@ fn test_state_copy_clone() {
   let copied = state;
   assert_eq!(state, copied);
 
-  let cloned = state.clone();
+  let cloned = state;
   assert_eq!(state, cloned);
 }

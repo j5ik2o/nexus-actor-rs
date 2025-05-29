@@ -1,11 +1,8 @@
-use std::any::Any;
+// Re-export NotInfluenceReceiveTimeout trait from core_types
+pub use crate::actor::core_types::message_types::NotInfluenceReceiveTimeout;
+
 use std::fmt::Debug;
 use std::sync::Arc;
-
-pub trait NotInfluenceReceiveTimeout: Debug + Send + Sync + 'static {
-  fn as_any(&self) -> &dyn Any;
-  fn not_influence_receive_timeout(&self);
-}
 
 #[derive(Debug, Clone)]
 pub struct NotInfluenceReceiveTimeoutHandle(pub Arc<dyn NotInfluenceReceiveTimeout>);

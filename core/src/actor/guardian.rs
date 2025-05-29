@@ -39,13 +39,12 @@ impl GuardiansValue {
     match res {
       Some(guardian) => {
         let pid = guardian.pid.clone();
-        let op = match &*pid {
+        match &*pid {
           Some(p) => p.clone(),
           None => {
             panic!("Guardian PID is not initialized");
           }
-        };
-        op
+        }
       }
       None => {
         let guardian = GuardianProcess::new(Arc::new(self.clone()), s.clone()).await;
@@ -54,13 +53,12 @@ impl GuardiansValue {
           guardians.insert(s.clone(), guardian.clone());
         }
         let pid = guardian.pid.clone();
-        let op = match &*pid {
+        match &*pid {
           Some(p) => p.clone(),
           None => {
             panic!("Guardian PID is not initialized");
           }
-        };
-        op
+        }
       }
     }
   }

@@ -158,3 +158,6 @@ impl SupervisorStrategy for OneForOneStrategy {
     self
   }
 }
+
+#[cfg(test)]
+mod tests;

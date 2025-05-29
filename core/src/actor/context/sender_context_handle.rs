@@ -8,10 +8,10 @@ use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::{InfoPart, MessagePart, SenderContext, SenderPart};
 use crate::actor::core::ActorHandle;
 use crate::actor::core::ExtendedPid;
-use crate::actor::dispatch::future::ActorFuture;
 use crate::actor::message::MessageEnvelope;
 use crate::actor::message::MessageHandle;
 use crate::actor::message::ReadonlyMessageHeadersHandle;
+use crate::actor::process::actor_future::ActorFuture;
 
 #[derive(Debug, Clone)]
 pub struct SenderContextHandle(Arc<RwLock<dyn SenderContext>>);

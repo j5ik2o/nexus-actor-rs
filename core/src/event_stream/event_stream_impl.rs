@@ -7,6 +7,9 @@ use std::sync::atomic::{AtomicI32, Ordering};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+#[cfg(test)]
+mod tests;
+
 #[derive(Debug, Clone)]
 pub struct EventStream {
   subscriptions: Arc<RwLock<Vec<Subscription>>>,

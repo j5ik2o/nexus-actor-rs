@@ -1,5 +1,5 @@
-use crate::actor::dispatch::default_mailbox::DefaultMailbox;
-use crate::actor::dispatch::mailbox_handle::MailboxHandle;
+use crate::actor::dispatch::mailbox::DefaultMailbox;
+use crate::actor::dispatch::mailbox::MailboxHandle;
 use crate::actor::dispatch::mailbox_middleware::MailboxMiddlewareHandle;
 use crate::actor::dispatch::mailbox_producer::MailboxProducer;
 use crate::actor::message::MessageHandle;
@@ -51,6 +51,8 @@ impl<Q: QueueReader<MessageHandle> + QueueWriter<MessageHandle>> QueueWriter<Mes
     self.user_mailbox.offer(element).await
   }
 }
+
+// ---
 
 pub fn unbounded_mailbox_creator_with_opts(
   mailbox_stats: impl IntoIterator<Item = MailboxMiddlewareHandle> + Send + Sync,

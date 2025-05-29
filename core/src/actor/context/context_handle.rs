@@ -17,11 +17,11 @@ use crate::actor::core::Continuer;
 use crate::actor::core::ExtendedPid;
 use crate::actor::core::Props;
 use crate::actor::core::SpawnError;
-use crate::actor::dispatch::future::ActorFuture;
 use crate::actor::message::MessageEnvelope;
 use crate::actor::message::MessageHandle;
 use crate::actor::message::ReadonlyMessageHeadersHandle;
 use crate::actor::message::ResponseHandle;
+use crate::actor::process::actor_future::ActorFuture;
 use crate::ctxext::extensions::{ContextExtensionHandle, ContextExtensionId};
 
 #[derive(Debug, Clone)]

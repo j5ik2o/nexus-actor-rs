@@ -28,3 +28,6 @@ pub async fn subscribe_supervision(actor_system: &ActorSystem) -> Subscription {
     })
     .await
 }
+
+#[cfg(test)]
+mod tests;

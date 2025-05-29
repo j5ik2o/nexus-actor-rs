@@ -4,8 +4,8 @@ use std::sync::Arc;
 
 use futures::future::BoxFuture;
 
-use crate::actor::dispatch::future::ActorFutureError;
 use crate::actor::message::MessageHandle;
+use crate::actor::process::future::ActorFutureError;
 
 #[allow(clippy::type_complexity)]
 #[derive(Clone)]

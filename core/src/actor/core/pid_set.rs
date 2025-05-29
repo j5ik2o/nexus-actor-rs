@@ -120,3 +120,6 @@ impl PidSet {
     pids_mg.get(index).cloned()
   }
 }
+
+#[cfg(test)]
+mod tests;

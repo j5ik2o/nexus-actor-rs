@@ -5,6 +5,9 @@ use std::sync::Arc;
 use crate::actor::dispatch::{Dispatcher, Runnable};
 use tokio::time::{interval, Duration};
 
+#[cfg(test)]
+mod tests;
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Valve {
   Open,
@@ -53,12 +56,10 @@ impl Throttle {
 
   pub fn should_throttle(&self) -> Valve {
     let tries = self.current_events.fetch_add(1, Ordering::SeqCst) + 1;
-    if tries == self.max_events_in_period {
-      Valve::Closing
-    } else if tries > self.max_events_in_period {
-      Valve::Closed
-    } else {
-      Valve::Open
+    match tries.cmp(&self.max_events_in_period) {
+      std::cmp::Ordering::Less => Valve::Open,
+      std::cmp::Ordering::Equal => Valve::Closing,
+      std::cmp::Ordering::Greater => Valve::Closed,
     }
   }
 }

@@ -128,3 +128,18 @@ fn sort_dependencies(file_path: &Path) -> Result<(), Box<dyn std::error::Error>>
     Ok(())
 }
 '''
+
+[tasks.coverage-grcov]
+description = "Generate code coverage report using grcov"
+workspace = false
+category = "Test"
+script = '''
+#!/usr/bin/env bash
+./coverage.sh
+'''
+
+[tasks.coverage]
+description = "Generate code coverage report"
+workspace = false
+category = "Test"
+run_task = { name = "coverage-grcov" }

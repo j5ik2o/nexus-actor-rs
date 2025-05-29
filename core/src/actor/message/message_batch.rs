@@ -13,3 +13,6 @@ impl MessageBatch {
     &self.0
   }
 }
+
+#[cfg(test)]
+mod tests;

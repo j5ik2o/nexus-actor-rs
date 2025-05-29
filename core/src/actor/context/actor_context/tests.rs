@@ -17,7 +17,7 @@ use tracing_subscriber::EnvFilter;
 
 #[tokio::test]
 async fn test_actor_continue_future_in_actor() {
-  let _ = env::set_var("RUST_LOG", "debug");
+  env::set_var("RUST_LOG", "debug");
   let _ = tracing_subscriber::fmt()
     .with_env_filter(EnvFilter::from_default_env())
     .try_init();
@@ -86,7 +86,7 @@ struct DummyAutoRespond {}
 
 #[tokio::test]
 async fn test_actor_context_auto_respond_message() {
-  let _ = env::set_var("RUST_LOG", "debug");
+  env::set_var("RUST_LOG", "debug");
   let _ = tracing_subscriber::fmt()
     .with_env_filter(EnvFilter::from_default_env())
     .try_init();
@@ -117,7 +117,7 @@ async fn test_actor_context_auto_respond_message() {
 
 #[tokio::test]
 async fn test_actor_context_auto_respond_touched_message() {
-  let _ = env::set_var("RUST_LOG", "debug");
+  env::set_var("RUST_LOG", "debug");
   let _ = tracing_subscriber::fmt()
     .with_env_filter(EnvFilter::from_default_env())
     .try_init();

@@ -17,12 +17,13 @@ use crate::actor::core::SenderMiddleware;
 use crate::actor::core::SenderMiddlewareChain;
 use crate::actor::core::SpawnError;
 use crate::actor::core::Spawner;
-use crate::actor::dispatch::future::{ActorFuture, ActorFutureProcess};
 use crate::actor::message::MessageEnvelope;
 use crate::actor::message::MessageHandle;
 use crate::actor::message::MessageHeaders;
 use crate::actor::message::ReadonlyMessageHeadersHandle;
 use crate::actor::message::SystemMessage;
+use crate::actor::process::actor_future::ActorFuture;
+use crate::actor::process::future::ActorFutureProcess;
 use crate::actor::process::Process;
 use crate::actor::supervisor::SupervisorStrategyHandle;
 use crate::generated::actor::{PoisonPill, Watch};
@@ -41,7 +42,7 @@ impl RootContext {
     Self {
       actor_system: actor_system.clone(),
       sender_middleware_chain: make_sender_middleware_chain(
-        &sender_middleware,
+        sender_middleware,
         SenderMiddlewareChain::new(move |_, target, envelope| {
           let actor_system = actor_system.clone();
           async move {
@@ -209,14 +210,11 @@ impl SpawnerPart for RootContext {
       root_context = root_context.with_guardian(self.guardian_strategy.clone().unwrap());
     }
 
-    match &root_context.spawn_middleware {
-      Some(sm) => {
-        let sh = SpawnerContextHandle::new(root_context.clone());
-        return sm
-          .run(self.get_actor_system().await.clone(), id, props.clone(), sh)
-          .await;
-      }
-      _ => {}
+    if let Some(sm) = &root_context.spawn_middleware {
+      let sh = SpawnerContextHandle::new(root_context.clone());
+      return sm
+        .run(self.get_actor_system().await.clone(), id, props.clone(), sh)
+        .await;
     }
 
     props

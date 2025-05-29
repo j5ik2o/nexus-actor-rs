@@ -6,13 +6,9 @@ use async_trait::async_trait;
 use thiserror::Error;
 
 mod mpsc_bounded_channel_queue;
-mod mpsc_bounded_channel_queue_test;
 mod mpsc_unbounded_channel_queue;
-mod mpsc_unbounded_channel_queue_test;
 mod priority_queue;
-mod priority_queue_test;
 mod ring_queue;
-mod ring_queue_test;
 
 pub use self::{mpsc_bounded_channel_queue::*, mpsc_unbounded_channel_queue::*, priority_queue::*, ring_queue::*};
 
@@ -49,18 +45,6 @@ pub enum QueueSize {
 }
 
 impl QueueSize {
-  fn increment(&mut self) {
-    if let QueueSize::Limited(c) = self {
-      *c += 1;
-    }
-  }
-
-  fn decrement(&mut self) {
-    if let QueueSize::Limited(c) = self {
-      *c -= 1;
-    }
-  }
-
   /// Returns whether the queue has no capacity limit.<br/>
   /// キューに容量制限がないかどうかを返します。
   ///
@@ -237,94 +221,94 @@ pub trait QueueReadFactory<E: Element>: QueueBase<E> {
 
 #[async_trait]
 pub trait QueueReader<E: Element>: QueueBase<E> {
-  /// Retrieves and deletes the head of the queue. Returns None if the queue is empty.<br/>
-  /// キューの先頭を取得および削除します。キューが空の場合は None を返します。
+  /// Retrieves and deletes the head of the queue. Returns None if the queue is empty.
   ///
-  /// # Return Value / 戻り値
-  /// - `Ok(Some(element))` - If the element is retrieved successfully. / 要素が正常に取得された場合。
-  /// - `Ok(None)` - If the queue is empty. / キューが空の場合。
+  /// # Return Value
+  /// - `Ok(Some(element))` - If the element is retrieved successfully.
+  /// - `Ok(None)` - If the queue is empty.
   async fn poll(&mut self) -> Result<Option<E>, QueueError<E>>;
+
+  async fn poll_many(&mut self, n: usize) -> Result<Vec<E>, QueueError<E>> {
+    let mut elements = Vec::with_capacity(n);
+    for _ in 0..n {
+      let result = self.poll().await?;
+      if let Some(element) = result {
+        elements.push(element);
+      }
+    }
+    Ok(elements)
+  }
 
   async fn clean_up(&mut self);
 }
 
-/// A trait that defines the behavior of a queue that can be peeked.<br/>
-/// Peekができるキューの振る舞いを定義するトレイト。
+/// A trait that defines the behavior of a queue that can be peeked.
 #[async_trait]
 pub trait HasPeekBehavior<E: Element>: QueueReader<E> {
-  /// Gets the head of the queue, but does not delete it. Returns None if the queue is empty.<br/>
-  /// キューの先頭を取得しますが、削除しません。キューが空の場合は None を返します。
+  /// Gets the head of the queue, but does not delete it. Returns None if the queue is empty.
   ///
-  /// # Return Value / 戻り値
-  /// - `Ok(Some(element))` - If the element is retrieved successfully. / 要素が正常に取得された場合。
-  /// - `Ok(None)` - If the queue is empty. / キューが空の場合。
+  /// # Return Value
+  /// - `Ok(Some(element))` - If the element is retrieved successfully.
+  /// - `Ok(None)` - If the queue is empty.
   async fn peek(&self) -> Result<Option<E>, QueueError<E>>;
 }
 
-/// A trait that defines the behavior of a queue that can be checked for contains.<br/>
-/// Containsができるキューの振る舞いを定義するトレイト。
+/// A trait that defines the behavior of a queue that can be checked for contains.
 #[async_trait]
 pub trait HasContainsBehavior<E: Element>: QueueReader<E> {
-  /// Returns whether the specified element is contained in this queue.<br/>
-  /// 指定された要素がこのキューに含まれているかどうかを返します。
+  /// Returns whether the specified element is contained in this queue.
   ///
-  /// # Arguments / 引数
-  /// - `element` - The element to be checked. / チェックする要素。
+  /// # Arguments
+  /// - `element` - The element to be checked.
   ///
-  /// # Return Value / 戻り値
-  /// - `true` - If the element is contained in this queue. / 要素がこのキューに含まれている場合。
-  /// - `false` - If the element is not contained in this queue. / 要素がこのキューに含まれていない場合。
+  /// # Return Value
+  /// - `true` - If the element is contained in this queue.
+  /// - `false` - If the element is not contained in this queue.
   async fn contains(&self, element: &E) -> bool;
 }
 
-/// A trait that defines the behavior of a blocking queue.<br/>
-/// ブロッキングキューの振る舞いを定義するトレイト。
+/// A trait that defines the behavior of a blocking queue.
 #[async_trait]
 pub trait BlockingQueueBase<E: Element>: QueueBase<E> + Send {
-  /// Returns the number of elements that can be inserted into this queue without blocking.<br/>
-  /// ブロックせずにこのキューに挿入できる要素数を返します。
+  /// Returns the number of elements that can be inserted into this queue without blocking.
   ///
-  /// # Return Value / 戻り値
-  /// - `QueueSize::Limitless` - If the queue has no capacity limit. / キューに容量制限がない場合。
-  /// - `QueueSize::Limited(num)` - If the queue has a capacity limit. / キューに容量制限がある場合。
+  /// # Return Value
+  /// - `QueueSize::Limitless` - If the queue has no capacity limit.
+  /// - `QueueSize::Limited(num)` - If the queue has a capacity limit.
   async fn remaining_capacity(&self) -> QueueSize;
 
-  /// Returns whether the operation of this queue has been interrupted.<br/>
-  /// このキューの操作が中断されたかどうかを返します。
+  /// Returns whether the operation of this queue has been interrupted.
   ///
   /// # Return Value / 戻り値
-  /// - `true` - If the operation is interrupted. / 操作が中断された場合。
-  /// - `false` - If the operation is not interrupted. / 操作が中断されていない場合。
+  /// - `true` - If the operation is interrupted.
+  /// - `false` - If the operation is not interrupted.
   async fn is_interrupted(&self) -> bool;
 }
 
 #[async_trait]
 pub trait BlockingQueueWriter<E: Element>: BlockingQueueBase<E> + QueueWriter<E> {
-  /// Inserts the specified element into this queue. If necessary, waits until space is available.<br/>
-  /// 指定された要素をこのキューに挿入します。必要に応じて、空きが生じるまで待機します。
+  /// Inserts the specified element into this queue. If necessary, waits until space is available.
   ///
-  /// # Arguments / 引数
-  /// - `element` - The element to be inserted. / 挿入する要素。
+  /// # Arguments
+  /// - `element` - The element to be inserted.
   ///
-  /// # Return Value / 戻り値
-  /// - `Ok(())` - If the element is inserted successfully. / 要素が正常に挿入された場合。
-  /// - `Err(QueueError::OfferError(element))` - If the element cannot be inserted. / 要素を挿入できなかった場合。
-  /// - `Err(QueueError::InterruptedError)` - If the operation is interrupted. / 操作が中断された場合。
+  /// # Return Value
+  /// - `Ok(())` - If the element is inserted successfully.
+  /// - `Err(QueueError::OfferError(element))` - If the element cannot be inserted.
+  /// - `Err(QueueError::InterruptedError)` - If the operation is interrupted.
   async fn put(&mut self, element: E) -> Result<(), QueueError<E>>;
 
-  /// Interrupts the operation of this queue.<br/>
-  /// このキューの操作を中断します。
+  /// Interrupts the operation of this queue.
   async fn interrupt(&mut self);
 }
 
 #[async_trait]
 pub trait BlockingQueueReader<E: Element>: BlockingQueueBase<E> {
-  /// Retrieve the head of this queue and delete it. If necessary, wait until an element becomes available.<br/>
-  /// このキューの先頭を取得して削除します。必要に応じて、要素が利用可能になるまで待機します。
+  /// Retrieve the head of this queue and delete it. If necessary, wait until an element becomes available.
   ///
-  /// # Return Value / 戻り値
-  /// - `Ok(Some(element))` - If the element is retrieved successfully. / 要素が正常に取得された場合。
-  /// - `Ok(None)` - If the queue is empty. / キューが空の場合。
-  /// - `Err(QueueError::InterruptedError)` - If the operation is interrupted. / 操作が中断された場合。
+  /// # Return Value
+  /// - `Ok(Some(element))` - If the element is retrieved successfully.
+  /// - `Ok(None)` - If the queue is empty.
+  /// - `Err(QueueError::InterruptedError)` - If the operation is interrupted.
   async fn take(&mut self) -> Result<Option<E>, QueueError<E>>;
 }

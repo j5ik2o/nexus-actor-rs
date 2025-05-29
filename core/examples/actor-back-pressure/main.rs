@@ -61,10 +61,10 @@ impl RequestTaskBehavior {
 impl MailboxMiddleware for RequestTaskBehavior {
   async fn mailbox_started(&mut self) {}
 
-  async fn message_posted(&mut self, _message_handle: MessageHandle) {}
+  async fn message_posted(&mut self, _message_handle: &MessageHandle) {}
 
   // Consume a token when a message is received and request more if needed
-  async fn message_received(&mut self, _message_handle: MessageHandle) {
+  async fn message_received(&mut self, _message_handle: &MessageHandle) {
     let token_count = self.tokens.load(std::sync::atomic::Ordering::SeqCst);
     if token_count > 0 {
       self.tokens.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
@@ -195,8 +195,8 @@ impl Task {
 #[tokio::main]
 async fn main() {
   // Set up logging
-  let _ = env::set_var("RUST_LOG", "actor_backpressure=info");
-  let _ = tracing_subscriber::fmt()
+  env::set_var("RUST_LOG", "actor_backpressure=info");
+  tracing_subscriber::fmt()
     .with_env_filter(EnvFilter::from_default_env())
     .init();
 

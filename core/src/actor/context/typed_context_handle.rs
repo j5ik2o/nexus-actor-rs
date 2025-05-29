@@ -4,10 +4,10 @@ use crate::actor::context::{
   SpawnerPart, StopperPart,
 };
 use crate::actor::core::{ActorError, ActorHandle, Continuer, ExtendedPid, SpawnError, TypedExtendedPid, TypedProps};
-use crate::actor::dispatch::future::ActorFuture;
 use crate::actor::message::{
   Message, MessageHandle, ReadonlyMessageHeadersHandle, ResponseHandle, TypedMessageEnvelope,
 };
+use crate::actor::process::actor_future::ActorFuture;
 use crate::actor::typed_context::{
   TypedContext, TypedInfoPart, TypedMessagePart, TypedReceiverContext, TypedReceiverPart, TypedSenderContext,
   TypedSenderPart, TypedSpawnerContext, TypedSpawnerPart, TypedStopperPart,

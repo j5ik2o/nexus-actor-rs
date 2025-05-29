@@ -1,5 +1,5 @@
 use crate::actor::core::ExtendedPid;
-use crate::actor::message::message::Message;
+use crate::actor::message::message_base::Message;
 use crate::actor::message::message_handle::MessageHandle;
 use crate::generated::actor::Terminated;
 use nexus_actor_message_derive_rs::Message;

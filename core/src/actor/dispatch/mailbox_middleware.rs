@@ -9,8 +9,8 @@ use tokio::sync::RwLock;
 #[async_trait]
 pub trait MailboxMiddleware: Debug + Send + Sync {
   async fn mailbox_started(&mut self);
-  async fn message_posted(&mut self, message_handle: MessageHandle);
-  async fn message_received(&mut self, message_handle: MessageHandle);
+  async fn message_posted(&mut self, message_handle: &MessageHandle);
+  async fn message_received(&mut self, message_handle: &MessageHandle);
   async fn mailbox_empty(&mut self);
 }
 
@@ -44,12 +44,12 @@ impl MailboxMiddleware for MailboxMiddlewareHandle {
     mg.mailbox_started().await;
   }
 
-  async fn message_posted(&mut self, message_handle: MessageHandle) {
+  async fn message_posted(&mut self, message_handle: &MessageHandle) {
     let mut mg = self.0.write().await;
     mg.message_posted(message_handle).await;
   }
 
-  async fn message_received(&mut self, message_handle: MessageHandle) {
+  async fn message_received(&mut self, message_handle: &MessageHandle) {
     let mut mg = self.0.write().await;
     mg.message_received(message_handle).await;
   }

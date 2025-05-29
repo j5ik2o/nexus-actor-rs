@@ -56,7 +56,7 @@ impl TypedActor<Hello> for TopActor {
 
 #[tokio::main]
 async fn main() {
-  let _ = env::set_var("RUST_LOG", "actor_parent_child=info");
+  env::set_var("RUST_LOG", "actor_parent_child=info");
   tracing_subscriber::fmt()
     .with_env_filter(EnvFilter::from_default_env())
     .init();

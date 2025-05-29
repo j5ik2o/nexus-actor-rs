@@ -91,3 +91,6 @@ impl<E: PriorityMessage, Q: QueueReader<E> + QueueWriter<E>> QueueWriter<E> for 
     mg[item_priority as usize].offer(element).await
   }
 }
+
+#[cfg(test)]
+mod tests;

@@ -90,10 +90,6 @@ impl Config {
   }
 
   pub fn is_metrics_enabled(&self) -> bool {
-    if let Some(_) = self.metrics_provider.as_ref() {
-      true
-    } else {
-      false
-    }
+    self.metrics_provider.as_ref().is_some()
   }
 }

@@ -1,6 +1,6 @@
 use opentelemetry::metrics::MetricsError;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, RwLock};
 use uuid::Uuid;
 
 use crate::actor::context::{RootContext, TypedRootContext};
@@ -51,7 +51,7 @@ impl ActorSystemInner {
 
 #[derive(Debug, Clone)]
 pub struct ActorSystem {
-  inner: Arc<Mutex<ActorSystemInner>>,
+  inner: Arc<RwLock<ActorSystemInner>>,
 }
 
 impl ActorSystem {
@@ -67,7 +67,7 @@ impl ActorSystem {
 
   pub async fn new_with_config(config: Config) -> Result<Self, MetricsError> {
     let system = Self {
-      inner: Arc::new(Mutex::new(ActorSystemInner::new(config.clone()).await)),
+      inner: Arc::new(RwLock::new(ActorSystemInner::new(config.clone()).await)),
     };
     system
       .set_root_context(RootContext::new(system.clone(), EMPTY_MESSAGE_HEADER.clone(), &[]))
@@ -109,7 +109,7 @@ impl ActorSystem {
   }
 
   pub async fn get_id(&self) -> String {
-    let inner_mg = self.inner.lock().await;
+    let inner_mg = self.inner.read().await;
     inner_mg.id.clone()
   }
 
@@ -118,12 +118,12 @@ impl ActorSystem {
   }
 
   pub async fn get_config(&self) -> Config {
-    let inner_mg = self.inner.lock().await;
+    let inner_mg = self.inner.read().await;
     inner_mg.config.clone()
   }
 
   pub async fn get_root_context(&self) -> RootContext {
-    let inner_mg = self.inner.lock().await;
+    let inner_mg = self.inner.read().await;
     inner_mg.root_context.as_ref().unwrap().clone()
   }
 
@@ -132,48 +132,48 @@ impl ActorSystem {
   }
 
   pub async fn get_dead_letter(&self) -> ProcessHandle {
-    let inner_mg = self.inner.lock().await;
+    let inner_mg = self.inner.read().await;
     let dead_letter = inner_mg.dead_letter.as_ref().unwrap().clone();
     ProcessHandle::new(dead_letter)
   }
 
   pub async fn get_process_registry(&self) -> ProcessRegistry {
-    let inner_mg = self.inner.lock().await;
+    let inner_mg = self.inner.read().await;
     inner_mg.process_registry.as_ref().unwrap().clone()
   }
 
   pub async fn get_event_stream(&self) -> Arc<EventStream> {
-    let inner_mg = self.inner.lock().await;
+    let inner_mg = self.inner.read().await;
     inner_mg.event_stream.clone()
   }
 
   pub async fn get_guardians(&self) -> GuardiansValue {
-    let inner_mg = self.inner.lock().await;
+    let inner_mg = self.inner.read().await;
     inner_mg.guardians.as_ref().unwrap().clone()
   }
 
   async fn set_root_context(&self, root: RootContext) {
-    let mut inner_mg = self.inner.lock().await;
+    let mut inner_mg = self.inner.write().await;
     inner_mg.root_context = Some(root);
   }
 
   async fn set_process_registry(&self, process_registry: ProcessRegistry) {
-    let mut inner_mg = self.inner.lock().await;
+    let mut inner_mg = self.inner.write().await;
     inner_mg.process_registry = Some(process_registry);
   }
 
   async fn set_guardians(&self, guardians: GuardiansValue) {
-    let mut inner_mg = self.inner.lock().await;
+    let mut inner_mg = self.inner.write().await;
     inner_mg.guardians = Some(guardians);
   }
 
   async fn set_dead_letter(&self, dead_letter: DeadLetterProcess) {
-    let mut inner_mg = self.inner.lock().await;
+    let mut inner_mg = self.inner.write().await;
     inner_mg.dead_letter = Some(dead_letter);
   }
 
   pub async fn get_extensions(&self) -> Extensions {
-    let inner_mg = self.inner.lock().await;
+    let inner_mg = self.inner.read().await;
     inner_mg.extensions.clone()
   }
 }

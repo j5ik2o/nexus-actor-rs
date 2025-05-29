@@ -113,3 +113,6 @@ impl std::hash::Hash for AllForOneStrategy {
     self.decider.hash(state);
   }
 }
+
+#[cfg(test)]
+mod tests;

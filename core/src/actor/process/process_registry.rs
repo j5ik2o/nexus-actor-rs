@@ -4,16 +4,17 @@ use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
-use dashmap::DashMap;
 use futures::future::BoxFuture;
-use siphasher::sip::SipHasher;
 use tokio::sync::RwLock;
 
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::core::ActorProcess;
 use crate::actor::core::ExtendedPid;
-use crate::actor::process::{Process, ProcessHandle};
+use crate::actor::process::{Process, ProcessHandle, ProcessMaps};
 use crate::generated::actor::Pid;
+
+#[cfg(test)]
+mod tests;
 
 const LOCAL_ADDRESS: &str = "nonhost";
 
@@ -22,33 +23,8 @@ pub struct ProcessRegistry {
   sequence_id: Arc<AtomicU64>,
   actor_system: ActorSystem,
   address: Arc<RwLock<String>>,
-  local_pids: SliceMap,
+  local_pids: Arc<ProcessMaps>,
   remote_handlers: Arc<RwLock<Vec<AddressResolver>>>,
-}
-
-#[derive(Debug, Clone)]
-pub struct SliceMap {
-  local_pids: Arc<Vec<DashMap<String, ProcessHandle>>>,
-}
-
-impl SliceMap {
-  fn new() -> Self {
-    let mut local_pids = Vec::with_capacity(1024);
-    for _ in 0..1024 {
-      local_pids.push(DashMap::new());
-    }
-    Self {
-      local_pids: Arc::new(local_pids),
-    }
-  }
-
-  fn get_bucket(&self, key: &str) -> &DashMap<String, ProcessHandle> {
-    let mut hasher = SipHasher::new();
-    key.hash(&mut hasher);
-    let hash = hasher.finish();
-    let index = (hash % 1024) as usize;
-    &self.local_pids[index]
-  }
 }
 
 #[allow(clippy::type_complexity)]
@@ -96,7 +72,7 @@ impl ProcessRegistry {
       sequence_id: Arc::new(AtomicU64::new(0)),
       actor_system,
       address: Arc::new(RwLock::new(LOCAL_ADDRESS.to_string())),
-      local_pids: SliceMap::new(),
+      local_pids: Arc::new(ProcessMaps::new()),
       remote_handlers: Arc::new(RwLock::new(Vec::new())),
     }
   }
@@ -122,20 +98,20 @@ impl ProcessRegistry {
   }
 
   pub async fn add_process(&self, process: ProcessHandle, id: &str) -> (ExtendedPid, bool) {
-    let bucket = self.local_pids.get_bucket(id);
+    let process_map = self.local_pids.get_map(id);
     let pid = Pid {
       address: self.get_address().await.clone(),
       id: id.to_string(),
       request_id: 0,
     };
     let pid = ExtendedPid::new(pid);
-    let inserted = bucket.insert(id.to_string(), process).is_none();
+    let inserted = process_map.insert(id.to_string(), process).is_none();
     (pid, inserted)
   }
 
   pub async fn remove_process(&self, pid: &ExtendedPid) {
-    let bucket = self.local_pids.get_bucket(pid.id());
-    if let Some((_, process)) = bucket.remove(pid.id()) {
+    let process_map = self.local_pids.get_map(pid.id());
+    if let Some((_, process)) = process_map.remove(pid.id()) {
       if let Some(actor_process) = process.as_any().downcast_ref::<ActorProcess>() {
         actor_process.set_dead();
       }
@@ -159,9 +135,8 @@ impl ProcessRegistry {
   }
 
   pub async fn get_local_process(&self, id: &str) -> Option<ProcessHandle> {
-    let bucket = self.local_pids.get_bucket(id);
-    let result = bucket.get(id);
-    match result {
+    let process_map = self.local_pids.get_map(id);
+    match process_map.get(id) {
       Some(r) => Some(r.clone()),
       None => Some(self.actor_system.get_dead_letter().await),
     }
