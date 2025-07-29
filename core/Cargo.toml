@@ -41,7 +41,7 @@ thiserror = "2.0.0"
 time = "0.3.36"
 tokio = { version = "1.37.0" , features = ["full"] }
 tokio-condvar = "0.3.0"
-tonic = "0.13.0"
+tonic = "0.14.0"
 tonic-types = "0.14.0"
 tracing = "0.1"
 tracing-futures = "0.2.5"
