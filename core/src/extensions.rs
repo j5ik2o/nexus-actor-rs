@@ -1,8 +1,8 @@
+use nexus_actor_utils_rs::concurrent::Synchronized;
 use std::fmt::Debug;
 use std::sync::atomic::{AtomicI32, Ordering};
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use nexus_actor_utils_rs::concurrent::Synchronized;
 
 pub type ExtensionId = i32;
 

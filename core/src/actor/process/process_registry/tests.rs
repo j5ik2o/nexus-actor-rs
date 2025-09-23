@@ -31,10 +31,7 @@ async fn test_add_process_replaces_existing_entry_on_name_collision() {
   let (_pid2, inserted_second) = registry.add_process(second_handle.clone(), "dup").await;
   assert!(!inserted_second, "重複検知は動作しているが、既存プロセスを保持すべき");
 
-  let resolved = registry
-    .get_process(&pid)
-    .await
-    .expect("プロセスが存在するはず");
+  let resolved = registry.get_process(&pid).await.expect("プロセスが存在するはず");
 
   assert_eq!(resolved, first_handle, "同名登録時にも既存プロセスを維持すべき");
   assert_ne!(resolved, second_handle, "新しいプロセスで上書きされてはならない");
