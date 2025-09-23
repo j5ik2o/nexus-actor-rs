@@ -1,5 +1,5 @@
 use crate::actor::actor_system::ActorSystem;
-use crate::actor::context::ContextHandle;
+use crate::actor::context::{ActorContext, ContextHandle};
 use crate::actor::context::{BasePart, MessagePart, SpawnerPart, StopperPart};
 use crate::actor::core::actor::Actor;
 use crate::actor::core::actor_error::ActorError;
@@ -67,4 +67,22 @@ async fn test_example_context_set_receive_timeout() {
   let result = root_context.stop_future(&pid).await;
 
   result.result().await.unwrap();
+}
+
+#[tokio::test]
+async fn test_set_receive_timeout_allows_zero_duration() {
+  let system = ActorSystem::new().await.unwrap();
+  let props = Props::from_async_actor_receiver(|_ctx| async move { Ok(()) }).await;
+
+  let mut ctx = ActorContext::new(system.clone(), props.clone(), None).await;
+
+  ctx.set_receive_timeout(&Duration::from_millis(50)).await;
+  assert_eq!(ctx.get_receive_timeout().await, Duration::from_millis(50));
+
+  ctx.set_receive_timeout(&Duration::ZERO).await;
+  assert_eq!(ctx.get_receive_timeout().await, Duration::ZERO);
+
+  // values below 1ms should be treated as zero and cancel the timer
+  ctx.set_receive_timeout(&Duration::from_micros(500)).await;
+  assert_eq!(ctx.get_receive_timeout().await, Duration::ZERO);
 }
