@@ -20,5 +20,6 @@
       "Bash(python3:*)"
     ],
     "deny": []
-  }
+  },
+  "enableAllProjectMcpServers": false
 }
