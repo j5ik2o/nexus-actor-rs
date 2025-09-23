@@ -22,5 +22,5 @@ static_assertions = "1.1.0"
 thiserror = "2.0.0"
 tokio = { version = "1.37.0" , features = ["full"] }
 tonic = "0.13.0"
-tonic-types = "0.13.0"
+tonic-types = "0.14.0"
 tracing = "0.1"
