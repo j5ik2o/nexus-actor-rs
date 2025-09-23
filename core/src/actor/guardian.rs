@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use tokio::sync::Mutex;
+use nexus_actor_utils_rs::concurrent::Synchronized;
 
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::core::ErrorReason;
@@ -19,23 +19,20 @@ use crate::actor::supervisor::{Supervisor, SupervisorHandle, SupervisorStrategy}
 #[derive(Debug, Clone)]
 pub struct GuardiansValue {
   actor_system: ActorSystem,
-  guardians: Arc<Mutex<HashMap<SupervisorStrategyHandle, GuardianProcess>>>,
+  guardians: Arc<Synchronized<HashMap<SupervisorStrategyHandle, GuardianProcess>>>,
 }
 
 impl GuardiansValue {
   pub fn new(actor_system: ActorSystem) -> Self {
     GuardiansValue {
       actor_system,
-      guardians: Arc::new(Mutex::new(HashMap::new())),
+      guardians: Arc::new(Synchronized::new(HashMap::new())),
     }
   }
 
   pub async fn get_guardian_pid(&self, s: SupervisorStrategyHandle) -> ExtendedPid {
     let handle = s.clone();
-    let res = {
-      let guardians = self.guardians.lock().await;
-      guardians.get(&handle).cloned()
-    };
+    let res = self.guardians.read(|guardians| guardians.get(&handle).cloned()).await;
     match res {
       Some(guardian) => {
         let pid = guardian.pid.clone();
@@ -48,10 +45,12 @@ impl GuardiansValue {
       }
       None => {
         let guardian = GuardianProcess::new(Arc::new(self.clone()), s.clone()).await;
-        {
-          let mut guardians = self.guardians.lock().await;
-          guardians.insert(s.clone(), guardian.clone());
-        }
+        self
+          .guardians
+          .write(|guardians| {
+            guardians.insert(s.clone(), guardian.clone());
+          })
+          .await;
         let pid = guardian.pid.clone();
         match &*pid {
           Some(p) => p.clone(),
