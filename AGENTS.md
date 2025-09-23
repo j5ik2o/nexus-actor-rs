@@ -1,23 +1,29 @@
 # Repository Guidelines
 
 ## プロジェクト構成とモジュール
-本リポジトリ は Cargo ワークスペース として構成され、主要クレート を 明確 に 分離 しています。`core/` は アクター ランタイム と メッセージング の中核、`cluster/` は メンバーシップ と ゴシップ の拡張、`remote/` は RPC ベース の リモート 通信、`message-derive/` は マクロ 実装、`utils/` は サポート ユーティリティ を 提供 します。テスト コード は 各クレート の `src/**/tests.rs` に 隣接 配置 され、ユニット と 統合 の 区分 を 明確 に 保っています。共通 設定 は ルート の `Cargo.toml` や `rust-toolchain.toml` で 一元 管理 されるため、変更 時 は ワークスペース 全体 への 影響 を 確認 してください。
+本 リポジトリ は Cargo ワークスペース。主要 ディレクトリ は 以下 の 通り。
+- `core/` アクター ランタイム と メッセージ 処理。テスト は モジュール 直下 の `tests.rs`。
+- `cluster/` メンバーシップ と Gossip。生成 物 は `cluster/generated/`。
+- `remote/` gRPC ベース の リモート メッセージング。
+- `message-derive/` メッセージ 派生 マクロ 定義。
+- `utils/` 共通 ヘルパー と キュー 構造。
+共有 設定 は ルート `Cargo.toml` と `rust-toolchain.toml`。ビルド 自動化 は `Makefile.toml`、カバレッジ は `coverage.sh` を 使用。
 
 ## ビルド・テスト・開発コマンド
-- `cargo build --workspace` : すべてのクレート を ビルド し、依存 関係 変更 の 破壊 を 早期 検知 します。
-- `cargo test --workspace` : 全テスト を 並行 実行。個別 クレート は `cargo test -p core actor::dispatcher::tests::` のように プレフィックス 指定 が 可能 です。
-- `cargo clippy --workspace --all-targets` : Lint を 通じて API 変更 由来 の 回 regressions を 事前 捕捉。
-- `cargo +nightly fmt` : ワークスペース 共通 の `rustfmt.toml` 設定 (幅 120、2 スペース インデント) を 適用 します。
-- `cargo make coverage` または `./coverage.sh` : grcov を 用いた HTML レポート を `target/coverage/html/index.html` に 生成。
+- `cargo build --workspace` : 全 クレート を ビルド。
+- `cargo test --workspace` : 全 テスト 実行。部分 実行 は `cargo test -p core actor::dispatch::tests::`。
+- `cargo clippy --workspace --all-targets` : Lint 警告 0 を 維持。
+- `cargo +nightly fmt` : `rustfmt.toml` (max_width 120、tab_spaces 2) に 従い 整形。
+- `cargo make coverage` / `./coverage.sh` : grcov HTML を `target/coverage/html/index.html` に 出力。
 
 ## コーディングスタイルと命名規約
-Rust 標準 に 従い、モジュール と ファイル は snake_case、型 と トレイト は PascalCase、定数 は SCREAMING_SNAKE_CASE を 採用 します。非同期 ロジック では `tracing` を 用いた ログ を 最小 限度 で 残し、`?` に よる 早期 return と `thiserror` の エラー ラップ を 優先 してください。PR は フォーマット 済み (`cargo +nightly fmt` 実行 済み) かつ Lint 無し (`cargo clippy` の警告 0) の 状態 を 必須 と します。
+ファイル と 関数 は snake_case、型 と トレイト は PascalCase、定数 は SCREAMING_SNAKE_CASE。非同期 処理 は `tokio` と `async-trait` を 前提 と し、`?` で 早期 戻り を 心掛けます。`cargo +nightly fmt` と `cargo clippy` を PR 前 の 必須 チェック と し、`tracing` ログ は デバッグ 範囲 に 留めて ください。
 
 ## テストガイドライン
-テスト は モジュール 内部 の `tests` サブモジュール に 追加 し、対象 機能 名 を 先頭 に 付けた snake_case で 命名 (`test_future_pipe_to_message` など) してください。非同期 テスト では `#[tokio::test]` を 基本 と し、共有 状態 には `Arc` や `AsyncBarrier` を 利用 して 競合 を 排除 します。新規 機能 では エラーパス と 正常 系 の 双方 を カバー し、カバレッジ 実行 結果 を PR に 添付 する こと が 推奨 です。
+テスト フレームワーク は Rust 標準 + `#[tokio::test]`。関数 名 は `test_<対象>_<期待>` の snake_case を 推奨。共有 状態 は `Arc`、`AsyncBarrier`、`Notify` など を 使用 し データ 競合 を 回避。重要 シナリオ は 正常 系 と エラー 系 を 両方 カバー し、必要 に 応じて `cargo make coverage` の 成果 を PR に 添付。
 
 ## コミットと Pull Request ガイドライン
-コミット メッセージ は `refactor: tidy up...` のように 小文字 タイプ + コロン + 簡潔 な 説明 で 統一 してください (`feat`、`fix`、`refactor` など)。PR では 変更 背景、テスト 実行 結果 (`cargo test` と `cargo clippy`)、関連 Issue の リンク を 箇条書き で 記載。振る舞い 変更 が 可視 的 な 場合 は ログ や スクリーンショット を 添付 し Reviewer が 再現 できる よう に します。
+コミット メッセージ は `<type>: <要約>` (例 `refactor: clean up dispatcher tests`) を 基準。PR 説明 には 背景、変更 点、実行 済み コマンド (`cargo test`、`cargo clippy`)、関連 Issue を 箇条書き。挙動 が 変わる 場合 は ログ や スクリーンショット を 添付 し 再現 手順 を 明示。
 
-## 追加リソース
-詳細 な 状況 や 長期 ロードマップ は `PROJECT_STATUS.md` を、補助 ドキュメント と 自動化 ポリシー は `CLAUDE.md` を 参照 してください。新しい ガイドライン を 追加 する 場合 は 本書 と 併せ て 同 ドキュメント を 更新 し、情報 の 一貫性 を 保つ よう 配慮 してください。
+## セキュリティと設定のヒント
+リモート 接続 を 試験 する 際 は `RUST_LOG=debug` を 設定 し、シークレット は `.env` など 非公開 設定 に 保管。`coverage.sh` が 依存 する `grcov` と `llvm-tools-preview` は `rustup component add` / `cargo install` で 同期。CI と ローカル の ツール バージョン が 合致 している こと を 定期 的 に 確認 してください。
