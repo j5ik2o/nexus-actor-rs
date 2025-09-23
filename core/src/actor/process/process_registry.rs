@@ -5,6 +5,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 use futures::future::BoxFuture;
+use dashmap::mapref::entry::Entry;
 use tokio::sync::RwLock;
 
 use crate::actor::actor_system::ActorSystem;
@@ -105,7 +106,13 @@ impl ProcessRegistry {
       request_id: 0,
     };
     let pid = ExtendedPid::new(pid);
-    let inserted = process_map.insert(id.to_string(), process).is_none();
+    let inserted = match process_map.entry(id.to_string()) {
+      Entry::Occupied(_) => false,
+      Entry::Vacant(vacant) => {
+        vacant.insert(process);
+        true
+      }
+    };
     (pid, inserted)
   }
 
