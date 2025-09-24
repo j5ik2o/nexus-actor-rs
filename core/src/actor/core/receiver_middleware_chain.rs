@@ -22,7 +22,8 @@ impl ReceiverMiddlewareChain {
   pub fn new<F, Fut>(f: F) -> Self
   where
     F: Fn(ReceiverContextHandle, MessageEnvelope) -> Fut + Send + Sync + 'static,
-    Fut: Future<Output = Result<(), ActorError>> + Send + 'static, {
+    Fut: Future<Output = Result<(), ActorError>> + Send + 'static,
+  {
     Self(Arc::new(move |rch, me| {
       Box::pin(f(rch, me)) as BoxFuture<'static, Result<(), ActorError>>
     }))

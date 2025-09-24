@@ -15,7 +15,8 @@ impl Runnable {
   pub fn new<F, Fut>(f: F) -> Self
   where
     F: FnOnce() -> Fut + Send + 'static,
-    Fut: Future<Output = ()> + Send + 'static, {
+    Fut: Future<Output = ()> + Send + 'static,
+  {
     Self(Box::new(move || Box::pin(f()) as BoxFuture<'static, ()>))
   }
 

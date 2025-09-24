@@ -93,3 +93,30 @@ impl Process for RemoteProcess {
     self
   }
 }
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::config::Config;
+  use nexus_actor_core_rs::actor::actor_system::ActorSystem;
+
+  #[tokio::test]
+  async fn remote_process_getters_expose_internal_state() {
+    let actor_system = ActorSystem::new().await.expect("actor system");
+    let remote = Remote::new(actor_system.clone(), Config::default()).await;
+    let pid = Pid {
+      address: "remote-system".into(),
+      id: "pid-42".into(),
+      request_id: 7,
+    };
+
+    let mut process = RemoteProcess::new(pid.clone(), remote.clone());
+
+    assert_eq!(process.get_pid(), &pid);
+    process.get_pid_mut().request_id = 8;
+    assert_eq!(process.get_pid().request_id, 8);
+
+    assert_eq!(process.get_remote().get_kinds().len(), remote.get_kinds().len());
+    let _ = process.get_remote_mut().get_block_list();
+  }
+}

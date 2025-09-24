@@ -18,6 +18,7 @@ use crate::messages::RemoteTerminate;
 use crate::remote::Remote;
 use crate::serializer::SerializerId;
 use regex::Regex;
+use std::convert::TryFrom;
 use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Weak};
@@ -188,12 +189,8 @@ impl EndpointReader {
       .map(ExtendedPid::new)
       .ok_or(EndpointReaderError::UnknownTarget)?;
 
-      let serializer_raw = u32::try_from(envelope.serializer_id).map_err(|_| {
-        EndpointReaderError::Deserialization("Negative serializer id".to_string())
-      })?;
-
       let serializer_id =
-        SerializerId::try_from(serializer_raw).map_err(EndpointReaderError::Deserialization)?;
+        SerializerId::try_from(envelope.serializer_id).map_err(EndpointReaderError::Deserialization)?;
 
       if envelope.type_id < 0 || (envelope.type_id as usize) >= message_batch.type_names.len() {
         return Err(EndpointReaderError::Deserialization(format!(
@@ -427,7 +424,7 @@ impl Remoting for EndpointReader {
     request: Request<ListProcessesRequest>,
   ) -> Result<Response<ListProcessesResponse>, Status> {
     let req = request.into_inner();
-    let match_type = ListProcessesMatchType::from_i32(req.r#type).unwrap_or(ListProcessesMatchType::MatchPartOfString);
+    let match_type = ListProcessesMatchType::try_from(req.r#type).unwrap_or(ListProcessesMatchType::MatchPartOfString);
 
     let actor_system = self.get_actor_system().await;
     let registry = actor_system.get_process_registry().await;

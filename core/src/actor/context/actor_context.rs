@@ -15,7 +15,6 @@ use crate::actor::context::{
 use crate::actor::core::Actor;
 use crate::actor::core::ActorError;
 use crate::actor::core::ActorHandle;
-use crate::actor::core::ActorProducer;
 use crate::actor::core::Continuer;
 use crate::actor::core::ErrorReason;
 use crate::actor::core::ExtendedPid;
@@ -534,7 +533,8 @@ impl ActorContext {
   async fn metrics_foreach<F, Fut>(&self, f: F)
   where
     F: Fn(&ActorMetrics, &Metrics) -> Fut,
-    Fut: std::future::Future<Output = ()>, {
+    Fut: std::future::Future<Output = ()>,
+  {
     if self.get_actor_system().await.get_config().await.is_metrics_enabled() {
       if let Some(extension_arc) = self
         .get_actor_system()
