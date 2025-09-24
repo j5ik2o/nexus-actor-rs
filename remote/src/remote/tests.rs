@@ -375,11 +375,7 @@ async fn remote_reconnect_after_server_restart() -> Result<(), Box<dyn std::erro
     .ok_or_else(|| "unexpected response".to_string())?;
   assert_eq!(retry_response.message, "Echo: second");
 
-  if let Some(stats) = client
-    .remote
-    .get_endpoint_statistics(&server_address_str)
-    .await
-  {
+  if let Some(stats) = client.remote.get_endpoint_statistics(&server_address_str).await {
     assert!(stats.reconnect_attempts >= 1);
     assert!(stats.deliver_success >= 1);
   }

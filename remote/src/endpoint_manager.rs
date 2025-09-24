@@ -6,8 +6,7 @@ use crate::endpoint_supervisor::EndpointSupervisor;
 use crate::generated::remote::RemoteMessage;
 use crate::messages::{
   BackpressureLevel, EndpointConnectedEvent, EndpointEvent, EndpointReconnectEvent, EndpointTerminatedEvent,
-  EndpointThrottledEvent, Ping,
-  Pong, RemoteDeliver, RemoteTerminate, RemoteUnwatch, RemoteWatch,
+  EndpointThrottledEvent, Ping, Pong, RemoteDeliver, RemoteTerminate, RemoteUnwatch, RemoteWatch,
 };
 use crate::remote::Remote;
 use dashmap::mapref::entry::Entry;
@@ -351,7 +350,9 @@ impl EndpointManager {
     let max_retries = state.reconnect_policy().max_retries();
     let initial_attempt = state.record_retry_attempt();
     self.record_reconnect_attempt_metric(&address);
-    self.publish_reconnect_event(&address, initial_attempt as u64, false).await;
+    self
+      .publish_reconnect_event(&address, initial_attempt as u64, false)
+      .await;
     self.stop_heartbeat_task(&address);
     let manager = self.clone();
     let state_handle = state.clone();
@@ -916,9 +917,9 @@ mod tests {
   use crate::config::Config;
   use crate::config_option::ConfigOption;
   use crate::endpoint::Endpoint;
+  use crate::messages::EndpointReconnectEvent;
   use crate::remote::Remote;
   use async_trait::async_trait;
-  use crate::messages::EndpointReconnectEvent;
   use nexus_actor_core_rs::actor::actor_system::ActorSystem;
   use nexus_actor_core_rs::actor::context::{BasePart, ContextHandle, MessagePart};
   use nexus_actor_core_rs::actor::core::{Actor, ActorError, ExtendedPid, Props};
@@ -1122,7 +1123,9 @@ mod tests {
       })
       .await;
 
-    manager.schedule_reconnect("endpoint-reconnect-metrics".to_string()).await;
+    manager
+      .schedule_reconnect("endpoint-reconnect-metrics".to_string())
+      .await;
     tokio::time::sleep(Duration::from_millis(50)).await;
 
     let snapshot = manager
@@ -1132,11 +1135,7 @@ mod tests {
 
     let events_guard = events.lock().await;
     assert!(!events_guard.is_empty());
-    actor_system
-      .get_event_stream()
-      .await
-      .unsubscribe(subscription)
-      .await;
+    actor_system.get_event_stream().await.unsubscribe(subscription).await;
   }
 
   #[tokio::test]
