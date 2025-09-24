@@ -30,8 +30,7 @@ impl Throttle {
   ) -> Arc<Self>
   where
     F: FnMut(usize) -> Fut + Send + 'static,
-    Fut: Future<Output = ()> + Send + 'static,
-  {
+    Fut: Future<Output = ()> + Send + 'static, {
     let throttle = Arc::new(Self {
       current_events: Arc::new(AtomicUsize::new(0)),
       max_events_in_period,

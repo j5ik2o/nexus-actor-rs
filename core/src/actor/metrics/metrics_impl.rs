@@ -72,8 +72,7 @@ impl Metrics {
   pub async fn foreach<F, Fut>(&mut self, f: F)
   where
     F: Fn(&ActorMetrics, &Metrics) -> Fut,
-    Fut: std::future::Future<Output = ()>,
-  {
+    Fut: std::future::Future<Output = ()>, {
     if self.is_enabled() {
       if let Some(pm) = self.get_proto_metrics() {
         if let Some(am) = pm.get(ProtoMetrics::INTERNAL_ACTOR_METRICS) {

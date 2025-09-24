@@ -5,21 +5,27 @@
 - 現行の `EndpointReader` はハンドシェイク後のチャネル所有権を保持しており、EndpointManager や EndpointWriter との責務分担が曖昧なまま。
 - protoactor-go では `endpointManager` が `endpointReader` から `remoteEndpoint` を受け取り、`remote.EndpointState` を介して監視・再接続を制御している。Rust 実装でも同等の責務分割を定義する必要がある。
 
+## 要件レベル表記
+- **MUST**: 本フェーズで必ず満たすべき要件。
+- **SHOULD**: 可能な限り満たすことを推奨する要件（妥当な理由があれば後回し可）。
+- **MAY**: 任意対応（実施するかどうかは判断次第）。
+- **MUST NOT**: 本フェーズで実施・導入してはならない事項。
+
 ## ゴール
-- `EndpointReader`→`EndpointManager` のチャネル移譲を明確化し、Watch/Terminate/Deliver のフロー制御を EndpointManager 側で完結させる設計を確定する。
-- backpressure と DeadLetter 方針を定義し、チャネル輻輳時の挙動を仕様化する。
-- gRPC ストリーム切断時の再接続／タイムアウトポリシーを定義し、リトライ戦略を Rust 実装に落とし込む。
+- **MUST** `EndpointReader`→`EndpointManager` のチャネル移譲を明確化し、Watch/Terminate/Deliver のフロー制御を EndpointManager 側で完結させる設計を確定する。
+- **MUST** backpressure と DeadLetter 方針を定義し、チャネル輻輳時の挙動を仕様化する。
+- **MUST** gRPC ストリーム切断時の再接続／タイムアウトポリシーを定義し、リトライ戦略を Rust 実装に落とし込む。
 
 ## スコープ
-- EndpointManager 周辺の構造設計（新規ステート構造体、trait、チャネルレイアウト）。
-- `remote/src/endpoint_reader.rs`・`remote/src/endpoint_manager.rs`（新規想定）・`remote/src/endpoint_writer.rs` の責務定義。
-- backpressure／DeadLetter 方針、優先度制御の仕様化。
-- 統合テスト・ベンチマークのテスト戦略策定。
+- **MUST** EndpointManager 周辺の構造設計（新規ステート構造体、trait、チャネルレイアウト）。
+- **MUST** `remote/src/endpoint_reader.rs`・`remote/src/endpoint_manager.rs`（新規想定）・`remote/src/endpoint_writer.rs` の責務定義。
+- **MUST** backpressure／DeadLetter 方針、優先度制御の仕様化。
+- **SHOULD** 統合テスト・ベンチマークのテスト戦略策定。
 
 ## 非スコープ
-- 実装コードそのもの（別 PR で対応）。
-- メトリクス送信、TLS 対応など Phase 2 以降の機能。
-- BlockList API の外部公開（Phase 2 タスクで実装）。
+- **MUST NOT** 実装コードそのもの（別 PR で対応）。
+- **MUST NOT** メトリクス送信、TLS 対応など Phase 2 以降の機能。
+- **MUST NOT** BlockList API の外部公開（Phase 2 タスクで実装）。
 
 ## 現状整理
 - Phase 1.0 で `ClientConnection` ハンドシェイクと診断 RPC を実装し、接続受理までは完了済み。
@@ -33,35 +39,34 @@
 
 ## 設計方針案
 ### 1. EndpointManager 内部状態（2025-09-24 時点）
-- `EndpointState` の導入は保留し、まずは `EndpointManager` 直下でエンドポイントごとの軽量統計を保持する方針に変更。
-- `EndpointStatistics`（`queue_capacity` / `queue_size` / `dead_letters`）を `DashMap<String, Arc<EndpointStatistics>>` で管理し、
+- **MUST NOT** このフェーズで `EndpointState` を導入せず、まずは `EndpointManager` 直下でエンドポイントごとの軽量統計を保持する方針に従う。
+- **MUST** `EndpointStatistics`（`queue_capacity` / `queue_size` / `dead_letters`）を `DashMap<String, Arc<EndpointStatistics>>` で管理し、
   `EndpointWriterMailbox` 側から `record_queue_state`・`increment_dead_letter` を通じて更新する。
-- 再接続／バックオフポリシーは Phase 1.5-2 の設計タスクとして切り出し、今回の実装では未着手。
+- **SHOULD** 再接続／バックオフポリシーは Phase 1.5-2 の設計タスクとして切り出し、今回の実装では未着手とする。
 
 ### 2. チャネル構成と backpressure 方針（確定）
-- Reader → Manager: `EndpointReader::on_connect_request` 完了時に `EndpointManager` が `ClientConnection` を登録し、
+- **MUST** Reader → Manager: `EndpointReader::on_connect_request` 完了時に `EndpointManager` が `ClientConnection` を登録し、
   応答チャネル（`ClientResponseSender`）を `client_connections` に保持する。
-- Manager → Writer: `EndpointWriterMailbox` のユーザーメールボックスを `RingQueue::new(capacity).with_dynamic(false)` で構築し、
+- **MUST** Manager → Writer: `EndpointWriterMailbox` のユーザーメールボックスを `RingQueue::new(capacity).with_dynamic(false)` で構築し、
   `Config::get_endpoint_writer_queue_size()`（既定 1_000_000）を上限として `QueueError::OfferError` を DeadLetter へフォールバックする。
-- バッチ処理: `poll_user_mailbox` が `batch_size = Config::get_endpoint_writer_batch_size()` 件を `poll_many` で取得し、
+- **MUST** バッチ処理: `poll_user_mailbox` が `batch_size = Config::get_endpoint_writer_batch_size()` 件を `poll_many` で取得し、
   バッチ内の最初のメッセージから宛先アドレスを抽出して統計を更新。Watch/Terminate は従来通り system メールボックス経由で優先処理。
-- DeadLetter 発生時は `EndpointManager` に DeadLetter 件数を加算し、`RemoteDeliver` で送信元 PID があれば `DeadLetterResponse` を返す。
+- **MUST** DeadLetter 発生時は `EndpointManager` に DeadLetter 件数を加算し、`RemoteDeliver` で送信元 PID があれば `DeadLetterResponse` を返す。
 
 #### Backpressure 仕様詳細（2025-09-24 時点）
-- 設定値
-  - `endpoint_writer_batch_size`：既定 32。`ConfigOption::with_endpoint_writer_batch_size` で差し替え可能。
-  - `endpoint_writer_queue_size`：既定 1_000_000。`ConfigOption::with_endpoint_writer_queue_size` で差し替え可能。
-  - `endpoint_manager_batch_size` / `endpoint_manager_queue_size`：将来的な `EndpointState` 導入を見据えて追加済み（現状は統計用途のみ）。
-- キューが満杯になった場合
-  - 直近投入メッセージ（`RemoteDeliver` など）を `DeadLetter` に送出し、`EndpointStatistics.dead_letters` を加算。
-  - Watch/Terminate 系は system キュー経由のため影響を受けない。
-- キュー長の観測
-  - バッチ処理後に `EndpointWriterMailbox` が `EndpointManager::record_queue_state(address, capacity, len)` を呼び出し、
-    直近処理バッチ単位で統計を更新。
+- **MUST** 設定値を次の既定値で公開し、`ConfigOption` で上書き可能とする。
+  - **MUST** `endpoint_writer_batch_size`：既定 32。`ConfigOption::with_endpoint_writer_batch_size` で差し替え可能。
+  - **MUST** `endpoint_writer_queue_size`：既定 1_000_000。`ConfigOption::with_endpoint_writer_queue_size` で差し替え可能。
+  - **SHOULD** `endpoint_manager_batch_size` / `endpoint_manager_queue_size`：将来的な `EndpointState` 導入を見据えて追加済み（現状は統計用途のみ）。
+- **MUST** キューが満杯になった場合の挙動：
+  - **MUST** 直近投入メッセージ（`RemoteDeliver` など）を `DeadLetter` に送出し、`EndpointStatistics.dead_letters` を加算。
+  - **MUST** Watch/Terminate 系は system キュー経由のため影響を受けない設計を維持。
+- **MUST** キュー長の観測手順：
+  - **MUST** バッチ処理後に `EndpointWriterMailbox` が `EndpointManager::record_queue_state(address, capacity, len)` を呼び出し、直近処理バッチ単位で統計を更新。
 
 ### 3. 統計・メトリクス連携
-- `EndpointManager::statistics_snapshot(address)` を通じて任意タイミングで統計を参照可能。現在はテストとデバッグログのみで使用。
-- 実運用でのメトリクス公開（Prometheus など）やアラート閾値は Phase 1.5-2 の follow-up とし、現状は `tracing` ログと API で観測。
+- **MUST** `EndpointManager::statistics_snapshot(address)` を通じて任意タイミングで統計を参照可能にする（現在はテストとデバッグログのみで使用）。
+- **SHOULD** 実運用でのメトリクス公開（Prometheus など）やアラート閾値は Phase 1.5-2 の follow-up とし、現状は `tracing` ログと API で観測。
 
 ### 4. 再接続制御
 - gRPC ストリーム再接続・バックオフ戦略は protoactor-go の `remote.EndpointState` をベースに設計するが、
@@ -89,10 +94,10 @@
 4. Watch/Terminate の優先度制御を multi-priority queue で行うか、単純な 2 レーン（優先・通常）で十分か。
 
 ## 完了条件 (Definition of Ready for Implementation)
-- [ ] `EndpointState` を含む新しい責務分担図（PlantUML 等）の草案が添付されている。
-- [ ] backpressure と DeadLetter の仕様がレビュー済みで、テストケースが列挙されている。
-- [ ] 再接続ポリシーのデフォルト値と設定拡張方針が合意済み。
-- [ ] Open Questions に対する合意またはフォローアップタスクが明確になっている。
+- [ ] **MUST** `EndpointState` を含む新しい責務分担図（PlantUML 等）の草案が添付されている。
+- [ ] **MUST** backpressure と DeadLetter の仕様がレビュー済みで、テストケースが列挙されている。
+- [ ] **MUST** 再接続ポリシーのデフォルト値と設定拡張方針が合意済み。
+- [ ] **MUST** Open Questions に対する合意またはフォローアップタスクが明確になっている。
 
 ## レビュー体制
 - オーナー (Driver): @j5ik2o
@@ -145,7 +150,7 @@
 ## ディスカッション結果（2025-09-24）
 - **#architectural-boundary**: EndpointManager は remote クレート内に留め、go 実装と同様に actorSystem 依存を持つ構成とする。モジュール分割は将来検討。
 - **#deadletter-payload**: DeadLetter イベントのペイロードは go 実装と同一（PID, Message, Sender のみ）に限定し、追加メタデータは付与しない。
-- **#reconnect-policy**: 再接続リトライは go 実装と同じく `MaxRetryCount=5` と `リトライ間隔=2秒固定` を現状維持。指数バックオフ導入は将来の改善タスクとして切り出す。
+- **#reconnect-policy**: 再接続リトライは `EndpointState::compute_backoff_delay` に合わせて「初期 200ms／指数倍増／最大 5s」のカーブを採用し、最大リトライ回数は 5 回に統一する。固定 2 秒間隔案は撤回。
 - **#priority-channel**: Watch/Terminate を優先するため、go と同様に EndpointWatcher へのシリアル配送を維持し、追加レーンや優先度キューは導入しない。
 
 ## 実装結果（2025-09-24）
@@ -156,96 +161,126 @@
   - `EndpointStatistics` を導入し、アドレス単位で `queue_capacity` / `queue_size` / `dead_letters` を記録。
   - `statistics_snapshot` と `record_queue_state` / `increment_dead_letter` / `remove_statistics` を追加。Endpoint 切断時 (`EndpointTerminatedEvent`) に統計も削除。
   - Backpressure しきい値（warning/critical）を Config から取得し、状態変化時に `EndpointThrottledEvent` を EventStream へ発火。
+- `Remote`
+  - `await_reconnect(address)` を追加し、テストや運用コードが `ConnectionState::Connected` / `ConnectionState::Closed` への遷移を待機できるようにした。
 - 設定インタフェース
   - `ConfigOption` に `with_endpoint_writer_batch_size` / `with_endpoint_writer_queue_size` / `with_endpoint_manager_batch_size` / `with_endpoint_manager_queue_size` を追加し、テストで値差し替えを確認。
   - 再接続・Heartbeat・Backpressure 閾値（warning=既定0.6、critical=0.85）を `ConfigOption` 経由で設定可能にした。
 - テスト整備
   - `remote::tests::client_connection_backpressure_overflow` で DeadLetter 件数と統計更新を検証。
   - `remote::endpoint_reader::tests::get_suspend_reflects_shared_state` など、ユーティリティ関数の単体テストを追加。
+  - `remote::tests::remote_await_reconnect_returns_connection_state` / `remote::tests::remote_await_reconnect_resolves_closed_after_schedule` で `await_reconnect` 成功・失敗パスを検証。
+  - `endpoint_manager::tests::schedule_reconnect_successfully_restores_connection` で supervisor 経由の再接続成功フローを end-to-end シミュレーション。
+  - `remote::remote::tests::remote_reconnect_after_server_restart` で gRPC ストリーム切断→再起動→再接続の統合シナリオを確認。
 - 実装対象ファイル例：`remote/src/endpoint_writer_mailbox.rs`、`remote/src/endpoint_manager.rs`、`remote/src/config.rs`、`remote/src/config_option.rs`、`remote/src/tests.rs`。
 
 ### Follow-up
-- Phase 1.5-2 で `ReconnectPolicy` / `Heartbeat` や backpressure シグナルの仕様を確定し、今回追加した統計を活用した監視／メトリクス連携を整備する。
-- Drain シナリオやベンチマークを整えることで、batch_size / queue_size のチューニング指針を策定する。
+- **SHOULD** Phase 1.5-2 で `ReconnectPolicy` / `Heartbeat` や backpressure シグナルの仕様を確定し、今回追加した統計を活用した監視／メトリクス連携を整備する。
+- **SHOULD** Drain シナリオやベンチマークを整えることで、batch_size / queue_size のチューニング指針を策定する。
 
 
 ## Phase 1.5-2 設計ドラフト（2025-09-24 着手）
 
 ### 目的
-- `RemoteDeliver` が過剰に蓄積した際の対処（DeadLetter／通知）を明確化し、EndpointWriter の過負荷でリモートノード全体が巻き込まれることを防ぐ。
-- `EndpointManager` 側でメッセージ所有権を明確化し、チャネル切断時に残キューを正しく破棄できるようにする。
+- **MUST** `RemoteDeliver` が過剰に蓄積した際の対処（DeadLetter／通知）を明確化し、EndpointWriter の過負荷でリモートノード全体が巻き込まれることを防ぐ。
+- **MUST** `EndpointManager` 側でメッセージ所有権を明確化し、チャネル切断時に残キューを正しく破棄できるようにする。
 
-### 1. 再接続ポリシー／Heartbeat（案）
-- `EndpointState` を `EndpointManager` 配下に新設し、以下を保持する:
-  - `connection_state`: Connected / Suspended / Reconnecting / Closed。
-  - `reconnect_policy`: `max_retries`（既定 5）、`initial_backoff`（既定 200ms）、`max_backoff`（既定 5s）、`jitter` 係数。
-  - `heartbeat`: `interval`（既定 15s）と `timeout`（既定 45s）。
-- EndpointReader 側でストリーム切断／Heartbeat失敗を検知したら `EndpointManager::schedule_reconnect(address)` を呼び、
-  `EndpointState` が `tokio::spawn` したリトライループを管理。
-- 再接続成功時は `EndpointStatistics.queue_size` を 0 にリセットし、死活監視イベント `EndpointConnected` を再発火。
-- 再接続失敗（最大リトライ到達）時は `EndpointTerminatedEvent` を生成し、`dead_letters` を最終値として残したまま統計を削除。
-- コンフィグ項目追加案（すべて `ConfigOption` 経由で設定可能にする想定）:
-  - `with_endpoint_reconnect_max_retries(u32)`
-  - `with_endpoint_reconnect_initial_backoff(Duration)`
-  - `with_endpoint_reconnect_max_backoff(Duration)`
-  - `with_endpoint_heartbeat_interval(Duration)` / `with_endpoint_heartbeat_timeout(Duration)`
+### 1. 再接続ポリシー／Heartbeat（仕様確定）
+- **MUST** 状態モデルと遷移:
+  - **MUST** `ConnectionState` は `Suspended`（初期）→`Connected`→`Reconnecting`→`Connected` / `Closed` を主経路とし、`EndpointState::set_connection_state` で一元管理する。
+  - **MUST** `Suspended → Connected`: `EndpointManager::ensure_connected` が gRPC ハンドシェイクを完了したタイミングで遷移。
+  - **MUST** `Connected → Reconnecting`: EndpointReader がストリーム終了を検知、または Heartbeat タイムアウト検出時に `schedule_reconnect` を呼び出す。
+  - **MUST** `Reconnecting → Connected`: 再接続タスクが新しい `Endpoint` を取得し、`EndpointEvent::EndpointConnected` を発火したとき。
+  - **MUST** `Reconnecting → Closed`: リトライ上限に到達し、`EndpointTerminatedEvent` を発火して監視対象を閉じるとき。
+  - **MUST** `Connected → Closed`: 管理者が明示的に切断した場合（例: BlockList 追加や Remote::stop）。
+- **MUST** 再接続トリガーの詳細:
+  1. **MUST** gRPC 双方向ストリームが `tonic::Status` で失敗、もしくは `StreamExt::next()` が `None` を返した場合に再接続を開始する。
+  2. **MUST** Heartbeat 監視タスクが `HeartbeatConfig.timeout` を超過した場合に再接続を開始する。
+  3. **MUST** `EndpointSupervisor`／`EndpointWriter` が接続確立に失敗し `EndpointTerminatedEvent` を発火した場合に再接続を開始する。
+- **MUST** バックオフアルゴリズム:
+  - **MUST** `EndpointState::compute_backoff_delay` で初期 200ms、指数倍増、上限 5s を用いる（`Config` から取得）。
+  - **MUST** `schedule_reconnect` 呼び出し時に `record_retry_attempt` で試行回数を増加させ、`has_exceeded_retries()` が真になった時点で `ConnectionState::Closed` に遷移し追加リトライを止める。
+  - **MUST** バックオフ遅延中に重複トリガーが入っても最初のタスクのみが有効で、`ConnectionState` を参照して二重起動を避ける。
+- **MUST** 再接続タスクのライフサイクル:
+  1. **MUST** `EndpointManager::schedule_reconnect` は `ConnectionState` を `Reconnecting` に変更し、`tokio::spawn` で非同期タスクを生成する。
+  2. **MUST** タスクは遅延後に `try_reconnect_once(address)` を呼び出し、以下を順守する。
+     - **MUST** 既存の `EndpointLazy` が `Arc<AtomicBool>` を `true` にしていれば何もしない。そうでない場合は `connections.remove(address)` を行う。
+     - **MUST** `ensure_connected(address)` 成功時に `EndpointState::reset_retries()`・`EndpointManager::record_queue_state(address, capacity, 0)` を実行し、`EndpointEvent::EndpointConnected` を watcher / writer に通知する。
+     - **MUST** 失敗時は `schedule_reconnect(address)` を再度呼び出し、次のバックオフを予約する。
+  3. **MUST** リトライ上限超過で `ConnectionState::Closed` に遷移させ、`EndpointTerminatedEvent` を watcher / writer に配信し、`remove_endpoint_state` と `remove_statistics` を行ってリソースを解放する。
+- **MUST** Heartbeat 監視の仕様:
+  - **MUST** `EndpointState` に `last_heartbeat: AtomicU64`（ミリ秒）を追加し、`EndpointManager::mark_heartbeat(address, Instant)` で更新する。
+  - **MUST** `EndpointReader` は ① ConnectResponse 送信直後、② `MessageBatch` 受信後、③ `RemoteMessage::Heartbeat` 受信時に `mark_heartbeat` を呼ぶ。
+  - **MUST** `EndpointManager` は接続成功時に監視ループを `tokio::spawn` で開始し、`heartbeat.interval` ごとに `Instant::now() - last_heartbeat` を評価する。差分が `heartbeat.timeout` を超過したら `schedule_reconnect` を起動し、同時に `EndpointEvent::EndpointTerminated` を投げて watcher へ伝搬する。
+  - **MUST** Heartbeat 監視ループは `ConnectionState` が `Closed` もしくは `Suspended` に戻った時点で停止する。
+- **MUST** API 拡張とイベント:
+  - **MUST** `EndpointManager::schedule_reconnect` 成功時に `EndpointStatistics` を初期化し、`EndpointThrottledEvent` の `level=Normal` を再発火して監視側が解除を把握できるようにする。
+  - **MUST** 再接続失敗時には `EventStream` へ送る `DeadLetterEvent` に `RetryAttempt` ヘッダ（キー: `"nexus_retry_attempt"`）を付与する。
+  - **MUST** `Remote` 公開 API に `await_reconnect(address: &str)`（`Future<ConnectionState>`）を提供し、テストコードが再接続完了を待機できるようにする。（2025-09-24 実装済）
+- **MUST** テスト観点:
+  - **MUST** ユニット: `endpoint_state` に `last_heartbeat` を追加した場合の初期値／更新／タイムアウトを検証。
+  - **MUST** 結合: `remote/tests/client_connection_reconnect.rs`（仮）で ① ストリーム切断→再接続成功、② 連続失敗で `Closed` へ遷移、③ Heartbeat タイムアウト経由の再接続 の 3 ケースをカバーする。
+  - **SHOULD** テストでは `ConfigOption::with_endpoint_reconnect_*` で遅延を短縮し、`tokio::time::pause` を併用してバックオフの経過を疑似化する。
+- **MUST** 移行計画:
+  - **MUST** 既存の固定 2 秒リトライ前提のテストを廃止し、本仕様で定義した指数バックオフを前提に書き換える。
+  - **SHOULD** 実装完了後は `docs/remote機能改善計画.md` の Phase 1.5-2 セクションへ結果を反映し、`#reconnect-policy` スレッドをクローズする。
 
 ### 2. Backpressure シグナルとメトリクス公開（案）
-- `EndpointManager` にしきい値レベルを持たせ、`queue_size / queue_capacity` の比率に応じて状態を算出。
-  - `Normal` (<60%) / `Warning` (60-85%) / `Critical` (>85%)。
-- 状態遷移時に `EndpointThrottledEvent { address, level }` を EventStream へ発火。アプリケーションはこのイベントを監視して送信抑制が可能。
-- Prometheus 互換のメトリクス（follow-upで実装）:
-  - `nexus_endpoint_queue_size{address="..."}`
-  - `nexus_endpoint_queue_capacity{address="..."}`
-  - `nexus_endpoint_deadletters_total{address="..."}`
-- `Remote` API へ `get_endpoint_statistics(address)` を追加し、テストや診断 RPC から統計を取得できるようにする。
-- 将来的な Auto-throttle: `Critical` を継続検出した場合は新規 Deliver を受理せず DeadLetter へ即フォールバックするモードも検討（Phase 1.5-3 で判断）。
+- **MUST** `EndpointManager` にしきい値レベルを持たせ、`queue_size / queue_capacity` の比率に応じて状態を算出する。
+  - **MUST** `Normal` (<60%) / `Warning` (60-85%) / `Critical` (>85%) の 3 段階で扱う。
+- **MUST** 状態遷移時に `EndpointThrottledEvent { address, level }` を EventStream へ発火し、送信側が抑制可視化できるようにする。
+- **SHOULD** Prometheus 互換のメトリクス（follow-upで実装）:
+  - **SHOULD** `nexus_endpoint_queue_size{address="..."}`
+  - **SHOULD** `nexus_endpoint_queue_capacity{address="..."}`
+  - **SHOULD** `nexus_endpoint_deadletters_total{address="..."}`
+- **MUST** `Remote` API へ `get_endpoint_statistics(address)` を追加し、テストや診断 RPC から統計を取得できるようにする。
+- **MAY** 将来的な Auto-throttle: `Critical` を継続検出した場合は新規 Deliver を受理せず DeadLetter へ即フォールバックするモードを検討（Phase 1.5-3 で判断）。
 
 ### 3. Drain シナリオ／ベンチマーク計画
-- ユニットテスト:
-  - `client_connection_backpressure_drain`: バックグラウンドで `EndpointWriterMailbox` が `poll_many` を呼ぶタスクを起動し、処理が進んだ段階で `queue_size` が減少することを検証。
-  - `endpoint_manager_throttled_event`: しきい値を意図的に下げて DeadLetter 発生→状態遷移→イベント発火までを確認。
-- ベンチマーク:
-  - `criterion` で batch_size / queue_size を変化させた send-throughput・latency を測定し、既定値をフィードバック。
-  - `EndpointStatistics` を無効化した場合とのオーバーヘッド比較（必要なら feature flag 提供）。
-- 観測ツール連携: Future Task として `nexus-cli` から Endpoint 統計を取得するサブコマンドを用意（バックログ登録済み、#phase1_5_cli）。
+- **SHOULD** ユニットテスト:
+  - **SHOULD** `client_connection_backpressure_drain`: バックグラウンドで `EndpointWriterMailbox` が `poll_many` を呼ぶタスクを起動し、処理が進んだ段階で `queue_size` が減少することを検証。
+  - **SHOULD** `endpoint_manager_throttled_event`: しきい値を意図的に下げて DeadLetter 発生→状態遷移→イベント発火までを確認。
+- **SHOULD** ベンチマーク:
+  - **SHOULD** `criterion` で batch_size / queue_size を変化させた send-throughput・latency を測定し、既定値をフィードバック。
+  - **SHOULD** `EndpointStatistics` を無効化した場合とのオーバーヘッド比較（必要なら feature flag 提供）。
+- **MAY** 観測ツール連携: Future Task として `nexus-cli` から Endpoint 統計を取得するサブコマンドを用意（バックログ登録済み、#phase1_5_cli）。
 
 ### ステージング方針（2025-09-24 メモ）
-- Phase 1.5-2 の実装は以下3フェーズに分割し、それぞれ個別のブランチ／ドキュメントで進行する。
+- **SHOULD** Phase 1.5-2 の実装は以下3フェーズに分割し、それぞれ個別のブランチ／ドキュメントで進行する。
   1. **再接続ポリシーの基盤整備**（今回着手）：EndpointState導入、再接続/Heartbeat設定項目の追加、再接続ループ骨子を実装。
   2. **Backpressure シグナル & メトリクス公開**：統計からの閾値算出、イベント発火、観測APIの追加。
   3. **Drainシナリオとベンチマーク**：キュー減衰テスト、criterion ベンチ、パラメータチューニング。
-- 各フェーズの進捗中は専用の作業メモ（例：`docs/worknotes/phase1_5_reconnect.md`）に詳細を記録し、完了時に該当メモは破棄。成果のみを本Issueドキュメントへ反映する。
+- **SHOULD** 各フェーズの進捗中は専用の作業メモ（例：`docs/worknotes/phase1_5_reconnect.md`）に詳細を記録し、完了時に該当メモは破棄する。
 
 ### 主要変更案
-1. **キュー構成の整理**
-   - `EndpointWriterMailbox` を `RingQueue::with_dynamic(false)` で構築し、`Config::get_endpoint_writer_queue_size()` を上限とする。
-   - キューが満杯の場合は `QueueError::OfferError` を検知し、該当メッセージを DeadLetter へフォールバック（`EndpointWriter` から `EndpointManager` の DeadLetter 経路を利用）。
-   - `endpoint_writer_batch_size` を尊重するように `poll_user_mailbox` を複数件取り出す実装へ変更し、protoactor-go の `PopMany` 挙動に寄せる。
+1. **MUST** キュー構成の整理
+   - **MUST** `EndpointWriterMailbox` を `RingQueue::with_dynamic(false)` で構築し、`Config::get_endpoint_writer_queue_size()` を上限とする。
+   - **MUST** キューが満杯の場合は `QueueError::OfferError` を検知し、該当メッセージを DeadLetter へフォールバック（`EndpointWriter` から `EndpointManager` の DeadLetter 経路を利用）。
+   - **MUST** `endpoint_writer_batch_size` を尊重するように `poll_user_mailbox` を複数件取り出す実装へ変更し、protoactor-go の `PopMany` 挙動に寄せる。
 
-2. **所有権／クリーンアップ**
-   - `EndpointManager` が EndpointWriterMailbox の状態を監視できるよう、`EndpointState` に `queue_len`／`queue_capacity` 等の軽量統計を保持。
-   - Endpoint 切断時 (`EndpointTerminatedEvent`) に残キューを破棄し、DeadLetter 通知とともに `client_connections` を解除するフローを統一。
+2. **MUST** 所有権／クリーンアップ
+   - **MUST** `EndpointManager` が EndpointWriterMailbox の状態を監視できるよう、`EndpointState` に `queue_len`／`queue_capacity` 等の軽量統計を保持する。
+   - **MUST** Endpoint 切断時 (`EndpointTerminatedEvent`) に残キューを破棄し、DeadLetter 通知とともに `client_connections` を解除するフローを統一する。
 
-3. **DeadLetter 方針**
-   - 上限超過時のメッセージは `actor::DeadLetterEvent` に変換し、送信元 PID が存在すれば `DeadLetterResponse` を返す。
-   - DeadLetter 発生数は `tracing::warn!` ログとメトリクス勘定（Phase 3 で実装予定）に接続できるよう `EndpointManager` にカウンタを追加。
+3. **MUST** DeadLetter 方針
+   - **MUST** 上限超過時のメッセージは `actor::DeadLetterEvent` に変換し、送信元 PID が存在すれば `DeadLetterResponse` を返す。
+   - **SHOULD** DeadLetter 発生数は `tracing::warn!` ログとメトリクス勘定（Phase 3 で実装予定）に接続できるよう `EndpointManager` にカウンタを追加する。
 
-4. **テスト計画**
-   - `remote/src/tests.rs::client_connection_backpressure_overflow`（仮）: キュー上限を小さく設定し、一定数を超えた `RemoteDeliver` が DeadLetter に流れることを確認。
-   - `remote/src/tests.rs::client_connection_backpressure_drain`（仮）: EndpointWriter が処理を再開した際に蓄積を捌き、キュー長が減少することを確認。
-   - `EndpointManager` 単体テストで `queue_len` が更新されること、`EndpointTerminatedEvent` 後にクリーンアップされることを検証。
+4. **MUST** テスト計画
+   - **MUST** `remote/src/tests.rs::client_connection_backpressure_overflow`（仮）で、キュー上限を小さく設定し一定数を超えた `RemoteDeliver` が DeadLetter に流れることを確認する。
+   - **SHOULD** `remote/src/tests.rs::client_connection_backpressure_drain`（仮）で、EndpointWriter 再開時に蓄積を捌きキュー長が減少することを確認する。
+   - **MUST** `EndpointManager` 単体テストで `queue_len` 更新および `EndpointTerminatedEvent` 後のクリーンアップを検証する。
 
 ### 未決事項 / 確認ポイント
 - DeadLetter フォールバック時に `RemoteDeliver` のヘッダ情報をどこまで保持するか（現状はヘッダを `MessageHandle` で保持できる）。
 - 上限超過時に直近メッセージのみ落とすか、古いメッセージから破棄するか。現案では「直近メッセージを DeadLetter に送る」方針。
 - `EndpointManager` 側で backpressure シグナルを発火させる必要があるか（例: `EndpointThrottledEvent` を追加するか）。
-- 再接続・Heartbeat 戦略の詳細（指数バックオフのパラメータ、統計との連動方法）をどう定義するか。
+- Heartbeat 監視タスクのジョブ管理（`JoinHandle` の保持先、強制停止の扱い）と `last_heartbeat` の永続化方式をどうするか。
 
 ### 次ステップ（2025-09-24 更新）
-1. **再接続・バックオフ仕様の確定**: protoactor-go の `EndpointState` を参考に `ReconnectPolicy`・`Heartbeat` を Rust へ移植し、統計情報と連携させる。
-2. **backpressure シグナル設計**: `EndpointStatistics` を外部へ公開する API / メトリクス、および `EndpointThrottledEvent`（仮称）など通知手段の要否を判断。
-3. **Drain シナリオとベンチマーク**: EndpointWriter 再開時のキュー減衰テスト、ならびに `criterion` を用いた batch_size / queue_size のパフォーマンス検証を追加。
+1. **MUST** 再接続タスク実装: 本仕様に沿って `EndpointManager::schedule_reconnect`／`mark_heartbeat`／`try_reconnect_once`（仮）を実装し、接続復旧フローを end-to-end で確認する。
+2. **MUST** backpressure シグナル設計: `EndpointStatistics` を外部へ公開する API / メトリクス、および `EndpointThrottledEvent`（仮称）など通知手段の要否を判断する。
+3. **SHOULD** Drain シナリオとベンチマーク: EndpointWriter 再開時のキュー減衰テスト、ならびに `criterion` を用いた batch_size / queue_size のパフォーマンス検証を追加する。
 
 
 ## レビュー依頼テンプレート
@@ -268,9 +303,9 @@ docs/issues/phase1_5_endpoint_stream.md に Phase 1.5 の設計ドラフトを�
 ```
 
 ## アジャイル進行メモ
-- 設計は最小限の責務分割に留め、実装は MVP＋テストを優先。
-- backpressure と再接続は初期値を決めた上で、計測結果に応じて改善する前提で進行。
-- Definition of Ready チェック項目は「テストケース列挙」「責務図草案」の2点を最優先でフィックスし、その他は実装フェーズで逐次補完。
+- **SHOULD** 設計は最小限の責務分割に留め、実装は MVP＋テストを優先する。
+- **SHOULD** backpressure と再接続は初期値を決めた上で、計測結果に応じて改善する前提で進行する。
+- **MUST** Definition of Ready チェック項目は「テストケース列挙」「責務図草案」の2点を最優先でフィックスし、その他は実装フェーズで逐次補完する。
 
 ## 関連ドキュメント
 - `docs/remote機能改善計画.md`

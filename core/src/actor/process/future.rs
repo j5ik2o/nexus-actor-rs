@@ -105,8 +105,7 @@ impl ActorFutureProcess {
   async fn metrics_foreach<F, Fut>(&self, f: F)
   where
     F: Fn(&ActorMetrics, &Metrics) -> Fut,
-    Fut: std::future::Future<Output = ()>,
-  {
+    Fut: std::future::Future<Output = ()>, {
     if self.get_actor_system().await.get_config().await.is_metrics_enabled() {
       if let Some(extension_arc) = self
         .get_actor_system()
