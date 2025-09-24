@@ -2,6 +2,7 @@ use crate::config::Config;
 use crate::config_option::ConfigOption;
 use crate::endpoint_manager::{EndpointManager, RequestKeyWrapper};
 use crate::endpoint_reader::EndpointReader;
+use crate::endpoint_state::ConnectionState;
 use crate::endpoint_writer_mailbox::EndpointWriterMailbox;
 use crate::generated::remote::{
   self, connect_request::ConnectionType, ClientConnection, ConnectRequest, RemoteMessage,
@@ -248,6 +249,54 @@ async fn client_connection_backpressure_overflow() -> TestResult<()> {
     .get_endpoint_manager()
     .await
     .deregister_client_connection(&connection_key);
+
+  Ok(())
+}
+
+#[tokio::test]
+async fn remote_await_reconnect_returns_connection_state() -> TestResult<()> {
+  let (remote_arc, _endpoint_reader) = setup_remote_with_manager().await?;
+  let manager = remote_arc.get_endpoint_manager().await;
+
+  let waiter = tokio::spawn({
+    let remote = remote_arc.clone();
+    async move { remote.await_reconnect("endpoint-remote-await").await }
+  });
+
+  tokio::time::sleep(Duration::from_millis(10)).await;
+  manager
+    .update_connection_state("endpoint-remote-await", ConnectionState::Connected)
+    .await;
+
+  let state = waiter.await.expect("await task failed");
+  assert_eq!(state, Some(ConnectionState::Connected));
+
+  Ok(())
+}
+
+#[tokio::test]
+async fn remote_await_reconnect_resolves_closed_after_schedule() -> TestResult<()> {
+  let (remote_arc, _endpoint_reader) = setup_remote_with_options(vec![
+    ConfigOption::with_host("127.0.0.1"),
+    ConfigOption::with_port(19082),
+    ConfigOption::with_endpoint_reconnect_max_retries(1),
+    ConfigOption::with_endpoint_reconnect_initial_backoff(Duration::from_millis(0)),
+    ConfigOption::with_endpoint_reconnect_max_backoff(Duration::from_millis(0)),
+  ])
+  .await?;
+
+  let manager = remote_arc.get_endpoint_manager().await;
+  let waiter = tokio::spawn({
+    let remote = remote_arc.clone();
+    async move { remote.await_reconnect("endpoint-remote-await-closed").await }
+  });
+
+  manager
+    .schedule_reconnect("endpoint-remote-await-closed".to_string())
+    .await;
+
+  let state = waiter.await.expect("await task failed");
+  assert_eq!(state, Some(ConnectionState::Closed));
 
   Ok(())
 }

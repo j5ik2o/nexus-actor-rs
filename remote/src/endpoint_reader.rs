@@ -18,6 +18,7 @@ use crate::messages::RemoteTerminate;
 use crate::remote::Remote;
 use crate::serializer::SerializerId;
 use regex::Regex;
+use std::collections::HashSet;
 use std::convert::TryFrom;
 use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -101,6 +102,12 @@ impl EndpointReader {
     if let Err(e) = self.send_connect_response(response_tx, &sc.system_id, blocked).await {
       tracing::error!("EndpointReader failed to send ConnectResponse message: {}", e);
     }
+
+    if !blocked {
+      if let Some(manager) = self.get_endpoint_manager_opt().await {
+        manager.mark_heartbeat(&sc.system_id).await;
+      }
+    }
   }
 
   async fn on_client_connection(
@@ -144,6 +151,12 @@ impl EndpointReader {
         );
       }
     }
+
+    if !blocked {
+      if let Some(manager) = self.get_endpoint_manager_opt().await {
+        manager.mark_heartbeat(&cc.system_id).await;
+      }
+    }
   }
 
   async fn send_connect_response(
@@ -168,6 +181,7 @@ impl EndpointReader {
   async fn on_message_batch(&self, message_batch: &MessageBatch) -> Result<(), EndpointReaderError> {
     tracing::debug!("EndpointReader received {} envelopes", message_batch.envelopes.len());
 
+    let mut touched_addresses: HashSet<String> = HashSet::new();
     for envelope in &message_batch.envelopes {
       let payload = &envelope.message_data;
       let mut sender = Pid::default();
@@ -188,6 +202,7 @@ impl EndpointReader {
       )
       .map(ExtendedPid::new)
       .ok_or(EndpointReaderError::UnknownTarget)?;
+      touched_addresses.insert(target.address().to_string());
 
       let serializer_id =
         SerializerId::try_from(envelope.serializer_id).map_err(EndpointReaderError::Deserialization)?;
@@ -247,6 +262,12 @@ impl EndpointReader {
           }
           root_context.send(target, MessageHandle::new(local_envelope)).await;
         }
+      }
+    }
+
+    if let Some(manager) = self.get_endpoint_manager_opt().await {
+      for address in touched_addresses {
+        manager.mark_heartbeat(&address).await;
       }
     }
     Ok(())

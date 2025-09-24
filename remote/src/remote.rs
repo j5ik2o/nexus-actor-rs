@@ -6,6 +6,7 @@ use crate::config::server_config::ServerConfig;
 use crate::config::Config;
 use crate::endpoint_manager::{EndpointManager, EndpointStatisticsSnapshot};
 use crate::endpoint_reader::EndpointReader;
+use crate::endpoint_state::ConnectionState;
 use crate::generated::remote::remoting_server::RemotingServer;
 use crate::messages::RemoteDeliver;
 use crate::remote_process::RemoteProcess;
@@ -155,6 +156,11 @@ impl Remote {
       .and_then(|manager| manager.statistics_snapshot(address))
   }
 
+  pub async fn await_reconnect(&self, address: &str) -> Option<ConnectionState> {
+    let manager = self.get_endpoint_manager_opt().await?;
+    Some(manager.await_reconnect(address).await)
+  }
+
   pub fn register(&self, kind: &str, props: Props) {
     self.inner.kinds.insert(kind.to_string(), props);
   }
@@ -170,8 +176,7 @@ impl Remote {
   pub async fn start_with_callback<F, Fut>(&self, on_start: F) -> Result<(), RemoteError>
   where
     F: FnOnce() -> Fut,
-    Fut: Future<Output = ()> + Send + Sync,
-  {
+    Fut: Future<Output = ()> + Send + Sync, {
     let (shutdown, rx) = Shutdown::new();
     {
       let mut mg = self.inner.shutdown.lock().await;

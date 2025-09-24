@@ -5,8 +5,8 @@ use crate::endpoint_state::{ConnectionState, EndpointState, EndpointStateHandle,
 use crate::endpoint_supervisor::EndpointSupervisor;
 use crate::generated::remote::RemoteMessage;
 use crate::messages::{
-  BackpressureLevel, EndpointEvent, EndpointTerminatedEvent, EndpointThrottledEvent, Ping, Pong, RemoteDeliver,
-  RemoteTerminate, RemoteUnwatch, RemoteWatch,
+  BackpressureLevel, EndpointConnectedEvent, EndpointEvent, EndpointTerminatedEvent, EndpointThrottledEvent, Ping,
+  Pong, RemoteDeliver, RemoteTerminate, RemoteUnwatch, RemoteWatch,
 };
 use crate::remote::Remote;
 use dashmap::mapref::entry::Entry;
@@ -25,11 +25,12 @@ use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicU8, AtomicUsize, Ordering};
 use std::sync::{Arc, Weak};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use thiserror::Error;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::{mpsc, Mutex};
-use tokio::time::sleep;
+use tokio::task::JoinHandle;
+use tokio::time::{interval, sleep, MissedTickBehavior};
 use tonic::{Request, Status, Streaming};
 
 type ClientResponseSender = Sender<Result<RemoteMessage, Status>>;
@@ -123,6 +124,7 @@ pub(crate) struct EndpointManager {
   client_connection_keys: Arc<DashMap<RequestKeyWrapper, String>>,
   endpoint_stats: Arc<DashMap<String, Arc<EndpointStatistics>>>,
   endpoint_states: Arc<DashMap<String, EndpointStateHandle>>,
+  heartbeat_tasks: Arc<DashMap<String, JoinHandle<()>>>,
 }
 
 impl EndpointManager {
@@ -139,6 +141,7 @@ impl EndpointManager {
       client_connection_keys: Arc::new(DashMap::new()),
       endpoint_stats: Arc::new(DashMap::new()),
       endpoint_states: Arc::new(DashMap::new()),
+      heartbeat_tasks: Arc::new(DashMap::new()),
     }
   }
 
@@ -174,6 +177,86 @@ impl EndpointManager {
 
   pub fn statistics_snapshot(&self, address: &str) -> Option<EndpointStatisticsSnapshot> {
     self.endpoint_stats.get(address).map(|entry| entry.value().snapshot())
+  }
+
+  fn stop_heartbeat_task(&self, address: &str) {
+    if let Some((_, handle)) = self.heartbeat_tasks.remove(address) {
+      handle.abort();
+    }
+  }
+
+  fn start_heartbeat_monitor(&self, address: String, state: EndpointStateHandle) {
+    let interval_duration = state.heartbeat_config().interval();
+    let timeout = state.heartbeat_config().timeout();
+    let manager = self.clone();
+    let tasks = self.heartbeat_tasks.clone();
+    let address_for_task = address.clone();
+    let handle = tokio::spawn(async move {
+      let mut ticker = interval(interval_duration);
+      ticker.set_missed_tick_behavior(MissedTickBehavior::Delay);
+      loop {
+        ticker.tick().await;
+        if manager.stopped.load(Ordering::SeqCst) {
+          break;
+        }
+
+        match state.connection_state() {
+          ConnectionState::Closed => break,
+          ConnectionState::Suspended | ConnectionState::Reconnecting => continue,
+          ConnectionState::Connected => {
+            let elapsed = state.elapsed_since_last_heartbeat(Instant::now());
+            if elapsed >= timeout {
+              tracing::warn!(address = %address_for_task, ?elapsed, "Heartbeat timeout detected; scheduling reconnect");
+              let event = EndpointEvent::EndpointTerminated(EndpointTerminatedEvent {
+                address: address_for_task.clone(),
+              });
+              manager.endpoint_event(event).await;
+              state.set_connection_state(ConnectionState::Suspended);
+              manager.schedule_reconnect(address_for_task.clone()).await;
+              break;
+            }
+          }
+        }
+      }
+
+      let _ = tasks.remove(&address_for_task);
+    });
+
+    if let Some(previous) = self.heartbeat_tasks.insert(address, handle) {
+      previous.abort();
+    }
+  }
+
+  pub(crate) async fn mark_heartbeat(&self, address: &str) {
+    let state = self.endpoint_state(address).await;
+    state.mark_heartbeat(Instant::now());
+  }
+
+  async fn try_reconnect_once(&self, address: String, state: EndpointStateHandle) -> Result<(), String> {
+    if self.stopped.load(Ordering::SeqCst) {
+      return Ok(());
+    }
+
+    if self.endpoint_supervisor.lock().await.is_none() {
+      tracing::warn!(address = %address, "Endpoint supervisor is not ready; cannot reconnect yet");
+      return Err("endpoint supervisor not initialized".to_string());
+    }
+
+    self.connections.remove(&address);
+    let lazy = EndpointLazy::new(self.clone(), &address);
+    lazy.get().await.map_err(|err| err.to_string())?;
+    self.connections.insert(address.clone(), lazy);
+
+    state.set_connection_state(ConnectionState::Connected);
+    state.reset_retries();
+    state.mark_heartbeat(Instant::now());
+
+    self
+      .endpoint_event(EndpointEvent::EndpointConnected(EndpointConnectedEvent {
+        address: address.clone(),
+      }))
+      .await;
+    Ok(())
   }
 
   async fn endpoint_state(&self, address: &str) -> EndpointStateHandle {
@@ -212,42 +295,100 @@ impl EndpointManager {
   }
 
   pub(crate) fn remove_endpoint_state(&self, address: &str) {
-    self.endpoint_states.remove(address);
+    if let Some((_, state)) = self.endpoint_states.remove(address) {
+      state.set_connection_state(ConnectionState::Closed);
+    }
   }
 
   pub(crate) async fn schedule_reconnect(&self, address: String) {
-    let state = self.endpoint_state(&address).await;
-    state.set_connection_state(ConnectionState::Reconnecting);
-    let attempt = state.record_retry_attempt();
-    let delay = state.compute_backoff_delay(attempt);
-
-    if state.has_exceeded_retries() {
-      tracing::warn!(
-        address = %address,
-        retries = attempt,
-        "Reached maximum reconnect attempts; leaving endpoint closed"
-      );
-      state.set_connection_state(ConnectionState::Closed);
+    if self.stopped.load(Ordering::SeqCst) {
+      tracing::debug!(address = %address, "Skipping reconnect scheduling because manager is stopped");
       return;
     }
 
-    tracing::info!(
-      address = %address,
-      attempt,
-      ?delay,
-      "Scheduling reconnect attempt"
-    );
+    let state = self.endpoint_state(&address).await;
+    match state.connection_state() {
+      ConnectionState::Closed => {
+        tracing::debug!(address = %address, "Reconnect skipped because endpoint is already closed");
+        return;
+      }
+      ConnectionState::Reconnecting => {
+        tracing::debug!(address = %address, "Reconnect already in progress; ignoring duplicate request");
+        return;
+      }
+      _ => {}
+    }
 
+    state.set_connection_state(ConnectionState::Reconnecting);
+    let max_retries = state.reconnect_policy().max_retries();
+    let initial_attempt = state.record_retry_attempt();
+    self.stop_heartbeat_task(&address);
     let manager = self.clone();
+    let state_handle = state.clone();
+    let address_for_task = address.clone();
+
     tokio::spawn(async move {
-      sleep(delay).await;
-      tracing::debug!(address = %address, "Reconnect placeholder executed (implementation pending)");
-      // TODO: implement actual reconnection handshake in Phase 1.5-2 follow-up.
-      let _ = manager;
+      let mut attempt = initial_attempt;
+      loop {
+        state_handle.set_connection_state(ConnectionState::Reconnecting);
+
+        if max_retries > 0 && attempt > max_retries {
+          tracing::warn!(
+            address = %address_for_task,
+            retries = attempt - 1,
+            "Reached maximum reconnect attempts; closing endpoint"
+          );
+          state_handle.set_connection_state(ConnectionState::Closed);
+          manager
+            .endpoint_event(EndpointEvent::EndpointTerminated(EndpointTerminatedEvent {
+              address: address_for_task.clone(),
+            }))
+            .await;
+          manager.remove_endpoint_state(&address_for_task);
+          break;
+        }
+
+        let delay = state_handle.compute_backoff_delay(attempt);
+        tracing::info!(address = %address_for_task, attempt, ?delay, "Scheduling reconnect attempt");
+        if !delay.is_zero() {
+          sleep(delay).await;
+        }
+
+        if manager.stopped.load(Ordering::SeqCst) {
+          break;
+        }
+
+        match manager
+          .try_reconnect_once(address_for_task.clone(), state_handle.clone())
+          .await
+        {
+          Ok(()) => {
+            tracing::info!(address = %address_for_task, "Reconnect attempt succeeded");
+            manager.start_heartbeat_monitor(address_for_task.clone(), state_handle.clone());
+            break;
+          }
+          Err(err) => {
+            tracing::warn!(
+              address = %address_for_task,
+              attempt,
+              error = %err,
+              "Reconnect attempt failed; retrying"
+            );
+            state_handle.set_connection_state(ConnectionState::Suspended);
+            attempt = state_handle.record_retry_attempt();
+            continue;
+          }
+        }
+      }
     });
   }
 
-  async fn determine_backpressure_level(&self, address: &str, capacity: usize, len: usize) -> BackpressureLevel {
+  pub async fn await_reconnect(&self, address: &str) -> ConnectionState {
+    let state = self.endpoint_state(address).await;
+    state.wait_until_connected_or_closed().await
+  }
+
+  async fn determine_backpressure_level(&self, _address: &str, capacity: usize, len: usize) -> BackpressureLevel {
     if capacity == 0 {
       return BackpressureLevel::Normal;
     }
@@ -390,7 +531,15 @@ impl EndpointManager {
     self.connections = Arc::new(DashMap::new());
     self.client_connections.clear();
     self.client_connection_keys.clear();
+    let remaining_states: Vec<_> = self.endpoint_states.iter().map(|entry| entry.value().clone()).collect();
+    for state in remaining_states {
+      state.set_connection_state(ConnectionState::Closed);
+    }
     self.endpoint_states.clear();
+    for entry in self.heartbeat_tasks.iter() {
+      entry.value().abort();
+    }
+    self.heartbeat_tasks.clear();
     for value_ref in self.endpoint_reader_connections.iter() {
       let (key, value) = value_ref.pair();
       let sender = {
@@ -590,23 +739,32 @@ impl EndpointManager {
   }
 
   async fn ensure_connected(&self, address: &str) -> Endpoint {
-    match self.connections.get(address) {
-      None => {
-        let el = EndpointLazy::new(self.clone(), address);
-        let (el2, _) = self.connections.load_or_store(address.to_string(), el);
-        let endpoint = el2.get().await.expect("Endpoint is not found").clone();
-        self.update_connection_state(address, ConnectionState::Connected).await;
-        endpoint
-      }
-      Some(v) => {
-        let endpoint = v.get().await.expect("Endpoint is not found").clone();
-        self.update_connection_state(address, ConnectionState::Connected).await;
-        endpoint
-      }
+    let (endpoint_lazy, newly_created) = if let Some(existing) = self.connections.get(address) {
+      (existing.value().clone(), false)
+    } else {
+      let lazy = EndpointLazy::new(self.clone(), address);
+      let (value, already_present) = self.connections.load_or_store(address.to_string(), lazy.clone());
+      (value, !already_present)
+    };
+
+    let endpoint = endpoint_lazy.get().await.expect("Endpoint is not found").clone();
+
+    let state = self.endpoint_state(address).await;
+    self.update_connection_state(address, ConnectionState::Connected).await;
+
+    let should_start_monitor = newly_created || !self.heartbeat_tasks.contains_key(address);
+    state.mark_heartbeat(Instant::now());
+
+    if should_start_monitor {
+      self.start_heartbeat_monitor(address.to_string(), state.clone());
+      self.record_queue_state(address, 0, 0).await;
     }
+
+    endpoint
   }
 
   async fn remove_endpoint(&self, message: &EndpointTerminatedEvent) {
+    self.stop_heartbeat_task(&message.address);
     if let Some(v) = self.connections.get(&message.address) {
       let le = v.value();
       if le
@@ -699,11 +857,42 @@ impl EndpointManager {
 mod tests {
   use super::*;
   use crate::config::Config;
+  use crate::config_option::ConfigOption;
+  use crate::endpoint::Endpoint;
   use crate::remote::Remote;
+  use async_trait::async_trait;
   use nexus_actor_core_rs::actor::actor_system::ActorSystem;
+  use nexus_actor_core_rs::actor::context::{BasePart, ContextHandle, MessagePart};
+  use nexus_actor_core_rs::actor::core::{Actor, ActorError, ExtendedPid, Props};
+  use nexus_actor_core_rs::actor::message::{MessageHandle, ResponseHandle};
   use nexus_actor_core_rs::generated::actor::Pid;
   use std::sync::Arc;
   use std::time::Duration;
+
+  #[derive(Debug, Clone)]
+  struct NoopActor;
+
+  #[async_trait]
+  impl Actor for NoopActor {
+    async fn receive(&mut self, _context_handle: ContextHandle) -> Result<(), ActorError> {
+      Ok(())
+    }
+  }
+
+  #[derive(Debug, Clone)]
+  struct SupervisorStub {
+    endpoint: Endpoint,
+  }
+
+  #[async_trait]
+  impl Actor for SupervisorStub {
+    async fn receive(&mut self, context_handle: ContextHandle) -> Result<(), ActorError> {
+      if context_handle.get_message_handle().await.to_typed::<String>().is_some() {
+        context_handle.respond(ResponseHandle::new(self.endpoint.clone())).await;
+      }
+      Ok(())
+    }
+  }
 
   #[tokio::test]
   async fn endpoint_manager_internal_setters_are_exercised() {
@@ -824,6 +1013,115 @@ mod tests {
       .statistics_snapshot("endpoint-C")
       .expect("snapshot should exist");
     assert_eq!(snapshot.backpressure_level, BackpressureLevel::Critical);
+  }
+
+  #[tokio::test]
+  async fn reconnect_gives_up_after_max_attempts() {
+    let actor_system = ActorSystem::new().await.expect("actor system");
+    let config = Config::from(vec![
+      ConfigOption::with_endpoint_reconnect_max_retries(1),
+      ConfigOption::with_endpoint_reconnect_initial_backoff(Duration::from_millis(0)),
+      ConfigOption::with_endpoint_reconnect_max_backoff(Duration::from_millis(0)),
+    ])
+    .await;
+    let remote = Arc::new(Remote::new(actor_system, config).await);
+    let manager = EndpointManager::new(Arc::downgrade(&remote));
+    remote.set_endpoint_manager_for_test(manager.clone()).await;
+
+    let state = manager.endpoint_state("endpoint-reconnect").await;
+    manager.schedule_reconnect("endpoint-reconnect".to_string()).await;
+
+    tokio::time::sleep(Duration::from_millis(10)).await;
+
+    assert_eq!(state.connection_state(), ConnectionState::Closed);
+    assert!(manager.statistics_snapshot("endpoint-reconnect").is_none());
+  }
+
+  #[tokio::test]
+  async fn await_reconnect_resolves_connected_state() {
+    let actor_system = ActorSystem::new().await.expect("actor system");
+    let remote = Arc::new(Remote::new(actor_system, Config::default()).await);
+    let manager = EndpointManager::new(Arc::downgrade(&remote));
+    remote.set_endpoint_manager_for_test(manager.clone()).await;
+
+    let waiter = tokio::spawn({
+      let manager = manager.clone();
+      async move { manager.await_reconnect("endpoint-await-connected").await }
+    });
+
+    tokio::time::sleep(Duration::from_millis(10)).await;
+    manager
+      .update_connection_state("endpoint-await-connected", ConnectionState::Connected)
+      .await;
+
+    let result = waiter.await.expect("await task failed");
+    assert_eq!(result, ConnectionState::Connected);
+  }
+
+  #[tokio::test]
+  async fn await_reconnect_resolves_closed_state_on_removal() {
+    let actor_system = ActorSystem::new().await.expect("actor system");
+    let remote = Arc::new(Remote::new(actor_system, Config::default()).await);
+    let manager = EndpointManager::new(Arc::downgrade(&remote));
+    remote.set_endpoint_manager_for_test(manager.clone()).await;
+
+    let waiter = tokio::spawn({
+      let manager = manager.clone();
+      async move { manager.await_reconnect("endpoint-await-closed").await }
+    });
+
+    tokio::time::sleep(Duration::from_millis(10)).await;
+    manager.remove_endpoint_state("endpoint-await-closed");
+
+    let result = waiter.await.expect("await task failed");
+    assert_eq!(result, ConnectionState::Closed);
+  }
+
+  #[tokio::test]
+  async fn schedule_reconnect_successfully_restores_connection() {
+    let actor_system = ActorSystem::new().await.expect("actor system");
+    let config = Config::from(vec![
+      ConfigOption::with_endpoint_reconnect_initial_backoff(Duration::from_millis(0)),
+      ConfigOption::with_endpoint_reconnect_max_backoff(Duration::from_millis(0)),
+    ])
+    .await;
+    let remote = Arc::new(Remote::new(actor_system.clone(), config).await);
+    let manager = EndpointManager::new(Arc::downgrade(&remote));
+    remote.set_endpoint_manager_for_test(manager.clone()).await;
+
+    let noop_props = Props::from_async_actor_producer(|_| async { NoopActor }).await;
+    let writer_pid = actor_system.get_root_context().await.spawn(noop_props.clone()).await;
+    let watcher_pid = actor_system.get_root_context().await.spawn(noop_props.clone()).await;
+
+    let endpoint = Endpoint::new(writer_pid.inner_pid.clone(), watcher_pid.inner_pid.clone());
+    let supervisor_props = Props::from_async_actor_producer(move |_| {
+      let endpoint = endpoint.clone();
+      async move {
+        SupervisorStub {
+          endpoint: endpoint.clone(),
+        }
+      }
+    })
+    .await;
+    let supervisor_pid: ExtendedPid = actor_system.get_root_context().await.spawn(supervisor_props).await;
+
+    manager.set_endpoint_supervisor(supervisor_pid.inner_pid.clone()).await;
+
+    let address = "endpoint-reconnect-success";
+    let waiter = tokio::spawn({
+      let remote = remote.clone();
+      let address = address.to_string();
+      async move { remote.await_reconnect(&address).await }
+    });
+
+    manager.schedule_reconnect(address.to_string()).await;
+
+    let state = tokio::time::timeout(Duration::from_secs(1), waiter)
+      .await
+      .expect("await_reconnect timed out")
+      .expect("task join failed");
+
+    assert_eq!(state, Some(ConnectionState::Connected));
   }
 }
 

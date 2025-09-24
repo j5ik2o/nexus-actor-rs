@@ -1,6 +1,7 @@
-use std::sync::atomic::{AtomicU32, AtomicU8, Ordering};
+use std::sync::atomic::{AtomicU32, AtomicU64, AtomicU8, Ordering};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
+use tokio::sync::Notify;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ConnectionState {
@@ -86,17 +87,26 @@ pub struct EndpointState {
   reconnect_policy: ReconnectPolicy,
   heartbeat: HeartbeatConfig,
   retry_count: AtomicU32,
+  heartbeat_base: Instant,
+  last_heartbeat_millis: AtomicU64,
+  state_change: Notify,
 }
 
 impl EndpointState {
   pub fn new(address: impl Into<String>, reconnect_policy: ReconnectPolicy, heartbeat: HeartbeatConfig) -> Self {
-    Self {
+    let now = Instant::now();
+    let state = Self {
       address: address.into(),
       connection_state: AtomicU8::new(ConnectionState::Suspended.as_u8()),
       reconnect_policy,
       heartbeat,
       retry_count: AtomicU32::new(0),
-    }
+      heartbeat_base: now,
+      last_heartbeat_millis: AtomicU64::new(0),
+      state_change: Notify::new(),
+    };
+    state.mark_heartbeat(now);
+    state
   }
 
   pub fn address(&self) -> &str {
@@ -108,7 +118,10 @@ impl EndpointState {
   }
 
   pub fn set_connection_state(&self, state: ConnectionState) {
-    self.connection_state.store(state.as_u8(), Ordering::SeqCst);
+    let previous = self.connection_state.swap(state.as_u8(), Ordering::SeqCst);
+    if previous != state.as_u8() {
+      self.state_change.notify_waiters();
+    }
   }
 
   pub fn reconnect_policy(&self) -> &ReconnectPolicy {
@@ -160,6 +173,41 @@ impl EndpointState {
       delay
     }
   }
+
+  pub fn mark_heartbeat(&self, instant: Instant) {
+    let elapsed = instant.checked_duration_since(self.heartbeat_base).unwrap_or_default();
+    let millis = elapsed.as_millis().min(u64::MAX as u128) as u64;
+    self.last_heartbeat_millis.store(millis, Ordering::SeqCst);
+  }
+
+  pub fn elapsed_since_last_heartbeat(&self, instant: Instant) -> Duration {
+    let elapsed = instant.checked_duration_since(self.heartbeat_base).unwrap_or_default();
+    let current_millis = elapsed.as_millis().min(u64::MAX as u128) as u64;
+    let last_millis = self.last_heartbeat_millis.load(Ordering::SeqCst);
+    if current_millis >= last_millis {
+      Duration::from_millis(current_millis - last_millis)
+    } else {
+      Duration::from_millis(0)
+    }
+  }
+
+  pub async fn wait_until<F>(&self, mut predicate: F) -> ConnectionState
+  where
+    F: FnMut(ConnectionState) -> bool, {
+    loop {
+      let current = self.connection_state();
+      if predicate(current) {
+        return current;
+      }
+      self.state_change.notified().await;
+    }
+  }
+
+  pub async fn wait_until_connected_or_closed(&self) -> ConnectionState {
+    self
+      .wait_until(|state| matches!(state, ConnectionState::Connected | ConnectionState::Closed))
+      .await
+  }
 }
 
 pub type EndpointStateHandle = Arc<EndpointState>;
@@ -167,6 +215,8 @@ pub type EndpointStateHandle = Arc<EndpointState>;
 #[cfg(test)]
 mod tests {
   use super::*;
+  use std::sync::Arc;
+  use tokio::time::{sleep, Duration as TokioDuration};
 
   #[test]
   fn backoff_doubles_until_cap() {
@@ -221,5 +271,39 @@ mod tests {
 
     state.set_connection_state(ConnectionState::Closed);
     assert_eq!(state.connection_state(), ConnectionState::Closed);
+  }
+
+  #[test]
+  fn heartbeat_tracking_updates_elapsed() {
+    let policy = ReconnectPolicy::new(0, Duration::from_secs(1), Duration::from_secs(1));
+    let heartbeat = HeartbeatConfig::new(Duration::from_secs(1), Duration::from_secs(3));
+    let state = EndpointState::new("node-D", policy, heartbeat);
+
+    let base = state.heartbeat_base;
+    state.mark_heartbeat(base + Duration::from_millis(250));
+    let elapsed = state.elapsed_since_last_heartbeat(base + Duration::from_millis(700));
+    assert_eq!(elapsed, Duration::from_millis(450));
+
+    state.mark_heartbeat(base + Duration::from_millis(1_200));
+    let elapsed_after = state.elapsed_since_last_heartbeat(base + Duration::from_millis(1_500));
+    assert_eq!(elapsed_after, Duration::from_millis(300));
+  }
+
+  #[tokio::test]
+  async fn wait_until_connected_or_closed_wakes_on_transition() {
+    let policy = ReconnectPolicy::new(5, Duration::from_millis(200), Duration::from_secs(3));
+    let heartbeat = HeartbeatConfig::new(Duration::from_secs(1), Duration::from_secs(3));
+    let state = Arc::new(EndpointState::new("node-E", policy, heartbeat));
+
+    let waiting = {
+      let state = state.clone();
+      tokio::spawn(async move { state.wait_until_connected_or_closed().await })
+    };
+
+    sleep(TokioDuration::from_millis(10)).await;
+    state.set_connection_state(ConnectionState::Connected);
+
+    let result = waiting.await.expect("task panicked");
+    assert_eq!(result, ConnectionState::Connected);
   }
 }
