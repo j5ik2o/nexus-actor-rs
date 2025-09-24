@@ -24,8 +24,11 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Weak};
 use std::time::Duration;
 use thiserror::Error;
+use tokio::sync::mpsc::Sender;
 use tokio::sync::{mpsc, Mutex};
-use tonic::{Request, Streaming};
+use tonic::{Request, Status, Streaming};
+
+type ClientResponseSender = Sender<Result<RemoteMessage, Status>>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum EndpointManagerError {
@@ -76,6 +79,8 @@ pub(crate) struct EndpointManager {
   stopped: Arc<AtomicBool>,
   #[allow(clippy::type_complexity)]
   endpoint_reader_connections: Arc<DashMap<RequestKeyWrapper, Arc<Mutex<Option<mpsc::Sender<bool>>>>>>,
+  client_connections: Arc<DashMap<String, ClientResponseSender>>,
+  client_connection_keys: Arc<DashMap<RequestKeyWrapper, String>>,
 }
 
 impl EndpointManager {
@@ -88,6 +93,8 @@ impl EndpointManager {
       activator_pid: Arc::new(Mutex::new(None)),
       stopped: Arc::new(AtomicBool::new(false)),
       endpoint_reader_connections: Arc::new(DashMap::new()),
+      client_connections: Arc::new(DashMap::new()),
+      client_connection_keys: Arc::new(DashMap::new()),
     }
   }
 
@@ -190,6 +197,8 @@ impl EndpointManager {
     }
     self.reset_endpoint_subscription().await;
     self.connections = Arc::new(DashMap::new());
+    self.client_connections.clear();
+    self.client_connection_keys.clear();
     for value_ref in self.endpoint_reader_connections.iter() {
       let (key, value) = value_ref.pair();
       let sender = {
@@ -449,4 +458,47 @@ impl EndpointManager {
   ) -> Arc<DashMap<RequestKeyWrapper, Arc<Mutex<Option<mpsc::Sender<bool>>>>>> {
     self.endpoint_reader_connections.clone()
   }
+
+  pub(crate) fn register_client_connection(
+    &self,
+    system_id: String,
+    key: RequestKeyWrapper,
+    sender: ClientResponseSender,
+  ) {
+    if let Some(old_system_id) = self.client_connection_keys.insert(key.clone(), system_id.clone()) {
+      self.client_connections.remove(&old_system_id);
+    }
+    self.client_connections.insert(system_id, sender);
+  }
+
+  pub(crate) fn deregister_client_connection(&self, key: &RequestKeyWrapper) {
+    if let Some((_, system_id)) = self.client_connection_keys.remove(key) {
+      self.client_connections.remove(&system_id);
+    }
+  }
+
+  #[cfg(test)]
+  pub(crate) fn has_client_connection(&self, system_id: &str) -> bool {
+    self.client_connections.contains_key(system_id)
+  }
+
+  pub(crate) async fn send_to_client(&self, system_id: &str, message: RemoteMessage) -> Result<(), ClientSendError> {
+    let sender = self
+      .client_connections
+      .get(system_id)
+      .ok_or_else(|| ClientSendError::NotFound(system_id.to_string()))?
+      .clone();
+    sender
+      .send(Ok(message))
+      .await
+      .map_err(|err| ClientSendError::SendFailed(system_id.to_string(), err.to_string()))
+  }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
+pub enum ClientSendError {
+  #[error("client connection not found: {0}")]
+  NotFound(String),
+  #[error("failed to send to client {0}: {1}")]
+  SendFailed(String, String),
 }
