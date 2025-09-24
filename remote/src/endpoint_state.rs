@@ -149,8 +149,15 @@ impl EndpointState {
     max > 0 && self.retries() >= max
   }
 
+  /// Returns the backoff delay for the next scheduled reconnect attempt.
+  ///
+  /// This mirrors protoactor-go where the retry counter is incremented before
+  /// scheduling the attempt. The current retry count therefore maps directly
+  /// to the attempt number whose delay we need to compute.
+
   pub fn next_backoff_delay(&self) -> Duration {
-    self.compute_backoff_delay(self.retries().saturating_add(1))
+    let attempts = self.retries().max(1);
+    self.compute_backoff_delay(attempts)
   }
 
   pub fn compute_backoff_delay(&self, attempts: u32) -> Duration {
@@ -255,6 +262,49 @@ mod tests {
     state.reset_retries();
     assert_eq!(state.retries(), 0);
     assert!(!state.has_exceeded_retries());
+  }
+
+  #[test]
+  fn next_backoff_delay_follows_retry_count() {
+    let policy = ReconnectPolicy::new(10, Duration::from_millis(100), Duration::from_secs(1));
+    let heartbeat = HeartbeatConfig::new(Duration::from_secs(1), Duration::from_secs(3));
+    let state = EndpointState::new("node-delay", policy, heartbeat);
+
+    assert_eq!(state.retries(), 0);
+    assert_eq!(state.next_backoff_delay(), Duration::from_millis(100));
+
+    let first_attempt = state.record_retry_attempt();
+    assert_eq!(first_attempt, 1);
+    assert_eq!(state.next_backoff_delay(), Duration::from_millis(100));
+
+    let second_attempt = state.record_retry_attempt();
+    assert_eq!(second_attempt, 2);
+    assert_eq!(state.next_backoff_delay(), Duration::from_millis(200));
+  }
+
+  #[test]
+  fn next_backoff_delay_respects_max_backoff() {
+    let policy = ReconnectPolicy::new(10, Duration::from_millis(250), Duration::from_millis(800));
+    let heartbeat = HeartbeatConfig::new(Duration::from_secs(1), Duration::from_secs(3));
+    let state = EndpointState::new("node-delay-cap", policy, heartbeat);
+
+    assert_eq!(state.next_backoff_delay(), Duration::from_millis(250));
+
+    let attempt_one = state.record_retry_attempt();
+    assert_eq!(attempt_one, 1);
+    assert_eq!(state.next_backoff_delay(), Duration::from_millis(250));
+
+    let attempt_two = state.record_retry_attempt();
+    assert_eq!(attempt_two, 2);
+    assert_eq!(state.next_backoff_delay(), Duration::from_millis(500));
+
+    let attempt_three = state.record_retry_attempt();
+    assert_eq!(attempt_three, 3);
+    assert_eq!(state.next_backoff_delay(), Duration::from_millis(800));
+
+    let attempt_four = state.record_retry_attempt();
+    assert_eq!(attempt_four, 4);
+    assert_eq!(state.next_backoff_delay(), Duration::from_millis(800));
   }
 
   #[test]
