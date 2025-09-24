@@ -194,3 +194,44 @@ impl Config {
     mg.server_config = Some(server_config);
   }
 }
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::config::server_config::ServerConfig;
+  use nexus_actor_core_rs::actor::core::Props;
+
+  #[tokio::test]
+  async fn config_accessors_cover_writer_and_manager_fields() {
+    let mut config = Config::default();
+    config.set_host("127.0.0.1".into()).await;
+    config.set_port(8080).await;
+    config.set_advertised_address("127.0.0.1:8080".into()).await;
+    config.set_endpoint_writer_batch_size(5).await;
+    config.set_endpoint_writer_queue_size(10).await;
+    config.set_endpoint_manager_batch_size(7).await;
+    config.set_endpoint_manager_queue_size(11).await;
+    config.set_max_retry_count(3).await;
+    config.set_retry_interval(Duration::from_millis(200)).await;
+    config.set_server_config(ServerConfig::default()).await;
+
+    let kinds = DashMap::new();
+    let dummy_props = Props::from_async_actor_receiver(|_| async { Ok(()) }).await;
+    kinds.insert("foo".into(), dummy_props.clone());
+    config.set_kinds(kinds.clone()).await;
+    config.put_kind("bar", dummy_props).await;
+
+    assert_eq!(config.get_host().await.unwrap(), "127.0.0.1");
+    assert_eq!(config.get_port().await.unwrap(), 8080);
+    assert_eq!(config.get_address().await, "127.0.0.1:8080");
+    assert_eq!(config.get_socket_address().await, "127.0.0.1:8080".parse().unwrap());
+    assert_eq!(config.get_endpoint_writer_batch_size().await, 5);
+    assert_eq!(config.get_endpoint_writer_queue_size().await, 10);
+    assert_eq!(config.get_endpoint_manager_batch_size().await, 7);
+    assert_eq!(config.get_endpoint_manager_queue_size().await, 11);
+    assert_eq!(config.get_max_retry_count().await, 3);
+    assert_eq!(config.get_retry_interval().await, Duration::from_millis(200));
+    assert!(config.get_server_config().await.is_some());
+    assert_eq!(config.get_kinds().await.len(), kinds.len() + 1);
+  }
+}

@@ -20,7 +20,7 @@ use nexus_actor_core_rs::generated::actor::Pid;
 use nexus_actor_utils_rs::collections::DashMapExtension;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Weak};
 use std::time::Duration;
 use thiserror::Error;
@@ -69,6 +69,38 @@ impl Hash for RequestKeyWrapper {
   }
 }
 
+#[derive(Debug)]
+pub struct EndpointStatistics {
+  queue_capacity: AtomicUsize,
+  queue_size: AtomicUsize,
+  dead_letters: AtomicU64,
+}
+
+impl EndpointStatistics {
+  fn new() -> Self {
+    Self {
+      queue_capacity: AtomicUsize::new(0),
+      queue_size: AtomicUsize::new(0),
+      dead_letters: AtomicU64::new(0),
+    }
+  }
+
+  fn snapshot(&self) -> EndpointStatisticsSnapshot {
+    EndpointStatisticsSnapshot {
+      queue_capacity: self.queue_capacity.load(Ordering::SeqCst),
+      queue_size: self.queue_size.load(Ordering::SeqCst),
+      dead_letters: self.dead_letters.load(Ordering::SeqCst),
+    }
+  }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EndpointStatisticsSnapshot {
+  pub queue_capacity: usize,
+  pub queue_size: usize,
+  pub dead_letters: u64,
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct EndpointManager {
   connections: Arc<DashMap<String, EndpointLazy>>,
@@ -81,6 +113,7 @@ pub(crate) struct EndpointManager {
   endpoint_reader_connections: Arc<DashMap<RequestKeyWrapper, Arc<Mutex<Option<mpsc::Sender<bool>>>>>>,
   client_connections: Arc<DashMap<String, ClientResponseSender>>,
   client_connection_keys: Arc<DashMap<RequestKeyWrapper, String>>,
+  endpoint_stats: Arc<DashMap<String, Arc<EndpointStatistics>>>,
 }
 
 impl EndpointManager {
@@ -95,7 +128,35 @@ impl EndpointManager {
       endpoint_reader_connections: Arc::new(DashMap::new()),
       client_connections: Arc::new(DashMap::new()),
       client_connection_keys: Arc::new(DashMap::new()),
+      endpoint_stats: Arc::new(DashMap::new()),
     }
+  }
+
+  fn stats_entry(&self, address: &str) -> Arc<EndpointStatistics> {
+    self
+      .endpoint_stats
+      .entry(address.to_string())
+      .or_insert_with(|| Arc::new(EndpointStatistics::new()))
+      .clone()
+  }
+
+  pub(crate) fn record_queue_state(&self, address: &str, capacity: usize, len: usize) {
+    let stats = self.stats_entry(address);
+    stats.queue_capacity.store(capacity, Ordering::SeqCst);
+    stats.queue_size.store(len, Ordering::SeqCst);
+  }
+
+  pub(crate) fn increment_dead_letter(&self, address: &str) {
+    let stats = self.stats_entry(address);
+    stats.dead_letters.fetch_add(1, Ordering::SeqCst);
+  }
+
+  pub(crate) fn remove_statistics(&self, address: &str) {
+    self.endpoint_stats.remove(address);
+  }
+
+  pub fn statistics_snapshot(&self, address: &str) -> Option<EndpointStatisticsSnapshot> {
+    self.endpoint_stats.get(address).map(|entry| entry.value().snapshot())
   }
 
   pub async fn get_endpoint_supervisor(&self) -> Pid {
@@ -417,6 +478,7 @@ impl EndpointManager {
         .is_ok()
       {
         self.connections.remove(&message.address);
+        self.remove_statistics(&message.address);
         let ep = le.get().await.expect("Endpoint not found");
         tracing::debug!(
           "Sending EndpointTerminatedEvent to EndpointWatcher and EndpointWriter, address: {}",
@@ -492,6 +554,68 @@ impl EndpointManager {
       .send(Ok(message))
       .await
       .map_err(|err| ClientSendError::SendFailed(system_id.to_string(), err.to_string()))
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::config::Config;
+  use crate::remote::Remote;
+  use nexus_actor_core_rs::actor::actor_system::ActorSystem;
+  use nexus_actor_core_rs::generated::actor::Pid;
+  use std::sync::Arc;
+
+  #[tokio::test]
+  async fn endpoint_manager_internal_setters_are_exercised() {
+    let actor_system = ActorSystem::new().await.expect("actor system");
+    let remote = Arc::new(Remote::new(actor_system, Config::default()).await);
+    let manager = EndpointManager::new(Arc::downgrade(&remote));
+
+    let pid = Pid {
+      address: "remote-system".into(),
+      id: "pid-1".into(),
+      request_id: 0,
+    };
+
+    manager.set_endpoint_supervisor(pid.clone()).await;
+    assert_eq!(manager.get_endpoint_supervisor().await, pid);
+    manager.reset_endpoint_supervisor().await;
+    assert!(manager.endpoint_supervisor.lock().await.is_none());
+
+    manager.set_endpoint_supervisor(pid.clone()).await;
+    manager.set_activator_pid(pid.clone()).await;
+    assert_eq!(manager.get_activator_pid().await, pid);
+
+    let handler = Arc::new(EventHandler::new(|_| async {}));
+    let subscription = Subscription::new(1, handler.clone(), None);
+    manager.set_endpoint_subscription(subscription.clone()).await;
+    assert_eq!(manager.get_endpoint_subscription().await, subscription);
+    manager.reset_endpoint_subscription().await;
+    assert!(manager.endpoint_subscription.lock().await.is_none());
+
+    let upgraded = manager.get_remote().await;
+    assert!(Arc::ptr_eq(&upgraded, &remote));
+  }
+
+  #[tokio::test]
+  async fn endpoint_manager_statistics_track_updates() {
+    let actor_system = ActorSystem::new().await.expect("actor system");
+    let remote = Arc::new(Remote::new(actor_system, Config::default()).await);
+    let manager = EndpointManager::new(Arc::downgrade(&remote));
+
+    manager.record_queue_state("endpoint-A", 10, 3);
+    manager.increment_dead_letter("endpoint-A");
+
+    let snapshot = manager
+      .statistics_snapshot("endpoint-A")
+      .expect("statistics should exist");
+    assert_eq!(snapshot.queue_capacity, 10);
+    assert_eq!(snapshot.queue_size, 3);
+    assert_eq!(snapshot.dead_letters, 1);
+
+    manager.remove_statistics("endpoint-A");
+    assert!(manager.statistics_snapshot("endpoint-A").is_none());
   }
 }
 

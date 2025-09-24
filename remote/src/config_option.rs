@@ -9,6 +9,8 @@ pub enum ConfigOption {
   PutKind(String, Props),
   SetEndpointWriterBatchSize(usize),
   SetEndpointWriterQueueSize(usize),
+  SetEndpointManagerBatchSize(usize),
+  SetEndpointManagerQueueSize(usize),
 }
 
 impl ConfigOption {
@@ -31,6 +33,12 @@ impl ConfigOption {
       }
       ConfigOption::SetEndpointWriterQueueSize(queue_size) => {
         config.set_endpoint_writer_queue_size(*queue_size).await;
+      }
+      ConfigOption::SetEndpointManagerBatchSize(batch_size) => {
+        config.set_endpoint_manager_batch_size(*batch_size).await;
+      }
+      ConfigOption::SetEndpointManagerQueueSize(queue_size) => {
+        config.set_endpoint_manager_queue_size(*queue_size).await;
       }
     }
   }
@@ -57,5 +65,44 @@ impl ConfigOption {
 
   pub fn with_endpoint_writer_queue_size(queue_size: usize) -> ConfigOption {
     ConfigOption::SetEndpointWriterQueueSize(queue_size)
+  }
+
+  pub fn with_endpoint_manager_batch_size(batch_size: usize) -> ConfigOption {
+    ConfigOption::SetEndpointManagerBatchSize(batch_size)
+  }
+
+  pub fn with_endpoint_manager_queue_size(queue_size: usize) -> ConfigOption {
+    ConfigOption::SetEndpointManagerQueueSize(queue_size)
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[tokio::test]
+  async fn config_option_apply_updates_config() {
+    let mut config = Config::default();
+    let options = vec![
+      ConfigOption::with_host("192.168.0.1"),
+      ConfigOption::with_port(9001),
+      ConfigOption::with_advertised_address("my-host:9001"),
+      ConfigOption::with_endpoint_writer_batch_size(5),
+      ConfigOption::with_endpoint_writer_queue_size(20),
+      ConfigOption::with_endpoint_manager_batch_size(13),
+      ConfigOption::with_endpoint_manager_queue_size(23),
+    ];
+
+    for option in &options {
+      option.apply(&mut config).await;
+    }
+
+    assert_eq!(config.get_host().await.unwrap(), "192.168.0.1");
+    assert_eq!(config.get_port().await.unwrap(), 9001);
+    assert_eq!(config.get_advertised_address().await.unwrap(), "my-host:9001");
+    assert_eq!(config.get_endpoint_writer_batch_size().await, 5);
+    assert_eq!(config.get_endpoint_writer_queue_size().await, 20);
+    assert_eq!(config.get_endpoint_manager_batch_size().await, 13);
+    assert_eq!(config.get_endpoint_manager_queue_size().await, 23);
   }
 }

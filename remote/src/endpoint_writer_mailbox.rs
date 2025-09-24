@@ -74,10 +74,10 @@ impl EndpointWriterMailbox {
     mg.poll().await
   }
 
-  async fn poll_user_mailbox(&self) -> Result<Option<MessageHandle>, QueueError<MessageHandle>> {
+  async fn poll_user_mailbox(&self) -> Result<Vec<MessageHandle>, QueueError<MessageHandle>> {
     let mut mg = self.user_mailbox.write().await;
-    // mg.poll_many(self.batch_size.load(Ordering::SeqCst)).await
-    mg.poll().await
+    let batch_size = self.batch_size.load(Ordering::SeqCst).max(1);
+    mg.poll_many(batch_size).await
   }
 
   async fn schedule(&self) {
@@ -141,14 +141,33 @@ impl EndpointWriterMailbox {
         break;
       }
 
-      if let Ok(Some(msg)) = self.poll_user_mailbox().await {
+      let user_messages = match self.poll_user_mailbox().await {
+        Ok(messages) => messages,
+        Err(err) => {
+          tracing::error!("EndpointWriterMailbox failed to poll user mailbox: {:?}", err);
+          Vec::new()
+        }
+      };
+
+      if user_messages.is_empty() {
+        break;
+      }
+
+      let mut address_hint: Option<String> = None;
+      for msg in &user_messages {
+        if address_hint.is_none() {
+          address_hint = Self::extract_endpoint_address(msg);
+        }
+
         if let Err(err) = message_invoker.invoke_user_message(msg.clone()).await {
           message_invoker
             .escalate_failure(err.reason().cloned().unwrap(), msg.clone())
             .await;
         }
-      } else {
-        break;
+      }
+
+      if let Some(address) = address_hint {
+        self.record_queue_state_for_address(&address).await;
       }
 
       tokio::task::yield_now().await;
@@ -156,6 +175,8 @@ impl EndpointWriterMailbox {
   }
 
   async fn handle_overflow(&self, message_handle: MessageHandle) {
+    self.increment_dead_letter_for_message(&message_handle).await;
+    self.record_queue_state_for_message(&message_handle).await;
     tracing::warn!(
       "EndpointWriterMailbox queue full; dropping message: {:?}",
       message_handle
@@ -204,6 +225,52 @@ impl EndpointWriterMailbox {
 
     actor_system.get_event_stream().await.publish(message_handle).await;
   }
+
+  fn extract_endpoint_address(message_handle: &MessageHandle) -> Option<String> {
+    if let Some(remote_deliver) = message_handle.to_typed::<RemoteDeliver>() {
+      return Some(remote_deliver.target.address);
+    }
+
+    if let Some(endpoint_event) = message_handle.to_typed::<EndpointEvent>() {
+      return match endpoint_event {
+        EndpointEvent::EndpointConnected(ev) => Some(ev.address),
+        EndpointEvent::EndpointTerminated(ev) => Some(ev.address),
+      };
+    }
+
+    None
+  }
+
+  async fn record_queue_state_for_message(&self, message_handle: &MessageHandle) {
+    if let Some(address) = Self::extract_endpoint_address(message_handle) {
+      self.record_queue_state_for_address(&address).await;
+    }
+  }
+
+  async fn record_queue_state_for_address(&self, address: &str) {
+    let queue_len = {
+      let mailbox = self.user_mailbox.read().await;
+      let len = mailbox.len().await.to_usize();
+      drop(mailbox);
+      len
+    };
+
+    if let Some(remote) = self.remote.upgrade() {
+      if let Some(manager) = remote.get_endpoint_manager_opt().await {
+        manager.record_queue_state(address, self.queue_capacity, queue_len);
+      }
+    }
+  }
+
+  async fn increment_dead_letter_for_message(&self, message_handle: &MessageHandle) {
+    if let Some(address) = Self::extract_endpoint_address(message_handle) {
+      if let Some(remote) = self.remote.upgrade() {
+        if let Some(manager) = remote.get_endpoint_manager_opt().await {
+          manager.increment_dead_letter(&address);
+        }
+      }
+    }
+  }
 }
 
 #[async_trait]
@@ -237,6 +304,7 @@ impl Mailbox for EndpointWriterMailbox {
 
   async fn post_user_message(&self, message_handle: MessageHandle) {
     tracing::info!("EndpointWriterMailbox::post_user_message: {:?}", message_handle);
+    let address_hint = Self::extract_endpoint_address(&message_handle);
     {
       let mut mg = self.user_mailbox.write().await;
       let len = mg.len().await.to_usize();
@@ -251,6 +319,9 @@ impl Mailbox for EndpointWriterMailbox {
         self.handle_overflow(message).await;
         return;
       }
+    }
+    if let Some(address) = address_hint {
+      self.record_queue_state_for_address(&address).await;
     }
     self.schedule().await;
   }
