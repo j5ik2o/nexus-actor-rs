@@ -275,6 +275,65 @@ async fn remote_await_reconnect_returns_connection_state() -> TestResult<()> {
 }
 
 #[tokio::test]
+async fn client_connection_backpressure_drain() -> TestResult<()> {
+  let (remote_arc, _endpoint_reader) = setup_remote_with_options(vec![
+    ConfigOption::with_host("127.0.0.1"),
+    ConfigOption::with_port(19110),
+    ConfigOption::with_endpoint_writer_queue_size(4),
+    ConfigOption::with_endpoint_writer_batch_size(2),
+  ])
+  .await?;
+
+  let manager = remote_arc.get_endpoint_manager().await;
+  let mut mailbox = EndpointWriterMailbox::new(Arc::downgrade(&remote_arc), 2, 4);
+  mailbox
+    .register_handlers(
+      Some(MessageInvokerHandle::new(Arc::new(RwLock::new(NoopInvoker)))),
+      Some(DispatcherHandle::new(NoopDispatcher)),
+    )
+    .await;
+
+  let target_pid = Pid {
+    address: "endpoint-drain".to_string(),
+    id: "target".to_string(),
+    request_id: 0,
+  };
+
+  let payloads = ["drain-0", "drain-1", "drain-2"];
+  for value in payloads {
+    let payload = DummyPayload { value };
+    let message = MessageHandle::new(payload);
+    let deliver = RemoteDeliver {
+      header: None,
+      message,
+      target: target_pid.clone(),
+      sender: None,
+      serializer_id: 0,
+    };
+    mailbox.post_user_message(MessageHandle::new(deliver)).await;
+  }
+
+  tokio::time::sleep(Duration::from_millis(20)).await;
+
+  let before = manager
+    .statistics_snapshot("endpoint-drain")
+    .expect("statistics should exist");
+  assert!(before.queue_size >= 3);
+
+  let handle = mailbox.to_handle().await;
+  handle.process_messages().await;
+
+  tokio::time::sleep(Duration::from_millis(20)).await;
+
+  let after = manager
+    .statistics_snapshot("endpoint-drain")
+    .expect("statistics should exist");
+  assert!(after.queue_size <= 1);
+
+  Ok(())
+}
+
+#[tokio::test]
 async fn remote_await_reconnect_resolves_closed_after_schedule() -> TestResult<()> {
   let (remote_arc, _endpoint_reader) = setup_remote_with_options(vec![
     ConfigOption::with_host("127.0.0.1"),

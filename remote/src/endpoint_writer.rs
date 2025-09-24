@@ -271,9 +271,11 @@ impl EndpointWriter {
     tracing::warn!(address = %self.address, reason, "EndpointWriter detected disconnect; scheduling reconnect");
     self.close_client_conn().await;
     self
-      .publish_stream(MessageHandle::new(EndpointEvent::EndpointTerminated(EndpointTerminatedEvent {
-        address: self.address.clone(),
-      })))
+      .publish_stream(MessageHandle::new(EndpointEvent::EndpointTerminated(
+        EndpointTerminatedEvent {
+          address: self.address.clone(),
+        },
+      )))
       .await;
     if let Some(manager) = self.endpoint_manager().await {
       manager.schedule_reconnect(self.address.clone()).await;
@@ -479,7 +481,9 @@ impl EndpointWriter {
     }
 
     self.mark_deliver_success().await;
-    response.map(|_| ()).map_err(|e| ActorError::ReceiveError(ErrorReason::from(e.to_string())))?;
+    response
+      .map(|_| ())
+      .map_err(|e| ActorError::ReceiveError(ErrorReason::from(e.to_string())))?;
     Ok(())
   }
 
