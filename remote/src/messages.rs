@@ -81,6 +81,13 @@ pub struct EndpointThrottledEvent {
   pub level: i32,
 }
 
+#[derive(Debug, Clone, PartialEq, Message)]
+pub struct EndpointReconnectEvent {
+  pub address: String,
+  pub attempt: u64,
+  pub success: bool,
+}
+
 #[derive(Debug, Clone)]
 pub struct JsonMessage {
   pub type_name: String,

@@ -339,17 +339,18 @@ async fn remote_reconnect_after_server_restart() -> Result<(), Box<dyn std::erro
   assert_eq!(initial_response.message, "Echo: first");
 
   let server_address = server.socket_addr();
+  let server_address_str = server_address.to_string();
   let manager = client.endpoint_manager().await;
 
   server.shutdown().await?;
 
-  manager.schedule_reconnect(server_address.to_string()).await;
+  manager.schedule_reconnect(server_address_str.clone()).await;
 
   server = RunningRemote::start(server_options(server_port)).await?;
   echo_pid = server.spawn_echo("echo-reconnect").await?;
 
   let manager_clone = manager.clone();
-  let address_clone = server_address.to_string();
+  let address_clone = server_address_str.clone();
   let state = timeout(Duration::from_secs(5), async move {
     manager_clone.await_reconnect(&address_clone).await
   })
@@ -373,6 +374,15 @@ async fn remote_reconnect_after_server_restart() -> Result<(), Box<dyn std::erro
     .to_typed::<EchoMessage>()
     .ok_or_else(|| "unexpected response".to_string())?;
   assert_eq!(retry_response.message, "Echo: second");
+
+  if let Some(stats) = client
+    .remote
+    .get_endpoint_statistics(&server_address_str)
+    .await
+  {
+    assert!(stats.reconnect_attempts >= 1);
+    assert!(stats.deliver_success >= 1);
+  }
 
   client.shutdown().await?;
   server.shutdown().await?;

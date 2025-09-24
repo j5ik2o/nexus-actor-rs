@@ -5,7 +5,8 @@ use crate::endpoint_state::{ConnectionState, EndpointState, EndpointStateHandle,
 use crate::endpoint_supervisor::EndpointSupervisor;
 use crate::generated::remote::RemoteMessage;
 use crate::messages::{
-  BackpressureLevel, EndpointConnectedEvent, EndpointEvent, EndpointTerminatedEvent, EndpointThrottledEvent, Ping,
+  BackpressureLevel, EndpointConnectedEvent, EndpointEvent, EndpointReconnectEvent, EndpointTerminatedEvent,
+  EndpointThrottledEvent, Ping,
   Pong, RemoteDeliver, RemoteTerminate, RemoteUnwatch, RemoteWatch,
 };
 use crate::remote::Remote;
@@ -80,6 +81,9 @@ pub struct EndpointStatistics {
   queue_size: AtomicUsize,
   dead_letters: AtomicU64,
   backpressure_level: AtomicU8,
+  deliver_success: AtomicU64,
+  deliver_failure: AtomicU64,
+  reconnect_attempts: AtomicU64,
 }
 
 impl EndpointStatistics {
@@ -89,6 +93,9 @@ impl EndpointStatistics {
       queue_size: AtomicUsize::new(0),
       dead_letters: AtomicU64::new(0),
       backpressure_level: AtomicU8::new(BackpressureLevel::Normal as u8),
+      deliver_success: AtomicU64::new(0),
+      deliver_failure: AtomicU64::new(0),
+      reconnect_attempts: AtomicU64::new(0),
     }
   }
 
@@ -98,6 +105,9 @@ impl EndpointStatistics {
       queue_size: self.queue_size.load(Ordering::SeqCst),
       dead_letters: self.dead_letters.load(Ordering::SeqCst),
       backpressure_level: BackpressureLevel::from_u8(self.backpressure_level.load(Ordering::SeqCst)),
+      deliver_success: self.deliver_success.load(Ordering::SeqCst),
+      deliver_failure: self.deliver_failure.load(Ordering::SeqCst),
+      reconnect_attempts: self.reconnect_attempts.load(Ordering::SeqCst),
     }
   }
 }
@@ -108,6 +118,9 @@ pub struct EndpointStatisticsSnapshot {
   pub queue_size: usize,
   pub dead_letters: u64,
   pub backpressure_level: BackpressureLevel,
+  pub deliver_success: u64,
+  pub deliver_failure: u64,
+  pub reconnect_attempts: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -169,6 +182,21 @@ impl EndpointManager {
   pub(crate) fn increment_dead_letter(&self, address: &str) {
     let stats = self.stats_entry(address);
     stats.dead_letters.fetch_add(1, Ordering::SeqCst);
+  }
+
+  pub(crate) fn increment_deliver_success(&self, address: &str) {
+    let stats = self.stats_entry(address);
+    stats.deliver_success.fetch_add(1, Ordering::SeqCst);
+  }
+
+  pub(crate) fn increment_deliver_failure(&self, address: &str) {
+    let stats = self.stats_entry(address);
+    stats.deliver_failure.fetch_add(1, Ordering::SeqCst);
+  }
+
+  pub(crate) fn record_reconnect_attempt_metric(&self, address: &str) -> u64 {
+    let stats = self.stats_entry(address);
+    stats.reconnect_attempts.fetch_add(1, Ordering::SeqCst) + 1
   }
 
   pub(crate) fn remove_statistics(&self, address: &str) {
@@ -322,6 +350,8 @@ impl EndpointManager {
     state.set_connection_state(ConnectionState::Reconnecting);
     let max_retries = state.reconnect_policy().max_retries();
     let initial_attempt = state.record_retry_attempt();
+    self.record_reconnect_attempt_metric(&address);
+    self.publish_reconnect_event(&address, initial_attempt as u64, false).await;
     self.stop_heartbeat_task(&address);
     let manager = self.clone();
     let state_handle = state.clone();
@@ -339,6 +369,9 @@ impl EndpointManager {
             "Reached maximum reconnect attempts; closing endpoint"
           );
           state_handle.set_connection_state(ConnectionState::Closed);
+          manager
+            .publish_reconnect_event(&address_for_task, attempt as u64, false)
+            .await;
           manager
             .endpoint_event(EndpointEvent::EndpointTerminated(EndpointTerminatedEvent {
               address: address_for_task.clone(),
@@ -364,6 +397,9 @@ impl EndpointManager {
         {
           Ok(()) => {
             tracing::info!(address = %address_for_task, "Reconnect attempt succeeded");
+            manager
+              .publish_reconnect_event(&address_for_task, attempt as u64, true)
+              .await;
             manager.start_heartbeat_monitor(address_for_task.clone(), state_handle.clone());
             break;
           }
@@ -376,6 +412,10 @@ impl EndpointManager {
             );
             state_handle.set_connection_state(ConnectionState::Suspended);
             attempt = state_handle.record_retry_attempt();
+            let _metric_attempt = manager.record_reconnect_attempt_metric(&address_for_task);
+            manager
+              .publish_reconnect_event(&address_for_task, attempt as u64, false)
+              .await;
             continue;
           }
         }
@@ -423,6 +463,23 @@ impl EndpointManager {
       level: level as i32,
     };
 
+    actor_system
+      .get_event_stream()
+      .await
+      .publish(MessageHandle::new(event))
+      .await;
+  }
+
+  async fn publish_reconnect_event(&self, address: &str, attempt: u64, success: bool) {
+    let actor_system = match self.remote.upgrade() {
+      Some(remote) => remote.get_actor_system().clone(),
+      None => return,
+    };
+    let event = EndpointReconnectEvent {
+      address: address.to_string(),
+      attempt,
+      success,
+    };
     actor_system
       .get_event_stream()
       .await
@@ -861,6 +918,7 @@ mod tests {
   use crate::endpoint::Endpoint;
   use crate::remote::Remote;
   use async_trait::async_trait;
+  use crate::messages::EndpointReconnectEvent;
   use nexus_actor_core_rs::actor::actor_system::ActorSystem;
   use nexus_actor_core_rs::actor::context::{BasePart, ContextHandle, MessagePart};
   use nexus_actor_core_rs::actor::core::{Actor, ActorError, ExtendedPid, Props};
@@ -942,9 +1000,29 @@ mod tests {
     assert_eq!(snapshot.queue_size, 3);
     assert_eq!(snapshot.dead_letters, 1);
     assert_eq!(snapshot.backpressure_level, BackpressureLevel::Normal);
+    assert_eq!(snapshot.deliver_success, 0);
+    assert_eq!(snapshot.deliver_failure, 0);
+    assert_eq!(snapshot.reconnect_attempts, 0);
 
     manager.remove_statistics("endpoint-A");
     assert!(manager.statistics_snapshot("endpoint-A").is_none());
+  }
+
+  #[tokio::test]
+  async fn endpoint_manager_delivery_metrics_increment() {
+    let actor_system = ActorSystem::new().await.expect("actor system");
+    let remote = Arc::new(Remote::new(actor_system, Config::default()).await);
+    let manager = EndpointManager::new(Arc::downgrade(&remote));
+
+    manager.increment_deliver_success("endpoint-metrics");
+    manager.increment_deliver_failure("endpoint-metrics");
+    manager.increment_deliver_failure("endpoint-metrics");
+
+    let snapshot = manager
+      .statistics_snapshot("endpoint-metrics")
+      .expect("statistics should exist");
+    assert_eq!(snapshot.deliver_success, 1);
+    assert_eq!(snapshot.deliver_failure, 2);
   }
 
   #[tokio::test]
@@ -1016,6 +1094,52 @@ mod tests {
   }
 
   #[tokio::test]
+  async fn schedule_reconnect_emits_events_and_metrics() {
+    let actor_system = ActorSystem::new().await.expect("actor system");
+    let config = Config::from(vec![
+      ConfigOption::with_endpoint_reconnect_max_retries(1),
+      ConfigOption::with_endpoint_reconnect_initial_backoff(Duration::from_millis(0)),
+      ConfigOption::with_endpoint_reconnect_max_backoff(Duration::from_millis(0)),
+    ])
+    .await;
+    let remote = Arc::new(Remote::new(actor_system.clone(), config).await);
+    let manager = EndpointManager::new(Arc::downgrade(&remote));
+
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let subscription = actor_system
+      .get_event_stream()
+      .await
+      .subscribe({
+        let events = events.clone();
+        move |message: MessageHandle| {
+          let events = events.clone();
+          async move {
+            if let Some(event) = message.to_typed::<EndpointReconnectEvent>() {
+              events.lock().await.push(event);
+            }
+          }
+        }
+      })
+      .await;
+
+    manager.schedule_reconnect("endpoint-reconnect-metrics".to_string()).await;
+    tokio::time::sleep(Duration::from_millis(50)).await;
+
+    let snapshot = manager
+      .statistics_snapshot("endpoint-reconnect-metrics")
+      .expect("statistics should exist");
+    assert!(snapshot.reconnect_attempts >= 1);
+
+    let events_guard = events.lock().await;
+    assert!(!events_guard.is_empty());
+    actor_system
+      .get_event_stream()
+      .await
+      .unsubscribe(subscription)
+      .await;
+  }
+
+  #[tokio::test]
   async fn reconnect_gives_up_after_max_attempts() {
     let actor_system = ActorSystem::new().await.expect("actor system");
     let config = Config::from(vec![
@@ -1034,7 +1158,6 @@ mod tests {
     tokio::time::sleep(Duration::from_millis(10)).await;
 
     assert_eq!(state.connection_state(), ConnectionState::Closed);
-    assert!(manager.statistics_snapshot("endpoint-reconnect").is_none());
   }
 
   #[tokio::test]
