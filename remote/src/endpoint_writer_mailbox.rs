@@ -257,7 +257,9 @@ impl EndpointWriterMailbox {
 
     if let Some(remote) = self.remote.upgrade() {
       if let Some(manager) = remote.get_endpoint_manager_opt().await {
-        manager.record_queue_state(address, self.queue_capacity, queue_len);
+        manager
+          .record_queue_state(address, self.queue_capacity, queue_len)
+          .await;
       }
     }
   }

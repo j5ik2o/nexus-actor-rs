@@ -6,7 +6,7 @@ use crate::endpoint_writer_mailbox::EndpointWriterMailbox;
 use crate::generated::remote::{
   self, connect_request::ConnectionType, ClientConnection, ConnectRequest, RemoteMessage,
 };
-use crate::messages::RemoteDeliver;
+use crate::messages::{BackpressureLevel, RemoteDeliver};
 use crate::remote::Remote;
 use bytes::Bytes;
 use http_body_util::Empty;
@@ -241,6 +241,7 @@ async fn client_connection_backpressure_overflow() -> TestResult<()> {
   assert_eq!(stats.queue_capacity, 1);
   assert!(stats.queue_size <= stats.queue_capacity);
   assert!(stats.dead_letters >= 1);
+  assert_eq!(stats.backpressure_level, BackpressureLevel::Normal);
 
   actor_system.get_event_stream().await.unsubscribe(subscription).await;
   remote_arc

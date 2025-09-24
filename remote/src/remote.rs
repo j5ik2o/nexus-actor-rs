@@ -4,7 +4,7 @@ mod tests;
 use crate::block_list::BlockList;
 use crate::config::server_config::ServerConfig;
 use crate::config::Config;
-use crate::endpoint_manager::EndpointManager;
+use crate::endpoint_manager::{EndpointManager, EndpointStatisticsSnapshot};
 use crate::endpoint_reader::EndpointReader;
 use crate::generated::remote::remoting_server::RemotingServer;
 use crate::messages::RemoteDeliver;
@@ -146,6 +146,13 @@ impl Remote {
 
   pub fn get_block_list(&self) -> &BlockList {
     &self.inner.block_list
+  }
+
+  pub async fn get_endpoint_statistics(&self, address: &str) -> Option<EndpointStatisticsSnapshot> {
+    self
+      .get_endpoint_manager_opt()
+      .await
+      .and_then(|manager| manager.statistics_snapshot(address))
   }
 
   pub fn register(&self, kind: &str, props: Props) {
