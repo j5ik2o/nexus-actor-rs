@@ -52,17 +52,18 @@ impl EndpointReader {
     }
   }
 
-  async fn on_connect_request(
+  pub(crate) async fn on_connect_request(
     &self,
     response_tx: &Sender<Result<RemoteMessage, Status>>,
     connect_req: &ConnectRequest,
+    connection_key: Option<&RequestKeyWrapper>,
   ) -> Result<bool, Box<dyn std::error::Error>> {
     match &connect_req.connection_type {
       Some(ConnectionType::ServerConnection(sc)) => {
         self.on_server_connection(response_tx, sc).await;
       }
       Some(ConnectionType::ClientConnection(cc)) => {
-        self.on_client_connection(response_tx, cc).await;
+        self.on_client_connection(response_tx, cc, connection_key).await;
       }
       _ => {
         tracing::warn!("Received unknown connection type");
@@ -101,7 +102,12 @@ impl EndpointReader {
     }
   }
 
-  async fn on_client_connection(&self, response_tx: &Sender<Result<RemoteMessage, Status>>, cc: &ClientConnection) {
+  async fn on_client_connection(
+    &self,
+    response_tx: &Sender<Result<RemoteMessage, Status>>,
+    cc: &ClientConnection,
+    connection_key: Option<&RequestKeyWrapper>,
+  ) {
     let blocked = self
       .remote
       .upgrade()
@@ -118,6 +124,24 @@ impl EndpointReader {
 
     if let Err(e) = self.send_connect_response(response_tx, &cc.system_id, blocked).await {
       tracing::error!("EndpointReader failed to send client ConnectResponse message: {}", e);
+    }
+
+    if !blocked {
+      if let Some(key) = connection_key.cloned() {
+        if let Some(manager) = self.get_endpoint_manager_opt().await {
+          manager.register_client_connection(cc.system_id.clone(), key, response_tx.clone());
+        } else {
+          tracing::debug!(
+            "EndpointManager not initialized; skipping client connection registration for {}",
+            cc.system_id
+          );
+        }
+      } else {
+        tracing::debug!(
+          "Client connection {} accepted without connection key; skipping EndpointManager registration",
+          cc.system_id
+        );
+      }
     }
   }
 
@@ -320,7 +344,9 @@ impl Remoting for EndpointReader {
       let cloned_response_tx = response_tx.clone();
       let cloned_connection_key = connection_key.clone();
       async move {
-        if Self::get_disconnect_flg(cloned_disconnect_rx).await {
+        let manager = cloned_self.get_endpoint_manager().await;
+        let should_disconnect = Self::get_disconnect_flg(cloned_disconnect_rx).await;
+        if should_disconnect {
           tracing::debug!("EndpointReader is telling to remote that it's leaving");
           if let Err(e) = cloned_response_tx
             .send(Ok(RemoteMessage {
@@ -333,13 +359,10 @@ impl Remoting for EndpointReader {
             tracing::error!("EndpointReader failed to send disconnection message: {}", e);
           }
         } else {
-          cloned_self
-            .get_endpoint_manager()
-            .await
-            .get_endpoint_reader_connections()
-            .remove(&cloned_connection_key);
           tracing::debug!("EndpointReader removed active endpoint from endpointManager");
         }
+        manager.get_endpoint_reader_connections().remove(&cloned_connection_key);
+        manager.deregister_client_connection(&cloned_connection_key);
       }
     });
 
@@ -347,6 +370,7 @@ impl Remoting for EndpointReader {
       let cloned_self = self.clone();
       let cloned_request_arc = request_arc.clone();
       let cloned_response_tx = response_tx.clone();
+      let cloned_connection_key = connection_key.clone();
       async move {
         let mut request_mg = cloned_request_arc.lock().await;
         while let Some(msg) = request_mg.get_mut().next().await {
@@ -359,7 +383,10 @@ impl Remoting for EndpointReader {
               match remote_msg.message_type {
                 Some(message_type) => match message_type {
                   remote::remote_message::MessageType::ConnectRequest(connect_req) => {
-                    if let Err(e) = cloned_self.on_connect_request(&cloned_response_tx, &connect_req).await {
+                    if let Err(e) = cloned_self
+                      .on_connect_request(&cloned_response_tx, &connect_req, Some(&cloned_connection_key))
+                      .await
+                    {
                       tracing::error!("Failed to handle connect request, {}", e);
                       break;
                     }
