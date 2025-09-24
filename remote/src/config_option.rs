@@ -1,5 +1,6 @@
 use crate::config::Config;
 use nexus_actor_core_rs::actor::core::Props;
+use std::time::Duration;
 
 #[derive(Debug, Clone)]
 pub enum ConfigOption {
@@ -11,6 +12,13 @@ pub enum ConfigOption {
   SetEndpointWriterQueueSize(usize),
   SetEndpointManagerBatchSize(usize),
   SetEndpointManagerQueueSize(usize),
+  SetEndpointReconnectMaxRetries(u32),
+  SetEndpointReconnectInitialBackoff(Duration),
+  SetEndpointReconnectMaxBackoff(Duration),
+  SetEndpointHeartbeatInterval(Duration),
+  SetEndpointHeartbeatTimeout(Duration),
+  SetBackpressureWarningThreshold(f64),
+  SetBackpressureCriticalThreshold(f64),
 }
 
 impl ConfigOption {
@@ -39,6 +47,27 @@ impl ConfigOption {
       }
       ConfigOption::SetEndpointManagerQueueSize(queue_size) => {
         config.set_endpoint_manager_queue_size(*queue_size).await;
+      }
+      ConfigOption::SetEndpointReconnectMaxRetries(max_retries) => {
+        config.set_endpoint_reconnect_max_retries(*max_retries).await;
+      }
+      ConfigOption::SetEndpointReconnectInitialBackoff(backoff) => {
+        config.set_endpoint_reconnect_initial_backoff(*backoff).await;
+      }
+      ConfigOption::SetEndpointReconnectMaxBackoff(backoff) => {
+        config.set_endpoint_reconnect_max_backoff(*backoff).await;
+      }
+      ConfigOption::SetEndpointHeartbeatInterval(interval) => {
+        config.set_endpoint_heartbeat_interval(*interval).await;
+      }
+      ConfigOption::SetEndpointHeartbeatTimeout(timeout) => {
+        config.set_endpoint_heartbeat_timeout(*timeout).await;
+      }
+      ConfigOption::SetBackpressureWarningThreshold(threshold) => {
+        config.set_backpressure_warning_threshold(*threshold).await;
+      }
+      ConfigOption::SetBackpressureCriticalThreshold(threshold) => {
+        config.set_backpressure_critical_threshold(*threshold).await;
       }
     }
   }
@@ -74,6 +103,34 @@ impl ConfigOption {
   pub fn with_endpoint_manager_queue_size(queue_size: usize) -> ConfigOption {
     ConfigOption::SetEndpointManagerQueueSize(queue_size)
   }
+
+  pub fn with_endpoint_reconnect_max_retries(max_retries: u32) -> ConfigOption {
+    ConfigOption::SetEndpointReconnectMaxRetries(max_retries)
+  }
+
+  pub fn with_endpoint_reconnect_initial_backoff(backoff: Duration) -> ConfigOption {
+    ConfigOption::SetEndpointReconnectInitialBackoff(backoff)
+  }
+
+  pub fn with_endpoint_reconnect_max_backoff(backoff: Duration) -> ConfigOption {
+    ConfigOption::SetEndpointReconnectMaxBackoff(backoff)
+  }
+
+  pub fn with_endpoint_heartbeat_interval(interval: Duration) -> ConfigOption {
+    ConfigOption::SetEndpointHeartbeatInterval(interval)
+  }
+
+  pub fn with_endpoint_heartbeat_timeout(timeout: Duration) -> ConfigOption {
+    ConfigOption::SetEndpointHeartbeatTimeout(timeout)
+  }
+
+  pub fn with_backpressure_warning_threshold(threshold: f64) -> ConfigOption {
+    ConfigOption::SetBackpressureWarningThreshold(threshold)
+  }
+
+  pub fn with_backpressure_critical_threshold(threshold: f64) -> ConfigOption {
+    ConfigOption::SetBackpressureCriticalThreshold(threshold)
+  }
 }
 
 #[cfg(test)]
@@ -91,6 +148,13 @@ mod tests {
       ConfigOption::with_endpoint_writer_queue_size(20),
       ConfigOption::with_endpoint_manager_batch_size(13),
       ConfigOption::with_endpoint_manager_queue_size(23),
+      ConfigOption::with_endpoint_reconnect_max_retries(8),
+      ConfigOption::with_endpoint_reconnect_initial_backoff(Duration::from_millis(500)),
+      ConfigOption::with_endpoint_reconnect_max_backoff(Duration::from_secs(8)),
+      ConfigOption::with_endpoint_heartbeat_interval(Duration::from_secs(10)),
+      ConfigOption::with_endpoint_heartbeat_timeout(Duration::from_secs(30)),
+      ConfigOption::with_backpressure_warning_threshold(0.4),
+      ConfigOption::with_backpressure_critical_threshold(0.75),
     ];
 
     for option in &options {
@@ -104,5 +168,18 @@ mod tests {
     assert_eq!(config.get_endpoint_writer_queue_size().await, 20);
     assert_eq!(config.get_endpoint_manager_batch_size().await, 13);
     assert_eq!(config.get_endpoint_manager_queue_size().await, 23);
+    assert_eq!(config.get_endpoint_reconnect_max_retries().await, 8);
+    assert_eq!(
+      config.get_endpoint_reconnect_initial_backoff().await,
+      Duration::from_millis(500)
+    );
+    assert_eq!(
+      config.get_endpoint_reconnect_max_backoff().await,
+      Duration::from_secs(8)
+    );
+    assert_eq!(config.get_endpoint_heartbeat_interval().await, Duration::from_secs(10));
+    assert_eq!(config.get_endpoint_heartbeat_timeout().await, Duration::from_secs(30));
+    assert_eq!(config.get_backpressure_warning_threshold().await, 0.4);
+    assert_eq!(config.get_backpressure_critical_threshold().await, 0.75);
   }
 }
