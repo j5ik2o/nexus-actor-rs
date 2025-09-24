@@ -64,7 +64,7 @@ pub struct ActorContextInner {
   parent: Option<ExtendedPid>,
   self_pid: Option<ExtendedPid>,
   receive_timeout: Option<Duration>,
-  producer: Option<ActorProducer>,
+  //  producer: Option<ActorProducer>,
   message_or_envelope_opt: Arc<RwLock<Option<MessageHandle>>>,
   state: Option<Arc<AtomicU8>>,
 }
@@ -101,7 +101,7 @@ impl ActorContext {
         parent,
         self_pid: None,
         receive_timeout: None,
-        producer: None,
+        // producer: None,
         message_or_envelope_opt: Arc::new(RwLock::new(None)),
         state: None,
       })),
