@@ -137,6 +137,42 @@
 - Phase 1.5-2 以降（backpressure / 再接続）の仕様は未着手。次フェーズとして `EndpointWriter` の再接続ポリシー整備と backpressure テストを起票する。
 
 
+## Phase 1.5-2 設計ドラフト（2025-09-24 着手）
+
+### 目的
+- `RemoteDeliver` が過剰に蓄積した際の対処（DeadLetter／通知）を明確化し、EndpointWriter の過負荷でリモートノード全体が巻き込まれることを防ぐ。
+- `EndpointManager` 側でメッセージ所有権を明確化し、チャネル切断時に残キューを正しく破棄できるようにする。
+
+### 主要変更案
+1. **キュー構成の整理**
+   - `EndpointWriterMailbox` を `RingQueue::with_dynamic(false)` で構築し、`Config::get_endpoint_writer_queue_size()` を上限とする。
+   - キューが満杯の場合は `QueueError::OfferError` を検知し、該当メッセージを DeadLetter へフォールバック（`EndpointWriter` から `EndpointManager` の DeadLetter 経路を利用）。
+   - `endpoint_writer_batch_size` を尊重するように `poll_user_mailbox` を複数件取り出す実装へ変更し、protoactor-go の `PopMany` 挙動に寄せる。
+
+2. **所有権／クリーンアップ**
+   - `EndpointManager` が EndpointWriterMailbox の状態を監視できるよう、`EndpointState` に `queue_len`／`queue_capacity` 等の軽量統計を保持。
+   - Endpoint 切断時 (`EndpointTerminatedEvent`) に残キューを破棄し、DeadLetter 通知とともに `client_connections` を解除するフローを統一。
+
+3. **DeadLetter 方針**
+   - 上限超過時のメッセージは `actor::DeadLetterEvent` に変換し、送信元 PID が存在すれば `DeadLetterResponse` を返す。
+   - DeadLetter 発生数は `tracing::warn!` ログとメトリクス勘定（Phase 3 で実装予定）に接続できるよう `EndpointManager` にカウンタを追加。
+
+4. **テスト計画**
+   - `remote/src/tests.rs::client_connection_backpressure_overflow`（仮）: キュー上限を小さく設定し、一定数を超えた `RemoteDeliver` が DeadLetter に流れることを確認。
+   - `remote/src/tests.rs::client_connection_backpressure_drain`（仮）: EndpointWriter が処理を再開した際に蓄積を捌き、キュー長が減少することを確認。
+   - `EndpointManager` 単体テストで `queue_len` が更新されること、`EndpointTerminatedEvent` 後にクリーンアップされることを検証。
+
+### 未決事項 / 確認ポイント
+- DeadLetter フォールバック時に `RemoteDeliver` のヘッダ情報をどこまで保持するか（現状はヘッダを `MessageHandle` で保持できる）。
+- 上限超過時に直近メッセージのみ落とすか、古いメッセージから破棄するか。現案では「直近メッセージを DeadLetter に送る」方針。
+- `EndpointManager` 側で backpressure シグナルを発火させる必要があるか（例: `EndpointThrottledEvent` を追加するか）。
+
+### 次ステップ
+1. `EndpointWriterMailbox` の構造変更（dynamic false・batch 処理・DeadLetter ハンドリング）を実装。
+2. `EndpointManager` に統計とクリーンアップ処理を追加し、DeadLetter カウンタを保持。
+3. 上記テストケースを追加し、`ConfigOption` でバッファサイズを差し替え可能にする。
+
+
 ## レビュー依頼テンプレート
 ```
 件名: Phase 1.5 双方向ストリーム管理 設計ドラフトレビューのお願い

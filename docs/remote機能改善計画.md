@@ -42,7 +42,7 @@
 | サブタスク | 状況 | メモ |
 |-------------|------|------|
 | 1.5-1. EndpointManager 連携設計 | DONE | `EndpointReader` から `EndpointManager` へ `ClientConnection` を移譲する責務分割を実装。`send_to_client` API 追加と登録/解除処理を整備し、`client_connection_registers_and_receives_disconnect` テストで検証済み。Issue: `docs/issues/phase1_5_endpoint_stream.md`。 |
-| 1.5-2. backpressure / 所有権モデル決定 | TODO | `tokio::sync::mpsc` のバッファサイズ・再送戦略・DeadLetter 方針を定義。`RemoteDeliver`/`RemoteTerminate` の優先度差や公平性も検討。 |
+| 1.5-2. backpressure / 所有権モデル決定 | DESIGN IN PROGRESS | `EndpointWriterMailbox` のキュー上限・DeadLetter 方針を策定し、`RingQueue` を固定サイズ化。詳細は `docs/issues/phase1_5_endpoint_stream.md`「Phase 1.5-2 設計ドラフト」参照。 |
 | 1.5-3. 再接続・エラー制御ポリシー策定 | TODO | gRPC ストリーム切断時の再試行間隔、最大リトライ回数、回線復旧通知イベントの扱いを決定。protoactor-go の指数バックオフ設定をベースに Rust のタイマーへ落とし込む。 |
 | 1.5-4. 統合テストプラン作成 | TODO | `Remote::start` を利用したエンドツーエンドテストのシナリオ（接続確立/切断/再接続/DeadLetter搬送）を整理し、必要なテストフィクスチャとモックを定義する。 |
 
