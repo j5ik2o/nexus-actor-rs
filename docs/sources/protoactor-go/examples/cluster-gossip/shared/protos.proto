@@ -1,0 +1,15 @@
+syntax = "proto3";
+package shared;
+option go_package = "github.com/asynkron/protoactor-go/examples/cluster-gossip/shared";
+
+message HelloRequest {
+  string name = 1;
+}
+
+message HelloResponse {
+
+}
+
+message StringValue {
+  string value = 1;
+}

@@ -74,12 +74,12 @@ impl Activator {
 
   pub async fn spawn_named(
     &self,
-    addres: &str,
+    address: &str,
     name: &str,
     kind: &str,
     timeout: Duration,
   ) -> Result<ActorPidResponse, ActivatorError> {
-    let f = self.spawn_future(addres, name, kind, timeout).await;
+    let f = self.spawn_future(address, name, kind, timeout).await;
     let result = f.result().await;
     match result {
       Ok(response) => {

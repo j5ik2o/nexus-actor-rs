@@ -202,3 +202,6 @@ impl Actor for EndpointWatcher {
     self.initialize().await
   }
 }
+
+#[cfg(test)]
+mod tests;

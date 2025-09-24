@@ -3,12 +3,12 @@ fn main() {
     .out_dir("generated")
     .compile_protos(
       &[
-        "proto/cluster.proto",
-        "proto/grain.proto",
-        "proto/pubsub.proto",
-        "proto/gossip.proto",
+        "../proto/cluster.proto",
+        "../proto/grain.proto",
+        "../proto/pubsub.proto",
+        "../proto/gossip.proto",
       ],
-      &["proto/", "../core/proto"],
+      &["../proto"],
     )
     .unwrap();
 }

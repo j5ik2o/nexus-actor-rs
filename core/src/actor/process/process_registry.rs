@@ -4,6 +4,7 @@ use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
+use dashmap::mapref::entry::Entry;
 use futures::future::BoxFuture;
 use tokio::sync::RwLock;
 
@@ -92,6 +93,24 @@ impl ProcessRegistry {
     mg.clone()
   }
 
+  pub async fn list_local_pids(&self) -> Vec<Pid> {
+    let address = self.get_address().await;
+    self
+      .local_pids
+      .keys()
+      .into_iter()
+      .map(|id| Pid {
+        address: address.clone(),
+        id,
+        request_id: 0,
+      })
+      .collect()
+  }
+
+  pub async fn find_local_process_handle(&self, id: &str) -> Option<ProcessHandle> {
+    self.local_pids.get_if_present(id)
+  }
+
   pub fn next_id(&self) -> String {
     let counter = self.sequence_id.fetch_add(1, Ordering::SeqCst);
     uint64_to_id(counter)
@@ -105,7 +124,13 @@ impl ProcessRegistry {
       request_id: 0,
     };
     let pid = ExtendedPid::new(pid);
-    let inserted = process_map.insert(id.to_string(), process).is_none();
+    let inserted = match process_map.entry(id.to_string()) {
+      Entry::Occupied(_) => false,
+      Entry::Vacant(vacant) => {
+        vacant.insert(process);
+        true
+      }
+    };
     (pid, inserted)
   }
 

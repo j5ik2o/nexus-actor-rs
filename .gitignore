@@ -7,3 +7,4 @@ Cargo.toml.bak
 
 .DS_Store
 *.profraw
+.serena/

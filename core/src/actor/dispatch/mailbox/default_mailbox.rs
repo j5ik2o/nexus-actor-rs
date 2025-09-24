@@ -12,12 +12,44 @@ use async_trait::async_trait;
 use nexus_actor_utils_rs::collections::{QueueError, QueueReader, QueueWriter};
 use tokio::sync::{Mutex, RwLock};
 
+#[derive(Debug, Clone)]
+struct QueueWriterHandle {
+  inner: Arc<Mutex<dyn QueueWriter<MessageHandle> + Send + Sync>>,
+}
+
+impl QueueWriterHandle {
+  fn new(inner: Arc<Mutex<dyn QueueWriter<MessageHandle> + Send + Sync>>) -> Self {
+    Self { inner }
+  }
+
+  async fn offer(&self, element: MessageHandle) -> Result<(), QueueError<MessageHandle>> {
+    let mut guard = self.inner.lock().await;
+    guard.offer(element).await
+  }
+}
+
+#[derive(Debug, Clone)]
+struct QueueReaderHandle {
+  inner: Arc<Mutex<dyn QueueReader<MessageHandle> + Send + Sync>>,
+}
+
+impl QueueReaderHandle {
+  fn new(inner: Arc<Mutex<dyn QueueReader<MessageHandle> + Send + Sync>>) -> Self {
+    Self { inner }
+  }
+
+  async fn poll(&self) -> Result<Option<MessageHandle>, QueueError<MessageHandle>> {
+    let mut guard = self.inner.lock().await;
+    guard.poll().await
+  }
+}
+
 #[derive(Debug)]
 pub(crate) struct DefaultMailboxInner {
-  user_mailbox_sender: Arc<Mutex<dyn QueueWriter<MessageHandle>>>,
-  user_mailbox_receiver: Arc<Mutex<dyn QueueReader<MessageHandle>>>,
-  system_mailbox_sender: Arc<Mutex<dyn QueueWriter<MessageHandle>>>,
-  system_mailbox_receiver: Arc<Mutex<dyn QueueReader<MessageHandle>>>,
+  user_mailbox_sender: QueueWriterHandle,
+  user_mailbox_receiver: QueueReaderHandle,
+  system_mailbox_sender: QueueWriterHandle,
+  system_mailbox_receiver: QueueReaderHandle,
   scheduler_status: Arc<AtomicBool>,
   user_messages_count: Arc<AtomicI32>,
   system_messages_count: Arc<AtomicI32>,
@@ -40,10 +72,10 @@ impl DefaultMailbox {
   ) -> Self {
     Self {
       inner: Arc::new(Mutex::new(DefaultMailboxInner {
-        user_mailbox_sender: Arc::new(Mutex::new(user_mailbox.clone())),
-        user_mailbox_receiver: Arc::new(Mutex::new(user_mailbox)),
-        system_mailbox_sender: Arc::new(Mutex::new(system_mailbox.clone())),
-        system_mailbox_receiver: Arc::new(Mutex::new(system_mailbox)),
+        user_mailbox_sender: QueueWriterHandle::new(Arc::new(Mutex::new(user_mailbox.clone()))),
+        user_mailbox_receiver: QueueReaderHandle::new(Arc::new(Mutex::new(user_mailbox))),
+        system_mailbox_sender: QueueWriterHandle::new(Arc::new(Mutex::new(system_mailbox.clone()))),
+        system_mailbox_receiver: QueueReaderHandle::new(Arc::new(Mutex::new(system_mailbox))),
         scheduler_status: Arc::new(AtomicBool::new(false)),
         user_messages_count: Arc::new(AtomicI32::new(0)),
         system_messages_count: Arc::new(AtomicI32::new(0)),
@@ -135,27 +167,35 @@ impl DefaultMailbox {
   }
 
   async fn poll_system_mailbox(&self) -> Result<Option<MessageHandle>, QueueError<MessageHandle>> {
-    let inner_mg = self.inner.lock().await;
-    let mut system_mailbox_receiver_mg = inner_mg.system_mailbox_receiver.lock().await;
-    system_mailbox_receiver_mg.poll().await
+    let receiver = {
+      let inner_mg = self.inner.lock().await;
+      inner_mg.system_mailbox_receiver.clone()
+    };
+    receiver.poll().await
   }
 
   async fn poll_user_mailbox(&self) -> Result<Option<MessageHandle>, QueueError<MessageHandle>> {
-    let inner_mg = self.inner.lock().await;
-    let mut user_mailbox_receiver_mg = inner_mg.user_mailbox_receiver.lock().await;
-    user_mailbox_receiver_mg.poll().await
+    let receiver = {
+      let inner_mg = self.inner.lock().await;
+      inner_mg.user_mailbox_receiver.clone()
+    };
+    receiver.poll().await
   }
 
   async fn offer_system_mailbox(&self, element: MessageHandle) -> Result<(), QueueError<MessageHandle>> {
-    let inner_mg = self.inner.lock().await;
-    let mut system_mailbox_sender_mg = inner_mg.system_mailbox_sender.lock().await;
-    system_mailbox_sender_mg.offer(element).await
+    let sender = {
+      let inner_mg = self.inner.lock().await;
+      inner_mg.system_mailbox_sender.clone()
+    };
+    sender.offer(element).await
   }
 
   async fn offer_user_mailbox(&self, element: MessageHandle) -> Result<(), QueueError<MessageHandle>> {
-    let inner_mg = self.inner.lock().await;
-    let mut user_mailbox_sender_mg = inner_mg.user_mailbox_sender.lock().await;
-    user_mailbox_sender_mg.offer(element).await
+    let sender = {
+      let inner_mg = self.inner.lock().await;
+      inner_mg.user_mailbox_sender.clone()
+    };
+    sender.offer(element).await
   }
 
   async fn schedule(&self) {

@@ -73,3 +73,17 @@ async fn test_pid_set_add_remove() {
   }
   assert!(s.is_empty().await);
 }
+
+#[tokio::test]
+async fn test_pid_set_same_id_different_address_are_distinct() {
+  let mut set = PidSet::new().await;
+  let local = Pid::new("node-a", "actor-1");
+  let remote = Pid::new("node-b", "actor-1");
+
+  set.add(local.clone()).await;
+  set.add(remote.clone()).await;
+
+  assert_eq!(2, set.len().await, "アドレスが異なる PID は別物として保持されるべき");
+  assert!(set.contains(&local).await, "ローカル PID が見つからない");
+  assert!(set.contains(&remote).await, "リモート PID が見つからない");
+}

@@ -26,4 +26,19 @@ impl ProcessMaps {
     let index = (hash % 1024) as usize;
     &self.local_pids[index]
   }
+
+  pub(crate) fn keys(&self) -> Vec<String> {
+    let mut keys = Vec::new();
+    for map in &self.local_pids {
+      for entry in map.iter() {
+        keys.push(entry.key().clone());
+      }
+    }
+    keys
+  }
+
+  pub(crate) fn get_if_present(&self, key: &str) -> Option<ProcessHandle> {
+    let map = self.get_map(key);
+    map.get(key).map(|entry| entry.value().clone())
+  }
 }

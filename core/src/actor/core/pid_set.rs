@@ -13,7 +13,7 @@ pub struct PidSet {
 
 impl PidSet {
   pub fn key(&self, pid: &Pid) -> String {
-    pid.id.to_string()
+    format!("{}::{}", pid.address, pid.id)
   }
 
   pub async fn new() -> Self {

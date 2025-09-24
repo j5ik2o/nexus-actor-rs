@@ -45,3 +45,33 @@ impl BlockList {
     self.blocked_members.clone()
   }
 }
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[tokio::test]
+  async fn block_list_operations_cover_all_paths() {
+    let block_list = BlockList::new();
+
+    block_list.block("node-a".into()).await;
+    block_list
+      .block_multi(vec!["node-b".to_string(), "node-c".to_string()])
+      .await;
+    assert!(block_list.is_blocked("node-a").await);
+    assert!(block_list.is_blocked("node-b").await);
+
+    block_list.unblock("node-a".into()).await;
+    block_list
+      .unblock_multi(vec!["node-b".to_string(), "node-c".to_string()])
+      .await;
+
+    assert!(!block_list.is_blocked("node-a").await);
+
+    block_list.block("node-d".into()).await;
+    block_list.clear().await;
+
+    let members = block_list.get_blocked_members().await;
+    assert!(members.is_empty());
+  }
+}

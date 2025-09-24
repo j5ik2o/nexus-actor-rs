@@ -15,7 +15,6 @@ use crate::actor::context::{
 use crate::actor::core::Actor;
 use crate::actor::core::ActorError;
 use crate::actor::core::ActorHandle;
-use crate::actor::core::ActorProducer;
 use crate::actor::core::Continuer;
 use crate::actor::core::ErrorReason;
 use crate::actor::core::ExtendedPid;
@@ -64,7 +63,7 @@ pub struct ActorContextInner {
   parent: Option<ExtendedPid>,
   self_pid: Option<ExtendedPid>,
   receive_timeout: Option<Duration>,
-  producer: Option<ActorProducer>,
+  //  producer: Option<ActorProducer>,
   message_or_envelope_opt: Arc<RwLock<Option<MessageHandle>>>,
   state: Option<Arc<AtomicU8>>,
 }
@@ -101,7 +100,7 @@ impl ActorContext {
         parent,
         self_pid: None,
         receive_timeout: None,
-        producer: None,
+        // producer: None,
         message_or_envelope_opt: Arc::new(RwLock::new(None)),
         state: None,
       })),
@@ -589,10 +588,7 @@ impl BasePart for ActorContext {
 
   async fn get_receive_timeout(&self) -> Duration {
     let inner_mg = self.inner.lock().await;
-    *inner_mg
-      .receive_timeout
-      .as_ref()
-      .expect("Failed to retrieve receive_timeout")
+    inner_mg.receive_timeout.unwrap_or(Duration::ZERO)
   }
 
   async fn get_children(&self) -> Vec<ExtendedPid> {
@@ -671,35 +667,35 @@ impl BasePart for ActorContext {
   }
 
   async fn set_receive_timeout(&mut self, d: &Duration) {
-    if d.as_nanos() == 0 {
-      panic!("Duration must be greater than zero");
-    }
-    {
-      let mg = self.inner.lock().await;
-      if Some(*d) == mg.receive_timeout {
-        return;
-      }
-    }
-
-    let d = if *d < Duration::from_millis(1) {
-      Duration::from_secs(0)
+    let normalized = if *d < Duration::from_millis(1) {
+      Duration::ZERO
     } else {
       *d
     };
+
     {
       let mut mg = self.inner.lock().await;
-      mg.receive_timeout = Some(d);
+      if mg.receive_timeout.unwrap_or(Duration::ZERO) == normalized {
+        return;
+      }
+      mg.receive_timeout = if normalized.is_zero() { None } else { Some(normalized) };
+    }
+
+    if normalized.is_zero() {
+      self.cancel_receive_timeout().await;
+      return;
     }
 
     let mut extra = self.ensure_extras().await;
-
-    if d > Duration::from_secs(0) {
-      let context = Arc::new(RwLock::new(self.clone()));
-      extra.init_or_reset_receive_timeout_timer(d, context).await;
-    }
+    let context = Arc::new(RwLock::new(self.clone()));
+    extra.init_or_reset_receive_timeout_timer(normalized, context).await;
   }
 
   async fn cancel_receive_timeout(&mut self) {
+    {
+      let mut inner_mg = self.inner.lock().await;
+      inner_mg.receive_timeout = None;
+    }
     if let Some(extras) = self.get_extras().await {
       if extras.get_receive_timeout_timer().await.is_some() {
         extras.kill_receive_timeout_timer().await;

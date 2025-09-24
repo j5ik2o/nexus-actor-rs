@@ -1,14 +1,21 @@
 use async_trait::async_trait;
+use nexus_actor_core_rs::actor::context::SenderPart;
+use nexus_actor_core_rs::actor::core::ExtendedPid;
 use nexus_actor_core_rs::actor::dispatch::{
-  Dispatcher, DispatcherHandle, Mailbox, MailboxHandle, MailboxMessage, MessageInvoker, MessageInvokerHandle, Runnable,
+  DeadLetterEvent, Dispatcher, DispatcherHandle, Mailbox, MailboxHandle, MailboxMessage, MessageInvoker,
+  MessageInvokerHandle, Runnable,
 };
-use nexus_actor_core_rs::actor::message::{MessageBatch, MessageHandle};
+use nexus_actor_core_rs::actor::message::MessageHandle;
+use nexus_actor_core_rs::generated::actor::DeadLetterResponse;
 use nexus_actor_utils_rs::collections::{
   MpscUnboundedChannelQueue, QueueBase, QueueError, QueueReader, QueueWriter, RingQueue,
 };
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicUsize, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
 use tokio::sync::RwLock;
+
+use crate::messages::{EndpointEvent, RemoteDeliver};
+use crate::remote::Remote;
 
 #[derive(Debug, Clone)]
 pub struct EndpointWriterMailbox {
@@ -20,11 +27,15 @@ pub struct EndpointWriterMailbox {
   suspended: Arc<AtomicBool>,
   invoker_opt: Arc<RwLock<Option<MessageInvokerHandle>>>,
   dispatcher_opt: Arc<RwLock<Option<DispatcherHandle>>>,
+  queue_capacity: usize,
+  remote: Weak<Remote>,
 }
 
 impl EndpointWriterMailbox {
-  pub fn new(batch_size: usize, initial_size: usize) -> Self {
-    let user_mailbox = Arc::new(RwLock::new(RingQueue::new(initial_size)));
+  pub fn new(remote: Weak<Remote>, batch_size: usize, queue_capacity: usize) -> Self {
+    assert!(queue_capacity > 0, "queue_capacity must be greater than zero");
+    let ring_queue = RingQueue::new(queue_capacity).with_dynamic(false);
+    let user_mailbox = Arc::new(RwLock::new(ring_queue));
     let system_mailbox = Arc::new(RwLock::new(MpscUnboundedChannelQueue::new()));
     Self {
       user_mailbox,
@@ -35,6 +46,8 @@ impl EndpointWriterMailbox {
       suspended: Arc::new(AtomicBool::new(false)),
       invoker_opt: Arc::new(RwLock::new(None)),
       dispatcher_opt: Arc::new(RwLock::new(None)),
+      queue_capacity,
+      remote,
     }
   }
 
@@ -61,10 +74,10 @@ impl EndpointWriterMailbox {
     mg.poll().await
   }
 
-  async fn poll_user_mailbox(&self) -> Result<Option<MessageHandle>, QueueError<MessageHandle>> {
+  async fn poll_user_mailbox(&self) -> Result<Vec<MessageHandle>, QueueError<MessageHandle>> {
     let mut mg = self.user_mailbox.write().await;
-    // mg.poll_many(self.batch_size.load(Ordering::SeqCst)).await
-    mg.poll().await
+    let batch_size = self.batch_size.load(Ordering::SeqCst).max(1);
+    mg.poll_many(batch_size).await
   }
 
   async fn schedule(&self) {
@@ -128,17 +141,136 @@ impl EndpointWriterMailbox {
         break;
       }
 
-      if let Ok(Some(msg)) = self.poll_user_mailbox().await {
+      let user_messages = match self.poll_user_mailbox().await {
+        Ok(messages) => messages,
+        Err(err) => {
+          tracing::error!("EndpointWriterMailbox failed to poll user mailbox: {:?}", err);
+          Vec::new()
+        }
+      };
+
+      if user_messages.is_empty() {
+        break;
+      }
+
+      let mut address_hint: Option<String> = None;
+      for msg in &user_messages {
+        if address_hint.is_none() {
+          address_hint = Self::extract_endpoint_address(msg);
+        }
+
         if let Err(err) = message_invoker.invoke_user_message(msg.clone()).await {
           message_invoker
             .escalate_failure(err.reason().cloned().unwrap(), msg.clone())
             .await;
         }
-      } else {
-        break;
+      }
+
+      if let Some(address) = address_hint {
+        self.record_queue_state_for_address(&address).await;
       }
 
       tokio::task::yield_now().await;
+    }
+  }
+
+  async fn handle_overflow(&self, message_handle: MessageHandle) {
+    self.increment_dead_letter_for_message(&message_handle).await;
+    self.record_queue_state_for_message(&message_handle).await;
+    tracing::warn!(
+      "EndpointWriterMailbox queue full; dropping message: {:?}",
+      message_handle
+    );
+    let Some(remote) = self.remote.upgrade() else {
+      tracing::warn!("Remote has been dropped; unable to deliver DeadLetter for overflow");
+      return;
+    };
+
+    let actor_system = remote.get_actor_system().clone();
+
+    if let Some(remote_deliver) = message_handle.to_typed::<RemoteDeliver>() {
+      let mut root = actor_system.get_root_context().await;
+      if let Some(sender) = remote_deliver.sender {
+        let sender = ExtendedPid::new(sender);
+        root
+          .send(
+            sender,
+            MessageHandle::new(DeadLetterResponse {
+              target: Some(remote_deliver.target.clone()),
+            }),
+          )
+          .await;
+      } else {
+        actor_system
+          .get_event_stream()
+          .await
+          .publish(MessageHandle::new(DeadLetterEvent {
+            pid: Some(ExtendedPid::new(remote_deliver.target)),
+            message_handle: remote_deliver.message.clone(),
+            sender: None,
+          }))
+          .await;
+      }
+      return;
+    }
+
+    if let Some(endpoint_event) = message_handle.to_typed::<EndpointEvent>() {
+      actor_system
+        .get_event_stream()
+        .await
+        .publish(MessageHandle::new(endpoint_event))
+        .await;
+      return;
+    }
+
+    actor_system.get_event_stream().await.publish(message_handle).await;
+  }
+
+  fn extract_endpoint_address(message_handle: &MessageHandle) -> Option<String> {
+    if let Some(remote_deliver) = message_handle.to_typed::<RemoteDeliver>() {
+      return Some(remote_deliver.target.address);
+    }
+
+    if let Some(endpoint_event) = message_handle.to_typed::<EndpointEvent>() {
+      return match endpoint_event {
+        EndpointEvent::EndpointConnected(ev) => Some(ev.address),
+        EndpointEvent::EndpointTerminated(ev) => Some(ev.address),
+      };
+    }
+
+    None
+  }
+
+  async fn record_queue_state_for_message(&self, message_handle: &MessageHandle) {
+    if let Some(address) = Self::extract_endpoint_address(message_handle) {
+      self.record_queue_state_for_address(&address).await;
+    }
+  }
+
+  async fn record_queue_state_for_address(&self, address: &str) {
+    let queue_len = {
+      let mailbox = self.user_mailbox.read().await;
+      let len = mailbox.len().await.to_usize();
+      drop(mailbox);
+      len
+    };
+
+    if let Some(remote) = self.remote.upgrade() {
+      if let Some(manager) = remote.get_endpoint_manager_opt().await {
+        manager
+          .record_queue_state(address, self.queue_capacity, queue_len)
+          .await;
+      }
+    }
+  }
+
+  async fn increment_dead_letter_for_message(&self, message_handle: &MessageHandle) {
+    if let Some(address) = Self::extract_endpoint_address(message_handle) {
+      if let Some(remote) = self.remote.upgrade() {
+        if let Some(manager) = remote.get_endpoint_manager_opt().await {
+          manager.increment_dead_letter(&address);
+        }
+      }
     }
   }
 }
@@ -156,27 +288,44 @@ impl Mailbox for EndpointWriterMailbox {
   }
 
   async fn process_messages(&self) {
-    self.has_more_messages.store(0, std::sync::atomic::Ordering::SeqCst);
+    self.has_more_messages.store(0, Ordering::SeqCst);
     loop {
+      // Mirror protoactor-go/remote/endpoint_writer_mailbox.go::processMessages control flow.
       self.run().await;
-      self.scheduler_status.store(false, std::sync::atomic::Ordering::SeqCst);
-      let has_more = self.has_more_messages.swap(0, std::sync::atomic::Ordering::SeqCst) == 1;
-      if !has_more
+      self.scheduler_status.store(false, Ordering::SeqCst);
+      let has_more = self.has_more_messages.swap(0, Ordering::SeqCst) == 1;
+      if has_more
         && self
           .scheduler_status
           .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
-          .is_err()
+          .is_ok()
       {
-        break;
+        continue;
       }
+      break;
     }
   }
 
   async fn post_user_message(&self, message_handle: MessageHandle) {
     tracing::info!("EndpointWriterMailbox::post_user_message: {:?}", message_handle);
+    let address_hint = Self::extract_endpoint_address(&message_handle);
     {
       let mut mg = self.user_mailbox.write().await;
-      mg.offer(message_handle).await.unwrap();
+      let len = mg.len().await.to_usize();
+      if len >= self.queue_capacity {
+        drop(mg);
+        self.handle_overflow(message_handle).await;
+        return;
+      }
+
+      if let Err(QueueError::OfferError(message)) = mg.offer(message_handle).await {
+        drop(mg);
+        self.handle_overflow(message).await;
+        return;
+      }
+    }
+    if let Some(address) = address_hint {
+      self.record_queue_state_for_address(&address).await;
     }
     self.schedule().await;
   }

@@ -11,6 +11,8 @@ use nexus_actor_core_rs::Message;
 use std::collections::HashMap;
 use std::hash::{DefaultHasher, Hash, Hasher};
 
+use serde::{Deserialize, Serialize};
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct EndpointTerminatedEvent {
   pub address: String,
@@ -19,6 +21,23 @@ pub struct EndpointTerminatedEvent {
 #[derive(Debug, Clone, PartialEq)]
 pub struct EndpointConnectedEvent {
   pub address: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BackpressureLevel {
+  Normal = 0,
+  Warning = 1,
+  Critical = 2,
+}
+
+impl BackpressureLevel {
+  pub fn from_u8(value: u8) -> BackpressureLevel {
+    match value {
+      1 => BackpressureLevel::Warning,
+      2 => BackpressureLevel::Critical,
+      _ => BackpressureLevel::Normal,
+    }
+  }
 }
 
 #[derive(Debug, Clone, PartialEq, Message)]
@@ -58,7 +77,20 @@ pub struct RemoteDeliver {
   pub serializer_id: u32,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Message)]
+pub struct EndpointThrottledEvent {
+  pub address: String,
+  pub level: i32,
+}
+
+#[derive(Debug, Clone, PartialEq, Message)]
+pub struct EndpointReconnectEvent {
+  pub address: String,
+  pub attempt: u64,
+  pub success: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Message, Serialize, Deserialize)]
 pub struct JsonMessage {
   pub type_name: String,
   pub json: String,
@@ -177,5 +209,29 @@ impl Hash for MessageType {
       MessageType::ConnectResponse(m) => m.hash(state),
       MessageType::DisconnectRequest(m) => m.hash(state),
     }
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::serializer::{
+    deserialize_any, initialize_json_serializers, serialize_any, AnyDowncastExt, SerializerError, SerializerId,
+  };
+
+  #[test]
+  fn json_message_roundtrip_via_json_serializer() -> Result<(), SerializerError> {
+    initialize_json_serializers::<JsonMessage>()?;
+    let message = JsonMessage {
+      type_name: "example.Type".to_string(),
+      json: "{\"key\":\"value\"}".to_string(),
+    };
+
+    let type_name = std::any::type_name::<JsonMessage>();
+    let bytes = serialize_any(&message, &SerializerId::Json, type_name)?;
+    let deserialized = deserialize_any(&bytes, &SerializerId::Json, type_name)?;
+    let recovered = deserialized.downcast_arc::<JsonMessage>().expect("type mismatch");
+    assert_eq!(recovered.as_ref(), &message);
+    Ok(())
   }
 }

@@ -46,9 +46,12 @@ impl EndpointSupervisor {
           .expect("Remote has been dropped")
           .get_config()
           .clone();
+        let batch_size = config.get_endpoint_writer_batch_size().await;
+        let queue_size = config.get_endpoint_writer_queue_size().await;
         MailboxHandle::new(EndpointWriterMailbox::new(
-          config.get_endpoint_writer_batch_size().await,
-          10,
+          cloned_remote.clone(),
+          batch_size,
+          queue_size,
         ))
       }
     })

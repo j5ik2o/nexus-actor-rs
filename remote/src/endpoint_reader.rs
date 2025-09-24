@@ -1,22 +1,25 @@
 use nexus_actor_core_rs::actor::actor_system::ActorSystem;
 use nexus_actor_core_rs::actor::context::SenderPart;
-use nexus_actor_core_rs::actor::core::ExtendedPid;
-use nexus_actor_core_rs::actor::message::{MessageEnvelope, MessageHandle, MessageHeaders, SystemMessage};
+use nexus_actor_core_rs::actor::core::{ActorProcess, ExtendedPid};
+use nexus_actor_core_rs::actor::message::{MessageEnvelope, MessageHandle, MessageHeaders};
 use nexus_actor_core_rs::actor::process::Process;
-use nexus_actor_core_rs::generated::actor::{Pid, Stop, Terminated, Unwatch, Watch};
-use std::any::Any as StdAny;
+use nexus_actor_core_rs::generated::actor::Pid;
 
 use crate::endpoint_manager::{EndpointManager, RequestKeyWrapper};
-use crate::generated::cluster::{DeliverBatchRequestTransport, PubSubAutoRespondBatchTransport, PubSubBatchTransport};
 use crate::generated::remote;
 use crate::generated::remote::connect_request::ConnectionType;
 use crate::generated::remote::remoting_server::Remoting;
 use crate::generated::remote::{
-  ConnectRequest, GetProcessDiagnosticsRequest, GetProcessDiagnosticsResponse, ListProcessesRequest,
-  ListProcessesResponse, MessageBatch, RemoteMessage, ServerConnection,
+  ClientConnection, ConnectRequest, GetProcessDiagnosticsRequest, GetProcessDiagnosticsResponse,
+  ListProcessesMatchType, ListProcessesRequest, ListProcessesResponse, MessageBatch, RemoteMessage, ServerConnection,
 };
+use crate::message_decoder::{decode_wire_message, DecodedMessage};
+use crate::messages::RemoteTerminate;
 use crate::remote::Remote;
-use crate::serializer::{deserialize_any, deserialize_message, SerializerError, SerializerId};
+use crate::serializer::SerializerId;
+use regex::Regex;
+use std::collections::HashSet;
+use std::convert::TryFrom;
 use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Weak};
@@ -51,18 +54,18 @@ impl EndpointReader {
     }
   }
 
-  async fn on_connect_request(
+  pub(crate) async fn on_connect_request(
     &self,
     response_tx: &Sender<Result<RemoteMessage, Status>>,
     connect_req: &ConnectRequest,
+    connection_key: Option<&RequestKeyWrapper>,
   ) -> Result<bool, Box<dyn std::error::Error>> {
     match &connect_req.connection_type {
       Some(ConnectionType::ServerConnection(sc)) => {
         self.on_server_connection(response_tx, sc).await;
       }
-      Some(ConnectionType::ClientConnection(_)) => {
-        // TODO: implement me
-        tracing::error!("ClientConnection not implemented");
+      Some(ConnectionType::ClientConnection(cc)) => {
+        self.on_client_connection(response_tx, cc, connection_key).await;
       }
       _ => {
         tracing::warn!("Received unknown connection type");
@@ -82,54 +85,105 @@ impl EndpointReader {
   }
 
   async fn on_server_connection(&self, response_tx: &Sender<Result<RemoteMessage, Status>>, sc: &ServerConnection) {
-    if self
+    let blocked = self
       .remote
       .upgrade()
       .expect("Remote has been dropped")
       .get_block_list()
       .is_blocked(&sc.system_id)
-      .await
-    {
+      .await;
+
+    if blocked {
       tracing::debug!("EndpointReader blocked connection from {}", sc.system_id);
-      if let Err(e) = response_tx
-        .send(Ok(RemoteMessage {
-          message_type: Some(remote::remote_message::MessageType::ConnectResponse(
-            remote::ConnectResponse {
-              blocked: true,
-              member_id: sc.system_id.clone(),
-            },
-          )),
-        }))
-        .await
-      {
-        tracing::error!("EndpointReader failed to send ConnectResponse message: {}", e);
-      }
     } else {
       tracing::debug!("EndpointReader accepted connection from {}", sc.system_id);
-      if let Err(e) = response_tx
-        .send(Ok(RemoteMessage {
-          message_type: Some(remote::remote_message::MessageType::ConnectResponse(
-            remote::ConnectResponse {
-              blocked: false,
-              member_id: sc.system_id.clone(),
-            },
-          )),
-        }))
-        .await
-      {
-        tracing::error!("EndpointReader failed to send ConnectResponse message: {}", e);
+    }
+
+    if let Err(e) = self.send_connect_response(response_tx, &sc.system_id, blocked).await {
+      tracing::error!("EndpointReader failed to send ConnectResponse message: {}", e);
+    }
+
+    if !blocked {
+      if let Some(manager) = self.get_endpoint_manager_opt().await {
+        manager.mark_heartbeat(&sc.system_id).await;
       }
     }
   }
 
-  async fn on_message_batch(&self, message_batch: &MessageBatch) -> Result<(), EndpointReaderError> {
-    tracing::info!("EndpointReader received message batch: {:?}", message_batch);
-    let type_pub_sub_batch: &'static str = std::any::type_name::<PubSubBatchTransport>();
-    let type_deliver_batch: &'static str = std::any::type_name::<DeliverBatchRequestTransport>();
-    let type_pub_sub_auto_respond: &'static str = std::any::type_name::<PubSubAutoRespondBatchTransport>();
+  async fn on_client_connection(
+    &self,
+    response_tx: &Sender<Result<RemoteMessage, Status>>,
+    cc: &ClientConnection,
+    connection_key: Option<&RequestKeyWrapper>,
+  ) {
+    let blocked = self
+      .remote
+      .upgrade()
+      .expect("Remote has been dropped")
+      .get_block_list()
+      .is_blocked(&cc.system_id)
+      .await;
 
+    if blocked {
+      tracing::debug!("EndpointReader blocked client connection from {}", cc.system_id);
+    } else {
+      tracing::debug!("EndpointReader accepted client connection from {}", cc.system_id);
+    }
+
+    if let Err(e) = self.send_connect_response(response_tx, &cc.system_id, blocked).await {
+      tracing::error!("EndpointReader failed to send client ConnectResponse message: {}", e);
+    }
+
+    if !blocked {
+      if let Some(key) = connection_key.cloned() {
+        if let Some(manager) = self.get_endpoint_manager_opt().await {
+          manager.register_client_connection(cc.system_id.clone(), key, response_tx.clone());
+        } else {
+          tracing::debug!(
+            "EndpointManager not initialized; skipping client connection registration for {}",
+            cc.system_id
+          );
+        }
+      } else {
+        tracing::debug!(
+          "Client connection {} accepted without connection key; skipping EndpointManager registration",
+          cc.system_id
+        );
+      }
+    }
+
+    if !blocked {
+      if let Some(manager) = self.get_endpoint_manager_opt().await {
+        manager.mark_heartbeat(&cc.system_id).await;
+      }
+    }
+  }
+
+  async fn send_connect_response(
+    &self,
+    response_tx: &Sender<Result<RemoteMessage, Status>>,
+    system_id: &str,
+    blocked: bool,
+  ) -> Result<(), Status> {
+    response_tx
+      .send(Ok(RemoteMessage {
+        message_type: Some(remote::remote_message::MessageType::ConnectResponse(
+          remote::ConnectResponse {
+            blocked,
+            member_id: system_id.to_string(),
+          },
+        )),
+      }))
+      .await
+      .map_err(|e| Status::internal(format!("failed to send connect response: {}", e)))
+  }
+
+  async fn on_message_batch(&self, message_batch: &MessageBatch) -> Result<(), EndpointReaderError> {
+    tracing::debug!("EndpointReader received {} envelopes", message_batch.envelopes.len());
+
+    let mut touched_addresses: HashSet<String> = HashSet::new();
     for envelope in &message_batch.envelopes {
-      let data = &envelope.message_data;
+      let payload = &envelope.message_data;
       let mut sender = Pid::default();
       let mut target = Pid::default();
 
@@ -140,10 +194,6 @@ impl EndpointReader {
         &message_batch.senders,
       );
 
-      tracing::info!("envelope.sender = {:?}", envelope.sender);
-      tracing::info!("envelope.senders = {:?}", message_batch.senders);
-      tracing::info!("sender_opt = {:?}", sender_opt);
-
       let target = deserialize_target(
         &mut target,
         envelope.target,
@@ -151,114 +201,73 @@ impl EndpointReader {
         &message_batch.targets,
       )
       .map(ExtendedPid::new)
-      .ok_or_else(|| {
-        tracing::error!("EndpointReader received message with unknown target");
-        EndpointReaderError::UnknownTarget
-      })?;
+      .ok_or(EndpointReaderError::UnknownTarget)?;
+      touched_addresses.insert(target.address().to_string());
 
-      let serializer_id = SerializerId::try_from(envelope.serializer_id).expect("Invalid serializer id");
+      let serializer_id =
+        SerializerId::try_from(envelope.serializer_id).map_err(EndpointReaderError::Deserialization)?;
 
-      if !data.is_empty() {
-        let preview_len = std::cmp::min(data.len(), 16);
-        tracing::debug!("Data preview: {:?}", &data[..preview_len]);
+      if envelope.type_id < 0 || (envelope.type_id as usize) >= message_batch.type_names.len() {
+        return Err(EndpointReaderError::Deserialization(format!(
+          "Invalid type id: {}",
+          envelope.type_id
+        )));
       }
 
-      let result = match deserialize_any(data, &serializer_id, type_pub_sub_batch) {
-        Ok(v) => {
-          tracing::debug!("Successfully deserialized as PubSubBatchTransport");
-          Some(v)
-        }
-        Err(e1) => {
-          tracing::debug!("Failed to deserialize as PubSubBatchTransport: {:?}", e1);
-          match deserialize_any(data, &serializer_id, type_deliver_batch) {
-            Ok(v) => {
-              tracing::debug!("Successfully deserialized as DeliverBatchRequestTransport");
-              Some(v)
-            }
-            Err(e2) => {
-              tracing::debug!("Failed to deserialize as DeliverBatchRequestTransport: {:?}", e2);
-              match deserialize_any(data, &serializer_id, type_pub_sub_auto_respond) {
-                Ok(v) => {
-                  tracing::debug!("Successfully deserialized as PubSubAutoRespondBatchTransport");
-                  Some(v)
-                }
-                Err(e3) => {
-                  tracing::debug!("Failed to deserialize as PubSubAutoRespondBatchTransport: {:?}", e3);
-                  None
-                }
-              }
-            }
-          }
-        }
-      };
+      let type_name = &message_batch.type_names[envelope.type_id as usize];
 
-      tracing::debug!("result = {:?}", result);
+      let decoded = decode_wire_message(type_name, &serializer_id, payload)
+        .map_err(|e| EndpointReaderError::Deserialization(e.to_string()))?;
 
       let actor_system = self.get_actor_system().await;
       let mut root_context = actor_system.get_root_context().await;
       let process_registry = actor_system.get_process_registry().await;
       let local_process = process_registry.get_local_process(target.id()).await;
 
-      match result {
-        Some(message) => {
-          if let Some(t) = message.downcast_ref::<Terminated>() {
-            let terminated = SystemMessage::of_terminate(t.clone());
-            root_context.send(target.clone(), MessageHandle::new(terminated)).await;
-          }
-          if message.downcast_ref::<Stop>().is_some() {
-            let system_message = SystemMessage::of_stop();
-            let ref_process = local_process.clone().ok_or(EndpointReaderError::UnknownTarget)?;
-            ref_process
-              .send_system_message(&target, MessageHandle::new(system_message))
-              .await;
-          }
-          if let Some(watch) = message.downcast_ref::<Watch>() {
-            let system_message = SystemMessage::of_watch(watch.clone());
-            let ref_process = local_process.clone().ok_or(EndpointReaderError::UnknownTarget)?;
-            ref_process
-              .send_system_message(&target, MessageHandle::new(system_message))
-              .await;
-          }
-          if let Some(unwatch) = message.downcast_ref::<Unwatch>() {
-            let system_message = SystemMessage::of_unwatch(unwatch.clone());
-            let ref_process = local_process.ok_or(EndpointReaderError::UnknownTarget)?;
-            ref_process
-              .send_system_message(&target, MessageHandle::new(system_message))
-              .await;
-          }
-        }
-        None => {
-          let type_name = if envelope.type_id >= 0 && (envelope.type_id as usize) < message_batch.type_names.len() {
-            &message_batch.type_names[envelope.type_id as usize]
-          } else {
-            tracing::warn!("Invalid type_id: {}, using default type name", envelope.type_id);
-            "unknown"
+      match decoded {
+        DecodedMessage::Terminated(terminated) => {
+          let remote_terminate = RemoteTerminate {
+            watcher: Some(target.inner_pid.clone()),
+            watchee: terminated.who.clone(),
           };
-          let data_arc = deserialize_message(data, &serializer_id, type_name)
-            .map_err(|e| EndpointReaderError::Deserialization(e.to_string()))?;
-          let msg_handle = MessageHandle::new_arc(data_arc.clone());
-          tracing::info!("EndpointReader received message: {:?}", data_arc);
+          self
+            .get_endpoint_manager()
+            .await
+            .remote_terminate(&remote_terminate)
+            .await;
+        }
+        DecodedMessage::System(system_message) => {
+          let ref_process = local_process.clone().ok_or(EndpointReaderError::UnknownTarget)?;
+          ref_process
+            .send_system_message(&target, MessageHandle::new(system_message))
+            .await;
+        }
+        DecodedMessage::User(message_arc) => {
+          let msg_handle = MessageHandle::new_arc(message_arc);
 
           if sender_opt.is_none() && envelope.message_header.is_none() {
-            tracing::info!("EndpointReader received message with no sender and no header");
             root_context.send(target, msg_handle).await;
             continue;
           }
 
-          let headers = if envelope.message_header.is_some() {
-            MessageHeaders::with_values(envelope.message_header.as_ref().unwrap().header_data.clone())
-          } else {
-            MessageHeaders::default()
-          };
+          let headers = envelope
+            .message_header
+            .as_ref()
+            .map(|header| MessageHeaders::with_values(header.header_data.clone()))
+            .unwrap_or_default();
 
-          let sender = ExtendedPid::new(sender_opt.expect("Sender not found"));
-          let local_me = MessageEnvelope::new(msg_handle)
-            .with_header(headers)
-            .with_sender(sender);
-          tracing::info!("EndpointReader received message: {:?}", local_me);
-          tracing::info!("EndpointReader: target: {:?}", target);
-          root_context.send(target, MessageHandle::new(local_me)).await;
+          let mut local_envelope = MessageEnvelope::new(msg_handle).with_header(headers);
+          if let Some(sender_pid) = sender_opt {
+            local_envelope = local_envelope.with_sender(ExtendedPid::new(sender_pid));
+          }
+          root_context.send(target, MessageHandle::new(local_envelope)).await;
         }
+      }
+    }
+
+    if let Some(manager) = self.get_endpoint_manager_opt().await {
+      for address in touched_addresses {
+        manager.mark_heartbeat(&address).await;
       }
     }
     Ok(())
@@ -322,6 +331,9 @@ fn deserialize_target(pid: &mut Pid, index: i32, request_id: u32, arr: &[Pid]) -
   }
 }
 
+#[cfg(test)]
+mod tests;
+
 #[tonic::async_trait]
 impl Remoting for EndpointReader {
   type ReceiveStream = Pin<Box<dyn Stream<Item = Result<RemoteMessage, Status>> + Send>>;
@@ -348,7 +360,9 @@ impl Remoting for EndpointReader {
       let cloned_response_tx = response_tx.clone();
       let cloned_connection_key = connection_key.clone();
       async move {
-        if Self::get_disconnect_flg(cloned_disconnect_rx).await {
+        let manager = cloned_self.get_endpoint_manager().await;
+        let should_disconnect = Self::get_disconnect_flg(cloned_disconnect_rx).await;
+        if should_disconnect {
           tracing::debug!("EndpointReader is telling to remote that it's leaving");
           if let Err(e) = cloned_response_tx
             .send(Ok(RemoteMessage {
@@ -361,13 +375,10 @@ impl Remoting for EndpointReader {
             tracing::error!("EndpointReader failed to send disconnection message: {}", e);
           }
         } else {
-          cloned_self
-            .get_endpoint_manager()
-            .await
-            .get_endpoint_reader_connections()
-            .remove(&cloned_connection_key);
           tracing::debug!("EndpointReader removed active endpoint from endpointManager");
         }
+        manager.get_endpoint_reader_connections().remove(&cloned_connection_key);
+        manager.deregister_client_connection(&cloned_connection_key);
       }
     });
 
@@ -375,6 +386,7 @@ impl Remoting for EndpointReader {
       let cloned_self = self.clone();
       let cloned_request_arc = request_arc.clone();
       let cloned_response_tx = response_tx.clone();
+      let cloned_connection_key = connection_key.clone();
       async move {
         let mut request_mg = cloned_request_arc.lock().await;
         while let Some(msg) = request_mg.get_mut().next().await {
@@ -387,7 +399,10 @@ impl Remoting for EndpointReader {
               match remote_msg.message_type {
                 Some(message_type) => match message_type {
                   remote::remote_message::MessageType::ConnectRequest(connect_req) => {
-                    if let Err(e) = cloned_self.on_connect_request(&cloned_response_tx, &connect_req).await {
+                    if let Err(e) = cloned_self
+                      .on_connect_request(&cloned_response_tx, &connect_req, Some(&cloned_connection_key))
+                      .await
+                    {
                       tracing::error!("Failed to handle connect request, {}", e);
                       break;
                     }
@@ -425,14 +440,71 @@ impl Remoting for EndpointReader {
     Ok(Response::new(Box::pin(output_stream) as Self::ReceiveStream))
   }
 
-  async fn list_processes(&self, _: Request<ListProcessesRequest>) -> Result<Response<ListProcessesResponse>, Status> {
-    Err(Status::unimplemented("Method not implemented"))
+  async fn list_processes(
+    &self,
+    request: Request<ListProcessesRequest>,
+  ) -> Result<Response<ListProcessesResponse>, Status> {
+    let req = request.into_inner();
+    let match_type = ListProcessesMatchType::try_from(req.r#type).unwrap_or(ListProcessesMatchType::MatchPartOfString);
+
+    let actor_system = self.get_actor_system().await;
+    let registry = actor_system.get_process_registry().await;
+    let all_pids = registry.list_local_pids().await;
+
+    let pattern = req.pattern;
+    let regex = if matches!(match_type, ListProcessesMatchType::MatchRegex) && !pattern.is_empty() {
+      Some(Regex::new(&pattern).map_err(|e| Status::invalid_argument(format!("invalid regex '{}': {}", pattern, e)))?)
+    } else {
+      None
+    };
+
+    let mut filtered = Vec::new();
+    for pid in all_pids {
+      let matched = if pattern.is_empty() {
+        true
+      } else {
+        match match_type {
+          ListProcessesMatchType::MatchPartOfString => pid.id.contains(&pattern),
+          ListProcessesMatchType::MatchExactString => pid.id == pattern,
+          ListProcessesMatchType::MatchRegex => regex.as_ref().expect("regex should be compiled").is_match(&pid.id),
+        }
+      };
+
+      if matched {
+        filtered.push(pid);
+      }
+    }
+
+    Ok(Response::new(ListProcessesResponse { pids: filtered }))
   }
 
   async fn get_process_diagnostics(
     &self,
-    _: Request<GetProcessDiagnosticsRequest>,
+    request: Request<GetProcessDiagnosticsRequest>,
   ) -> Result<Response<GetProcessDiagnosticsResponse>, Status> {
-    Err(Status::unimplemented("Method not implemented"))
+    let req = request.into_inner();
+    let pid = req.pid.ok_or_else(|| Status::invalid_argument("pid is required"))?;
+
+    let actor_system = self.get_actor_system().await;
+    let current_address = actor_system.get_address().await;
+    if pid.address != current_address {
+      return Err(Status::invalid_argument("pid does not belong to this node"));
+    }
+
+    let registry = actor_system.get_process_registry().await;
+    let process = registry
+      .find_local_process_handle(&pid.id)
+      .await
+      .ok_or_else(|| Status::not_found("process not found"))?;
+
+    let diagnostics = if let Some(actor_process) = process.as_any().downcast_ref::<ActorProcess>() {
+      format!("ActorProcess(dead={})", actor_process.is_dead())
+    } else {
+      "Process diagnostics not available".to_string()
+    };
+
+    Ok(Response::new(GetProcessDiagnosticsResponse {
+      diagnostics_string: diagnostics,
+    }))
   }
 }

@@ -1,0 +1,7 @@
+# @see https://docs.docker.com/compose/compose-file/
+version: '3.4'
+services:
+  redis:
+    image: redis:5.0.7-alpine
+    ports:
+      - 127.0.0.1:6380:6379
