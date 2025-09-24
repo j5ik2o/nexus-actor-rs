@@ -2,22 +2,34 @@ use crate::config::Config;
 use crate::config_option::ConfigOption;
 use crate::endpoint_manager::{EndpointManager, RequestKeyWrapper};
 use crate::endpoint_reader::EndpointReader;
+use crate::endpoint_writer_mailbox::EndpointWriterMailbox;
 use crate::generated::remote::{
   self, connect_request::ConnectionType, ClientConnection, ConnectRequest, RemoteMessage,
 };
+use crate::messages::RemoteDeliver;
 use crate::remote::Remote;
 use bytes::Bytes;
 use http_body_util::Empty;
 use nexus_actor_core_rs::actor::actor_system::ActorSystem;
+use nexus_actor_core_rs::actor::core::{ActorError, ErrorReason};
+use nexus_actor_core_rs::actor::core_types::message_types::Message;
+use nexus_actor_core_rs::actor::dispatch::DeadLetterEvent;
+use nexus_actor_core_rs::actor::dispatch::{
+  Dispatcher, DispatcherHandle, Mailbox, MessageInvoker, MessageInvokerHandle, Runnable,
+};
+use nexus_actor_core_rs::actor::message::MessageHandle;
+use nexus_actor_core_rs::generated::actor::Pid;
 use std::sync::Arc;
-use tokio::sync::{mpsc, Mutex, OnceCell};
+use tokio::sync::{mpsc, Mutex, OnceCell, RwLock};
 use tokio::time::{timeout, Duration};
 use tonic::codec::{Codec, ProstCodec, Streaming};
 use tonic::{Request, Status};
 
+use async_trait::async_trait;
+
 type TestResult<T> = Result<T, Box<dyn std::error::Error>>;
 
-async fn setup_remote_with_manager() -> TestResult<(Arc<Remote>, EndpointReader)> {
+async fn setup_remote_with_options(options: Vec<ConfigOption>) -> TestResult<(Arc<Remote>, EndpointReader)> {
   static INIT: OnceCell<()> = OnceCell::const_new();
   let _ = INIT
     .get_or_init(|| async {
@@ -26,13 +38,21 @@ async fn setup_remote_with_manager() -> TestResult<(Arc<Remote>, EndpointReader)
     .await;
 
   let system = ActorSystem::new().await.expect("actor system init");
-  let config = Config::from([ConfigOption::with_host("127.0.0.1"), ConfigOption::with_port(19080)]).await;
+  let config = Config::from(options).await;
   let remote = Remote::new(system, config).await;
   let remote_arc = Arc::new(remote);
   let endpoint_manager = EndpointManager::new(Arc::downgrade(&remote_arc));
   remote_arc.set_endpoint_manager_for_test(endpoint_manager).await;
   let endpoint_reader = EndpointReader::new(Arc::downgrade(&remote_arc));
   Ok((remote_arc, endpoint_reader))
+}
+
+async fn setup_remote_with_manager() -> TestResult<(Arc<Remote>, EndpointReader)> {
+  setup_remote_with_options(vec![
+    ConfigOption::with_host("127.0.0.1"),
+    ConfigOption::with_port(19080),
+  ])
+  .await
 }
 
 fn make_request_key() -> RequestKeyWrapper {
@@ -96,6 +116,128 @@ async fn client_connection_registers_and_receives_disconnect() -> TestResult<()>
 
   manager.deregister_client_connection(&connection_key);
   assert!(!manager.has_client_connection("client-A"));
+
+  Ok(())
+}
+
+#[derive(Debug, Clone, PartialEq, nexus_actor_core_rs::Message)]
+struct DummyPayload {
+  value: &'static str,
+}
+
+#[derive(Debug, Clone)]
+struct NoopInvoker;
+
+#[async_trait]
+impl MessageInvoker for NoopInvoker {
+  async fn invoke_system_message(&mut self, _message_handle: MessageHandle) -> Result<(), ActorError> {
+    Ok(())
+  }
+
+  async fn invoke_user_message(&mut self, _message_handle: MessageHandle) -> Result<(), ActorError> {
+    Ok(())
+  }
+
+  async fn escalate_failure(&mut self, _reason: ErrorReason, _message_handle: MessageHandle) {}
+}
+
+#[derive(Debug, Clone)]
+struct NoopDispatcher;
+
+#[async_trait]
+impl Dispatcher for NoopDispatcher {
+  async fn schedule(&self, _runner: Runnable) {}
+
+  async fn throughput(&self) -> i32 {
+    0
+  }
+}
+
+#[tokio::test]
+async fn client_connection_backpressure_overflow() -> TestResult<()> {
+  let (remote_arc, endpoint_reader) = setup_remote_with_options(vec![
+    ConfigOption::with_host("127.0.0.1"),
+    ConfigOption::with_port(19081),
+    ConfigOption::with_endpoint_writer_queue_size(1),
+    ConfigOption::with_endpoint_writer_batch_size(1),
+  ])
+  .await?;
+
+  let (response_tx, mut response_rx) = mpsc::channel::<Result<RemoteMessage, Status>>(4);
+  let connection_key = make_request_key();
+
+  endpoint_reader
+    .on_connect_request(
+      &response_tx,
+      &ConnectRequest {
+        connection_type: Some(ConnectionType::ClientConnection(ClientConnection {
+          system_id: "client-overflow".to_string(),
+        })),
+      },
+      Some(&connection_key),
+    )
+    .await?;
+
+  timeout(Duration::from_millis(100), response_rx.recv())
+    .await?
+    .ok_or_else(|| "no connect response".to_string())??;
+
+  let mut mailbox = EndpointWriterMailbox::new(Arc::downgrade(&remote_arc), 1, 1);
+  mailbox
+    .register_handlers(
+      Some(MessageInvokerHandle::new(Arc::new(RwLock::new(NoopInvoker)))),
+      Some(DispatcherHandle::new(NoopDispatcher)),
+    )
+    .await;
+
+  let actor_system = remote_arc.get_actor_system().clone();
+  let deadletters = Arc::new(Mutex::new(Vec::new()));
+  let subscription = actor_system
+    .get_event_stream()
+    .await
+    .subscribe({
+      let deadletters = deadletters.clone();
+      move |message: MessageHandle| {
+        let deadletters = deadletters.clone();
+        async move {
+          if let Some(event) = message.to_typed::<DeadLetterEvent>() {
+            deadletters.lock().await.push(event);
+          }
+        }
+      }
+    })
+    .await;
+
+  let target_pid = Pid {
+    address: "127.0.0.1:9000".to_string(),
+    id: "dummy".to_string(),
+    request_id: 0,
+  };
+
+  let deliver = RemoteDeliver {
+    header: None,
+    message: MessageHandle::new(DummyPayload { value: "payload" }),
+    target: target_pid.clone(),
+    sender: None,
+    serializer_id: 0,
+  };
+
+  mailbox.post_user_message(MessageHandle::new(deliver.clone())).await;
+  mailbox.post_user_message(MessageHandle::new(deliver)).await;
+
+  tokio::time::sleep(Duration::from_millis(50)).await;
+
+  let dead_letters = deadletters.lock().await;
+  assert!(dead_letters
+    .iter()
+    .any(|event| event.pid.as_ref().map(|pid| pid.inner_pid.id.as_str()) == Some(target_pid.id.as_str())));
+  drop(dead_letters);
+
+  actor_system.get_event_stream().await.unsubscribe(subscription).await;
+  remote_arc
+    .get_endpoint_manager()
+    .await
+    .deregister_client_connection(&connection_key);
 
   Ok(())
 }

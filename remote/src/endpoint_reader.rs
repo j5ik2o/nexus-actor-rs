@@ -186,16 +186,14 @@ impl EndpointReader {
         &message_batch.targets,
       )
       .map(ExtendedPid::new)
-      .ok_or_else(|| EndpointReaderError::UnknownTarget)?;
+      .ok_or(EndpointReaderError::UnknownTarget)?;
 
-      if envelope.serializer_id < 0 {
-        return Err(EndpointReaderError::Deserialization(
-          "Negative serializer id".to_string(),
-        ));
-      }
+      let serializer_raw = u32::try_from(envelope.serializer_id).map_err(|_| {
+        EndpointReaderError::Deserialization("Negative serializer id".to_string())
+      })?;
 
       let serializer_id =
-        SerializerId::try_from(envelope.serializer_id as u32).map_err(EndpointReaderError::Deserialization)?;
+        SerializerId::try_from(serializer_raw).map_err(EndpointReaderError::Deserialization)?;
 
       if envelope.type_id < 0 || (envelope.type_id as usize) >= message_batch.type_names.len() {
         return Err(EndpointReaderError::Deserialization(format!(
