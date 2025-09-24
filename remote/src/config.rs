@@ -13,7 +13,7 @@ pub mod server_config;
 struct ConfigInner {
   host: Option<String>,
   port: Option<u16>,
-  advertised_host: Option<String>,
+  advertised_address: Option<String>,
   endpoint_writer_batch_size: usize,
   endpoint_writer_queue_size: usize,
   endpoint_manager_batch_size: usize,
@@ -35,7 +35,7 @@ impl Default for Config {
       inner: Arc::new(Mutex::new(ConfigInner {
         host: None,
         port: None,
-        advertised_host: None,
+        advertised_address: None,
         endpoint_writer_batch_size: 1000,
         endpoint_manager_batch_size: 1000,
         endpoint_writer_queue_size: 1000000,
@@ -99,14 +99,14 @@ impl Config {
     }
   }
 
-  pub async fn get_advertised_host(&self) -> Option<String> {
+  pub async fn get_advertised_address(&self) -> Option<String> {
     let mg = self.inner.lock().await;
-    mg.advertised_host.clone()
+    mg.advertised_address.clone()
   }
 
-  pub async fn set_advertised_host(&mut self, advertised_host: String) {
+  pub async fn set_advertised_address(&mut self, advertised_address: String) {
     let mut mg = self.inner.lock().await;
-    mg.advertised_host = Some(advertised_host);
+    mg.advertised_address = Some(advertised_address);
   }
 
   pub async fn get_endpoint_writer_batch_size(&self) -> usize {

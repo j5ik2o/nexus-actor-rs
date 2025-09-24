@@ -5,7 +5,7 @@ use nexus_actor_core_rs::actor::core::Props;
 pub enum ConfigOption {
   SetHost(String),
   SetPort(u16),
-  SetAdvertisedHost(String),
+  SetAdvertisedAddress(String),
   PutKind(String, Props),
 }
 
@@ -18,8 +18,8 @@ impl ConfigOption {
       ConfigOption::SetPort(port) => {
         config.set_port(*port).await;
       }
-      ConfigOption::SetAdvertisedHost(advertised_host) => {
-        config.set_advertised_host(advertised_host.clone()).await;
+      ConfigOption::SetAdvertisedAddress(advertised_address) => {
+        config.set_advertised_address(advertised_address.clone()).await;
       }
       ConfigOption::PutKind(kind, props) => {
         config.put_kind(kind, props.clone()).await;
@@ -35,8 +35,8 @@ impl ConfigOption {
     ConfigOption::SetPort(port)
   }
 
-  pub fn with_advertised_host(advertised_host: &str) -> ConfigOption {
-    ConfigOption::SetAdvertisedHost(advertised_host.to_string())
+  pub fn with_advertised_address(advertised_address: &str) -> ConfigOption {
+    ConfigOption::SetAdvertisedAddress(advertised_address.to_string())
   }
 
   pub fn with_kind(kind: &str, props: Props) -> ConfigOption {
