@@ -96,6 +96,7 @@
 - [x] プロジェクトリードへのレビュー依頼送付（@maintainers） — タイムライン共有、2025-09-24 14:30 JST に承認。
 - [x] Driver がレビュー期間と締切を通知（Slack #remote-dev、および Issue コメント） — テンプレート文面を用いアナウンス済み。
 - [x] Definition of Ready チェックリストの担当分担を決定 — @remote-architecture（責務分担図）、@net-rs（ストリーム/チャネル仕様確認）、@qa-rs（テストケース整備）、Driver(@j5ik2o) が総括。
+- [x] 実装確認レビュー — `remote/src/endpoint_manager.rs` と `remote/src/endpoint_reader.rs` の更新、`client_connection_registers_and_receives_disconnect` テストで検証済み（2025-09-24）。
 
 ## 実装タスク切り出しメモ
 - `remote/src/endpoint_reader.rs`: `on_connect_request` から EndpointManager へチャネル移譲するロジックを追加（protoactor-go `handleInboundConnection` 相当）。
@@ -125,6 +126,16 @@
 - **#deadletter-payload**: DeadLetter イベントのペイロードは go 実装と同一（PID, Message, Sender のみ）に限定し、追加メタデータは付与しない。
 - **#reconnect-policy**: 再接続リトライは go 実装と同じく `MaxRetryCount=5` と `リトライ間隔=2秒固定` を現状維持。指数バックオフ導入は将来の改善タスクとして切り出す。
 - **#priority-channel**: Watch/Terminate を優先するため、go と同様に EndpointWatcher へのシリアル配送を維持し、追加レーンや優先度キューは導入しない。
+
+## 実装結果（2025-09-24）
+- `EndpointManager` にクライアントレスポンス用マップと `send_to_client` API を追加し、`ClientConnection` ストリームのライフサイクルを Rust 実装で再現。
+- `EndpointReader::on_connect_request` で EndpointManager 登録／切断時の解除を行うよう改修。
+- `remote/src/tests.rs::client_connection_registers_and_receives_disconnect` を追加し、ConnectResponse→DisconnectRequest の往復を結合テストで検証。
+- プロトタイプリソース：`remote/src/endpoint_manager.rs`、`remote/src/endpoint_reader.rs`、`remote/src/endpoint_reader/tests.rs`、`remote/src/tests.rs`。
+
+### Follow-up
+- Phase 1.5-2 以降（backpressure / 再接続）の仕様は未着手。次フェーズとして `EndpointWriter` の再接続ポリシー整備と backpressure テストを起票する。
+
 
 ## レビュー依頼テンプレート
 ```

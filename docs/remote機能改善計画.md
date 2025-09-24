@@ -23,6 +23,7 @@
 - `feat(core): ProcessRegistryにプロセス一覧と取得のAPIを追加` でリモートモジュールが参照する基盤 API が整備された。
 - `chore: mcp_serenaツールの設定とregex依存関係を追加` によりドキュメント更新や将来の自動化タスクを支援するツールセットが整備済み。
 - Phase 1 の成果物に対するテスト（EndpointReader 分離テスト）が追加され、診断 RPC とクライアント接続ハンドシェイクの回帰リスクを低減している。
+- Phase 1.5-1 に該当する `ClientConnection` ストリームの EndpointManager 移譲を実装し、`client_connection_registers_and_receives_disconnect` テストで Connect/Disconnect パスを検証済み（2025-09-24）。
 
 ## タスク一覧
 
@@ -40,7 +41,7 @@
 
 | サブタスク | 状況 | メモ |
 |-------------|------|------|
-| 1.5-1. EndpointManager 連携設計 | READY FOR IMPLEMENTATION | `EndpointReader` から `EndpointManager` へ `ClientConnection` を移譲する責務分割を RFC 化。protoactor-go の `remoteEndpointManager` と比較して必要なラッパー層を洗い出す。Issue: `docs/issues/phase1_5_endpoint_stream.md`（レビュー完了、DoR 担当割り当てと実装タスク切り出しメモを反映）。 |
+| 1.5-1. EndpointManager 連携設計 | DONE | `EndpointReader` から `EndpointManager` へ `ClientConnection` を移譲する責務分割を実装。`send_to_client` API 追加と登録/解除処理を整備し、`client_connection_registers_and_receives_disconnect` テストで検証済み。Issue: `docs/issues/phase1_5_endpoint_stream.md`。 |
 | 1.5-2. backpressure / 所有権モデル決定 | TODO | `tokio::sync::mpsc` のバッファサイズ・再送戦略・DeadLetter 方針を定義。`RemoteDeliver`/`RemoteTerminate` の優先度差や公平性も検討。 |
 | 1.5-3. 再接続・エラー制御ポリシー策定 | TODO | gRPC ストリーム切断時の再試行間隔、最大リトライ回数、回線復旧通知イベントの扱いを決定。protoactor-go の指数バックオフ設定をベースに Rust のタイマーへ落とし込む。 |
 | 1.5-4. 統合テストプラン作成 | TODO | `Remote::start` を利用したエンドツーエンドテストのシナリオ（接続確立/切断/再接続/DeadLetter搬送）を整理し、必要なテストフィクスチャとモックを定義する。 |
@@ -56,9 +57,9 @@
   - ブロックリスト連携も同時に行う（未許可システム ID は拒否）。
 
 #### 次のステップ（2025-09-24 更新）
-- `EndpointManager::handle_client_connection`（仮称）を追加し、`EndpointReader` からのチャネル移譲を一本化する実装方針を RFC 化する。
-- RemoteWatch/Terminate、RemoteDeliver のストリームを `tokio::sync::mpsc` で転送する場合の backpressure 設計を決定する。
-- 双方向ストリーム再接続時のリトライ／タイムアウト戦略を protoactor-go の `remoteEndpointManager.reconnectToEndpoint` に合わせて検討する。
+- RemoteWatch/Terminate、RemoteDeliver のストリームを `tokio::sync::mpsc` で転送する場合の backpressure 設計を決定する（Phase 1.5-2）。
+- 双方向ストリーム再接続時のリトライ／タイムアウト戦略を protoactor-go の `remoteEndpointManager.reconnectToEndpoint` に合わせて検討する（Phase 1.5-3）。
+- EndpointWriter 連携テストの設計と、DeadLetter 回避策の評価を進める。
 
 #### 設計観点メモ
 - protoactor-go では `endpointManager` が `endpointReader` から受け取った `remoteEndpoint` を `endpointSupervisor` 経由で監視し、`remote.EndpointState` に再接続制御ロジックを集約している。Rust 実装でも `EndpointState` 相当のステートマシンを導入し、責務を `EndpointReader` から切り離す。
@@ -135,7 +136,7 @@
 
 ## 次のアクション
 
-1. Phase 1.5（双方向ストリーム管理）の実装タスクを開始し、`endpoint_reader.rs`／`endpoint_manager.rs`／`endpoint_writer.rs` の更新と統合テスト追加を進める。DoR 担当（@remote-architecture, @net-rs, @qa-rs, @j5ik2o）と連携し、パリティ維持を確認しながら進行。
-2. `remote` クレート用の結合テスト環境（`Remote::start` を利用した gRPC エンドツーエンド検証）を整備し、診断 RPC の回帰テストをリグレッションスイートに組み込む。
-3. EndpointManager 連携のモックとベンチマークシナリオを作成し、backpressure と再接続挙動の観測ポイントを決める。
-4. 設計レビューで承認された方針に従い、双方向ストリーム実装を開始し、本計画を随時更新する。
+1. Phase 1.5-2（backpressure / 所有権モデル）に着手し、`EndpointWriter`／`EndpointManager` のキュー設計と DeadLetter 方針を具体化する。
+2. 再接続ポリシー（Phase 1.5-3）の検証用シナリオを設計し、`EndpointWriter` のリトライ挙動をテストで再現する。
+3. `Remote::start` を利用した結合テスト環境を整備し、ClientConnection/Echo/Disconnect を含む回帰テストをスイート化する。
+4. Phase 1.5 完了レポートをまとめ、Phase 2 へ移行するための残課題（TLS、BlockList API 公開など）を棚卸しする。
