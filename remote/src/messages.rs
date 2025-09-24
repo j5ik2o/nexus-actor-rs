@@ -11,6 +11,8 @@ use nexus_actor_core_rs::Message;
 use std::collections::HashMap;
 use std::hash::{DefaultHasher, Hash, Hasher};
 
+use serde::{Deserialize, Serialize};
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct EndpointTerminatedEvent {
   pub address: String,
@@ -88,7 +90,7 @@ pub struct EndpointReconnectEvent {
   pub success: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Message, Serialize, Deserialize)]
 pub struct JsonMessage {
   pub type_name: String,
   pub json: String,
@@ -197,6 +199,30 @@ impl Hash for ConnectResponse {
 
 impl Hash for DisconnectRequest {
   fn hash<H: Hasher>(&self, _: &mut H) {}
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::serializer::{
+    deserialize_any, initialize_json_serializers, serialize_any, AnyDowncastExt, SerializerError, SerializerId,
+  };
+
+  #[test]
+  fn json_message_roundtrip_via_json_serializer() -> Result<(), SerializerError> {
+    initialize_json_serializers::<JsonMessage>()?;
+    let message = JsonMessage {
+      type_name: "example.Type".to_string(),
+      json: "{\"key\":\"value\"}".to_string(),
+    };
+
+    let type_name = std::any::type_name::<JsonMessage>();
+    let bytes = serialize_any(&message, &SerializerId::Json, type_name)?;
+    let deserialized = deserialize_any(&bytes, &SerializerId::Json, type_name)?;
+    let recovered = deserialized.downcast_arc::<JsonMessage>().expect("type mismatch");
+    assert_eq!(recovered.as_ref(), &message);
+    Ok(())
+  }
 }
 
 impl Hash for MessageType {
