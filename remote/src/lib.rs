@@ -13,6 +13,7 @@ mod endpoint_writer;
 mod endpoint_writer_mailbox;
 mod generated;
 mod messages;
+mod message_decoder;
 mod remote;
 mod remote_process;
 mod response_status_code;
