@@ -129,7 +129,7 @@
 | フェーズ | 期間目安 | 主なアウトプット |
 |----------|----------|--------------------|
 | Phase 1  | 1週間    | ClientConnection 実装 + 診断 RPC | 
-| Phase 2  | 1週間    | ConfigOption/TLS 対応 + BlockList 公開 API |
+| Phase 2  | 1週間    | ConfigOption 拡張 + BlockList 公開 API（TLS は当面扱わない） |
 | Phase 3  | 1週間    | EndpointWriter 改修 + メトリクス + ドキュメント更新 |
 
 (優先順位や期間はリソースに応じて調整)

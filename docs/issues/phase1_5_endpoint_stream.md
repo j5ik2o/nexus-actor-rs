@@ -103,6 +103,7 @@ end note
 - **MUST** バッチ処理: `poll_user_mailbox` が `batch_size = Config::get_endpoint_writer_batch_size()` 件を `poll_many` で取得し、
   バッチ内の最初のメッセージから宛先アドレスを抽出して統計を更新。Watch/Terminate は従来通り system メールボックス経由で優先処理。
 - **MUST** DeadLetter 発生時は `EndpointManager` に DeadLetter 件数を加算し、`RemoteDeliver` で送信元 PID があれば `DeadLetterResponse` を返す。
+- **MUST** EndpointWriter での Deliver 成功／失敗、および再接続試行回数を `EndpointStatistics` に反映し、必要に応じて `EndpointReconnectEvent` を EventStream へ発火する。
 
 #### Backpressure 仕様詳細（2025-09-24 時点）
 - **MUST** 設定値を次の既定値で公開し、`ConfigOption` で上書き可能とする。
@@ -231,6 +232,7 @@ end note
 ### Follow-up
 - **SHOULD** Phase 1.5-2 で `ReconnectPolicy` / `Heartbeat` や backpressure シグナルの仕様を確定し、今回追加した統計を活用した監視／メトリクス連携を整備する。
 - **SHOULD** Drain シナリオやベンチマークを整えることで、batch_size / queue_size のチューニング指針を策定する。
+- **MUST NOT** Phase 2 では TLS 対応を実施しない（当面は LAN 内クラスタ運用を想定し、非暗号化チャネルで運用）。
 
 
 ## Phase 1.5-2 設計ドラフト（2025-09-24 着手）
