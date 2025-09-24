@@ -288,19 +288,22 @@ impl Mailbox for EndpointWriterMailbox {
   }
 
   async fn process_messages(&self) {
-    self.has_more_messages.store(0, std::sync::atomic::Ordering::SeqCst);
+    self.has_more_messages.store(0, Ordering::SeqCst);
     loop {
+      // Mirror protoactor-go/remote/endpoint_writer_mailbox.go::processMessages control flow.
       self.run().await;
-      self.scheduler_status.store(false, std::sync::atomic::Ordering::SeqCst);
-      let has_more = self.has_more_messages.swap(0, std::sync::atomic::Ordering::SeqCst) == 1;
-      if !has_more
-        && self
+      self.scheduler_status.store(false, Ordering::SeqCst);
+      let has_more = self.has_more_messages.swap(0, Ordering::SeqCst) == 1;
+      if has_more {
+        if self
           .scheduler_status
           .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
-          .is_err()
-      {
-        break;
+          .is_ok()
+        {
+          continue;
+        }
       }
+      break;
     }
   }
 
