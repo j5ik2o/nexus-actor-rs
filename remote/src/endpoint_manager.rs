@@ -1,12 +1,15 @@
 use crate::activator_actor::Activator;
 use crate::endpoint::Endpoint;
 use crate::endpoint_lazy::EndpointLazy;
+use crate::endpoint_state::{ConnectionState, EndpointState, EndpointStateHandle, HeartbeatConfig, ReconnectPolicy};
 use crate::endpoint_supervisor::EndpointSupervisor;
 use crate::generated::remote::RemoteMessage;
 use crate::messages::{
-  EndpointEvent, EndpointTerminatedEvent, Ping, Pong, RemoteDeliver, RemoteTerminate, RemoteUnwatch, RemoteWatch,
+  BackpressureLevel, EndpointEvent, EndpointTerminatedEvent, EndpointThrottledEvent, Ping, Pong, RemoteDeliver,
+  RemoteTerminate, RemoteUnwatch, RemoteWatch,
 };
 use crate::remote::Remote;
+use dashmap::mapref::entry::Entry;
 use dashmap::DashMap;
 use nexus_actor_core_rs::actor::actor_system::ActorSystem;
 use nexus_actor_core_rs::actor::context::{SenderPart, SpawnerPart, StopperPart};
@@ -20,12 +23,13 @@ use nexus_actor_core_rs::generated::actor::Pid;
 use nexus_actor_utils_rs::collections::DashMapExtension;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
-use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicU8, AtomicUsize, Ordering};
 use std::sync::{Arc, Weak};
 use std::time::Duration;
 use thiserror::Error;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::{mpsc, Mutex};
+use tokio::time::sleep;
 use tonic::{Request, Status, Streaming};
 
 type ClientResponseSender = Sender<Result<RemoteMessage, Status>>;
@@ -74,6 +78,7 @@ pub struct EndpointStatistics {
   queue_capacity: AtomicUsize,
   queue_size: AtomicUsize,
   dead_letters: AtomicU64,
+  backpressure_level: AtomicU8,
 }
 
 impl EndpointStatistics {
@@ -82,6 +87,7 @@ impl EndpointStatistics {
       queue_capacity: AtomicUsize::new(0),
       queue_size: AtomicUsize::new(0),
       dead_letters: AtomicU64::new(0),
+      backpressure_level: AtomicU8::new(BackpressureLevel::Normal as u8),
     }
   }
 
@@ -90,6 +96,7 @@ impl EndpointStatistics {
       queue_capacity: self.queue_capacity.load(Ordering::SeqCst),
       queue_size: self.queue_size.load(Ordering::SeqCst),
       dead_letters: self.dead_letters.load(Ordering::SeqCst),
+      backpressure_level: BackpressureLevel::from_u8(self.backpressure_level.load(Ordering::SeqCst)),
     }
   }
 }
@@ -99,6 +106,7 @@ pub struct EndpointStatisticsSnapshot {
   pub queue_capacity: usize,
   pub queue_size: usize,
   pub dead_letters: u64,
+  pub backpressure_level: BackpressureLevel,
 }
 
 #[derive(Debug, Clone)]
@@ -114,6 +122,7 @@ pub(crate) struct EndpointManager {
   client_connections: Arc<DashMap<String, ClientResponseSender>>,
   client_connection_keys: Arc<DashMap<RequestKeyWrapper, String>>,
   endpoint_stats: Arc<DashMap<String, Arc<EndpointStatistics>>>,
+  endpoint_states: Arc<DashMap<String, EndpointStateHandle>>,
 }
 
 impl EndpointManager {
@@ -129,6 +138,7 @@ impl EndpointManager {
       client_connections: Arc::new(DashMap::new()),
       client_connection_keys: Arc::new(DashMap::new()),
       endpoint_stats: Arc::new(DashMap::new()),
+      endpoint_states: Arc::new(DashMap::new()),
     }
   }
 
@@ -140,10 +150,17 @@ impl EndpointManager {
       .clone()
   }
 
-  pub(crate) fn record_queue_state(&self, address: &str, capacity: usize, len: usize) {
+  pub(crate) async fn record_queue_state(&self, address: &str, capacity: usize, len: usize) {
     let stats = self.stats_entry(address);
     stats.queue_capacity.store(capacity, Ordering::SeqCst);
     stats.queue_size.store(len, Ordering::SeqCst);
+
+    let level = self.determine_backpressure_level(address, capacity, len).await;
+    let previous = BackpressureLevel::from_u8(stats.backpressure_level.swap(level as u8, Ordering::SeqCst));
+
+    if previous != level {
+      self.publish_backpressure_event(address, level).await;
+    }
   }
 
   pub(crate) fn increment_dead_letter(&self, address: &str) {
@@ -157,6 +174,119 @@ impl EndpointManager {
 
   pub fn statistics_snapshot(&self, address: &str) -> Option<EndpointStatisticsSnapshot> {
     self.endpoint_stats.get(address).map(|entry| entry.value().snapshot())
+  }
+
+  async fn endpoint_state(&self, address: &str) -> EndpointStateHandle {
+    if let Some(state) = self.endpoint_states.get(address) {
+      return state.value().clone();
+    }
+
+    let remote = self.get_remote().await;
+    let reconnect_policy = ReconnectPolicy::new(
+      remote.get_config().get_endpoint_reconnect_max_retries().await,
+      remote.get_config().get_endpoint_reconnect_initial_backoff().await,
+      remote.get_config().get_endpoint_reconnect_max_backoff().await,
+    );
+    let heartbeat = HeartbeatConfig::new(
+      remote.get_config().get_endpoint_heartbeat_interval().await,
+      remote.get_config().get_endpoint_heartbeat_timeout().await,
+    );
+
+    let state = Arc::new(EndpointState::new(address.to_string(), reconnect_policy, heartbeat));
+
+    match self.endpoint_states.entry(address.to_string()) {
+      Entry::Occupied(entry) => entry.get().clone(),
+      Entry::Vacant(entry) => {
+        entry.insert(state.clone());
+        state
+      }
+    }
+  }
+
+  pub(crate) async fn update_connection_state(&self, address: &str, new_state: ConnectionState) {
+    let state = self.endpoint_state(address).await;
+    state.set_connection_state(new_state);
+    if matches!(new_state, ConnectionState::Connected) {
+      state.reset_retries();
+    }
+  }
+
+  pub(crate) fn remove_endpoint_state(&self, address: &str) {
+    self.endpoint_states.remove(address);
+  }
+
+  pub(crate) async fn schedule_reconnect(&self, address: String) {
+    let state = self.endpoint_state(&address).await;
+    state.set_connection_state(ConnectionState::Reconnecting);
+    let attempt = state.record_retry_attempt();
+    let delay = state.compute_backoff_delay(attempt);
+
+    if state.has_exceeded_retries() {
+      tracing::warn!(
+        address = %address,
+        retries = attempt,
+        "Reached maximum reconnect attempts; leaving endpoint closed"
+      );
+      state.set_connection_state(ConnectionState::Closed);
+      return;
+    }
+
+    tracing::info!(
+      address = %address,
+      attempt,
+      ?delay,
+      "Scheduling reconnect attempt"
+    );
+
+    let manager = self.clone();
+    tokio::spawn(async move {
+      sleep(delay).await;
+      tracing::debug!(address = %address, "Reconnect placeholder executed (implementation pending)");
+      // TODO: implement actual reconnection handshake in Phase 1.5-2 follow-up.
+      let _ = manager;
+    });
+  }
+
+  async fn determine_backpressure_level(&self, address: &str, capacity: usize, len: usize) -> BackpressureLevel {
+    if capacity == 0 {
+      return BackpressureLevel::Normal;
+    }
+
+    let ratio = len as f64 / capacity as f64;
+    let remote = self.get_remote().await;
+    let warning = remote.get_config().get_backpressure_warning_threshold().await;
+    let critical = remote.get_config().get_backpressure_critical_threshold().await;
+
+    let (warning, critical) = if warning >= critical {
+      (critical.min(0.8), critical.max(0.9))
+    } else {
+      (warning, critical)
+    };
+
+    if ratio >= critical {
+      BackpressureLevel::Critical
+    } else if ratio >= warning {
+      BackpressureLevel::Warning
+    } else {
+      BackpressureLevel::Normal
+    }
+  }
+
+  async fn publish_backpressure_event(&self, address: &str, level: BackpressureLevel) {
+    let actor_system = match self.remote.upgrade() {
+      Some(remote) => remote.get_actor_system().clone(),
+      None => return,
+    };
+    let event = EndpointThrottledEvent {
+      address: address.to_string(),
+      level: level as i32,
+    };
+
+    actor_system
+      .get_event_stream()
+      .await
+      .publish(MessageHandle::new(event))
+      .await;
   }
 
   pub async fn get_endpoint_supervisor(&self) -> Pid {
@@ -260,6 +390,7 @@ impl EndpointManager {
     self.connections = Arc::new(DashMap::new());
     self.client_connections.clear();
     self.client_connection_keys.clear();
+    self.endpoint_states.clear();
     for value_ref in self.endpoint_reader_connections.iter() {
       let (key, value) = value_ref.pair();
       let sender = {
@@ -463,9 +594,15 @@ impl EndpointManager {
       None => {
         let el = EndpointLazy::new(self.clone(), address);
         let (el2, _) = self.connections.load_or_store(address.to_string(), el);
-        el2.get().await.expect("Endpoint is not found").clone()
+        let endpoint = el2.get().await.expect("Endpoint is not found").clone();
+        self.update_connection_state(address, ConnectionState::Connected).await;
+        endpoint
       }
-      Some(v) => v.get().await.expect("Endpoint is not found").clone(),
+      Some(v) => {
+        let endpoint = v.get().await.expect("Endpoint is not found").clone();
+        self.update_connection_state(address, ConnectionState::Connected).await;
+        endpoint
+      }
     }
   }
 
@@ -503,6 +640,7 @@ impl EndpointManager {
           .await;
       }
     }
+    self.remove_endpoint_state(&message.address);
   }
 
   pub(crate) async fn get_actor_system(&self) -> ActorSystem {
@@ -565,6 +703,7 @@ mod tests {
   use nexus_actor_core_rs::actor::actor_system::ActorSystem;
   use nexus_actor_core_rs::generated::actor::Pid;
   use std::sync::Arc;
+  use std::time::Duration;
 
   #[tokio::test]
   async fn endpoint_manager_internal_setters_are_exercised() {
@@ -604,7 +743,7 @@ mod tests {
     let remote = Arc::new(Remote::new(actor_system, Config::default()).await);
     let manager = EndpointManager::new(Arc::downgrade(&remote));
 
-    manager.record_queue_state("endpoint-A", 10, 3);
+    manager.record_queue_state("endpoint-A", 10, 3).await;
     manager.increment_dead_letter("endpoint-A");
 
     let snapshot = manager
@@ -613,9 +752,78 @@ mod tests {
     assert_eq!(snapshot.queue_capacity, 10);
     assert_eq!(snapshot.queue_size, 3);
     assert_eq!(snapshot.dead_letters, 1);
+    assert_eq!(snapshot.backpressure_level, BackpressureLevel::Normal);
 
     manager.remove_statistics("endpoint-A");
     assert!(manager.statistics_snapshot("endpoint-A").is_none());
+  }
+
+  #[tokio::test]
+  async fn endpoint_state_lifecycle() {
+    let actor_system = ActorSystem::new().await.expect("actor system");
+    let remote = Arc::new(Remote::new(actor_system, Config::default()).await);
+    let manager = EndpointManager::new(Arc::downgrade(&remote));
+
+    let state = manager.endpoint_state("endpoint-B").await;
+    assert_eq!(state.address(), "endpoint-B");
+    assert_eq!(state.connection_state(), ConnectionState::Suspended);
+    assert_eq!(state.reconnect_policy().max_retries(), 5);
+    assert_eq!(state.reconnect_policy().initial_backoff(), Duration::from_millis(200));
+    assert_eq!(state.reconnect_policy().max_backoff(), Duration::from_secs(5));
+
+    manager
+      .update_connection_state("endpoint-B", ConnectionState::Connected)
+      .await;
+    assert_eq!(state.connection_state(), ConnectionState::Connected);
+    assert_eq!(state.retries(), 0);
+
+    manager.schedule_reconnect("endpoint-B".to_string()).await;
+    assert_eq!(state.connection_state(), ConnectionState::Reconnecting);
+    assert_eq!(state.retries(), 1);
+
+    manager.remove_endpoint_state("endpoint-B");
+    assert!(manager.endpoint_states.get("endpoint-B").is_none());
+  }
+
+  #[tokio::test]
+  async fn endpoint_backpressure_event_emitted() {
+    let actor_system = ActorSystem::new().await.expect("actor system");
+    let remote = Arc::new(Remote::new(actor_system.clone(), Config::default()).await);
+    let manager = EndpointManager::new(Arc::downgrade(&remote));
+
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let subscription = actor_system
+      .get_event_stream()
+      .await
+      .subscribe({
+        let events = events.clone();
+        move |message: MessageHandle| {
+          let events = events.clone();
+          async move {
+            if let Some(event) = message.to_typed::<EndpointThrottledEvent>() {
+              events.lock().await.push(event);
+            }
+          }
+        }
+      })
+      .await;
+
+    manager.record_queue_state("endpoint-C", 10, 9).await;
+
+    tokio::time::sleep(Duration::from_millis(10)).await;
+
+    let events_guard = events.lock().await;
+    assert_eq!(events_guard.len(), 1);
+    assert_eq!(events_guard[0].address, "endpoint-C");
+    assert_eq!(events_guard[0].level, BackpressureLevel::Critical as i32);
+    drop(events_guard);
+
+    actor_system.get_event_stream().await.unsubscribe(subscription).await;
+
+    let snapshot = manager
+      .statistics_snapshot("endpoint-C")
+      .expect("snapshot should exist");
+    assert_eq!(snapshot.backpressure_level, BackpressureLevel::Critical);
   }
 }
 

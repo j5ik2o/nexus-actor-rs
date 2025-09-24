@@ -8,6 +8,7 @@ mod endpoint;
 mod endpoint_lazy;
 mod endpoint_manager;
 mod endpoint_reader;
+mod endpoint_state;
 mod endpoint_supervisor;
 mod endpoint_watcher;
 mod endpoint_writer;

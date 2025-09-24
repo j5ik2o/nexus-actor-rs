@@ -21,6 +21,23 @@ pub struct EndpointConnectedEvent {
   pub address: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BackpressureLevel {
+  Normal = 0,
+  Warning = 1,
+  Critical = 2,
+}
+
+impl BackpressureLevel {
+  pub fn from_u8(value: u8) -> BackpressureLevel {
+    match value {
+      1 => BackpressureLevel::Warning,
+      2 => BackpressureLevel::Critical,
+      _ => BackpressureLevel::Normal,
+    }
+  }
+}
+
 #[derive(Debug, Clone, PartialEq, Message)]
 pub enum EndpointEvent {
   EndpointTerminated(EndpointTerminatedEvent),
@@ -56,6 +73,12 @@ pub struct RemoteDeliver {
   pub target: Pid,
   pub sender: Option<Pid>,
   pub serializer_id: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Message)]
+pub struct EndpointThrottledEvent {
+  pub address: String,
+  pub level: i32,
 }
 
 #[derive(Debug, Clone)]
