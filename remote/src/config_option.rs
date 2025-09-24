@@ -7,6 +7,8 @@ pub enum ConfigOption {
   SetPort(u16),
   SetAdvertisedAddress(String),
   PutKind(String, Props),
+  SetEndpointWriterBatchSize(usize),
+  SetEndpointWriterQueueSize(usize),
 }
 
 impl ConfigOption {
@@ -23,6 +25,12 @@ impl ConfigOption {
       }
       ConfigOption::PutKind(kind, props) => {
         config.put_kind(kind, props.clone()).await;
+      }
+      ConfigOption::SetEndpointWriterBatchSize(batch_size) => {
+        config.set_endpoint_writer_batch_size(*batch_size).await;
+      }
+      ConfigOption::SetEndpointWriterQueueSize(queue_size) => {
+        config.set_endpoint_writer_queue_size(*queue_size).await;
       }
     }
   }
@@ -41,5 +49,13 @@ impl ConfigOption {
 
   pub fn with_kind(kind: &str, props: Props) -> ConfigOption {
     ConfigOption::PutKind(kind.to_string(), props)
+  }
+
+  pub fn with_endpoint_writer_batch_size(batch_size: usize) -> ConfigOption {
+    ConfigOption::SetEndpointWriterBatchSize(batch_size)
+  }
+
+  pub fn with_endpoint_writer_queue_size(queue_size: usize) -> ConfigOption {
+    ConfigOption::SetEndpointWriterQueueSize(queue_size)
   }
 }
