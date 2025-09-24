@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package hello;
+
+option go_package = "github.com/asynkron/protoactor-go/protoc-gen-go-grain/testdata/hello";
+
+enum ErrorReason {
+  USER_NOT_FOUND = 0;
+  CONTENT_MISSING = 1;
+}
