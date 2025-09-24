@@ -18,6 +18,13 @@
    - 既存の `remote/src/remote/tests.rs` を拡張し、主要シナリオを網羅する。
 
 ## 最新進捗（2025-09-24）
+## 最新進捗（2025-09-24 更新）
+
+- 再接続ポリシーの基盤整備（EndpointState, Config 拡張）と Backpressure 統計・シグナルの追加を Phase 1.5-1 の成果として反映済み。
+- `EndpointWriterMailbox` の固定長キュー化と DeadLetter / 統計連携テスト( `client_connection_backpressure_overflow` )を追加。
+- `EndpointThrottledEvent` を EventStream に発火できるようになり、Backpressure 状態を監視可能。
+- Remote API に `get_endpoint_statistics` を追加（テスト・診断コードから利用可能）。
+
 
 - `feat(remote): ListProcessesとGetProcessDiagnosticsのRPCを実装` により診断系 RPC が Rust 版でも利用可能になった。
 - `feat(core): ProcessRegistryにプロセス一覧と取得のAPIを追加` でリモートモジュールが参照する基盤 API が整備された。
