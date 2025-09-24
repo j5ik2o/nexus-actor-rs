@@ -56,4 +56,4 @@ humantime = "2.1"
 rstest = "0.26.0"
 
 [build-dependencies]
-tonic-build = { version = "0.13.0" }
+tonic-build = { version = "0.14.2" }
