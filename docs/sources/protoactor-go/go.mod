@@ -31,7 +31,7 @@ require (
 	github.com/lithammer/shortuuid/v4 v4.0.0
 	github.com/twmb/murmur3 v1.1.8
 	go.etcd.io/etcd/client/v3 v3.5.10
-	golang.org/x/exp v0.0.0-20231110203233-9a3e6036ecaa
+	golang.org/x/exp df9299821621
 	golang.org/x/sync v0.12.0
 	k8s.io/api v0.28.4
 	k8s.io/apimachinery v0.28.4
