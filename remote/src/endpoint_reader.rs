@@ -1,6 +1,6 @@
 use nexus_actor_core_rs::actor::actor_system::ActorSystem;
 use nexus_actor_core_rs::actor::context::SenderPart;
-use nexus_actor_core_rs::actor::core::ExtendedPid;
+use nexus_actor_core_rs::actor::core::{ActorProcess, ExtendedPid};
 use nexus_actor_core_rs::actor::message::{MessageEnvelope, MessageHandle, MessageHeaders};
 use nexus_actor_core_rs::actor::process::Process;
 use nexus_actor_core_rs::generated::actor::Pid;
@@ -10,13 +10,14 @@ use crate::generated::remote;
 use crate::generated::remote::connect_request::ConnectionType;
 use crate::generated::remote::remoting_server::Remoting;
 use crate::generated::remote::{
-  ConnectRequest, GetProcessDiagnosticsRequest, GetProcessDiagnosticsResponse, ListProcessesRequest,
-  ListProcessesResponse, MessageBatch, RemoteMessage, ServerConnection,
+  ClientConnection, ConnectRequest, GetProcessDiagnosticsRequest, GetProcessDiagnosticsResponse,
+  ListProcessesMatchType, ListProcessesRequest, ListProcessesResponse, MessageBatch, RemoteMessage, ServerConnection,
 };
 use crate::message_decoder::{decode_wire_message, DecodedMessage};
 use crate::messages::RemoteTerminate;
 use crate::remote::Remote;
 use crate::serializer::SerializerId;
+use regex::Regex;
 use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Weak};
@@ -60,9 +61,8 @@ impl EndpointReader {
       Some(ConnectionType::ServerConnection(sc)) => {
         self.on_server_connection(response_tx, sc).await;
       }
-      Some(ConnectionType::ClientConnection(_)) => {
-        // TODO: implement me
-        tracing::error!("ClientConnection not implemented");
+      Some(ConnectionType::ClientConnection(cc)) => {
+        self.on_client_connection(response_tx, cc).await;
       }
       _ => {
         tracing::warn!("Received unknown connection type");
@@ -82,44 +82,62 @@ impl EndpointReader {
   }
 
   async fn on_server_connection(&self, response_tx: &Sender<Result<RemoteMessage, Status>>, sc: &ServerConnection) {
-    if self
+    let blocked = self
       .remote
       .upgrade()
       .expect("Remote has been dropped")
       .get_block_list()
       .is_blocked(&sc.system_id)
-      .await
-    {
+      .await;
+
+    if blocked {
       tracing::debug!("EndpointReader blocked connection from {}", sc.system_id);
-      if let Err(e) = response_tx
-        .send(Ok(RemoteMessage {
-          message_type: Some(remote::remote_message::MessageType::ConnectResponse(
-            remote::ConnectResponse {
-              blocked: true,
-              member_id: sc.system_id.clone(),
-            },
-          )),
-        }))
-        .await
-      {
-        tracing::error!("EndpointReader failed to send ConnectResponse message: {}", e);
-      }
     } else {
       tracing::debug!("EndpointReader accepted connection from {}", sc.system_id);
-      if let Err(e) = response_tx
-        .send(Ok(RemoteMessage {
-          message_type: Some(remote::remote_message::MessageType::ConnectResponse(
-            remote::ConnectResponse {
-              blocked: false,
-              member_id: sc.system_id.clone(),
-            },
-          )),
-        }))
-        .await
-      {
-        tracing::error!("EndpointReader failed to send ConnectResponse message: {}", e);
-      }
     }
+
+    if let Err(e) = self.send_connect_response(response_tx, &sc.system_id, blocked).await {
+      tracing::error!("EndpointReader failed to send ConnectResponse message: {}", e);
+    }
+  }
+
+  async fn on_client_connection(&self, response_tx: &Sender<Result<RemoteMessage, Status>>, cc: &ClientConnection) {
+    let blocked = self
+      .remote
+      .upgrade()
+      .expect("Remote has been dropped")
+      .get_block_list()
+      .is_blocked(&cc.system_id)
+      .await;
+
+    if blocked {
+      tracing::debug!("EndpointReader blocked client connection from {}", cc.system_id);
+    } else {
+      tracing::debug!("EndpointReader accepted client connection from {}", cc.system_id);
+    }
+
+    if let Err(e) = self.send_connect_response(response_tx, &cc.system_id, blocked).await {
+      tracing::error!("EndpointReader failed to send client ConnectResponse message: {}", e);
+    }
+  }
+
+  async fn send_connect_response(
+    &self,
+    response_tx: &Sender<Result<RemoteMessage, Status>>,
+    system_id: &str,
+    blocked: bool,
+  ) -> Result<(), Status> {
+    response_tx
+      .send(Ok(RemoteMessage {
+        message_type: Some(remote::remote_message::MessageType::ConnectResponse(
+          remote::ConnectResponse {
+            blocked,
+            member_id: system_id.to_string(),
+          },
+        )),
+      }))
+      .await
+      .map_err(|e| Status::internal(format!("failed to send connect response: {}", e)))
   }
 
   async fn on_message_batch(&self, message_batch: &MessageBatch) -> Result<(), EndpointReaderError> {
@@ -273,6 +291,9 @@ fn deserialize_target(pid: &mut Pid, index: i32, request_id: u32, arr: &[Pid]) -
   }
 }
 
+#[cfg(test)]
+mod tests;
+
 #[tonic::async_trait]
 impl Remoting for EndpointReader {
   type ReceiveStream = Pin<Box<dyn Stream<Item = Result<RemoteMessage, Status>> + Send>>;
@@ -376,14 +397,71 @@ impl Remoting for EndpointReader {
     Ok(Response::new(Box::pin(output_stream) as Self::ReceiveStream))
   }
 
-  async fn list_processes(&self, _: Request<ListProcessesRequest>) -> Result<Response<ListProcessesResponse>, Status> {
-    Err(Status::unimplemented("Method not implemented"))
+  async fn list_processes(
+    &self,
+    request: Request<ListProcessesRequest>,
+  ) -> Result<Response<ListProcessesResponse>, Status> {
+    let req = request.into_inner();
+    let match_type = ListProcessesMatchType::from_i32(req.r#type).unwrap_or(ListProcessesMatchType::MatchPartOfString);
+
+    let actor_system = self.get_actor_system().await;
+    let registry = actor_system.get_process_registry().await;
+    let all_pids = registry.list_local_pids().await;
+
+    let pattern = req.pattern;
+    let regex = if matches!(match_type, ListProcessesMatchType::MatchRegex) && !pattern.is_empty() {
+      Some(Regex::new(&pattern).map_err(|e| Status::invalid_argument(format!("invalid regex '{}': {}", pattern, e)))?)
+    } else {
+      None
+    };
+
+    let mut filtered = Vec::new();
+    for pid in all_pids {
+      let matched = if pattern.is_empty() {
+        true
+      } else {
+        match match_type {
+          ListProcessesMatchType::MatchPartOfString => pid.id.contains(&pattern),
+          ListProcessesMatchType::MatchExactString => pid.id == pattern,
+          ListProcessesMatchType::MatchRegex => regex.as_ref().expect("regex should be compiled").is_match(&pid.id),
+        }
+      };
+
+      if matched {
+        filtered.push(pid);
+      }
+    }
+
+    Ok(Response::new(ListProcessesResponse { pids: filtered }))
   }
 
   async fn get_process_diagnostics(
     &self,
-    _: Request<GetProcessDiagnosticsRequest>,
+    request: Request<GetProcessDiagnosticsRequest>,
   ) -> Result<Response<GetProcessDiagnosticsResponse>, Status> {
-    Err(Status::unimplemented("Method not implemented"))
+    let req = request.into_inner();
+    let pid = req.pid.ok_or_else(|| Status::invalid_argument("pid is required"))?;
+
+    let actor_system = self.get_actor_system().await;
+    let current_address = actor_system.get_address().await;
+    if pid.address != current_address {
+      return Err(Status::invalid_argument("pid does not belong to this node"));
+    }
+
+    let registry = actor_system.get_process_registry().await;
+    let process = registry
+      .find_local_process_handle(&pid.id)
+      .await
+      .ok_or_else(|| Status::not_found("process not found"))?;
+
+    let diagnostics = if let Some(actor_process) = process.as_any().downcast_ref::<ActorProcess>() {
+      format!("ActorProcess(dead={})", actor_process.is_dead())
+    } else {
+      "Process diagnostics not available".to_string()
+    };
+
+    Ok(Response::new(GetProcessDiagnosticsResponse {
+      diagnostics_string: diagnostics,
+    }))
   }
 }
