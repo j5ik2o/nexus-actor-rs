@@ -133,7 +133,7 @@ end note
   - 再接続系: `remote::tests::remote_await_reconnect_returns_connection_state`／`remote::tests::remote_await_reconnect_resolves_closed_after_schedule`／`endpoint_manager::tests::schedule_reconnect_successfully_restores_connection`／`remote::tests::remote_reconnect_after_server_restart` を追加し、待機 API・Supervisor モック・実 gRPC 再接続の各パスをカバー。
   - 統計 API: `endpoint_manager::tests::endpoint_manager_statistics_track_updates` で `record_queue_state` / `increment_dead_letter` の更新とクリーンアップを確認。
 - フォローアップテスト（Phase 1.5-2 以降）
-  - `remote::tests::client_connection_backpressure_drain`（SHOULD）: EndpointWriter 再開時に queue_size が減衰することを確認。
+  - `remote::tests::client_connection_backpressure_drain`（SHOULD）: EndpointWriter 再開時に queue_size が減衰することを確認。（2025-09-24 実行、パス）
   - `remote::tests::client_connection_roundtrip.rs`（仮）（SHOULD）: Watch/Terminate/Deliver の統合シナリオを検証。
 - ベンチマーク: Phase 1.5-2 で `criterion` による throughput/latency 測定を実施予定（未着手）。
 - 実行ログ: 2025-09-24 時点で `cargo test --workspace` および `cargo clippy --workspace --all-targets` を実行し、既存テストは全て成功。
