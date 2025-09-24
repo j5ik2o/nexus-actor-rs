@@ -294,14 +294,13 @@ impl Mailbox for EndpointWriterMailbox {
       self.run().await;
       self.scheduler_status.store(false, Ordering::SeqCst);
       let has_more = self.has_more_messages.swap(0, Ordering::SeqCst) == 1;
-      if has_more {
-        if self
+      if has_more
+        && self
           .scheduler_status
           .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
           .is_ok()
-        {
-          continue;
-        }
+      {
+        continue;
       }
       break;
     }

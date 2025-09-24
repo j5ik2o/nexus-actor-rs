@@ -201,6 +201,17 @@ impl Hash for DisconnectRequest {
   fn hash<H: Hasher>(&self, _: &mut H) {}
 }
 
+impl Hash for MessageType {
+  fn hash<H: Hasher>(&self, state: &mut H) {
+    match self {
+      MessageType::MessageBatch(m) => m.hash(state),
+      MessageType::ConnectRequest(m) => m.hash(state),
+      MessageType::ConnectResponse(m) => m.hash(state),
+      MessageType::DisconnectRequest(m) => m.hash(state),
+    }
+  }
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -222,16 +233,5 @@ mod tests {
     let recovered = deserialized.downcast_arc::<JsonMessage>().expect("type mismatch");
     assert_eq!(recovered.as_ref(), &message);
     Ok(())
-  }
-}
-
-impl Hash for MessageType {
-  fn hash<H: Hasher>(&self, state: &mut H) {
-    match self {
-      MessageType::MessageBatch(m) => m.hash(state),
-      MessageType::ConnectRequest(m) => m.hash(state),
-      MessageType::ConnectResponse(m) => m.hash(state),
-      MessageType::DisconnectRequest(m) => m.hash(state),
-    }
   }
 }

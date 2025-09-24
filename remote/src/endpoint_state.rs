@@ -154,7 +154,6 @@ impl EndpointState {
   /// This mirrors protoactor-go where the retry counter is incremented before
   /// scheduling the attempt. The current retry count therefore maps directly
   /// to the attempt number whose delay we need to compute.
-
   pub fn next_backoff_delay(&self) -> Duration {
     let attempts = self.retries().max(1);
     self.compute_backoff_delay(attempts)
