@@ -1,7 +1,7 @@
 use nexus_actor_core_rs::actor::actor_system::ActorSystem;
 use nexus_actor_core_rs::actor::context::SenderPart;
 use nexus_actor_core_rs::actor::core::ExtendedPid;
-use nexus_actor_core_rs::actor::message::{MessageEnvelope, MessageHandle, MessageHeaders, SystemMessage};
+use nexus_actor_core_rs::actor::message::{MessageEnvelope, MessageHandle, MessageHeaders};
 use nexus_actor_core_rs::actor::process::Process;
 use nexus_actor_core_rs::generated::actor::Pid;
 
@@ -13,8 +13,8 @@ use crate::generated::remote::{
   ConnectRequest, GetProcessDiagnosticsRequest, GetProcessDiagnosticsResponse, ListProcessesRequest,
   ListProcessesResponse, MessageBatch, RemoteMessage, ServerConnection,
 };
-use crate::messages::RemoteTerminate;
 use crate::message_decoder::{decode_wire_message, DecodedMessage};
+use crate::messages::RemoteTerminate;
 use crate::remote::Remote;
 use crate::serializer::SerializerId;
 use std::pin::Pin;
@@ -147,11 +147,13 @@ impl EndpointReader {
       .ok_or_else(|| EndpointReaderError::UnknownTarget)?;
 
       if envelope.serializer_id < 0 {
-        return Err(EndpointReaderError::Deserialization("Negative serializer id".to_string()));
+        return Err(EndpointReaderError::Deserialization(
+          "Negative serializer id".to_string(),
+        ));
       }
 
-      let serializer_id = SerializerId::try_from(envelope.serializer_id as u32)
-        .map_err(EndpointReaderError::Deserialization)?;
+      let serializer_id =
+        SerializerId::try_from(envelope.serializer_id as u32).map_err(EndpointReaderError::Deserialization)?;
 
       if envelope.type_id < 0 || (envelope.type_id as usize) >= message_batch.type_names.len() {
         return Err(EndpointReaderError::Deserialization(format!(
@@ -206,9 +208,7 @@ impl EndpointReader {
           if let Some(sender_pid) = sender_opt {
             local_envelope = local_envelope.with_sender(ExtendedPid::new(sender_pid));
           }
-          root_context
-            .send(target, MessageHandle::new(local_envelope))
-            .await;
+          root_context.send(target, MessageHandle::new(local_envelope)).await;
         }
       }
     }

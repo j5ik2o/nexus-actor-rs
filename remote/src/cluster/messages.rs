@@ -1,11 +1,13 @@
 use crate::generated::cluster::{
   DeliverBatchRequestTransport, PubSubAutoRespondBatchTransport, PubSubBatchTransport, Subscribers,
 };
-use crate::serializer::{deserialize_message, serialize_any, RootSerializable, RootSerialized, SerializerError, SerializerId};
+use crate::serializer::{
+  deserialize_message, serialize_any, RootSerializable, RootSerialized, SerializerError, SerializerId,
+};
 use nexus_actor_core_rs::actor::message::Message;
 use nexus_actor_message_derive_rs::Message;
-use std::sync::Arc;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 #[derive(Debug, Clone, Message)]
 pub struct PubSubBatch {
@@ -125,11 +127,13 @@ impl RootSerialized for PubSubBatchTransport {
         .clone();
 
       if envelope.serializer_id < 0 {
-        return Err(SerializerError::DeserializationError("Negative serializer id".to_string()));
+        return Err(SerializerError::DeserializationError(
+          "Negative serializer id".to_string(),
+        ));
       }
 
-      let serializer_id = SerializerId::try_from(envelope.serializer_id as u32)
-        .map_err(|e| SerializerError::DeserializationError(e))?;
+      let serializer_id =
+        SerializerId::try_from(envelope.serializer_id as u32).map_err(|e| SerializerError::DeserializationError(e))?;
 
       let message = deserialize_message(&envelope.message_data, &serializer_id, &type_name)?;
       batch.envelopes.push(message);

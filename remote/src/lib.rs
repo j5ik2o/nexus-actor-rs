@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 mod activator_actor;
 mod block_list;
 mod cluster;
@@ -12,8 +13,8 @@ mod endpoint_watcher;
 mod endpoint_writer;
 mod endpoint_writer_mailbox;
 mod generated;
-mod messages;
 mod message_decoder;
+mod messages;
 mod remote;
 mod remote_process;
 mod response_status_code;
