@@ -93,6 +93,24 @@ impl ProcessRegistry {
     mg.clone()
   }
 
+  pub async fn list_local_pids(&self) -> Vec<Pid> {
+    let address = self.get_address().await;
+    self
+      .local_pids
+      .keys()
+      .into_iter()
+      .map(|id| Pid {
+        address: address.clone(),
+        id,
+        request_id: 0,
+      })
+      .collect()
+  }
+
+  pub async fn find_local_process_handle(&self, id: &str) -> Option<ProcessHandle> {
+    self.local_pids.get_if_present(id)
+  }
+
   pub fn next_id(&self) -> String {
     let counter = self.sequence_id.fetch_add(1, Ordering::SeqCst);
     uint64_to_id(counter)
