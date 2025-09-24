@@ -11,7 +11,7 @@ use nexus_actor_core_rs::actor::message::MessageHandle;
 use nexus_actor_core_rs::actor::process::{Process, ProcessHandle};
 use std::any::Any;
 use std::sync::Arc;
-use tokio::sync::OnceCell;
+use tokio::sync::{Mutex, OnceCell};
 use tonic::{Request, Status};
 
 #[derive(Debug, Clone)]
@@ -155,4 +155,15 @@ async fn client_connection_respects_block_list() {
     }
     other => panic!("unexpected blocked response: {other:?}"),
   }
+}
+
+#[tokio::test]
+async fn get_suspend_reflects_shared_state() {
+  let flag = Arc::new(Mutex::new(true));
+  assert!(EndpointReader::get_suspend(flag.clone()).await);
+  {
+    let mut mg = flag.lock().await;
+    *mg = false;
+  }
+  assert!(!EndpointReader::get_suspend(flag).await);
 }

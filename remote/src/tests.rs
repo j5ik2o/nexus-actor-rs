@@ -233,6 +233,15 @@ async fn client_connection_backpressure_overflow() -> TestResult<()> {
     .any(|event| event.pid.as_ref().map(|pid| pid.inner_pid.id.as_str()) == Some(target_pid.id.as_str())));
   drop(dead_letters);
 
+  let stats = remote_arc
+    .get_endpoint_manager()
+    .await
+    .statistics_snapshot(&target_pid.address)
+    .expect("statistics should exist for endpoint");
+  assert_eq!(stats.queue_capacity, 1);
+  assert!(stats.queue_size <= stats.queue_capacity);
+  assert!(stats.dead_letters >= 1);
+
   actor_system.get_event_stream().await.unsubscribe(subscription).await;
   remote_arc
     .get_endpoint_manager()
