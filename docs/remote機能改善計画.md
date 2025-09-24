@@ -17,6 +17,13 @@
    - gRPC 経路を触る場合は `Remote::start` を使った結合テストを用意し、`#[tokio::test]` を活用する。
    - 既存の `remote/src/remote/tests.rs` を拡張し、主要シナリオを網羅する。
 
+## 最新進捗（2025-09-24）
+
+- `feat(remote): ListProcessesとGetProcessDiagnosticsのRPCを実装` により診断系 RPC が Rust 版でも利用可能になった。
+- `feat(core): ProcessRegistryにプロセス一覧と取得のAPIを追加` でリモートモジュールが参照する基盤 API が整備された。
+- `chore: mcp_serenaツールの設定とregex依存関係を追加` によりドキュメント更新や将来の自動化タスクを支援するツールセットが整備済み。
+- Phase 1 の成果物に対するテスト（EndpointReader 分離テスト）が追加され、診断 RPC とクライアント接続ハンドシェイクの回帰リスクを低減している。
+
 ## タスク一覧
 
 ### Phase 1: ClientConnection & 診断RPC
@@ -24,10 +31,19 @@
 | サブタスク | 状況 | メモ |
 |-------------|------|------|
 | 1-1. `ClientConnection` 分岐の受信処理実装 | DONE | BlockList 判定を通した上で `ConnectResponse` を返すよう実装。現状はハンドシェイクのみ対応し、EndpointManager 連携は別途検討。 |
-| 1-2. 双方向ストリームの生成と管理 | TODO | `ClientConnection` の受信ストリームを EndpointManager 側で活用する仕組みは未着手。Phase 1.5 として扱い、要件を再整理する。 |
+| 1-2. 双方向ストリームの生成と管理 | TODO | EndpointManager への `ClientConnection` ルーティングと、RemoteWatch/Terminate 配信経路が未確立。Phase 1.5 として扱い、Channel 所有権と backpressure 方針を整理する。 |
 | 1-3. 診断 RPC (`list_processes` / `get_process_diagnostics`) 実装 | DONE | ProcessRegistry に列挙 API を追加し、RPC を実装。ActorProcess の死活情報を返すようにした。 |
 | 1-4. テスト整備 | DONE | EndpointReader 向けの分離テストを追加し、ClientConnection/診断 RPC/プロセス列挙をカバー。 |
-| 1-5. ドキュメント更新 | WIP | 本計画を更新済み。`1-2` の対応方針固まり次第追記予定。 |
+| 1-5. ドキュメント更新 | DONE | 2025-09-24 時点の進捗を反映。本計画で双方向ストリーム対応の作業項目と検討事項を整理。 |
+
+### Phase 1.5: 双方向ストリーム管理
+
+| サブタスク | 状況 | メモ |
+|-------------|------|------|
+| 1.5-1. EndpointManager 連携設計 | READY FOR IMPLEMENTATION | `EndpointReader` から `EndpointManager` へ `ClientConnection` を移譲する責務分割を RFC 化。protoactor-go の `remoteEndpointManager` と比較して必要なラッパー層を洗い出す。Issue: `docs/issues/phase1_5_endpoint_stream.md`（レビュー完了、DoR 担当割り当てと実装タスク切り出しメモを反映）。 |
+| 1.5-2. backpressure / 所有権モデル決定 | TODO | `tokio::sync::mpsc` のバッファサイズ・再送戦略・DeadLetter 方針を定義。`RemoteDeliver`/`RemoteTerminate` の優先度差や公平性も検討。 |
+| 1.5-3. 再接続・エラー制御ポリシー策定 | TODO | gRPC ストリーム切断時の再試行間隔、最大リトライ回数、回線復旧通知イベントの扱いを決定。protoactor-go の指数バックオフ設定をベースに Rust のタイマーへ落とし込む。 |
+| 1.5-4. 統合テストプラン作成 | TODO | `Remote::start` を利用したエンドツーエンドテストのシナリオ（接続確立/切断/再接続/DeadLetter搬送）を整理し、必要なテストフィクスチャとモックを定義する。 |
 
 ### 1. ClientConnection ハンドリング実装
 - **対象**: `remote/src/endpoint_reader.rs`
@@ -38,6 +54,16 @@
   - 新しいクライアント接続がブロックリストを通過してイベントストリームに通知されるか確認する統合テスト。
 - **備考**:
   - ブロックリスト連携も同時に行う（未許可システム ID は拒否）。
+
+#### 次のステップ（2025-09-24 更新）
+- `EndpointManager::handle_client_connection`（仮称）を追加し、`EndpointReader` からのチャネル移譲を一本化する実装方針を RFC 化する。
+- RemoteWatch/Terminate、RemoteDeliver のストリームを `tokio::sync::mpsc` で転送する場合の backpressure 設計を決定する。
+- 双方向ストリーム再接続時のリトライ／タイムアウト戦略を protoactor-go の `remoteEndpointManager.reconnectToEndpoint` に合わせて検討する。
+
+#### 設計観点メモ
+- protoactor-go では `endpointManager` が `endpointReader` から受け取った `remoteEndpoint` を `endpointSupervisor` 経由で監視し、`remote.EndpointState` に再接続制御ロジックを集約している。Rust 実装でも `EndpointState` 相当のステートマシンを導入し、責務を `EndpointReader` から切り離す。
+- `EndpointManager` が Watch/Terminate のフロー制御を担うことで、Reader 側はハンドシェイク完了とチャネル移譲に集中でき、テスト容易性が向上する。Watch/Terminate の伝搬は `mpsc` ベースで統一し、優先度制御を `select!` で実装する。
+- backpressure 設計では `bounded mpsc` と `Semaphore` を併用し、高水位時は `RemoteDeliver` を DeadLetter へフォールバックさせる。これによりクラスタ全体での輻輳を緩和しつつ、監視通知は優先的に配送する。
 
 ### 2. リモート診断 RPC の実装
 - **対象**: `EndpointReader::list_processes` / `get_process_diagnostics`
@@ -105,9 +131,11 @@
 - TLS やメトリクス導入に伴う依存 crate のバージョン整合。
 - protoactor-go の挙動差異がある場合は互換性要否を確認。
 - 共通シリアライザ（proto/json）に追加が必要な場合は `serializer.rs` の拡張も検討。
+- EndpointManager が保有する `Endpoint` と gRPC ストリーム間の責務分担を明確化し、loopback メッセージの二重処理を防ぐアーキテクチャ指針をまとめる。
 
 ## 次のアクション
 
-1. Phase 1 の詳細設計を Issue 化してレビューを受ける。
-2. `remote` クレート用の追加テスト環境（統合テスト用グローバル fixture）を整備する。
-3. 設計に従って実装を開始し、本計画を随時更新。
+1. Phase 1.5（双方向ストリーム管理）の実装タスクを開始し、`endpoint_reader.rs`／`endpoint_manager.rs`／`endpoint_writer.rs` の更新と統合テスト追加を進める。DoR 担当（@remote-architecture, @net-rs, @qa-rs, @j5ik2o）と連携し、パリティ維持を確認しながら進行。
+2. `remote` クレート用の結合テスト環境（`Remote::start` を利用した gRPC エンドツーエンド検証）を整備し、診断 RPC の回帰テストをリグレッションスイートに組み込む。
+3. EndpointManager 連携のモックとベンチマークシナリオを作成し、backpressure と再接続挙動の観測ポイントを決める。
+4. 設計レビューで承認された方針に従い、双方向ストリーム実装を開始し、本計画を随時更新する。
