@@ -126,14 +126,10 @@ impl RootSerialized for PubSubBatchTransport {
         .ok_or_else(|| SerializerError::DeserializationError("Invalid type id".to_string()))?
         .clone();
 
-      if envelope.serializer_id < 0 {
-        return Err(SerializerError::DeserializationError(
-          "Negative serializer id".to_string(),
-        ));
-      }
+      let serializer_raw = u32::try_from(envelope.serializer_id)
+        .map_err(|_| SerializerError::DeserializationError("Negative serializer id".to_string()))?;
 
-      let serializer_id =
-        SerializerId::try_from(envelope.serializer_id as u32).map_err(|e| SerializerError::DeserializationError(e))?;
+      let serializer_id = SerializerId::try_from(serializer_raw).map_err(SerializerError::DeserializationError)?;
 
       let message = deserialize_message(&envelope.message_data, &serializer_id, &type_name)?;
       batch.envelopes.push(message);

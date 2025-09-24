@@ -16,10 +16,14 @@
       "Bash(touch:*)",
       "Bash(sed:*)",
       "Bash(chmod:*)",
-      "Bash(/Users/j5ik2o/Sources/nexus-actor-rs/fix_env_set_var.sh:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "mcp__serena__get_symbols_overview",
+      "mcp__serena__find_symbol"
     ],
     "deny": []
   },
-  "enableAllProjectMcpServers": false
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "serena"
+  ]
 }

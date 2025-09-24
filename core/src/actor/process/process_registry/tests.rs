@@ -37,6 +37,42 @@ async fn test_add_process_replaces_existing_entry_on_name_collision() {
   assert_ne!(resolved, second_handle, "新しいプロセスで上書きされてはならない");
 }
 
+#[tokio::test]
+async fn test_list_local_pids_returns_registered_ids() {
+  let system = ActorSystem::new().await.expect("actor system init");
+  let registry = system.get_process_registry().await;
+
+  let _ = registry
+    .add_process(ProcessHandle::new(DummyProcess::new("first")), "proc_a")
+    .await;
+  let _ = registry
+    .add_process(ProcessHandle::new(DummyProcess::new("second")), "proc_b")
+    .await;
+
+  let mut listed = registry.list_local_pids().await;
+  listed.sort_by(|a, b| a.id.cmp(&b.id));
+
+  let ids: Vec<_> = listed.into_iter().map(|pid| pid.id).collect();
+  assert!(ids.contains(&"proc_a".to_string()));
+  assert!(ids.contains(&"proc_b".to_string()));
+}
+
+#[tokio::test]
+async fn test_find_local_process_handle() {
+  let system = ActorSystem::new().await.expect("actor system init");
+  let registry = system.get_process_registry().await;
+
+  let (_pid, _) = registry
+    .add_process(ProcessHandle::new(DummyProcess::new("first")), "proc_a")
+    .await;
+
+  let found = registry.find_local_process_handle("proc_a").await;
+  assert!(found.is_some(), "既存プロセスが取得できること");
+
+  let missing = registry.find_local_process_handle("missing").await;
+  assert!(missing.is_none(), "存在しないプロセスは None を返す");
+}
+
 #[derive(Debug, Clone)]
 struct DummyProcess {
   name: &'static str,

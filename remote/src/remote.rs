@@ -4,8 +4,9 @@ mod tests;
 use crate::block_list::BlockList;
 use crate::config::server_config::ServerConfig;
 use crate::config::Config;
-use crate::endpoint_manager::EndpointManager;
+use crate::endpoint_manager::{EndpointManager, EndpointStatisticsSnapshot};
 use crate::endpoint_reader::EndpointReader;
+use crate::endpoint_state::ConnectionState;
 use crate::generated::remote::remoting_server::RemotingServer;
 use crate::messages::RemoteDeliver;
 use crate::remote_process::RemoteProcess;
@@ -127,6 +128,11 @@ impl Remote {
     *mg = Some(endpoint_manager);
   }
 
+  #[cfg(test)]
+  pub async fn set_endpoint_manager_for_test(&self, endpoint_manager: EndpointManager) {
+    self.set_endpoint_manager(endpoint_manager).await;
+  }
+
   pub fn get_config(&self) -> &Config {
     &self.inner.config
   }
@@ -141,6 +147,18 @@ impl Remote {
 
   pub fn get_block_list(&self) -> &BlockList {
     &self.inner.block_list
+  }
+
+  pub async fn get_endpoint_statistics(&self, address: &str) -> Option<EndpointStatisticsSnapshot> {
+    self
+      .get_endpoint_manager_opt()
+      .await
+      .and_then(|manager| manager.statistics_snapshot(address))
+  }
+
+  pub async fn await_reconnect(&self, address: &str) -> Option<ConnectionState> {
+    let manager = self.get_endpoint_manager_opt().await?;
+    Some(manager.await_reconnect(address).await)
   }
 
   pub fn register(&self, kind: &str, props: Props) {

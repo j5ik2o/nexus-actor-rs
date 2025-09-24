@@ -15,7 +15,6 @@ use crate::actor::context::{
 use crate::actor::core::Actor;
 use crate::actor::core::ActorError;
 use crate::actor::core::ActorHandle;
-use crate::actor::core::ActorProducer;
 use crate::actor::core::Continuer;
 use crate::actor::core::ErrorReason;
 use crate::actor::core::ExtendedPid;

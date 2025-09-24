@@ -1,4 +1,5 @@
 use crate::config::Config;
+use crate::endpoint_manager::EndpointManager;
 use crate::generated::remote::connect_request::ConnectionType;
 use crate::generated::remote::remote_message::MessageType;
 use crate::generated::remote::remoting_client::RemotingClient;
@@ -216,26 +217,16 @@ impl EndpointWriter {
       let mut streaming = streaming_response.into_inner();
 
       while let Some(result) = streaming.next().await {
-        let terminated_event = match result {
+        let should_disconnect = match result {
           Err(e) => {
             tracing::error!("EndpointWriter failed to receive message: {}", e);
-            Some(EndpointEvent::EndpointTerminated(EndpointTerminatedEvent {
-              address: cloned_self.address.clone(),
-            }))
+            true
           }
-          Ok(msg) => {
-            if let Some(MessageType::DisconnectRequest(_)) = msg.message_type {
-              Some(EndpointEvent::EndpointTerminated(EndpointTerminatedEvent {
-                address: cloned_self.address.clone(),
-              }))
-            } else {
-              None
-            }
-          }
+          Ok(msg) => matches!(msg.message_type, Some(MessageType::DisconnectRequest(_))),
         };
 
-        if let Some(event) = terminated_event {
-          cloned_self.publish_stream(MessageHandle::new(event)).await;
+        if should_disconnect {
+          cloned_self.on_disconnect("stream closed").await;
           return;
         }
       }
@@ -249,7 +240,7 @@ impl EndpointWriter {
     Ok(())
   }
 
-  async fn publish_stream(&mut self, msg: MessageHandle) {
+  async fn publish_stream(&self, msg: MessageHandle) {
     self
       .get_actor_system()
       .await
@@ -257,6 +248,36 @@ impl EndpointWriter {
       .await
       .publish(msg)
       .await;
+  }
+
+  async fn endpoint_manager(&self) -> Option<EndpointManager> {
+    let remote = self.remote.upgrade()?;
+    remote.get_endpoint_manager_opt().await
+  }
+
+  async fn mark_deliver_success(&self) {
+    if let Some(manager) = self.endpoint_manager().await {
+      manager.increment_deliver_success(&self.address);
+    }
+  }
+
+  async fn mark_deliver_failure(&self) {
+    if let Some(manager) = self.endpoint_manager().await {
+      manager.increment_deliver_failure(&self.address);
+    }
+  }
+
+  async fn on_disconnect(&mut self, reason: &str) {
+    tracing::warn!(address = %self.address, reason, "EndpointWriter detected disconnect; scheduling reconnect");
+    self.close_client_conn().await;
+    self
+      .publish_stream(MessageHandle::new(EndpointEvent::EndpointTerminated(EndpointTerminatedEvent {
+        address: self.address.clone(),
+      })))
+      .await;
+    if let Some(manager) = self.endpoint_manager().await {
+      manager.schedule_reconnect(self.address.clone()).await;
+    }
   }
 
   fn get_connect_response(remote_message: RemoteMessage) -> Result<ConnectResponse, EndpointWriterError> {
@@ -309,6 +330,7 @@ impl EndpointWriter {
       tracing::info!("EndpointWriter: get {:?}", rd);
 
       if self.get_stream().await.is_none() {
+        self.mark_deliver_failure().await;
         let actor_system = self.get_actor_system().await;
         if let Some(sender) = rd.sender {
           tracing::info!("EndpointWriter sending DeadLetterResponse");
@@ -448,14 +470,16 @@ impl EndpointWriter {
     let response = stream.receive(request).await;
 
     if let Err(e) = &response {
-      ctx.stash().await;
       tracing::error!("Failed to send message: {:?}", e);
+      self.mark_deliver_failure().await;
+      self.on_disconnect("send failure").await;
+      ctx.stash().await;
       ctx.stop(&ctx.get_self().await).await;
+      return Ok(());
     }
 
-    response
-      .map(|_| ())
-      .map_err(|e| ActorError::ReceiveError(ErrorReason::from(e.to_string())))?;
+    self.mark_deliver_success().await;
+    response.map(|_| ()).map_err(|e| ActorError::ReceiveError(ErrorReason::from(e.to_string())))?;
     Ok(())
   }
 

@@ -22,6 +22,13 @@ struct ConfigInner {
   max_retry_count: u32,
   retry_interval: Duration,
   server_config: Option<ServerConfig>,
+  reconnect_max_retries: u32,
+  reconnect_initial_backoff: Duration,
+  reconnect_max_backoff: Duration,
+  heartbeat_interval: Duration,
+  heartbeat_timeout: Duration,
+  backpressure_warning_threshold: f64,
+  backpressure_critical_threshold: f64,
 }
 
 #[derive(Debug, Clone)]
@@ -44,6 +51,13 @@ impl Default for Config {
         max_retry_count: 5,
         retry_interval: Duration::from_secs(2),
         server_config: None,
+        reconnect_max_retries: 5,
+        reconnect_initial_backoff: Duration::from_millis(200),
+        reconnect_max_backoff: Duration::from_secs(5),
+        heartbeat_interval: Duration::from_secs(15),
+        heartbeat_timeout: Duration::from_secs(45),
+        backpressure_warning_threshold: 0.6,
+        backpressure_critical_threshold: 0.85,
       })),
     }
   }
@@ -192,5 +206,116 @@ impl Config {
   pub async fn set_server_config(&mut self, server_config: ServerConfig) {
     let mut mg = self.inner.lock().await;
     mg.server_config = Some(server_config);
+  }
+
+  pub async fn get_endpoint_reconnect_max_retries(&self) -> u32 {
+    let mg = self.inner.lock().await;
+    mg.reconnect_max_retries
+  }
+
+  pub async fn set_endpoint_reconnect_max_retries(&mut self, reconnect_max_retries: u32) {
+    let mut mg = self.inner.lock().await;
+    mg.reconnect_max_retries = reconnect_max_retries;
+  }
+
+  pub async fn get_endpoint_reconnect_initial_backoff(&self) -> Duration {
+    let mg = self.inner.lock().await;
+    mg.reconnect_initial_backoff
+  }
+
+  pub async fn set_endpoint_reconnect_initial_backoff(&mut self, backoff: Duration) {
+    let mut mg = self.inner.lock().await;
+    mg.reconnect_initial_backoff = backoff;
+  }
+
+  pub async fn get_endpoint_reconnect_max_backoff(&self) -> Duration {
+    let mg = self.inner.lock().await;
+    mg.reconnect_max_backoff
+  }
+
+  pub async fn set_endpoint_reconnect_max_backoff(&mut self, backoff: Duration) {
+    let mut mg = self.inner.lock().await;
+    mg.reconnect_max_backoff = backoff;
+  }
+
+  pub async fn get_endpoint_heartbeat_interval(&self) -> Duration {
+    let mg = self.inner.lock().await;
+    mg.heartbeat_interval
+  }
+
+  pub async fn set_endpoint_heartbeat_interval(&mut self, interval: Duration) {
+    let mut mg = self.inner.lock().await;
+    mg.heartbeat_interval = interval;
+  }
+
+  pub async fn get_endpoint_heartbeat_timeout(&self) -> Duration {
+    let mg = self.inner.lock().await;
+    mg.heartbeat_timeout
+  }
+
+  pub async fn set_endpoint_heartbeat_timeout(&mut self, timeout: Duration) {
+    let mut mg = self.inner.lock().await;
+    mg.heartbeat_timeout = timeout;
+  }
+
+  pub async fn get_backpressure_warning_threshold(&self) -> f64 {
+    let mg = self.inner.lock().await;
+    mg.backpressure_warning_threshold
+  }
+
+  pub async fn set_backpressure_warning_threshold(&mut self, threshold: f64) {
+    let mut mg = self.inner.lock().await;
+    mg.backpressure_warning_threshold = threshold;
+  }
+
+  pub async fn get_backpressure_critical_threshold(&self) -> f64 {
+    let mg = self.inner.lock().await;
+    mg.backpressure_critical_threshold
+  }
+
+  pub async fn set_backpressure_critical_threshold(&mut self, threshold: f64) {
+    let mut mg = self.inner.lock().await;
+    mg.backpressure_critical_threshold = threshold;
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::config::server_config::ServerConfig;
+  use nexus_actor_core_rs::actor::core::Props;
+
+  #[tokio::test]
+  async fn config_accessors_cover_writer_and_manager_fields() {
+    let mut config = Config::default();
+    config.set_host("127.0.0.1".into()).await;
+    config.set_port(8080).await;
+    config.set_advertised_address("127.0.0.1:8080".into()).await;
+    config.set_endpoint_writer_batch_size(5).await;
+    config.set_endpoint_writer_queue_size(10).await;
+    config.set_endpoint_manager_batch_size(7).await;
+    config.set_endpoint_manager_queue_size(11).await;
+    config.set_max_retry_count(3).await;
+    config.set_retry_interval(Duration::from_millis(200)).await;
+    config.set_server_config(ServerConfig::default()).await;
+
+    let kinds = DashMap::new();
+    let dummy_props = Props::from_async_actor_receiver(|_| async { Ok(()) }).await;
+    kinds.insert("foo".into(), dummy_props.clone());
+    config.set_kinds(kinds.clone()).await;
+    config.put_kind("bar", dummy_props).await;
+
+    assert_eq!(config.get_host().await.unwrap(), "127.0.0.1");
+    assert_eq!(config.get_port().await.unwrap(), 8080);
+    assert_eq!(config.get_address().await, "127.0.0.1:8080");
+    assert_eq!(config.get_socket_address().await, "127.0.0.1:8080".parse().unwrap());
+    assert_eq!(config.get_endpoint_writer_batch_size().await, 5);
+    assert_eq!(config.get_endpoint_writer_queue_size().await, 10);
+    assert_eq!(config.get_endpoint_manager_batch_size().await, 7);
+    assert_eq!(config.get_endpoint_manager_queue_size().await, 11);
+    assert_eq!(config.get_max_retry_count().await, 3);
+    assert_eq!(config.get_retry_interval().await, Duration::from_millis(200));
+    assert!(config.get_server_config().await.is_some());
+    assert_eq!(config.get_kinds().await.len(), kinds.len() + 1);
   }
 }

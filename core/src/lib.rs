@@ -1,4 +1,4 @@
-#[allow(dead_code)]
+#![allow(dead_code)]
 extern crate nexus_actor_message_derive_rs;
 
 pub mod actor;

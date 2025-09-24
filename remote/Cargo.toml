@@ -27,8 +27,11 @@ tokio = { workspace = true }
 tonic = { workspace = true }
 tonic-types = { workspace = true }
 tracing = { workspace = true }
+regex = { workspace = true }
 
 [dev-dependencies]
+bytes = "1.6"
+http-body-util = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 [build-dependencies]

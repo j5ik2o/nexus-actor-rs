@@ -1,26 +1,127 @@
 use nexus_actor_core_rs::actor::actor_system::ActorSystem;
 use nexus_actor_core_rs::actor::context::{BasePart, ContextHandle, MessagePart, SenderPart, SpawnerPart};
-use nexus_actor_core_rs::actor::core::{Actor, ActorError, Props};
+use nexus_actor_core_rs::actor::core::{Actor, ActorError, ExtendedPid, Props};
 use nexus_actor_core_rs::actor::message::Message;
 use nexus_actor_core_rs::actor::message::{MessageHandle, ResponseHandle};
 
 use crate::config::Config;
 use crate::config_option::ConfigOption;
-
-use crate::remote::Remote;
+use crate::endpoint_manager::EndpointManager;
+use crate::endpoint_state::ConnectionState;
+use crate::remote::{Remote, RemoteError};
 use crate::serializer::initialize_proto_serializers;
 use nexus_actor_message_derive_rs::Message;
 use std::env;
+use std::net::{SocketAddr, TcpListener};
+use std::sync::Arc;
 use std::time::Duration;
 
-use tokio::time::sleep;
+use tokio::sync::OnceCell;
+use tokio::task::JoinHandle;
+use tokio::time::{sleep, timeout};
 
 use nexus_actor_utils_rs::concurrent::WaitGroup;
 use tracing_subscriber::EnvFilter;
 
+struct RunningRemote {
+  system: ActorSystem,
+  remote: Arc<Remote>,
+  handle: Option<JoinHandle<Result<(), RemoteError>>>,
+  socket_addr: SocketAddr,
+}
+
+impl RunningRemote {
+  async fn start(options: Vec<ConfigOption>) -> Result<Self, Box<dyn std::error::Error>> {
+    let system = ActorSystem::new()
+      .await
+      .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
+    let config = Config::from(options).await;
+    let port = config.get_port().await.ok_or("port not set")?;
+    let socket_addr = SocketAddr::new("127.0.0.1".parse()?, port);
+    let remote = Arc::new(Remote::new(system.clone(), config).await);
+    let handle = start_remote_instance(remote.clone()).await?;
+    Ok(RunningRemote {
+      system,
+      remote,
+      handle: Some(handle),
+      socket_addr,
+    })
+  }
+
+  async fn shutdown(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    self.remote.shutdown(true).await?;
+    if let Some(handle) = self.handle.take() {
+      handle.await??;
+    }
+    Ok(())
+  }
+
+  async fn spawn_echo(&self, name: &str) -> Result<ExtendedPid, Box<dyn std::error::Error>> {
+    let props = Props::from_async_actor_producer(|_| async { EchoActor }).await;
+    let pid = self.system.get_root_context().await.spawn_named(props, name).await?;
+    Ok(pid)
+  }
+
+  async fn endpoint_manager(&self) -> EndpointManager {
+    self.remote.get_endpoint_manager().await
+  }
+
+  fn socket_addr(&self) -> std::net::SocketAddr {
+    self.socket_addr
+  }
+}
+
+fn allocate_port() -> Result<u16, Box<dyn std::error::Error>> {
+  let listener = TcpListener::bind("127.0.0.1:0")?;
+  let port = listener.local_addr()?.port();
+  drop(listener);
+  Ok(port)
+}
+
+fn server_options(port: u16) -> Vec<ConfigOption> {
+  vec![ConfigOption::with_host("127.0.0.1"), ConfigOption::with_port(port)]
+}
+
+fn client_options(port: u16) -> Vec<ConfigOption> {
+  vec![
+    ConfigOption::with_host("127.0.0.1"),
+    ConfigOption::with_port(port),
+    ConfigOption::with_endpoint_reconnect_initial_backoff(Duration::from_millis(50)),
+    ConfigOption::with_endpoint_reconnect_max_backoff(Duration::from_millis(200)),
+    ConfigOption::with_endpoint_reconnect_max_retries(0),
+  ]
+}
+
+async fn start_remote_instance(
+  remote: Arc<Remote>,
+) -> Result<JoinHandle<Result<(), RemoteError>>, Box<dyn std::error::Error>> {
+  let wait_group = WaitGroup::with_count(1);
+  let cloned_wait = wait_group.clone();
+  let cloned_remote = remote.clone();
+
+  let handle = tokio::spawn(async move {
+    cloned_remote
+      .start_with_callback(|| async {
+        cloned_wait.done().await;
+      })
+      .await
+  });
+
+  if timeout(Duration::from_secs(5), wait_group.wait()).await.is_err() {
+    let join_result = handle.await;
+    return match join_result {
+      Ok(Ok(())) => Err("remote start timed out".into()),
+      Ok(Err(err)) => Err(Box::new(err)),
+      Err(join_err) => Err(Box::new(join_err)),
+    };
+  }
+
+  Ok(handle)
+}
+
 #[tokio::test]
 async fn test_start() {
-  let _ = env::set_var("RUST_LOG", "debug");
+  env::set_var("RUST_LOG", "debug");
   let _ = tracing_subscriber::fmt()
     .with_env_filter(EnvFilter::from_default_env())
     .try_init();
@@ -44,7 +145,7 @@ async fn test_start() {
 
 #[tokio::test]
 async fn test_advertised_address() {
-  let _ = env::set_var("RUST_LOG", "debug");
+  env::set_var("RUST_LOG", "debug");
   let _ = tracing_subscriber::fmt()
     .with_env_filter(EnvFilter::from_default_env())
     .try_init();
@@ -101,7 +202,7 @@ impl Actor for EchoActor {
 
 #[tokio::test]
 async fn test_register() {
-  let _ = env::set_var("RUST_LOG", "debug");
+  env::set_var("RUST_LOG", "debug");
   let _ = tracing_subscriber::fmt()
     .with_env_filter(EnvFilter::from_default_env())
     .try_init();
@@ -129,7 +230,7 @@ async fn test_register() {
 
 #[tokio::test]
 async fn test_remote_communication() {
-  let _ = env::set_var("RUST_LOG", "nexus_actor_core_rs=info");
+  env::set_var("RUST_LOG", "nexus_actor_core_rs=info");
   let _ = tracing_subscriber::fmt()
     .with_env_filter(EnvFilter::from_default_env())
     .try_init();
@@ -199,4 +300,92 @@ async fn test_remote_communication() {
   } else {
     panic!("Unexpected response type");
   }
+}
+
+#[tokio::test]
+async fn remote_reconnect_after_server_restart() -> Result<(), Box<dyn std::error::Error>> {
+  static INIT: OnceCell<()> = OnceCell::const_new();
+  let _ = INIT
+    .get_or_init(|| async {
+      let _ = tracing_subscriber::fmt().with_env_filter("info").try_init();
+    })
+    .await;
+
+  initialize_proto_serializers::<EchoMessage>().expect("Failed to register serializer");
+
+  let server_port = allocate_port()?;
+  let client_port = allocate_port()?;
+
+  let mut server = RunningRemote::start(server_options(server_port)).await?;
+  let mut echo_pid = server.spawn_echo("echo-reconnect").await?;
+
+  let mut client = RunningRemote::start(client_options(client_port)).await?;
+
+  let initial = client
+    .system
+    .get_root_context()
+    .await
+    .request_future(
+      echo_pid.clone(),
+      MessageHandle::new(EchoMessage::new("first".to_string())),
+      Duration::from_secs(3),
+    )
+    .await
+    .result()
+    .await?;
+  let initial_response = initial
+    .to_typed::<EchoMessage>()
+    .ok_or_else(|| "unexpected response".to_string())?;
+  assert_eq!(initial_response.message, "Echo: first");
+
+  let server_address = server.socket_addr();
+  let server_address_str = server_address.to_string();
+  let manager = client.endpoint_manager().await;
+
+  server.shutdown().await?;
+
+  manager.schedule_reconnect(server_address_str.clone()).await;
+
+  server = RunningRemote::start(server_options(server_port)).await?;
+  echo_pid = server.spawn_echo("echo-reconnect").await?;
+
+  let manager_clone = manager.clone();
+  let address_clone = server_address_str.clone();
+  let state = timeout(Duration::from_secs(5), async move {
+    manager_clone.await_reconnect(&address_clone).await
+  })
+  .await
+  .map_err(|_| "reconnect timeout".to_string())?;
+  assert_eq!(state, ConnectionState::Connected);
+
+  let retry = client
+    .system
+    .get_root_context()
+    .await
+    .request_future(
+      echo_pid.clone(),
+      MessageHandle::new(EchoMessage::new("second".to_string())),
+      Duration::from_secs(3),
+    )
+    .await
+    .result()
+    .await?;
+  let retry_response = retry
+    .to_typed::<EchoMessage>()
+    .ok_or_else(|| "unexpected response".to_string())?;
+  assert_eq!(retry_response.message, "Echo: second");
+
+  if let Some(stats) = client
+    .remote
+    .get_endpoint_statistics(&server_address_str)
+    .await
+  {
+    assert!(stats.reconnect_attempts >= 1);
+    assert!(stats.deliver_success >= 1);
+  }
+
+  client.shutdown().await?;
+  server.shutdown().await?;
+
+  Ok(())
 }
