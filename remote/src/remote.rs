@@ -127,6 +127,11 @@ impl Remote {
     *mg = Some(endpoint_manager);
   }
 
+  #[cfg(test)]
+  pub async fn set_endpoint_manager_for_test(&self, endpoint_manager: EndpointManager) {
+    self.set_endpoint_manager(endpoint_manager).await;
+  }
+
   pub fn get_config(&self) -> &Config {
     &self.inner.config
   }

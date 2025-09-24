@@ -19,3 +19,5 @@ mod remote;
 mod remote_process;
 mod response_status_code;
 mod serializer;
+#[cfg(test)]
+mod tests;

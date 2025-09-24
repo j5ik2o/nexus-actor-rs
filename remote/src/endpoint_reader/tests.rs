@@ -1,6 +1,7 @@
 use super::*;
 use crate::config::Config;
 use crate::config_option::ConfigOption;
+use crate::endpoint_manager::EndpointManager;
 use crate::generated::remote::{self, connect_request::ConnectionType, ClientConnection, ConnectRequest};
 use crate::remote::Remote;
 use nexus_actor_core_rs::actor::actor_system::ActorSystem;
@@ -54,6 +55,8 @@ async fn setup_remote() -> (Arc<Remote>, EndpointReader) {
   let config = Config::from([ConfigOption::with_host("127.0.0.1"), ConfigOption::with_port(19080)]).await;
   let remote = Remote::new(system.clone(), config).await;
   let remote_arc = Arc::new(remote);
+  let endpoint_manager = EndpointManager::new(Arc::downgrade(&remote_arc));
+  remote_arc.set_endpoint_manager_for_test(endpoint_manager).await;
   let endpoint_reader = EndpointReader::new(Arc::downgrade(&remote_arc));
   (remote_arc, endpoint_reader)
 }
@@ -118,7 +121,7 @@ async fn client_connection_respects_block_list() {
   };
 
   endpoint_reader
-    .on_connect_request(&tx, &request)
+    .on_connect_request(&tx, &request, None)
     .await
     .expect("client connection should succeed");
 
@@ -140,7 +143,7 @@ async fn client_connection_respects_block_list() {
   };
 
   endpoint_reader
-    .on_connect_request(&tx, &blocked_request)
+    .on_connect_request(&tx, &blocked_request, None)
     .await
     .expect("blocked client connection should return response");
 
