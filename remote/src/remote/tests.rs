@@ -8,7 +8,8 @@ use crate::config::Config;
 use crate::config_option::ConfigOption;
 use crate::endpoint_manager::EndpointManager;
 use crate::endpoint_state::ConnectionState;
-use crate::remote::{Remote, RemoteError};
+use crate::remote::{Remote, RemoteError, RemoteSpawnError};
+use crate::response_status_code::ResponseStatusCode;
 use crate::serializer::initialize_proto_serializers;
 use nexus_actor_message_derive_rs::Message;
 use std::env;
@@ -22,6 +23,8 @@ use tokio::time::{sleep, timeout};
 
 use nexus_actor_utils_rs::concurrent::WaitGroup;
 use tracing_subscriber::EnvFilter;
+
+type TestResult<T> = Result<T, Box<dyn std::error::Error>>;
 
 struct RunningRemote {
   system: ActorSystem,
@@ -242,10 +245,15 @@ async fn test_remote_communication() {
   let server_system = ActorSystem::new().await.unwrap();
   let server_config = Config::from([ConfigOption::with_host("127.0.0.1"), ConfigOption::with_port(8090)]).await;
   let server_remote = Remote::new(server_system.clone(), server_config).await;
+  let echo_props = Props::from_async_actor_producer(|_| async { EchoActor }).await;
+  let echo_kind = "echo-kind";
+  server_remote.register(echo_kind, echo_props);
+
   let cloned_server_wait_group = server_wait_group.clone();
+  let server_remote_for_start = server_remote.clone();
 
   tokio::spawn(async move {
-    server_remote
+    server_remote_for_start
       .start_with_callback(|| async {
         cloned_server_wait_group.done().await;
       })
@@ -255,23 +263,16 @@ async fn test_remote_communication() {
 
   server_wait_group.wait().await;
 
-  // エコーアクターをサーバーに登録して起動
-  let echo_props = Props::from_async_actor_producer(|_| async { EchoActor }).await;
-  let echo_pid = server_system
-    .get_root_context()
-    .await
-    .spawn_named(echo_props, "echo")
-    .await
-    .unwrap();
-
   let client_wait_group = WaitGroup::with_count(1);
   let client_system = ActorSystem::new().await.unwrap();
   let client_config = Config::from([ConfigOption::with_host("127.0.0.1"), ConfigOption::with_port(8091)]).await;
   let client_remote = Remote::new(client_system.clone(), client_config).await;
   let cloned_client_wait_group = client_wait_group.clone();
 
+  let client_remote_for_start = client_remote.clone();
+
   tokio::spawn(async move {
-    client_remote
+    client_remote_for_start
       .start_with_callback(|| async {
         cloned_client_wait_group.done().await;
       })
@@ -283,9 +284,14 @@ async fn test_remote_communication() {
 
   let root_context = client_system.get_root_context().await;
 
+  let echo_pid = client_remote
+    .spawn_remote_named("127.0.0.1:8090", "echo", echo_kind, Duration::from_secs(5))
+    .await
+    .expect("remote spawn");
+
   let response = root_context
     .request_future(
-      echo_pid,
+      ExtendedPid::new(echo_pid.clone()),
       MessageHandle::new(EchoMessage::new("Hello, Remote!".to_string())),
       Duration::from_secs(10),
     )
@@ -300,6 +306,68 @@ async fn test_remote_communication() {
   } else {
     panic!("Unexpected response type");
   }
+}
+
+#[tokio::test]
+async fn spawn_remote_unknown_kind_returns_error() -> TestResult<()> {
+  let server_port = allocate_port()?;
+  let client_port = allocate_port()?;
+
+  let server_system = ActorSystem::new().await.expect("server actor system");
+  let server_config = Config::from([
+    ConfigOption::with_host("127.0.0.1"),
+    ConfigOption::with_port(server_port),
+  ])
+  .await;
+  let server_remote = Remote::new(server_system, server_config).await;
+  let server_wait = WaitGroup::with_count(1);
+  let server_wait_clone = server_wait.clone();
+  let server_remote_start = server_remote.clone();
+  tokio::spawn(async move {
+    server_remote_start
+      .start_with_callback(|| async {
+        server_wait_clone.done().await;
+      })
+      .await
+      .expect("server start");
+  });
+  server_wait.wait().await;
+
+  let client_system = ActorSystem::new().await.expect("client actor system");
+  let client_config = Config::from([
+    ConfigOption::with_host("127.0.0.1"),
+    ConfigOption::with_port(client_port),
+  ])
+  .await;
+  let client_remote = Remote::new(client_system, client_config).await;
+  let client_wait = WaitGroup::with_count(1);
+  let client_wait_clone = client_wait.clone();
+  let client_remote_start = client_remote.clone();
+  tokio::spawn(async move {
+    client_remote_start
+      .start_with_callback(|| async {
+        client_wait_clone.done().await;
+      })
+      .await
+      .expect("client start");
+  });
+  client_wait.wait().await;
+
+  let result = client_remote
+    .spawn_remote(
+      &format!("127.0.0.1:{}", server_port),
+      "missing-kind",
+      Duration::from_millis(500),
+    )
+    .await;
+  match result {
+    Err(RemoteSpawnError::Status(err)) => {
+      assert_eq!(err.code(), ResponseStatusCode::Error);
+    }
+    other => panic!("unexpected result: {other:?}"),
+  }
+
+  Ok(())
 }
 
 #[tokio::test]
