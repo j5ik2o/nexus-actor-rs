@@ -54,6 +54,11 @@ clap = { version = "4.5.9", features = ["derive"] }
 governor = "0.10.0"
 humantime = "2.1"
 rstest = "0.26.0"
+criterion = { version = "0.7", default-features = false, features = ["html_reports"] }
+
+[[bench]]
+name = "reentrancy"
+harness = false
 
 [build-dependencies]
 tonic-build = { version = "0.13.0" }
