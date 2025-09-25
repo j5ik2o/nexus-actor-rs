@@ -112,7 +112,8 @@ impl ActorFuture {
   pub async fn continue_with<F, Fut>(&self, continuation: F)
   where
     F: Fn(Option<MessageHandle>, Option<ActorFutureError>) -> Fut + Send + Sync + 'static,
-    Fut: core::future::Future<Output = ()> + Send + 'static, {
+    Fut: core::future::Future<Output = ()> + Send + 'static,
+  {
     let mut inner = self.inner.write().await;
     if inner.done {
       continuation(inner.result.clone(), inner.error.clone()).await;
@@ -140,7 +141,8 @@ impl ActorFuture {
   async fn metrics_foreach<F, Fut>(&self, f: F)
   where
     F: Fn(&ActorMetrics, &Metrics) -> Fut,
-    Fut: std::future::Future<Output = ()>, {
+    Fut: std::future::Future<Output = ()>,
+  {
     if self.get_actor_system().await.get_config().await.is_metrics_enabled() {
       if let Some(extension_arc) = self
         .get_actor_system()
