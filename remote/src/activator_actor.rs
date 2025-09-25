@@ -116,7 +116,7 @@ impl Actor for Activator {
           context_handle
             .respond(ResponseHandle::new(ActorPidResponse {
               pid: None,
-              status_code: ResponseStatusCode::Error as i32,
+              status_code: ResponseStatusCode::Error.to_i32(),
             }))
             .await;
           Err(ActorError::ReceiveError(ErrorReason::new("Actor not found", 0)))
@@ -137,7 +137,7 @@ impl Actor for Activator {
               context_handle
                 .respond(ResponseHandle::new(ActorPidResponse {
                   pid: Some(pid.inner_pid),
-                  status_code: ResponseStatusCode::Ok as i32,
+                  status_code: ResponseStatusCode::Ok.to_i32(),
                 }))
                 .await;
               Ok(())
@@ -147,17 +147,19 @@ impl Actor for Activator {
                 context_handle
                   .respond(ResponseHandle::new(ActorPidResponse {
                     pid: Some(pid.inner_pid),
-                    status_code: ResponseStatusCode::ProcessNameAlreadyExists as i32,
+                    status_code: ResponseStatusCode::ProcessNameAlreadyExists.to_i32(),
                   }))
                   .await;
                 Err(ActorError::ReceiveError(ErrorReason::new("Actor already exists", 0)))
               }
               SpawnError::ErrPreStart(actor_error) => {
+                let status_code = actor_error
+                  .reason()
+                  .and_then(|reason| ResponseStatusCode::from_i32(reason.code))
+                  .unwrap_or(ResponseStatusCode::Error)
+                  .to_i32();
                 context_handle
-                  .respond(ResponseHandle::new(ActorPidResponse {
-                    pid: None,
-                    status_code: actor_error.reason().unwrap().code,
-                  }))
+                  .respond(ResponseHandle::new(ActorPidResponse { pid: None, status_code }))
                   .await;
                 Err(ActorError::ReceiveError(ErrorReason::new("Failed to spawn actor", 0)))
               }
