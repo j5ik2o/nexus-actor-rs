@@ -76,7 +76,7 @@
 ## protoactor-go との比較ポイント
 
 - Go 版は Extension を同期的に取得後、`metric.WithAttributes` で即時メトリクス更新を行う。ラベル生成も `CommonLabels` が同期関数。
-- Rust 版では `ActorSystem::get_config()` 等が async であり、設定アクセスが await に依存している。→ Config を `Arc<ConfigCache>` として同期参照可能にする提案が必要。
+- Rust 版では `ActorSystem::get_config()` も同期メソッド化済みで、設定アクセスから await が排除された。残る非同期部分は Context/Extension 初期化フローでの借用整合のみ。
 - Go 版の `ctx.props.receiverMiddlewareChain` などは同期呼び出しで、Rust 版は `async fn run(...)`。メトリクスだけ同期化しても、コンテキスト生成が async な限り完全な同期パスは成立しない → 「同期フェーズで snapshot を取得し後続では非同期無し」のハイブリッドアプローチが現実的。
 
 ## 提案アーキテクチャ
@@ -115,15 +115,15 @@
    - `MetricsSink` と `MetricsRuntime` の最小実装を作成し、`ActorContext` に `Option<Arc<MetricsRuntime>>` を保持させる。
 
 2. **ステップ 1: metrics_foreach のインターフェース変更**
-   - 既存 API を `deprecated` 扱いにし、新 API (`with_metrics_sync`) を追加。
-   - 呼び出し元を順次移行。まずは `ActorContext::incarnate_actor` 等のホットパスから。
+   - 既存 API を `deprecated` 扱いにし、新 API (`ActorSystem::metrics_foreach`) を追加。
+   - 呼び出し元を順次移行。`ActorContext::incarnate_actor` などホットパスは `metrics_sink_or_init()` で同期アクセスへ移行済み。
 
 3. **ステップ 2: Supervisor 経路の移行**
    - `ActorContext::handle_child_failure` / `handle_root_failure` で `SupervisorMetricsCtx` を生成し、戦略実装へ注入。
-   - 監督戦略テストを更新し同期 API を使用。
+   - 監督戦略テストを更新し同期 API を使用。`strategy_one_for_one` / `strategy_all_for_one` / `strategy_restarting` は `ActorSystem::metrics_foreach` を直接呼び出し、`SupervisorHandle::metrics_sink` 依存を段階的に解消済み (2025-09-25)。
 
 4. **ステップ 3: Config / Extension アクセスの同期化**
-   - `ActorSystemConfig` を `Arc` 共有できる形に変更し、`get_config().await` 依存を削減。
+   - `ActorSystemConfig` を `Arc` 共有できる形に変更し、`get_config()` 同期アクセスでの差し替えを完了。（実績済み）
    - Extension 取得をキャッシュし、await を最小化。
 
 5. **ステップ 4: レガシー async API の削除**
@@ -146,3 +146,4 @@
 - `metrics_foreach` を中心とする非同期 API を同期化し、`MetricsSink` へ責務を委譲することで、Supervisor/metrics 経路のホットパスを軽量化する。
 - protoactor-go の同期的なメトリクス更新パターンを Rust 向けに翻案し、Extension キャッシュ + Snapshot を活用してラベル生成とロックを最小化する。
 - 段階的移行を前提に、新旧 API を共存させながら最終的には同期 API へ統合する。
+- `ActorHandle` に型名キャッシュを導入し、Supervisor 側がメトリクス ラベルを生成する際にも同期的に型名へアクセスできるようにした。

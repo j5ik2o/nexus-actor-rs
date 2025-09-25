@@ -49,13 +49,13 @@
 3. ~~Extension レイヤの borrow API を設計し、`ContextExtensionHandle` の clone を削減する。~~ ✅ Sprint 3 で完了済み
 
 ### Sprint 4 詳細タスク
-- **Supervisor/metrics 同期化設計案**: `core/actor/supervisor` と `core/metrics` の呼び出し線図を整理し、protoactor-go の `actor/context` 実装から同期 API の移植候補を抽出する。完了条件は、同期化可否を判断できるクラス図と、必要な API 変更草案を `docs/dispatcher_runtime_policy.md` に追記する PR 下書きが存在すること。
+- **Supervisor/metrics 同期化設計案**: `core/actor/supervisor` と `core/metrics` の呼び出し線図を整理し、protoactor-go の `actor/context` 実装から同期 API の移植候補を抽出する。現状は `metrics_foreach` が OpenTelemetry extension から `Meter`/`Tracer` を取得する際に `async` を要求しているため非同期維持が前提。同期化を目指す場合は (1) metrics extension のハンドルを `ArcSwap<Option<MetricsExtension>>` で公開し await を排除する、(2) `ActorSystem::get_config()` から extension 初期化待ちの依存（`async` チェーン）を切り離す――の二段階で段階的に検証する。PoC として `ActorSystem` のメトリクススロットを `ArcSwapOption<MetricsRuntime>` 化し、`ActorSystem::metrics_foreach` / `Metrics::foreach` の同期版を実装（テスト: `core/src/actor/actor_system/tests.rs::test_metrics_foreach_sync_access` 完了 2025-09-25）し、`ActorContext::metrics_sink()` が同期パスでヒットするよう `ArcSwap` + `OnceCell` の組み合わせへ刷新済み。完了条件は、同期化可否を判断できるクラス図と、必要な API 変更草案を `docs/dispatcher_runtime_policy.md` に追記する PR 下書きが存在すること。
 - **ContextHandle ArcSwap PoC**: `core/actor/context/context_handle.rs`（仮）に `ArcSwap<Option<MessageCell>>` ベースの PoC ブランチを作成し、`receive_ordering.rs` テストケースで message ordering を維持できることを示す。`protoactor-go/actor/context/context.go` の `ProcessMailbox` 相当のロジックを参照し、Rust 版の borrow パターンへ翻訳する。
 - **実装優先のレビュー準備**: 上記 2 点の調査結果をもとに破壊的変更となる API 差分を洗い出し、Sprint 4 終了時に即実装へ着手できるよう `core/actor/context` 配下のタスクリストを整理する。
 
 ### Sprint 4 調査ログ
-- Supervisors/metrics: `metrics_foreach` が OpenTelemetry extension 取得のため async を維持。同期化する場合は metrics extension を `ArcSwap` 化し、`ActorSystem::get_config()` も非同期依存を整理する必要がある。
-- ContextHandle: メッセージセル (`message_or_envelope_opt`) の整合性確保のため `Arc<Mutex>` が必要。`ArcSwap` 化を行う場合はキュー投入順序と stashing を別構造へ退避する PoC を検討する。
+- Supervisors/metrics: `ActorSystem` 側で `ArcSwapOption<MetricsRuntime>` を導入し、`metrics_foreach` の同期クロージャ呼び出しが可能になった（PoC）。`ActorContext::metrics_sink()` は `metrics_foreach` を通じて同期キャッシュを初期化するよう更新済み。Supervisor 戦略（`one_for_one` / `all_for_one` / `restarting`）も `ActorSystem::metrics_foreach` を直接利用するよう移行し、`SupervisorHandle::metrics_sink` 依存を解消。今後は `ContextBorrow` / `ReceiverContext` 周りで同期 API を使い切る実装に移行する。
+  - ContextHandle: メッセージセル (`message_or_envelope_opt`) の整合性確保のため `Arc<Mutex>` が必要。`ArcSwap` 化を行う場合はキュー投入順序と stashing を別構造へ退避する PoC を検討する。
 
 #### ContextHandle / Supervisor API 差分（2025-09-25 調査）
 - `ContextHandle` は `Arc<RwLock<dyn Context>>` を保持したままだが、新たに `ContextCell` を介して `ActorContext` のスナップショットを `ArcSwapOption` で公開するように改修（`core/src/actor/context/context_handle.rs:24-212`）。protoactor-go のように借用中のロック保持を避けるには、`ContextCell` を read/write 双方で活かす追加改修が必要。
@@ -94,7 +94,8 @@
 - TypedActorContext 系は borrow を同期化済み。情報取得メソッド群は underlying `ActorContext` の async を再利用しているため、Supervisor/metrics を同期化した後に再整理する。
 - ContextHandle 系の `Arc<Mutex>` はメッセージセル制御に依存しており、`ArcSwap` 化は受信順序保証の検討が必要（棚卸し対象として継続）。
 
-- ContextBorrow 内のメトリクス経路では `metrics_foreach` が async を要するため同期化は保留。メトリクス API 整理後に再検討。
+- ContextBorrow 内のメトリクス経路は `ArcSwapOption<MetricsRuntime>` を参照する PoC に更新済み。`metrics_sink()` 経由で await を挟まない取得が可能になったため、Supervisor 側の呼び出し線図を同期化した後に最終的な API 置換を実施する。
+- ~~`ActorHandle::type_name` : 型名取得のために `await` が必要。`Arc<str>` キャッシュによる同期 API 化を検討。~~ ✅ `ActorHandle` に型名キャッシュを導入し同期メソッド化 (2025-09-25)
 - ~~`ActorContext::get_actor` / `set_actor` : `ArcSwapOption` 化済みのため同期アクセサへ置換予定。~~ ✅ 完了 (2025-09-25)
 - ~~`ActorContext::borrow` : メトリクス参照を除き同期化可能。`self_pid` を `RwLock` から `ArcSwapOption` へ移行する案を検討。~~ ✅ 完了 (2025-09-25)
 - `TypedActorContext::borrow` : 上記同期版 `ActorContext::borrow` に合わせて単なるラッパーへ変更。
