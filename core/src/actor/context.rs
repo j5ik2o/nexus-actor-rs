@@ -48,8 +48,7 @@ pub trait Context:
   + Debug
   + Send
   + Sync
-  + 'static
-{
+  + 'static {
 }
 
 pub trait ExtensionContext: ExtensionPart + Send + Sync + 'static {}

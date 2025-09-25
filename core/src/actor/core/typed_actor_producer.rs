@@ -21,8 +21,7 @@ impl<M: Message + Clone> TypedActorProducer<M> {
   where
     A: TypedActor<M>,
     F: Fn(TypedContextHandle<M>) -> Fut + Clone + Send + Sync + 'static,
-    Fut: Future<Output = A> + Send + 'static,
-  {
+    Fut: Future<Output = A> + Send + 'static, {
     let p = ActorProducer::new(move |c| {
       let f = f.clone();
       async move {

@@ -53,8 +53,7 @@ impl ContextCell {
 
   pub fn capture_from<C>(&self, ctx: &C)
   where
-    C: Context + Any + Clone,
-  {
+    C: Context + Any + Clone, {
     if let Some(actor_ctx) = (ctx as &dyn Any).downcast_ref::<ActorContext>() {
       self.replace_actor_context(actor_ctx.clone());
     }
@@ -93,8 +92,7 @@ impl ContextHandle {
 
   pub fn new<C>(c: C) -> Self
   where
-    C: Context + Clone + Any + 'static,
-  {
+    C: Context + Clone + Any + 'static, {
     let cell = Arc::new(ContextCell::default());
     cell.capture_from(&c);
     ContextHandle {

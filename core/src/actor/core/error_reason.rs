@@ -15,8 +15,7 @@ pub struct ErrorReason {
 impl ErrorReason {
   pub fn new<T>(reason: T, code: i32) -> Self
   where
-    T: Send + Sync + 'static,
-  {
+    T: Send + Sync + 'static, {
     Self {
       reason: Some(Arc::new(reason)),
       code,
@@ -37,8 +36,7 @@ impl ErrorReason {
 
   pub fn take<T>(&mut self) -> Result<T, TakeError>
   where
-    T: Send + Sync + 'static,
-  {
+    T: Send + Sync + 'static, {
     match self.reason.take() {
       Some(v) => match v.downcast::<T>() {
         Ok(arc_v) => match Arc::try_unwrap(arc_v) {
@@ -62,8 +60,7 @@ impl ErrorReason {
 
   pub fn take_or_panic<T>(&mut self) -> T
   where
-    T: Error + Send + Sync + 'static,
-  {
+    T: Error + Send + Sync + 'static, {
     self.take().unwrap_or_else(|e| panic!("Failed to take error: {:?}", e))
   }
 }
