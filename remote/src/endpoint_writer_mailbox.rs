@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use nexus_actor_core_rs::actor::context::SenderPart;
 use nexus_actor_core_rs::actor::core::ExtendedPid;
+use nexus_actor_core_rs::actor::core_types::Message;
 use nexus_actor_core_rs::actor::dispatch::{
   DeadLetterEvent, Dispatcher, DispatcherHandle, Mailbox, MailboxHandle, MailboxMessage, MessageInvoker,
   MessageInvokerHandle, Runnable,
@@ -307,7 +308,7 @@ impl Mailbox for EndpointWriterMailbox {
   }
 
   async fn post_user_message(&self, message_handle: MessageHandle) {
-    tracing::info!("EndpointWriterMailbox::post_user_message: {:?}", message_handle);
+    tracing::trace!(message_type = %message_handle.get_type_name(), "EndpointWriterMailbox::post_user_message");
     let address_hint = Self::extract_endpoint_address(&message_handle);
     {
       let mut mg = self.user_mailbox.write().await;
@@ -331,7 +332,7 @@ impl Mailbox for EndpointWriterMailbox {
   }
 
   async fn post_system_message(&self, message_handle: MessageHandle) {
-    tracing::info!("EndpointWriterMailbox::post_system_message: {:?}", message_handle);
+    tracing::trace!(message = %message_handle.get_type_name(), "EndpointWriterMailbox::post_system_message");
     {
       let mut mg = self.system_mailbox.write().await;
       mg.offer(message_handle).await.unwrap();
