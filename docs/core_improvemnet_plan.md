@@ -20,8 +20,10 @@
 
 ## TODOサマリ（2025-09-25 時点）
 ※ `[ ]` が付いているもののみ未完了タスク。
+
+**最新完了項目**
+- ✅ `TypedActorHandle` / `PidActorRef` の弱参照化を完了 (2025-09-25)
 - **フェーズ B: コンテキスト拡張と Supervisor**
-  - [ ] `TypedActorHandle` / `PidActorRef` の弱参照化を完了
 - **フェーズ C: 観測と回帰防止**
   - [ ] ベンチ結果を CSV 化して履歴追跡 (`scripts/export_bench_metrics.py`)
   - [ ] `docs/bench_dashboard_plan.md` に沿った GitHub Pages 公開
@@ -49,9 +51,7 @@
 **完了済み**
 - ✅ Extension 管理 (`ctxext::extensions`) の `Arc<Mutex<Vec<_>>>` を `RwLock` + スライス借用に移行
 - ✅ Supervisor 階層の `Arc<Mutex<dyn Supervisor>>` を `Arc<RwLock<dyn Supervisor>>` に刷新し、再入ロックを削減
-
-**残タスク（TODOサマリ参照）**
-- ⏳ `TypedActorHandle` / `PidActorRef` の弱参照化を完了
+- ✅ `TypedActorHandle` / `PidActorRef` の弱参照化を完了 (2025-09-25)
 
 ### フェーズ C: 観測と回帰防止
 **完了済み**
