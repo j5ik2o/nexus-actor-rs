@@ -620,8 +620,7 @@ impl ActorContext {
   async fn metrics_foreach<F, Fut>(&self, f: F)
   where
     F: Fn(&ActorMetrics, &Metrics) -> Fut,
-    Fut: std::future::Future<Output = ()>,
-  {
+    Fut: std::future::Future<Output = ()>, {
     let actor_system = self.actor_system();
     let config = actor_system.get_config().await;
     if config.is_metrics_enabled() {
