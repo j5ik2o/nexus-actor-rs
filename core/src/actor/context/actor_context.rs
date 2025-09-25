@@ -46,24 +46,39 @@ use crate::actor::process::Process;
 use crate::actor::supervisor::{Supervisor, SupervisorHandle, SupervisorStrategy, DEFAULT_SUPERVISION_STRATEGY};
 use crate::ctxext::extensions::{ContextExtensionHandle, ContextExtensionId};
 use crate::generated::actor::{PoisonPill, Terminated, Unwatch, Watch};
+use arc_swap::ArcSwapOption;
 
 use crate::actor::process::actor_future::ActorFuture;
 use crate::metrics::ActorMetrics;
 use async_trait::async_trait;
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::{OnceCell, RwLock};
 use tokio::time::Instant;
 
 #[cfg(test)]
 mod tests;
 
-#[derive(Debug, Clone)]
-pub struct ActorContextInner {
-  actor: Option<ActorHandle>,
+#[derive(Debug)]
+struct ActorContextShared {
+  actor: OnceCell<Arc<ArcSwapOption<ActorHandle>>>,
+}
+
+impl Default for ActorContextShared {
+  fn default() -> Self {
+    let cell = OnceCell::new();
+    let _ = cell.set(Arc::new(ArcSwapOption::from(None::<Arc<ActorHandle>>)));
+    Self { actor: cell }
+  }
+}
+
+impl ActorContextShared {
+  fn swap(&self) -> &Arc<ArcSwapOption<ActorHandle>> {
+    self.actor.get().expect("ActorContextShared actor swap not initialized")
+  }
 }
 
 #[derive(Debug, Clone)]
 pub struct ActorContext {
-  inner: Arc<Mutex<ActorContextInner>>,
+  shared: Arc<ActorContextShared>,
   extras: Arc<RwLock<Option<ActorContextExtras>>>,
   message_or_envelope_opt: Arc<RwLock<Option<MessageHandle>>>,
   state: Arc<AtomicU8>,
@@ -71,7 +86,7 @@ pub struct ActorContext {
   props: Props,
   actor_system: WeakActorSystem,
   parent: Option<ExtendedPid>,
-  self_pid: Arc<RwLock<Option<ExtendedPid>>>,
+  self_pid: Arc<OnceCell<Arc<ArcSwapOption<ExtendedPid>>>>,
 }
 
 #[derive(Debug)]
@@ -85,7 +100,7 @@ pub struct ContextBorrow<'a> {
 
 impl PartialEq for ActorContext {
   fn eq(&self, other: &Self) -> bool {
-    Arc::ptr_eq(&self.inner, &other.inner)
+    Arc::ptr_eq(&self.shared, &other.shared)
   }
 }
 
@@ -93,21 +108,31 @@ impl Eq for ActorContext {}
 
 impl std::hash::Hash for ActorContext {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    (self.inner.as_ref() as *const Mutex<ActorContextInner>).hash(state);
+    (self.shared.as_ref() as *const ActorContextShared).hash(state);
   }
 }
 
 static_assertions::assert_impl_all!(ActorContext: Send, Sync);
 
 impl ActorContext {
+  fn actor_handle(&self) -> Option<ActorHandle> {
+    self.shared.swap().load_full().map(|inner| (*inner).clone())
+  }
+
+  fn self_pid_swap(&self) -> &Arc<ArcSwapOption<ExtendedPid>> {
+    self.self_pid.get().expect("ActorContext self_pid swap not initialized")
+  }
+
   pub async fn new(actor_system: ActorSystem, props: Props, parent: Option<ExtendedPid>) -> Self {
     let extras = Arc::new(RwLock::new(None));
     let message_or_envelope_opt = Arc::new(RwLock::new(None));
     let state = Arc::new(AtomicU8::new(State::Alive as u8));
     let receive_timeout = Arc::new(RwLock::new(None));
-    let self_pid = Arc::new(RwLock::new(None));
+    let self_pid_cell = OnceCell::new();
+    let initial_self = parent.as_ref().map(|pid| Arc::new(pid.clone()));
+    let _ = self_pid_cell.set(Arc::new(ArcSwapOption::from(initial_self)));
     let mut ctx = ActorContext {
-      inner: Arc::new(Mutex::new(ActorContextInner { actor: None })),
+      shared: Arc::new(ActorContextShared::default()),
       extras,
       message_or_envelope_opt,
       state,
@@ -115,7 +140,7 @@ impl ActorContext {
       props,
       actor_system: actor_system.downgrade(),
       parent,
-      self_pid,
+      self_pid: Arc::new(self_pid_cell),
     };
     ctx.incarnate_actor().await;
     ctx
@@ -144,12 +169,9 @@ impl ActorContext {
     self.parent.as_ref()
   }
 
-  pub async fn borrow(&self) -> ContextBorrow<'_> {
-    let actor = {
-      let inner = self.inner.lock().await;
-      inner.actor.clone()
-    };
-    let self_pid = self.self_pid.read().await.clone();
+  pub fn borrow(&self) -> ContextBorrow<'_> {
+    let actor = self.actor_handle();
+    let self_pid = self.self_pid_swap().load_full().map(|inner| (*inner).clone());
     ContextBorrow {
       actor_system: self.actor_system(),
       props: &self.props,
@@ -159,8 +181,8 @@ impl ActorContext {
     }
   }
 
-  pub async fn snapshot(&self) -> ContextBorrow<'_> {
-    self.borrow().await
+  pub fn snapshot(&self) -> ContextBorrow<'_> {
+    self.borrow()
   }
 
   async fn get_extras(&self) -> Option<ActorContextExtras> {
@@ -176,13 +198,11 @@ impl ActorContext {
   }
 
   async fn get_actor(&self) -> Option<ActorHandle> {
-    let inner_mg = self.inner.lock().await;
-    inner_mg.actor.clone()
+    self.actor_handle()
   }
 
-  async fn set_actor(&mut self, actor: Option<ActorHandle>) {
-    let mut inner_mg = self.inner.lock().await;
-    inner_mg.actor = actor;
+  fn set_actor(&self, actor: ActorHandle) {
+    self.shared.swap().store(Some(Arc::new(actor)));
   }
 
   pub async fn receive_timeout_handler(&mut self) {
@@ -245,7 +265,7 @@ impl ActorContext {
       Ok(())
     } else {
       let context = self.receive_with_context().await;
-      let borrow = self.borrow().await;
+      let borrow = self.borrow();
       let mut actor = borrow
         .into_actor()
         .expect("Actor is not initialized before default_receive");
@@ -273,7 +293,7 @@ impl ActorContext {
     self.state.store(State::Alive as u8, Ordering::SeqCst);
     let ch = ContextHandle::new(self.clone());
     let actor = self.props_ref().get_producer().run(ch).await;
-    self.set_actor(Some(actor)).await;
+    self.set_actor(actor);
 
     self
       .metrics_foreach(|am, _| {
@@ -646,17 +666,15 @@ impl InfoPart for ActorContext {
   }
 
   async fn get_self_opt(&self) -> Option<ExtendedPid> {
-    self.self_pid.read().await.clone()
+    self.self_pid_swap().load_full().map(|inner| (*inner).clone())
   }
 
   async fn set_self(&mut self, pid: ExtendedPid) {
-    let mut guard = self.self_pid.write().await;
-    *guard = Some(pid);
+    self.self_pid_swap().store(Some(Arc::new(pid)));
   }
 
   async fn get_actor(&self) -> Option<ActorHandle> {
-    let inner_mg = self.inner.lock().await;
-    inner_mg.actor.clone()
+    self.shared.swap().load_full().map(|inner| (*inner).clone())
   }
 
   async fn get_actor_system(&self) -> ActorSystem {

@@ -88,7 +88,8 @@ impl RootContext {
       self.sender_middleware_chain.clone().unwrap().run(sch, pid, me).await;
     } else {
       tracing::debug!("Sending user message to pid: {}", pid);
-      pid.send_user_message(self.actor_system(), message_handle).await;
+      let actor_system = self.actor_system();
+      pid.send_user_message(actor_system, message_handle).await;
     }
   }
 
@@ -228,18 +229,14 @@ impl SpawnerPart for RootContext {
 
     if let Some(sm) = &root_context.spawn_middleware {
       let sh = SpawnerContextHandle::new(root_context.clone());
-      return sm
-        .run(self.get_actor_system().await.clone(), id, props.clone(), sh)
-        .await;
+      let actor_system = self.actor_system();
+      return sm.run(actor_system, id, props.clone(), sh).await;
     }
 
+    let actor_system = self.actor_system();
     props
       .clone()
-      .spawn(
-        self.get_actor_system().await.clone(),
-        id,
-        SpawnerContextHandle::new(root_context.clone()),
-      )
+      .spawn(actor_system, id, SpawnerContextHandle::new(root_context.clone()))
       .await
   }
 }
@@ -249,16 +246,18 @@ impl SpawnerContext for RootContext {}
 #[async_trait]
 impl StopperPart for RootContext {
   async fn stop(&mut self, pid: &ExtendedPid) {
-    pid.ref_process(self.get_actor_system().await).await.stop(pid).await
+    let actor_system = self.actor_system();
+    pid.ref_process(actor_system.clone()).await.stop(pid).await
   }
 
   async fn stop_future_with_timeout(&mut self, pid: &ExtendedPid, timeout: Duration) -> ActorFuture {
-    let future_process = ActorFutureProcess::new(self.get_actor_system().await, timeout).await;
+    let actor_system = self.actor_system();
+    let future_process = ActorFutureProcess::new(actor_system.clone(), timeout).await;
 
     let future_pid = future_process.get_pid().await.clone();
     pid
       .send_system_message(
-        self.get_actor_system().await.clone(),
+        actor_system,
         MessageHandle::new(SystemMessage::Watch(Watch {
           watcher: Some(future_pid.inner_pid),
         })),
@@ -270,18 +269,20 @@ impl StopperPart for RootContext {
   }
 
   async fn poison(&mut self, pid: &ExtendedPid) {
+    let actor_system = self.actor_system();
     pid
-      .send_user_message(self.get_actor_system().await.clone(), MessageHandle::new(PoisonPill {}))
+      .send_user_message(actor_system, MessageHandle::new(PoisonPill {}))
       .await
   }
 
   async fn poison_future_with_timeout(&mut self, pid: &ExtendedPid, timeout: Duration) -> ActorFuture {
-    let future_process = ActorFutureProcess::new(self.get_actor_system().await, timeout).await;
+    let actor_system = self.actor_system();
+    let future_process = ActorFutureProcess::new(actor_system.clone(), timeout).await;
 
     let future_pid = future_process.get_pid().await.clone();
     pid
       .send_system_message(
-        self.get_actor_system().await.clone(),
+        actor_system,
         MessageHandle::new(SystemMessage::Watch(Watch {
           watcher: Some(future_pid.inner_pid),
         })),
