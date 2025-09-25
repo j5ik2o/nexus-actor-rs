@@ -2,8 +2,8 @@ use crate::actor::MetricsProvider;
 use opentelemetry::metrics::MeterProvider;
 use opentelemetry::metrics::{Counter, Histogram, Meter};
 use opentelemetry::KeyValue;
+use parking_lot::RwLock;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 
 pub const LIB_NAME: &str = "protoactor";
 
@@ -95,95 +95,93 @@ impl ActorMetrics {
     })
   }
 
-  pub async fn increment_actor_failure_count(&self) {
-    self.increment_actor_failure_count_with_opts(&[]).await;
+  pub fn increment_actor_failure_count(&self) {
+    self.increment_actor_failure_count_with_opts(&[]);
   }
 
-  pub async fn increment_actor_failure_count_with_opts(&self, attributes: &[KeyValue]) {
-    let inner_mg = self.inner.read().await;
+  pub fn increment_actor_failure_count_with_opts(&self, attributes: &[KeyValue]) {
+    let inner_mg = self.inner.read();
     inner_mg.actor_failure_count.add(1, attributes);
   }
 
-  pub async fn increment_actor_mailbox_length(&self) {
-    self.increment_actor_mailbox_length_with_opts(&[]).await;
+  pub fn increment_actor_mailbox_length(&self) {
+    self.increment_actor_mailbox_length_with_opts(&[]);
   }
 
-  pub async fn increment_actor_mailbox_length_with_opts(&self, attributes: &[KeyValue]) {
-    let inner_mg = self.inner.read().await;
+  pub fn increment_actor_mailbox_length_with_opts(&self, attributes: &[KeyValue]) {
+    let inner_mg = self.inner.read();
     inner_mg.actor_mailbox_length.add(1, attributes);
   }
 
-  pub async fn record_actor_message_receive_duration(&self, duration: f64) {
-    self
-      .record_actor_message_receive_duration_with_opts(duration, &[])
-      .await;
+  pub fn record_actor_message_receive_duration(&self, duration: f64) {
+    self.record_actor_message_receive_duration_with_opts(duration, &[]);
   }
 
-  pub async fn record_actor_message_receive_duration_with_opts(&self, duration: f64, attributes: &[KeyValue]) {
-    let inner_mg = self.inner.read().await;
+  pub fn record_actor_message_receive_duration_with_opts(&self, duration: f64, attributes: &[KeyValue]) {
+    let inner_mg = self.inner.read();
     inner_mg.actor_message_receive_histogram.record(duration, attributes);
   }
 
-  pub async fn increment_actor_restarted_count(&self) {
-    self.increment_actor_restarted_count_with_opts(&[]).await;
+  pub fn increment_actor_restarted_count(&self) {
+    self.increment_actor_restarted_count_with_opts(&[]);
   }
 
-  pub async fn increment_actor_restarted_count_with_opts(&self, attributes: &[KeyValue]) {
-    let inner_mg = self.inner.read().await;
+  pub fn increment_actor_restarted_count_with_opts(&self, attributes: &[KeyValue]) {
+    let inner_mg = self.inner.read();
     inner_mg.actor_restarted_count.add(1, attributes);
   }
 
-  pub async fn increment_actor_spawn_count(&self) {
-    self.increment_actor_spawn_count_with_opts(&[]).await;
+  pub fn increment_actor_spawn_count(&self) {
+    self.increment_actor_spawn_count_with_opts(&[]);
   }
 
-  pub async fn increment_actor_spawn_count_with_opts(&self, attributes: &[KeyValue]) {
-    let inner_mg = self.inner.read().await;
+  pub fn increment_actor_spawn_count_with_opts(&self, attributes: &[KeyValue]) {
+    let inner_mg = self.inner.read();
     inner_mg.actor_spawn_count.add(1, attributes);
   }
 
-  pub async fn increment_actor_stopped_count(&self) {
-    self.increment_actor_stopped_count_with_opts(&[]).await;
+  pub fn increment_actor_stopped_count(&self) {
+    self.increment_actor_stopped_count_with_opts(&[]);
   }
 
-  pub async fn increment_actor_stopped_count_with_opts(&self, attributes: &[KeyValue]) {
-    let inner_mg = self.inner.read().await;
+  pub fn increment_actor_stopped_count_with_opts(&self, attributes: &[KeyValue]) {
+    let inner_mg = self.inner.read();
     inner_mg.actor_stopped_count.add(1, attributes);
   }
 
-  pub async fn increment_dead_letter_count(&self) {
-    self.increment_dead_letter_count_with_opts(&[]).await;
+  pub fn increment_dead_letter_count(&self) {
+    self.increment_dead_letter_count_with_opts(&[]);
   }
 
-  pub async fn increment_dead_letter_count_with_opts(&self, attributes: &[KeyValue]) {
-    let inner_mg = self.inner.read().await;
+  pub fn increment_dead_letter_count_with_opts(&self, attributes: &[KeyValue]) {
+    let inner_mg = self.inner.read();
     inner_mg.dead_letter_count.add(1, attributes);
   }
 
-  pub async fn increment_futures_started_count(&self) {
-    self.increment_futures_started_count_with_opts(&[]).await
+  pub fn increment_futures_started_count(&self) {
+    self.increment_futures_started_count_with_opts(&[])
   }
 
-  pub async fn increment_futures_started_count_with_opts(&self, attributes: &[KeyValue]) {
-    let inner_mg = self.inner.read().await;
+  pub fn increment_futures_started_count_with_opts(&self, attributes: &[KeyValue]) {
+    let inner_mg = self.inner.read();
     inner_mg.futures_started_count.add(1, attributes);
   }
 
-  pub async fn increment_futures_completed_count(&self) {
-    self.increment_futures_completed_count_with_opts(&[]).await;
+  pub fn increment_futures_completed_count(&self) {
+    self.increment_futures_completed_count_with_opts(&[]);
   }
 
-  pub async fn increment_futures_completed_count_with_opts(&self, attributes: &[KeyValue]) {
-    let inner_mg = self.inner.read().await;
+  pub fn increment_futures_completed_count_with_opts(&self, attributes: &[KeyValue]) {
+    let inner_mg = self.inner.read();
     inner_mg.futures_completed_count.add(1, attributes);
   }
 
-  pub async fn increment_futures_timed_out_count(&self) {
-    self.increment_futures_timed_out_count_with_opts(&[]).await;
+  pub fn increment_futures_timed_out_count(&self) {
+    self.increment_futures_timed_out_count_with_opts(&[]);
   }
 
-  pub async fn increment_futures_timed_out_count_with_opts(&self, attributes: &[KeyValue]) {
-    let inner_mg = self.inner.read().await;
+  pub fn increment_futures_timed_out_count_with_opts(&self, attributes: &[KeyValue]) {
+    let inner_mg = self.inner.read();
     inner_mg.futures_timed_out_count.add(1, attributes);
   }
 }
@@ -193,21 +191,21 @@ mod tests {
   use super::*;
   use opentelemetry_sdk::metrics::{ManualReader, MeterProviderBuilder};
 
-  #[tokio::test]
-  async fn test_actor_metrics() {
+  #[test]
+  fn test_actor_metrics() {
     let reader = ManualReader::builder().build();
     let meter_provider = MeterProviderBuilder::default().with_reader(reader).build();
     let meter_provider = MetricsProvider::Sdk(meter_provider);
     let metrics = ActorMetrics::new(Arc::new(meter_provider)).expect("メトリクスの初期化に失敗しました");
 
-    metrics.increment_actor_failure_count().await;
-    metrics.increment_actor_mailbox_length().await;
-    metrics.increment_actor_restarted_count().await;
-    metrics.increment_actor_spawn_count().await;
-    metrics.increment_actor_stopped_count().await;
-    metrics.increment_dead_letter_count().await;
-    metrics.increment_futures_started_count().await;
-    metrics.increment_futures_completed_count().await;
-    metrics.increment_futures_timed_out_count().await;
+    metrics.increment_actor_failure_count();
+    metrics.increment_actor_mailbox_length();
+    metrics.increment_actor_restarted_count();
+    metrics.increment_actor_spawn_count();
+    metrics.increment_actor_stopped_count();
+    metrics.increment_dead_letter_count();
+    metrics.increment_futures_started_count();
+    metrics.increment_futures_completed_count();
+    metrics.increment_futures_timed_out_count();
   }
 }
