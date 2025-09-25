@@ -108,8 +108,7 @@ impl PidSet {
 
   pub async fn for_each<F>(&self, mut f: F)
   where
-    F: FnMut(usize, &Pid),
-  {
+    F: FnMut(usize, &Pid), {
     let pids_mg = self.pids.read().await;
     for (i, pid) in pids_mg.iter().enumerate() {
       f(i, pid);

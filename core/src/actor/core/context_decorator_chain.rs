@@ -20,8 +20,7 @@ impl ContextDecoratorChain {
   pub fn new<F, Fut>(f: F) -> Self
   where
     F: Fn(ContextHandle) -> Fut + Send + Sync + 'static,
-    Fut: Future<Output = ContextHandle> + Send + 'static,
-  {
+    Fut: Future<Output = ContextHandle> + Send + 'static, {
     Self(Arc::new(move |ch| Box::pin(f(ch)) as BoxFuture<'static, ContextHandle>))
   }
 
