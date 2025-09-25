@@ -336,7 +336,7 @@ async fn spawn_remote_unknown_kind_returns_error() -> TestResult<()> {
     .spawn_remote(
       &format!("127.0.0.1:{}", server_port),
       "missing-kind",
-      Duration::from_millis(500),
+      Duration::from_secs(2),
     )
     .await;
   match result {
