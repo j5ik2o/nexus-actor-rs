@@ -31,8 +31,7 @@ impl Decider {
   pub fn new<F, Fut>(f: F) -> Self
   where
     F: Fn(ErrorReason) -> Fut + Send + Sync + 'static,
-    Fut: Future<Output = Directive> + Send + 'static,
-  {
+    Fut: Future<Output = Directive> + Send + 'static, {
     Decider(Arc::new(move |error| Box::pin(f(error))))
   }
 
@@ -201,8 +200,7 @@ impl SupervisorHandle {
 
   pub fn new<S>(s: S) -> Self
   where
-    S: Supervisor + Clone + 'static,
-  {
+    S: Supervisor + Clone + 'static, {
     let cell = Arc::new(SupervisorCell::default());
     let supervisor_arc: Arc<dyn Supervisor> = Arc::new(s.clone());
     cell.replace_supervisor(supervisor_arc);
