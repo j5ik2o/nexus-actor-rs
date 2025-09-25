@@ -35,4 +35,5 @@
 - 新たに `ActorSystem::metrics_foreach`（同期クロージャ）と `Metrics::foreach`（同期版）を追加し、Supervisor や Context 経路で `await` を挟まずメトリクスをハンドリングできることを確認。`core/src/actor/actor_system/tests.rs::test_metrics_foreach_sync_access` で PoC を検証済み。
 - `ActorContext` は `ArcSwapOption<MetricsRuntime>` を保持し、`metrics_sink()` がランタイム非存在時には即座に `None` を返し、存在時には `OnceCell` へ同期的にキャッシュする設計へ更新した。ランタイム差し替え後でも既存 Context から新しいスナップショットが参照可能。
 - `ActorHandle` は型名を `Arc<str>` でキャッシュし、`type_name()` を同期 API 化。メトリクス初期化や Supervisor 経路で型名取得のために待機が発生しないようになった。
-- `ActorSystem::get_config()` は同期メソッドへ移行済み。今後は `metrics_foreach` 呼び出しの段階的置換と Supervisor/metrics 経路の完全同期化を継続し、Dispatcher ポリシーに沿った一貫したホットパス設計を完成させる。
+- `ContextHandle` は `ArcSwap<RwLock<Box<dyn Context>>>` を採用する PoC を導入済み。スナップショット (`ContextCell`) との併用でホットパスの参照取得は同期化されつつ、従来の `RwLock` により受信順序の保証を維持している。
+- `ActorSystem::get_config()` は同期メソッドへ移行済み。Supervisor/metrics 経路は `record_supervisor_metrics` により同期パスへ統合済みであり、今後は ContextHandle まわりの ArcSwap PoC・イベント発火経路の同期化など残タスクに注力する。
