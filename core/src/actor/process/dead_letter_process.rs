@@ -14,6 +14,7 @@ use crate::generated::actor::{DeadLetterResponse, Terminated};
 use crate::actor::dispatch::throttler::{Throttle, Valve};
 use async_trait::async_trait;
 use nexus_actor_message_derive_rs::Message;
+use opentelemetry::KeyValue;
 use std::sync::Arc;
 
 #[derive(Debug, Clone)]
@@ -95,6 +96,21 @@ impl DeadLetterProcess {
                 );
               }
             }
+
+            if let Some(sink) = cloned_self.metrics_sink() {
+              let mut labels = vec![
+                KeyValue::new("deadletter.phase", "event_stream_notify"),
+                KeyValue::new("deadletter.event", "dead_letter"),
+                KeyValue::new("deadletter.message_type", dead_letter.message_handle.get_type_name()),
+              ];
+              if let Some(target) = &dead_letter.pid {
+                labels.push(KeyValue::new("deadletter.target_pid", target.id().to_string()));
+              }
+              if let Some(sender) = &dead_letter.sender {
+                labels.push(KeyValue::new("deadletter.sender_pid", sender.id().to_string()));
+              }
+              sink.increment_dead_letter_with_labels(&labels);
+            }
           }
         }
       })
@@ -122,6 +138,19 @@ impl DeadLetterProcess {
                   })),
                 )
                 .await;
+
+              if let Some(sink) = cloned_self.metrics_sink() {
+                let mut labels = vec![
+                  KeyValue::new("deadletter.phase", "event_stream_watch"),
+                  KeyValue::new("deadletter.event", "watch_termination"),
+                  KeyValue::new("deadletter.message_type", dle.message_handle.get_type_name()),
+                ];
+                labels.push(KeyValue::new("deadletter.watcher_pid", e_pid.id().to_string()));
+                if let Some(target) = &dle.pid {
+                  labels.push(KeyValue::new("deadletter.target_pid", target.id().to_string()));
+                }
+                sink.increment_dead_letter_with_labels(&labels);
+              }
             }
           }
         }
@@ -141,7 +170,12 @@ impl Process for DeadLetterProcess {
   async fn send_user_message(&self, pid: Option<&ExtendedPid>, message_handle: MessageHandle) {
     tracing::debug!("DeadLetterProcess: send_user_message: msg = {:?}", message_handle);
     if let Some(sink) = self.metrics_sink() {
-      sink.increment_dead_letter();
+      let mut labels = vec![KeyValue::new("deadletter.phase", "publish")];
+      labels.push(KeyValue::new("deadletter.message_type", message_handle.get_type_name()));
+      if let Some(pid) = pid {
+        labels.push(KeyValue::new("deadletter.target_pid", pid.id().to_string()));
+      }
+      sink.increment_dead_letter_with_labels(&labels);
     }
 
     let (_, msg, sender) = unwrap_envelope(message_handle.clone());

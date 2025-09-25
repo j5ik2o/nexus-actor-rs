@@ -24,6 +24,7 @@ use crate::actor::core::Props;
 use crate::actor::core::ReceiverMiddlewareChain;
 use crate::actor::core::SenderMiddlewareChain;
 use crate::actor::core::SpawnError;
+use crate::actor::core_types::message_types::Message as _;
 use crate::actor::dispatch::MailboxMessage;
 use crate::actor::dispatch::MessageInvoker;
 use crate::actor::message::AutoReceiveMessage;
@@ -1122,11 +1123,12 @@ impl MessageInvoker for ActorContext {
     }
 
     let metrics_sink = self.ensure_metrics_sink().await;
+    let message_type = metrics_sink.as_ref().map(|_| message_handle.get_type_name());
     let result = if let Some(sink) = metrics_sink.as_ref() {
       let start = Instant::now();
       let result = self.process_message(message_handle).await;
       let duration = start.elapsed();
-      sink.record_message_receive_duration(duration.as_secs_f64());
+      sink.record_message_receive_duration_with_type(duration.as_secs_f64(), message_type.as_deref());
       result
     } else {
       self.process_message(message_handle).await

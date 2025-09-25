@@ -14,6 +14,7 @@ use crate::actor::process::{Process, ProcessHandle};
 use crate::generated::actor::DeadLetterResponse;
 use async_trait::async_trait;
 use nexus_actor_message_derive_rs::Message;
+use opentelemetry::KeyValue;
 use thiserror::Error;
 use tokio::sync::{Notify, RwLock};
 
@@ -72,11 +73,17 @@ impl ActorFutureProcess {
       tracing::error!("failed to register future process: pid = {}", pid);
     }
 
-    if let Some(sink) = metrics_sink {
-      sink.increment_future_started();
-    }
-
+    let pid_clone = pid.clone();
     future_process.set_pid(pid).await;
+
+    if let Some(sink) = future_process.metrics_sink() {
+      let mut labels = vec![
+        KeyValue::new("future.pid", pid_clone.id().to_string()),
+        KeyValue::new("future.phase", "started"),
+      ];
+      labels.push(KeyValue::new("future.timeout_ms", duration.as_millis() as i64));
+      sink.increment_future_started_with_labels(&labels);
+    }
 
     if duration > Duration::from_secs(0) {
       let future_process_clone = Arc::clone(&future_process);
@@ -174,14 +181,25 @@ impl ActorFutureProcess {
 
   async fn instrument(&self, future: ActorFuture) {
     if let Some(sink) = self.metrics_sink() {
-      let completed = {
+      let future_pid = future.get_pid().await;
+      let (outcome_label, error_label) = {
         let actor_future_inner = future.inner.read().await;
-        actor_future_inner.error.is_none()
+        match &actor_future_inner.error {
+          None => ("completed", None),
+          Some(ActorFutureError::TimeoutError) => ("timeout", Some("timeout")),
+          Some(ActorFutureError::DeadLetterError) => ("dead_letter", Some("dead_letter")),
+        }
       };
-      if completed {
-        sink.increment_future_completed();
-      } else {
-        sink.increment_future_timed_out();
+      let mut labels = vec![
+        KeyValue::new("future.pid", future_pid.id().to_string()),
+        KeyValue::new("future.outcome", outcome_label.to_string()),
+      ];
+      if let Some(err) = error_label {
+        labels.push(KeyValue::new("future.error", err.to_string()));
+      }
+      match outcome_label {
+        "completed" => sink.increment_future_completed_with_labels(&labels),
+        _ => sink.increment_future_timed_out_with_labels(&labels),
       }
     }
     future.instrument().await;
