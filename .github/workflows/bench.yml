@@ -1,0 +1,42 @@
+name: Benchmarks
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'core/**'
+      - 'scripts/check_reentrancy_bench.sh'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'docs/core_improvemnet_plan.md'
+
+jobs:
+  reentrancy-bench:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Run reentrancy bench
+        env:
+          THRESHOLD_NS: ${{ vars.REENTRANCY_THRESHOLD_NS != '' && vars.REENTRANCY_THRESHOLD_NS || 25000000 }}
+        run: |
+          chmod +x scripts/check_reentrancy_bench.sh
+          scripts/check_reentrancy_bench.sh
+      - name: Upload benchmark report
+        uses: actions/upload-artifact@v4
+        with:
+          name: reentrancy-bench-report
+          path: |
+            target/criterion/reentrancy/load
+          if-no-files-found: warn
