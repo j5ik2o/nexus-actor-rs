@@ -1,10 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)"
 BENCH_NAME=${BENCH_NAME:-context_borrow}
 METRIC_NAME=${METRIC_NAME:-borrow_hot_path}
 RESULT_PATH=${RESULT_PATH:-target/criterion/${BENCH_NAME}/${METRIC_NAME}/new/estimates.json}
 THRESHOLD_MS=${THRESHOLD_MS:-5.0}
+RUN_BENCH=${RUN_BENCH:-0}
+
+pushd "$PROJECT_ROOT" >/dev/null
+
+if [[ "${RUN_BENCH}" == "1" || ! -f "$RESULT_PATH" ]]; then
+  cargo bench -p nexus-actor-bench --bench reentrancy >/dev/null
+fi
 
 if [[ ! -f "$RESULT_PATH" ]]; then
   echo "Benchmark result file not found: $RESULT_PATH" >&2
@@ -32,3 +40,5 @@ if [[ $? -eq 0 ]]; then
 fi
 
 echo "PASS threshold_ok: mean ${mean_ms}ms <= ${THRESHOLD_MS}ms"
+
+popd >/dev/null

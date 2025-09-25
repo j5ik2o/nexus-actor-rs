@@ -76,7 +76,7 @@ impl Actor for BorrowingActor {
   async fn handle(&mut self, ctx: ContextHandle) -> Result<(), ActorError> {
     if let Some(message) = ctx.get_message_handle().await.to_typed::<BorrowRequest>() {
       if let Some(actor_context) = ctx.try_into_actor_context().await {
-        let borrow = actor_context.borrow().await;
+        let borrow = actor_context.borrow();
         let _ = borrow.self_pid();
         let _ = borrow.props();
       }
