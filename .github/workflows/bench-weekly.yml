@@ -1,25 +1,21 @@
-name: Benchmarks
+name: Benchmarks Weekly
 
 on:
+  schedule:
+    - cron: '0 3 * * 1'
   workflow_dispatch:
-  pull_request:
-    paths:
-      - 'core/**'
-      - 'scripts/check_reentrancy_bench.sh'
-      - 'scripts/check_context_borrow_bench.sh'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - 'docs/core_improvemnet_plan.md'
 
 jobs:
-  reentrancy-bench:
+  weekly-bench:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
+
       - name: Cache cargo
         uses: actions/cache@v4
         with:
@@ -28,23 +24,26 @@ jobs:
             ~/.cargo/git
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
       - name: Run reentrancy bench
         env:
           THRESHOLD_NS: ${{ vars.REENTRANCY_THRESHOLD_NS != '' && vars.REENTRANCY_THRESHOLD_NS || 25000000 }}
         run: |
           chmod +x scripts/check_reentrancy_bench.sh
           scripts/check_reentrancy_bench.sh
-      - name: Check context borrow bench
+
+      - name: Run context borrow bench
         env:
           THRESHOLD_MS: ${{ vars.CONTEXT_BORROW_THRESHOLD_MS != '' && vars.CONTEXT_BORROW_THRESHOLD_MS || 35.0 }}
-          RUN_BENCH: 0
+          RUN_BENCH: 1
         run: |
           chmod +x scripts/check_context_borrow_bench.sh
           scripts/check_context_borrow_bench.sh
+
       - name: Upload benchmark report
         uses: actions/upload-artifact@v4
         with:
-          name: reentrancy-bench-report
+          name: weekly-bench-report
           path: |
             target/criterion/reentrancy/load
             target/criterion/context_borrow/borrow_hot_path
