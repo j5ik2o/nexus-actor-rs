@@ -1,6 +1,7 @@
 use crate::actor::actor_system::ActorSystem;
 use crate::extensions::{next_extension_id, Extension, ExtensionId};
 use crate::metrics::{ActorMetrics, ProtoMetrics};
+use arc_swap::ArcSwapOption;
 use once_cell::sync::Lazy;
 use opentelemetry::metrics::MetricsError;
 use opentelemetry::KeyValue;
@@ -11,7 +12,7 @@ pub static EXTENSION_ID: Lazy<ExtensionId> = Lazy::new(next_extension_id);
 
 #[derive(Debug, Clone)]
 pub struct Metrics {
-  runtime: Option<Arc<MetricsRuntime>>,
+  runtime: Arc<ArcSwapOption<MetricsRuntime>>,
 }
 
 impl Extension for Metrics {
@@ -29,8 +30,12 @@ impl Extension for Metrics {
 }
 
 impl Metrics {
-  pub async fn new(system: ActorSystem) -> Result<Self, MetricsError> {
-    let runtime = match system.clone().get_config().await.metrics_provider {
+  pub async fn new(
+    system: ActorSystem,
+    runtime_slot: Arc<ArcSwapOption<MetricsRuntime>>,
+  ) -> Result<Self, MetricsError> {
+    let metrics_provider = system.get_config().metrics_provider.clone();
+    let runtime = match metrics_provider {
       Some(provider) => {
         let address = system.get_address().await;
         let proto_metrics = ProtoMetrics::new(provider.clone())?;
@@ -39,25 +44,25 @@ impl Metrics {
       None => None,
     };
 
-    Ok(Metrics { runtime })
+    runtime_slot.store(runtime.clone());
+
+    Ok(Metrics { runtime: runtime_slot })
   }
 
   pub fn runtime(&self) -> Option<Arc<MetricsRuntime>> {
-    self.runtime.clone()
+    self.runtime.load_full()
   }
 
   pub fn is_enabled(&self) -> bool {
-    self.runtime.is_some()
+    self.runtime().is_some()
   }
 
-  pub async fn foreach<F, Fut>(&mut self, f: F)
+  pub fn foreach<F>(&self, f: F)
   where
-    F: Fn(&ActorMetrics, &Metrics) -> Fut,
-    Fut: std::future::Future<Output = ()>,
-  {
-    if let Some(runtime) = &self.runtime {
+    F: FnOnce(&ActorMetrics, &MetricsRuntime), {
+    if let Some(runtime) = self.runtime() {
       let actor_metrics = runtime.actor_metrics();
-      f(&actor_metrics, self).await;
+      f(&actor_metrics, &runtime);
     }
   }
 }

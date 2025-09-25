@@ -1,4 +1,5 @@
 use std::env;
+use std::sync::Arc;
 
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::InfoPart;
@@ -8,10 +9,11 @@ use crate::actor::core::{TypedActor, TypedProps};
 use crate::actor::message::Message;
 use crate::actor::supervisor::SupervisorStrategyHandle;
 use crate::actor::typed_context::{TypedSenderPart, TypedSpawnerPart};
-use crate::actor::Config;
+use crate::actor::{Config, ConfigOption, MetricsProvider};
 use async_trait::async_trait;
 use nexus_actor_message_derive_rs::Message;
 use nexus_actor_utils_rs::concurrent::AsyncBarrier;
+use opentelemetry::metrics::noop::NoopMeterProvider;
 use tokio::time::sleep;
 use tracing_subscriber::EnvFilter;
 
@@ -78,4 +80,27 @@ async fn test_actor_system_spawn_actor() {
   root_context.send(pid, Hello("hello".to_string())).await;
 
   cloned_b.wait().await;
+}
+
+#[tokio::test]
+async fn test_metrics_foreach_sync_access() {
+  let provider = Arc::new(MetricsProvider::Noop(NoopMeterProvider::default()));
+  let system = ActorSystem::new_config_options([ConfigOption::SetMetricsProvider(provider)])
+    .await
+    .unwrap();
+
+  let address_via_metrics = system
+    .metrics_foreach(|runtime| runtime.address().to_string())
+    .expect("metrics runtime must be available");
+
+  let direct_address = system.get_address().await;
+  assert_eq!(address_via_metrics, direct_address);
+}
+
+#[tokio::test]
+async fn test_metrics_foreach_disabled_returns_none() {
+  let system = ActorSystem::new().await.unwrap();
+  assert!(system
+    .metrics_foreach(|runtime| runtime.address().to_string())
+    .is_none());
 }
