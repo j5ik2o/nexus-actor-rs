@@ -58,6 +58,40 @@ impl Actor for LoadActor {
   }
 }
 
+#[derive(Debug, Clone, PartialEq, ::nexus_actor_message_derive_rs::Message)]
+struct BorrowRequest {
+  seq: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, ::nexus_actor_message_derive_rs::Message)]
+struct BorrowResponse {
+  seq: u64,
+}
+
+#[derive(Debug, Clone)]
+struct BorrowingActor;
+
+#[async_trait::async_trait]
+impl Actor for BorrowingActor {
+  async fn handle(&mut self, ctx: ContextHandle) -> Result<(), ActorError> {
+    if let Some(message) = ctx.get_message_handle().await.to_typed::<BorrowRequest>() {
+      if let Some(actor_context) = ctx.to_actor_context().await {
+        let borrow = actor_context.borrow().await;
+        let _ = borrow.self_pid();
+        let _ = borrow.props();
+      }
+      ctx
+        .respond(ResponseHandle::new(BorrowResponse { seq: message.seq }))
+        .await;
+    }
+    Ok(())
+  }
+
+  async fn receive(&mut self, ctx: ContextHandle) -> Result<(), ActorError> {
+    self.handle(ctx).await
+  }
+}
+
 struct ScenarioMetrics {
   successes: usize,
   timeouts: usize,
@@ -159,5 +193,44 @@ fn reentrancy_benchmark(c: &mut Criterion) {
   group.finish();
 }
 
-criterion_group!(benches, reentrancy_benchmark);
+async fn run_context_borrow_scenario(total_requests: usize) {
+  let system = ActorSystem::new().await.expect("init actor system");
+  let mut root_context = system.get_root_context().await;
+  let borrow_pid = root_context
+    .spawn(Props::from_async_actor_producer(|_| async { BorrowingActor }).await)
+    .await;
+  let timeout_duration = Duration::from_millis(150);
+
+  for seq in 0..total_requests {
+    let request = MessageHandle::new(BorrowRequest { seq: seq as u64 });
+    let future = root_context
+      .request_future(borrow_pid.clone(), request, timeout_duration)
+      .await;
+    let reply = future.result().await.expect("borrow actor future should succeed");
+    assert!(reply.to_typed::<BorrowResponse>().is_some());
+  }
+}
+
+fn context_borrow_benchmark(c: &mut Criterion) {
+  let mut group = c.benchmark_group("context_borrow");
+  let runtime = Builder::new_multi_thread().enable_all().build().expect("runtime");
+  let total_requests = 2_000;
+
+  group.bench_function("borrow_hot_path", |b| {
+    b.iter_custom(|iters| {
+      runtime.block_on(async {
+        let mut total = StdDuration::ZERO;
+        for _ in 0..iters {
+          let start = Instant::now();
+          run_context_borrow_scenario(total_requests).await;
+          total += start.elapsed();
+        }
+        total
+      })
+    });
+  });
+  group.finish();
+}
+
+criterion_group!(benches, reentrancy_benchmark, context_borrow_benchmark);
 criterion_main!(benches);
