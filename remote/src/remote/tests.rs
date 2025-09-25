@@ -19,7 +19,7 @@ use std::time::Duration;
 
 use tokio::sync::OnceCell;
 use tokio::task::JoinHandle;
-use tokio::time::{sleep, timeout};
+use tokio::time::timeout;
 
 use nexus_actor_utils_rs::concurrent::WaitGroup;
 use tracing_subscriber::EnvFilter;
@@ -129,21 +129,10 @@ async fn test_start() {
     .with_env_filter(EnvFilter::from_default_env())
     .try_init();
 
-  let system = ActorSystem::new().await.unwrap();
-  let config = Config::from([ConfigOption::with_host("127.0.0.1"), ConfigOption::with_port(8080)]).await;
-
-  tracing::debug!("config: {:?}", config);
-  let remote = Remote::new(system.clone(), config).await;
-  let cloned_remote = remote.clone();
-  tokio::spawn(async move {
-    let result = cloned_remote.start().await;
-    assert!(result.is_ok());
-  });
-  sleep(Duration::from_secs(3)).await;
-  assert_eq!("127.0.0.1:8080", system.get_address().await);
-  let result = remote.shutdown(true).await;
-  assert!(result.is_ok());
-  sleep(Duration::from_secs(1)).await;
+  let port = allocate_port().unwrap();
+  let mut running = RunningRemote::start(server_options(port)).await.unwrap();
+  assert_eq!(format!("127.0.0.1:{}", port), running.system.get_address().await);
+  running.shutdown().await.unwrap();
 }
 
 #[tokio::test]
@@ -153,26 +142,16 @@ async fn test_advertised_address() {
     .with_env_filter(EnvFilter::from_default_env())
     .try_init();
 
-  let system = ActorSystem::new().await.unwrap();
-  let config = Config::from([
+  let port = allocate_port().unwrap();
+  let mut running = RunningRemote::start(vec![
     ConfigOption::with_host("127.0.0.1"),
-    ConfigOption::with_port(8080),
+    ConfigOption::with_port(port),
     ConfigOption::with_advertised_address("localhost:6500"),
   ])
-  .await;
-
-  tracing::debug!("config: {:?}", config);
-  let remote = Remote::new(system.clone(), config).await;
-  let cloned_remote = remote.clone();
-  tokio::spawn(async move {
-    let result = cloned_remote.start().await;
-    assert!(result.is_ok());
-  });
-  sleep(Duration::from_secs(3)).await;
-  assert_eq!("localhost:6500", system.get_address().await);
-  let result = remote.shutdown(true).await;
-  assert!(result.is_ok());
-  sleep(Duration::from_secs(1)).await;
+  .await
+  .unwrap();
+  assert_eq!("localhost:6500", running.system.get_address().await);
+  running.shutdown().await.unwrap();
 }
 
 #[derive(Clone, PartialEq, Message, prost::Message)]
