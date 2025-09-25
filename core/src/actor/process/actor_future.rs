@@ -1,4 +1,4 @@
-use crate::actor::actor_system::ActorSystem;
+use crate::actor::actor_system::{ActorSystem, WeakActorSystem};
 use crate::actor::core::ExtendedPid;
 use crate::actor::message::MessageHandle;
 use crate::actor::metrics::metrics_impl::{Metrics, EXTENSION_ID};
@@ -13,7 +13,7 @@ use completion::*;
 
 #[derive(Debug)]
 pub(crate) struct ActorFutureInner {
-  pub(crate) actor_system: ActorSystem,
+  pub(crate) actor_system: WeakActorSystem,
   pub(crate) pid: Option<ExtendedPid>,
   pub(crate) done: bool,
   pub(crate) result: Option<MessageHandle>,
@@ -23,6 +23,15 @@ pub(crate) struct ActorFutureInner {
 }
 
 static_assertions::assert_impl_all!(ActorFutureInner: Send, Sync);
+
+impl ActorFutureInner {
+  pub(crate) fn actor_system(&self) -> ActorSystem {
+    self
+      .actor_system
+      .upgrade()
+      .expect("ActorSystem dropped before ActorFutureInner")
+  }
+}
 
 #[derive(Debug, Clone)]
 pub struct ActorFuture {
@@ -72,6 +81,7 @@ impl ActorFuture {
   }
 
   async fn send_to_pipes(&self, inner: &mut ActorFutureInner) {
+    let actor_system = inner.actor_system();
     let message = if let Some(error) = &inner.error {
       MessageHandle::new(error.clone())
     } else {
@@ -79,9 +89,7 @@ impl ActorFuture {
     };
 
     for process in &inner.pipes {
-      process
-        .send_user_message(inner.actor_system.clone(), message.clone())
-        .await;
+      process.send_user_message(actor_system.clone(), message.clone()).await;
     }
 
     inner.pipes.clear();
@@ -134,7 +142,7 @@ impl ActorFuture {
 
   async fn get_actor_system(&self) -> ActorSystem {
     let mg = self.inner.read().await;
-    mg.actor_system.clone()
+    mg.actor_system()
   }
 
   async fn metrics_foreach<F, Fut>(&self, f: F)

@@ -1,4 +1,4 @@
-use crate::actor::actor_system::ActorSystem;
+use crate::actor::actor_system::{ActorSystem, WeakActorSystem};
 use crate::actor::context::SenderPart;
 use crate::actor::core::ExtendedPid;
 use crate::actor::message::unwrap_envelope;
@@ -18,17 +18,19 @@ use nexus_actor_message_derive_rs::Message;
 
 #[derive(Debug, Clone)]
 pub struct DeadLetterProcess {
-  actor_system: ActorSystem,
+  actor_system: WeakActorSystem,
 }
 
 impl DeadLetterProcess {
   pub async fn new(actor_system: ActorSystem) -> Self {
-    let myself = Self { actor_system };
-    let dead_letter_throttle_count = myself.actor_system.get_config().await.dead_letter_throttle_count;
-    let dead_letter_throttle_interval = myself.actor_system.get_config().await.dead_letter_throttle_interval;
+    let myself = Self {
+      actor_system: actor_system.downgrade(),
+    };
+    let dead_letter_throttle_count = myself.actor_system().get_config().await.dead_letter_throttle_count;
+    let dead_letter_throttle_interval = myself.actor_system().get_config().await.dead_letter_throttle_interval;
     let func =
       move |i: usize| async move { tracing::info!("DeadLetterProcess: Throttling dead letters, count: {}", i) };
-    let dispatcher = myself.actor_system.get_config().await.system_dispatcher.clone();
+    let dispatcher = myself.actor_system().get_config().await.system_dispatcher.clone();
     let throttle = Throttle::new(
       dispatcher,
       dead_letter_throttle_count,
@@ -38,14 +40,13 @@ impl DeadLetterProcess {
     .await;
 
     let cloned_self = myself.clone();
-    myself
-      .actor_system
+    let actor_system = myself.actor_system();
+    actor_system
       .get_process_registry()
       .await
       .add_process(ProcessHandle::new(myself.clone()), "deadletter")
       .await;
-    myself
-      .actor_system
+    actor_system
       .get_event_stream()
       .await
       .subscribe(move |msg| {
@@ -56,7 +57,7 @@ impl DeadLetterProcess {
           if let Some(dead_letter) = cloned_msg.to_typed::<DeadLetterEvent>() {
             if let Some(sender) = &dead_letter.sender {
               cloned_self
-                .actor_system
+                .actor_system()
                 .get_root_context()
                 .await
                 .send(sender.clone(), MessageHandle::new(DeadLetterResponse { target: None }))
@@ -64,7 +65,7 @@ impl DeadLetterProcess {
             }
 
             if cloned_self
-              .actor_system
+              .actor_system()
               .get_config()
               .await
               .developer_supervision_logging
@@ -93,8 +94,7 @@ impl DeadLetterProcess {
       .await;
 
     let cloned_self = myself.clone();
-    myself
-      .actor_system
+    actor_system
       .get_event_stream()
       .await
       .subscribe(move |msg| {
@@ -103,7 +103,7 @@ impl DeadLetterProcess {
         async move {
           if let Some(dle) = cloned_msg.to_typed::<DeadLetterEvent>() {
             if let Some(SystemMessage::Watch(watch)) = dle.message_handle.to_typed::<SystemMessage>() {
-              let actor_system = cloned_self.actor_system.clone();
+              let actor_system = cloned_self.actor_system();
               let pid = watch.watcher.clone().unwrap();
               let e_pid = ExtendedPid::new(pid.clone());
               e_pid
@@ -128,8 +128,9 @@ impl DeadLetterProcess {
   where
     F: Fn(&ActorMetrics, &Metrics) -> Fut,
     Fut: std::future::Future<Output = ()>, {
-    if self.actor_system.get_config().await.is_metrics_enabled() {
-      if let Some(extension_arc) = self.actor_system.get_extensions().await.get(*EXTENSION_ID).await {
+    let actor_system = self.actor_system();
+    if actor_system.get_config().await.is_metrics_enabled() {
+      if let Some(extension_arc) = actor_system.get_extensions().await.get(*EXTENSION_ID).await {
         let mut extension = extension_arc.lock().await;
         if let Some(m) = extension.as_any_mut().downcast_mut::<Metrics>() {
           m.foreach(f).await;
@@ -152,7 +153,7 @@ impl Process for DeadLetterProcess {
 
     let (_, msg, sender) = unwrap_envelope(message_handle.clone());
     self
-      .actor_system
+      .actor_system()
       .get_event_stream()
       .await
       .publish(MessageHandle::new(DeadLetterEvent {
@@ -166,7 +167,7 @@ impl Process for DeadLetterProcess {
 
   async fn send_system_message(&self, pid: &ExtendedPid, message_handle: MessageHandle) {
     self
-      .actor_system
+      .actor_system()
       .get_event_stream()
       .await
       .publish(MessageHandle::new(DeadLetterEvent {
@@ -188,6 +189,15 @@ impl Process for DeadLetterProcess {
 
   fn as_any(&self) -> &dyn std::any::Any {
     self
+  }
+}
+
+impl DeadLetterProcess {
+  fn actor_system(&self) -> ActorSystem {
+    self
+      .actor_system
+      .upgrade()
+      .expect("ActorSystem dropped before DeadLetterProcess")
   }
 }
 

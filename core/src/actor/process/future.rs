@@ -38,7 +38,7 @@ pub struct ActorFutureProcess {
 impl ActorFutureProcess {
   pub async fn new(system: ActorSystem, duration: Duration) -> Arc<Self> {
     let inner = Arc::new(RwLock::new(ActorFutureInner {
-      actor_system: system.clone(),
+      actor_system: system.downgrade(),
       pid: None,
       done: false,
       result: None,
@@ -126,7 +126,7 @@ impl ActorFutureProcess {
   async fn get_actor_system(&self) -> ActorSystem {
     let future = self.future.read().await;
     let inner = future.inner.read().await;
-    inner.actor_system.clone()
+    inner.actor_system()
   }
 
   pub async fn set_pid(&self, pid: ExtendedPid) {
@@ -178,8 +178,9 @@ impl ActorFutureProcess {
       let future = self.future.read().await;
       let mut inner = future.inner.write().await;
       for pipe in &inner.pipes {
+        let actor_system = inner.actor_system();
         pipe
-          .send_user_message(inner.actor_system.clone(), MessageHandle::new(error.clone()))
+          .send_user_message(actor_system.clone(), MessageHandle::new(error.clone()))
           .await;
       }
       inner.pipes.clear();
@@ -225,7 +226,7 @@ impl Process for ActorFutureProcess {
     let future = self.future.read().await.clone();
     let dispatcher = {
       let mg = future.inner.read().await;
-      mg.actor_system.get_config().await.system_dispatcher.clone()
+      mg.actor_system().get_config().await.system_dispatcher.clone()
     };
     dispatcher
       .schedule(Runnable::new(move || {
@@ -248,7 +249,7 @@ impl Process for ActorFutureProcess {
     let future = self.future.read().await.clone();
     let dispatcher = {
       let mg = future.inner.read().await;
-      mg.actor_system.get_config().await.system_dispatcher.clone()
+      mg.actor_system().get_config().await.system_dispatcher.clone()
     };
     dispatcher
       .schedule(Runnable::new(move || {
