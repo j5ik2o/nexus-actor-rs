@@ -83,10 +83,10 @@ impl EndpointWatcher {
     }
     if let Some(endpoint_event) = msg.to_typed::<EndpointEvent>() {
       if endpoint_event.is_terminated() {
-        tracing::info!(
-          "EndpointWatcher handling terminated: address = {}, watched = {}",
-          self.address,
-          self.watched.len()
+        tracing::debug!(
+          address = %self.address,
+          watched_entries = self.watched.len(),
+          "EndpointWatcher handling terminated"
         );
         for entry in self.watched.iter() {
           let (id, pid_set) = entry.pair();
