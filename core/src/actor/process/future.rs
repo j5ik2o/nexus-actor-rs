@@ -39,7 +39,6 @@ impl ActorFutureProcess {
   pub async fn new(system: ActorSystem, duration: Duration) -> Arc<Self> {
     let metrics_sink = system
       .metrics_runtime()
-      .await
       .map(|runtime| Arc::new(runtime.sink_for_actor(Some("actor_future_process"))));
 
     let inner = Arc::new(RwLock::new(ActorFutureInner {
@@ -90,7 +89,6 @@ impl ActorFutureProcess {
 
       system
         .get_config()
-        .await
         .system_dispatcher
         .schedule(Runnable::new(move || async move {
           let future = future_process_clone.get_future().await;
@@ -213,7 +211,7 @@ impl Process for ActorFutureProcess {
     let future = self.future.read().await.clone();
     let dispatcher = {
       let mg = future.inner.read().await;
-      mg.actor_system().get_config().await.system_dispatcher.clone()
+      mg.actor_system().get_config().system_dispatcher.clone()
     };
     dispatcher
       .schedule(Runnable::new(move || {
@@ -236,7 +234,7 @@ impl Process for ActorFutureProcess {
     let future = self.future.read().await.clone();
     let dispatcher = {
       let mg = future.inner.read().await;
-      mg.actor_system().get_config().await.system_dispatcher.clone()
+      mg.actor_system().get_config().system_dispatcher.clone()
     };
     dispatcher
       .schedule(Runnable::new(move || {

@@ -27,18 +27,18 @@ impl DeadLetterProcess {
   pub async fn new(actor_system: ActorSystem) -> Self {
     let metrics_sink = actor_system
       .metrics_runtime()
-      .await
       .map(|runtime| Arc::new(runtime.sink_for_actor(Some("dead_letter_process"))));
 
     let myself = Self {
       actor_system: actor_system.downgrade(),
       metrics_sink: metrics_sink.clone(),
     };
-    let dead_letter_throttle_count = myself.actor_system().get_config().await.dead_letter_throttle_count;
-    let dead_letter_throttle_interval = myself.actor_system().get_config().await.dead_letter_throttle_interval;
+    let config = myself.actor_system().get_config();
+    let dead_letter_throttle_count = config.dead_letter_throttle_count;
+    let dead_letter_throttle_interval = config.dead_letter_throttle_interval;
     let func =
       move |i: usize| async move { tracing::info!("DeadLetterProcess: Throttling dead letters, count: {}", i) };
-    let dispatcher = myself.actor_system().get_config().await.system_dispatcher.clone();
+    let dispatcher = myself.actor_system().get_config().system_dispatcher.clone();
     let throttle = Throttle::new(
       dispatcher,
       dead_letter_throttle_count,
@@ -72,13 +72,7 @@ impl DeadLetterProcess {
                 .await
             }
 
-            if cloned_self
-              .actor_system()
-              .get_config()
-              .await
-              .developer_supervision_logging
-              && dead_letter.sender.is_some()
-            {
+            if cloned_self.actor_system().get_config().developer_supervision_logging && dead_letter.sender.is_some() {
               return;
             }
 
