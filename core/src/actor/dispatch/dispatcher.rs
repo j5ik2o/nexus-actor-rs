@@ -1,3 +1,7 @@
+//! Dispatcher implementations and handles.
+//!
+//! Runtime管理の方針については `docs/dispatcher_runtime_policy.md` を参照。
+
 use std::fmt::Debug;
 use std::future::Future;
 use std::sync::Arc;
@@ -128,6 +132,26 @@ impl Dispatcher for TokioRuntimeDispatcher {
 
 // --- SingleWorkerDispatcher implementation
 
+/// Dispatcher that executes work on a dedicated Tokio runtime.
+///
+/// ## Runtime lifecycle
+/// The internal runtime is owned via `Option<Arc<Runtime>>`.
+/// When this dispatcher is dropped, it will call `shutdown_background()`
+/// on the runtime if this instance is the last owner. This mirrors the
+/// policy described in `docs/dispatcher_runtime_policy.md`.
+///
+/// ```rust
+/// use nexus_actor_core_rs::actor::dispatch::{Dispatcher, SingleWorkerDispatcher, Runnable};
+///
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// let dispatcher = SingleWorkerDispatcher::new()?;
+/// dispatcher.schedule(Runnable::new(|| async move {
+///   // async work
+/// })).await;
+/// // When `dispatcher` is dropped, the internal runtime is shut down safely.
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Debug, Clone)]
 pub struct SingleWorkerDispatcher {
   runtime: Option<Arc<Runtime>>,
