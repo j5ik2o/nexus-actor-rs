@@ -2,6 +2,7 @@ use nexus_actor_core_rs::actor::actor_system::ActorSystem;
 use nexus_actor_core_rs::actor::context::SenderPart;
 use nexus_actor_core_rs::actor::core::{ActorProcess, ExtendedPid};
 use nexus_actor_core_rs::actor::message::{MessageEnvelope, MessageHandle, MessageHeaders};
+use nexus_actor_core_rs::actor::metrics::metrics_impl::MetricsSink;
 use nexus_actor_core_rs::actor::process::Process;
 use nexus_actor_core_rs::generated::actor::Pid;
 
@@ -17,6 +18,7 @@ use crate::message_decoder::{decode_wire_message, DecodedMessage};
 use crate::messages::RemoteTerminate;
 use crate::remote::Remote;
 use crate::serializer::SerializerId;
+use opentelemetry::KeyValue;
 use regex::Regex;
 use std::collections::HashSet;
 use std::convert::TryFrom;
@@ -82,6 +84,15 @@ impl EndpointReader {
       .expect("Remote has been dropped")
       .get_actor_system()
       .clone()
+  }
+
+  async fn metrics_sink(&self) -> Option<Arc<MetricsSink>> {
+    self
+      .remote
+      .upgrade()
+      .expect("Remote has been dropped")
+      .metrics_sink()
+      .await
   }
 
   async fn on_server_connection(&self, response_tx: &Sender<Result<RemoteMessage, Status>>, sc: &ServerConnection) {
@@ -182,6 +193,7 @@ impl EndpointReader {
     tracing::debug!("EndpointReader received {} envelopes", message_batch.envelopes.len());
 
     let mut touched_addresses: HashSet<String> = HashSet::new();
+    let metrics_sink = self.metrics_sink().await;
     for envelope in &message_batch.envelopes {
       let payload = &envelope.message_data;
       let mut sender = Pid::default();
@@ -214,10 +226,34 @@ impl EndpointReader {
         )));
       }
 
-      let type_name = &message_batch.type_names[envelope.type_id as usize];
+      let type_name = message_batch.type_names[envelope.type_id as usize].clone();
 
-      let decoded = decode_wire_message(type_name, &serializer_id, payload)
-        .map_err(|e| EndpointReaderError::Deserialization(e.to_string()))?;
+      if let Some(sink) = metrics_sink.as_ref() {
+        let labels = vec![
+          KeyValue::new("remote.endpoint", target.address().to_string()),
+          KeyValue::new("remote.direction", "inbound".to_string()),
+          KeyValue::new("remote.message_type", type_name.clone()),
+        ];
+        sink.record_message_size_with_labels(payload.len() as u64, &labels);
+      }
+
+      let target_addr = target.address().to_string();
+
+      let decoded = match decode_wire_message(&type_name, &serializer_id, payload) {
+        Ok(decoded) => decoded,
+        Err(e) => {
+          if let Some(sink) = metrics_sink.as_ref() {
+            let labels = vec![
+              KeyValue::new("remote.endpoint", target_addr.clone()),
+              KeyValue::new("remote.direction", "inbound".to_string()),
+              KeyValue::new("remote.message_type", type_name.clone()),
+              KeyValue::new("remote.error", "deserialization".to_string()),
+            ];
+            sink.increment_remote_receive_failure_with_labels(&labels);
+          }
+          return Err(EndpointReaderError::Deserialization(e.to_string()));
+        }
+      };
 
       let actor_system = self.get_actor_system().await;
       let mut root_context = actor_system.get_root_context().await;
@@ -246,7 +282,16 @@ impl EndpointReader {
           let msg_handle = MessageHandle::new_arc(message_arc);
 
           if sender_opt.is_none() && envelope.message_header.is_none() {
-            root_context.send(target, msg_handle).await;
+            root_context.send(target.clone(), msg_handle).await;
+            if let Some(sink) = metrics_sink.as_ref() {
+              let labels = vec![
+                KeyValue::new("remote.endpoint", target_addr.clone()),
+                KeyValue::new("remote.direction", "inbound".to_string()),
+                KeyValue::new("remote.message_type", type_name.clone()),
+                KeyValue::new("remote.result", "success".to_string()),
+              ];
+              sink.increment_remote_receive_success_with_labels(&labels);
+            }
             continue;
           }
 
@@ -260,8 +305,20 @@ impl EndpointReader {
           if let Some(sender_pid) = sender_opt {
             local_envelope = local_envelope.with_sender(ExtendedPid::new(sender_pid));
           }
-          root_context.send(target, MessageHandle::new(local_envelope)).await;
+          root_context
+            .send(target.clone(), MessageHandle::new(local_envelope))
+            .await;
         }
+      }
+
+      if let Some(sink) = metrics_sink.as_ref() {
+        let labels = vec![
+          KeyValue::new("remote.endpoint", target_addr.clone()),
+          KeyValue::new("remote.direction", "inbound".to_string()),
+          KeyValue::new("remote.message_type", type_name.clone()),
+          KeyValue::new("remote.result", "success".to_string()),
+        ];
+        sink.increment_remote_receive_success_with_labels(&labels);
       }
     }
 

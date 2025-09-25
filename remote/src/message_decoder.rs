@@ -21,7 +21,8 @@ pub enum DecodedMessage {
 
 fn downcast_root_serializable<T>(value: Arc<dyn RootSerializable>) -> Result<T, SerializerError>
 where
-  T: Clone + Message + 'static, {
+  T: Clone + Message + 'static,
+{
   let any = value.as_any();
   any
     .downcast_ref::<T>()
@@ -36,7 +37,8 @@ fn deserialize_root_serializable<TTransport, TResult>(
 ) -> Result<Arc<dyn Message>, SerializerError>
 where
   TTransport: Clone + RootSerialized + Send + Sync + 'static,
-  TResult: Clone + Message + 'static, {
+  TResult: Clone + Message + 'static,
+{
   let transport_arc = deserialize_any(bytes, serializer_id, type_name)?;
   let transport = transport_arc
     .downcast_arc::<TTransport>()
