@@ -109,15 +109,26 @@ impl ActorContext {
     ctx
   }
 
-  async fn get_extras(&self) -> Option<ActorContextExtras> {
+  async fn extras_cell(&self) -> Arc<RwLock<Option<ActorContextExtras>>> {
     let inner_mg = self.inner.lock().await;
-    let mg = inner_mg.extras.read().await;
-    mg.clone()
+    inner_mg.extras.clone()
+  }
+
+  async fn message_cell(&self) -> Arc<RwLock<Option<MessageHandle>>> {
+    let inner_mg = self.inner.lock().await;
+    inner_mg.message_or_envelope_opt.clone()
+  }
+
+  async fn get_extras(&self) -> Option<ActorContextExtras> {
+    let extras_cell = self.extras_cell().await;
+    let extras_guard = extras_cell.read().await;
+    let extras = extras_guard.clone();
+    extras
   }
 
   async fn set_extras(&mut self, extras: Option<ActorContextExtras>) {
-    let inner_mg = self.inner.lock().await;
-    *inner_mg.extras.write().await = extras;
+    let extras_cell = self.extras_cell().await;
+    *extras_cell.write().await = extras;
   }
 
   async fn get_props(&self) -> Props {
@@ -251,20 +262,21 @@ impl ActorContext {
   }
 
   async fn get_message_or_envelop(&self) -> MessageHandle {
-    let inner_mg = self.inner.lock().await;
-    let mg = inner_mg.message_or_envelope_opt.read().await;
-    mg.clone().unwrap()
+    let message_cell = self.message_cell().await;
+    let message_guard = message_cell.read().await;
+    let message = message_guard.clone().unwrap();
+    message
   }
 
   async fn set_message_or_envelope(&mut self, message_handle: MessageHandle) {
-    let inner_mg = self.inner.lock().await;
-    let mut moe_opt = inner_mg.message_or_envelope_opt.write().await;
+    let message_cell = self.message_cell().await;
+    let mut moe_opt = message_cell.write().await;
     *moe_opt = Some(message_handle);
   }
 
   async fn reset_message_or_envelope(&mut self) {
-    let inner_mg = self.inner.lock().await;
-    let mut moe_opt = inner_mg.message_or_envelope_opt.write().await;
+    let message_cell = self.message_cell().await;
+    let mut moe_opt = message_cell.write().await;
     *moe_opt = None;
   }
 
@@ -704,8 +716,8 @@ impl BasePart for ActorContext {
   }
 
   async fn forward(&self, pid: &ExtendedPid) {
-    let inner_mg = self.inner.lock().await;
-    let mg = inner_mg.message_or_envelope_opt.read().await;
+    let message_cell = self.message_cell().await;
+    let mg = message_cell.read().await;
     if let Some(message_or_envelope) = &*mg {
       if let Some(sm) = message_or_envelope.to_typed::<SystemMessage>() {
         panic!("SystemMessage cannot be forwarded: {:?}", sm);
@@ -752,8 +764,8 @@ impl BasePart for ActorContext {
 #[async_trait]
 impl MessagePart for ActorContext {
   async fn get_message_envelope_opt(&self) -> Option<MessageEnvelope> {
-    let inner_mg = self.inner.lock().await;
-    let mg = inner_mg.message_or_envelope_opt.read().await;
+    let message_cell = self.message_cell().await;
+    let mg = message_cell.read().await;
     if let Some(message_or_envelope) = &*mg {
       message_or_envelope.to_typed::<MessageEnvelope>()
     } else {
@@ -762,16 +774,16 @@ impl MessagePart for ActorContext {
   }
 
   async fn get_message_handle_opt(&self) -> Option<MessageHandle> {
-    let inner_mg = self.inner.lock().await;
-    let mg = inner_mg.message_or_envelope_opt.read().await;
+    let message_cell = self.message_cell().await;
+    let mg = message_cell.read().await;
     (*mg)
       .as_ref()
       .map(|message_or_envelope| unwrap_envelope_message(message_or_envelope.clone()))
   }
 
   async fn get_message_header_handle(&self) -> Option<ReadonlyMessageHeadersHandle> {
-    let inner_mg = self.inner.lock().await;
-    let mg = inner_mg.message_or_envelope_opt.read().await;
+    let message_cell = self.message_cell().await;
+    let mg = message_cell.read().await;
     if let Some(moe) = &*mg {
       unwrap_envelope_header(moe.clone()).map(ReadonlyMessageHeadersHandle::new)
     } else {
@@ -783,8 +795,8 @@ impl MessagePart for ActorContext {
 #[async_trait]
 impl SenderPart for ActorContext {
   async fn get_sender(&self) -> Option<ExtendedPid> {
-    let inner_mg = self.inner.lock().await;
-    let mg = inner_mg.message_or_envelope_opt.read().await;
+    let message_cell = self.message_cell().await;
+    let mg = message_cell.read().await;
     if let Some(message_or_envelope) = &*mg {
       unwrap_envelope_sender(message_or_envelope.clone())
     } else {
@@ -896,8 +908,8 @@ impl StopperPart for ActorContext {
         async move { am.increment_actor_stopped_count().await }
       })
       .await;
-    let inner_mg = self.inner.lock().await;
-    pid.ref_process(inner_mg.actor_system.clone()).await.stop(pid).await;
+    let actor_system = self.get_actor_system().await;
+    pid.ref_process(actor_system).await.stop(pid).await;
   }
 
   async fn stop_future_with_timeout(&mut self, pid: &ExtendedPid, timeout: Duration) -> ActorFuture {
@@ -915,9 +927,9 @@ impl StopperPart for ActorContext {
   }
 
   async fn poison(&mut self, pid: &ExtendedPid) {
-    let inner_mg = self.inner.lock().await;
+    let actor_system = self.get_actor_system().await;
     pid
-      .send_user_message(inner_mg.actor_system.clone(), MessageHandle::new(PoisonPill {}))
+      .send_user_message(actor_system, MessageHandle::new(PoisonPill {}))
       .await;
   }
 
