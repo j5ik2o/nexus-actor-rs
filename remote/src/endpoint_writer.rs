@@ -101,7 +101,7 @@ impl EndpointWriter {
 
   pub async fn initialize(&mut self, _: ContextHandle) {
     let now = Instant::now();
-    tracing::info!("Started EndpointWriter. connecting: to {}", self.address);
+    tracing::info!(address = %self.address, "Starting EndpointWriter connect loop");
     let _i = 0;
     let mut error: Option<EndpointWriterError> = None;
     for i in 0..self.config.get_max_retry_count().await {
@@ -137,9 +137,9 @@ impl EndpointWriter {
     }
 
     tracing::info!(
-      "EndpointWriter connected to remote: address = {}, cost = {} millis",
-      self.address,
-      now.elapsed().as_millis()
+      address = %self.address,
+      duration_ms = now.elapsed().as_millis(),
+      "EndpointWriter connected"
     );
   }
 
@@ -303,7 +303,7 @@ impl EndpointWriter {
     msg_list: impl IntoIterator<Item = MessageHandle>,
     ctx: &mut ContextHandle,
   ) -> Result<(), ActorError> {
-    tracing::info!("EndpointWriter send_envelopes");
+    tracing::debug!("EndpointWriter send_envelopes");
     let mut envelopes = vec![];
 
     let mut type_names = DashMap::new();
@@ -320,7 +320,7 @@ impl EndpointWriter {
     for msg in msg_list {
       let typed_msg = msg.to_typed::<EndpointEvent>();
       if let Some(EndpointEvent::EndpointTerminated(_)) = typed_msg {
-        tracing::info!("EndpointWriter received EndpointTerminated");
+        tracing::debug!("EndpointWriter received EndpointTerminated");
         ctx.stop(&ctx.get_self().await).await;
         return Ok(());
       }
@@ -329,13 +329,13 @@ impl EndpointWriter {
         .to_typed::<RemoteDeliver>()
         .expect("Failed to convert to RemoteDeliver");
 
-      tracing::info!("EndpointWriter: get {:?}", rd);
+      tracing::trace!(deliver = ?rd, "EndpointWriter received deliver");
 
       if self.get_stream().await.is_none() {
         self.mark_deliver_failure().await;
         let actor_system = self.get_actor_system().await;
         if let Some(sender) = rd.sender {
-          tracing::info!("EndpointWriter sending DeadLetterResponse");
+          tracing::debug!("EndpointWriter sending DeadLetterResponse");
           let sender = ExtendedPid::new(sender);
           actor_system
             .get_root_context()
@@ -348,7 +348,7 @@ impl EndpointWriter {
             )
             .await;
         } else {
-          tracing::info!("EndpointWriter sending DeadLetterEvent");
+          tracing::debug!("EndpointWriter sending DeadLetterEvent");
           let target = ExtendedPid::new(rd.target);
           self
             .publish_stream(MessageHandle::new(DeadLetterEvent {
@@ -371,10 +371,10 @@ impl EndpointWriter {
 
       let message = rd.message;
 
-      tracing::info!("message = {:?}", message);
+      tracing::trace!(message = ?message, "EndpointWriter processing message");
 
       let s_id = u32::from(serializer_id.clone());
-      tracing::info!("EndpointWriter: serializer_id = {:?}", s_id);
+      tracing::trace!(serializer_id = s_id, "EndpointWriter serializer");
 
       let request_opt = message.to_typed::<Arc<dyn RootSerializable>>();
       let v = request_opt.map(|request| request.serialize());
@@ -400,7 +400,7 @@ impl EndpointWriter {
       }
 
       let result = if let Some(Ok(msg)) = v {
-        tracing::info!("EndpointWriter: serialize message");
+        tracing::trace!("EndpointWriter serialize RootSerializable message");
         let result = serialize_any(msg.as_any(), &serializer_id, &msg.get_type_name());
         if let Err(e) = &result {
           tracing::error!("Failed to serialize message: {:?}", e);
@@ -408,7 +408,7 @@ impl EndpointWriter {
         }
         Some(result)
       } else {
-        tracing::info!("EndpointWriter: serialize_any message");
+        tracing::trace!("EndpointWriter serialize message via serialize_any");
         Some(serialize_any(
           message.as_any(),
           &serializer_id,
@@ -416,11 +416,11 @@ impl EndpointWriter {
         ))
       };
 
-      tracing::info!("EndpointWriter: serialized message: {:?}", result);
+      tracing::trace!(result = ?result, "EndpointWriter serialized message");
 
       let bytes = result.expect("Not found message").expect("Failed to serialize message");
 
-      tracing::info!("EndpointWriter: get bytes");
+      tracing::trace!("EndpointWriter obtained serialized bytes");
 
       let type_id = add_to_lookup(&mut type_names, message.get_type_name(), &mut type_names_arr);
       let target_id = add_to_target_lookup(&mut target_names, &rd.target, &mut target_names_arr);
@@ -444,19 +444,19 @@ impl EndpointWriter {
         sender_request_id,
       };
 
-      tracing::info!("EndpointWriter: message envelope = {:?}", me);
+      tracing::trace!(envelope = ?me, "EndpointWriter built envelope");
 
       envelopes.push(me);
     }
 
     if envelopes.is_empty() {
-      tracing::info!("EndpointWriter envelopes is empty");
+      tracing::debug!("EndpointWriter had no envelopes to send");
       return Ok(());
     }
 
     let mut stream = self.get_stream().await.expect("Stream is not set");
 
-    tracing::info!("EndpointWriter: envelopes = {:?}", envelopes);
+    tracing::trace!(envelopes = ?envelopes, "EndpointWriter batch envelopes");
 
     let request = RemoteMessage {
       message_type: Some(MessageType::MessageBatch(MessageBatch {
@@ -468,7 +468,7 @@ impl EndpointWriter {
     };
 
     let request = tonic::Request::new(futures::stream::once(futures::future::ready(request)));
-    tracing::info!("EndpointWriter sending message batch: {:?}", request);
+    tracing::trace!("EndpointWriter sending message batch");
     let response = stream.receive(request).await;
 
     if let Err(e) = &response {
@@ -543,7 +543,7 @@ fn add_to_sender_lookup(m: &mut DashMap<String, i32>, pid: Option<&Pid>, arr: &m
   };
 
   let max = m.len() as i32;
-  tracing::info!("add_to_sender_lookup: max = {}", max);
+  tracing::trace!(max = max, "add_to_sender_lookup");
   let key = format!("{}/{}", pid.address, pid.id);
   let id_ref = m.get(&key);
   let mut id = id_ref.map(|id| *id);
@@ -558,14 +558,14 @@ fn add_to_sender_lookup(m: &mut DashMap<String, i32>, pid: Option<&Pid>, arr: &m
       max
     }
   };
-  tracing::info!("add_to_sender_lookup: id = {:?}", id);
+  tracing::trace!(id = ?id, "add_to_sender_lookup id");
   id.expect("not found value") + 1
 }
 
 #[async_trait]
 impl Actor for EndpointWriter {
   async fn receive(&mut self, mut context_handle: ContextHandle) -> Result<(), ActorError> {
-    tracing::info!("EndpointWriter received message");
+    tracing::debug!("EndpointWriter received message");
     let msg = context_handle.get_message_handle().await;
     let endpoint_event = msg.to_typed::<EndpointEvent>();
     match endpoint_event {
