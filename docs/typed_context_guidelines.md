@@ -36,10 +36,10 @@
 ## `Arc<Mutex<_>>` 棚卸しと優先順位
 - `scripts/list_arc_mutex_usage.sh` を実行することで、リポジトリ全体の `Arc<Mutex<_>>` 使用箇所を一覧化できる。
 - 2025-09-25 時点で高優先度と判断した箇所:
-  - `core/src/ctxext/extensions.rs` : Extension 管理ベクタを `Arc<Mutex<Vec<Option<ContextExtensionHandle>>>>` で保持。読み取り主体のため `RwLock` + 借用に移行予定。
+  - ~~`core/src/ctxext/extensions.rs` : Extension 管理ベクタを `Arc<Mutex<Vec<Option<ContextExtensionHandle>>>>` で保持。読み取り主体のため `RwLock` + 借用に移行予定。~~ ✅ `borrow_extension` / `borrow_extension_mut` API で参照取得可
   - `core/src/metrics/actor_metrics.rs` : メトリクス更新でロック粒度が大きく、`ContextBorrow` 経由で必要データを渡す設計へ移行検討。
   - `core/src/actor/supervisor/supervisor_strategy.rs` : `SupervisorHandle` を `Arc<RwLock<dyn Supervisor>>` 化し、再入ロックを削減済み。今後は `ContextBorrow` ベースの API 拡張を検討する。
-  - `remote/src/endpoint_manager.rs` / `remote/src/remote.rs` : リモート起動経路で `Arc<Mutex<Option<_>>>` が多用され、タイムアウト処理と競合。ライフタイム移行後は `OnceCell` + 借用で行ロックを排除する計画。
+- `remote/src/endpoint_manager.rs` / `remote/src/remote.rs` : リモート起動経路で `Arc<Mutex<Option<_>>>` が多用され、タイムアウト処理と競合。ライフタイム移行後は `OnceCell` + 借用で行ロックを排除する計画。
 
 棚卸し結果は `docs/core_improvemnet_plan.md` のロードマップと同期し、移行作業の進捗に合わせて定期的に更新すること。
 

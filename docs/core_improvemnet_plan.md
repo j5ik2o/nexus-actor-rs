@@ -36,18 +36,24 @@
 - [ ] ベンチ結果を CSV 化して履歴追跡 (`scripts/export_bench_metrics.py`)
 - [ ] `docs/bench_dashboard_plan.md` に沿った GitHub Pages 公開
 - [ ] `cargo make coverage` をライフタイム回帰テストに組み込み
+- [ ] リグレッション用のスプリント別タスク整理と完了チェック運用の自動化
 
 ## Sprint 3 次のアクション
-1. `Arc<Mutex<_>>` 使用箇所の棚卸し (`rg "Arc<Mutex" core/`) を自動化し、ライフタイム移行対象リストを `docs/typed_context_guidelines.md` に追記。
+1. ~~`Arc<Mutex<_>>` 使用箇所の棚卸し (`rg "Arc<Mutex" core/`) を自動化し、ライフタイム移行対象リストを `docs/typed_context_guidelines.md` に追記。~~ ✅ `scripts/list_arc_mutex_usage.sh` + ガイドライン更新済み
 2. ~~`ActorContextShared` の `ArcSwapOption` 版に合わせ、`ContextBorrow` からのアクター参照 API を整理（不要な `await` を削減し、再起動時の整合性を確認）。~~ ✅ `ActorContext::borrow` を同期化済み（2025-09-25）
-3. Extension レイヤの borrow API を設計し、`ContextExtensionHandle` 経由の clone を削減する。（`RwLock` 版での読み取りアクセサ設計を含む）
-4. 本計画書の更新作業を行った場合は、必ず進捗（ロードマップのチェックボックスや次アクション）を見直し、最新状態へ反映する。
+3. ~~Extension レイヤの borrow API を設計し、`ContextExtensionHandle` 経由の clone を削減する。（`RwLock` 版での読み取りアクセサ設計を含む）~~ ✅ `borrow_extension` / `borrow_extension_mut` を実装
 
 ## Sprint 4 次のアクション
 1. Supervisors/metrics 経路の async 呼び出しを棚卸しし、同期コンテキストと共存させる設計案をまとめる。
 2. ContextHandle の `Arc<Mutex>` 利用箇所を `ArcSwap` 化する PoC を検討し、受信順序の保証方法を調査。
-3. Extension レイヤの borrow API を設計し、`ContextExtensionHandle` の clone を削減する。
-4. 本計画書の更新作業を行った場合は、必ず進捗（ロードマップのチェックボックスや次アクション）を見直し、最新状態へ反映する。
+3. ~~Extension レイヤの borrow API を設計し、`ContextExtensionHandle` の clone を削減する。~~ ✅ Sprint 3 で完了済み
+
+### Sprint 4 調査ログ
+- Supervisors/metrics: `metrics_foreach` が OpenTelemetry extension 取得のため async を維持。同期化する場合は metrics extension を `ArcSwap` 化し、`ActorSystem::get_config()` も非同期依存を整理する必要がある。
+- ContextHandle: メッセージセル (`message_or_envelope_opt`) の整合性確保のため `Arc<Mutex>` が必要。`ArcSwap` 化を行う場合はキュー投入順序と stashing を別構造へ退避する PoC を検討する。
+
+## 運用ルール
+- 本計画書を更新した際は、完了済み項目のチェックやスプリントの次アクションを必ず見直す。
 
 ### async -> sync 変換候補（メモ）
 - TypedActorContext 系は borrow を同期化済み。情報取得メソッド群は underlying `ActorContext` の async を再利用しているため、Supervisor/metrics を同期化した後に再整理する。
