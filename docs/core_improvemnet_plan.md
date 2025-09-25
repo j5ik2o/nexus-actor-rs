@@ -39,4 +39,4 @@
   - 1万メッセージを並列に `request_future` 経由で発行し、各ハンドラがメトリクス API を再入呼び出し。
   - リモート PID 解決を 50% の確率で失敗させ、デッドレター経路にフォールバックさせる。
 - **実装方針**: `cargo make` ターゲットにベンチ用バイナリを追加し、Tokio の `rt-multi-thread` でベンチ実行。完了後にレポート（JSON）を出力して CI で閾値チェック。
-- **実装状況**: `cargo bench -p nexus-actor-core-rs --bench reentrancy` でベンチを実行し、`scripts/check_reentrancy_bench.sh` により平均応答時間がデフォルト閾値（25ms、`THRESHOLD_NS` 上書き可）をチェック可能。CI 連携では `.github/workflows/bench.yml` が `REENTRANCY_THRESHOLD_NS` （リポジトリ変数）を閾値として使用し、`target/criterion/reentrancy/load` をアーティファクトに保存する。
+- **実装状況**: `cargo bench -p nexus-actor-bench --bench reentrancy` でベンチを実行し、`scripts/check_reentrancy_bench.sh` により平均応答時間がデフォルト閾値（25ms、`THRESHOLD_NS` 上書き可）をチェック可能。CI 連携では `.github/workflows/bench.yml` が `REENTRANCY_THRESHOLD_NS` （リポジトリ変数）を閾値として使用し、`target/criterion/reentrancy/load` をアーティファクトに保存する。

@@ -8,7 +8,7 @@ BENCH_TARGET="target/criterion/reentrancy/load/new/estimates.json"
 pushd "$PROJECT_ROOT" >/dev/null
 
 if [ "${SKIP_BENCH:-0}" != "1" ]; then
-  cargo bench -p nexus-actor-core-rs --bench reentrancy >/dev/null
+  cargo bench -p nexus-actor-bench --bench reentrancy >/dev/null
 fi
 
 if [ ! -f "$BENCH_TARGET" ]; then
