@@ -10,8 +10,7 @@ pub struct GossipUpdater(Arc<dyn Fn(&GossipState, DashMap<String, ()>) + Send + 
 impl GossipUpdater {
   pub fn new<F>(f: F) -> Self
   where
-    F: Fn(&GossipState, DashMap<String, ()>) + Send + Sync + 'static,
-  {
+    F: Fn(&GossipState, DashMap<String, ()>) + Send + Sync + 'static, {
     Self(Arc::new(f))
   }
 
