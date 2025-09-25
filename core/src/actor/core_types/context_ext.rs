@@ -123,7 +123,7 @@ mod tests {
     async fn receive(&mut self, context: ContextHandle) -> Result<(), ActorError> {
       use crate::actor::core_types::ActorBridge;
 
-      let base_context = self.adapt_context(context.clone());
+      let base_context = self.adapt_context(context.clone()).await;
 
       // Use ContextAdapter directly since we know it's the implementation
       let ctx_ref = base_context.as_ref();
@@ -134,7 +134,7 @@ mod tests {
           let count = count.clone();
           let mut actor = TestActor { count };
           async move {
-            let base_ctx = ContextAdapter::new(ctx);
+            let base_ctx = ContextAdapter::new(ctx).await;
             actor
               .handle(&base_ctx)
               .await
