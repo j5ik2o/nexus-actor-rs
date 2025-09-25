@@ -20,8 +20,7 @@ impl ActorReceiver {
   pub fn new<F, Fut>(f: F) -> Self
   where
     F: Fn(ContextHandle) -> Fut + Send + Sync + 'static,
-    Fut: Future<Output = Result<(), ActorError>> + Send + 'static,
-  {
+    Fut: Future<Output = Result<(), ActorError>> + Send + 'static, {
     ActorReceiver(Arc::new(move |ch| {
       Box::pin(f(ch)) as BoxFuture<'static, Result<(), ActorError>>
     }))

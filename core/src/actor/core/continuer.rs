@@ -20,8 +20,7 @@ impl Continuer {
   pub fn new<F, Fut>(f: F) -> Self
   where
     F: Fn(Option<MessageHandle>, Option<ActorFutureError>) -> Fut + Send + Sync + 'static,
-    Fut: Future<Output = ()> + Send + 'static,
-  {
+    Fut: Future<Output = ()> + Send + 'static, {
     Self(Arc::new(move |m, e| Box::pin(f(m, e))))
   }
 

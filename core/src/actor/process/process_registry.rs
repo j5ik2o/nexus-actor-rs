@@ -58,8 +58,7 @@ impl AddressResolver {
   pub fn new<F, Fut>(f: F) -> Self
   where
     F: Fn(&ExtendedPid) -> Fut + Send + Sync + 'static,
-    Fut: Future<Output = Option<ProcessHandle>> + Send + 'static,
-  {
+    Fut: Future<Output = Option<ProcessHandle>> + Send + 'static, {
     AddressResolver(Arc::new(move |p| Box::pin(f(p))))
   }
 

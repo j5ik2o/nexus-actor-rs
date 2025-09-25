@@ -46,8 +46,7 @@ impl BaseContextExt for ContextAdapter {
   async fn spawn_child_actor<F, B>(&self, name: &str, factory: F) -> Box<dyn ActorRef>
   where
     F: Fn() -> B + Send + Sync + 'static,
-    B: BaseActor + 'static,
-  {
+    B: BaseActor + 'static, {
     let props = props_from_base_actor_factory(factory).await;
     self.spawn_child_with_props(props, name).await
   }
@@ -62,8 +61,7 @@ impl BaseContextExt for ContextAdapter {
 pub async fn props_from_base_actor_factory<F, B>(factory: F) -> Props
 where
   F: Fn() -> B + Send + Sync + 'static,
-  B: BaseActor + 'static,
-{
+  B: BaseActor + 'static, {
   use crate::actor::core_types::MigratedActor;
 
   Props::from_async_actor_receiver(move |ctx| {

@@ -9,8 +9,7 @@ pub trait MigrateToBaseActor: BaseActor {
   /// Convert this BaseActor into a traditional Actor
   fn into_actor(self) -> MigratedActor<Self>
   where
-    Self: Sized,
-  {
+    Self: Sized, {
     MigratedActor::new(self)
   }
 }
@@ -152,8 +151,7 @@ impl MigrationHelpers {
   pub async fn props_from_base_actor_fn<F, B>(factory: F) -> Props
   where
     F: Fn() -> B + Send + Sync + 'static,
-    B: BaseActor + 'static,
-  {
+    B: BaseActor + 'static, {
     Props::from_async_actor_receiver(move |ctx| {
       let base_actor = factory();
       let mut actor = MigratedActor::new(base_actor);

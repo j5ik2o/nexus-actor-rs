@@ -33,8 +33,7 @@ impl AllForOneStrategy {
   pub fn with_decider<F, Fut>(mut self, decider: F) -> Self
   where
     F: Fn(ErrorReason) -> Fut + Send + Sync + 'static,
-    Fut: futures::future::Future<Output = Directive> + Send + 'static,
-  {
+    Fut: futures::future::Future<Output = Directive> + Send + 'static, {
     self.decider = Arc::new(Decider::new(decider));
     self
   }

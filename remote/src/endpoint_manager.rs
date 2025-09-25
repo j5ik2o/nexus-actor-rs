@@ -383,7 +383,7 @@ impl EndpointManager {
         }
 
         let delay = state_handle.compute_backoff_delay(attempt);
-        tracing::info!(address = %address_for_task, attempt, ?delay, "Scheduling reconnect attempt");
+        tracing::debug!(address = %address_for_task, attempt, ?delay, "Scheduling reconnect attempt");
         if !delay.is_zero() {
           sleep(delay).await;
         }
@@ -397,7 +397,7 @@ impl EndpointManager {
           .await
         {
           Ok(()) => {
-            tracing::info!(address = %address_for_task, "Reconnect attempt succeeded");
+            tracing::debug!(address = %address_for_task, "Reconnect attempt succeeded");
             manager
               .publish_reconnect_event(&address_for_task, attempt as u64, true)
               .await;

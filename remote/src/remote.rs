@@ -176,8 +176,7 @@ impl Remote {
   pub async fn start_with_callback<F, Fut>(&self, on_start: F) -> Result<(), RemoteError>
   where
     F: FnOnce() -> Fut,
-    Fut: Future<Output = ()> + Send + Sync,
-  {
+    Fut: Future<Output = ()> + Send + Sync, {
     let (shutdown, rx) = Shutdown::new();
     {
       let mut mg = self.inner.shutdown.lock().await;
