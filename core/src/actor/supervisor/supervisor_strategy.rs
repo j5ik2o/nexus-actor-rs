@@ -3,9 +3,10 @@ use futures::future::BoxFuture;
 use once_cell::sync::Lazy;
 use std::fmt::Debug;
 use std::future::Future;
+use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::Mutex;
+use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::core::ErrorReason;
@@ -84,21 +85,33 @@ pub trait Supervisor: Debug + Send + Sync + 'static {
 }
 
 #[derive(Debug, Clone)]
-pub struct SupervisorHandle(Arc<Mutex<dyn Supervisor>>);
+pub struct SupervisorHandle(Arc<RwLock<dyn Supervisor>>);
 
 impl SupervisorHandle {
-  pub async fn get_supervisor(&self) -> Arc<Mutex<dyn Supervisor>> {
+  pub async fn get_supervisor(&self) -> Arc<RwLock<dyn Supervisor>> {
     self.0.clone()
+  }
+
+  pub async fn borrow(&self) -> SupervisorBorrow<'_> {
+    SupervisorBorrow {
+      guard: self.0.read().await,
+    }
+  }
+
+  pub async fn borrow_mut(&self) -> SupervisorBorrowMut<'_> {
+    SupervisorBorrowMut {
+      guard: self.0.write().await,
+    }
   }
 }
 
 impl SupervisorHandle {
-  pub fn new_arc(s: Arc<Mutex<dyn Supervisor>>) -> Self {
+  pub fn new_arc(s: Arc<RwLock<dyn Supervisor>>) -> Self {
     SupervisorHandle(s)
   }
 
   pub fn new(s: impl Supervisor + 'static) -> Self {
-    SupervisorHandle(Arc::new(Mutex::new(s)))
+    SupervisorHandle(Arc::new(RwLock::new(s)))
   }
 }
 
@@ -112,7 +125,37 @@ impl Eq for SupervisorHandle {}
 
 impl std::hash::Hash for SupervisorHandle {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    (self.0.as_ref() as *const Mutex<dyn Supervisor>).hash(state);
+    (self.0.as_ref() as *const RwLock<dyn Supervisor>).hash(state);
+  }
+}
+
+pub struct SupervisorBorrow<'a> {
+  guard: RwLockReadGuard<'a, dyn Supervisor>,
+}
+
+impl<'a> Deref for SupervisorBorrow<'a> {
+  type Target = dyn Supervisor;
+
+  fn deref(&self) -> &Self::Target {
+    &*self.guard
+  }
+}
+
+pub struct SupervisorBorrowMut<'a> {
+  guard: RwLockWriteGuard<'a, dyn Supervisor>,
+}
+
+impl<'a> Deref for SupervisorBorrowMut<'a> {
+  type Target = dyn Supervisor;
+
+  fn deref(&self) -> &Self::Target {
+    &*self.guard
+  }
+}
+
+impl<'a> DerefMut for SupervisorBorrowMut<'a> {
+  fn deref_mut(&mut self) -> &mut Self::Target {
+    &mut *self.guard
   }
 }
 
@@ -123,27 +166,27 @@ impl Supervisor for SupervisorHandle {
   }
 
   async fn get_children(&self) -> Vec<ExtendedPid> {
-    let mg = self.0.lock().await;
+    let mg = self.0.read().await;
     mg.get_children().await
   }
 
   async fn escalate_failure(&self, reason: ErrorReason, message_handle: MessageHandle) {
-    let mg = self.0.lock().await;
+    let mg = self.0.read().await;
     mg.escalate_failure(reason, message_handle).await;
   }
 
   async fn restart_children(&self, pids: &[ExtendedPid]) {
-    let mg = self.0.lock().await;
+    let mg = self.0.read().await;
     mg.restart_children(pids).await;
   }
 
   async fn stop_children(&self, pids: &[ExtendedPid]) {
-    let mg = self.0.lock().await;
+    let mg = self.0.read().await;
     mg.stop_children(pids).await;
   }
 
   async fn resume_children(&self, pids: &[ExtendedPid]) {
-    let mg = self.0.lock().await;
+    let mg = self.0.read().await;
     mg.resume_children(pids).await;
   }
 }

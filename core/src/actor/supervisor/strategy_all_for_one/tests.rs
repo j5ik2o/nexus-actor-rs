@@ -85,7 +85,7 @@ mod test {
     let child3 = ExtendedPid::new(Pid::new("test", "3"));
     {
       let mock_supervisor = supervisor.get_supervisor().await;
-      let guard = mock_supervisor.lock().await;
+      let guard = mock_supervisor.read().await;
       let mock_supervisor = guard.as_any().downcast_ref::<MockSupervisor>().unwrap();
       *mock_supervisor.children.lock().unwrap() = vec![child.clone(), child2.clone(), child3.clone()];
     }
@@ -103,7 +103,7 @@ mod test {
 
     tokio::time::sleep(Duration::from_millis(100)).await;
     let mock_supervisor = supervisor.get_supervisor().await;
-    let guard = mock_supervisor.lock().await;
+    let guard = mock_supervisor.read().await;
     let mock_supervisor = guard.as_any().downcast_ref::<MockSupervisor>().unwrap();
     let last_action = mock_supervisor.last_action.lock().unwrap().clone();
     assert_eq!(last_action.as_str(), "restart");
@@ -132,7 +132,7 @@ mod test {
     let child3 = ExtendedPid::new(Pid::new("test", "3"));
     {
       let mock_supervisor = supervisor.get_supervisor().await;
-      let guard = mock_supervisor.lock().await;
+      let guard = mock_supervisor.read().await;
       let mock_supervisor = guard.as_any().downcast_ref::<MockSupervisor>().unwrap();
       *mock_supervisor.children.lock().unwrap() = vec![child.clone(), child2.clone(), child3.clone()];
     }
@@ -150,7 +150,7 @@ mod test {
 
     tokio::time::sleep(Duration::from_millis(100)).await;
     let mock_supervisor = supervisor.get_supervisor().await;
-    let guard = mock_supervisor.lock().await;
+    let guard = mock_supervisor.read().await;
     let mock_supervisor = guard.as_any().downcast_ref::<MockSupervisor>().unwrap();
     let last_action = mock_supervisor.last_action.lock().unwrap().clone();
     assert_eq!(last_action.as_str(), "stop");
@@ -179,7 +179,7 @@ mod test {
     let child3 = ExtendedPid::new(Pid::new("test", "3"));
     {
       let mock_supervisor = supervisor.get_supervisor().await;
-      let guard = mock_supervisor.lock().await;
+      let guard = mock_supervisor.read().await;
       let mock_supervisor = guard.as_any().downcast_ref::<MockSupervisor>().unwrap();
       *mock_supervisor.children.lock().unwrap() = vec![child.clone(), child2.clone(), child3.clone()];
     }
@@ -197,7 +197,7 @@ mod test {
 
     tokio::time::sleep(Duration::from_millis(100)).await;
     let mock_supervisor = supervisor.get_supervisor().await;
-    let guard = mock_supervisor.lock().await;
+    let guard = mock_supervisor.read().await;
     let mock_supervisor = guard.as_any().downcast_ref::<MockSupervisor>().unwrap();
     let last_action = mock_supervisor.last_action.lock().unwrap().clone();
     assert_eq!(last_action.as_str(), "escalate");
@@ -224,7 +224,7 @@ mod test {
     let child3 = ExtendedPid::new(Pid::new("test", "3"));
     {
       let mock_supervisor = supervisor.get_supervisor().await;
-      let guard = mock_supervisor.lock().await;
+      let guard = mock_supervisor.read().await;
       let mock_supervisor = guard.as_any().downcast_ref::<MockSupervisor>().unwrap();
       *mock_supervisor.children.lock().unwrap() = vec![child.clone(), child2.clone(), child3.clone()];
     }
@@ -242,7 +242,7 @@ mod test {
 
     tokio::time::sleep(Duration::from_millis(100)).await;
     let mock_supervisor = supervisor.get_supervisor().await;
-    let guard = mock_supervisor.lock().await;
+    let guard = mock_supervisor.read().await;
     let mock_supervisor = guard.as_any().downcast_ref::<MockSupervisor>().unwrap();
     let last_action = mock_supervisor.last_action.lock().unwrap().clone();
     assert_eq!(last_action.as_str(), "resume");

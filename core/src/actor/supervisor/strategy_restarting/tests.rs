@@ -92,7 +92,7 @@ mod test {
 
     tokio::time::sleep(Duration::from_millis(100)).await;
     let mock_supervisor = supervisor.get_supervisor().await;
-    let guard = mock_supervisor.lock().await;
+    let guard = mock_supervisor.read().await;
     let mock_supervisor = guard.as_any().downcast_ref::<MockSupervisor>().unwrap();
     let last_action = mock_supervisor.last_action.lock().unwrap().clone();
     assert_eq!(last_action.as_str(), "restart");
