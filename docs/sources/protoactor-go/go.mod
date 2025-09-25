@@ -30,7 +30,7 @@ require (
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/lithammer/shortuuid/v4 v4.0.0
 	github.com/twmb/murmur3 v1.1.8
-	go.etcd.io/etcd/client/v3 v3.5.10
+	go.etcd.io/etcd/client/v3 v3.6.5
 	golang.org/x/exp df9299821621
 	golang.org/x/sync v0.12.0
 	k8s.io/api v0.34.1
