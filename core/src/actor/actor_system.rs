@@ -102,7 +102,7 @@ impl ActorSystem {
     let pr = self.get_process_registry().await;
     let pid = Pid {
       id: id.to_string(),
-      address: pr.get_address().await,
+      address: pr.get_address(),
       request_id: 0,
     };
     ExtendedPid::new(pid)
@@ -114,7 +114,7 @@ impl ActorSystem {
   }
 
   pub async fn get_address(&self) -> String {
-    self.get_process_registry().await.get_address().await
+    self.get_process_registry().await.get_address()
   }
 
   pub async fn get_config(&self) -> Config {
