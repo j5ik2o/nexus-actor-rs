@@ -267,18 +267,16 @@ impl Remote {
       published_address
     );
 
-    let mut process_registry = self.inner.actor_system.get_process_registry().await;
-    process_registry
-      .register_address_resolver(AddressResolver::new(move |pid| {
-        let cloned_self = cloned_self.clone();
-        let pid = pid.clone();
-        async move {
-          let (ph, _) = cloned_self.remote_handler(&pid.inner_pid).await;
-          Some(ph)
-        }
-      }))
-      .await;
-    process_registry.set_address(published_address).await;
+    let process_registry = self.inner.actor_system.get_process_registry().await;
+    process_registry.register_address_resolver(AddressResolver::new(move |pid| {
+      let cloned_self = cloned_self.clone();
+      let pid = pid.clone();
+      async move {
+        let (ph, _) = cloned_self.remote_handler(&pid.inner_pid).await;
+        Some(ph)
+      }
+    }));
+    process_registry.set_address(published_address);
     tracing::info!("Starting server: {}", socket_addr);
 
     let self_weak = Arc::downgrade(&my_self);
