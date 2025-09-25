@@ -4,7 +4,7 @@ version: '3.4'
 services:
   consul:
     container_name: dev-consul
-    image: consul:1.10
+    image: consul:1.15
     restart: unless-stopped
     ports:
       - 8500:8500
