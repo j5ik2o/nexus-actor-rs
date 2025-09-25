@@ -3,9 +3,11 @@ use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::actor::actor_system::ActorSystem;
+use crate::actor::actor_system::{ActorSystem, WeakActorSystem};
 use crate::actor::context::actor_context_extras::ActorContextExtras;
 use crate::actor::context::context_handle::ContextHandle;
+use crate::actor::context::receiver_context_handle::ReceiverContextHandle;
+use crate::actor::context::sender_context_handle::SenderContextHandle;
 use crate::actor::context::spawner_context_handle::SpawnerContextHandle;
 use crate::actor::context::state::State;
 use crate::actor::context::{
@@ -67,9 +69,18 @@ pub struct ActorContext {
   state: Arc<AtomicU8>,
   receive_timeout: Arc<RwLock<Option<Duration>>>,
   props: Props,
-  actor_system: ActorSystem,
+  actor_system: WeakActorSystem,
   parent: Option<ExtendedPid>,
   self_pid: Arc<RwLock<Option<ExtendedPid>>>,
+}
+
+#[derive(Debug)]
+pub struct ContextBorrow<'a> {
+  actor_system: ActorSystem,
+  props: &'a Props,
+  parent: Option<&'a ExtendedPid>,
+  self_pid: Option<ExtendedPid>,
+  actor: Option<ActorHandle>,
 }
 
 impl PartialEq for ActorContext {
@@ -102,7 +113,7 @@ impl ActorContext {
       state,
       receive_timeout,
       props,
-      actor_system,
+      actor_system: actor_system.downgrade(),
       parent,
       self_pid,
     };
@@ -118,6 +129,40 @@ impl ActorContext {
     self.message_or_envelope_opt.clone()
   }
 
+  fn actor_system(&self) -> ActorSystem {
+    self
+      .actor_system
+      .upgrade()
+      .expect("ActorSystem dropped before ActorContext")
+  }
+
+  pub fn props_ref(&self) -> &Props {
+    &self.props
+  }
+
+  pub fn parent_ref(&self) -> Option<&ExtendedPid> {
+    self.parent.as_ref()
+  }
+
+  pub async fn borrow(&self) -> ContextBorrow<'_> {
+    let actor = {
+      let inner = self.inner.lock().await;
+      inner.actor.clone()
+    };
+    let self_pid = self.self_pid.read().await.clone();
+    ContextBorrow {
+      actor_system: self.actor_system(),
+      props: &self.props,
+      parent: self.parent.as_ref(),
+      self_pid,
+      actor,
+    }
+  }
+
+  pub async fn snapshot(&self) -> ContextBorrow<'_> {
+    self.borrow().await
+  }
+
   async fn get_extras(&self) -> Option<ActorContextExtras> {
     let extras_cell = self.extras_cell();
     let extras_guard = extras_cell.read().await;
@@ -128,10 +173,6 @@ impl ActorContext {
   async fn set_extras(&mut self, extras: Option<ActorContextExtras>) {
     let extras_cell = self.extras_cell();
     *extras_cell.write().await = extras;
-  }
-
-  async fn get_props(&self) -> Props {
-    self.props.clone()
   }
 
   async fn get_actor(&self) -> Option<ActorHandle> {
@@ -174,7 +215,7 @@ impl ActorContext {
 
   async fn prepare_context_handle(&mut self) -> ContextHandle {
     let ctxd = self.clone();
-    if let Some(decorator) = &self.get_props().await.get_context_decorator_chain() {
+    if let Some(decorator) = self.props_ref().get_context_decorator_chain() {
       decorator.run(ContextHandle::new(ctxd)).await
     } else {
       ContextHandle::new(ctxd)
@@ -182,9 +223,15 @@ impl ActorContext {
   }
 
   async fn receive_with_context(&mut self) -> ContextHandle {
-    if self.get_props().await.get_context_decorator_chain().is_some() {
+    if self.props_ref().get_context_decorator_chain().is_some() {
       let ctx_extras = self.ensure_extras().await;
-      ctx_extras.get_context().await.clone()
+      if let Some(handle) = ctx_extras.get_context().await {
+        handle
+      } else {
+        let refreshed = self.prepare_context_handle().await;
+        ctx_extras.set_context(refreshed.clone()).await;
+        refreshed
+      }
     } else {
       ContextHandle::new(self.clone())
     }
@@ -198,9 +245,10 @@ impl ActorContext {
       Ok(())
     } else {
       let context = self.receive_with_context().await;
-      let mut actor_opt = self.get_actor().await;
-
-      let actor = actor_opt.as_mut().unwrap();
+      let borrow = self.borrow().await;
+      let mut actor = borrow
+        .into_actor()
+        .expect("Actor is not initialized before default_receive");
 
       let result = actor.handle(context.clone()).await;
 
@@ -224,7 +272,7 @@ impl ActorContext {
   async fn incarnate_actor(&mut self) {
     self.state.store(State::Alive as u8, Ordering::SeqCst);
     let ch = ContextHandle::new(self.clone());
-    let actor = self.get_props().await.get_producer().run(ch).await;
+    let actor = self.props_ref().get_producer().run(ch).await;
     self.set_actor(Some(actor)).await;
 
     self
@@ -249,13 +297,20 @@ impl ActorContext {
     match self.get_sender_middleware_chain().await {
       Some(chain) => {
         let mut cloned = self.clone();
-        let context = cloned.ensure_extras().await.get_sender_context().await;
-        chain.run(context, pid, MessageEnvelope::new(message_handle)).await;
+        let extras = cloned.ensure_extras().await;
+        let sender_context = if let Some(context) = extras.get_sender_context().await {
+          context
+        } else {
+          let refreshed = cloned.prepare_context_handle().await;
+          extras.set_context(refreshed.clone()).await;
+          SenderContextHandle::new(refreshed)
+        };
+        chain
+          .run(sender_context, pid, MessageEnvelope::new(message_handle))
+          .await;
       }
       _ => {
-        pid
-          .send_user_message(self.get_actor_system().await, message_handle)
-          .await;
+        pid.send_user_message(self.actor_system(), message_handle).await;
       }
     }
   }
@@ -280,19 +335,28 @@ impl ActorContext {
   }
 
   async fn process_message(&mut self, message_handle: MessageHandle) -> Result<(), ActorError> {
-    let props = self.get_props().await;
-
-    if props.get_receiver_middleware_chain().is_some() {
+    if let Some(chain) = self.props_ref().get_receiver_middleware_chain() {
       let extras = self.ensure_extras().await;
-      let receiver_context = extras.get_receiver_context().await;
+      let receiver_context = if let Some(context) = extras.get_receiver_context().await {
+        context
+      } else {
+        let refreshed = self.prepare_context_handle().await;
+        extras.set_context(refreshed.clone()).await;
+        ReceiverContextHandle::new(refreshed)
+      };
       let message_envelope = wrap_envelope(message_handle.clone());
-      let chain = props.get_receiver_middleware_chain().unwrap();
       return chain.run(receiver_context, message_envelope).await;
     }
 
-    if props.get_context_decorator_chain().is_some() {
+    if self.props_ref().get_context_decorator_chain().is_some() {
       let extras = self.ensure_extras().await;
-      let mut receiver_context = extras.get_receiver_context().await;
+      let mut receiver_context = if let Some(context) = extras.get_receiver_context().await {
+        context
+      } else {
+        let refreshed = self.prepare_context_handle().await;
+        extras.set_context(refreshed.clone()).await;
+        ReceiverContextHandle::new(refreshed)
+      };
       let message_envelope = wrap_envelope(message_handle.clone());
       return receiver_context.receive(message_envelope).await;
     }
@@ -305,14 +369,12 @@ impl ActorContext {
 
   async fn restart(&mut self) -> Result<(), ActorError> {
     self.incarnate_actor().await;
+    let actor_system = self.actor_system();
     self
       .get_self_opt()
       .await
       .unwrap()
-      .send_system_message(
-        self.get_actor_system().await,
-        MessageHandle::new(MailboxMessage::ResumeMailbox),
-      )
+      .send_system_message(actor_system, MessageHandle::new(MailboxMessage::ResumeMailbox))
       .await;
     let result = self
       .invoke_user_message(MessageHandle::new(AutoReceiveMessage::PostRestart))
@@ -326,9 +388,8 @@ impl ActorContext {
   }
 
   async fn finalize_stop(&mut self) -> Result<(), ActorError> {
-    self
-      .get_actor_system()
-      .await
+    let actor_system = self.actor_system();
+    actor_system
       .get_process_registry()
       .await
       .remove_process(&self.get_self_opt().await.unwrap())
@@ -346,15 +407,14 @@ impl ActorContext {
     }));
     if let Some(extras) = self.get_extras().await {
       let watchers = extras.get_watchers().await;
+      let actor_system = self.actor_system();
       for watcher in watchers.to_vec().await {
         ExtendedPid::new(watcher)
-          .send_system_message(self.get_actor_system().await, other_stopped.clone())
+          .send_system_message(actor_system.clone(), other_stopped.clone())
           .await;
       }
       if let Some(parent) = self.get_parent().await {
-        parent
-          .send_system_message(self.get_actor_system().await, other_stopped)
-          .await;
+        parent.send_system_message(actor_system, other_stopped).await;
       }
     }
     Ok(())
@@ -474,9 +534,10 @@ impl ActorContext {
 
   async fn handle_child_failure(&mut self, f: &Failure) {
     let mut actor = self.get_actor().await.unwrap();
+    let actor_system = self.actor_system();
     if let Some(s) = actor.get_supervisor_strategy().await {
       s.handle_child_failure(
-        self.get_actor_system().await,
+        actor_system.clone(),
         SupervisorHandle::new(self.clone()),
         f.who.clone(),
         f.restart_stats.clone(),
@@ -487,11 +548,10 @@ impl ActorContext {
       return;
     }
     self
-      .get_props()
-      .await
+      .props_ref()
       .get_supervisor_strategy()
       .handle_child_failure(
-        self.get_actor_system().await,
+        actor_system,
         SupervisorHandle::new(self.clone()),
         f.who.clone(),
         f.restart_stats.clone(),
@@ -522,9 +582,10 @@ impl ActorContext {
   }
 
   async fn handle_root_failure(&mut self, failure: &Failure) {
+    let actor_system = self.actor_system();
     DEFAULT_SUPERVISION_STRATEGY
       .handle_child_failure(
-        self.get_actor_system().await,
+        actor_system,
         SupervisorHandle::new(self.clone()),
         self.get_self_opt().await.unwrap(),
         failure.restart_stats.clone(),
@@ -538,21 +599,42 @@ impl ActorContext {
   where
     F: Fn(&ActorMetrics, &Metrics) -> Fut,
     Fut: std::future::Future<Output = ()>, {
-    if self.get_actor_system().await.get_config().await.is_metrics_enabled() {
-      if let Some(extension_arc) = self
-        .get_actor_system()
-        .await
-        .get_extensions()
-        .await
-        .get(*EXTENSION_ID)
-        .await
-      {
+    let actor_system = self.actor_system();
+    let config = actor_system.get_config().await;
+    if config.is_metrics_enabled() {
+      if let Some(extension_arc) = actor_system.get_extensions().await.get(*EXTENSION_ID).await {
         let mut extension = extension_arc.lock().await;
         if let Some(m) = extension.as_any_mut().downcast_mut::<Metrics>() {
           m.foreach(f).await;
         }
       }
     }
+  }
+}
+
+impl<'a> ContextBorrow<'a> {
+  pub fn actor_system(&self) -> &ActorSystem {
+    &self.actor_system
+  }
+
+  pub fn props(&self) -> &'a Props {
+    self.props
+  }
+
+  pub fn parent(&self) -> Option<&'a ExtendedPid> {
+    self.parent
+  }
+
+  pub fn self_pid(&self) -> Option<&ExtendedPid> {
+    self.self_pid.as_ref()
+  }
+
+  pub fn actor(&self) -> Option<&ActorHandle> {
+    self.actor.as_ref()
+  }
+
+  pub fn into_actor(self) -> Option<ActorHandle> {
+    self.actor
   }
 }
 
@@ -577,7 +659,7 @@ impl InfoPart for ActorContext {
   }
 
   async fn get_actor_system(&self) -> ActorSystem {
-    self.actor_system.clone()
+    self.actor_system()
   }
 }
 
@@ -612,8 +694,7 @@ impl BasePart for ActorContext {
     if sender.is_none() {
       tracing::info!("ActorContext::respond: sender is none");
       self
-        .get_actor_system()
-        .await
+        .actor_system()
         .get_dead_letter()
         .await
         .send_user_message(None, mh)
@@ -650,7 +731,7 @@ impl BasePart for ActorContext {
     let id = self.get_self_opt().await.unwrap().inner_pid;
     pid
       .send_system_message(
-        self.get_actor_system().await,
+        self.actor_system(),
         MessageHandle::new(SystemMessage::Watch(Watch { watcher: Some(id) })),
       )
       .await;
@@ -660,7 +741,7 @@ impl BasePart for ActorContext {
     let id = self.get_self_opt().await.unwrap().inner_pid;
     pid
       .send_system_message(
-        self.get_actor_system().await,
+        self.actor_system(),
         MessageHandle::new(SystemMessage::Unwatch(Unwatch { watcher: Some(id) })),
       )
       .await;
@@ -711,7 +792,7 @@ impl BasePart for ActorContext {
         panic!("SystemMessage cannot be forwarded: {:?}", sm);
       } else {
         pid
-          .send_user_message(self.get_actor_system().await, message_or_envelope.clone())
+          .send_user_message(self.actor_system(), message_or_envelope.clone())
           .await;
       }
     }
@@ -719,7 +800,7 @@ impl BasePart for ActorContext {
 
   async fn reenter_after(&self, future: ActorFuture, continuer: Continuer) {
     let message = self.get_message_or_envelop().await;
-    let system = self.get_actor_system().await;
+    let system = self.actor_system();
     let self_ref = self.get_self_opt().await.unwrap();
 
     future
@@ -809,7 +890,8 @@ impl SenderPart for ActorContext {
   }
 
   async fn request_future(&self, pid: ExtendedPid, message_handle: MessageHandle, timeout: Duration) -> ActorFuture {
-    let future_process = ActorFutureProcess::new(self.get_actor_system().await, timeout).await;
+    let actor_system = self.actor_system();
+    let future_process = ActorFutureProcess::new(actor_system, timeout).await;
     let future_pid = future_process.get_pid().await;
     let moe = MessageEnvelope::new(message_handle).with_sender(future_pid);
     self.send_user_message(pid, MessageHandle::new(moe)).await;
@@ -830,11 +912,9 @@ impl ReceiverPart for ActorContext {
 #[async_trait]
 impl SpawnerPart for ActorContext {
   async fn spawn(&mut self, props: Props) -> ExtendedPid {
+    let actor_system = self.actor_system();
     match self
-      .spawn_named(
-        props,
-        &self.get_actor_system().await.get_process_registry().await.next_id(),
-      )
+      .spawn_named(props, &actor_system.get_process_registry().await.next_id())
       .await
     {
       Ok(pid) => pid,
@@ -843,17 +923,9 @@ impl SpawnerPart for ActorContext {
   }
 
   async fn spawn_prefix(&mut self, props: Props, prefix: &str) -> ExtendedPid {
-    match self
-      .spawn_named(
-        props,
-        &format!(
-          "{}-{}",
-          prefix,
-          self.get_actor_system().await.get_process_registry().await.next_id()
-        ),
-      )
-      .await
-    {
+    let actor_system = self.actor_system();
+    let next_id = actor_system.get_process_registry().await.next_id();
+    match self.spawn_named(props, &format!("{}-{}", prefix, next_id)).await {
       Ok(pid) => pid,
       Err(e) => panic!("Failed to spawn child: {:?}", e),
     }
@@ -864,14 +936,15 @@ impl SpawnerPart for ActorContext {
       panic!("props used to spawn child cannot have GuardianStrategy")
     }
     let id = format!("{}/{}", self.get_self_opt().await.unwrap().id(), id);
-    let result = match self.get_props().await.get_spawn_middleware_chain() {
+    let actor_system = self.actor_system();
+    let result = match self.props_ref().get_spawn_middleware_chain() {
       Some(chain) => {
         let sch = SpawnerContextHandle::new(self.clone());
-        chain.run(self.get_actor_system().await, &id, props, sch).await
+        chain.run(actor_system.clone(), &id, props, sch).await
       }
       _ => {
         let sch = SpawnerContextHandle::new(self.clone());
-        props.spawn(self.get_actor_system().await, &id, sch).await
+        props.spawn(actor_system.clone(), &id, sch).await
       }
     };
 
@@ -896,15 +969,16 @@ impl StopperPart for ActorContext {
         async move { am.increment_actor_stopped_count().await }
       })
       .await;
-    let actor_system = self.get_actor_system().await;
+    let actor_system = self.actor_system();
     pid.ref_process(actor_system).await.stop(pid).await;
   }
 
   async fn stop_future_with_timeout(&mut self, pid: &ExtendedPid, timeout: Duration) -> ActorFuture {
-    let future_process = ActorFutureProcess::new(self.get_actor_system().await, timeout).await;
+    let actor_system = self.actor_system();
+    let future_process = ActorFutureProcess::new(actor_system.clone(), timeout).await;
     pid
       .send_system_message(
-        self.get_actor_system().await,
+        actor_system,
         MessageHandle::new(SystemMessage::Watch(Watch {
           watcher: Some(future_process.get_pid().await.inner_pid),
         })),
@@ -915,18 +989,19 @@ impl StopperPart for ActorContext {
   }
 
   async fn poison(&mut self, pid: &ExtendedPid) {
-    let actor_system = self.get_actor_system().await;
+    let actor_system = self.actor_system();
     pid
       .send_user_message(actor_system, MessageHandle::new(PoisonPill {}))
       .await;
   }
 
   async fn poison_future_with_timeout(&mut self, pid: &ExtendedPid, timeout: Duration) -> ActorFuture {
-    let future_process = ActorFutureProcess::new(self.get_actor_system().await, timeout).await;
+    let actor_system = self.actor_system();
+    let future_process = ActorFutureProcess::new(actor_system.clone(), timeout).await;
 
     pid
       .send_system_message(
-        self.get_actor_system().await,
+        actor_system,
         MessageHandle::new(SystemMessage::Watch(Watch {
           watcher: Some(future_process.get_pid().await.inner_pid),
         })),
@@ -1016,14 +1091,9 @@ impl MessageInvoker for ActorContext {
       }
     }
 
-    let result = if self
-      .get_actor_system()
-      .await
-      .get_config()
-      .await
-      .metrics_provider
-      .is_some()
-    {
+    let actor_system = self.actor_system();
+    let config = actor_system.get_config().await;
+    let result = if config.metrics_provider.is_some() {
       let start = Instant::now();
       let result = self.process_message(message_handle).await;
       let duration = start.elapsed();
@@ -1071,11 +1141,9 @@ impl MessageInvoker for ActorContext {
 
     let self_pid = self.get_self_opt().await.unwrap();
 
+    let actor_system = self.actor_system();
     self_pid
-      .send_system_message(
-        self.get_actor_system().await,
-        MessageHandle::new(MailboxMessage::SuspendMailbox),
-      )
+      .send_system_message(actor_system.clone(), MessageHandle::new(MailboxMessage::SuspendMailbox))
       .await;
 
     if self.get_parent().await.is_none() {
@@ -1083,7 +1151,7 @@ impl MessageInvoker for ActorContext {
     } else {
       let parent_pid = self.get_parent().await.unwrap();
       parent_pid
-        .send_system_message(self.get_actor_system().await, MessageHandle::new(failure))
+        .send_system_message(actor_system, MessageHandle::new(failure))
         .await;
     }
   }
@@ -1114,13 +1182,8 @@ impl Supervisor for ActorContext {
 
   async fn escalate_failure(&self, reason: ErrorReason, message_handle: MessageHandle) {
     let self_pid = self.get_self_opt().await.expect("Failed to retrieve self_pid");
-    if self
-      .get_actor_system()
-      .await
-      .get_config()
-      .await
-      .developer_supervision_logging
-    {
+    let actor_system = self.actor_system();
+    if actor_system.get_config().await.developer_supervision_logging {
       tracing::error!(
         "[Supervision] Actor: {}, failed with message: {}, exception: {}",
         self_pid,
@@ -1153,7 +1216,7 @@ impl Supervisor for ActorContext {
       .get_self_opt()
       .await
       .unwrap()
-      .send_system_message(self.get_actor_system().await, MessageHandle::new(failure.clone()))
+      .send_system_message(actor_system.clone(), MessageHandle::new(failure.clone()))
       .await;
 
     if self.get_parent().await.is_none() {
@@ -1163,37 +1226,34 @@ impl Supervisor for ActorContext {
         .get_parent()
         .await
         .unwrap()
-        .send_system_message(self.get_actor_system().await, MessageHandle::new(failure))
+        .send_system_message(actor_system, MessageHandle::new(failure))
         .await;
     }
   }
 
   async fn restart_children(&self, pids: &[ExtendedPid]) {
+    let actor_system = self.actor_system();
     for pid in pids {
       pid
-        .send_system_message(
-          self.get_actor_system().await,
-          MessageHandle::new(SystemMessage::Restart),
-        )
+        .send_system_message(actor_system.clone(), MessageHandle::new(SystemMessage::Restart))
         .await;
     }
   }
 
   async fn stop_children(&self, pids: &[ExtendedPid]) {
+    let actor_system = self.actor_system();
     for pid in pids {
       pid
-        .send_system_message(self.get_actor_system().await, MessageHandle::new(SystemMessage::Stop))
+        .send_system_message(actor_system.clone(), MessageHandle::new(SystemMessage::Stop))
         .await;
     }
   }
 
   async fn resume_children(&self, pids: &[ExtendedPid]) {
+    let actor_system = self.actor_system();
     for pid in pids {
       pid
-        .send_system_message(
-          self.get_actor_system().await,
-          MessageHandle::new(MailboxMessage::ResumeMailbox),
-        )
+        .send_system_message(actor_system.clone(), MessageHandle::new(MailboxMessage::ResumeMailbox))
         .await;
     }
   }

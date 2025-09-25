@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 
-use crate::actor::actor_system::ActorSystem;
+use crate::actor::actor_system::{ActorSystem, WeakActorSystem};
 use crate::actor::context::sender_context_handle::SenderContextHandle;
 use crate::actor::context::spawner_context_handle::SpawnerContextHandle;
 use crate::actor::context::{
@@ -30,7 +30,7 @@ use crate::generated::actor::{PoisonPill, Watch};
 
 #[derive(Debug, Clone)]
 pub struct RootContext {
-  actor_system: ActorSystem,
+  actor_system: WeakActorSystem,
   sender_middleware_chain: Option<SenderMiddlewareChain>,
   spawn_middleware: Option<Spawner>,
   message_headers: Arc<MessageHeaders>,
@@ -39,19 +39,27 @@ pub struct RootContext {
 
 impl RootContext {
   pub fn new(actor_system: ActorSystem, headers: Arc<MessageHeaders>, sender_middleware: &[SenderMiddleware]) -> Self {
-    Self {
-      actor_system: actor_system.clone(),
-      sender_middleware_chain: make_sender_middleware_chain(
-        sender_middleware,
-        SenderMiddlewareChain::new(move |_, target, envelope| {
-          let actor_system = actor_system.clone();
+    let weak_system = actor_system.downgrade();
+    let sender_middleware_chain = make_sender_middleware_chain(
+      sender_middleware,
+      SenderMiddlewareChain::new({
+        let weak_system = weak_system.clone();
+        move |_, target, envelope| {
+          let weak_system = weak_system.clone();
           async move {
+            let actor_system = weak_system
+              .upgrade()
+              .expect("ActorSystem dropped before RootContext sender middleware");
             target
               .send_user_message(actor_system, envelope.get_message_handle())
               .await
           }
-        }),
-      ),
+        }
+      }),
+    );
+    Self {
+      actor_system: weak_system,
+      sender_middleware_chain,
       spawn_middleware: None,
       message_headers: headers,
       guardian_strategy: None,
@@ -59,7 +67,7 @@ impl RootContext {
   }
 
   pub fn with_actor_system(mut self, actor_system: ActorSystem) -> Self {
-    self.actor_system = actor_system;
+    self.actor_system = actor_system.downgrade();
     self
   }
 
@@ -80,12 +88,19 @@ impl RootContext {
       self.sender_middleware_chain.clone().unwrap().run(sch, pid, me).await;
     } else {
       tracing::debug!("Sending user message to pid: {}", pid);
-      pid.send_user_message(self.actor_system.clone(), message_handle).await;
+      pid.send_user_message(self.actor_system(), message_handle).await;
     }
   }
 
   pub fn to_typed(self) -> TypedRootContext {
     TypedRootContext::new(self)
+  }
+
+  fn actor_system(&self) -> ActorSystem {
+    self
+      .actor_system
+      .upgrade()
+      .expect("ActorSystem dropped before RootContext")
   }
 }
 
@@ -119,7 +134,7 @@ impl InfoPart for RootContext {
   }
 
   async fn get_actor_system(&self) -> ActorSystem {
-    self.actor_system.clone()
+    self.actor_system()
   }
 }
 
@@ -147,7 +162,8 @@ impl SenderPart for RootContext {
   }
 
   async fn request_future(&self, pid: ExtendedPid, message_handle: MessageHandle, timeout: Duration) -> ActorFuture {
-    let future_process = ActorFutureProcess::new(self.get_actor_system().await, timeout).await;
+    let actor_system = self.actor_system();
+    let future_process = ActorFutureProcess::new(actor_system.clone(), timeout).await;
     let future_pid = future_process.get_pid().await;
     let moe = MessageEnvelope::new(message_handle).with_sender(future_pid.clone());
     self.send_user_message(pid, MessageHandle::new(moe)).await;

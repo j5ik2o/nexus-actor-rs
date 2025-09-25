@@ -3,7 +3,7 @@ use std::time::Duration;
 use tokio::sync::RwLock;
 
 use crate::actor::context::actor_context::ActorContext;
-use crate::actor::context::context_handle::ContextHandle;
+use crate::actor::context::context_handle::{ContextHandle, WeakContextHandle};
 use crate::actor::context::receive_timeout_timer::ReceiveTimeoutTimer;
 use crate::actor::context::receiver_context_handle::ReceiverContextHandle;
 use crate::actor::context::sender_context_handle::SenderContextHandle;
@@ -22,7 +22,7 @@ struct ActorContextExtrasInner {
   rs: Arc<RwLock<Option<RestartStatistics>>>,
   stash: MessageHandles,
   watchers: PidSet,
-  context: ContextHandle,
+  context: WeakContextHandle,
   extensions: ContextExtensions,
 }
 
@@ -34,7 +34,7 @@ impl ActorContextExtrasInner {
       rs: Arc::new(RwLock::new(None)),
       stash: MessageHandles::new(vec![]),
       watchers: PidSet::new().await,
-      context,
+      context: context.downgrade(),
       extensions: ContextExtensions::new(),
     }
   }
@@ -56,19 +56,24 @@ impl ActorContextExtras {
     mg.receive_timeout_timer.clone()
   }
 
-  pub async fn get_context(&self) -> ContextHandle {
+  pub async fn get_context(&self) -> Option<ContextHandle> {
     let mg = self.inner.read().await;
-    mg.context.clone()
+    mg.context.upgrade()
   }
 
-  pub async fn get_sender_context(&self) -> SenderContextHandle {
+  pub async fn get_sender_context(&self) -> Option<SenderContextHandle> {
     let inner_mg = self.inner.read().await;
-    SenderContextHandle::new(inner_mg.context.clone())
+    inner_mg.context.upgrade().map(SenderContextHandle::new)
   }
 
-  pub async fn get_receiver_context(&self) -> ReceiverContextHandle {
+  pub async fn get_receiver_context(&self) -> Option<ReceiverContextHandle> {
     let inner_mg = self.inner.read().await;
-    ReceiverContextHandle::new(inner_mg.context.clone())
+    inner_mg.context.upgrade().map(ReceiverContextHandle::new)
+  }
+
+  pub async fn set_context(&self, context: ContextHandle) {
+    let mut mg = self.inner.write().await;
+    mg.context = context.downgrade();
   }
 
   pub async fn get_extensions(&self) -> ContextExtensions {

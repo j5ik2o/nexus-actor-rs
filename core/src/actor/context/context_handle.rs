@@ -1,5 +1,5 @@
 use std::any::Any;
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -27,6 +27,9 @@ use crate::ctxext::extensions::{ContextExtensionHandle, ContextExtensionId};
 #[derive(Debug, Clone)]
 pub struct ContextHandle(Arc<RwLock<dyn Context>>);
 
+#[derive(Debug, Clone)]
+pub struct WeakContextHandle(Weak<RwLock<dyn Context>>);
+
 impl ContextHandle {
   pub fn new_arc(context: Arc<RwLock<dyn Context>>) -> Self {
     ContextHandle(context)
@@ -36,9 +39,19 @@ impl ContextHandle {
     ContextHandle(Arc::new(RwLock::new(c)))
   }
 
+  pub fn downgrade(&self) -> WeakContextHandle {
+    WeakContextHandle(Arc::downgrade(&self.0))
+  }
+
   pub(crate) async fn to_actor_context(&self) -> Option<ActorContext> {
     let mg = self.0.read().await;
     mg.as_any().downcast_ref::<ActorContext>().cloned()
+  }
+}
+
+impl WeakContextHandle {
+  pub fn upgrade(&self) -> Option<ContextHandle> {
+    self.0.upgrade().map(ContextHandle::new_arc)
   }
 }
 
