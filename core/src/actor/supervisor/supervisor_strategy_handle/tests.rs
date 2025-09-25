@@ -15,7 +15,7 @@ mod test {
   use crate::actor::supervisor::SupervisorHandle;
   use crate::generated::actor::Pid;
 
-  #[derive(Debug)]
+  #[derive(Debug, Clone)]
   struct MockSupervisor {
     last_action: Arc<Mutex<String>>,
     children: Arc<Mutex<Vec<ExtendedPid>>>,
