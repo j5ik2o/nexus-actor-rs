@@ -1,0 +1,20 @@
+[package]
+name = "nexus-actor-bench"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+criterion = { version = "0.7", default-features = false, features = ["html_reports"] }
+nexus-actor-core-rs = { path = "../core" }
+rand = "0.8"
+opentelemetry = { version = "0.25.0", features = ["metrics"] }
+opentelemetry-stdout = { version = "0.25.0", features = ["metrics"] }
+opentelemetry_sdk = { version = "0.25.0", features = ["metrics", "rt-tokio", "testing"] }
+tokio = { version = "1.37.0", features = ["rt-multi-thread", "macros", "time", "sync"] }
+futures = { workspace = true }
+async-trait = "0.1.80"
+nexus-actor-message-derive-rs = { path = "../message-derive" }
+
+[[bench]]
+name = "reentrancy"
+harness = false
