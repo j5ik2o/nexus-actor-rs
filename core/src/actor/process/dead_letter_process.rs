@@ -7,7 +7,7 @@ use crate::actor::message::Message;
 use crate::actor::message::MessageHandle;
 use crate::actor::message::SystemMessage;
 use crate::actor::message::TerminateReason;
-use crate::actor::metrics::metrics_impl::{MetricsSink, SyncMetricsAccess};
+use crate::actor::metrics::metrics_impl::MetricsSink;
 use crate::actor::process::{Process, ProcessHandle};
 use crate::generated::actor::{DeadLetterResponse, Terminated};
 
@@ -219,12 +219,6 @@ impl DeadLetterProcess {
       .actor_system
       .upgrade()
       .expect("ActorSystem dropped before DeadLetterProcess")
-  }
-}
-
-impl SyncMetricsAccess for DeadLetterProcess {
-  fn metrics_sink(&self) -> Option<Arc<MetricsSink>> {
-    self.metrics_sink()
   }
 }
 

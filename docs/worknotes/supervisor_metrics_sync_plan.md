@@ -87,23 +87,14 @@
    - `ActorContext` / `SupervisorHandle` / `ProcessHandle` に `Option<Arc<MetricsRuntime>>` を注入。
 
 2. **SyncMetricsAccess トレイト**
-   ```rust
-   pub trait SyncMetricsAccess {
-     fn metrics_sink(&self) -> Option<MetricsSink>;
-   }
-   ```
-   - `ActorContext`, `DeadLetterProcess`, `SupervisorHandle` などが実装。
-   - Sink が取得できない環境（メトリクス無効）では `None` を返す。
+   - 同期化完了後は不要となったため削除。各コンポーネントは固有の `metrics_sink()` や専用ヘルパー（例: `record_supervisor_metrics`）を通じて同期メトリクスを更新する。
 
 3. **API 置き換え**
    - `metrics_foreach(|am, m| async move { ... }).await;` を
      ```rust
-     if let Some(sink) = self.metrics_sink() {
-       sink.inc_actor_spawn();
-     }
+     record_supervisor_metrics(&actor_system, &supervisor, "one_for_one", decision, &child_pid, vec![]);
      ```
-     のように差し替え。
-   - 非同期ラベル計算が必要な箇所（例: `Metrics::common_labels`）は、初回アクセス時に `Sink::with_labels(|labels| { ... })` で同期計算 → `DashMap` キャッシュ。
+     のようにヘルパー関数へ集約。`ActorContext` や Process 系は `metrics_sink_or_init()` など固有メソッドで同期アクセスする。
 
 4. **Supervisor 共存**
    - `SupervisorHandle::inject_snapshot` と同様に、`MetricsSink` も `SupervisorHandle` 内のセルへキャッシュ。再起動後も捕捉済みメトリクスを再利用。

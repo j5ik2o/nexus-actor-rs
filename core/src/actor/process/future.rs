@@ -8,7 +8,7 @@ use crate::actor::core::ExtendedPid;
 use crate::actor::dispatch::Runnable;
 use crate::actor::message::Message;
 use crate::actor::message::MessageHandle;
-use crate::actor::metrics::metrics_impl::{MetricsSink, SyncMetricsAccess};
+use crate::actor::metrics::metrics_impl::MetricsSink;
 use crate::actor::process::actor_future::{ActorFuture, ActorFutureInner};
 use crate::actor::process::{Process, ProcessHandle};
 use crate::generated::actor::DeadLetterResponse;
@@ -254,11 +254,5 @@ impl Process for ActorFutureProcess {
 
   fn as_any(&self) -> &dyn Any {
     self
-  }
-}
-
-impl SyncMetricsAccess for ActorFutureProcess {
-  fn metrics_sink(&self) -> Option<Arc<MetricsSink>> {
-    self.metrics_sink()
   }
 }

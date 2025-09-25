@@ -41,7 +41,7 @@ use crate::actor::message::{
   unwrap_envelope_header, unwrap_envelope_message, unwrap_envelope_sender, wrap_envelope, MessageEnvelope,
 };
 use crate::actor::message::{AutoRespond, AutoResponsive};
-use crate::actor::metrics::metrics_impl::{MetricsRuntime, MetricsSink, SyncMetricsAccess};
+use crate::actor::metrics::metrics_impl::{MetricsRuntime, MetricsSink};
 use crate::actor::process::future::ActorFutureProcess;
 use crate::actor::process::Process;
 use crate::actor::supervisor::{Supervisor, SupervisorHandle, SupervisorStrategy, DEFAULT_SUPERVISION_STRATEGY};
@@ -233,6 +233,10 @@ impl ActorContext {
     }
     let actor_type = self.actor_type.get().map(|s| s.as_ref());
     self.init_metrics_sink_with_type(actor_type)
+  }
+
+  pub fn metrics_sink(&self) -> Option<Arc<MetricsSink>> {
+    self.metrics_sink_or_init()
   }
 
   pub fn actor_type_str(&self) -> Option<&str> {
@@ -681,12 +685,6 @@ impl<'a> ContextBorrow<'a> {
 
   pub fn into_actor(self) -> Option<ActorHandle> {
     self.actor
-  }
-}
-
-impl SyncMetricsAccess for ActorContext {
-  fn metrics_sink(&self) -> Option<Arc<MetricsSink>> {
-    self.metrics_sink_or_init()
   }
 }
 
@@ -1198,10 +1196,6 @@ impl MessageInvoker for ActorContext {
 impl Supervisor for ActorContext {
   fn as_any(&self) -> &dyn std::any::Any {
     self
-  }
-
-  fn metrics_access(&self) -> Option<&dyn SyncMetricsAccess> {
-    Some(self)
   }
 
   async fn get_children(&self) -> Vec<ExtendedPid> {

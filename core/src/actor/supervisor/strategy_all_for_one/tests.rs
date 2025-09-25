@@ -211,7 +211,6 @@ mod test {
   }
 
   #[tokio::test]
-  #[ignore]
   async fn test_handle_child_failure_resume() {
     env::set_var("RUST_LOG", "debug");
     let _ = tracing_subscriber::fmt()
@@ -250,11 +249,9 @@ mod test {
     let last_action = mock_supervisor.last_action.lock().unwrap().clone();
     assert_eq!(last_action.as_str(), "resume");
 
-    // Verify all children were affected
+    // Verify resume targetsのみ故障した子のみ
     let affected_children = mock_supervisor.children.lock().unwrap().clone();
-    assert_eq!(affected_children.len(), 3);
-    assert!(affected_children.contains(&child));
-    assert!(affected_children.contains(&child2));
-    assert!(affected_children.contains(&child3));
+    assert_eq!(affected_children.len(), 1);
+    assert_eq!(affected_children[0], child);
   }
 }

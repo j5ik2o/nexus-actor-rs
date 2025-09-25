@@ -16,7 +16,6 @@ use crate::actor::core::ErrorReason;
 use crate::actor::core::ExtendedPid;
 use crate::actor::core::RestartStatistics;
 use crate::actor::message::MessageHandle;
-use crate::actor::metrics::metrics_impl::SyncMetricsAccess;
 use crate::actor::supervisor::directive::Directive;
 use crate::actor::supervisor::strategy_one_for_one::OneForOneStrategy;
 use crate::actor::supervisor::strategy_restarting::RestartingStrategy;
@@ -116,10 +115,6 @@ pub trait Supervisor: Debug + Send + Sync + 'static {
   async fn restart_children(&self, pids: &[ExtendedPid]);
   async fn stop_children(&self, pids: &[ExtendedPid]);
   async fn resume_children(&self, pids: &[ExtendedPid]);
-
-  fn metrics_access(&self) -> Option<&dyn SyncMetricsAccess> {
-    None
-  }
 }
 
 #[derive(Debug)]

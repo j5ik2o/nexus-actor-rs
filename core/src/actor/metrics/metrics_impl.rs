@@ -283,10 +283,6 @@ impl MetricsSink {
   }
 }
 
-pub trait SyncMetricsAccess {
-  fn metrics_sink(&self) -> Option<Arc<MetricsSink>>;
-}
-
 fn build_common_labels(address: &str, actor_type: Option<&str>) -> Arc<[KeyValue]> {
   let mut labels: Vec<KeyValue> = Vec::with_capacity(2);
   labels.push(KeyValue::new("address", address.to_string()));
