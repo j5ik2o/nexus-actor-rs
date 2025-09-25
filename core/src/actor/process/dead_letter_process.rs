@@ -7,24 +7,31 @@ use crate::actor::message::Message;
 use crate::actor::message::MessageHandle;
 use crate::actor::message::SystemMessage;
 use crate::actor::message::TerminateReason;
-use crate::actor::metrics::metrics_impl::{Metrics, EXTENSION_ID};
+use crate::actor::metrics::metrics_impl::{MetricsSink, SyncMetricsAccess};
 use crate::actor::process::{Process, ProcessHandle};
 use crate::generated::actor::{DeadLetterResponse, Terminated};
 
 use crate::actor::dispatch::throttler::{Throttle, Valve};
-use crate::metrics::ActorMetrics;
 use async_trait::async_trait;
 use nexus_actor_message_derive_rs::Message;
+use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct DeadLetterProcess {
   actor_system: WeakActorSystem,
+  metrics_sink: Option<Arc<MetricsSink>>,
 }
 
 impl DeadLetterProcess {
   pub async fn new(actor_system: ActorSystem) -> Self {
+    let metrics_sink = actor_system
+      .metrics_runtime()
+      .await
+      .map(|runtime| Arc::new(runtime.sink_for_actor(Some("dead_letter_process"))));
+
     let myself = Self {
       actor_system: actor_system.downgrade(),
+      metrics_sink: metrics_sink.clone(),
     };
     let dead_letter_throttle_count = myself.actor_system().get_config().await.dead_letter_throttle_count;
     let dead_letter_throttle_interval = myself.actor_system().get_config().await.dead_letter_throttle_interval;
@@ -124,19 +131,8 @@ impl DeadLetterProcess {
     myself
   }
 
-  async fn metrics_foreach<F, Fut>(&self, f: F)
-  where
-    F: Fn(&ActorMetrics, &Metrics) -> Fut,
-    Fut: std::future::Future<Output = ()>, {
-    let actor_system = self.actor_system();
-    if actor_system.get_config().await.is_metrics_enabled() {
-      if let Some(extension_arc) = actor_system.get_extensions().await.get(*EXTENSION_ID).await {
-        let mut extension = extension_arc.lock().await;
-        if let Some(m) = extension.as_any_mut().downcast_mut::<Metrics>() {
-          m.foreach(f).await;
-        }
-      }
-    }
+  fn metrics_sink(&self) -> Option<Arc<MetricsSink>> {
+    self.metrics_sink.clone()
   }
 }
 
@@ -144,14 +140,9 @@ impl DeadLetterProcess {
 impl Process for DeadLetterProcess {
   async fn send_user_message(&self, pid: Option<&ExtendedPid>, message_handle: MessageHandle) {
     tracing::debug!("DeadLetterProcess: send_user_message: msg = {:?}", message_handle);
-    self
-      .metrics_foreach(|am, _| {
-        let am = am.clone();
-        async move {
-          am.increment_dead_letter_count();
-        }
-      })
-      .await;
+    if let Some(sink) = self.metrics_sink() {
+      sink.increment_dead_letter();
+    }
 
     let (_, msg, sender) = unwrap_envelope(message_handle.clone());
     self
@@ -200,6 +191,12 @@ impl DeadLetterProcess {
       .actor_system
       .upgrade()
       .expect("ActorSystem dropped before DeadLetterProcess")
+  }
+}
+
+impl SyncMetricsAccess for DeadLetterProcess {
+  fn metrics_sink(&self) -> Option<Arc<MetricsSink>> {
+    self.metrics_sink()
   }
 }
 

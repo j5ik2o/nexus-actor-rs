@@ -1,9 +1,7 @@
 use crate::actor::actor_system::{ActorSystem, WeakActorSystem};
 use crate::actor::core::ExtendedPid;
 use crate::actor::message::MessageHandle;
-use crate::actor::metrics::metrics_impl::{Metrics, EXTENSION_ID};
 use crate::actor::process::future::ActorFutureError;
-use crate::metrics::ActorMetrics;
 use std::sync::Arc;
 use tokio::sync::{Notify, RwLock};
 
@@ -120,7 +118,8 @@ impl ActorFuture {
   pub async fn continue_with<F, Fut>(&self, continuation: F)
   where
     F: Fn(Option<MessageHandle>, Option<ActorFutureError>) -> Fut + Send + Sync + 'static,
-    Fut: core::future::Future<Output = ()> + Send + 'static, {
+    Fut: core::future::Future<Output = ()> + Send + 'static,
+  {
     let mut inner = self.inner.write().await;
     if inner.done {
       continuation(inner.result.clone(), inner.error.clone()).await;
@@ -143,26 +142,5 @@ impl ActorFuture {
   async fn get_actor_system(&self) -> ActorSystem {
     let mg = self.inner.read().await;
     mg.actor_system()
-  }
-
-  async fn metrics_foreach<F, Fut>(&self, f: F)
-  where
-    F: Fn(&ActorMetrics, &Metrics) -> Fut,
-    Fut: std::future::Future<Output = ()>, {
-    if self.get_actor_system().await.get_config().await.is_metrics_enabled() {
-      if let Some(extension_arc) = self
-        .get_actor_system()
-        .await
-        .get_extensions()
-        .await
-        .get(*EXTENSION_ID)
-        .await
-      {
-        let mut extension = extension_arc.lock().await;
-        if let Some(m) = extension.as_any_mut().downcast_mut::<Metrics>() {
-          m.foreach(f).await;
-        }
-      }
-    }
   }
 }

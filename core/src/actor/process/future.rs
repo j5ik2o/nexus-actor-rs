@@ -8,14 +8,12 @@ use crate::actor::core::ExtendedPid;
 use crate::actor::dispatch::Runnable;
 use crate::actor::message::Message;
 use crate::actor::message::MessageHandle;
-use crate::actor::metrics::metrics_impl::{Metrics, EXTENSION_ID};
+use crate::actor::metrics::metrics_impl::{MetricsSink, SyncMetricsAccess};
 use crate::actor::process::actor_future::{ActorFuture, ActorFutureInner};
 use crate::actor::process::{Process, ProcessHandle};
 use crate::generated::actor::DeadLetterResponse;
-use crate::metrics::ActorMetrics;
 use async_trait::async_trait;
 use nexus_actor_message_derive_rs::Message;
-use opentelemetry::KeyValue;
 use thiserror::Error;
 use tokio::sync::{Notify, RwLock};
 
@@ -33,10 +31,16 @@ pub enum ActorFutureError {
 #[derive(Debug, Clone)]
 pub struct ActorFutureProcess {
   future: Arc<RwLock<ActorFuture>>,
+  metrics_sink: Option<Arc<MetricsSink>>,
 }
 
 impl ActorFutureProcess {
   pub async fn new(system: ActorSystem, duration: Duration) -> Arc<Self> {
+    let metrics_sink = system
+      .metrics_runtime()
+      .await
+      .map(|runtime| Arc::new(runtime.sink_for_actor(Some("actor_future_process"))));
+
     let inner = Arc::new(RwLock::new(ActorFutureInner {
       actor_system: system.downgrade(),
       pid: None,
@@ -52,6 +56,7 @@ impl ActorFutureProcess {
 
     let future_process = Arc::new(ActorFutureProcess {
       future: Arc::new(RwLock::new(future.clone())),
+      metrics_sink: metrics_sink.clone(),
     });
 
     let process_registry = system.get_process_registry().await;
@@ -67,14 +72,9 @@ impl ActorFutureProcess {
       tracing::error!("failed to register future process: pid = {}", pid);
     }
 
-    future_process
-      .metrics_foreach(|am, _| {
-        let am = am.clone();
-        async move {
-          am.increment_futures_started_count();
-        }
-      })
-      .await;
+    if let Some(sink) = metrics_sink {
+      sink.increment_future_started();
+    }
 
     future_process.set_pid(pid).await;
 
@@ -104,25 +104,8 @@ impl ActorFutureProcess {
     future_process
   }
 
-  async fn metrics_foreach<F, Fut>(&self, f: F)
-  where
-    F: Fn(&ActorMetrics, &Metrics) -> Fut,
-    Fut: std::future::Future<Output = ()>, {
-    if self.get_actor_system().await.get_config().await.is_metrics_enabled() {
-      if let Some(extension_arc) = self
-        .get_actor_system()
-        .await
-        .get_extensions()
-        .await
-        .get(*EXTENSION_ID)
-        .await
-      {
-        let mut extension = extension_arc.lock().await;
-        if let Some(m) = extension.as_any_mut().downcast_mut::<Metrics>() {
-          m.foreach(f).await;
-        }
-      }
-    }
+  fn metrics_sink(&self) -> Option<Arc<MetricsSink>> {
+    self.metrics_sink.clone()
   }
 
   async fn get_actor_system(&self) -> ActorSystem {
@@ -190,29 +173,17 @@ impl ActorFutureProcess {
   }
 
   async fn instrument(&self, future: ActorFuture) {
-    self
-      .metrics_foreach(|am, _| {
-        let cloned_am = am.clone();
-        let cloned_future = future.clone();
-        async move {
-          let res = {
-            let actor_future_inner = cloned_future.inner.read().await;
-            actor_future_inner.error.is_none()
-          };
-          if res {
-            cloned_am.increment_futures_completed_count_with_opts(&[KeyValue::new(
-              "address",
-              self.get_actor_system().await.get_address().await,
-            )]);
-          } else {
-            cloned_am.increment_futures_timed_out_count_with_opts(&[KeyValue::new(
-              "address",
-              self.get_actor_system().await.get_address().await,
-            )]);
-          }
-        }
-      })
-      .await;
+    if let Some(sink) = self.metrics_sink() {
+      let completed = {
+        let actor_future_inner = future.inner.read().await;
+        actor_future_inner.error.is_none()
+      };
+      if completed {
+        sink.increment_future_completed();
+      } else {
+        sink.increment_future_timed_out();
+      }
+    }
     future.instrument().await;
   }
 }
@@ -267,5 +238,11 @@ impl Process for ActorFutureProcess {
 
   fn as_any(&self) -> &dyn Any {
     self
+  }
+}
+
+impl SyncMetricsAccess for ActorFutureProcess {
+  fn metrics_sink(&self) -> Option<Arc<MetricsSink>> {
+    self.metrics_sink()
   }
 }
