@@ -17,7 +17,8 @@ impl Completion {
   pub(crate) fn new<F, Fut>(f: F) -> Self
   where
     F: Fn(Option<MessageHandle>, Option<ActorFutureError>) -> Fut + Send + Sync + 'static,
-    Fut: core::future::Future<Output = ()> + Send + 'static, {
+    Fut: core::future::Future<Output = ()> + Send + 'static,
+  {
     Self(Arc::new(move |message, error| {
       Box::pin(f(message, error)) as BoxFuture<'static, ()>
     }))

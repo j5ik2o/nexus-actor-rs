@@ -28,7 +28,8 @@ impl Decider {
   pub fn new<F, Fut>(f: F) -> Self
   where
     F: Fn(ErrorReason) -> Fut + Send + Sync + 'static,
-    Fut: Future<Output = Directive> + Send + 'static, {
+    Fut: Future<Output = Directive> + Send + 'static,
+  {
     Decider(Arc::new(move |error| Box::pin(f(error))))
   }
 

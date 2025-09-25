@@ -43,9 +43,13 @@ impl ContextHandle {
     WeakContextHandle(Arc::downgrade(&self.0))
   }
 
-  pub(crate) async fn to_actor_context(&self) -> Option<ActorContext> {
+  pub async fn try_into_actor_context(&self) -> Option<ActorContext> {
     let mg = self.0.read().await;
     mg.as_any().downcast_ref::<ActorContext>().cloned()
+  }
+
+  pub(crate) async fn to_actor_context(&self) -> Option<ActorContext> {
+    self.try_into_actor_context().await
   }
 }
 

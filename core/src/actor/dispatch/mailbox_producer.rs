@@ -36,7 +36,8 @@ impl MailboxProducer {
   pub fn new<F, Fut>(f: F) -> Self
   where
     F: Fn() -> Fut + Send + Sync + 'static,
-    Fut: Future<Output = MailboxHandle> + Send + 'static, {
+    Fut: Future<Output = MailboxHandle> + Send + 'static,
+  {
     Self(Arc::new(move || Box::pin(f()) as BoxFuture<'static, MailboxHandle>))
   }
 
