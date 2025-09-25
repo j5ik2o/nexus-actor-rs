@@ -33,9 +33,9 @@ require (
 	go.etcd.io/etcd/client/v3 v3.5.10
 	golang.org/x/exp df9299821621
 	golang.org/x/sync v0.12.0
-	k8s.io/api v0.28.4
-	k8s.io/apimachinery v0.28.4
-	k8s.io/client-go v0.28.4
+	k8s.io/api v0.34.1
+	k8s.io/apimachinery v0.34.1
+	k8s.io/client-go v0.34.1
 )
 
 require github.com/lmittmann/tint v1.0.3
