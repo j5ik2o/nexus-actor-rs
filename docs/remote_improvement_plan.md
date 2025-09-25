@@ -24,7 +24,7 @@
 - `EndpointWriterMailbox` の固定長キュー化と DeadLetter / 統計連携テスト( `client_connection_backpressure_overflow` )を追加。
 - `EndpointThrottledEvent` を EventStream に発火できるようになり、Backpressure 状態を監視可能。
 - Remote API に `get_endpoint_statistics` を追加（テスト・診断コードから利用可能）。
-
+- `spawn_remote` / `spawn_remote_named` API を追加し、ResponseStatusCode ベースの Result ハンドリングとエラー時テスト (`spawn_remote_unknown_kind_returns_error`) を整備。
 
 - `feat(remote): ListProcessesとGetProcessDiagnosticsのRPCを実装` により診断系 RPC が Rust 版でも利用可能になった。
 - `feat(core): ProcessRegistryにプロセス一覧と取得のAPIを追加` でリモートモジュールが参照する基盤 API が整備された。
