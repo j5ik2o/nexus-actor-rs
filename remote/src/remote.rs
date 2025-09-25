@@ -20,6 +20,7 @@ use nexus_actor_core_rs::actor::context::SenderPart;
 use nexus_actor_core_rs::actor::core::ExtendedPid;
 use nexus_actor_core_rs::actor::core::Props;
 use nexus_actor_core_rs::actor::message::{MessageHandle, ReadonlyMessageHeadersHandle};
+use nexus_actor_core_rs::actor::metrics::metrics_impl::MetricsSink;
 use nexus_actor_core_rs::actor::process::future::ActorFutureError;
 use nexus_actor_core_rs::actor::process::process_registry::AddressResolver;
 use nexus_actor_core_rs::actor::process::ProcessHandle;
@@ -34,6 +35,7 @@ use std::time::Duration;
 use thiserror::Error;
 use tokio::sync::oneshot;
 use tokio::sync::Mutex;
+use tokio::sync::OnceCell;
 use tonic::transport::Server;
 
 #[derive(Debug, Clone, Error)]
@@ -88,6 +90,22 @@ struct RemoteInner {
   kinds: DashMap<String, Props>,
   block_list: BlockList,
   shutdown: Mutex<Option<Shutdown>>,
+  metrics_sink: OnceCell<Option<Arc<MetricsSink>>>,
+}
+
+impl RemoteInner {
+  async fn metrics_sink(&self) -> Option<Arc<MetricsSink>> {
+    self
+      .metrics_sink
+      .get_or_init(|| async {
+        self
+          .actor_system
+          .metrics_runtime()
+          .map(|runtime| Arc::new(runtime.sink_for_actor(Some("remote"))))
+      })
+      .await
+      .clone()
+  }
 }
 
 #[derive(Debug, Clone)]
@@ -106,6 +124,7 @@ impl Remote {
         kinds: DashMap::new(),
         block_list: BlockList::new(),
         shutdown: Mutex::new(None),
+        metrics_sink: OnceCell::new(),
       }),
     };
 
@@ -166,6 +185,10 @@ impl Remote {
 
   pub fn get_block_list(&self) -> &BlockList {
     &self.inner.block_list
+  }
+
+  pub async fn metrics_sink(&self) -> Option<Arc<MetricsSink>> {
+    self.inner.metrics_sink().await
   }
 
   pub async fn get_endpoint_statistics(&self, address: &str) -> Option<EndpointStatisticsSnapshot> {

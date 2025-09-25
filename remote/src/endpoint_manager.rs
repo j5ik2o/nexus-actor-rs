@@ -16,11 +16,13 @@ use nexus_actor_core_rs::actor::context::{SenderPart, SpawnerPart, StopperPart};
 use nexus_actor_core_rs::actor::core::{ExtendedPid, Props, SpawnError};
 use nexus_actor_core_rs::actor::dispatch::{DeadLetterEvent, DispatcherHandle, SingleWorkerDispatcher};
 use nexus_actor_core_rs::actor::message::MessageHandle;
+use nexus_actor_core_rs::actor::metrics::metrics_impl::MetricsSink;
 use nexus_actor_core_rs::actor::process::future::ActorFutureError;
 use nexus_actor_core_rs::actor::supervisor::{RestartingStrategy, SupervisorStrategyHandle};
 use nexus_actor_core_rs::event_stream::{EventHandler, Predicate, Subscription};
 use nexus_actor_core_rs::generated::actor::Pid;
 use nexus_actor_utils_rs::collections::DashMapExtension;
+use opentelemetry::KeyValue;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicU8, AtomicUsize, Ordering};
@@ -165,6 +167,11 @@ impl EndpointManager {
       .clone()
   }
 
+  async fn metrics_sink(&self) -> Option<Arc<MetricsSink>> {
+    let remote = self.remote.upgrade()?;
+    remote.metrics_sink().await
+  }
+
   pub(crate) async fn record_queue_state(&self, address: &str, capacity: usize, len: usize) {
     let stats = self.stats_entry(address);
     stats.queue_capacity.store(capacity, Ordering::SeqCst);
@@ -176,21 +183,53 @@ impl EndpointManager {
     if previous != level {
       self.publish_backpressure_event(address, level).await;
     }
+
+    if let Some(sink) = self.metrics_sink().await {
+      let labels = vec![
+        KeyValue::new("remote.endpoint", address.to_string()),
+        KeyValue::new("remote.queue_capacity", capacity as i64),
+        KeyValue::new("remote.backpressure_level", level as i64),
+      ];
+      sink.record_mailbox_length_with_labels(len as u64, &labels);
+    }
   }
 
-  pub(crate) fn increment_dead_letter(&self, address: &str) {
+  pub(crate) async fn increment_dead_letter(&self, address: &str) {
     let stats = self.stats_entry(address);
     stats.dead_letters.fetch_add(1, Ordering::SeqCst);
+    if let Some(sink) = self.metrics_sink().await {
+      let labels = vec![
+        KeyValue::new("remote.endpoint", address.to_string()),
+        KeyValue::new("remote.event", "dead_letter"),
+      ];
+      sink.increment_dead_letter_with_labels(&labels);
+    }
   }
 
-  pub(crate) fn increment_deliver_success(&self, address: &str) {
+  pub(crate) async fn increment_deliver_success(&self, address: &str) {
     let stats = self.stats_entry(address);
     stats.deliver_success.fetch_add(1, Ordering::SeqCst);
+    if let Some(sink) = self.metrics_sink().await {
+      let labels = vec![
+        KeyValue::new("remote.endpoint", address.to_string()),
+        KeyValue::new("remote.direction", "outbound"),
+        KeyValue::new("remote.result", "success"),
+      ];
+      sink.increment_remote_delivery_success_with_labels(&labels);
+    }
   }
 
-  pub(crate) fn increment_deliver_failure(&self, address: &str) {
+  pub(crate) async fn increment_deliver_failure(&self, address: &str) {
     let stats = self.stats_entry(address);
     stats.deliver_failure.fetch_add(1, Ordering::SeqCst);
+    if let Some(sink) = self.metrics_sink().await {
+      let labels = vec![
+        KeyValue::new("remote.endpoint", address.to_string()),
+        KeyValue::new("remote.direction", "outbound"),
+        KeyValue::new("remote.result", "failure"),
+      ];
+      sink.increment_remote_delivery_failure_with_labels(&labels);
+    }
   }
 
   pub(crate) fn record_reconnect_attempt_metric(&self, address: &str) -> u64 {
@@ -997,7 +1036,7 @@ mod tests {
     let manager = EndpointManager::new(Arc::downgrade(&remote));
 
     manager.record_queue_state("endpoint-A", 10, 3).await;
-    manager.increment_dead_letter("endpoint-A");
+    manager.increment_dead_letter("endpoint-A").await;
 
     let snapshot = manager
       .statistics_snapshot("endpoint-A")
@@ -1020,9 +1059,9 @@ mod tests {
     let remote = Arc::new(Remote::new(actor_system, Config::default()).await);
     let manager = EndpointManager::new(Arc::downgrade(&remote));
 
-    manager.increment_deliver_success("endpoint-metrics");
-    manager.increment_deliver_failure("endpoint-metrics");
-    manager.increment_deliver_failure("endpoint-metrics");
+    manager.increment_deliver_success("endpoint-metrics").await;
+    manager.increment_deliver_failure("endpoint-metrics").await;
+    manager.increment_deliver_failure("endpoint-metrics").await;
 
     let snapshot = manager
       .statistics_snapshot("endpoint-metrics")

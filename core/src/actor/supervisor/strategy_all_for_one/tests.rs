@@ -15,7 +15,7 @@ mod test {
   use crate::actor::supervisor::SupervisorStrategy;
   use crate::generated::actor::Pid;
 
-  #[derive(Debug)]
+  #[derive(Debug, Clone)]
   struct MockSupervisor {
     last_action: Arc<Mutex<String>>,
     children: Arc<Mutex<Vec<ExtendedPid>>>,
@@ -63,7 +63,10 @@ mod test {
 
   async fn setup_test_environment() -> (ActorSystem, SupervisorHandle, ExtendedPid, RestartStatistics) {
     let actor_system = ActorSystem::new().await.unwrap();
-    let supervisor = SupervisorHandle::new(MockSupervisor::new());
+    let supervisor_instance = MockSupervisor::new();
+    let supervisor = SupervisorHandle::new(supervisor_instance.clone());
+    let supervisor_arc: Arc<dyn Supervisor> = Arc::new(supervisor_instance);
+    supervisor.inject_snapshot(supervisor_arc);
     let child = ExtendedPid::new(Pid::new("test", "1"));
     let rs = RestartStatistics::new();
     (actor_system, supervisor, child, rs)
@@ -208,7 +211,6 @@ mod test {
   }
 
   #[tokio::test]
-  #[ignore]
   async fn test_handle_child_failure_resume() {
     env::set_var("RUST_LOG", "debug");
     let _ = tracing_subscriber::fmt()
@@ -247,11 +249,9 @@ mod test {
     let last_action = mock_supervisor.last_action.lock().unwrap().clone();
     assert_eq!(last_action.as_str(), "resume");
 
-    // Verify all children were affected
+    // Verify resume targetsのみ故障した子のみ
     let affected_children = mock_supervisor.children.lock().unwrap().clone();
-    assert_eq!(affected_children.len(), 3);
-    assert!(affected_children.contains(&child));
-    assert!(affected_children.contains(&child2));
-    assert!(affected_children.contains(&child3));
+    assert_eq!(affected_children.len(), 1);
+    assert_eq!(affected_children[0], child);
   }
 }

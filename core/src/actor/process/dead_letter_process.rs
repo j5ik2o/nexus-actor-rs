@@ -7,30 +7,38 @@ use crate::actor::message::Message;
 use crate::actor::message::MessageHandle;
 use crate::actor::message::SystemMessage;
 use crate::actor::message::TerminateReason;
-use crate::actor::metrics::metrics_impl::{Metrics, EXTENSION_ID};
+use crate::actor::metrics::metrics_impl::MetricsSink;
 use crate::actor::process::{Process, ProcessHandle};
 use crate::generated::actor::{DeadLetterResponse, Terminated};
 
 use crate::actor::dispatch::throttler::{Throttle, Valve};
-use crate::metrics::ActorMetrics;
 use async_trait::async_trait;
 use nexus_actor_message_derive_rs::Message;
+use opentelemetry::KeyValue;
+use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct DeadLetterProcess {
   actor_system: WeakActorSystem,
+  metrics_sink: Option<Arc<MetricsSink>>,
 }
 
 impl DeadLetterProcess {
   pub async fn new(actor_system: ActorSystem) -> Self {
+    let metrics_sink = actor_system
+      .metrics_runtime()
+      .map(|runtime| Arc::new(runtime.sink_for_actor(Some("dead_letter_process"))));
+
     let myself = Self {
       actor_system: actor_system.downgrade(),
+      metrics_sink: metrics_sink.clone(),
     };
-    let dead_letter_throttle_count = myself.actor_system().get_config().await.dead_letter_throttle_count;
-    let dead_letter_throttle_interval = myself.actor_system().get_config().await.dead_letter_throttle_interval;
+    let config = myself.actor_system().get_config();
+    let dead_letter_throttle_count = config.dead_letter_throttle_count;
+    let dead_letter_throttle_interval = config.dead_letter_throttle_interval;
     let func =
       move |i: usize| async move { tracing::info!("DeadLetterProcess: Throttling dead letters, count: {}", i) };
-    let dispatcher = myself.actor_system().get_config().await.system_dispatcher.clone();
+    let dispatcher = myself.actor_system().get_config().system_dispatcher.clone();
     let throttle = Throttle::new(
       dispatcher,
       dead_letter_throttle_count,
@@ -64,13 +72,7 @@ impl DeadLetterProcess {
                 .await
             }
 
-            if cloned_self
-              .actor_system()
-              .get_config()
-              .await
-              .developer_supervision_logging
-              && dead_letter.sender.is_some()
-            {
+            if cloned_self.actor_system().get_config().developer_supervision_logging && dead_letter.sender.is_some() {
               return;
             }
 
@@ -87,6 +89,21 @@ impl DeadLetterProcess {
                   is_ignore_dead_letter
                 );
               }
+            }
+
+            if let Some(sink) = cloned_self.metrics_sink() {
+              let mut labels = vec![
+                KeyValue::new("deadletter.phase", "event_stream_notify"),
+                KeyValue::new("deadletter.event", "dead_letter"),
+                KeyValue::new("deadletter.message_type", dead_letter.message_handle.get_type_name()),
+              ];
+              if let Some(target) = &dead_letter.pid {
+                labels.push(KeyValue::new("deadletter.target_pid", target.id().to_string()));
+              }
+              if let Some(sender) = &dead_letter.sender {
+                labels.push(KeyValue::new("deadletter.sender_pid", sender.id().to_string()));
+              }
+              sink.increment_dead_letter_with_labels(&labels);
             }
           }
         }
@@ -115,6 +132,19 @@ impl DeadLetterProcess {
                   })),
                 )
                 .await;
+
+              if let Some(sink) = cloned_self.metrics_sink() {
+                let mut labels = vec![
+                  KeyValue::new("deadletter.phase", "event_stream_watch"),
+                  KeyValue::new("deadletter.event", "watch_termination"),
+                  KeyValue::new("deadletter.message_type", dle.message_handle.get_type_name()),
+                ];
+                labels.push(KeyValue::new("deadletter.watcher_pid", e_pid.id().to_string()));
+                if let Some(target) = &dle.pid {
+                  labels.push(KeyValue::new("deadletter.target_pid", target.id().to_string()));
+                }
+                sink.increment_dead_letter_with_labels(&labels);
+              }
             }
           }
         }
@@ -124,19 +154,8 @@ impl DeadLetterProcess {
     myself
   }
 
-  async fn metrics_foreach<F, Fut>(&self, f: F)
-  where
-    F: Fn(&ActorMetrics, &Metrics) -> Fut,
-    Fut: std::future::Future<Output = ()>, {
-    let actor_system = self.actor_system();
-    if actor_system.get_config().await.is_metrics_enabled() {
-      if let Some(extension_arc) = actor_system.get_extensions().await.get(*EXTENSION_ID).await {
-        let mut extension = extension_arc.lock().await;
-        if let Some(m) = extension.as_any_mut().downcast_mut::<Metrics>() {
-          m.foreach(f).await;
-        }
-      }
-    }
+  fn metrics_sink(&self) -> Option<Arc<MetricsSink>> {
+    self.metrics_sink.clone()
   }
 }
 
@@ -144,12 +163,14 @@ impl DeadLetterProcess {
 impl Process for DeadLetterProcess {
   async fn send_user_message(&self, pid: Option<&ExtendedPid>, message_handle: MessageHandle) {
     tracing::debug!("DeadLetterProcess: send_user_message: msg = {:?}", message_handle);
-    self
-      .metrics_foreach(|am, _| {
-        let am = am.clone();
-        async move { am.increment_dead_letter_count().await }
-      })
-      .await;
+    if let Some(sink) = self.metrics_sink() {
+      let mut labels = vec![KeyValue::new("deadletter.phase", "publish")];
+      labels.push(KeyValue::new("deadletter.message_type", message_handle.get_type_name()));
+      if let Some(pid) = pid {
+        labels.push(KeyValue::new("deadletter.target_pid", pid.id().to_string()));
+      }
+      sink.increment_dead_letter_with_labels(&labels);
+    }
 
     let (_, msg, sender) = unwrap_envelope(message_handle.clone());
     self

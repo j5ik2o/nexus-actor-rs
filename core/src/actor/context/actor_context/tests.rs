@@ -17,6 +17,7 @@ use crate::actor::message::ResponseHandle;
 use crate::actor::message::Touched;
 use nexus_actor_message_derive_rs::Message;
 use opentelemetry::metrics::noop::NoopMeterProvider;
+use tokio::task::yield_now;
 use tokio::time::timeout;
 use tracing_subscriber::EnvFilter;
 
@@ -166,20 +167,27 @@ async fn test_actor_context_metrics_reentrancy() {
   let props = Props::from_async_actor_receiver(|_| async move { Ok(()) }).await;
   let ctx = ActorContext::new(system.clone(), props, None).await;
 
-  let ctx_clone = ctx.clone();
+  let ctx_spawn = ctx.clone();
+  let join_handle = tokio::spawn(async move {
+    loop {
+      if ctx_spawn.metrics_sink_or_init().is_some() {
+        break;
+      }
+      yield_now().await;
+    }
+    let _ = ctx_spawn.get_self_opt().await;
+  });
+
   let result = timeout(Duration::from_millis(200), async move {
-    ctx
-      .metrics_foreach(move |_, _| {
-        let ctx_clone = ctx_clone.clone();
-        async move {
-          // メトリクスコールバック内で再入してもロック競合しないことを確認。
-          let _ = ctx_clone.get_actor_system().await;
-          let _ = ctx_clone.get_self_opt().await;
-        }
-      })
-      .await;
+    loop {
+      if ctx.metrics_sink_or_init().is_some() {
+        break;
+      }
+      yield_now().await;
+    }
+    join_handle.await.expect("metrics task failed");
   })
   .await;
 
-  assert!(result.is_ok(), "metrics_foreach がデッドロックせず完了すること");
+  assert!(result.is_ok(), "メトリクス同期アクセスがデッドロックせず完了すること");
 }

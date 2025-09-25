@@ -18,7 +18,9 @@ use nexus_actor_core_rs::actor::context::{BasePart, ContextHandle, InfoPart, Mes
 use nexus_actor_core_rs::actor::core::{Actor, ActorError, ErrorReason, ExtendedPid};
 use nexus_actor_core_rs::actor::dispatch::DeadLetterEvent;
 use nexus_actor_core_rs::actor::message::{Message, MessageHandle, ReadonlyMessageHeaders};
+use nexus_actor_core_rs::actor::metrics::metrics_impl::MetricsSink;
 use nexus_actor_core_rs::generated::actor::{DeadLetterResponse, Pid};
+use opentelemetry::KeyValue;
 use std::sync::{Arc, Weak};
 use std::time::Instant;
 use thiserror::Error;
@@ -255,15 +257,20 @@ impl EndpointWriter {
     remote.get_endpoint_manager_opt().await
   }
 
+  async fn metrics_sink(&self) -> Option<Arc<MetricsSink>> {
+    let remote = self.remote.upgrade()?;
+    remote.metrics_sink().await
+  }
+
   async fn mark_deliver_success(&self) {
     if let Some(manager) = self.endpoint_manager().await {
-      manager.increment_deliver_success(&self.address);
+      manager.increment_deliver_success(&self.address).await;
     }
   }
 
   async fn mark_deliver_failure(&self) {
     if let Some(manager) = self.endpoint_manager().await {
-      manager.increment_deliver_failure(&self.address);
+      manager.increment_deliver_failure(&self.address).await;
     }
   }
 
@@ -305,6 +312,7 @@ impl EndpointWriter {
   ) -> Result<(), ActorError> {
     tracing::debug!("EndpointWriter send_envelopes");
     let mut envelopes = vec![];
+    let metrics_sink = self.metrics_sink().await;
 
     let mut type_names = DashMap::new();
     let mut type_names_arr = vec![];
@@ -370,6 +378,7 @@ impl EndpointWriter {
       };
 
       let message = rd.message;
+      let message_type = message.get_type_name();
 
       tracing::trace!(message = ?message, "EndpointWriter processing message");
 
@@ -420,9 +429,18 @@ impl EndpointWriter {
 
       let bytes = result.expect("Not found message").expect("Failed to serialize message");
 
+      if let Some(sink) = metrics_sink.as_ref() {
+        let labels = vec![
+          KeyValue::new("remote.endpoint", self.address.clone()),
+          KeyValue::new("remote.direction", "outbound".to_string()),
+          KeyValue::new("remote.message_type", message_type.clone()),
+        ];
+        sink.record_message_size_with_labels(bytes.len() as u64, &labels);
+      }
+
       tracing::trace!("EndpointWriter obtained serialized bytes");
 
-      let type_id = add_to_lookup(&mut type_names, message.get_type_name(), &mut type_names_arr);
+      let type_id = add_to_lookup(&mut type_names, message_type.clone(), &mut type_names_arr);
       let target_id = add_to_target_lookup(&mut target_names, &rd.target, &mut target_names_arr);
       let target_request_id = rd.target.request_id;
 

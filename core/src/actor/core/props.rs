@@ -75,7 +75,7 @@ static DEFAULT_SPAWNER: Lazy<Spawner> = Lazy::new(|| {
       let dp = if let Some(dispatcher) = props.get_dispatcher() {
         dispatcher
       } else {
-        DispatcherHandle::new_arc(actor_system.get_config().await.system_dispatcher.clone())
+        DispatcherHandle::new_arc(actor_system.get_config().system_dispatcher.clone())
       };
       let proc = ActorProcess::new(mb.clone());
       let proc_handle = ProcessHandle::new(proc);

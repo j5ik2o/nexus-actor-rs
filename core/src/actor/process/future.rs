@@ -8,11 +8,10 @@ use crate::actor::core::ExtendedPid;
 use crate::actor::dispatch::Runnable;
 use crate::actor::message::Message;
 use crate::actor::message::MessageHandle;
-use crate::actor::metrics::metrics_impl::{Metrics, EXTENSION_ID};
+use crate::actor::metrics::metrics_impl::MetricsSink;
 use crate::actor::process::actor_future::{ActorFuture, ActorFutureInner};
 use crate::actor::process::{Process, ProcessHandle};
 use crate::generated::actor::DeadLetterResponse;
-use crate::metrics::ActorMetrics;
 use async_trait::async_trait;
 use nexus_actor_message_derive_rs::Message;
 use opentelemetry::KeyValue;
@@ -33,10 +32,15 @@ pub enum ActorFutureError {
 #[derive(Debug, Clone)]
 pub struct ActorFutureProcess {
   future: Arc<RwLock<ActorFuture>>,
+  metrics_sink: Option<Arc<MetricsSink>>,
 }
 
 impl ActorFutureProcess {
   pub async fn new(system: ActorSystem, duration: Duration) -> Arc<Self> {
+    let metrics_sink = system
+      .metrics_runtime()
+      .map(|runtime| Arc::new(runtime.sink_for_actor(Some("actor_future_process"))));
+
     let inner = Arc::new(RwLock::new(ActorFutureInner {
       actor_system: system.downgrade(),
       pid: None,
@@ -52,6 +56,7 @@ impl ActorFutureProcess {
 
     let future_process = Arc::new(ActorFutureProcess {
       future: Arc::new(RwLock::new(future.clone())),
+      metrics_sink: metrics_sink.clone(),
     });
 
     let process_registry = system.get_process_registry().await;
@@ -67,21 +72,23 @@ impl ActorFutureProcess {
       tracing::error!("failed to register future process: pid = {}", pid);
     }
 
-    future_process
-      .metrics_foreach(|am, _| {
-        let am = am.clone();
-        async move { am.increment_futures_started_count().await }
-      })
-      .await;
-
+    let pid_clone = pid.clone();
     future_process.set_pid(pid).await;
+
+    if let Some(sink) = future_process.metrics_sink() {
+      let mut labels = vec![
+        KeyValue::new("future.pid", pid_clone.id().to_string()),
+        KeyValue::new("future.phase", "started"),
+      ];
+      labels.push(KeyValue::new("future.timeout_ms", duration.as_millis() as i64));
+      sink.increment_future_started_with_labels(&labels);
+    }
 
     if duration > Duration::from_secs(0) {
       let future_process_clone = Arc::clone(&future_process);
 
       system
         .get_config()
-        .await
         .system_dispatcher
         .schedule(Runnable::new(move || async move {
           let future = future_process_clone.get_future().await;
@@ -102,25 +109,8 @@ impl ActorFutureProcess {
     future_process
   }
 
-  async fn metrics_foreach<F, Fut>(&self, f: F)
-  where
-    F: Fn(&ActorMetrics, &Metrics) -> Fut,
-    Fut: std::future::Future<Output = ()>, {
-    if self.get_actor_system().await.get_config().await.is_metrics_enabled() {
-      if let Some(extension_arc) = self
-        .get_actor_system()
-        .await
-        .get_extensions()
-        .await
-        .get(*EXTENSION_ID)
-        .await
-      {
-        let mut extension = extension_arc.lock().await;
-        if let Some(m) = extension.as_any_mut().downcast_mut::<Metrics>() {
-          m.foreach(f).await;
-        }
-      }
-    }
+  fn metrics_sink(&self) -> Option<Arc<MetricsSink>> {
+    self.metrics_sink.clone()
   }
 
   async fn get_actor_system(&self) -> ActorSystem {
@@ -188,33 +178,28 @@ impl ActorFutureProcess {
   }
 
   async fn instrument(&self, future: ActorFuture) {
-    self
-      .metrics_foreach(|am, _| {
-        let cloned_am = am.clone();
-        let cloned_future = future.clone();
-        async move {
-          let res = {
-            let actor_future_inner = cloned_future.inner.read().await;
-            actor_future_inner.error.is_none()
-          };
-          if res {
-            cloned_am
-              .increment_futures_completed_count_with_opts(&[KeyValue::new(
-                "address",
-                self.get_actor_system().await.get_address().await,
-              )])
-              .await
-          } else {
-            cloned_am
-              .increment_futures_timed_out_count_with_opts(&[KeyValue::new(
-                "address",
-                self.get_actor_system().await.get_address().await,
-              )])
-              .await
-          }
+    if let Some(sink) = self.metrics_sink() {
+      let future_pid = future.get_pid().await;
+      let (outcome_label, error_label) = {
+        let actor_future_inner = future.inner.read().await;
+        match &actor_future_inner.error {
+          None => ("completed", None),
+          Some(ActorFutureError::TimeoutError) => ("timeout", Some("timeout")),
+          Some(ActorFutureError::DeadLetterError) => ("dead_letter", Some("dead_letter")),
         }
-      })
-      .await;
+      };
+      let mut labels = vec![
+        KeyValue::new("future.pid", future_pid.id().to_string()),
+        KeyValue::new("future.outcome", outcome_label.to_string()),
+      ];
+      if let Some(err) = error_label {
+        labels.push(KeyValue::new("future.error", err.to_string()));
+      }
+      match outcome_label {
+        "completed" => sink.increment_future_completed_with_labels(&labels),
+        _ => sink.increment_future_timed_out_with_labels(&labels),
+      }
+    }
     future.instrument().await;
   }
 }
@@ -226,7 +211,7 @@ impl Process for ActorFutureProcess {
     let future = self.future.read().await.clone();
     let dispatcher = {
       let mg = future.inner.read().await;
-      mg.actor_system().get_config().await.system_dispatcher.clone()
+      mg.actor_system().get_config().system_dispatcher.clone()
     };
     dispatcher
       .schedule(Runnable::new(move || {
@@ -249,7 +234,7 @@ impl Process for ActorFutureProcess {
     let future = self.future.read().await.clone();
     let dispatcher = {
       let mg = future.inner.read().await;
-      mg.actor_system().get_config().await.system_dispatcher.clone()
+      mg.actor_system().get_config().system_dispatcher.clone()
     };
     dispatcher
       .schedule(Runnable::new(move || {

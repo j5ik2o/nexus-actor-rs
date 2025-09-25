@@ -59,7 +59,6 @@ impl SupervisorStrategy for ExponentialBackoffStrategy {
 
     actor_system
       .get_config()
-      .await
       .system_dispatcher
       .schedule(Runnable::new(move || async move {
         tokio::time::sleep(dur).await;

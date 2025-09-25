@@ -15,7 +15,7 @@ mod test {
   use crate::actor::supervisor::SupervisorHandle;
   use crate::generated::actor::Pid;
 
-  #[derive(Debug)]
+  #[derive(Debug, Clone)]
   struct MockSupervisor {
     last_action: Arc<Mutex<String>>,
     children: Arc<Mutex<Vec<ExtendedPid>>>,
@@ -63,7 +63,10 @@ mod test {
 
   async fn setup_test_environment() -> (ActorSystem, SupervisorHandle, ExtendedPid, RestartStatistics) {
     let actor_system = ActorSystem::new().await.unwrap();
-    let supervisor = SupervisorHandle::new(MockSupervisor::new());
+    let supervisor_instance = MockSupervisor::new();
+    let supervisor = SupervisorHandle::new(supervisor_instance.clone());
+    let supervisor_arc: Arc<dyn Supervisor> = Arc::new(supervisor_instance);
+    supervisor.inject_snapshot(supervisor_arc);
     let child = ExtendedPid::new(Pid::new("test", "1"));
     let rs = RestartStatistics::new();
     (actor_system, supervisor, child, rs)

@@ -49,6 +49,7 @@ tracing-opentelemetry = { version = "0.31.0", features = ["metrics"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 uuid = { version = "1.9.0", features = ["v4"] }
 arc-swap = "1.7"
+parking_lot = "0.12"
 
 [dev-dependencies]
 clap = { version = "4.5.9", features = ["derive"] }

@@ -1,3 +1,4 @@
+use arc_swap::{ArcSwap, ArcSwapOption};
 use opentelemetry::metrics::MetricsError;
 use std::sync::{Arc, Weak};
 use tokio::sync::{Mutex, RwLock};
@@ -9,7 +10,7 @@ use crate::actor::dispatch::DeadLetterProcess;
 use crate::actor::event_stream::EventStreamProcess;
 use crate::actor::guardian::GuardiansValue;
 use crate::actor::message::EMPTY_MESSAGE_HEADER;
-use crate::actor::metrics::metrics_impl::Metrics;
+use crate::actor::metrics::metrics_impl::{Metrics, MetricsRuntime};
 use crate::actor::process::process_registry::ProcessRegistry;
 use crate::actor::process::ProcessHandle;
 use crate::actor::supervisor::subscribe_supervision;
@@ -29,12 +30,13 @@ struct ActorSystemInner {
   guardians: Option<GuardiansValue>,
   dead_letter: Option<DeadLetterProcess>,
   extensions: Extensions,
-  config: Config,
   id: String,
+  config: Arc<ArcSwap<Config>>,
+  metrics_runtime: Arc<ArcSwapOption<MetricsRuntime>>,
 }
 
 impl ActorSystemInner {
-  async fn new(config: Config) -> Self {
+  async fn new(config: Arc<ArcSwap<Config>>, metrics_runtime: Arc<ArcSwapOption<MetricsRuntime>>) -> Self {
     let id = Uuid::new_v4().to_string();
     Self {
       id: id.clone(),
@@ -45,6 +47,7 @@ impl ActorSystemInner {
       event_stream: Arc::new(EventStream::new()),
       dead_letter: None,
       extensions: Extensions::new(),
+      metrics_runtime,
     }
   }
 }
@@ -52,11 +55,15 @@ impl ActorSystemInner {
 #[derive(Debug, Clone)]
 pub struct ActorSystem {
   inner: Arc<RwLock<ActorSystemInner>>,
+  config: Arc<ArcSwap<Config>>,
+  metrics_runtime: Arc<ArcSwapOption<MetricsRuntime>>,
 }
 
 #[derive(Debug, Clone)]
 pub struct WeakActorSystem {
   inner: Weak<RwLock<ActorSystemInner>>,
+  config: Weak<ArcSwap<Config>>,
+  metrics_runtime: Weak<ArcSwapOption<MetricsRuntime>>,
 }
 
 impl ActorSystem {
@@ -71,8 +78,15 @@ impl ActorSystem {
   }
 
   pub async fn new_with_config(config: Config) -> Result<Self, MetricsError> {
+    let config_swap = Arc::new(ArcSwap::from_pointee(config.clone()));
+    let metrics_runtime_swap = Arc::new(ArcSwapOption::from(None::<Arc<MetricsRuntime>>));
+
     let system = Self {
-      inner: Arc::new(RwLock::new(ActorSystemInner::new(config.clone()).await)),
+      inner: Arc::new(RwLock::new(
+        ActorSystemInner::new(config_swap.clone(), metrics_runtime_swap.clone()).await,
+      )),
+      config: config_swap.clone(),
+      metrics_runtime: metrics_runtime_swap.clone(),
     };
     system
       .set_root_context(RootContext::new(system.clone(), EMPTY_MESSAGE_HEADER.clone(), &[]))
@@ -86,10 +100,11 @@ impl ActorSystem {
     subscribe_supervision(&system).await;
 
     if config.metrics_provider.is_some() {
+      let metrics = Metrics::new(system.clone(), metrics_runtime_swap.clone()).await?;
       system
         .get_extensions()
         .await
-        .register(Arc::new(Mutex::new(Metrics::new(system.clone()).await?)))
+        .register(Arc::new(Mutex::new(metrics)))
         .await;
     }
 
@@ -106,6 +121,8 @@ impl ActorSystem {
   pub fn downgrade(&self) -> WeakActorSystem {
     WeakActorSystem {
       inner: Arc::downgrade(&self.inner),
+      config: Arc::downgrade(&self.config),
+      metrics_runtime: Arc::downgrade(&self.metrics_runtime),
     }
   }
 
@@ -128,9 +145,27 @@ impl ActorSystem {
     self.get_process_registry().await.get_address()
   }
 
-  pub async fn get_config(&self) -> Config {
-    let inner_mg = self.inner.read().await;
-    inner_mg.config.clone()
+  pub fn get_config(&self) -> Config {
+    self.config.load_full().as_ref().clone()
+  }
+
+  pub fn config_arc(&self) -> Arc<Config> {
+    self.config.load_full()
+  }
+
+  pub fn metrics_runtime(&self) -> Option<Arc<MetricsRuntime>> {
+    self.metrics_runtime.load_full()
+  }
+
+  pub(crate) fn metrics_runtime_slot(&self) -> Arc<ArcSwapOption<MetricsRuntime>> {
+    self.metrics_runtime.clone()
+  }
+
+  pub fn metrics_foreach<R, F>(&self, f: F) -> Option<R>
+  where
+    F: FnOnce(&Arc<MetricsRuntime>) -> R, {
+    let runtime = self.metrics_runtime()?;
+    Some(f(&runtime))
   }
 
   pub async fn get_root_context(&self) -> RootContext {
@@ -191,6 +226,13 @@ impl ActorSystem {
 
 impl WeakActorSystem {
   pub fn upgrade(&self) -> Option<ActorSystem> {
-    self.inner.upgrade().map(|inner| ActorSystem { inner })
+    let inner = self.inner.upgrade()?;
+    let config = self.config.upgrade()?;
+    let metrics_runtime = self.metrics_runtime.upgrade()?;
+    Some(ActorSystem {
+      inner,
+      config,
+      metrics_runtime,
+    })
   }
 }

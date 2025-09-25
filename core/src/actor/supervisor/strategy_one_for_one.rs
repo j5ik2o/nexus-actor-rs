@@ -10,7 +10,7 @@ use crate::actor::core::RestartStatistics;
 use crate::actor::message::MessageHandle;
 use crate::actor::supervisor::directive::Directive;
 use crate::actor::supervisor::supervisor_strategy::{
-  log_failure, Decider, Supervisor, SupervisorHandle, SupervisorStrategy,
+  log_failure, record_supervisor_metrics, Decider, Supervisor, SupervisorHandle, SupervisorStrategy,
 };
 
 pub async fn default_decider(_: ErrorReason) -> Directive {
@@ -99,9 +99,22 @@ impl SupervisorStrategy for OneForOneStrategy {
       rs,
       message_handle
     );
+    let child_pid = child.id().to_string();
+    let record_decision = |decision: &str| {
+      record_supervisor_metrics(
+        &actor_system,
+        &supervisor,
+        "one_for_one",
+        decision,
+        &child_pid,
+        Vec::new(),
+      );
+    };
+
     let directive = self.decider.run(reason.clone()).await;
     match directive {
       Directive::Resume => {
+        record_decision("resume");
         // resume the failing child
         tracing::debug!(
           "OneForOneStrategy::handle_child_failure: Resume: child = {:?}, rs = {:?}, message = {:?}",
@@ -121,14 +134,17 @@ impl SupervisorStrategy for OneForOneStrategy {
         );
         // try restart the failing child
         if self.should_stop(&mut rs).await {
+          record_decision("stop_after_restart_attempt");
           log_failure(actor_system, &child, reason, Directive::Stop).await;
           supervisor.stop_children(&[child]).await;
         } else {
+          record_decision("restart");
           log_failure(actor_system, &child, reason, Directive::Restart).await;
           supervisor.restart_children(&[child]).await;
         }
       }
       Directive::Stop => {
+        record_decision("stop");
         tracing::debug!(
           "OneForOneStrategy::handle_child_failure: Stop: child = {:?}, rs = {:?}, message = {:?}",
           child.id(),
@@ -140,6 +156,7 @@ impl SupervisorStrategy for OneForOneStrategy {
         supervisor.stop_children(&[child]).await
       }
       Directive::Escalate => {
+        record_decision("escalate");
         tracing::debug!(
           "OneForOneStrategy::handle_child_failure: Escalate: child = {:?}, rs = {:?}, message = {:?}",
           child.id(),

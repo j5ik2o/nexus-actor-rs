@@ -269,7 +269,7 @@ impl EndpointWriterMailbox {
     if let Some(address) = Self::extract_endpoint_address(message_handle) {
       if let Some(remote) = self.remote.upgrade() {
         if let Some(manager) = remote.get_endpoint_manager_opt().await {
-          manager.increment_dead_letter(&address);
+          manager.increment_dead_letter(&address).await;
         }
       }
     }

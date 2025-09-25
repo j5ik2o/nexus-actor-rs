@@ -27,7 +27,7 @@ impl EndpointSupervisor {
     EndpointSupervisor { remote }
   }
 
-  async fn get_config(&self) -> Config {
+  fn get_config(&self) -> Config {
     self
       .remote
       .upgrade()
@@ -63,7 +63,7 @@ impl EndpointSupervisor {
     address: String,
     mut ctx: ContextHandle,
   ) -> ExtendedPid {
-    let config = self.get_config().await;
+    let config = self.get_config();
     let props = Props::from_async_actor_producer_with_opts(
       move |_| {
         let cloned_remote = remote.clone();

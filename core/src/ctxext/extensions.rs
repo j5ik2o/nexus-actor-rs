@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use std::fmt::Debug;
 use std::sync::atomic::{AtomicI32, Ordering};
 use std::sync::Arc;
-use tokio::sync::RwLock;
+use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 pub type ContextExtensionId = i32;
 
@@ -39,11 +39,61 @@ impl ContextExtensions {
       extensions: Arc::new(RwLock::new(vec![None, None, None])),
     }
   }
+
+  pub async fn borrow_extension(&self, id: ContextExtensionId) -> Option<ExtensionBorrow<'_>> {
+    let guard = self.extensions.read().await;
+    if let Some(Some(_)) = guard.get(id as usize) {
+      Some(ExtensionBorrow {
+        guard,
+        index: id as usize,
+      })
+    } else {
+      None
+    }
+  }
+
+  pub async fn borrow_extension_mut(&self, id: ContextExtensionId) -> Option<ExtensionBorrowMut<'_>> {
+    let guard = self.extensions.write().await;
+    if let Some(Some(_)) = guard.get(id as usize) {
+      Some(ExtensionBorrowMut {
+        guard,
+        index: id as usize,
+      })
+    } else {
+      None
+    }
+  }
 }
 
 impl Default for ContextExtensions {
   fn default() -> Self {
     Self::new()
+  }
+}
+
+pub struct ExtensionBorrow<'a> {
+  guard: RwLockReadGuard<'a, Vec<Option<ContextExtensionHandle>>>,
+  index: usize,
+}
+
+impl<'a> ExtensionBorrow<'a> {
+  pub fn handle(&self) -> &ContextExtensionHandle {
+    self.guard[self.index].as_ref().expect("extension missing")
+  }
+}
+
+pub struct ExtensionBorrowMut<'a> {
+  guard: RwLockWriteGuard<'a, Vec<Option<ContextExtensionHandle>>>,
+  index: usize,
+}
+
+impl<'a> ExtensionBorrowMut<'a> {
+  pub fn handle(&self) -> &ContextExtensionHandle {
+    self.guard[self.index].as_ref().expect("extension missing")
+  }
+
+  pub fn handle_mut(&mut self) -> &mut ContextExtensionHandle {
+    self.guard[self.index].as_mut().expect("extension missing")
   }
 }
 

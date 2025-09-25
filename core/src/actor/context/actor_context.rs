@@ -24,6 +24,7 @@ use crate::actor::core::Props;
 use crate::actor::core::ReceiverMiddlewareChain;
 use crate::actor::core::SenderMiddlewareChain;
 use crate::actor::core::SpawnError;
+use crate::actor::core_types::message_types::Message as _;
 use crate::actor::dispatch::MailboxMessage;
 use crate::actor::dispatch::MessageInvoker;
 use crate::actor::message::AutoReceiveMessage;
@@ -40,7 +41,7 @@ use crate::actor::message::{
   unwrap_envelope_header, unwrap_envelope_message, unwrap_envelope_sender, wrap_envelope, MessageEnvelope,
 };
 use crate::actor::message::{AutoRespond, AutoResponsive};
-use crate::actor::metrics::metrics_impl::{Metrics, EXTENSION_ID};
+use crate::actor::metrics::metrics_impl::{MetricsRuntime, MetricsSink};
 use crate::actor::process::future::ActorFutureProcess;
 use crate::actor::process::Process;
 use crate::actor::supervisor::{Supervisor, SupervisorHandle, SupervisorStrategy, DEFAULT_SUPERVISION_STRATEGY};
@@ -49,7 +50,6 @@ use crate::generated::actor::{PoisonPill, Terminated, Unwatch, Watch};
 use arc_swap::ArcSwapOption;
 
 use crate::actor::process::actor_future::ActorFuture;
-use crate::metrics::ActorMetrics;
 use async_trait::async_trait;
 use tokio::sync::{OnceCell, RwLock};
 use tokio::time::Instant;
@@ -87,6 +87,9 @@ pub struct ActorContext {
   actor_system: WeakActorSystem,
   parent: Option<ExtendedPid>,
   self_pid: Arc<OnceCell<Arc<ArcSwapOption<ExtendedPid>>>>,
+  metrics_runtime: Arc<ArcSwapOption<MetricsRuntime>>,
+  metrics_sink: Arc<OnceCell<Arc<MetricsSink>>>,
+  actor_type: Arc<OnceCell<Arc<str>>>,
 }
 
 #[derive(Debug)]
@@ -131,6 +134,9 @@ impl ActorContext {
     let self_pid_cell = OnceCell::new();
     let initial_self = parent.as_ref().map(|pid| Arc::new(pid.clone()));
     let _ = self_pid_cell.set(Arc::new(ArcSwapOption::from(initial_self)));
+    let metrics_runtime = actor_system.metrics_runtime_slot();
+    let metrics_sink = Arc::new(OnceCell::new());
+    let actor_type = Arc::new(OnceCell::new());
     let mut ctx = ActorContext {
       shared: Arc::new(ActorContextShared::default()),
       extras,
@@ -141,6 +147,9 @@ impl ActorContext {
       actor_system: actor_system.downgrade(),
       parent,
       self_pid: Arc::new(self_pid_cell),
+      metrics_runtime,
+      metrics_sink,
+      actor_type,
     };
     ctx.incarnate_actor().await;
     ctx
@@ -203,6 +212,47 @@ impl ActorContext {
 
   fn set_actor(&self, actor: ActorHandle) {
     self.shared.swap().store(Some(Arc::new(actor)));
+  }
+
+  fn init_metrics_sink_with_type(&self, actor_type: Option<&str>) -> Option<Arc<MetricsSink>> {
+    let sink = self
+      .actor_system()
+      .metrics_foreach(|runtime| Arc::new(runtime.sink_for_actor(actor_type)))?;
+    match self.metrics_sink.set(sink.clone()) {
+      Ok(()) => Some(sink),
+      Err(value) => {
+        drop(value);
+        self.metrics_sink.get().cloned()
+      }
+    }
+  }
+
+  fn metrics_sink_or_init(&self) -> Option<Arc<MetricsSink>> {
+    if let Some(existing) = self.metrics_sink.get() {
+      return Some(existing.clone());
+    }
+    let actor_type = self.actor_type.get().map(|s| s.as_ref());
+    self.init_metrics_sink_with_type(actor_type)
+  }
+
+  pub fn metrics_sink(&self) -> Option<Arc<MetricsSink>> {
+    self.metrics_sink_or_init()
+  }
+
+  pub fn actor_type_str(&self) -> Option<&str> {
+    self.actor_type.get().map(|s| s.as_ref())
+  }
+
+  pub fn actor_type_arc(&self) -> Option<Arc<str>> {
+    self.actor_type.get().cloned()
+  }
+
+  fn supervisor_handle_with_snapshot(&self) -> SupervisorHandle {
+    let supervisor_clone = self.clone();
+    let handle = SupervisorHandle::new(supervisor_clone.clone());
+    let supervisor_arc: Arc<dyn Supervisor> = Arc::new(supervisor_clone);
+    handle.inject_snapshot(supervisor_arc);
+    handle
   }
 
   pub async fn receive_timeout_handler(&mut self) {
@@ -293,16 +343,13 @@ impl ActorContext {
     self.state.store(State::Alive as u8, Ordering::SeqCst);
     let ch = ContextHandle::new(self.clone());
     let actor = self.props_ref().get_producer().run(ch).await;
+    let actor_type = actor.type_name_arc();
+    let _ = self.actor_type.set(actor_type.clone());
     self.set_actor(actor);
 
-    self
-      .metrics_foreach(|am, _| {
-        let am = am.clone();
-        async move {
-          am.increment_actor_spawn_count().await;
-        }
-      })
-      .await;
+    if let Some(sink) = self.init_metrics_sink_with_type(Some(actor_type.as_ref())) {
+      sink.increment_actor_spawn();
+    }
   }
 
   async fn get_receiver_middleware_chain(&self) -> Option<ReceiverMiddlewareChain> {
@@ -531,12 +578,9 @@ impl ActorContext {
       return result;
     }
 
-    self
-      .metrics_foreach(|am, _| {
-        let am = am.clone();
-        async move { am.increment_actor_restarted_count().await }
-      })
-      .await;
+    if let Some(sink) = self.metrics_sink() {
+      sink.increment_actor_restarted();
+    }
     Ok(())
   }
 
@@ -555,10 +599,11 @@ impl ActorContext {
   async fn handle_child_failure(&mut self, f: &Failure) {
     let mut actor = self.get_actor().await.unwrap();
     let actor_system = self.actor_system();
+    let supervisor_handle = self.supervisor_handle_with_snapshot();
     if let Some(s) = actor.get_supervisor_strategy().await {
       s.handle_child_failure(
         actor_system.clone(),
-        SupervisorHandle::new(self.clone()),
+        supervisor_handle.clone(),
         f.who.clone(),
         f.restart_stats.clone(),
         f.reason.clone(),
@@ -572,7 +617,7 @@ impl ActorContext {
       .get_supervisor_strategy()
       .handle_child_failure(
         actor_system,
-        SupervisorHandle::new(self.clone()),
+        supervisor_handle,
         f.who.clone(),
         f.restart_stats.clone(),
         f.reason.clone(),
@@ -603,32 +648,17 @@ impl ActorContext {
 
   async fn handle_root_failure(&mut self, failure: &Failure) {
     let actor_system = self.actor_system();
+    let supervisor_handle = self.supervisor_handle_with_snapshot();
     DEFAULT_SUPERVISION_STRATEGY
       .handle_child_failure(
         actor_system,
-        SupervisorHandle::new(self.clone()),
+        supervisor_handle,
         self.get_self_opt().await.unwrap(),
         failure.restart_stats.clone(),
         failure.reason.clone(),
         failure.message_handle.clone(),
       )
       .await;
-  }
-
-  async fn metrics_foreach<F, Fut>(&self, f: F)
-  where
-    F: Fn(&ActorMetrics, &Metrics) -> Fut,
-    Fut: std::future::Future<Output = ()>, {
-    let actor_system = self.actor_system();
-    let config = actor_system.get_config().await;
-    if config.is_metrics_enabled() {
-      if let Some(extension_arc) = actor_system.get_extensions().await.get(*EXTENSION_ID).await {
-        let mut extension = extension_arc.lock().await;
-        if let Some(m) = extension.as_any_mut().downcast_mut::<Metrics>() {
-          m.foreach(f).await;
-        }
-      }
-    }
   }
 }
 
@@ -981,12 +1011,9 @@ impl SpawnerPart for ActorContext {
 #[async_trait]
 impl StopperPart for ActorContext {
   async fn stop(&mut self, pid: &ExtendedPid) {
-    self
-      .metrics_foreach(|am, _| {
-        let am = am.clone();
-        async move { am.increment_actor_stopped_count().await }
-      })
-      .await;
+    if let Some(sink) = self.metrics_sink() {
+      sink.increment_actor_stopped();
+    }
     let actor_system = self.actor_system();
     pid.ref_process(actor_system).await.stop(pid).await;
   }
@@ -1109,20 +1136,13 @@ impl MessageInvoker for ActorContext {
       }
     }
 
-    let actor_system = self.actor_system();
-    let config = actor_system.get_config().await;
-    let result = if config.metrics_provider.is_some() {
+    let metrics_sink = self.metrics_sink();
+    let message_type = metrics_sink.as_ref().map(|_| message_handle.get_type_name());
+    let result = if let Some(sink) = metrics_sink.as_ref() {
       let start = Instant::now();
       let result = self.process_message(message_handle).await;
       let duration = start.elapsed();
-      self
-        .metrics_foreach(|am, _| {
-          let am = am.clone();
-          async move {
-            am.record_actor_message_receive_duration(duration.as_secs_f64()).await;
-          }
-        })
-        .await;
+      sink.record_message_receive_duration_with_type(duration.as_secs_f64(), message_type.as_deref());
       result
     } else {
       self.process_message(message_handle).await
@@ -1143,12 +1163,9 @@ impl MessageInvoker for ActorContext {
   async fn escalate_failure(&mut self, reason: ErrorReason, message_handle: MessageHandle) {
     tracing::info!("[ACTOR] Recovering: reason = {:?}", reason.backtrace(),);
 
-    self
-      .metrics_foreach(|am, _| {
-        let am = am.clone();
-        async move { am.increment_actor_failure_count().await }
-      })
-      .await;
+    if let Some(sink) = self.metrics_sink() {
+      sink.increment_actor_failure();
+    }
 
     let failure = Failure::new(
       self.get_self_opt().await.unwrap(),
@@ -1201,7 +1218,7 @@ impl Supervisor for ActorContext {
   async fn escalate_failure(&self, reason: ErrorReason, message_handle: MessageHandle) {
     let self_pid = self.get_self_opt().await.expect("Failed to retrieve self_pid");
     let actor_system = self.actor_system();
-    if actor_system.get_config().await.developer_supervision_logging {
+    if actor_system.get_config().developer_supervision_logging {
       tracing::error!(
         "[Supervision] Actor: {}, failed with message: {}, exception: {}",
         self_pid,
@@ -1210,16 +1227,9 @@ impl Supervisor for ActorContext {
       );
     }
 
-    self
-      .metrics_foreach(|am, m| {
-        let am = am.clone();
-        let m = m.clone();
-        async move {
-          am.increment_actor_failure_count_with_opts(&m.common_labels(self).await)
-            .await;
-        }
-      })
-      .await;
+    if let Some(sink) = self.metrics_sink() {
+      sink.increment_actor_failure();
+    }
 
     let mut cloned_self = self.clone();
 
