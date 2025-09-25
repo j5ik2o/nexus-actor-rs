@@ -1,6 +1,7 @@
 use std::any::Any;
 
 use async_trait::async_trait;
+use opentelemetry::KeyValue;
 
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::core::ErrorReason;
@@ -50,6 +51,15 @@ impl SupervisorStrategy for RestartingStrategy {
     reason: ErrorReason,
     _: MessageHandle,
   ) {
+    let metrics_sink = supervisor.metrics_sink();
+    if let Some(sink) = metrics_sink.as_ref() {
+      let labels = vec![
+        KeyValue::new("supervisor.strategy", "restarting"),
+        KeyValue::new("supervisor.decision", "restart"),
+        KeyValue::new("supervisor.child_pid", child.id().to_string()),
+      ];
+      sink.increment_actor_failure_with_additional_labels(&labels);
+    }
     // always restart
     log_failure(actor_system, &child, reason, Directive::Restart).await;
     supervisor.restart_children(&[child]).await

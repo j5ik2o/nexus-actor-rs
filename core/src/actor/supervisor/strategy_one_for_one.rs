@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use opentelemetry::KeyValue;
 use std::any::Any;
 use std::sync::Arc;
 use std::time::Duration;
@@ -36,7 +37,8 @@ impl OneForOneStrategy {
   pub fn with_decider<F, Fut>(mut self, decider: F) -> Self
   where
     F: Fn(ErrorReason) -> Fut + Send + Sync + 'static,
-    Fut: futures::future::Future<Output = Directive> + Send + 'static, {
+    Fut: futures::future::Future<Output = Directive> + Send + 'static,
+  {
     self.decider = Arc::new(Decider::new(decider));
     self
   }
@@ -99,9 +101,23 @@ impl SupervisorStrategy for OneForOneStrategy {
       rs,
       message_handle
     );
+    let metrics_sink = supervisor.metrics_sink();
+    let child_pid = child.id().to_string();
+    let record_decision = |decision: &str| {
+      if let Some(sink) = metrics_sink.as_ref() {
+        let labels = vec![
+          KeyValue::new("supervisor.strategy", "one_for_one"),
+          KeyValue::new("supervisor.decision", decision.to_string()),
+          KeyValue::new("supervisor.child_pid", child_pid.clone()),
+        ];
+        sink.increment_actor_failure_with_additional_labels(&labels);
+      }
+    };
+
     let directive = self.decider.run(reason.clone()).await;
     match directive {
       Directive::Resume => {
+        record_decision("resume");
         // resume the failing child
         tracing::debug!(
           "OneForOneStrategy::handle_child_failure: Resume: child = {:?}, rs = {:?}, message = {:?}",
@@ -121,14 +137,17 @@ impl SupervisorStrategy for OneForOneStrategy {
         );
         // try restart the failing child
         if self.should_stop(&mut rs).await {
+          record_decision("stop_after_restart_attempt");
           log_failure(actor_system, &child, reason, Directive::Stop).await;
           supervisor.stop_children(&[child]).await;
         } else {
+          record_decision("restart");
           log_failure(actor_system, &child, reason, Directive::Restart).await;
           supervisor.restart_children(&[child]).await;
         }
       }
       Directive::Stop => {
+        record_decision("stop");
         tracing::debug!(
           "OneForOneStrategy::handle_child_failure: Stop: child = {:?}, rs = {:?}, message = {:?}",
           child.id(),
@@ -140,6 +159,7 @@ impl SupervisorStrategy for OneForOneStrategy {
         supervisor.stop_children(&[child]).await
       }
       Directive::Escalate => {
+        record_decision("escalate");
         tracing::debug!(
           "OneForOneStrategy::handle_child_failure: Escalate: child = {:?}, rs = {:?}, message = {:?}",
           child.id(),

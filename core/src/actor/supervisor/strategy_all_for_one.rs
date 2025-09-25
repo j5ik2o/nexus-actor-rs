@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use opentelemetry::KeyValue;
 use std::any::Any;
 use std::sync::Arc;
 use std::time::Duration;
@@ -33,7 +34,8 @@ impl AllForOneStrategy {
   pub fn with_decider<F, Fut>(mut self, decider: F) -> Self
   where
     F: Fn(ErrorReason) -> Fut + Send + Sync + 'static,
-    Fut: futures::future::Future<Output = Directive> + Send + 'static, {
+    Fut: futures::future::Future<Output = Directive> + Send + 'static,
+  {
     self.decider = Arc::new(Decider::new(decider));
     self
   }
@@ -64,28 +66,47 @@ impl SupervisorStrategy for AllForOneStrategy {
     reason: ErrorReason,
     message_handle: MessageHandle,
   ) {
+    let metrics_sink = supervisor.metrics_sink();
+    let child_pid = child.id().to_string();
+    let record_decision = |decision: &str, affected_children: usize| {
+      if let Some(sink) = metrics_sink.as_ref() {
+        let labels = vec![
+          KeyValue::new("supervisor.strategy", "all_for_one"),
+          KeyValue::new("supervisor.decision", decision.to_string()),
+          KeyValue::new("supervisor.child_pid", child_pid.clone()),
+          KeyValue::new("supervisor.affected_children", affected_children as i64),
+        ];
+        sink.increment_actor_failure_with_additional_labels(&labels);
+      }
+    };
+
     let directive = self.decider.run(reason.clone()).await;
     match directive {
       Directive::Resume => {
+        record_decision("resume", 1);
         log_failure(actor_system, &child, reason, directive).await;
         supervisor.resume_children(&[child]).await;
       }
       Directive::Restart => {
         let children = supervisor.get_children().await;
         if self.should_stop(&mut rs).await {
+          record_decision("stop_all", children.len());
           log_failure(actor_system, &child, reason, Directive::Stop).await;
           supervisor.stop_children(&children).await;
         } else {
+          record_decision("restart_all", children.len());
           log_failure(actor_system, &child, reason, Directive::Restart).await;
           supervisor.restart_children(&children).await;
         }
       }
       Directive::Stop => {
         let children = supervisor.get_children().await;
+        record_decision("stop_all_explicit", children.len());
         log_failure(actor_system, &child, reason, directive).await;
         supervisor.stop_children(&children).await;
       }
       Directive::Escalate => {
+        record_decision("escalate", 0);
         supervisor.escalate_failure(reason, message_handle).await;
       }
     }
