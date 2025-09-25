@@ -43,6 +43,12 @@
 3. Extension レイヤの borrow API を設計し、`ContextExtensionHandle` 経由の clone を削減する。（`RwLock` 版での読み取りアクセサ設計を含む）
 4. 本計画書の更新作業を行った場合は、必ず進捗（ロードマップのチェックボックスや次アクション）を見直し、最新状態へ反映する。
 
+## 次のアクション (2025-10-02 週)
+1. Supervisors/metrics 経路の async 呼び出しを棚卸しし、同期コンテキストと共存させる設計案をまとめる。
+2. ContextHandle の `Arc<Mutex>` 利用箇所を `ArcSwap` 化する PoC を検討し、受信順序の保証方法を調査。
+3. Extension レイヤの borrow API を設計し、`ContextExtensionHandle` の clone を削減する。
+4. 本計画書の更新作業を行った場合は、必ず進捗（ロードマップのチェックボックスや次アクション）を見直し、最新状態へ反映する。
+
 ### async -> sync 変換候補（メモ）
 - TypedActorContext 系は borrow を同期化済み。情報取得メソッド群は underlying `ActorContext` の async を再利用しているため、Supervisor/metrics を同期化した後に再整理する。
 - ContextHandle 系の `Arc<Mutex>` はメッセージセル制御に依存しており、`ArcSwap` 化は受信順序保証の検討が必要（棚卸し対象として継続）。
