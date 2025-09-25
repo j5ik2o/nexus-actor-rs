@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use opentelemetry::KeyValue;
 use std::any::Any;
 use std::sync::Arc;
 use std::time::Duration;
@@ -11,7 +10,7 @@ use crate::actor::core::RestartStatistics;
 use crate::actor::message::MessageHandle;
 use crate::actor::supervisor::directive::Directive;
 use crate::actor::supervisor::supervisor_strategy::{
-  log_failure, Decider, Supervisor, SupervisorHandle, SupervisorStrategy,
+  log_failure, record_supervisor_metrics, Decider, Supervisor, SupervisorHandle, SupervisorStrategy,
 };
 
 pub async fn default_decider(_: ErrorReason) -> Directive {
@@ -37,8 +36,7 @@ impl OneForOneStrategy {
   pub fn with_decider<F, Fut>(mut self, decider: F) -> Self
   where
     F: Fn(ErrorReason) -> Fut + Send + Sync + 'static,
-    Fut: futures::future::Future<Output = Directive> + Send + 'static,
-  {
+    Fut: futures::future::Future<Output = Directive> + Send + 'static, {
     self.decider = Arc::new(Decider::new(decider));
     self
   }
@@ -101,17 +99,16 @@ impl SupervisorStrategy for OneForOneStrategy {
       rs,
       message_handle
     );
-    let metrics_sink = supervisor.metrics_sink();
     let child_pid = child.id().to_string();
     let record_decision = |decision: &str| {
-      if let Some(sink) = metrics_sink.as_ref() {
-        let labels = vec![
-          KeyValue::new("supervisor.strategy", "one_for_one"),
-          KeyValue::new("supervisor.decision", decision.to_string()),
-          KeyValue::new("supervisor.child_pid", child_pid.clone()),
-        ];
-        sink.increment_actor_failure_with_additional_labels(&labels);
-      }
+      record_supervisor_metrics(
+        &actor_system,
+        &supervisor,
+        "one_for_one",
+        decision,
+        &child_pid,
+        Vec::new(),
+      );
     };
 
     let directive = self.decider.run(reason.clone()).await;

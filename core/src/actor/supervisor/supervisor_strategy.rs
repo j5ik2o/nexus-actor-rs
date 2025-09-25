@@ -11,16 +11,18 @@ use std::time::Duration;
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use crate::actor::actor_system::ActorSystem;
+use crate::actor::context::ActorContext;
 use crate::actor::core::ErrorReason;
 use crate::actor::core::ExtendedPid;
 use crate::actor::core::RestartStatistics;
 use crate::actor::message::MessageHandle;
-use crate::actor::metrics::metrics_impl::{MetricsSink, SyncMetricsAccess};
+use crate::actor::metrics::metrics_impl::SyncMetricsAccess;
 use crate::actor::supervisor::directive::Directive;
 use crate::actor::supervisor::strategy_one_for_one::OneForOneStrategy;
 use crate::actor::supervisor::strategy_restarting::RestartingStrategy;
 use crate::actor::supervisor::supervision_event::SupervisorEvent;
 use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
+use opentelemetry::KeyValue;
 
 #[derive(Clone)]
 pub struct Decider(Arc<dyn Fn(ErrorReason) -> BoxFuture<'static, Directive> + Send + Sync + 'static>);
@@ -32,8 +34,7 @@ impl Decider {
   pub fn new<F, Fut>(f: F) -> Self
   where
     F: Fn(ErrorReason) -> Fut + Send + Sync + 'static,
-    Fut: Future<Output = Directive> + Send + 'static,
-  {
+    Fut: Future<Output = Directive> + Send + 'static, {
     Decider(Arc::new(move |error| Box::pin(f(error))))
   }
 
@@ -60,6 +61,36 @@ impl std::hash::Hash for Decider {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
     (self.0.as_ref() as *const dyn Fn(ErrorReason) -> BoxFuture<'static, Directive>).hash(state);
   }
+}
+
+pub(crate) fn supervisor_actor_type(supervisor: &SupervisorHandle) -> Option<Arc<str>> {
+  supervisor.supervisor_arc().and_then(|sup| {
+    sup
+      .as_any()
+      .downcast_ref::<ActorContext>()
+      .and_then(|ctx| ctx.actor_type_arc())
+  })
+}
+
+pub(crate) fn record_supervisor_metrics(
+  actor_system: &ActorSystem,
+  supervisor: &SupervisorHandle,
+  strategy: &'static str,
+  decision: &str,
+  child_pid: &str,
+  mut extra_labels: Vec<KeyValue>,
+) {
+  let actor_type = supervisor_actor_type(supervisor).map(|arc| arc.to_string());
+  let mut labels = vec![
+    KeyValue::new("supervisor.strategy", strategy),
+    KeyValue::new("supervisor.decision", decision.to_string()),
+    KeyValue::new("supervisor.child_pid", child_pid.to_string()),
+  ];
+  labels.append(&mut extra_labels);
+  let _ = actor_system.metrics_foreach(|runtime| {
+    let sink = runtime.sink_for_actor(actor_type.as_deref());
+    sink.increment_actor_failure_with_additional_labels(&labels);
+  });
 }
 
 #[async_trait]
@@ -195,12 +226,6 @@ impl SupervisorHandle {
     self.cell.replace_supervisor(supervisor);
   }
 
-  pub fn metrics_sink(&self) -> Option<Arc<MetricsSink>> {
-    SyncMetricsAccess::metrics_sink(self)
-  }
-}
-
-impl SupervisorHandle {
   pub fn new_arc(s: Arc<RwLock<dyn Supervisor>>) -> Self {
     SupervisorHandle {
       inner: s,
@@ -210,8 +235,7 @@ impl SupervisorHandle {
 
   pub fn new<S>(s: S) -> Self
   where
-    S: Supervisor + Clone + 'static,
-  {
+    S: Supervisor + Clone + 'static, {
     SupervisorHandle {
       inner: Arc::new(RwLock::new(s)),
       cell: Arc::new(SupervisorCell::default()),
@@ -230,14 +254,6 @@ impl Eq for SupervisorHandle {}
 impl std::hash::Hash for SupervisorHandle {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
     (self.inner.as_ref() as *const RwLock<dyn Supervisor>).hash(state);
-  }
-}
-
-impl SyncMetricsAccess for SupervisorHandle {
-  fn metrics_sink(&self) -> Option<Arc<MetricsSink>> {
-    self
-      .supervisor_arc()
-      .and_then(|supervisor| supervisor.metrics_access().and_then(|access| access.metrics_sink()))
   }
 }
 

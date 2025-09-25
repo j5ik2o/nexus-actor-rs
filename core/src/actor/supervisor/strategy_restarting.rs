@@ -1,7 +1,6 @@
 use std::any::Any;
 
 use async_trait::async_trait;
-use opentelemetry::KeyValue;
 
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::core::ErrorReason;
@@ -9,7 +8,9 @@ use crate::actor::core::ExtendedPid;
 use crate::actor::core::RestartStatistics;
 use crate::actor::message::MessageHandle;
 use crate::actor::supervisor::directive::Directive;
-use crate::actor::supervisor::supervisor_strategy::{log_failure, Supervisor, SupervisorHandle, SupervisorStrategy};
+use crate::actor::supervisor::supervisor_strategy::{
+  log_failure, record_supervisor_metrics, Supervisor, SupervisorHandle, SupervisorStrategy,
+};
 
 #[derive(Debug, Clone)]
 pub struct RestartingStrategy;
@@ -51,15 +52,15 @@ impl SupervisorStrategy for RestartingStrategy {
     reason: ErrorReason,
     _: MessageHandle,
   ) {
-    let metrics_sink = supervisor.metrics_sink();
-    if let Some(sink) = metrics_sink.as_ref() {
-      let labels = vec![
-        KeyValue::new("supervisor.strategy", "restarting"),
-        KeyValue::new("supervisor.decision", "restart"),
-        KeyValue::new("supervisor.child_pid", child.id().to_string()),
-      ];
-      sink.increment_actor_failure_with_additional_labels(&labels);
-    }
+    let child_pid = child.id().to_string();
+    record_supervisor_metrics(
+      &actor_system,
+      &supervisor,
+      "restarting",
+      "restart",
+      &child_pid,
+      Vec::new(),
+    );
     // always restart
     log_failure(actor_system, &child, reason, Directive::Restart).await;
     supervisor.restart_children(&[child]).await
