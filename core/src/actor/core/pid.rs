@@ -94,23 +94,13 @@ impl ExtendedPid {
   }
 
   pub(crate) async fn ref_process(&self, actor_system: ActorSystem) -> ProcessHandle {
-    let mut process_handle_opt = self.process_handle.lock().await;
-    if let Some(process) = process_handle_opt.as_ref() {
-      if let Some(actor_process) = process.as_any().downcast_ref::<ActorProcess>() {
-        if actor_process.is_dead() {
-          *process_handle_opt = None;
-        } else {
-          return process.clone();
-        }
-      } else {
-        return process.clone();
-      }
+    if let Some(handle) = self.take_live_cached_handle().await {
+      return handle;
     }
 
     let process_registry = actor_system.get_process_registry().await;
     if let Some(process_handle) = process_registry.get_process(self).await {
-      *process_handle_opt = Some(process_handle.clone());
-      process_handle
+      self.store_process_handle(process_handle).await
     } else {
       panic!("No process found for pid: {}", self)
     }
@@ -131,5 +121,40 @@ impl ExtendedPid {
       .await
       .send_system_message(self, message_handle)
       .await;
+  }
+}
+
+impl ExtendedPid {
+  async fn take_live_cached_handle(&self) -> Option<ProcessHandle> {
+    let mut guard = self.process_handle.lock().await;
+    if let Some(handle) = guard.as_ref() {
+      if Self::is_process_dead(handle) {
+        *guard = None;
+        None
+      } else {
+        Some(handle.clone())
+      }
+    } else {
+      None
+    }
+  }
+
+  async fn store_process_handle(&self, handle: ProcessHandle) -> ProcessHandle {
+    let mut guard = self.process_handle.lock().await;
+    if let Some(existing) = guard.as_ref() {
+      if !Self::is_process_dead(existing) {
+        return existing.clone();
+      }
+    }
+    *guard = Some(handle.clone());
+    handle
+  }
+
+  fn is_process_dead(process: &ProcessHandle) -> bool {
+    process
+      .as_any()
+      .downcast_ref::<ActorProcess>()
+      .map(|actor_process| actor_process.is_dead())
+      .unwrap_or(false)
   }
 }

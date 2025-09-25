@@ -8,13 +8,19 @@ use crate::endpoint_manager::{EndpointManager, EndpointStatisticsSnapshot};
 use crate::endpoint_reader::EndpointReader;
 use crate::endpoint_state::ConnectionState;
 use crate::generated::remote::remoting_server::RemotingServer;
+use crate::generated::remote::{ActorPidRequest, ActorPidResponse};
 use crate::messages::RemoteDeliver;
 use crate::remote_process::RemoteProcess;
+use crate::response_status_code::{ActorPidResponseExt, ResponseError, ResponseStatusCode};
+use crate::serializer::initialize_proto_serializers;
 use crate::serializer::SerializerId;
 use dashmap::DashMap;
 use nexus_actor_core_rs::actor::actor_system::ActorSystem;
+use nexus_actor_core_rs::actor::context::SenderPart;
+use nexus_actor_core_rs::actor::core::ExtendedPid;
 use nexus_actor_core_rs::actor::core::Props;
 use nexus_actor_core_rs::actor::message::{MessageHandle, ReadonlyMessageHeadersHandle};
+use nexus_actor_core_rs::actor::process::future::ActorFutureError;
 use nexus_actor_core_rs::actor::process::process_registry::AddressResolver;
 use nexus_actor_core_rs::actor::process::ProcessHandle;
 use nexus_actor_core_rs::extensions::{next_extension_id, Extension, ExtensionId};
@@ -24,6 +30,7 @@ use std::any::Any;
 use std::future::Future;
 use std::net::ToSocketAddrs;
 use std::sync::Arc;
+use std::time::Duration;
 use thiserror::Error;
 use tokio::sync::oneshot;
 use tokio::sync::Mutex;
@@ -33,6 +40,18 @@ use tonic::transport::Server;
 pub enum RemoteError {
   #[error("Server error")]
   ServerError,
+}
+
+#[derive(Debug, Clone, Error)]
+pub enum RemoteSpawnError {
+  #[error("activator request failed: {0}")]
+  Request(#[from] ActorFutureError),
+  #[error("activator returned unexpected payload")]
+  InvalidResponse,
+  #[error("activator response missing pid (status = {0:?})")]
+  MissingPid(ResponseStatusCode),
+  #[error("spawn rejected: {0}")]
+  Status(#[from] ResponseError),
 }
 
 pub static EXTENSION_ID: Lazy<ExtensionId> = Lazy::new(next_extension_id);
@@ -169,6 +188,45 @@ impl Remote {
     self.inner.kinds.iter().map(|kv| kv.key().clone()).collect()
   }
 
+  pub async fn spawn_remote_named(
+    &self,
+    address: &str,
+    name: &str,
+    kind: &str,
+    timeout: Duration,
+  ) -> Result<Pid, RemoteSpawnError> {
+    let _ = initialize_proto_serializers::<ActorPidRequest>();
+    let _ = initialize_proto_serializers::<ActorPidResponse>();
+
+    let actor_system = self.get_actor_system().clone();
+    let root = actor_system.get_root_context().await;
+    let future = root
+      .request_future(
+        ExtendedPid::new(Pid::new(address, "activator")),
+        MessageHandle::new(ActorPidRequest {
+          kind: kind.to_string(),
+          name: name.to_string(),
+        }),
+        timeout,
+      )
+      .await;
+
+    let response_handle = future.result().await?;
+    let actor_pid_response = response_handle
+      .to_typed::<ActorPidResponse>()
+      .ok_or(RemoteSpawnError::InvalidResponse)?;
+
+    let status = actor_pid_response.status_code_enum();
+    status.ensure_ok().map_err(RemoteSpawnError::from)?;
+    let pid = actor_pid_response.pid.ok_or(RemoteSpawnError::MissingPid(status))?;
+
+    Ok(pid)
+  }
+
+  pub async fn spawn_remote(&self, address: &str, kind: &str, timeout: Duration) -> Result<Pid, RemoteSpawnError> {
+    self.spawn_remote_named(address, "", kind, timeout).await
+  }
+
   pub async fn start(&self) -> Result<(), RemoteError> {
     self.start_with_callback(|| async {}).await
   }
@@ -209,18 +267,16 @@ impl Remote {
       published_address
     );
 
-    let mut process_registry = self.inner.actor_system.get_process_registry().await;
-    process_registry
-      .register_address_resolver(AddressResolver::new(move |pid| {
-        let cloned_self = cloned_self.clone();
-        let pid = pid.clone();
-        async move {
-          let (ph, _) = cloned_self.remote_handler(&pid.inner_pid).await;
-          Some(ph)
-        }
-      }))
-      .await;
-    process_registry.set_address(published_address).await;
+    let process_registry = self.inner.actor_system.get_process_registry().await;
+    process_registry.register_address_resolver(AddressResolver::new(move |pid| {
+      let cloned_self = cloned_self.clone();
+      let pid = pid.clone();
+      async move {
+        let (ph, _) = cloned_self.remote_handler(&pid.inner_pid).await;
+        Some(ph)
+      }
+    }));
+    process_registry.set_address(published_address);
     tracing::info!("Starting server: {}", socket_addr);
 
     let self_weak = Arc::downgrade(&my_self);

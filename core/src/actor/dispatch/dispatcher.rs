@@ -1,3 +1,7 @@
+//! Dispatcher implementations and handles.
+//!
+//! Runtime管理の方針については `docs/dispatcher_runtime_policy.md` を参照。
+
 use std::fmt::Debug;
 use std::future::Future;
 use std::sync::Arc;
@@ -127,9 +131,29 @@ impl Dispatcher for TokioRuntimeDispatcher {
 
 // --- SingleWorkerDispatcher implementation
 
+/// Dispatcher that executes work on a dedicated Tokio runtime.
+///
+/// ## Runtime lifecycle
+/// The internal runtime is owned via `Option<Arc<Runtime>>`.
+/// When this dispatcher is dropped, it will call `shutdown_background()`
+/// on the runtime if this instance is the last owner. This mirrors the
+/// policy described in `docs/dispatcher_runtime_policy.md`.
+///
+/// ```rust
+/// use nexus_actor_core_rs::actor::dispatch::{Dispatcher, SingleWorkerDispatcher, Runnable};
+///
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// let dispatcher = SingleWorkerDispatcher::new()?;
+/// dispatcher.schedule(Runnable::new(|| async move {
+///   // async work
+/// })).await;
+/// // When `dispatcher` is dropped, the internal runtime is shut down safely.
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Debug, Clone)]
 pub struct SingleWorkerDispatcher {
-  runtime: Arc<Runtime>,
+  runtime: Option<Arc<Runtime>>,
   throughput: i32,
 }
 
@@ -137,7 +161,7 @@ impl SingleWorkerDispatcher {
   pub fn new() -> Result<Self, std::io::Error> {
     let runtime = Builder::new_multi_thread().worker_threads(1).enable_all().build()?;
     Ok(Self {
-      runtime: Arc::new(runtime),
+      runtime: Some(Arc::new(runtime)),
       throughput: 300,
     })
   }
@@ -151,11 +175,27 @@ impl SingleWorkerDispatcher {
 #[async_trait]
 impl Dispatcher for SingleWorkerDispatcher {
   async fn schedule(&self, runner: Runnable) {
-    self.runtime.spawn(runner.run());
+    if let Some(runtime) = &self.runtime {
+      runtime.spawn(runner.run());
+    } else {
+      tracing::warn!("SingleWorkerDispatcher runtime already shut down");
+    }
   }
 
   async fn throughput(&self) -> i32 {
     self.throughput
+  }
+}
+
+impl Drop for SingleWorkerDispatcher {
+  fn drop(&mut self) {
+    if let Some(runtime_arc) = self.runtime.take() {
+      if Arc::strong_count(&runtime_arc) == 1 {
+        if let Ok(runtime) = Arc::try_unwrap(runtime_arc) {
+          runtime.shutdown_background();
+        }
+      }
+    }
   }
 }
 

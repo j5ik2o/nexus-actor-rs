@@ -64,7 +64,7 @@ struct BridgedGreeter;
 impl Actor for BridgedGreeter {
   async fn receive(&mut self, context: ContextHandle) -> Result<(), ActorError> {
     // Use the bridge to convert context
-    let base_context = self.adapt_context(context.clone());
+    let base_context = self.adapt_context(context.clone()).await;
 
     // Create a temporary base actor and delegate to it
     let mut base_actor = GreeterActor;

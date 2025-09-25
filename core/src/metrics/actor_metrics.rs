@@ -3,11 +3,11 @@ use opentelemetry::metrics::MeterProvider;
 use opentelemetry::metrics::{Counter, Histogram, Meter};
 use opentelemetry::KeyValue;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::RwLock;
 
 pub const LIB_NAME: &str = "protoactor";
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct ActorMetricsInner {
   meter: Meter,
   actor_failure_count: Counter<u64>,
@@ -25,7 +25,7 @@ struct ActorMetricsInner {
 
 #[derive(Debug, Clone)]
 pub struct ActorMetrics {
-  inner: Arc<Mutex<ActorMetricsInner>>,
+  inner: Arc<RwLock<ActorMetricsInner>>,
 }
 
 impl ActorMetrics {
@@ -33,7 +33,7 @@ impl ActorMetrics {
     let meter = meter_provider.meter(LIB_NAME);
 
     Ok(ActorMetrics {
-      inner: Arc::new(Mutex::new(ActorMetricsInner {
+      inner: Arc::new(RwLock::new(ActorMetricsInner {
         meter: meter.clone(),
         actor_failure_count: meter
           .u64_counter("nexus_actor_actor_failure_count")
@@ -100,7 +100,7 @@ impl ActorMetrics {
   }
 
   pub async fn increment_actor_failure_count_with_opts(&self, attributes: &[KeyValue]) {
-    let inner_mg = self.inner.lock().await;
+    let inner_mg = self.inner.read().await;
     inner_mg.actor_failure_count.add(1, attributes);
   }
 
@@ -109,7 +109,7 @@ impl ActorMetrics {
   }
 
   pub async fn increment_actor_mailbox_length_with_opts(&self, attributes: &[KeyValue]) {
-    let inner_mg = self.inner.lock().await;
+    let inner_mg = self.inner.read().await;
     inner_mg.actor_mailbox_length.add(1, attributes);
   }
 
@@ -120,7 +120,7 @@ impl ActorMetrics {
   }
 
   pub async fn record_actor_message_receive_duration_with_opts(&self, duration: f64, attributes: &[KeyValue]) {
-    let inner_mg = self.inner.lock().await;
+    let inner_mg = self.inner.read().await;
     inner_mg.actor_message_receive_histogram.record(duration, attributes);
   }
 
@@ -129,7 +129,7 @@ impl ActorMetrics {
   }
 
   pub async fn increment_actor_restarted_count_with_opts(&self, attributes: &[KeyValue]) {
-    let inner_mg = self.inner.lock().await;
+    let inner_mg = self.inner.read().await;
     inner_mg.actor_restarted_count.add(1, attributes);
   }
 
@@ -138,7 +138,7 @@ impl ActorMetrics {
   }
 
   pub async fn increment_actor_spawn_count_with_opts(&self, attributes: &[KeyValue]) {
-    let inner_mg = self.inner.lock().await;
+    let inner_mg = self.inner.read().await;
     inner_mg.actor_spawn_count.add(1, attributes);
   }
 
@@ -147,7 +147,7 @@ impl ActorMetrics {
   }
 
   pub async fn increment_actor_stopped_count_with_opts(&self, attributes: &[KeyValue]) {
-    let inner_mg = self.inner.lock().await;
+    let inner_mg = self.inner.read().await;
     inner_mg.actor_stopped_count.add(1, attributes);
   }
 
@@ -156,7 +156,7 @@ impl ActorMetrics {
   }
 
   pub async fn increment_dead_letter_count_with_opts(&self, attributes: &[KeyValue]) {
-    let inner_mg = self.inner.lock().await;
+    let inner_mg = self.inner.read().await;
     inner_mg.dead_letter_count.add(1, attributes);
   }
 
@@ -165,7 +165,7 @@ impl ActorMetrics {
   }
 
   pub async fn increment_futures_started_count_with_opts(&self, attributes: &[KeyValue]) {
-    let inner_mg = self.inner.lock().await;
+    let inner_mg = self.inner.read().await;
     inner_mg.futures_started_count.add(1, attributes);
   }
 
@@ -174,7 +174,7 @@ impl ActorMetrics {
   }
 
   pub async fn increment_futures_completed_count_with_opts(&self, attributes: &[KeyValue]) {
-    let inner_mg = self.inner.lock().await;
+    let inner_mg = self.inner.read().await;
     inner_mg.futures_completed_count.add(1, attributes);
   }
 
@@ -183,7 +183,7 @@ impl ActorMetrics {
   }
 
   pub async fn increment_futures_timed_out_count_with_opts(&self, attributes: &[KeyValue]) {
-    let inner_mg = self.inner.lock().await;
+    let inner_mg = self.inner.read().await;
     inner_mg.futures_timed_out_count.add(1, attributes);
   }
 }

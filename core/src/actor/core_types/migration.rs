@@ -47,7 +47,7 @@ impl<B: BaseActor> Actor for MigratedActor<B> {
     let message_handle = context.get_message_handle().await;
     let arm = message_handle.to_typed::<AutoReceiveMessage>();
 
-    let base_context = self.adapt_context(context.clone());
+    let base_context = self.adapt_context(context.clone()).await;
 
     match arm {
       Some(arm) => match arm {
@@ -90,7 +90,7 @@ impl<B: BaseActor> Actor for MigratedActor<B> {
   }
 
   async fn receive(&mut self, context: ContextHandle) -> Result<(), ActorError> {
-    let base_context = self.adapt_context(context);
+    let base_context = self.adapt_context(context).await;
 
     self
       .base_actor
@@ -164,12 +164,16 @@ impl MigrationHelpers {
 /// Extension trait for ContextHandle to easily get a BaseContext
 pub trait ContextHandleExt {
   /// Convert this ContextHandle to a BaseContext
-  fn as_base_context(&self) -> Box<dyn BaseContext>;
+  fn as_base_context<'a>(
+    &'a self,
+  ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Box<dyn BaseContext>> + Send + 'a>>;
 }
 
 impl ContextHandleExt for ContextHandle {
-  fn as_base_context(&self) -> Box<dyn BaseContext> {
-    Box::new(ContextAdapter::new(self.clone()))
+  fn as_base_context<'a>(
+    &'a self,
+  ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Box<dyn BaseContext>> + Send + 'a>> {
+    Box::pin(async move { Box::new(ContextAdapter::new(self.clone()).await) as Box<dyn BaseContext> })
   }
 }
 

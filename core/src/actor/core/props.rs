@@ -47,6 +47,7 @@ pub struct Props {
   spawner: Option<Spawner>,
   pub(crate) producer: Option<ActorProducer>,
   mailbox_producer: Option<MailboxProducer>,
+  dispatcher: Option<DispatcherHandle>,
   guardian_strategy: Option<SupervisorStrategyHandle>,
   supervisor_strategy: Option<SupervisorStrategyHandle>,
   receiver_middleware: Vec<ReceiverMiddleware>,
@@ -62,8 +63,6 @@ pub struct Props {
 
 static_assertions::assert_impl_all!(Props: Send, Sync);
 
-static DEFAULT_DISPATCHER: Lazy<DispatcherHandle> =
-  Lazy::new(|| DispatcherHandle::new(TokioRuntimeContextDispatcher::new().unwrap()));
 static DEFAULT_MAILBOX_PRODUCER: Lazy<MailboxProducer> = Lazy::new(|| unbounded_mailbox_creator_with_opts(vec![]));
 
 static DEFAULT_SPAWNER: Lazy<Spawner> = Lazy::new(|| {
@@ -73,7 +72,11 @@ static DEFAULT_SPAWNER: Lazy<Spawner> = Lazy::new(|| {
       let mut ctx = ActorContext::new(actor_system.clone(), props.clone(), parent_context.get_self_opt().await).await;
       let mut mb = props.produce_mailbox().await;
 
-      let dp = DispatcherHandle::new_arc(actor_system.get_config().await.system_dispatcher.clone());
+      let dp = if let Some(dispatcher) = props.get_dispatcher() {
+        dispatcher
+      } else {
+        DispatcherHandle::new_arc(actor_system.get_config().await.system_dispatcher.clone())
+      };
       let proc = ActorProcess::new(mb.clone());
       let proc_handle = ProcessHandle::new(proc);
       let pr = actor_system.get_process_registry().await;
@@ -188,6 +191,12 @@ impl Props {
     })
   }
 
+  pub fn with_dispatcher(dispatcher: DispatcherHandle) -> PropsOption {
+    PropsOption::new(move |props: &mut Props| {
+      props.dispatcher = Some(dispatcher.clone());
+    })
+  }
+
   pub fn with_context_decorators(decorators: impl IntoIterator<Item = ContextDecorator> + Send + Sync) -> PropsOption {
     let cloned_decorators = decorators.into_iter().collect::<Vec<_>>();
     PropsOption::new(move |props: &mut Props| {
@@ -283,6 +292,10 @@ impl Props {
       .unwrap_or_else(|| DEFAULT_SUPERVISION_STRATEGY.clone())
   }
 
+  pub(crate) fn get_dispatcher(&self) -> Option<DispatcherHandle> {
+    self.dispatcher.clone()
+  }
+
   pub(crate) fn get_spawn_middleware_chain(&self) -> Option<Spawner> {
     self.spawn_middleware_chain.clone()
   }
@@ -333,6 +346,7 @@ impl Props {
       on_init: vec![],
       producer: Some(producer),
       mailbox_producer: None,
+      dispatcher: None,
       context_decorator: vec![],
       guardian_strategy: None,
       supervisor_strategy: None,

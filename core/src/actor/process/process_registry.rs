@@ -2,17 +2,15 @@ use std::fmt::{Debug, Formatter};
 use std::future::Future;
 use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
-use dashmap::mapref::entry::Entry;
-use futures::future::BoxFuture;
-use tokio::sync::RwLock;
-
-use crate::actor::actor_system::ActorSystem;
+use crate::actor::actor_system::{ActorSystem, WeakActorSystem};
 use crate::actor::core::ActorProcess;
 use crate::actor::core::ExtendedPid;
 use crate::actor::process::{Process, ProcessHandle, ProcessMaps};
 use crate::generated::actor::Pid;
+use dashmap::mapref::entry::Entry;
+use futures::future::BoxFuture;
 
 #[cfg(test)]
 mod tests;
@@ -22,7 +20,7 @@ const LOCAL_ADDRESS: &str = "nonhost";
 #[derive(Debug, Clone)]
 pub struct ProcessRegistry {
   sequence_id: Arc<AtomicU64>,
-  actor_system: ActorSystem,
+  actor_system: WeakActorSystem,
   address: Arc<RwLock<String>>,
   local_pids: Arc<ProcessMaps>,
   remote_handlers: Arc<RwLock<Vec<AddressResolver>>>,
@@ -71,30 +69,36 @@ impl ProcessRegistry {
   pub fn new(actor_system: ActorSystem) -> Self {
     Self {
       sequence_id: Arc::new(AtomicU64::new(0)),
-      actor_system,
+      actor_system: actor_system.downgrade(),
       address: Arc::new(RwLock::new(LOCAL_ADDRESS.to_string())),
       local_pids: Arc::new(ProcessMaps::new()),
       remote_handlers: Arc::new(RwLock::new(Vec::new())),
     }
   }
 
-  pub async fn register_address_resolver(&mut self, handler: AddressResolver) {
-    let mut mg = self.remote_handlers.write().await;
+  fn actor_system(&self) -> ActorSystem {
+    self
+      .actor_system
+      .upgrade()
+      .expect("ActorSystem dropped before ProcessRegistry")
+  }
+
+  pub fn register_address_resolver(&self, handler: AddressResolver) {
+    let mut mg = self.remote_handlers.write().unwrap();
     mg.push(handler);
   }
 
-  pub async fn set_address(&mut self, address: String) {
-    let mut mg = self.address.write().await;
+  pub fn set_address(&self, address: String) {
+    let mut mg = self.address.write().unwrap();
     *mg = address;
   }
 
-  pub async fn get_address(&self) -> String {
-    let mg = self.address.read().await;
-    mg.clone()
+  pub fn get_address(&self) -> String {
+    self.address.read().unwrap().clone()
   }
 
   pub async fn list_local_pids(&self) -> Vec<Pid> {
-    let address = self.get_address().await;
+    let address = self.get_address();
     self
       .local_pids
       .keys()
@@ -119,7 +123,7 @@ impl ProcessRegistry {
   pub async fn add_process(&self, process: ProcessHandle, id: &str) -> (ExtendedPid, bool) {
     let process_map = self.local_pids.get_map(id);
     let pid = Pid {
-      address: self.get_address().await.clone(),
+      address: self.get_address(),
       id: id.to_string(),
       request_id: 0,
     };
@@ -144,17 +148,15 @@ impl ProcessRegistry {
   }
 
   pub async fn get_process(&self, pid: &ExtendedPid) -> Option<ProcessHandle> {
-    let is_remote = pid.address() != LOCAL_ADDRESS && pid.address() != self.get_address().await;
+    let is_remote = pid.address() != LOCAL_ADDRESS && pid.address() != self.get_address();
     if is_remote {
-      {
-        let mg = self.remote_handlers.read().await;
-        for handler in mg.iter() {
-          if let Some(process) = handler.run(pid).await {
-            return Some(process);
-          }
+      let handlers = { self.remote_handlers.read().unwrap().clone() };
+      for handler in handlers {
+        if let Some(process) = handler.run(pid).await {
+          return Some(process);
         }
       }
-      return Some(self.actor_system.get_dead_letter().await);
+      return Some(self.actor_system().get_dead_letter().await);
     }
     self.get_local_process(pid.id()).await
   }
@@ -163,7 +165,7 @@ impl ProcessRegistry {
     let process_map = self.local_pids.get_map(id);
     match process_map.get(id) {
       Some(r) => Some(r.clone()),
-      None => Some(self.actor_system.get_dead_letter().await),
+      None => Some(self.actor_system().get_dead_letter().await),
     }
   }
 }

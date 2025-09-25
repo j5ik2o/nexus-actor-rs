@@ -1,5 +1,5 @@
 use opentelemetry::metrics::MetricsError;
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
 use tokio::sync::{Mutex, RwLock};
 use uuid::Uuid;
 
@@ -54,6 +54,11 @@ pub struct ActorSystem {
   inner: Arc<RwLock<ActorSystemInner>>,
 }
 
+#[derive(Debug, Clone)]
+pub struct WeakActorSystem {
+  inner: Weak<RwLock<ActorSystemInner>>,
+}
+
 impl ActorSystem {
   pub async fn new() -> Result<Self, MetricsError> {
     Self::new_config_options([]).await
@@ -98,11 +103,17 @@ impl ActorSystem {
     Ok(system)
   }
 
+  pub fn downgrade(&self) -> WeakActorSystem {
+    WeakActorSystem {
+      inner: Arc::downgrade(&self.inner),
+    }
+  }
+
   pub async fn new_local_pid(&self, id: &str) -> ExtendedPid {
     let pr = self.get_process_registry().await;
     let pid = Pid {
       id: id.to_string(),
-      address: pr.get_address().await,
+      address: pr.get_address(),
       request_id: 0,
     };
     ExtendedPid::new(pid)
@@ -114,7 +125,7 @@ impl ActorSystem {
   }
 
   pub async fn get_address(&self) -> String {
-    self.get_process_registry().await.get_address().await
+    self.get_process_registry().await.get_address()
   }
 
   pub async fn get_config(&self) -> Config {
@@ -175,5 +186,11 @@ impl ActorSystem {
   pub async fn get_extensions(&self) -> Extensions {
     let inner_mg = self.inner.read().await;
     inner_mg.extensions.clone()
+  }
+}
+
+impl WeakActorSystem {
+  pub fn upgrade(&self) -> Option<ActorSystem> {
+    self.inner.upgrade().map(|inner| ActorSystem { inner })
   }
 }

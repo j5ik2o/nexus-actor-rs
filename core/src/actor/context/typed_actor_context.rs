@@ -1,4 +1,5 @@
 use crate::actor::actor_system::ActorSystem;
+use crate::actor::context::actor_context::ContextBorrow;
 use crate::actor::context::{
   ActorContext, BasePart, ExtensionContext, ExtensionPart, InfoPart, MessagePart, ReceiverPart, SenderPart,
   SpawnerPart, StopperPart,
@@ -34,6 +35,12 @@ impl<M: Message> TypedActorContext<M> {
 
   pub fn get_underlying(&self) -> &ActorContext {
     &self.underlying
+  }
+
+  /// Borrows the underlying [`ActorContext`] without cloning and exposes
+  /// a [`ContextBorrow`] view bound to the current lifetime.
+  pub fn borrow(&self) -> ContextBorrow<'_> {
+    self.underlying.borrow()
   }
 }
 

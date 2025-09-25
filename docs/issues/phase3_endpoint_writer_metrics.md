@@ -58,7 +58,7 @@
 
 ## ドキュメント更新
 - **MUST** `docs/issues/phase1_5_endpoint_stream.md` の Follow-up を Phase 3 要件に合わせて整理する。
-- **MUST** `docs/remote機能改善計画.md` に本 Issue のタスクを追加し、完了後の進捗を反映する。
+- **MUST** `docs/remote_improvement_plan.md` に本 Issue のタスクを追加し、完了後の進捗を反映する。
 - **MAY** README など利用者向けドキュメントに再接続・メトリクスのクイックスタートを追加する。
 
 ## タイムライン（目安）

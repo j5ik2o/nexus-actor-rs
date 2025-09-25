@@ -184,7 +184,7 @@ end note
 - `remote/src/endpoint_manager.rs`（新規予定）: `EndpointState` 構造体と `ensure_connected` 処理を実装。Lazy 接続・監視登録を go 実装通りに再現。
 - `remote/src/endpoint_writer.rs`: MaxRetryCount=5、リトライ間隔2秒固定の挙動を確認するテスト追加。接続失敗時に `EndpointTerminatedEvent` を送る経路を統合テストで検証。
 - テスト: `remote/tests/client_connection_roundtrip.rs`（仮）で Watch/Terminate/Deliver シナリオ、`remote/tests/client_connection_reconnect.rs`（仮）で再接続を検証。
-- ドキュメント: 完了後、`docs/remote機能改善計画.md` の Phase 1.5 セクションで実装完了報告とパリティ確認結果をまとめる。
+- ドキュメント: 完了後、`docs/remote_improvement_plan.md` の Phase 1.5 セクションで実装完了報告とパリティ確認結果をまとめる。
 
 ## protoactor-go パリティ チェックリスト
 - [x] エンドポイント状態管理が `remote/endpoint_manager.go` の `endpointState` と機能同等か（再接続タイマー、監視登録/解除）。→ Rust 版では `EndpointState` を go 実装と同じ責務で導入する方針で合意。
@@ -279,7 +279,7 @@ end note
   - **SHOULD** テストでは `ConfigOption::with_endpoint_reconnect_*` で遅延を短縮し、`tokio::time::pause` を併用してバックオフの経過を疑似化する。
 - **MUST** 移行計画:
   - **MUST** 既存の固定 2 秒リトライ前提のテストを廃止し、本仕様で定義した指数バックオフを前提に書き換える。
-  - **SHOULD** 実装完了後は `docs/remote機能改善計画.md` の Phase 1.5-2 セクションへ結果を反映し、`#reconnect-policy` スレッドをクローズする。
+  - **SHOULD** 実装完了後は `docs/remote_improvement_plan.md` の Phase 1.5-2 セクションへ結果を反映し、`#reconnect-policy` スレッドをクローズする。
 
 ### 2. Backpressure シグナルとメトリクス公開（案）
 - **MUST** `EndpointManager` にしきい値レベルを持たせ、`queue_size / queue_capacity` の比率に応じて状態を算出する。
@@ -364,7 +364,7 @@ docs/issues/phase1_5_endpoint_stream.md に Phase 1.5 の設計ドラフトを�
 - **MUST** Definition of Ready チェック項目は「テストケース列挙」「責務図草案」の2点を最優先でフィックスし、その他は実装フェーズで逐次補完する。
 
 ## 関連ドキュメント
-- `docs/remote機能改善計画.md`
+- `docs/remote_improvement_plan.md`
 - `docs/sources/protoactor-go/remote/endpoint_manager.go`
 - `docs/sources/protoactor-go/remote/endpoint_reader.go`
 

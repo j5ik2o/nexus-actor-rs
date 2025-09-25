@@ -18,13 +18,15 @@
    - 既存の `remote/src/remote/tests.rs` を拡張し、主要シナリオを網羅する。
 
 ## 最新進捗（2025-09-24）
-## 最新進捗（2025-09-24 更新）
+## 最新進捗（2025-09-25 更新）
+
+- `spawn_remote` API を追加し、Activator 応答を ResponseStatusCode ベースで Result 化。未知 Kind のテスト (`spawn_remote_unknown_kind_returns_error`) とリモート通信シナリオを更新して回帰を防止。
 
 - 再接続ポリシーの基盤整備（EndpointState, Config 拡張）と Backpressure 統計・シグナルの追加を Phase 1.5-1 の成果として反映済み。
 - `EndpointWriterMailbox` の固定長キュー化と DeadLetter / 統計連携テスト( `client_connection_backpressure_overflow` )を追加。
 - `EndpointThrottledEvent` を EventStream に発火できるようになり、Backpressure 状態を監視可能。
 - Remote API に `get_endpoint_statistics` を追加（テスト・診断コードから利用可能）。
-
+- `spawn_remote` / `spawn_remote_named` API を追加し、ResponseStatusCode ベースの Result ハンドリングとエラー時テスト (`spawn_remote_unknown_kind_returns_error`) を整備。
 
 - `feat(remote): ListProcessesとGetProcessDiagnosticsのRPCを実装` により診断系 RPC が Rust 版でも利用可能になった。
 - `feat(core): ProcessRegistryにプロセス一覧と取得のAPIを追加` でリモートモジュールが参照する基盤 API が整備された。
@@ -147,3 +149,10 @@
 2. 再接続ポリシー（Phase 1.5-3）の検証用シナリオを設計し、`EndpointWriter` のリトライ挙動をテストで再現する。
 3. `Remote::start` を利用した結合テスト環境を整備し、ClientConnection/Echo/Disconnect を含む回帰テストをスイート化する。
 4. Phase 1.5 完了レポートをまとめ、Phase 2 へ移行するための残課題（TLS、BlockList API 公開など）を棚卸しする。
+
+## Core MUST Fixes (2025-09-25)
+
+- **ActorContext ロック構造の改善** (`core/src/actor/context/actor_context.rs:112-160`, `:204-237`): `Arc<Mutex<...>>` を保持したまま非同期処理やコールバックを実行しており、メトリクスやユーザーコードから同じコンテキスト API を呼ぶと自己デッドロックを誘発する。ロック解放タイミングの見直しと責務分割が必須。
+- **ExtendedPid の ProcessHandle キャッシュ再設計** (`core/src/actor/core/pid.rs:96-114`): `process_handle.lock().await` を保持したまま ProcessRegistry を再帰的に呼び出すため、同一 PID を辿ると再入で固まる。キャッシュ更新フェーズと ProcessRegistry 参照を分離する設計変更が必要。
+- **グローバル Extension 登録の同期整理** (`core/src/extensions.rs:32-58`): `Arc<Mutex<dyn Extension>>` と `Synchronized` の多段ロックで Extension 取得→ロック→downcast を行っており、取得中に Extension 側で Context API を呼ぶと競合しやすい。再入を避けるための読み取り専用構造（例: once_cell + RwLock）へ置き換える。
+

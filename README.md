@@ -51,3 +51,8 @@ cargo update
 Now `nexus-actor-rs` is installed and ready to use in your project.
 
 Note: As versions may be updated regularly, it's recommended to check for the latest version.
+
+## Developer Resources
+
+- [Typed Context / PID ガイドライン](docs/typed_context_guidelines.md): ライフタイム指向設計に合わせた `ContextHandle` / `ActorContext` の扱い方や、弱参照化ポリシーをまとめています。開発時はこちらを参照してください。
+- [Dispatcher Runtime ポリシー](docs/dispatcher_runtime_policy.md): `SingleWorkerDispatcher` など Runtime を内包する dispatcher 実装の shutdown 手順と運用上の注意点を整理しています。

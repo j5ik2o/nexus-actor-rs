@@ -14,7 +14,7 @@ use dashmap::DashMap;
 use nexus_actor_core_rs::actor::actor_system::ActorSystem;
 use nexus_actor_core_rs::actor::context::{SenderPart, SpawnerPart, StopperPart};
 use nexus_actor_core_rs::actor::core::{ExtendedPid, Props, SpawnError};
-use nexus_actor_core_rs::actor::dispatch::DeadLetterEvent;
+use nexus_actor_core_rs::actor::dispatch::{DeadLetterEvent, DispatcherHandle, SingleWorkerDispatcher};
 use nexus_actor_core_rs::actor::message::MessageHandle;
 use nexus_actor_core_rs::actor::process::future::ActorFutureError;
 use nexus_actor_core_rs::actor::supervisor::{RestartingStrategy, SupervisorStrategyHandle};
@@ -383,7 +383,7 @@ impl EndpointManager {
         }
 
         let delay = state_handle.compute_backoff_delay(attempt);
-        tracing::info!(address = %address_for_task, attempt, ?delay, "Scheduling reconnect attempt");
+        tracing::debug!(address = %address_for_task, attempt, ?delay, "Scheduling reconnect attempt");
         if !delay.is_zero() {
           sleep(delay).await;
         }
@@ -397,7 +397,7 @@ impl EndpointManager {
           .await
         {
           Ok(()) => {
-            tracing::info!(address = %address_for_task, "Reconnect attempt succeeded");
+            tracing::debug!(address = %address_for_task, "Reconnect attempt succeeded");
             manager
               .publish_reconnect_event(&address_for_task, attempt as u64, true)
               .await;
@@ -652,6 +652,11 @@ impl EndpointManager {
   async fn start_supervisor(&mut self) -> Result<(), EndpointManagerError> {
     tracing::debug!("Starting supervisor");
     let remote = self.remote.clone();
+    let dispatcher = DispatcherHandle::new(
+      SingleWorkerDispatcher::new()
+        .expect("Failed to create dispatcher for EndpointSupervisor")
+        .with_throughput(300),
+    );
     let props = Props::from_async_actor_producer_with_opts(
       move |_| {
         let remote = remote.clone();
@@ -660,7 +665,7 @@ impl EndpointManager {
       [
         Props::with_guardian(SupervisorStrategyHandle::new(RestartingStrategy::new())),
         Props::with_supervisor_strategy(SupervisorStrategyHandle::new(RestartingStrategy::new())),
-        // TODO:
+        Props::with_dispatcher(dispatcher.clone()),
       ],
     )
     .await;

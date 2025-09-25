@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use std::fmt::Debug;
 use std::sync::atomic::{AtomicI32, Ordering};
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::RwLock;
 
 pub type ContextExtensionId = i32;
 
@@ -30,13 +30,13 @@ impl ContextExtension for ContextExtensionHandle {
 
 #[derive(Debug, Clone)]
 pub struct ContextExtensions {
-  extensions: Arc<Mutex<Vec<Option<ContextExtensionHandle>>>>,
+  extensions: Arc<RwLock<Vec<Option<ContextExtensionHandle>>>>,
 }
 
 impl ContextExtensions {
   pub fn new() -> Self {
     Self {
-      extensions: Arc::new(Mutex::new(vec![None, None, None])),
+      extensions: Arc::new(RwLock::new(vec![None, None, None])),
     }
   }
 }
@@ -50,26 +50,18 @@ impl Default for ContextExtensions {
 #[async_trait]
 impl ExtensionPart for ContextExtensions {
   async fn get(&mut self, id: ContextExtensionId) -> Option<ContextExtensionHandle> {
-    let mg = self.extensions.lock().await;
+    let mg = self.extensions.read().await;
     mg.get(id as usize).and_then(|ext| ext.clone())
   }
 
   async fn set(&mut self, extension: ContextExtensionHandle) {
     let id = extension.extension_id() as usize;
-    let len = {
-      let mg = self.extensions.lock().await;
-      mg.len()
-    };
-    if id >= len {
-      let len = {
-        let mg = self.extensions.lock().await;
-        mg.len()
-      };
-      let mut mg = self.extensions.lock().await;
-      mg.extend((len..=id).map(|_| None));
+    let mut guard = self.extensions.write().await;
+    if id >= guard.len() {
+      let missing = id + 1 - guard.len();
+      guard.extend(std::iter::repeat(None).take(missing));
     }
-    let mut mg = self.extensions.lock().await;
-    mg[id] = Some(extension);
+    guard[id] = Some(extension);
   }
 }
 

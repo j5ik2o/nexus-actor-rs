@@ -339,7 +339,7 @@ impl Remoting for EndpointReader {
   type ReceiveStream = Pin<Box<dyn Stream<Item = Result<RemoteMessage, Status>> + Send>>;
 
   async fn receive(&self, request: Request<Streaming<RemoteMessage>>) -> Result<Response<Self::ReceiveStream>, Status> {
-    tracing::info!("EndpointReader is starting");
+    tracing::debug!("EndpointReader is starting");
     let suspended = self.suspended.clone();
 
     let request_arc = Arc::new(Mutex::new(request));
@@ -432,7 +432,7 @@ impl Remoting for EndpointReader {
         if let Some(tx) = disconnect_tx_arc.lock().await.take() {
           let _ = tx.send(false).await;
         }
-        tracing::info!("EndpointReader stream closed");
+        tracing::debug!("EndpointReader stream closed");
       }
     });
 

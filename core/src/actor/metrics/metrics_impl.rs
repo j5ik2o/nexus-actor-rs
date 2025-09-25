@@ -1,4 +1,4 @@
-use crate::actor::actor_system::ActorSystem;
+use crate::actor::actor_system::{ActorSystem, WeakActorSystem};
 use crate::actor::context::Context;
 use crate::actor::core::Actor;
 use crate::extensions::{next_extension_id, Extension, ExtensionId};
@@ -14,7 +14,7 @@ pub static EXTENSION_ID: Lazy<ExtensionId> = Lazy::new(next_extension_id);
 pub struct Metrics {
   proto_metrics: Option<ProtoMetrics>,
   enabled: bool,
-  actor_system: ActorSystem,
+  actor_system: WeakActorSystem,
 }
 
 impl Extension for Metrics {
@@ -37,12 +37,12 @@ impl Metrics {
       Some(mp) => Ok(Metrics {
         proto_metrics: Some(ProtoMetrics::new(mp)?),
         enabled: true,
-        actor_system: system,
+        actor_system: system.downgrade(),
       }),
       None => Ok(Metrics {
         proto_metrics: None,
         enabled: false,
-        actor_system: system,
+        actor_system: system.downgrade(),
       }),
     }
   }
@@ -57,7 +57,7 @@ impl Metrics {
 
   pub async fn common_labels(&self, ctx: &impl Context) -> Vec<KeyValue> {
     vec![
-      KeyValue::new("address", self.actor_system.get_address().await.to_string()),
+      KeyValue::new("address", self.actor_system().get_address().await.to_string()),
       KeyValue::new(
         "actor_type",
         ctx
@@ -80,5 +80,9 @@ impl Metrics {
         }
       }
     }
+  }
+
+  fn actor_system(&self) -> ActorSystem {
+    self.actor_system.upgrade().expect("ActorSystem dropped before Metrics")
   }
 }

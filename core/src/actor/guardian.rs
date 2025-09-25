@@ -5,7 +5,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use nexus_actor_utils_rs::concurrent::Synchronized;
 
-use crate::actor::actor_system::ActorSystem;
+use crate::actor::actor_system::{ActorSystem, WeakActorSystem};
 use crate::actor::core::ErrorReason;
 use crate::actor::core::ExtendedPid;
 use crate::actor::dispatch::MailboxMessage;
@@ -18,16 +18,23 @@ use crate::actor::supervisor::{Supervisor, SupervisorHandle, SupervisorStrategy}
 
 #[derive(Debug, Clone)]
 pub struct GuardiansValue {
-  actor_system: ActorSystem,
+  actor_system: WeakActorSystem,
   guardians: Arc<Synchronized<HashMap<SupervisorStrategyHandle, GuardianProcess>>>,
 }
 
 impl GuardiansValue {
   pub fn new(actor_system: ActorSystem) -> Self {
     GuardiansValue {
-      actor_system,
+      actor_system: actor_system.downgrade(),
       guardians: Arc::new(Synchronized::new(HashMap::new())),
     }
+  }
+
+  fn actor_system(&self) -> ActorSystem {
+    self
+      .actor_system
+      .upgrade()
+      .expect("ActorSystem dropped before GuardiansValue")
   }
 
   pub async fn get_guardian_pid(&self, s: SupervisorStrategyHandle) -> ExtendedPid {
@@ -77,10 +84,10 @@ impl GuardianProcess {
       guardians: guardians.clone(),
       pid: Arc::new(None), // This should be properly initialized
     };
-    let id = guardians.actor_system.get_process_registry().await.next_id();
+    let actor_system = guardians.actor_system();
+    let id = actor_system.get_process_registry().await.next_id();
     let ph = ProcessHandle::new(guardian.clone());
-    let (pid, ok) = guardians
-      .actor_system
+    let (pid, ok) = actor_system
       .get_process_registry()
       .await
       .add_process(ph, &format!("guardian-{}", id))
@@ -101,10 +108,11 @@ impl Process for GuardianProcess {
 
   async fn send_system_message(&self, _: &ExtendedPid, message_handle: MessageHandle) {
     if let Some(failure) = message_handle.to_typed::<Failure>() {
+      let actor_system = self.guardians.actor_system();
       self
         .strategy
         .handle_child_failure(
-          self.guardians.actor_system.clone(),
+          actor_system,
           SupervisorHandle::new(self.clone()),
           failure.who.clone(),
           failure.restart_stats.clone(),
@@ -143,35 +151,29 @@ impl Supervisor for GuardianProcess {
   }
 
   async fn restart_children(&self, pids: &[ExtendedPid]) {
+    let actor_system = self.guardians.actor_system();
     for pid in pids {
       // Implement send_system_message for PID
       pid
-        .send_system_message(
-          self.guardians.actor_system.clone(),
-          MessageHandle::new(SystemMessage::Restart),
-        )
+        .send_system_message(actor_system.clone(), MessageHandle::new(SystemMessage::Restart))
         .await;
     }
   }
 
   async fn stop_children(&self, pids: &[ExtendedPid]) {
+    let actor_system = self.guardians.actor_system();
     for pid in pids {
       pid
-        .send_system_message(
-          self.guardians.actor_system.clone(),
-          MessageHandle::new(SystemMessage::Stop),
-        )
+        .send_system_message(actor_system.clone(), MessageHandle::new(SystemMessage::Stop))
         .await;
     }
   }
 
   async fn resume_children(&self, pids: &[ExtendedPid]) {
+    let actor_system = self.guardians.actor_system();
     for pid in pids {
       pid
-        .send_system_message(
-          self.guardians.actor_system.clone(),
-          MessageHandle::new(MailboxMessage::ResumeMailbox),
-        )
+        .send_system_message(actor_system.clone(), MessageHandle::new(MailboxMessage::ResumeMailbox))
         .await;
     }
   }
