@@ -2,17 +2,15 @@ use std::fmt::{Debug, Formatter};
 use std::future::Future;
 use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
-
-use dashmap::mapref::entry::Entry;
-use futures::future::BoxFuture;
-use tokio::sync::RwLock;
+use std::sync::{Arc, RwLock};
 
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::core::ActorProcess;
 use crate::actor::core::ExtendedPid;
 use crate::actor::process::{Process, ProcessHandle, ProcessMaps};
 use crate::generated::actor::Pid;
+use dashmap::mapref::entry::Entry;
+use futures::future::BoxFuture;
 
 #[cfg(test)]
 mod tests;
@@ -78,23 +76,22 @@ impl ProcessRegistry {
     }
   }
 
-  pub async fn register_address_resolver(&mut self, handler: AddressResolver) {
-    let mut mg = self.remote_handlers.write().await;
+  pub fn register_address_resolver(&self, handler: AddressResolver) {
+    let mut mg = self.remote_handlers.write().unwrap();
     mg.push(handler);
   }
 
-  pub async fn set_address(&mut self, address: String) {
-    let mut mg = self.address.write().await;
+  pub fn set_address(&self, address: String) {
+    let mut mg = self.address.write().unwrap();
     *mg = address;
   }
 
-  pub async fn get_address(&self) -> String {
-    let mg = self.address.read().await;
-    mg.clone()
+  pub fn get_address(&self) -> String {
+    self.address.read().unwrap().clone()
   }
 
   pub async fn list_local_pids(&self) -> Vec<Pid> {
-    let address = self.get_address().await;
+    let address = self.get_address();
     self
       .local_pids
       .keys()
@@ -119,7 +116,7 @@ impl ProcessRegistry {
   pub async fn add_process(&self, process: ProcessHandle, id: &str) -> (ExtendedPid, bool) {
     let process_map = self.local_pids.get_map(id);
     let pid = Pid {
-      address: self.get_address().await.clone(),
+      address: self.get_address(),
       id: id.to_string(),
       request_id: 0,
     };
@@ -144,14 +141,12 @@ impl ProcessRegistry {
   }
 
   pub async fn get_process(&self, pid: &ExtendedPid) -> Option<ProcessHandle> {
-    let is_remote = pid.address() != LOCAL_ADDRESS && pid.address() != self.get_address().await;
+    let is_remote = pid.address() != LOCAL_ADDRESS && pid.address() != self.get_address();
     if is_remote {
-      {
-        let mg = self.remote_handlers.read().await;
-        for handler in mg.iter() {
-          if let Some(process) = handler.run(pid).await {
-            return Some(process);
-          }
+      let handlers = { self.remote_handlers.read().unwrap().clone() };
+      for handler in handlers {
+        if let Some(process) = handler.run(pid).await {
+          return Some(process);
         }
       }
       return Some(self.actor_system.get_dead_letter().await);

@@ -1,7 +1,9 @@
 use super::*;
 use async_trait::async_trait;
 use std::any::Any;
-use std::time::Instant;
+use std::time::{Duration, Instant};
+
+use tokio::time::timeout;
 
 use crate::actor::message::MessageHandle;
 
@@ -71,6 +73,30 @@ async fn test_find_local_process_handle() {
 
   let missing = registry.find_local_process_handle("missing").await;
   assert!(missing.is_none(), "存在しないプロセスは None を返す");
+}
+
+#[tokio::test]
+async fn test_get_process_remote_handler_reentrancy() {
+  let system = ActorSystem::new().await.expect("actor system init");
+  let registry = system.get_process_registry().await;
+
+  let registry_for_registration = registry.clone();
+  let registry_for_handler = registry.clone();
+
+  registry_for_registration.register_address_resolver(AddressResolver::new(move |_pid| {
+    let registry_for_handler = registry_for_handler.clone();
+    async move {
+      let registry_to_modify = registry_for_handler.clone();
+      registry_to_modify.register_address_resolver(AddressResolver::new(|_| async { None }));
+      None
+    }
+  }));
+
+  let remote_pid = ExtendedPid::new(Pid::new("remote-host", "pid"));
+  let result = timeout(Duration::from_millis(200), registry.get_process(&remote_pid)).await;
+
+  assert!(result.is_ok(), "リモートハンドラ内の再登録でデッドロックしないこと");
+  assert!(result.unwrap().is_some(), "処理後はデッドレタープロセスが返る想定");
 }
 
 #[derive(Debug, Clone)]
