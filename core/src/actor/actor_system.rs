@@ -9,7 +9,7 @@ use crate::actor::dispatch::DeadLetterProcess;
 use crate::actor::event_stream::EventStreamProcess;
 use crate::actor::guardian::GuardiansValue;
 use crate::actor::message::EMPTY_MESSAGE_HEADER;
-use crate::actor::metrics::metrics_impl::Metrics;
+use crate::actor::metrics::metrics_impl::{Metrics, MetricsRuntime};
 use crate::actor::process::process_registry::ProcessRegistry;
 use crate::actor::process::ProcessHandle;
 use crate::actor::supervisor::subscribe_supervision;
@@ -31,6 +31,7 @@ struct ActorSystemInner {
   extensions: Extensions,
   config: Config,
   id: String,
+  metrics_runtime: Option<Arc<MetricsRuntime>>,
 }
 
 impl ActorSystemInner {
@@ -45,6 +46,7 @@ impl ActorSystemInner {
       event_stream: Arc::new(EventStream::new()),
       dead_letter: None,
       extensions: Extensions::new(),
+      metrics_runtime: None,
     }
   }
 }
@@ -86,11 +88,14 @@ impl ActorSystem {
     subscribe_supervision(&system).await;
 
     if config.metrics_provider.is_some() {
+      let metrics = Metrics::new(system.clone()).await?;
+      let runtime = metrics.runtime();
       system
         .get_extensions()
         .await
-        .register(Arc::new(Mutex::new(Metrics::new(system.clone()).await?)))
+        .register(Arc::new(Mutex::new(metrics)))
         .await;
+      system.set_metrics_runtime(runtime).await;
     }
 
     let event_stream_process = ProcessHandle::new(EventStreamProcess::new(system.clone()));
@@ -158,6 +163,11 @@ impl ActorSystem {
     inner_mg.event_stream.clone()
   }
 
+  pub async fn metrics_runtime(&self) -> Option<Arc<MetricsRuntime>> {
+    let inner_mg = self.inner.read().await;
+    inner_mg.metrics_runtime.clone()
+  }
+
   pub async fn get_guardians(&self) -> GuardiansValue {
     let inner_mg = self.inner.read().await;
     inner_mg.guardians.as_ref().unwrap().clone()
@@ -181,6 +191,11 @@ impl ActorSystem {
   async fn set_dead_letter(&self, dead_letter: DeadLetterProcess) {
     let mut inner_mg = self.inner.write().await;
     inner_mg.dead_letter = Some(dead_letter);
+  }
+
+  async fn set_metrics_runtime(&self, metrics_runtime: Option<Arc<MetricsRuntime>>) {
+    let mut inner_mg = self.inner.write().await;
+    inner_mg.metrics_runtime = metrics_runtime;
   }
 
   pub async fn get_extensions(&self) -> Extensions {

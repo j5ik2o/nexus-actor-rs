@@ -33,6 +33,11 @@ impl ActorHandle {
   pub fn new(actor: impl Actor + 'static) -> Self {
     ActorHandle(Arc::new(RwLock::new(actor)))
   }
+
+  pub async fn type_name(&self) -> String {
+    let mg = self.0.read().await;
+    mg.get_type_name()
+  }
 }
 
 #[async_trait]
