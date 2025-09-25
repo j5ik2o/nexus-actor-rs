@@ -10,7 +10,8 @@ pub struct Synchronized<T: ?Sized> {
 impl<T: ?Sized> Synchronized<T> {
   pub fn new(value: T) -> Self
   where
-    T: Sized, {
+    T: Sized,
+  {
     Self {
       inner: Mutex::new(value),
     }
@@ -30,7 +31,8 @@ impl<T: ?Sized> Synchronized<T> {
   where
     F: FnOnce(&MutexGuard<T>) -> Fut + Send + 'static,
     Fut: Future<Output = R> + Send + 'static,
-    R: Send + 'static, {
+    R: Send + 'static,
+  {
     let guard = self.inner.lock().await;
     f(&guard).await
   }
@@ -38,7 +40,8 @@ impl<T: ?Sized> Synchronized<T> {
   pub async fn read_async_boxed<F, R>(&self, f: F) -> R
   where
     F: for<'a> FnOnce(&'a MutexGuard<T>) -> BoxFuture<'a, R> + Send + 'static,
-    R: Send + 'static, {
+    R: Send + 'static,
+  {
     let guard = self.inner.lock().await;
     f(&guard).await
   }
@@ -47,7 +50,8 @@ impl<T: ?Sized> Synchronized<T> {
   where
     F: FnOnce(&mut MutexGuard<T>) -> Fut + Send + 'static,
     Fut: Future<Output = R> + Send + 'static,
-    R: Send + 'static, {
+    R: Send + 'static,
+  {
     let mut guard = self.inner.lock().await;
     f(&mut guard).await
   }
@@ -55,7 +59,8 @@ impl<T: ?Sized> Synchronized<T> {
   pub async fn write_async_boxed<F, R>(&self, f: F) -> R
   where
     F: for<'a> FnOnce(&'a mut MutexGuard<T>) -> BoxFuture<'a, R> + Send + 'static,
-    R: Send + 'static, {
+    R: Send + 'static,
+  {
     let mut guard = self.inner.lock().await;
     f(&mut guard).await
   }
@@ -81,7 +86,8 @@ pub struct SynchronizedRw<T: ?Sized> {
 impl<T: ?Sized> SynchronizedRw<T> {
   pub fn new(value: T) -> Self
   where
-    T: Sized, {
+    T: Sized,
+  {
     Self {
       inner: RwLock::new(value),
     }
@@ -101,7 +107,8 @@ impl<T: ?Sized> SynchronizedRw<T> {
   where
     F: FnOnce(&RwLockReadGuard<T>) -> Fut + Send + 'static,
     Fut: Future<Output = R> + Send + 'static,
-    R: Send + 'static, {
+    R: Send + 'static,
+  {
     let guard = self.inner.read().await;
     f(&guard).await
   }
@@ -109,7 +116,8 @@ impl<T: ?Sized> SynchronizedRw<T> {
   pub async fn read_async_boxed<F, R>(&self, f: F) -> R
   where
     F: for<'a> FnOnce(&'a RwLockReadGuard<T>) -> BoxFuture<'a, R> + Send + 'static,
-    R: Send + 'static, {
+    R: Send + 'static,
+  {
     let guard = self.inner.read().await;
     f(&guard).await
   }
@@ -118,7 +126,8 @@ impl<T: ?Sized> SynchronizedRw<T> {
   where
     F: FnOnce(&mut RwLockWriteGuard<T>) -> Fut + Send + 'static,
     Fut: Future<Output = R> + Send + 'static,
-    R: Send + 'static, {
+    R: Send + 'static,
+  {
     let mut guard = self.inner.write().await;
     f(&mut guard).await
   }
@@ -126,7 +135,8 @@ impl<T: ?Sized> SynchronizedRw<T> {
   pub async fn write_async_boxed<F, R>(&self, f: F) -> R
   where
     F: for<'a> FnOnce(&'a mut RwLockWriteGuard<T>) -> BoxFuture<'a, R> + Send + 'static,
-    R: Send + 'static, {
+    R: Send + 'static,
+  {
     let mut guard = self.inner.write().await;
     f(&mut guard).await
   }
