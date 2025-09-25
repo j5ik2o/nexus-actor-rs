@@ -37,13 +37,13 @@
 - [ ] `docs/bench_dashboard_plan.md` に沿った GitHub Pages 公開
 - [ ] `cargo make coverage` をライフタイム回帰テストに組み込み
 
-## 次のアクション (2025-09-25 週)
+## Sprint 3 次のアクション
 1. `Arc<Mutex<_>>` 使用箇所の棚卸し (`rg "Arc<Mutex" core/`) を自動化し、ライフタイム移行対象リストを `docs/typed_context_guidelines.md` に追記。
 2. ~~`ActorContextShared` の `ArcSwapOption` 版に合わせ、`ContextBorrow` からのアクター参照 API を整理（不要な `await` を削減し、再起動時の整合性を確認）。~~ ✅ `ActorContext::borrow` を同期化済み（2025-09-25）
 3. Extension レイヤの borrow API を設計し、`ContextExtensionHandle` 経由の clone を削減する。（`RwLock` 版での読み取りアクセサ設計を含む）
 4. 本計画書の更新作業を行った場合は、必ず進捗（ロードマップのチェックボックスや次アクション）を見直し、最新状態へ反映する。
 
-## 次のアクション (2025-10-02 週)
+## Sprint 4 次のアクション
 1. Supervisors/metrics 経路の async 呼び出しを棚卸しし、同期コンテキストと共存させる設計案をまとめる。
 2. ContextHandle の `Arc<Mutex>` 利用箇所を `ArcSwap` 化する PoC を検討し、受信順序の保証方法を調査。
 3. Extension レイヤの borrow API を設計し、`ContextExtensionHandle` の clone を削減する。
