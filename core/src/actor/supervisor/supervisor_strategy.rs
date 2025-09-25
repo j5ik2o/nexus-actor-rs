@@ -15,6 +15,7 @@ use crate::actor::core::ErrorReason;
 use crate::actor::core::ExtendedPid;
 use crate::actor::core::RestartStatistics;
 use crate::actor::message::MessageHandle;
+use crate::actor::metrics::metrics_impl::{MetricsSink, SyncMetricsAccess};
 use crate::actor::supervisor::directive::Directive;
 use crate::actor::supervisor::strategy_one_for_one::OneForOneStrategy;
 use crate::actor::supervisor::strategy_restarting::RestartingStrategy;
@@ -31,7 +32,8 @@ impl Decider {
   pub fn new<F, Fut>(f: F) -> Self
   where
     F: Fn(ErrorReason) -> Fut + Send + Sync + 'static,
-    Fut: Future<Output = Directive> + Send + 'static, {
+    Fut: Future<Output = Directive> + Send + 'static,
+  {
     Decider(Arc::new(move |error| Box::pin(f(error))))
   }
 
@@ -83,6 +85,10 @@ pub trait Supervisor: Debug + Send + Sync + 'static {
   async fn restart_children(&self, pids: &[ExtendedPid]);
   async fn stop_children(&self, pids: &[ExtendedPid]);
   async fn resume_children(&self, pids: &[ExtendedPid]);
+
+  fn metrics_access(&self) -> Option<&dyn SyncMetricsAccess> {
+    None
+  }
 }
 
 #[derive(Debug)]
@@ -188,6 +194,10 @@ impl SupervisorHandle {
   pub fn inject_snapshot(&self, supervisor: Arc<dyn Supervisor>) {
     self.cell.replace_supervisor(supervisor);
   }
+
+  pub fn metrics_sink(&self) -> Option<Arc<MetricsSink>> {
+    SyncMetricsAccess::metrics_sink(self)
+  }
 }
 
 impl SupervisorHandle {
@@ -200,13 +210,11 @@ impl SupervisorHandle {
 
   pub fn new<S>(s: S) -> Self
   where
-    S: Supervisor + Clone + 'static, {
-    let cell = Arc::new(SupervisorCell::default());
-    let supervisor_arc: Arc<dyn Supervisor> = Arc::new(s.clone());
-    cell.replace_supervisor(supervisor_arc);
+    S: Supervisor + Clone + 'static,
+  {
     SupervisorHandle {
       inner: Arc::new(RwLock::new(s)),
-      cell,
+      cell: Arc::new(SupervisorCell::default()),
     }
   }
 }
@@ -222,6 +230,14 @@ impl Eq for SupervisorHandle {}
 impl std::hash::Hash for SupervisorHandle {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
     (self.inner.as_ref() as *const RwLock<dyn Supervisor>).hash(state);
+  }
+}
+
+impl SyncMetricsAccess for SupervisorHandle {
+  fn metrics_sink(&self) -> Option<Arc<MetricsSink>> {
+    self
+      .supervisor_arc()
+      .and_then(|supervisor| supervisor.metrics_access().and_then(|access| access.metrics_sink()))
   }
 }
 
