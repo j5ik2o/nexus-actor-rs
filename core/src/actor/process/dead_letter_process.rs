@@ -127,8 +127,7 @@ impl DeadLetterProcess {
   async fn metrics_foreach<F, Fut>(&self, f: F)
   where
     F: Fn(&ActorMetrics, &Metrics) -> Fut,
-    Fut: std::future::Future<Output = ()>,
-  {
+    Fut: std::future::Future<Output = ()>, {
     let actor_system = self.actor_system();
     if actor_system.get_config().await.is_metrics_enabled() {
       if let Some(extension_arc) = actor_system.get_extensions().await.get(*EXTENSION_ID).await {
