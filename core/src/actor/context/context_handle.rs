@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Weak};
 use std::time::Duration;
 
-use arc_swap::ArcSwapOption;
+use arc_swap::{ArcSwap, ArcSwapOption};
 use async_trait::async_trait;
 use tokio::sync::RwLock;
 
@@ -75,19 +75,24 @@ pub struct ContextCellStats {
 
 #[derive(Debug, Clone)]
 pub struct ContextHandle {
-  inner: Arc<RwLock<dyn Context>>,
+  inner: Arc<ArcSwap<RwLock<Box<dyn Context>>>>,
   cell: Arc<ContextCell>,
 }
 
 #[derive(Debug, Clone)]
 pub struct WeakContextHandle {
-  inner: Weak<RwLock<dyn Context>>,
+  inner: Weak<ArcSwap<RwLock<Box<dyn Context>>>>,
   cell: Weak<ContextCell>,
 }
 
 impl ContextHandle {
-  pub fn new_arc(context: Arc<RwLock<dyn Context>>, cell: Arc<ContextCell>) -> Self {
-    ContextHandle { inner: context, cell }
+  fn from_swap(inner: Arc<ArcSwap<RwLock<Box<dyn Context>>>>, cell: Arc<ContextCell>) -> Self {
+    ContextHandle { inner, cell }
+  }
+
+  pub fn new_arc(context: Arc<RwLock<Box<dyn Context>>>, cell: Arc<ContextCell>) -> Self {
+    let swap = Arc::new(ArcSwap::from(context));
+    ContextHandle::from_swap(swap, cell)
   }
 
   pub fn new<C>(c: C) -> Self
@@ -95,10 +100,9 @@ impl ContextHandle {
     C: Context + Clone + Any + 'static, {
     let cell = Arc::new(ContextCell::default());
     cell.capture_from(&c);
-    ContextHandle {
-      inner: Arc::new(RwLock::new(c)),
-      cell,
-    }
+    let context_arc: Arc<RwLock<Box<dyn Context>>> = Arc::new(RwLock::new(Box::new(c) as Box<dyn Context>));
+    let swap = Arc::new(ArcSwap::from(context_arc));
+    ContextHandle::from_swap(swap, cell)
   }
 
   pub fn downgrade(&self) -> WeakContextHandle {
@@ -110,6 +114,10 @@ impl ContextHandle {
 
   pub fn actor_context_arc(&self) -> Option<Arc<ActorContext>> {
     self.cell.load_actor_context()
+  }
+
+  fn context_arc(&self) -> Arc<RwLock<Box<dyn Context>>> {
+    self.inner.load_full()
   }
 
   pub fn context_cell(&self) -> Arc<ContextCell> {
@@ -124,8 +132,9 @@ impl ContextHandle {
     if let Some(actor_ctx) = self.actor_context_arc() {
       return Some(actor_ctx.as_ref().clone());
     }
-    let mg = self.inner.read().await;
-    mg.as_any().downcast_ref::<ActorContext>().cloned()
+    let ctx = self.context_arc();
+    let mg = ctx.read().await;
+    mg.as_ref().as_any().downcast_ref::<ActorContext>().cloned()
   }
 
   pub(crate) async fn to_actor_context(&self) -> Option<ActorContext> {
@@ -137,7 +146,7 @@ impl WeakContextHandle {
   pub fn upgrade(&self) -> Option<ContextHandle> {
     let inner = self.inner.upgrade()?;
     let cell = self.cell.upgrade().unwrap_or_else(|| Arc::new(ContextCell::default()));
-    Some(ContextHandle::new_arc(inner, cell))
+    Some(ContextHandle::from_swap(inner, cell))
   }
 }
 
@@ -146,12 +155,14 @@ impl ExtensionContext for ContextHandle {}
 #[async_trait]
 impl ExtensionPart for ContextHandle {
   async fn get(&mut self, id: ContextExtensionId) -> Option<ContextExtensionHandle> {
-    let mut mg = self.inner.write().await;
+    let ctx = self.context_arc();
+    let mut mg = ctx.write().await;
     mg.get(id).await
   }
 
   async fn set(&mut self, ext: ContextExtensionHandle) {
-    let mut mg = self.inner.write().await;
+    let ctx = self.context_arc();
+    let mut mg = ctx.write().await;
     mg.set(ext).await
   }
 }
@@ -165,7 +176,8 @@ impl InfoPart for ContextHandle {
       let snapshot = actor_ctx.borrow();
       return snapshot.parent().cloned();
     }
-    let mg = self.inner.read().await;
+    let ctx = self.context_arc();
+    let mg = ctx.read().await;
     mg.get_parent().await
   }
 
@@ -174,12 +186,14 @@ impl InfoPart for ContextHandle {
       let snapshot = actor_ctx.borrow();
       return snapshot.self_pid().cloned();
     }
-    let mg = self.inner.read().await;
+    let ctx = self.context_arc();
+    let mg = ctx.read().await;
     mg.get_self_opt().await
   }
 
   async fn set_self(&mut self, pid: ExtendedPid) {
-    let mut mg = self.inner.write().await;
+    let ctx = self.context_arc();
+    let mut mg = ctx.write().await;
     mg.set_self(pid).await
   }
 
@@ -188,7 +202,8 @@ impl InfoPart for ContextHandle {
       let snapshot = actor_ctx.borrow();
       return snapshot.actor().cloned();
     }
-    let mg = self.inner.read().await;
+    let ctx = self.context_arc();
+    let mg = ctx.read().await;
     mg.get_actor().await
   }
 
@@ -197,7 +212,8 @@ impl InfoPart for ContextHandle {
       let snapshot = actor_ctx.borrow();
       return snapshot.actor_system().clone();
     }
-    let mg = self.inner.read().await;
+    let ctx = self.context_arc();
+    let mg = ctx.read().await;
     mg.get_actor_system().await
   }
 }
@@ -205,27 +221,32 @@ impl InfoPart for ContextHandle {
 #[async_trait]
 impl SenderPart for ContextHandle {
   async fn get_sender(&self) -> Option<ExtendedPid> {
-    let mg = self.inner.read().await;
+    let ctx = self.context_arc();
+    let mg = ctx.read().await;
     mg.get_sender().await
   }
 
   async fn send(&mut self, pid: ExtendedPid, message_handle: MessageHandle) {
-    let mut mg = self.inner.write().await;
+    let ctx = self.context_arc();
+    let mut mg = ctx.write().await;
     mg.send(pid, message_handle).await
   }
 
   async fn request(&mut self, pid: ExtendedPid, message_handle: MessageHandle) {
-    let mut mg = self.inner.write().await;
+    let ctx = self.context_arc();
+    let mut mg = ctx.write().await;
     mg.request(pid, message_handle).await
   }
 
   async fn request_with_custom_sender(&mut self, pid: ExtendedPid, message_handle: MessageHandle, sender: ExtendedPid) {
-    let mut mg = self.inner.write().await;
+    let ctx = self.context_arc();
+    let mut mg = ctx.write().await;
     mg.request_with_custom_sender(pid, message_handle, sender).await
   }
 
   async fn request_future(&self, pid: ExtendedPid, message_handle: MessageHandle, timeout: Duration) -> ActorFuture {
-    let mg = self.inner.read().await;
+    let ctx = self.context_arc();
+    let mg = ctx.read().await;
     mg.request_future(pid, message_handle, timeout).await
   }
 }
@@ -233,17 +254,20 @@ impl SenderPart for ContextHandle {
 #[async_trait]
 impl MessagePart for ContextHandle {
   async fn get_message_envelope_opt(&self) -> Option<MessageEnvelope> {
-    let mg = self.inner.read().await;
+    let ctx = self.context_arc();
+    let mg = ctx.read().await;
     mg.get_message_envelope_opt().await
   }
 
   async fn get_message_handle_opt(&self) -> Option<MessageHandle> {
-    let mg = self.inner.read().await;
+    let ctx = self.context_arc();
+    let mg = ctx.read().await;
     mg.get_message_handle_opt().await
   }
 
   async fn get_message_header_handle(&self) -> Option<ReadonlyMessageHeadersHandle> {
-    let mg = self.inner.read().await;
+    let ctx = self.context_arc();
+    let mg = ctx.read().await;
     mg.get_message_header_handle().await
   }
 }
@@ -253,7 +277,8 @@ impl ReceiverContext for ContextHandle {}
 #[async_trait]
 impl ReceiverPart for ContextHandle {
   async fn receive(&mut self, envelope: MessageEnvelope) -> Result<(), ActorError> {
-    let mut mg = self.inner.write().await;
+    let ctx = self.context_arc();
+    let mut mg = ctx.write().await;
     mg.receive(envelope).await
   }
 }
@@ -263,17 +288,20 @@ impl SpawnerContext for ContextHandle {}
 #[async_trait]
 impl SpawnerPart for ContextHandle {
   async fn spawn(&mut self, props: Props) -> ExtendedPid {
-    let mut mg = self.inner.write().await;
+    let ctx = self.context_arc();
+    let mut mg = ctx.write().await;
     mg.spawn(props).await
   }
 
   async fn spawn_prefix(&mut self, props: Props, prefix: &str) -> ExtendedPid {
-    let mut mg = self.inner.write().await;
+    let ctx = self.context_arc();
+    let mut mg = ctx.write().await;
     mg.spawn_prefix(props, prefix).await
   }
 
   async fn spawn_named(&mut self, props: Props, id: &str) -> Result<ExtendedPid, SpawnError> {
-    let mut mg = self.inner.write().await;
+    let ctx = self.context_arc();
+    let mut mg = ctx.write().await;
     mg.spawn_named(props, id).await
   }
 }
@@ -285,57 +313,68 @@ impl BasePart for ContextHandle {
   }
 
   async fn get_receive_timeout(&self) -> Duration {
-    let mg = self.inner.read().await;
+    let ctx = self.context_arc();
+    let mg = ctx.read().await;
     mg.get_receive_timeout().await
   }
 
   async fn get_children(&self) -> Vec<ExtendedPid> {
-    let mg = self.inner.read().await;
+    let ctx = self.context_arc();
+    let mg = ctx.read().await;
     mg.get_children().await
   }
 
   async fn respond(&self, response: ResponseHandle) {
-    let mg = self.inner.read().await;
+    let ctx = self.context_arc();
+    let mg = ctx.read().await;
     mg.respond(response).await
   }
 
   async fn stash(&mut self) {
-    let mut mg = self.inner.write().await;
+    let ctx = self.context_arc();
+    let mut mg = ctx.write().await;
     mg.stash().await
   }
 
   async fn un_stash_all(&mut self) -> Result<(), ActorError> {
-    let mut mg = self.inner.write().await;
+    let ctx = self.context_arc();
+    let mut mg = ctx.write().await;
     mg.un_stash_all().await
   }
 
   async fn watch(&mut self, pid: &ExtendedPid) {
-    let mut mg = self.inner.write().await;
+    let ctx = self.context_arc();
+    let mut mg = ctx.write().await;
     mg.watch(pid).await
   }
 
   async fn unwatch(&mut self, pid: &ExtendedPid) {
-    let mut mg = self.inner.write().await;
+    let ctx = self.context_arc();
+    let mut mg = ctx.write().await;
     mg.unwatch(pid).await
   }
 
   async fn set_receive_timeout(&mut self, d: &Duration) {
-    let mut mg = self.inner.write().await;
+    let ctx = self.context_arc();
+    let mut mg = ctx.write().await;
     mg.set_receive_timeout(d).await
   }
 
   async fn cancel_receive_timeout(&mut self) {
-    let mut mg = self.inner.write().await;
+    let ctx = self.context_arc();
+    let mut mg = ctx.write().await;
     mg.cancel_receive_timeout().await
   }
 
   async fn forward(&self, pid: &ExtendedPid) {
-    let mg = self.inner.read().await;
+    let ctx = self.context_arc();
+    let mg = ctx.read().await;
     mg.forward(pid).await
   }
 
   async fn reenter_after(&self, f: ActorFuture, continuation: Continuer) {
-    let mg = self.inner.read().await;
+    let ctx = self.context_arc();
+    let mg = ctx.read().await;
     mg.reenter_after(f, continuation).await
   }
 }
@@ -343,22 +382,26 @@ impl BasePart for ContextHandle {
 #[async_trait]
 impl StopperPart for ContextHandle {
   async fn stop(&mut self, pid: &ExtendedPid) {
-    let mut mg = self.inner.write().await;
+    let ctx = self.context_arc();
+    let mut mg = ctx.write().await;
     mg.stop(pid).await
   }
 
   async fn stop_future_with_timeout(&mut self, pid: &ExtendedPid, timeout: Duration) -> ActorFuture {
-    let mut mg = self.inner.write().await;
+    let ctx = self.context_arc();
+    let mut mg = ctx.write().await;
     mg.stop_future_with_timeout(pid, timeout).await
   }
 
   async fn poison(&mut self, pid: &ExtendedPid) {
-    let mut mg = self.inner.write().await;
+    let ctx = self.context_arc();
+    let mut mg = ctx.write().await;
     mg.poison(pid).await
   }
 
   async fn poison_future_with_timeout(&mut self, pid: &ExtendedPid, timeout: Duration) -> ActorFuture {
-    let mut mg = self.inner.write().await;
+    let ctx = self.context_arc();
+    let mut mg = ctx.write().await;
     mg.poison_future_with_timeout(pid, timeout).await
   }
 }
