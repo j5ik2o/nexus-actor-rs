@@ -1,9 +1,11 @@
+use arc_swap::ArcSwapOption;
 use async_trait::async_trait;
 use futures::future::BoxFuture;
 use once_cell::sync::Lazy;
 use std::fmt::Debug;
 use std::future::Future;
 use std::ops::{Deref, DerefMut};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
@@ -29,7 +31,8 @@ impl Decider {
   pub fn new<F, Fut>(f: F) -> Self
   where
     F: Fn(ErrorReason) -> Fut + Send + Sync + 'static,
-    Fut: Future<Output = Directive> + Send + 'static, {
+    Fut: Future<Output = Directive> + Send + 'static,
+  {
     Decider(Arc::new(move |error| Box::pin(f(error))))
   }
 
@@ -83,40 +86,136 @@ pub trait Supervisor: Debug + Send + Sync + 'static {
   async fn resume_children(&self, pids: &[ExtendedPid]);
 }
 
+#[derive(Debug)]
+struct SupervisorSnapshot {
+  supervisor: Arc<dyn Supervisor>,
+}
+
+impl SupervisorSnapshot {
+  fn new(supervisor: Arc<dyn Supervisor>) -> Self {
+    Self { supervisor }
+  }
+
+  fn supervisor(&self) -> Arc<dyn Supervisor> {
+    self.supervisor.clone()
+  }
+}
+
+#[derive(Debug)]
+pub struct SupervisorCell {
+  supervisor: Arc<ArcSwapOption<SupervisorSnapshot>>,
+  snapshot_hits: AtomicU64,
+  snapshot_misses: AtomicU64,
+}
+
+impl SupervisorCell {
+  pub fn replace_supervisor(&self, supervisor: Arc<dyn Supervisor>) {
+    let snapshot = SupervisorSnapshot::new(supervisor);
+    self.supervisor.store(Some(Arc::new(snapshot)));
+  }
+
+  pub fn load_supervisor(&self) -> Option<Arc<dyn Supervisor>> {
+    match self.supervisor.load_full() {
+      Some(snapshot) => {
+        self.snapshot_hits.fetch_add(1, Ordering::Relaxed);
+        Some(snapshot.supervisor())
+      }
+      None => {
+        self.snapshot_misses.fetch_add(1, Ordering::Relaxed);
+        None
+      }
+    }
+  }
+
+  pub fn snapshot_stats(&self) -> SupervisorCellStats {
+    SupervisorCellStats {
+      hits: self.snapshot_hits.load(Ordering::Relaxed),
+      misses: self.snapshot_misses.load(Ordering::Relaxed),
+    }
+  }
+}
+
+impl Default for SupervisorCell {
+  fn default() -> Self {
+    Self {
+      supervisor: Arc::new(ArcSwapOption::from(None::<Arc<SupervisorSnapshot>>)),
+      snapshot_hits: AtomicU64::new(0),
+      snapshot_misses: AtomicU64::new(0),
+    }
+  }
+}
+
+#[derive(Debug, Default, Clone, Copy)]
+pub struct SupervisorCellStats {
+  pub hits: u64,
+  pub misses: u64,
+}
+
 #[derive(Debug, Clone)]
-pub struct SupervisorHandle(Arc<RwLock<dyn Supervisor>>);
+pub struct SupervisorHandle {
+  inner: Arc<RwLock<dyn Supervisor>>,
+  cell: Arc<SupervisorCell>,
+}
 
 impl SupervisorHandle {
   pub async fn get_supervisor(&self) -> Arc<RwLock<dyn Supervisor>> {
-    self.0.clone()
+    self.inner.clone()
   }
 
   pub async fn borrow(&self) -> SupervisorBorrow<'_> {
     SupervisorBorrow {
-      guard: self.0.read().await,
+      guard: self.inner.read().await,
     }
   }
 
   pub async fn borrow_mut(&self) -> SupervisorBorrowMut<'_> {
     SupervisorBorrowMut {
-      guard: self.0.write().await,
+      guard: self.inner.write().await,
     }
+  }
+
+  pub fn supervisor_arc(&self) -> Option<Arc<dyn Supervisor>> {
+    self.cell.load_supervisor()
+  }
+
+  pub fn supervisor_cell(&self) -> Arc<SupervisorCell> {
+    self.cell.clone()
+  }
+
+  pub fn supervisor_cell_stats(&self) -> SupervisorCellStats {
+    self.cell.snapshot_stats()
+  }
+
+  pub fn inject_snapshot(&self, supervisor: Arc<dyn Supervisor>) {
+    self.cell.replace_supervisor(supervisor);
   }
 }
 
 impl SupervisorHandle {
   pub fn new_arc(s: Arc<RwLock<dyn Supervisor>>) -> Self {
-    SupervisorHandle(s)
+    SupervisorHandle {
+      inner: s,
+      cell: Arc::new(SupervisorCell::default()),
+    }
   }
 
-  pub fn new(s: impl Supervisor + 'static) -> Self {
-    SupervisorHandle(Arc::new(RwLock::new(s)))
+  pub fn new<S>(s: S) -> Self
+  where
+    S: Supervisor + Clone + 'static,
+  {
+    let cell = Arc::new(SupervisorCell::default());
+    let supervisor_arc: Arc<dyn Supervisor> = Arc::new(s.clone());
+    cell.replace_supervisor(supervisor_arc);
+    SupervisorHandle {
+      inner: Arc::new(RwLock::new(s)),
+      cell,
+    }
   }
 }
 
 impl PartialEq for SupervisorHandle {
   fn eq(&self, other: &Self) -> bool {
-    Arc::ptr_eq(&self.0, &other.0)
+    Arc::ptr_eq(&self.inner, &other.inner)
   }
 }
 
@@ -124,7 +223,7 @@ impl Eq for SupervisorHandle {}
 
 impl std::hash::Hash for SupervisorHandle {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    (self.0.as_ref() as *const RwLock<dyn Supervisor>).hash(state);
+    (self.inner.as_ref() as *const RwLock<dyn Supervisor>).hash(state);
   }
 }
 
@@ -165,27 +264,27 @@ impl Supervisor for SupervisorHandle {
   }
 
   async fn get_children(&self) -> Vec<ExtendedPid> {
-    let mg = self.0.read().await;
+    let mg = self.inner.read().await;
     mg.get_children().await
   }
 
   async fn escalate_failure(&self, reason: ErrorReason, message_handle: MessageHandle) {
-    let mg = self.0.read().await;
+    let mg = self.inner.read().await;
     mg.escalate_failure(reason, message_handle).await;
   }
 
   async fn restart_children(&self, pids: &[ExtendedPid]) {
-    let mg = self.0.read().await;
+    let mg = self.inner.read().await;
     mg.restart_children(pids).await;
   }
 
   async fn stop_children(&self, pids: &[ExtendedPid]) {
-    let mg = self.0.read().await;
+    let mg = self.inner.read().await;
     mg.stop_children(pids).await;
   }
 
   async fn resume_children(&self, pids: &[ExtendedPid]) {
-    let mg = self.0.read().await;
+    let mg = self.inner.read().await;
     mg.resume_children(pids).await;
   }
 }

@@ -299,7 +299,7 @@ impl ActorContext {
       .metrics_foreach(|am, _| {
         let am = am.clone();
         async move {
-          am.increment_actor_spawn_count().await;
+          am.increment_actor_spawn_count();
         }
       })
       .await;
@@ -534,7 +534,9 @@ impl ActorContext {
     self
       .metrics_foreach(|am, _| {
         let am = am.clone();
-        async move { am.increment_actor_restarted_count().await }
+        async move {
+          am.increment_actor_restarted_count();
+        }
       })
       .await;
     Ok(())
@@ -618,7 +620,8 @@ impl ActorContext {
   async fn metrics_foreach<F, Fut>(&self, f: F)
   where
     F: Fn(&ActorMetrics, &Metrics) -> Fut,
-    Fut: std::future::Future<Output = ()>, {
+    Fut: std::future::Future<Output = ()>,
+  {
     let actor_system = self.actor_system();
     let config = actor_system.get_config().await;
     if config.is_metrics_enabled() {
@@ -984,7 +987,9 @@ impl StopperPart for ActorContext {
     self
       .metrics_foreach(|am, _| {
         let am = am.clone();
-        async move { am.increment_actor_stopped_count().await }
+        async move {
+          am.increment_actor_stopped_count();
+        }
       })
       .await;
     let actor_system = self.actor_system();
@@ -1119,7 +1124,7 @@ impl MessageInvoker for ActorContext {
         .metrics_foreach(|am, _| {
           let am = am.clone();
           async move {
-            am.record_actor_message_receive_duration(duration.as_secs_f64()).await;
+            am.record_actor_message_receive_duration(duration.as_secs_f64());
           }
         })
         .await;
@@ -1146,7 +1151,9 @@ impl MessageInvoker for ActorContext {
     self
       .metrics_foreach(|am, _| {
         let am = am.clone();
-        async move { am.increment_actor_failure_count().await }
+        async move {
+          am.increment_actor_failure_count();
+        }
       })
       .await;
 
@@ -1215,8 +1222,8 @@ impl Supervisor for ActorContext {
         let am = am.clone();
         let m = m.clone();
         async move {
-          am.increment_actor_failure_count_with_opts(&m.common_labels(self).await)
-            .await;
+          let labels = m.common_labels(self).await;
+          am.increment_actor_failure_count_with_opts(&labels);
         }
       })
       .await;

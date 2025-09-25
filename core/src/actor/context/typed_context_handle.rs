@@ -1,7 +1,8 @@
 use crate::actor::actor_system::ActorSystem;
+use crate::actor::context::actor_context::ActorContext;
 use crate::actor::context::{
-  BasePart, ContextHandle, ExtensionContext, ExtensionPart, InfoPart, MessagePart, ReceiverPart, SenderPart,
-  SpawnerPart, StopperPart,
+  BasePart, ContextCellStats, ContextHandle, ExtensionContext, ExtensionPart, InfoPart, MessagePart, ReceiverPart,
+  SenderPart, SpawnerPart, StopperPart,
 };
 use crate::actor::core::{ActorError, ActorHandle, Continuer, ExtendedPid, SpawnError, TypedExtendedPid, TypedProps};
 use crate::actor::message::{
@@ -16,6 +17,7 @@ use crate::ctxext::extensions::{ContextExtensionHandle, ContextExtensionId};
 use async_trait::async_trait;
 use std::any::Any;
 use std::marker::PhantomData;
+use std::sync::Arc;
 use std::time::Duration;
 
 #[derive(Debug, Clone)]
@@ -34,6 +36,14 @@ impl<M: Message> TypedContextHandle<M> {
 
   pub fn get_underlying(&self) -> &ContextHandle {
     &self.underlying
+  }
+
+  pub fn actor_context_arc(&self) -> Option<Arc<ActorContext>> {
+    self.underlying.actor_context_arc()
+  }
+
+  pub fn context_cell_stats(&self) -> ContextCellStats {
+    self.underlying.context_cell_stats()
   }
 }
 
