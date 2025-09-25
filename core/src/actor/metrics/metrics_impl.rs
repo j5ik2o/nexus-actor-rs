@@ -111,6 +111,16 @@ impl MetricsSink {
     }
   }
 
+  fn merge_labels(&self, additional: &[KeyValue]) -> Vec<KeyValue> {
+    if additional.is_empty() {
+      return self.common_labels.to_vec();
+    }
+    let mut merged = Vec::with_capacity(self.common_labels.len() + additional.len());
+    merged.extend_from_slice(&self.common_labels);
+    merged.extend_from_slice(additional);
+    merged
+  }
+
   pub fn increment_actor_spawn(&self) {
     self
       .actor_metrics
@@ -136,13 +146,7 @@ impl MetricsSink {
   }
 
   pub fn increment_actor_failure_with_additional_labels(&self, additional: &[KeyValue]) {
-    if additional.is_empty() {
-      self.increment_actor_failure();
-      return;
-    }
-    let mut merged = Vec::with_capacity(self.common_labels.len() + additional.len());
-    merged.extend_from_slice(&self.common_labels);
-    merged.extend_from_slice(additional);
+    let merged = self.merge_labels(additional);
     self.actor_metrics.increment_actor_failure_count_with_opts(&merged);
   }
 
@@ -152,10 +156,48 @@ impl MetricsSink {
       .record_actor_message_receive_duration_with_opts(duration, &self.common_labels);
   }
 
+  pub fn record_message_receive_duration_with_type(&self, duration: f64, message_type: Option<&str>) {
+    if let Some(mt) = message_type {
+      let merged = self.merge_labels(&[KeyValue::new("message_type", mt.replace('*', ""))]);
+      self
+        .actor_metrics
+        .record_actor_message_receive_duration_with_opts(duration, &merged);
+    } else {
+      self.record_message_receive_duration(duration);
+    }
+  }
+
+  pub fn record_mailbox_length(&self, length: u64) {
+    self
+      .actor_metrics
+      .record_mailbox_length_with_opts(length, &self.common_labels);
+  }
+
+  pub fn record_mailbox_length_with_labels(&self, length: u64, additional: &[KeyValue]) {
+    let merged = self.merge_labels(additional);
+    self.actor_metrics.record_mailbox_length_with_opts(length, &merged);
+  }
+
+  pub fn record_message_size(&self, size: u64) {
+    self
+      .actor_metrics
+      .record_message_size_with_opts(size, &self.common_labels);
+  }
+
+  pub fn record_message_size_with_labels(&self, size: u64, additional: &[KeyValue]) {
+    let merged = self.merge_labels(additional);
+    self.actor_metrics.record_message_size_with_opts(size, &merged);
+  }
+
   pub fn increment_dead_letter(&self) {
     self
       .actor_metrics
       .increment_dead_letter_count_with_opts(&self.common_labels);
+  }
+
+  pub fn increment_dead_letter_with_labels(&self, additional: &[KeyValue]) {
+    let merged = self.merge_labels(additional);
+    self.actor_metrics.increment_dead_letter_count_with_opts(&merged);
   }
 
   pub fn increment_future_started(&self) {
@@ -164,16 +206,67 @@ impl MetricsSink {
       .increment_futures_started_count_with_opts(&self.common_labels);
   }
 
+  pub fn increment_future_started_with_labels(&self, additional: &[KeyValue]) {
+    let merged = self.merge_labels(additional);
+    self.actor_metrics.increment_futures_started_count_with_opts(&merged);
+  }
+
   pub fn increment_future_completed(&self) {
     self
       .actor_metrics
       .increment_futures_completed_count_with_opts(&self.common_labels);
   }
 
+  pub fn increment_future_completed_with_labels(&self, additional: &[KeyValue]) {
+    let merged = self.merge_labels(additional);
+    self.actor_metrics.increment_futures_completed_count_with_opts(&merged);
+  }
+
   pub fn increment_future_timed_out(&self) {
     self
       .actor_metrics
       .increment_futures_timed_out_count_with_opts(&self.common_labels);
+  }
+
+  pub fn increment_future_timed_out_with_labels(&self, additional: &[KeyValue]) {
+    let merged = self.merge_labels(additional);
+    self.actor_metrics.increment_futures_timed_out_count_with_opts(&merged);
+  }
+
+  pub fn increment_remote_delivery_success_with_labels(&self, additional: &[KeyValue]) {
+    let merged = self.merge_labels(additional);
+    self.actor_metrics.increment_remote_delivery_success_with_opts(&merged);
+  }
+
+  pub fn increment_remote_delivery_success(&self) {
+    self.increment_remote_delivery_success_with_labels(&[]);
+  }
+
+  pub fn increment_remote_delivery_failure_with_labels(&self, additional: &[KeyValue]) {
+    let merged = self.merge_labels(additional);
+    self.actor_metrics.increment_remote_delivery_failure_with_opts(&merged);
+  }
+
+  pub fn increment_remote_delivery_failure(&self) {
+    self.increment_remote_delivery_failure_with_labels(&[]);
+  }
+
+  pub fn increment_remote_receive_success_with_labels(&self, additional: &[KeyValue]) {
+    let merged = self.merge_labels(additional);
+    self.actor_metrics.increment_remote_receive_success_with_opts(&merged);
+  }
+
+  pub fn increment_remote_receive_success(&self) {
+    self.increment_remote_receive_success_with_labels(&[]);
+  }
+
+  pub fn increment_remote_receive_failure_with_labels(&self, additional: &[KeyValue]) {
+    let merged = self.merge_labels(additional);
+    self.actor_metrics.increment_remote_receive_failure_with_opts(&merged);
+  }
+
+  pub fn increment_remote_receive_failure(&self) {
+    self.increment_remote_receive_failure_with_labels(&[]);
   }
 
   pub fn actor_metrics(&self) -> &ActorMetrics {

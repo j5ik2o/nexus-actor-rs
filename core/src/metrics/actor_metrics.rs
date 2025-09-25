@@ -21,6 +21,12 @@ struct ActorMetricsInner {
   futures_completed_count: Counter<u64>,
   futures_timed_out_count: Counter<u64>,
   thread_pool_latency: Histogram<f64>,
+  mailbox_length_histogram: Histogram<f64>,
+  message_size_histogram: Histogram<f64>,
+  remote_delivery_success_count: Counter<u64>,
+  remote_delivery_failure_count: Counter<u64>,
+  remote_receive_success_count: Counter<u64>,
+  remote_receive_failure_count: Counter<u64>,
 }
 
 #[derive(Debug, Clone)]
@@ -90,6 +96,36 @@ impl ActorMetrics {
           .with_description("History of latency in seconds")
           .with_unit("s")
           .try_init()?,
+        mailbox_length_histogram: meter
+          .f64_histogram("nexus_actor_mailbox_length")
+          .with_description("Mailbox length samples")
+          .with_unit("1")
+          .try_init()?,
+        message_size_histogram: meter
+          .f64_histogram("nexus_actor_message_size_bytes")
+          .with_description("Serialized message size in bytes")
+          .with_unit("By")
+          .try_init()?,
+        remote_delivery_success_count: meter
+          .u64_counter("nexus_actor_remote_delivery_success_count")
+          .with_description("Number of remote delivery successes")
+          .with_unit("1")
+          .try_init()?,
+        remote_delivery_failure_count: meter
+          .u64_counter("nexus_actor_remote_delivery_failure_count")
+          .with_description("Number of remote delivery failures")
+          .with_unit("1")
+          .try_init()?,
+        remote_receive_success_count: meter
+          .u64_counter("nexus_actor_remote_receive_success_count")
+          .with_description("Number of remote receive successes")
+          .with_unit("1")
+          .try_init()?,
+        remote_receive_failure_count: meter
+          .u64_counter("nexus_actor_remote_receive_failure_count")
+          .with_description("Number of remote receive failures")
+          .with_unit("1")
+          .try_init()?,
         // mailbox_length,
       })),
     })
@@ -113,6 +149,15 @@ impl ActorMetrics {
     inner_mg.actor_mailbox_length.add(1, attributes);
   }
 
+  pub fn record_mailbox_length(&self, length: u64) {
+    self.record_mailbox_length_with_opts(length, &[]);
+  }
+
+  pub fn record_mailbox_length_with_opts(&self, length: u64, attributes: &[KeyValue]) {
+    let inner_mg = self.inner.read();
+    inner_mg.mailbox_length_histogram.record(length as f64, attributes);
+  }
+
   pub fn record_actor_message_receive_duration(&self, duration: f64) {
     self.record_actor_message_receive_duration_with_opts(duration, &[]);
   }
@@ -120,6 +165,15 @@ impl ActorMetrics {
   pub fn record_actor_message_receive_duration_with_opts(&self, duration: f64, attributes: &[KeyValue]) {
     let inner_mg = self.inner.read();
     inner_mg.actor_message_receive_histogram.record(duration, attributes);
+  }
+
+  pub fn record_message_size(&self, size: u64) {
+    self.record_message_size_with_opts(size, &[]);
+  }
+
+  pub fn record_message_size_with_opts(&self, size: u64, attributes: &[KeyValue]) {
+    let inner_mg = self.inner.read();
+    inner_mg.message_size_histogram.record(size as f64, attributes);
   }
 
   pub fn increment_actor_restarted_count(&self) {
@@ -183,6 +237,42 @@ impl ActorMetrics {
   pub fn increment_futures_timed_out_count_with_opts(&self, attributes: &[KeyValue]) {
     let inner_mg = self.inner.read();
     inner_mg.futures_timed_out_count.add(1, attributes);
+  }
+
+  pub fn increment_remote_delivery_success_with_opts(&self, attributes: &[KeyValue]) {
+    let inner_mg = self.inner.read();
+    inner_mg.remote_delivery_success_count.add(1, attributes);
+  }
+
+  pub fn increment_remote_delivery_success(&self) {
+    self.increment_remote_delivery_success_with_opts(&[]);
+  }
+
+  pub fn increment_remote_delivery_failure_with_opts(&self, attributes: &[KeyValue]) {
+    let inner_mg = self.inner.read();
+    inner_mg.remote_delivery_failure_count.add(1, attributes);
+  }
+
+  pub fn increment_remote_delivery_failure(&self) {
+    self.increment_remote_delivery_failure_with_opts(&[]);
+  }
+
+  pub fn increment_remote_receive_success_with_opts(&self, attributes: &[KeyValue]) {
+    let inner_mg = self.inner.read();
+    inner_mg.remote_receive_success_count.add(1, attributes);
+  }
+
+  pub fn increment_remote_receive_success(&self) {
+    self.increment_remote_receive_success_with_opts(&[]);
+  }
+
+  pub fn increment_remote_receive_failure_with_opts(&self, attributes: &[KeyValue]) {
+    let inner_mg = self.inner.read();
+    inner_mg.remote_receive_failure_count.add(1, attributes);
+  }
+
+  pub fn increment_remote_receive_failure(&self) {
+    self.increment_remote_receive_failure_with_opts(&[]);
   }
 }
 
