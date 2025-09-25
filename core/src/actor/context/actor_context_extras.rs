@@ -127,7 +127,7 @@ impl ActorContextExtras {
     let context = context.clone();
     let dispatcher = {
       let mg = context.read().await;
-      mg.get_actor_system().await.get_config().await.system_dispatcher.clone()
+      mg.get_actor_system().await.get_config().system_dispatcher.clone()
     };
 
     dispatcher

@@ -17,6 +17,7 @@ use crate::actor::message::ResponseHandle;
 use crate::actor::message::Touched;
 use nexus_actor_message_derive_rs::Message;
 use opentelemetry::metrics::noop::NoopMeterProvider;
+use tokio::task::yield_now;
 use tokio::time::timeout;
 use tracing_subscriber::EnvFilter;
 
@@ -168,12 +169,22 @@ async fn test_actor_context_metrics_reentrancy() {
 
   let ctx_spawn = ctx.clone();
   let join_handle = tokio::spawn(async move {
-    let _ = ctx_spawn.ensure_metrics_sink().await;
+    loop {
+      if ctx_spawn.metrics_sink_or_init().is_some() {
+        break;
+      }
+      yield_now().await;
+    }
     let _ = ctx_spawn.get_self_opt().await;
   });
 
   let result = timeout(Duration::from_millis(200), async move {
-    let _ = ctx.ensure_metrics_sink().await;
+    loop {
+      if ctx.metrics_sink_or_init().is_some() {
+        break;
+      }
+      yield_now().await;
+    }
     join_handle.await.expect("metrics task failed");
   })
   .await;

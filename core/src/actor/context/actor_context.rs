@@ -87,8 +87,9 @@ pub struct ActorContext {
   actor_system: WeakActorSystem,
   parent: Option<ExtendedPid>,
   self_pid: Arc<OnceCell<Arc<ArcSwapOption<ExtendedPid>>>>,
-  metrics_runtime: Option<Arc<MetricsRuntime>>,
+  metrics_runtime: Arc<ArcSwapOption<MetricsRuntime>>,
   metrics_sink: Arc<OnceCell<Arc<MetricsSink>>>,
+  actor_type: Arc<OnceCell<Arc<str>>>,
 }
 
 #[derive(Debug)]
@@ -133,8 +134,9 @@ impl ActorContext {
     let self_pid_cell = OnceCell::new();
     let initial_self = parent.as_ref().map(|pid| Arc::new(pid.clone()));
     let _ = self_pid_cell.set(Arc::new(ArcSwapOption::from(initial_self)));
-    let metrics_runtime = actor_system.metrics_runtime().await;
+    let metrics_runtime = actor_system.metrics_runtime_slot();
     let metrics_sink = Arc::new(OnceCell::new());
+    let actor_type = Arc::new(OnceCell::new());
     let mut ctx = ActorContext {
       shared: Arc::new(ActorContextShared::default()),
       extras,
@@ -147,6 +149,7 @@ impl ActorContext {
       self_pid: Arc::new(self_pid_cell),
       metrics_runtime,
       metrics_sink,
+      actor_type,
     };
     ctx.incarnate_actor().await;
     ctx
@@ -211,22 +214,33 @@ impl ActorContext {
     self.shared.swap().store(Some(Arc::new(actor)));
   }
 
-  async fn ensure_metrics_sink(&self) -> Option<Arc<MetricsSink>> {
-    let runtime = self.metrics_runtime.clone()?;
+  fn init_metrics_sink_with_type(&self, actor_type: Option<&str>) -> Option<Arc<MetricsSink>> {
+    let sink = self
+      .actor_system()
+      .metrics_foreach(|runtime| Arc::new(runtime.sink_for_actor(actor_type)))?;
+    match self.metrics_sink.set(sink.clone()) {
+      Ok(()) => Some(sink),
+      Err(value) => {
+        drop(value);
+        self.metrics_sink.get().cloned()
+      }
+    }
+  }
+
+  fn metrics_sink_or_init(&self) -> Option<Arc<MetricsSink>> {
     if let Some(existing) = self.metrics_sink.get() {
       return Some(existing.clone());
     }
-    let actor_handle = self.actor_handle()?;
-    let runtime_clone = runtime.clone();
-    let actor_handle_clone = actor_handle.clone();
-    let sink = self
-      .metrics_sink
-      .get_or_init(|| async move {
-        let actor_type = actor_handle_clone.type_name().await;
-        Arc::new(runtime_clone.sink_for_actor(Some(actor_type.as_str())))
-      })
-      .await;
-    Some(sink.clone())
+    let actor_type = self.actor_type.get().map(|s| s.as_ref());
+    self.init_metrics_sink_with_type(actor_type)
+  }
+
+  pub fn actor_type_str(&self) -> Option<&str> {
+    self.actor_type.get().map(|s| s.as_ref())
+  }
+
+  pub fn actor_type_arc(&self) -> Option<Arc<str>> {
+    self.actor_type.get().cloned()
   }
 
   fn supervisor_handle_with_snapshot(&self) -> SupervisorHandle {
@@ -325,9 +339,11 @@ impl ActorContext {
     self.state.store(State::Alive as u8, Ordering::SeqCst);
     let ch = ContextHandle::new(self.clone());
     let actor = self.props_ref().get_producer().run(ch).await;
+    let actor_type = actor.type_name_arc();
+    let _ = self.actor_type.set(actor_type.clone());
     self.set_actor(actor);
 
-    if let Some(sink) = self.ensure_metrics_sink().await {
+    if let Some(sink) = self.init_metrics_sink_with_type(Some(actor_type.as_ref())) {
       sink.increment_actor_spawn();
     }
   }
@@ -558,7 +574,7 @@ impl ActorContext {
       return result;
     }
 
-    if let Some(sink) = self.ensure_metrics_sink().await {
+    if let Some(sink) = self.metrics_sink() {
       sink.increment_actor_restarted();
     }
     Ok(())
@@ -670,7 +686,7 @@ impl<'a> ContextBorrow<'a> {
 
 impl SyncMetricsAccess for ActorContext {
   fn metrics_sink(&self) -> Option<Arc<MetricsSink>> {
-    self.metrics_sink.get().cloned()
+    self.metrics_sink_or_init()
   }
 }
 
@@ -997,7 +1013,7 @@ impl SpawnerPart for ActorContext {
 #[async_trait]
 impl StopperPart for ActorContext {
   async fn stop(&mut self, pid: &ExtendedPid) {
-    if let Some(sink) = self.ensure_metrics_sink().await {
+    if let Some(sink) = self.metrics_sink() {
       sink.increment_actor_stopped();
     }
     let actor_system = self.actor_system();
@@ -1122,7 +1138,7 @@ impl MessageInvoker for ActorContext {
       }
     }
 
-    let metrics_sink = self.ensure_metrics_sink().await;
+    let metrics_sink = self.metrics_sink();
     let message_type = metrics_sink.as_ref().map(|_| message_handle.get_type_name());
     let result = if let Some(sink) = metrics_sink.as_ref() {
       let start = Instant::now();
@@ -1149,7 +1165,7 @@ impl MessageInvoker for ActorContext {
   async fn escalate_failure(&mut self, reason: ErrorReason, message_handle: MessageHandle) {
     tracing::info!("[ACTOR] Recovering: reason = {:?}", reason.backtrace(),);
 
-    if let Some(sink) = self.ensure_metrics_sink().await {
+    if let Some(sink) = self.metrics_sink() {
       sink.increment_actor_failure();
     }
 
@@ -1208,7 +1224,7 @@ impl Supervisor for ActorContext {
   async fn escalate_failure(&self, reason: ErrorReason, message_handle: MessageHandle) {
     let self_pid = self.get_self_opt().await.expect("Failed to retrieve self_pid");
     let actor_system = self.actor_system();
-    if actor_system.get_config().await.developer_supervision_logging {
+    if actor_system.get_config().developer_supervision_logging {
       tracing::error!(
         "[Supervision] Actor: {}, failed with message: {}, exception: {}",
         self_pid,
@@ -1217,7 +1233,7 @@ impl Supervisor for ActorContext {
       );
     }
 
-    if let Some(sink) = self.ensure_metrics_sink().await {
+    if let Some(sink) = self.metrics_sink() {
       sink.increment_actor_failure();
     }
 
