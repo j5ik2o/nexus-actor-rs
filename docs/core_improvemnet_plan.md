@@ -27,9 +27,17 @@
 - **非同期ロックの取り違え**: `Arc<RwLock<_>>` など補助ロックの取得はヘルパー関数経由に統一し、保守性を高める。
 
 ## 次のアクション
-1. Criterion ベンチ (`reentrancy`) の閾値とレポート比較ルールを決め、CI に組み込む。
-2. ベンチが検出した指標（P99 等）のログ出力を整備し、リグレッション調査を容易にする。
-3. `ProcessRegistry` 以外のホットパスについても同様のベンチシナリオを拡張し、網羅性を高める。
+1. Typed PID / Typed Context 系 API での `ActorSystem` 参照形態を棚卸しし、弱参照化ルールとドキュメントを整備する。
+2. `ContextAdapter` / BaseActor ブリッジにおける同期ブロック (`block_on`) を排除するための非同期化プランを検討し、実装ロードマップをまとめる。
+3. `context_borrow` ベンチ結果を定常的に可視化する仕組み（CI アーティファクト出力や閾値チェック）を設計し、`scripts/` にユーティリティを追加する。
+
+### 完了済みメモ (2025-09-25)
+- `ActorContext` に `ContextBorrow<'_>` を導入し、`snapshot` API を差し替え。
+- `ActorContext`・`ProcessRegistry`・`GuardiansValue`・`DeadLetterProcess`・`RootContext` で `WeakActorSystem` を採用し循環参照を解消。
+- `ActorFutureInner`・`Metrics`・`PidActorRef` を弱参照化し、Future/Bridge 経路での循環を除去。
+- デコレーター経路の `ContextHandle` を弱参照キャッシュへ切り替え、欠損時は再生成する仕組みを導入。
+- `reentrancy` ベンチに `context_borrow` シナリオを追加し、ホットパスの借用コスト測定を可能にした。
+- `scripts/check_context_borrow_bench.sh` を追加し、Criterion の平均応答時間を ms 単位で可視化しつつ閾値チェックできるようにした。
 
 ### 負荷試験設計メモ（ドラフト）
 - **目的**: 再入・多重送信シナリオ下でデッドロックや平均レイテンシ悪化が発生しないことを確認する。
