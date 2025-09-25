@@ -57,20 +57,19 @@ mod tests;
 #[derive(Debug, Clone)]
 pub struct ActorContextInner {
   actor: Option<ActorHandle>,
-  actor_system: ActorSystem,
-  extras: Arc<RwLock<Option<ActorContextExtras>>>,
-  props: Props,
-  parent: Option<ExtendedPid>,
-  self_pid: Option<ExtendedPid>,
-  receive_timeout: Option<Duration>,
-  //  producer: Option<ActorProducer>,
-  message_or_envelope_opt: Arc<RwLock<Option<MessageHandle>>>,
-  state: Option<Arc<AtomicU8>>,
 }
 
 #[derive(Debug, Clone)]
 pub struct ActorContext {
   inner: Arc<Mutex<ActorContextInner>>,
+  extras: Arc<RwLock<Option<ActorContextExtras>>>,
+  message_or_envelope_opt: Arc<RwLock<Option<MessageHandle>>>,
+  state: Arc<AtomicU8>,
+  receive_timeout: Arc<RwLock<Option<Duration>>>,
+  props: Props,
+  actor_system: ActorSystem,
+  parent: Option<ExtendedPid>,
+  self_pid: Arc<RwLock<Option<ExtendedPid>>>,
 }
 
 impl PartialEq for ActorContext {
@@ -91,49 +90,48 @@ static_assertions::assert_impl_all!(ActorContext: Send, Sync);
 
 impl ActorContext {
   pub async fn new(actor_system: ActorSystem, props: Props, parent: Option<ExtendedPid>) -> Self {
+    let extras = Arc::new(RwLock::new(None));
+    let message_or_envelope_opt = Arc::new(RwLock::new(None));
+    let state = Arc::new(AtomicU8::new(State::Alive as u8));
+    let receive_timeout = Arc::new(RwLock::new(None));
+    let self_pid = Arc::new(RwLock::new(None));
     let mut ctx = ActorContext {
-      inner: Arc::new(Mutex::new(ActorContextInner {
-        actor: None,
-        actor_system,
-        extras: Arc::new(RwLock::new(None)),
-        props,
-        parent,
-        self_pid: None,
-        receive_timeout: None,
-        // producer: None,
-        message_or_envelope_opt: Arc::new(RwLock::new(None)),
-        state: None,
-      })),
+      inner: Arc::new(Mutex::new(ActorContextInner { actor: None })),
+      extras,
+      message_or_envelope_opt,
+      state,
+      receive_timeout,
+      props,
+      actor_system,
+      parent,
+      self_pid,
     };
     ctx.incarnate_actor().await;
     ctx
   }
 
-  async fn extras_cell(&self) -> Arc<RwLock<Option<ActorContextExtras>>> {
-    let inner_mg = self.inner.lock().await;
-    inner_mg.extras.clone()
+  fn extras_cell(&self) -> Arc<RwLock<Option<ActorContextExtras>>> {
+    self.extras.clone()
   }
 
-  async fn message_cell(&self) -> Arc<RwLock<Option<MessageHandle>>> {
-    let inner_mg = self.inner.lock().await;
-    inner_mg.message_or_envelope_opt.clone()
+  fn message_cell(&self) -> Arc<RwLock<Option<MessageHandle>>> {
+    self.message_or_envelope_opt.clone()
   }
 
   async fn get_extras(&self) -> Option<ActorContextExtras> {
-    let extras_cell = self.extras_cell().await;
+    let extras_cell = self.extras_cell();
     let extras_guard = extras_cell.read().await;
     let extras = extras_guard.clone();
     extras
   }
 
   async fn set_extras(&mut self, extras: Option<ActorContextExtras>) {
-    let extras_cell = self.extras_cell().await;
+    let extras_cell = self.extras_cell();
     *extras_cell.write().await = extras;
   }
 
   async fn get_props(&self) -> Props {
-    let inner_mg = self.inner.lock().await;
-    inner_mg.props.clone()
+    self.props.clone()
   }
 
   async fn get_actor(&self) -> Option<ActorHandle> {
@@ -158,16 +156,29 @@ impl ActorContext {
   }
 
   pub(crate) async fn ensure_extras(&mut self) -> ActorContextExtras {
-    if self.get_extras().await.is_none() {
-      let ctxd = self.clone();
-      let ctxd = if let Some(decorator) = &self.get_props().await.get_context_decorator_chain() {
-        decorator.run(ContextHandle::new(ctxd)).await
-      } else {
-        ContextHandle::new(ctxd)
-      };
-      self.set_extras(Some(ActorContextExtras::new(ctxd).await)).await;
+    if let Some(existing) = self.get_extras().await {
+      return existing;
     }
-    self.get_extras().await.as_ref().unwrap().clone()
+
+    let context = self.prepare_context_handle().await;
+    let extras = ActorContextExtras::new(context).await;
+
+    let extras_cell = self.extras_cell();
+    let mut guard = extras_cell.write().await;
+    if let Some(existing) = guard.as_ref() {
+      return existing.clone();
+    }
+    *guard = Some(extras.clone());
+    extras
+  }
+
+  async fn prepare_context_handle(&mut self) -> ContextHandle {
+    let ctxd = self.clone();
+    if let Some(decorator) = &self.get_props().await.get_context_decorator_chain() {
+      decorator.run(ContextHandle::new(ctxd)).await
+    } else {
+      ContextHandle::new(ctxd)
+    }
   }
 
   async fn receive_with_context(&mut self) -> ContextHandle {
@@ -211,17 +222,7 @@ impl ActorContext {
   }
 
   async fn incarnate_actor(&mut self) {
-    {
-      let mut inner_mg = self.inner.lock().await;
-      match &inner_mg.state {
-        Some(state) => {
-          state.store(State::Alive as u8, Ordering::SeqCst);
-        }
-        None => {
-          inner_mg.state = Some(Arc::new(AtomicU8::new(State::Alive as u8)));
-        }
-      }
-    }
+    self.state.store(State::Alive as u8, Ordering::SeqCst);
     let ch = ContextHandle::new(self.clone());
     let actor = self.get_props().await.get_producer().run(ch).await;
     self.set_actor(Some(actor)).await;
@@ -237,13 +238,11 @@ impl ActorContext {
   }
 
   async fn get_receiver_middleware_chain(&self) -> Option<ReceiverMiddlewareChain> {
-    let mg = self.inner.lock().await;
-    mg.props.get_receiver_middleware_chain().clone()
+    self.props.get_receiver_middleware_chain().clone()
   }
 
   async fn get_sender_middleware_chain(&self) -> Option<SenderMiddlewareChain> {
-    let mg = self.inner.lock().await;
-    mg.props.get_sender_middleware_chain().clone()
+    self.props.get_sender_middleware_chain().clone()
   }
 
   pub async fn send_user_message(&self, pid: ExtendedPid, message_handle: MessageHandle) {
@@ -262,20 +261,20 @@ impl ActorContext {
   }
 
   async fn get_message_or_envelop(&self) -> MessageHandle {
-    let message_cell = self.message_cell().await;
+    let message_cell = self.message_cell();
     let message_guard = message_cell.read().await;
     let message = message_guard.clone().unwrap();
     message
   }
 
   async fn set_message_or_envelope(&mut self, message_handle: MessageHandle) {
-    let message_cell = self.message_cell().await;
+    let message_cell = self.message_cell();
     let mut moe_opt = message_cell.write().await;
     *moe_opt = Some(message_handle);
   }
 
   async fn reset_message_or_envelope(&mut self) {
-    let message_cell = self.message_cell().await;
+    let message_cell = self.message_cell();
     let mut moe_opt = message_cell.write().await;
     *moe_opt = None;
   }
@@ -373,11 +372,7 @@ impl ActorContext {
   async fn try_restart_or_terminate(&mut self) -> Result<(), ActorError> {
     match self.get_extras().await {
       Some(extras) if extras.get_children().await.is_empty().await => {
-        let state = {
-          let mg = self.inner.lock().await;
-          let num = mg.state.as_ref().unwrap().load(Ordering::SeqCst);
-          State::try_from(num).unwrap()
-        };
+        let state = State::try_from(self.state.load(Ordering::SeqCst)).unwrap();
         match state {
           State::Restarting => {
             self.cancel_receive_timeout().await;
@@ -411,15 +406,18 @@ impl ActorContext {
   }
 
   async fn handle_stop(&mut self) -> Result<(), ActorError> {
-    {
-      let mg = self.inner.lock().await;
-      if mg.state.as_ref().unwrap().load(Ordering::SeqCst) >= State::Stopping as u8 {
+    loop {
+      let current = self.state.load(Ordering::SeqCst);
+      if current >= State::Stopping as u8 {
         return Ok(());
       }
-      mg.state
-        .as_ref()
-        .unwrap()
-        .store(State::Stopping as u8, Ordering::SeqCst);
+      if self
+        .state
+        .compare_exchange(current, State::Stopping as u8, Ordering::SeqCst, Ordering::SeqCst)
+        .is_ok()
+      {
+        break;
+      }
     }
     let result = self
       .invoke_user_message(MessageHandle::new(AutoReceiveMessage::PreStop))
@@ -438,13 +436,7 @@ impl ActorContext {
   }
 
   async fn handle_restart(&mut self) -> Result<(), ActorError> {
-    {
-      let mut mg = self.inner.lock().await;
-      mg.state
-        .as_mut()
-        .unwrap()
-        .store(State::Restarting as u8, Ordering::SeqCst);
-    }
+    self.state.store(State::Restarting as u8, Ordering::SeqCst);
     let result = self
       .invoke_user_message(MessageHandle::new(AutoReceiveMessage::PreRestart))
       .await;
@@ -567,18 +559,16 @@ impl ActorContext {
 #[async_trait]
 impl InfoPart for ActorContext {
   async fn get_parent(&self) -> Option<ExtendedPid> {
-    let mg = self.inner.lock().await;
-    mg.parent.clone()
+    self.parent.clone()
   }
 
   async fn get_self_opt(&self) -> Option<ExtendedPid> {
-    let mg = self.inner.lock().await;
-    mg.self_pid.clone()
+    self.self_pid.read().await.clone()
   }
 
   async fn set_self(&mut self, pid: ExtendedPid) {
-    let mut mg = self.inner.lock().await;
-    mg.self_pid = Some(pid);
+    let mut guard = self.self_pid.write().await;
+    *guard = Some(pid);
   }
 
   async fn get_actor(&self) -> Option<ActorHandle> {
@@ -587,8 +577,7 @@ impl InfoPart for ActorContext {
   }
 
   async fn get_actor_system(&self) -> ActorSystem {
-    let inner_mg = self.inner.lock().await;
-    inner_mg.actor_system.clone()
+    self.actor_system.clone()
   }
 }
 
@@ -599,8 +588,7 @@ impl BasePart for ActorContext {
   }
 
   async fn get_receive_timeout(&self) -> Duration {
-    let inner_mg = self.inner.lock().await;
-    inner_mg.receive_timeout.unwrap_or(Duration::ZERO)
+    self.receive_timeout.read().await.unwrap_or(Duration::ZERO)
   }
 
   async fn get_children(&self) -> Vec<ExtendedPid> {
@@ -686,11 +674,11 @@ impl BasePart for ActorContext {
     };
 
     {
-      let mut mg = self.inner.lock().await;
-      if mg.receive_timeout.unwrap_or(Duration::ZERO) == normalized {
+      let mut receive_timeout = self.receive_timeout.write().await;
+      if receive_timeout.unwrap_or(Duration::ZERO) == normalized {
         return;
       }
-      mg.receive_timeout = if normalized.is_zero() { None } else { Some(normalized) };
+      *receive_timeout = if normalized.is_zero() { None } else { Some(normalized) };
     }
 
     if normalized.is_zero() {
@@ -705,8 +693,8 @@ impl BasePart for ActorContext {
 
   async fn cancel_receive_timeout(&mut self) {
     {
-      let mut inner_mg = self.inner.lock().await;
-      inner_mg.receive_timeout = None;
+      let mut receive_timeout = self.receive_timeout.write().await;
+      *receive_timeout = None;
     }
     if let Some(extras) = self.get_extras().await {
       if extras.get_receive_timeout_timer().await.is_some() {
@@ -716,7 +704,7 @@ impl BasePart for ActorContext {
   }
 
   async fn forward(&self, pid: &ExtendedPid) {
-    let message_cell = self.message_cell().await;
+    let message_cell = self.message_cell();
     let mg = message_cell.read().await;
     if let Some(message_or_envelope) = &*mg {
       if let Some(sm) = message_or_envelope.to_typed::<SystemMessage>() {
@@ -764,7 +752,7 @@ impl BasePart for ActorContext {
 #[async_trait]
 impl MessagePart for ActorContext {
   async fn get_message_envelope_opt(&self) -> Option<MessageEnvelope> {
-    let message_cell = self.message_cell().await;
+    let message_cell = self.message_cell();
     let mg = message_cell.read().await;
     if let Some(message_or_envelope) = &*mg {
       message_or_envelope.to_typed::<MessageEnvelope>()
@@ -774,7 +762,7 @@ impl MessagePart for ActorContext {
   }
 
   async fn get_message_handle_opt(&self) -> Option<MessageHandle> {
-    let message_cell = self.message_cell().await;
+    let message_cell = self.message_cell();
     let mg = message_cell.read().await;
     (*mg)
       .as_ref()
@@ -782,7 +770,7 @@ impl MessagePart for ActorContext {
   }
 
   async fn get_message_header_handle(&self) -> Option<ReadonlyMessageHeadersHandle> {
-    let message_cell = self.message_cell().await;
+    let message_cell = self.message_cell();
     let mg = message_cell.read().await;
     if let Some(moe) = &*mg {
       unwrap_envelope_header(moe.clone()).map(ReadonlyMessageHeadersHandle::new)
@@ -795,7 +783,7 @@ impl MessagePart for ActorContext {
 #[async_trait]
 impl SenderPart for ActorContext {
   async fn get_sender(&self) -> Option<ExtendedPid> {
-    let message_cell = self.message_cell().await;
+    let message_cell = self.message_cell();
     let mg = message_cell.read().await;
     if let Some(message_or_envelope) = &*mg {
       unwrap_envelope_sender(message_or_envelope.clone())
@@ -1011,19 +999,12 @@ impl MessageInvoker for ActorContext {
   }
 
   async fn invoke_user_message(&mut self, message_handle: MessageHandle) -> Result<(), ActorError> {
-    let state = {
-      let inner_mg = self.inner.lock().await;
-      inner_mg.state.clone()
-    };
-    if state.as_ref().as_ref().unwrap().load(Ordering::SeqCst) == State::Stopped as u8 {
+    if self.state.load(Ordering::SeqCst) == State::Stopped as u8 {
       return Ok(());
     }
     let mut influence_timeout = true;
 
-    let receive_timeout = {
-      let inner_mg = self.inner.lock().await;
-      inner_mg.receive_timeout
-    };
+    let receive_timeout = { self.receive_timeout.read().await.clone() };
 
     if receive_timeout.unwrap_or_else(|| Duration::from_millis(0)) > Duration::from_millis(0) {
       influence_timeout = message_handle.to_typed::<NotInfluenceReceiveTimeoutHandle>().is_none();
@@ -1059,10 +1040,7 @@ impl MessageInvoker for ActorContext {
       self.process_message(message_handle).await
     };
 
-    let receive_timeout = {
-      let inner_mg = self.inner.lock().await;
-      inner_mg.receive_timeout
-    };
+    let receive_timeout = { self.receive_timeout.read().await.clone() };
 
     let t = receive_timeout.unwrap_or_else(|| Duration::from_secs(0));
     if t > Duration::from_secs(0) && influence_timeout {

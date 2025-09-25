@@ -1,8 +1,11 @@
 use std::env;
+use std::sync::Arc;
 use std::time::Duration;
 
 use crate::actor::actor_system::ActorSystem;
-use crate::actor::context::{BasePart, InfoPart, MessagePart, SenderPart, SpawnerPart};
+use crate::actor::config::MetricsProvider;
+use crate::actor::config_option::ConfigOption;
+use crate::actor::context::{ActorContext, BasePart, InfoPart, MessagePart, SenderPart, SpawnerPart};
 use crate::actor::core::ActorError;
 use crate::actor::core::Continuer;
 use crate::actor::core::ErrorReason;
@@ -13,6 +16,8 @@ use crate::actor::message::MessageHandle;
 use crate::actor::message::ResponseHandle;
 use crate::actor::message::Touched;
 use nexus_actor_message_derive_rs::Message;
+use opentelemetry::metrics::noop::NoopMeterProvider;
+use tokio::time::timeout;
 use tracing_subscriber::EnvFilter;
 
 #[tokio::test]
@@ -148,4 +153,33 @@ async fn test_actor_context_auto_respond_touched_message() {
   let result2 = result.to_typed::<Touched>();
   assert!(result2.is_some());
   assert_eq!(result2.unwrap().who.unwrap(), pid.inner_pid);
+}
+
+#[tokio::test]
+async fn test_actor_context_metrics_reentrancy() {
+  let system = ActorSystem::new_config_options([ConfigOption::SetMetricsProvider(Arc::new(MetricsProvider::Noop(
+    NoopMeterProvider::default(),
+  )))])
+  .await
+  .expect("actor system with metrics");
+
+  let props = Props::from_async_actor_receiver(|_| async move { Ok(()) }).await;
+  let ctx = ActorContext::new(system.clone(), props, None).await;
+
+  let ctx_clone = ctx.clone();
+  let result = timeout(Duration::from_millis(200), async move {
+    ctx
+      .metrics_foreach(move |_, _| {
+        let ctx_clone = ctx_clone.clone();
+        async move {
+          // メトリクスコールバック内で再入してもロック競合しないことを確認。
+          let _ = ctx_clone.get_actor_system().await;
+          let _ = ctx_clone.get_self_opt().await;
+        }
+      })
+      .await;
+  })
+  .await;
+
+  assert!(result.is_ok(), "metrics_foreach がデッドロックせず完了すること");
 }
