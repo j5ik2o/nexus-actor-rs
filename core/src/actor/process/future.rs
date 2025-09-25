@@ -70,7 +70,9 @@ impl ActorFutureProcess {
     future_process
       .metrics_foreach(|am, _| {
         let am = am.clone();
-        async move { am.increment_futures_started_count().await }
+        async move {
+          am.increment_futures_started_count();
+        }
       })
       .await;
 
@@ -105,7 +107,8 @@ impl ActorFutureProcess {
   async fn metrics_foreach<F, Fut>(&self, f: F)
   where
     F: Fn(&ActorMetrics, &Metrics) -> Fut,
-    Fut: std::future::Future<Output = ()>, {
+    Fut: std::future::Future<Output = ()>,
+  {
     if self.get_actor_system().await.get_config().await.is_metrics_enabled() {
       if let Some(extension_arc) = self
         .get_actor_system()
@@ -198,19 +201,15 @@ impl ActorFutureProcess {
             actor_future_inner.error.is_none()
           };
           if res {
-            cloned_am
-              .increment_futures_completed_count_with_opts(&[KeyValue::new(
-                "address",
-                self.get_actor_system().await.get_address().await,
-              )])
-              .await
+            cloned_am.increment_futures_completed_count_with_opts(&[KeyValue::new(
+              "address",
+              self.get_actor_system().await.get_address().await,
+            )]);
           } else {
-            cloned_am
-              .increment_futures_timed_out_count_with_opts(&[KeyValue::new(
-                "address",
-                self.get_actor_system().await.get_address().await,
-              )])
-              .await
+            cloned_am.increment_futures_timed_out_count_with_opts(&[KeyValue::new(
+              "address",
+              self.get_actor_system().await.get_address().await,
+            )]);
           }
         }
       })
