@@ -4,7 +4,7 @@ use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, RwLock};
 
-use crate::actor::actor_system::ActorSystem;
+use crate::actor::actor_system::{ActorSystem, WeakActorSystem};
 use crate::actor::core::ActorProcess;
 use crate::actor::core::ExtendedPid;
 use crate::actor::process::{Process, ProcessHandle, ProcessMaps};
@@ -20,7 +20,7 @@ const LOCAL_ADDRESS: &str = "nonhost";
 #[derive(Debug, Clone)]
 pub struct ProcessRegistry {
   sequence_id: Arc<AtomicU64>,
-  actor_system: ActorSystem,
+  actor_system: WeakActorSystem,
   address: Arc<RwLock<String>>,
   local_pids: Arc<ProcessMaps>,
   remote_handlers: Arc<RwLock<Vec<AddressResolver>>>,
@@ -69,11 +69,18 @@ impl ProcessRegistry {
   pub fn new(actor_system: ActorSystem) -> Self {
     Self {
       sequence_id: Arc::new(AtomicU64::new(0)),
-      actor_system,
+      actor_system: actor_system.downgrade(),
       address: Arc::new(RwLock::new(LOCAL_ADDRESS.to_string())),
       local_pids: Arc::new(ProcessMaps::new()),
       remote_handlers: Arc::new(RwLock::new(Vec::new())),
     }
+  }
+
+  fn actor_system(&self) -> ActorSystem {
+    self
+      .actor_system
+      .upgrade()
+      .expect("ActorSystem dropped before ProcessRegistry")
   }
 
   pub fn register_address_resolver(&self, handler: AddressResolver) {
@@ -149,7 +156,7 @@ impl ProcessRegistry {
           return Some(process);
         }
       }
-      return Some(self.actor_system.get_dead_letter().await);
+      return Some(self.actor_system().get_dead_letter().await);
     }
     self.get_local_process(pid.id()).await
   }
@@ -158,7 +165,7 @@ impl ProcessRegistry {
     let process_map = self.local_pids.get_map(id);
     match process_map.get(id) {
       Some(r) => Some(r.clone()),
-      None => Some(self.actor_system.get_dead_letter().await),
+      None => Some(self.actor_system().get_dead_letter().await),
     }
   }
 }
