@@ -28,6 +28,10 @@
 - [ ] `docs/bench_dashboard_plan.md` に沿った GitHub Pages 公開
 - [ ] `cargo make coverage` をライフタイム回帰テストに組み込み
 - [x] **ContextBorrow ホットパスのロック計測** - context_borrow/borrow_hot_path ベンチの軽度な退行を調査するため、ContextHandle 経路のロック取得頻度を計測し、プロファイラでホットパスを再確認する。同期 getter 再設計メモに計測ログを反映済み。
+- [ ] **RootContext/SenderContext の同期アクセサ再設計** - RootContext::request_future 経路を含む送信系 API から非同期ロックを排除し、ContextHandle と同様の ArcSwap スナップショットを適用する。
+- [ ] **ContextHandle メッセージセル刷新** - message_or_envelope_opt を ArcSwap/Cow 等へ置換し、borrow ホットパスでの read lock を削減する。
+- [ ] **ContextDecorator/Middleware 連鎖の同期化** - ContextDecoratorChain/ReceiverMiddlewareChain が ContextBorrow を保持したまま同期処理できるよう再設計し、余分な ContextHandle::new を排除する。
+- [ ] **Supervisor メトリクスの周辺プロセス展開** - DeadLetterProcess や ActorFutureProcess へ ArcSwap<MetricsRuntime> の同期アクセスを拡張し、メトリクス API を統一する。
 
 ### 完了項目
 - ✅ `TypedActorHandle` / `PidActorRef` の弱参照化を完了 (2025-09-25)
