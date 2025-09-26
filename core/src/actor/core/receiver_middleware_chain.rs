@@ -65,7 +65,7 @@ impl ReceiverMiddlewareChain {
 
   pub async fn run(&self, context: ReceiverContextHandle, envelope: MessageEnvelope) -> Result<(), ActorError> {
     let stats_before = context.context_cell_stats();
-    let snapshot = ReceiverSnapshot::new(context.snapshot(), envelope);
+    let snapshot = ReceiverSnapshot::new(context.context_handle().snapshot_with_borrow(), envelope);
     let transformed = (self.sync_step)(snapshot);
     let result = (self.async_step)(transformed).await;
     let stats_after = context.context_cell_stats();

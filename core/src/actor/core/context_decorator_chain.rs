@@ -50,7 +50,7 @@ impl ContextDecoratorChain {
   }
 
   pub async fn run(&self, context: ContextHandle) -> ContextHandle {
-    let snapshot = ContextSnapshot::from_context_handle(&context).with_context_handle(context.clone());
+    let snapshot = context.snapshot_with_borrow();
     let transformed_snapshot = (self.sync_chain)(snapshot);
     (self.tail)(transformed_snapshot).await
   }
