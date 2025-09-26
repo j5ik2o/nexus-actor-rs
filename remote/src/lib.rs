@@ -16,6 +16,7 @@ mod endpoint_writer_mailbox;
 mod generated;
 mod message_decoder;
 mod messages;
+mod metrics;
 mod remote;
 mod remote_process;
 mod response_status_code;
