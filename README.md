@@ -57,3 +57,5 @@ Note: As versions may be updated regularly, it's recommended to check for the la
 - [Typed Context / PID ガイドライン](docs/typed_context_guidelines.md): ライフタイム指向設計に合わせた `ContextHandle` / `ActorContext` の扱い方や、弱参照化ポリシーをまとめています。開発時はこちらを参照してください。
 - [Dispatcher Runtime ポリシー](docs/dispatcher_runtime_policy.md): `SingleWorkerDispatcher` など Runtime を内包する dispatcher 実装の shutdown 手順と運用上の注意点を整理しています。
 - [ベンチマークダッシュボード](https://j5ik2o.github.io/nexus-actor-rs/bench_dashboard.html): GitHub Pages 上で週次ベンチのトレンドを確認できます。履歴 CSV は `benchmarks/history/bench_history.csv` に公開されています。
+- [ActorContext ロック計測レポート](docs/benchmarks/tracing_actor_context.md): tokio-console/tracing を用いた ActorContext 周辺のロック待ち分析とホットスポットのまとめです。
+- [ReceiveTimeout DelayQueue PoC](docs/benchmarks/receive_timeout_delayqueue.md): DelayQueue を用いた receive timeout の再アーム性能ベースラインと PoC コードの解説です。

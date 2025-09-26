@@ -41,5 +41,5 @@
 
 ## TODO
 - [ ] PoC 実装でベンチ結果を収集し、docs/benchmarks/core_actor_context_lock.md に反映。
-- [ ] remote EndpointWatcher への影響範囲を洗い出し、調整スケジュールを確定。
+- [x] remote EndpointWatcher への影響範囲を洗い出し、調整スケジュールを確定。(2025-09-26: 同期 API 適用)
 - [ ] `legacy_context_extras` feature の要否を評価する。

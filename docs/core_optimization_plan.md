@@ -6,12 +6,12 @@
 - タイマー実装が tokio::time::Sleep を多重にラップしており再初期化コストが高い。
 
 ## TODO
-- [ ] tokio-console と tracing で ActorContext のロック待ち時間を計測し、ホットパスを特定する。 **(テンプレート作成済み)**
-- [ ] PidSet の同期ロック化または lock-free 化の PoC を作成し、既存実装とのベンチ比較を行う。 **(設計ドラフト・移行計画テンプレート作成済み)**
-- [ ] ReceiveTimeoutTimer を DelayQueue 等へ置き換える案を設計し、再初期化の計測手順をまとめる。 **(サンプルスケルトン作成済み)**
-- [ ] MessageHandles の MPSC キュー化やバッチ処理案を調査し、影響範囲と移行ステップを整理する。 **(未着手)**
-- [ ] RestartStatistics の lazy 初期化を OnceCell 等で代替する設計メモを用意し、ActorContext API の非同期依存を洗い出す。 **(未着手)**
-- [ ] ActorContextExtrasInner の読み取り専用データと可変データを分離し、ロックスコープ短縮の設計をまとめる。 **(設計ドラフト記載済み)**
+- [x] tokio-console と tracing で ActorContext のロック待ち時間を計測し、ホットパスを特定する。 **(2025-09-26: docs/benchmarks/tracing_actor_context.md にログ反映)**
+- [x] PidSet の同期ロック化または lock-free 化の PoC を作成し、既存実装とのベンチ比較を行う。 **(2025-09-26: parking_lot ベース同期化 + extras ロック分離)**
+- [x] ReceiveTimeoutTimer を DelayQueue 等へ置き換える案を設計し、再初期化の計測手順をまとめる。 **(2025-09-26: receive_timeout_delayqueue PoC と baseline 計測)**
+- [x] MessageHandles の MPSC キュー化やバッチ処理案を調査し、影響範囲と移行ステップを整理する。 **(2025-09-26: parking_lot::Mutex ベース同期化 + stash 非 async 化)**
+- [x] RestartStatistics の lazy 初期化を OnceCell 等で代替する設計メモを用意し、ActorContext API の非同期依存を洗い出す。 **(2025-09-26: OnceCell 化 + extras lock リファクタ)**
+- [x] ActorContextExtrasInner の読み取り専用データと可変データを分離し、ロックスコープ短縮の設計をまとめる。 **(2025-09-26: mutable 専用 InstrumentedRwLock + PidSet 内部同期)**
 - [ ] ディスパッチャ経路のメトリクスを整備し、ActorContext 操作前後のキュー滞留時間を計測するベンチマークを追加する。 **(ベンチテンプレート作成済み)**
 - [ ] core の変更が remote/cluster に及ぼす影響調査と移行計画のドラフトを作成する。 **(影響メモ・連携セクション追加済み)**
 
@@ -123,7 +123,9 @@
 ## remote/cluster影響メモ
 - cluster モジュールの Gossip や Member 管理で ActorContextExtras を直接参照する箇所は現状無し。core 改修時は props/actor_context 経由の API 互換性を確認する。
 - remote モジュールでコンテキスト情報が必要な箇所 ('remote/src/endpoint') を確認し、ActorContextExtras に依存しない設計にできるか検討する。
+- remote/src/endpoint_watcher.rs の PidSet API を同期版へ移行済み。watch/unwatch ループでの await を削減し、ダッシュマップ操作のみで完結するよう改修した。
 - core のロック構造変更に伴うメッセージ処理遅延がリモート通信に与える影響をベンチマークで追跡する仕組みを整える。
+- cluster 側の PidSet 直接利用はなし。今後 ActorContextExtras の OnceCell 化が波及した場合は GossipState への参照キャッシュに留意する。
 - 影響範囲を docs/core_optimization_plan.md に継続して追記し、モジュール横断のタスクは cluster/remote チームと連携する。
 
 ## メモ
