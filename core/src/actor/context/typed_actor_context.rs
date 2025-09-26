@@ -1,8 +1,8 @@
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::actor_context::ContextBorrow;
 use crate::actor::context::{
-  ActorContext, BasePart, ExtensionContext, ExtensionPart, InfoPart, MessagePart, ReceiverPart, SenderPart,
-  SpawnerPart, StopperPart,
+  ActorContext, BasePart, ContextSnapshot, ExtensionContext, ExtensionPart, InfoPart, MessagePart, ReceiverPart,
+  SenderPart, SpawnerPart, StopperPart, TypedContextSnapshot,
 };
 use crate::actor::core::{ActorError, ActorHandle, Continuer, ExtendedPid, SpawnError, TypedExtendedPid, TypedProps};
 use crate::actor::message::{
@@ -10,8 +10,8 @@ use crate::actor::message::{
 };
 use crate::actor::process::actor_future::ActorFuture;
 use crate::actor::typed_context::{
-  TypedContext, TypedContextSyncView, TypedInfoPart, TypedMessagePart, TypedReceiverContext, TypedReceiverPart,
-  TypedSenderContext, TypedSenderPart, TypedSpawnerContext, TypedSpawnerPart, TypedStopperPart,
+  TypedContext, TypedInfoPart, TypedMessagePart, TypedReceiverContext, TypedReceiverPart, TypedSenderContext,
+  TypedSenderPart, TypedSpawnerContext, TypedSpawnerPart, TypedStopperPart,
 };
 use crate::ctxext::extensions::{ContextExtensionHandle, ContextExtensionId};
 use async_trait::async_trait;
@@ -52,59 +52,8 @@ impl<M: Message> TypedActorContext<M> {
     self.underlying.borrow()
   }
 
-  pub fn sync_view(&self) -> TypedActorContextSyncView<M> {
-    TypedActorContextSyncView::new(self.clone())
-  }
-}
-
-#[derive(Debug)]
-pub struct TypedActorContextSyncView<M: Message> {
-  context: TypedActorContext<M>,
-}
-
-impl<M: Message> TypedActorContextSyncView<M> {
-  fn new(context: TypedActorContext<M>) -> Self {
-    Self { context }
-  }
-}
-
-impl<M: Message> TypedContextSyncView<M> for TypedActorContextSyncView<M> {
-  fn actor_system_snapshot(&self) -> Option<ActorSystem> {
-    Some(self.context.borrow().actor_system().clone())
-  }
-
-  fn actor_snapshot(&self) -> Option<ActorHandle> {
-    self.context.borrow().actor().cloned()
-  }
-
-  fn parent_snapshot(&self) -> Option<TypedExtendedPid<M>> {
-    self.context.borrow().parent().cloned().map(|pid| pid.into())
-  }
-
-  fn self_snapshot(&self) -> Option<TypedExtendedPid<M>> {
-    self.context.borrow().self_pid().cloned().map(|pid| pid.into())
-  }
-
-  fn message_handle_snapshot(&self) -> Option<MessageHandle> {
-    self.context.underlying.try_message_handle()
-  }
-
-  fn message_snapshot(&self) -> Option<M>
-  where
-    M: Clone, {
-    self
-      .context
-      .underlying
-      .try_message_handle()
-      .and_then(|handle| handle.to_typed::<M>())
-  }
-
-  fn message_header_snapshot(&self) -> Option<ReadonlyMessageHeadersHandle> {
-    self.context.underlying.try_message_header()
-  }
-
-  fn sender_snapshot(&self) -> Option<TypedExtendedPid<M>> {
-    self.context.underlying.try_sender().map(|pid| pid.into())
+  pub fn sync_view(&self) -> TypedContextSnapshot<M> {
+    TypedContextSnapshot::new(ContextSnapshot::from_actor_context(&self.underlying))
   }
 }
 

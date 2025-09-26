@@ -1,11 +1,13 @@
 use crate::actor::actor_system::ActorSystem;
-use crate::actor::context::{InfoPart, MessagePart, RootContext, SenderPart, SpawnerPart, StopperPart};
+use crate::actor::context::{
+  ContextSnapshot, InfoPart, MessagePart, RootContext, SenderPart, SpawnerPart, StopperPart, TypedContextSnapshot,
+};
 use crate::actor::core::{ActorHandle, SpawnError, TypedExtendedPid, TypedProps};
 use crate::actor::message::{Message, MessageHandle, ReadonlyMessageHeadersHandle, TypedMessageEnvelope};
 use crate::actor::process::actor_future::ActorFuture;
 use crate::actor::typed_context::{
-  TypedContextSyncView, TypedInfoPart, TypedMessagePart, TypedSenderContext, TypedSenderPart, TypedSpawnerContext,
-  TypedSpawnerPart, TypedStopperPart,
+  TypedInfoPart, TypedMessagePart, TypedSenderContext, TypedSenderPart, TypedSpawnerContext, TypedSpawnerPart,
+  TypedStopperPart,
 };
 use async_trait::async_trait;
 use nexus_actor_message_derive_rs::Message;
@@ -24,31 +26,13 @@ impl TypedRootContext {
     Self { inner }
   }
 
-  pub fn sync_view(&self) -> TypedRootContextSyncView {
-    TypedRootContextSyncView::new(self.clone())
-  }
-}
-
-#[derive(Debug, Clone)]
-pub struct TypedRootContextSyncView {
-  context: TypedRootContext,
-}
-
-impl TypedRootContextSyncView {
-  fn new(context: TypedRootContext) -> Self {
-    Self { context }
-  }
-}
-
-impl TypedContextSyncView<UnitMessage> for TypedRootContextSyncView {
-  fn actor_system_snapshot(&self) -> Option<ActorSystem> {
-    Some(self.context.inner.actor_system_snapshot())
-  }
-
-  fn message_header_snapshot(&self) -> Option<ReadonlyMessageHeadersHandle> {
-    Some(ReadonlyMessageHeadersHandle::new_arc(
-      self.context.inner.message_headers_snapshot(),
-    ))
+  pub fn sync_view(&self) -> TypedContextSnapshot<UnitMessage> {
+    let snapshot = ContextSnapshot::default()
+      .with_actor_system_opt(Some(self.inner.actor_system_snapshot()))
+      .with_message_header_opt(Some(ReadonlyMessageHeadersHandle::new_arc(
+        self.inner.message_headers_snapshot(),
+      )));
+    TypedContextSnapshot::new(snapshot)
   }
 }
 
@@ -201,9 +185,9 @@ impl TypedStopperPart<UnitMessage> for TypedRootContext {
 
 #[cfg(test)]
 mod tests {
-  use super::*;
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::message::MessageHeaders;
+  use crate::actor::typed_context::TypedContextSyncView;
   use std::sync::Arc;
 
   #[tokio::test]
