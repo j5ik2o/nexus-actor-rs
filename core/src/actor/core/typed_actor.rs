@@ -2,7 +2,7 @@ use crate::actor::context::{ContextHandle, TypedContextHandle};
 use crate::actor::core::{Actor, ActorError};
 use crate::actor::message::{AutoReceiveMessage, Message};
 use crate::actor::supervisor::SupervisorStrategyHandle;
-use crate::actor::typed_context::{TypedContextSyncView, TypedMessagePart};
+use crate::actor::typed_context::TypedMessagePart;
 use crate::generated::actor::Terminated;
 use async_trait::async_trait;
 use std::fmt::Debug;
@@ -13,8 +13,11 @@ use tracing::instrument;
 pub trait TypedActor<M: Message + Clone>: Debug + Send + Sync + 'static {
   #[instrument(skip_all)]
   async fn handle(&mut self, context_handle: TypedContextHandle<M>) -> Result<(), ActorError> {
-    let snapshot = context_handle.sync_view();
-    let message_handle = if let Some(handle) = snapshot.message_handle_snapshot() {
+    let message_handle = if let Some(handle) = context_handle
+      .get_underlying()
+      .with_typed_borrow::<M, _, _>(|view| view.message_handle())
+      .flatten()
+    {
       handle
     } else {
       context_handle
@@ -165,7 +168,7 @@ mod tests {
   use crate::actor::context::{ActorContext, Context, ContextCell, ContextHandle};
   use crate::actor::core::{ActorError, Props, TypedActor};
   use crate::actor::message::MessageHandle;
-  use crate::actor::typed_context::TypedMessagePart;
+  use crate::actor::typed_context::{TypedContextSyncView, TypedMessagePart};
   use nexus_actor_message_derive_rs::Message;
   use std::sync::{Arc, Mutex};
   use tokio::sync::RwLock;
