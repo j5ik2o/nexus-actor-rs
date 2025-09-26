@@ -12,7 +12,7 @@ use nexus_actor_core_rs::actor::message::{MessageHandle, ResponseHandle};
 use nexus_actor_core_rs::actor::process::process_registry::AddressResolver;
 use nexus_actor_core_rs::actor::{ConfigOption, MetricsProvider};
 use nexus_actor_core_rs::generated::actor::Pid;
-use opentelemetry::metrics::noop::NoopMeterProvider;
+use opentelemetry_sdk::metrics::SdkMeterProvider;
 use rand::random;
 use tokio::runtime::Builder;
 use tokio::sync::Mutex;
@@ -136,9 +136,9 @@ struct ScenarioMetrics {
 }
 
 async fn run_scenario(total_requests: usize, concurrency: usize, failure_ratio: f64) -> ScenarioMetrics {
-  let system = ActorSystem::new_config_options([ConfigOption::SetMetricsProvider(Arc::new(MetricsProvider::Noop(
-    NoopMeterProvider::default(),
-  )))])
+  let system = ActorSystem::new_config_options([ConfigOption::SetMetricsProvider(Arc::new(
+    MetricsProvider::Sdk(SdkMeterProvider::default()),
+  ))])
   .await
   .expect("init actor system");
 

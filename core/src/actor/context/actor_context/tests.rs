@@ -16,7 +16,7 @@ use crate::actor::message::MessageHandle;
 use crate::actor::message::ResponseHandle;
 use crate::actor::message::Touched;
 use nexus_actor_message_derive_rs::Message;
-use opentelemetry::metrics::noop::NoopMeterProvider;
+use opentelemetry_sdk::metrics::SdkMeterProvider;
 use tokio::task::yield_now;
 use tokio::time::timeout;
 use tracing_subscriber::EnvFilter;
@@ -163,9 +163,9 @@ async fn test_actor_context_auto_respond_touched_message() {
 
 #[tokio::test]
 async fn test_actor_context_metrics_reentrancy() {
-  let system = ActorSystem::new_config_options([ConfigOption::SetMetricsProvider(Arc::new(MetricsProvider::Noop(
-    NoopMeterProvider::default(),
-  )))])
+  let system = ActorSystem::new_config_options([ConfigOption::SetMetricsProvider(Arc::new(
+    MetricsProvider::Sdk(SdkMeterProvider::default()),
+  ))])
   .await
   .expect("actor system with metrics");
 
