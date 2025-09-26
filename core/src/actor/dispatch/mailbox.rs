@@ -14,6 +14,21 @@ mod tests;
 pub(crate) use default_mailbox::*;
 pub use mailbox_handle::*;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum MailboxQueueKind {
+  User,
+  System,
+}
+
+impl MailboxQueueKind {
+  pub fn as_str(&self) -> &'static str {
+    match self {
+      MailboxQueueKind::User => "user",
+      MailboxQueueKind::System => "system",
+    }
+  }
+}
+
 // Mailbox trait
 #[async_trait]
 pub trait Mailbox: Debug + Send + Sync {

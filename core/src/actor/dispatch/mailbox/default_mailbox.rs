@@ -1,5 +1,7 @@
+use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use crate::actor::dispatch::dispatcher::{Dispatcher, DispatcherHandle, Runnable};
 use crate::actor::dispatch::mailbox::mailbox_handle::MailboxHandle;
@@ -7,6 +9,7 @@ use crate::actor::dispatch::mailbox::Mailbox;
 use crate::actor::dispatch::mailbox_message::MailboxMessage;
 use crate::actor::dispatch::mailbox_middleware::{MailboxMiddleware, MailboxMiddlewareHandle};
 use crate::actor::dispatch::message_invoker::{MessageInvoker, MessageInvokerHandle};
+use crate::actor::dispatch::MailboxQueueKind;
 use crate::actor::message::MessageHandle;
 use async_trait::async_trait;
 use nexus_actor_utils_rs::collections::{QueueError, QueueReader, QueueWriter};
@@ -44,6 +47,36 @@ impl QueueReaderHandle {
   }
 }
 
+#[derive(Debug, Clone)]
+struct QueueLatencyTracker {
+  timestamps: Arc<Mutex<VecDeque<Instant>>>,
+}
+
+impl Default for QueueLatencyTracker {
+  fn default() -> Self {
+    Self {
+      timestamps: Arc::new(Mutex::new(VecDeque::new())),
+    }
+  }
+}
+
+impl QueueLatencyTracker {
+  async fn record_enqueue(&self) {
+    let mut guard = self.timestamps.lock().await;
+    guard.push_back(Instant::now());
+  }
+
+  async fn record_dequeue(&self) -> Option<Duration> {
+    let mut guard = self.timestamps.lock().await;
+    guard.pop_front().map(|instant| instant.elapsed())
+  }
+
+  async fn clear(&self) {
+    let mut guard = self.timestamps.lock().await;
+    guard.clear();
+  }
+}
+
 #[derive(Debug)]
 pub(crate) struct DefaultMailboxInner {
   user_mailbox_sender: QueueWriterHandle,
@@ -57,6 +90,8 @@ pub(crate) struct DefaultMailboxInner {
   invoker_opt: Arc<RwLock<Option<MessageInvokerHandle>>>,
   dispatcher_opt: Arc<RwLock<Option<DispatcherHandle>>>,
   middlewares: Vec<MailboxMiddlewareHandle>,
+  user_queue_latency: QueueLatencyTracker,
+  system_queue_latency: QueueLatencyTracker,
 }
 
 // DefaultMailbox implementation
@@ -83,6 +118,8 @@ impl DefaultMailbox {
         invoker_opt: Arc::new(RwLock::new(None)),
         dispatcher_opt: Arc::new(RwLock::new(None)),
         middlewares: vec![],
+        user_queue_latency: QueueLatencyTracker::default(),
+        system_queue_latency: QueueLatencyTracker::default(),
       })),
     }
   }
@@ -131,6 +168,39 @@ impl DefaultMailbox {
       .compare_exchange(current, new, Ordering::SeqCst, Ordering::SeqCst)
   }
 
+  async fn record_queue_enqueue(&self, queue: MailboxQueueKind) {
+    let tracker = {
+      let inner_mg = self.inner.lock().await;
+      match queue {
+        MailboxQueueKind::User => inner_mg.user_queue_latency.clone(),
+        MailboxQueueKind::System => inner_mg.system_queue_latency.clone(),
+      }
+    };
+    tracker.record_enqueue().await;
+  }
+
+  async fn record_queue_dequeue(&self, queue: MailboxQueueKind) -> Option<Duration> {
+    let tracker = {
+      let inner_mg = self.inner.lock().await;
+      match queue {
+        MailboxQueueKind::User => inner_mg.user_queue_latency.clone(),
+        MailboxQueueKind::System => inner_mg.system_queue_latency.clone(),
+      }
+    };
+    tracker.record_dequeue().await
+  }
+
+  async fn clear_queue_latency(&self, queue: MailboxQueueKind) {
+    let tracker = {
+      let inner_mg = self.inner.lock().await;
+      match queue {
+        MailboxQueueKind::User => inner_mg.user_queue_latency.clone(),
+        MailboxQueueKind::System => inner_mg.system_queue_latency.clone(),
+      }
+    };
+    tracker.clear().await;
+  }
+
   async fn set_suspended(&self, suspended: bool) {
     let inner_mg = self.inner.lock().await;
     inner_mg.suspended.store(suspended, Ordering::SeqCst);
@@ -171,7 +241,15 @@ impl DefaultMailbox {
       let inner_mg = self.inner.lock().await;
       inner_mg.system_mailbox_receiver.clone()
     };
-    receiver.poll().await
+    match receiver.poll().await {
+      Ok(message) => Ok(message),
+      Err(err) => {
+        if matches!(err, QueueError::PoolError) {
+          self.clear_queue_latency(MailboxQueueKind::System).await;
+        }
+        Err(err)
+      }
+    }
   }
 
   async fn poll_user_mailbox(&self) -> Result<Option<MessageHandle>, QueueError<MessageHandle>> {
@@ -179,7 +257,15 @@ impl DefaultMailbox {
       let inner_mg = self.inner.lock().await;
       inner_mg.user_mailbox_receiver.clone()
     };
-    receiver.poll().await
+    match receiver.poll().await {
+      Ok(message) => Ok(message),
+      Err(err) => {
+        if matches!(err, QueueError::PoolError) {
+          self.clear_queue_latency(MailboxQueueKind::User).await;
+        }
+        Err(err)
+      }
+    }
   }
 
   async fn offer_system_mailbox(&self, element: MessageHandle) -> Result<(), QueueError<MessageHandle>> {
@@ -238,6 +324,11 @@ impl DefaultMailbox {
       i += 1;
 
       if let Ok(Some(msg)) = self.poll_system_mailbox().await {
+        if let Some(latency) = self.record_queue_dequeue(MailboxQueueKind::System).await {
+          message_invoker
+            .record_mailbox_queue_latency(MailboxQueueKind::System, latency)
+            .await;
+        }
         self.decrement_system_messages_count().await;
         let mailbox_message = msg.to_typed::<MailboxMessage>();
         match mailbox_message {
@@ -267,6 +358,11 @@ impl DefaultMailbox {
       }
 
       if let Ok(Some(message)) = self.poll_user_mailbox().await {
+        if let Some(latency) = self.record_queue_dequeue(MailboxQueueKind::User).await {
+          message_invoker
+            .record_mailbox_queue_latency(MailboxQueueKind::User, latency)
+            .await;
+        }
         self.decrement_user_messages_count().await;
         let result = message_invoker.invoke_user_message(message.clone()).await;
         if let Err(e) = result {
@@ -334,6 +430,7 @@ impl Mailbox for DefaultMailbox {
       tracing::error!("Failed to send message: {:?}", e);
     } else {
       self.increment_user_messages_count().await;
+      self.record_queue_enqueue(MailboxQueueKind::User).await;
       self.schedule().await;
     }
   }
@@ -347,6 +444,7 @@ impl Mailbox for DefaultMailbox {
       tracing::error!("Failed to send message: {:?}", e);
     } else {
       self.increment_system_messages_count().await;
+      self.record_queue_enqueue(MailboxQueueKind::System).await;
       self.schedule().await;
     }
   }

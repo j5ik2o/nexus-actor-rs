@@ -12,6 +12,7 @@ struct ActorMetricsInner {
   actor_failure_count: Counter<u64>,
   actor_mailbox_length: Counter<u64>,
   actor_message_receive_histogram: Histogram<f64>,
+  mailbox_queue_dwell_histogram: Histogram<f64>,
   actor_restarted_count: Counter<u64>,
   actor_spawn_count: Counter<u64>,
   actor_stopped_count: Counter<u64>,
@@ -53,6 +54,11 @@ impl ActorMetrics {
         actor_message_receive_histogram: meter
           .f64_histogram("nexus_actor_actor_message_receive_duration_seconds")
           .with_description("Actor's messages received duration in seconds")
+          .with_unit("s")
+          .build(),
+        mailbox_queue_dwell_histogram: meter
+          .f64_histogram("nexus_actor_mailbox_queue_dwell_duration_seconds")
+          .with_description("Time spent by messages waiting in mailbox queues before dispatch")
           .with_unit("s")
           .build(),
         actor_restarted_count: meter
@@ -164,6 +170,15 @@ impl ActorMetrics {
   pub fn record_actor_message_receive_duration_with_opts(&self, duration: f64, attributes: &[KeyValue]) {
     let inner_mg = self.inner.read();
     inner_mg.actor_message_receive_histogram.record(duration, attributes);
+  }
+
+  pub fn record_mailbox_queue_dwell_duration(&self, duration: f64) {
+    self.record_mailbox_queue_dwell_duration_with_opts(duration, &[]);
+  }
+
+  pub fn record_mailbox_queue_dwell_duration_with_opts(&self, duration: f64, attributes: &[KeyValue]) {
+    let inner_mg = self.inner.read();
+    inner_mg.mailbox_queue_dwell_histogram.record(duration, attributes);
   }
 
   pub fn record_message_size(&self, size: u64) {

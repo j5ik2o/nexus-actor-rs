@@ -1,11 +1,13 @@
 use std::fmt::Debug;
 use std::sync::Arc;
+use std::time::Duration;
 
 use async_trait::async_trait;
 use tokio::sync::RwLock;
 
 use crate::actor::core::ActorError;
 use crate::actor::core::ErrorReason;
+use crate::actor::dispatch::MailboxQueueKind;
 use crate::actor::message::MessageHandle;
 
 // MessageInvoker trait
@@ -14,6 +16,7 @@ pub trait MessageInvoker: Debug + Send + Sync {
   async fn invoke_system_message(&mut self, message_handle: MessageHandle) -> Result<(), ActorError>;
   async fn invoke_user_message(&mut self, message_handle: MessageHandle) -> Result<(), ActorError>;
   async fn escalate_failure(&mut self, reason: ErrorReason, message_handle: MessageHandle);
+  async fn record_mailbox_queue_latency(&mut self, _queue: MailboxQueueKind, _latency: Duration) {}
 }
 
 #[derive(Debug, Clone)]
@@ -57,6 +60,11 @@ impl MessageInvoker for MessageInvokerHandle {
   async fn escalate_failure(&mut self, reason: ErrorReason, message_handle: MessageHandle) {
     let mut mg = self.0.write().await;
     mg.escalate_failure(reason, message_handle).await;
+  }
+
+  async fn record_mailbox_queue_latency(&mut self, queue: MailboxQueueKind, latency: Duration) {
+    let mut mg = self.0.write().await;
+    mg.record_mailbox_queue_latency(queue, latency).await;
   }
 }
 
