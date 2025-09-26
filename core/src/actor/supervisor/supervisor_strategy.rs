@@ -4,11 +4,9 @@ use futures::future::BoxFuture;
 use once_cell::sync::Lazy;
 use std::fmt::Debug;
 use std::future::Future;
-use std::ops::{Deref, DerefMut};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::ActorContext;
@@ -184,25 +182,12 @@ pub struct SupervisorCellStats {
 
 #[derive(Debug, Clone)]
 pub struct SupervisorHandle {
-  inner: Arc<RwLock<dyn Supervisor>>,
   cell: Arc<SupervisorCell>,
 }
 
 impl SupervisorHandle {
-  pub async fn get_supervisor(&self) -> Arc<RwLock<dyn Supervisor>> {
-    self.inner.clone()
-  }
-
-  pub async fn borrow(&self) -> SupervisorBorrow<'_> {
-    SupervisorBorrow {
-      guard: self.inner.read().await,
-    }
-  }
-
-  pub async fn borrow_mut(&self) -> SupervisorBorrowMut<'_> {
-    SupervisorBorrowMut {
-      guard: self.inner.write().await,
-    }
+  pub fn get_supervisor(&self) -> Arc<dyn Supervisor> {
+    self.supervisor_arc().expect("Supervisor snapshot is not initialized")
   }
 
   pub fn supervisor_arc(&self) -> Option<Arc<dyn Supervisor>> {
@@ -217,30 +202,30 @@ impl SupervisorHandle {
     self.cell.snapshot_stats()
   }
 
-  pub fn inject_snapshot(&self, supervisor: Arc<dyn Supervisor>) {
+  pub fn replace_supervisor_arc(&self, supervisor: Arc<dyn Supervisor>) {
     self.cell.replace_supervisor(supervisor);
   }
 
-  pub fn new_arc(s: Arc<RwLock<dyn Supervisor>>) -> Self {
-    SupervisorHandle {
-      inner: s,
-      cell: Arc::new(SupervisorCell::default()),
-    }
+  pub fn inject_snapshot(&self, supervisor: Arc<dyn Supervisor>) {
+    self.replace_supervisor_arc(supervisor);
   }
 
-  pub fn new<S>(s: S) -> Self
+  pub fn new_arc(supervisor: Arc<dyn Supervisor>) -> Self {
+    let cell = Arc::new(SupervisorCell::default());
+    cell.replace_supervisor(supervisor);
+    SupervisorHandle { cell }
+  }
+
+  pub fn new<S>(supervisor: S) -> Self
   where
     S: Supervisor + Clone + 'static, {
-    SupervisorHandle {
-      inner: Arc::new(RwLock::new(s)),
-      cell: Arc::new(SupervisorCell::default()),
-    }
+    SupervisorHandle::new_arc(Arc::new(supervisor))
   }
 }
 
 impl PartialEq for SupervisorHandle {
   fn eq(&self, other: &Self) -> bool {
-    Arc::ptr_eq(&self.inner, &other.inner)
+    Arc::ptr_eq(&self.cell, &other.cell)
   }
 }
 
@@ -248,37 +233,7 @@ impl Eq for SupervisorHandle {}
 
 impl std::hash::Hash for SupervisorHandle {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    (self.inner.as_ref() as *const RwLock<dyn Supervisor>).hash(state);
-  }
-}
-
-pub struct SupervisorBorrow<'a> {
-  guard: RwLockReadGuard<'a, dyn Supervisor>,
-}
-
-impl<'a> Deref for SupervisorBorrow<'a> {
-  type Target = dyn Supervisor;
-
-  fn deref(&self) -> &Self::Target {
-    &*self.guard
-  }
-}
-
-pub struct SupervisorBorrowMut<'a> {
-  guard: RwLockWriteGuard<'a, dyn Supervisor>,
-}
-
-impl<'a> Deref for SupervisorBorrowMut<'a> {
-  type Target = dyn Supervisor;
-
-  fn deref(&self) -> &Self::Target {
-    &*self.guard
-  }
-}
-
-impl<'a> DerefMut for SupervisorBorrowMut<'a> {
-  fn deref_mut(&mut self) -> &mut Self::Target {
-    &mut *self.guard
+    (self.cell.as_ref() as *const SupervisorCell).hash(state);
   }
 }
 
@@ -289,28 +244,43 @@ impl Supervisor for SupervisorHandle {
   }
 
   async fn get_children(&self) -> Vec<ExtendedPid> {
-    let mg = self.inner.read().await;
-    mg.get_children().await
+    self
+      .supervisor_arc()
+      .expect("Supervisor snapshot is not initialized")
+      .get_children()
+      .await
   }
 
   async fn escalate_failure(&self, reason: ErrorReason, message_handle: MessageHandle) {
-    let mg = self.inner.read().await;
-    mg.escalate_failure(reason, message_handle).await;
+    self
+      .supervisor_arc()
+      .expect("Supervisor snapshot is not initialized")
+      .escalate_failure(reason, message_handle)
+      .await;
   }
 
   async fn restart_children(&self, pids: &[ExtendedPid]) {
-    let mg = self.inner.read().await;
-    mg.restart_children(pids).await;
+    self
+      .supervisor_arc()
+      .expect("Supervisor snapshot is not initialized")
+      .restart_children(pids)
+      .await;
   }
 
   async fn stop_children(&self, pids: &[ExtendedPid]) {
-    let mg = self.inner.read().await;
-    mg.stop_children(pids).await;
+    self
+      .supervisor_arc()
+      .expect("Supervisor snapshot is not initialized")
+      .stop_children(pids)
+      .await;
   }
 
   async fn resume_children(&self, pids: &[ExtendedPid]) {
-    let mg = self.inner.read().await;
-    mg.resume_children(pids).await;
+    self
+      .supervisor_arc()
+      .expect("Supervisor snapshot is not initialized")
+      .resume_children(pids)
+      .await;
   }
 }
 

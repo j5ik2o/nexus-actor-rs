@@ -191,7 +191,7 @@ mod test {
     }
 
     async fn receive(&mut self, ctx: ContextHandle) -> Result<(), ActorError> {
-      let message_handle = ctx.get_message_handle().await;
+      let message_handle = ctx.get_message_handle_opt().await.expect("message not found");
       tracing::debug!("FailingChildActor::receive: msg = {:?}", message_handle);
       if let Some(StringMessage(msg)) = message_handle.to_typed::<StringMessage>() {
         tracing::debug!("FailingChildActor::receive: msg = {:?}", msg);
