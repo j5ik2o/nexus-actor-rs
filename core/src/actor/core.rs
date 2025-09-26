@@ -1,10 +1,8 @@
 mod actor;
 mod actor_behavior;
-mod actor_behavior_base;
 mod actor_error;
 mod actor_example;
 mod actor_handle;
-mod actor_handle_base;
 mod actor_process;
 mod actor_producer;
 mod actor_receiver;
@@ -39,8 +37,8 @@ mod typed_pid;
 mod typed_props;
 
 pub use {
-  self::actor::*, self::actor_behavior::*, self::actor_behavior_base::*, self::actor_error::*, self::actor_handle::*,
-  self::actor_handle_base::*, self::actor_process::*, self::actor_producer::*, self::actor_receiver::*,
+  self::actor::*, self::actor_behavior::*, self::actor_error::*, self::actor_handle::*,
+  self::actor_process::*, self::actor_producer::*, self::actor_receiver::*,
   self::context_decorator::*, self::context_decorator_chain::*, self::context_handler::*, self::continuer::*,
   self::error_reason::*, self::middleware::*, self::middleware_chain::*, self::pid::*, self::pid_set::*,
   self::props::*, self::receiver_middleware::*, self::receiver_middleware_chain::*, self::restart_statistics::*,

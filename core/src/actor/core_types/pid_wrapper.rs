@@ -3,6 +3,7 @@ use crate::actor::message::MessageHandle;
 use crate::generated::actor::Pid;
 use async_trait::async_trait;
 use std::fmt::{Debug, Display, Formatter};
+use tracing::warn;
 
 /// Wrapper to convert between BasicPid and generated Pid
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -75,10 +76,14 @@ impl ActorRef for SimplePidRef {
     self.pid.inner.address.clone()
   }
 
-  async fn tell(&self, _message: MessageHandle) {
-    // In a real implementation, this would use the process registry
-    // to find the actor and send the message
-    todo!("Implement message sending through process registry")
+  async fn tell(&self, message: MessageHandle) {
+    warn!(
+      target: "nexus_actor::core_types::pid_wrapper",
+      address = %self.pid.inner.address,
+      id = %self.pid.inner.id,
+      "SimplePidRef::tell invoked without process registry; dropping message"
+    );
+    drop(message);
   }
 
   async fn request(
@@ -86,8 +91,13 @@ impl ActorRef for SimplePidRef {
     _message: MessageHandle,
     _timeout: std::time::Duration,
   ) -> Result<MessageHandle, ActorRefError> {
-    // In a real implementation, this would create a future and wait for response
-    todo!("Implement request-response through process registry")
+    warn!(
+      target: "nexus_actor::core_types::pid_wrapper",
+      address = %self.pid.inner.address,
+      id = %self.pid.inner.id,
+      "SimplePidRef::request invoked without process registry"
+    );
+    Err(ActorRefError::ActorNotFound)
   }
 
   fn is_alive(&self) -> bool {

@@ -1,3 +1,4 @@
+use arc_swap::ArcSwapOption;
 use async_trait::async_trait;
 use nexus_actor_core_rs::actor::context::SenderPart;
 use nexus_actor_core_rs::actor::core::ExtendedPid;
@@ -26,8 +27,8 @@ pub struct EndpointWriterMailbox {
   has_more_messages: Arc<AtomicI32>,
   batch_size: Arc<AtomicUsize>,
   suspended: Arc<AtomicBool>,
-  invoker_opt: Arc<RwLock<Option<MessageInvokerHandle>>>,
-  dispatcher_opt: Arc<RwLock<Option<DispatcherHandle>>>,
+  invoker_opt: Arc<ArcSwapOption<MessageInvokerHandle>>,
+  dispatcher_opt: Arc<ArcSwapOption<DispatcherHandle>>,
   queue_capacity: usize,
   remote: Weak<Remote>,
 }
@@ -45,21 +46,27 @@ impl EndpointWriterMailbox {
       has_more_messages: Arc::new(AtomicI32::new(0)),
       batch_size: Arc::new(AtomicUsize::new(batch_size)),
       suspended: Arc::new(AtomicBool::new(false)),
-      invoker_opt: Arc::new(RwLock::new(None)),
-      dispatcher_opt: Arc::new(RwLock::new(None)),
+      invoker_opt: Arc::new(ArcSwapOption::from(None)),
+      dispatcher_opt: Arc::new(ArcSwapOption::from(None)),
       queue_capacity,
       remote,
     }
   }
 
-  async fn get_dispatcher_opt(&self) -> Option<DispatcherHandle> {
-    let inner_mg = self.dispatcher_opt.read().await;
-    inner_mg.clone()
+  fn dispatcher_handle(&self) -> Option<DispatcherHandle> {
+    self.dispatcher_opt.load_full().map(|handle| handle.as_ref().clone())
   }
 
-  async fn get_message_invoker_opt(&self) -> Option<MessageInvokerHandle> {
-    let mg = self.invoker_opt.read().await;
-    mg.clone()
+  fn set_dispatcher_handle(&self, dispatcher: Option<DispatcherHandle>) {
+    self.dispatcher_opt.store(dispatcher.map(|handle| Arc::new(handle)));
+  }
+
+  fn message_invoker_handle(&self) -> Option<MessageInvokerHandle> {
+    self.invoker_opt.load_full().map(|handle| handle.as_ref().clone())
+  }
+
+  fn set_message_invoker_handle(&self, handle: Option<MessageInvokerHandle>) {
+    self.invoker_opt.store(handle.map(|h| Arc::new(h)));
   }
 
   fn is_suspended(&self) -> bool {
@@ -93,7 +100,7 @@ impl EndpointWriterMailbox {
       )
       .is_ok()
     {
-      let dispatcher = self.get_dispatcher_opt().await.expect("Dispatcher is not set");
+      let dispatcher = self.dispatcher_handle().expect("Dispatcher is not set");
       let self_clone = self.to_handle().await;
       dispatcher
         .schedule(Runnable::new(move || {
@@ -107,15 +114,11 @@ impl EndpointWriterMailbox {
   }
 
   async fn run(&self) {
-    if self.get_message_invoker_opt().await.is_none() {
+    if self.message_invoker_handle().is_none() {
       return;
     }
 
-    let mut message_invoker = self
-      .get_message_invoker_opt()
-      .await
-      .clone()
-      .expect("Message invoker is not set");
+    let mut message_invoker = self.message_invoker_handle().expect("Message invoker is not set");
 
     loop {
       if let Ok(Some(msg)) = self.poll_system_mailbox().await {
@@ -345,14 +348,8 @@ impl Mailbox for EndpointWriterMailbox {
     message_invoker_handle: Option<MessageInvokerHandle>,
     dispatcher_handle: Option<DispatcherHandle>,
   ) {
-    {
-      let mut invoker_opt = self.invoker_opt.write().await;
-      *invoker_opt = message_invoker_handle;
-    }
-    {
-      let mut dispatcher_opt = self.dispatcher_opt.write().await;
-      *dispatcher_opt = dispatcher_handle;
-    }
+    self.set_message_invoker_handle(message_invoker_handle);
+    self.set_dispatcher_handle(dispatcher_handle);
   }
 
   async fn start(&self) {}

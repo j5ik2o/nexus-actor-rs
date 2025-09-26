@@ -29,6 +29,7 @@ tonic-types = { workspace = true }
 tracing = { workspace = true }
 regex = { workspace = true }
 opentelemetry = { version = "0.31.0", features = ["metrics"] }
+arc-swap = "1.7"
 
 [dev-dependencies]
 bytes = "1.6"

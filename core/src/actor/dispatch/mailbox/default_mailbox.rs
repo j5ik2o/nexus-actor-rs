@@ -11,9 +11,10 @@ use crate::actor::dispatch::mailbox_middleware::{MailboxMiddleware, MailboxMiddl
 use crate::actor::dispatch::message_invoker::{MessageInvoker, MessageInvokerHandle};
 use crate::actor::dispatch::MailboxQueueKind;
 use crate::actor::message::MessageHandle;
+use arc_swap::ArcSwapOption;
 use async_trait::async_trait;
 use nexus_actor_utils_rs::collections::{QueueError, QueueReader, QueueWriter};
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::Mutex;
 
 #[derive(Debug, Clone)]
 struct QueueWriterHandle {
@@ -87,8 +88,6 @@ pub(crate) struct DefaultMailboxInner {
   user_messages_count: Arc<AtomicI32>,
   system_messages_count: Arc<AtomicI32>,
   suspended: Arc<AtomicBool>,
-  invoker_opt: Arc<RwLock<Option<MessageInvokerHandle>>>,
-  dispatcher_opt: Arc<RwLock<Option<DispatcherHandle>>>,
   middlewares: Vec<MailboxMiddlewareHandle>,
   user_queue_latency: QueueLatencyTracker,
   system_queue_latency: QueueLatencyTracker,
@@ -98,6 +97,8 @@ pub(crate) struct DefaultMailboxInner {
 #[derive(Debug, Clone)]
 pub(crate) struct DefaultMailbox {
   inner: Arc<Mutex<DefaultMailboxInner>>,
+  invoker_opt: Arc<ArcSwapOption<MessageInvokerHandle>>,
+  dispatcher_opt: Arc<ArcSwapOption<DispatcherHandle>>,
 }
 
 impl DefaultMailbox {
@@ -115,12 +116,12 @@ impl DefaultMailbox {
         user_messages_count: Arc::new(AtomicI32::new(0)),
         system_messages_count: Arc::new(AtomicI32::new(0)),
         suspended: Arc::new(AtomicBool::new(false)),
-        invoker_opt: Arc::new(RwLock::new(None)),
-        dispatcher_opt: Arc::new(RwLock::new(None)),
         middlewares: vec![],
         user_queue_latency: QueueLatencyTracker::default(),
         system_queue_latency: QueueLatencyTracker::default(),
       })),
+      invoker_opt: Arc::new(ArcSwapOption::from(None)),
+      dispatcher_opt: Arc::new(ArcSwapOption::from(None)),
     }
   }
 
@@ -132,28 +133,26 @@ impl DefaultMailbox {
     self
   }
 
-  async fn get_message_invoker_opt(&self) -> Option<MessageInvokerHandle> {
-    let inner_mg = self.inner.lock().await;
-    let invoker_opt_mg = inner_mg.invoker_opt.read().await;
-    invoker_opt_mg.clone()
+  fn message_invoker_opt(&self) -> Option<MessageInvokerHandle> {
+    self
+      .invoker_opt
+      .load_full()
+      .map(|handle_arc| handle_arc.as_ref().clone())
   }
 
-  async fn set_message_invoker_opt(&mut self, message_invoker: Option<MessageInvokerHandle>) {
-    let inner_mg = self.inner.lock().await;
-    let mut invoker_opt_mg = inner_mg.invoker_opt.write().await;
-    *invoker_opt_mg = message_invoker;
+  fn set_message_invoker_opt(&self, message_invoker: Option<MessageInvokerHandle>) {
+    self.invoker_opt.store(message_invoker.map(|handle| Arc::new(handle)));
   }
 
-  async fn get_dispatcher_opt(&self) -> Option<DispatcherHandle> {
-    let inner_mg = self.inner.lock().await;
-    let dispatcher_opt = inner_mg.dispatcher_opt.read().await;
-    dispatcher_opt.clone()
+  fn dispatcher_opt(&self) -> Option<DispatcherHandle> {
+    self
+      .dispatcher_opt
+      .load_full()
+      .map(|handle_arc| handle_arc.as_ref().clone())
   }
 
-  async fn set_dispatcher_opt(&mut self, dispatcher_opt: Option<DispatcherHandle>) {
-    let inner_mg = self.inner.lock().await;
-    let mut dispatcher_opt_mg = inner_mg.dispatcher_opt.write().await;
-    *dispatcher_opt_mg = dispatcher_opt;
+  fn set_dispatcher_opt(&self, dispatcher_opt: Option<DispatcherHandle>) {
+    self.dispatcher_opt.store(dispatcher_opt.map(|handle| Arc::new(handle)));
   }
 
   async fn initialize_scheduler_status(&self) {
@@ -286,7 +285,7 @@ impl DefaultMailbox {
 
   async fn schedule(&self) {
     if self.compare_exchange_scheduler_status(false, true).await.is_ok() {
-      let dispatcher = self.get_dispatcher_opt().await.expect("Dispatcher is not set");
+      let dispatcher = self.dispatcher_opt().expect("Dispatcher is not set");
       let self_clone = self.to_handle().await;
       dispatcher
         .schedule(Runnable::new(move || {
@@ -302,16 +301,12 @@ impl DefaultMailbox {
   async fn run(&self) {
     let mut i = 0;
 
-    if self.get_dispatcher_opt().await.is_none() || self.get_message_invoker_opt().await.is_none() {
+    if self.dispatcher_opt().is_none() || self.message_invoker_opt().is_none() {
       return;
     }
 
-    let dispatcher = self.get_dispatcher_opt().await.clone().expect("Dispatcher is not set");
-    let mut message_invoker = self
-      .get_message_invoker_opt()
-      .await
-      .clone()
-      .expect("Message invoker is not set");
+    let dispatcher = self.dispatcher_opt().expect("Dispatcher is not set");
+    let mut message_invoker = self.message_invoker_opt().expect("Message invoker is not set");
 
     let t = dispatcher.throughput().await;
 
@@ -454,8 +449,8 @@ impl Mailbox for DefaultMailbox {
     message_invoker_handle: Option<MessageInvokerHandle>,
     dispatcher_handle: Option<DispatcherHandle>,
   ) {
-    self.set_message_invoker_opt(message_invoker_handle).await;
-    self.set_dispatcher_opt(dispatcher_handle).await;
+    self.set_message_invoker_opt(message_invoker_handle);
+    self.set_dispatcher_opt(dispatcher_handle);
   }
 
   async fn start(&self) {
