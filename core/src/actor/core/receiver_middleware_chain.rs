@@ -4,16 +4,18 @@ use std::sync::Arc;
 
 use futures::future::BoxFuture;
 
-use crate::actor::context::ReceiverContextHandle;
+use crate::actor::context::{ReceiverContextHandle, ReceiverSnapshot};
 use crate::actor::core::actor_error::ActorError;
 use crate::actor::message::MessageEnvelope;
 
-type ReceiverMiddlewareFn =
-  Arc<dyn Fn(ReceiverContextHandle, MessageEnvelope) -> BoxFuture<'static, Result<(), ActorError>> + Send + Sync>;
+type ReceiverSyncFn = Arc<dyn Fn(ReceiverSnapshot) -> ReceiverSnapshot + Send + Sync + 'static>;
+type ReceiverAsyncFn = Arc<dyn Fn(ReceiverSnapshot) -> BoxFuture<'static, Result<(), ActorError>> + Send + Sync>;
 
-// ReceiverMiddlewareChain
 #[derive(Clone)]
-pub struct ReceiverMiddlewareChain(ReceiverMiddlewareFn);
+pub struct ReceiverMiddlewareChain {
+  sync_step: ReceiverSyncFn,
+  async_step: ReceiverAsyncFn,
+}
 
 unsafe impl Send for ReceiverMiddlewareChain {}
 unsafe impl Sync for ReceiverMiddlewareChain {}
@@ -23,14 +25,49 @@ impl ReceiverMiddlewareChain {
   where
     F: Fn(ReceiverContextHandle, MessageEnvelope) -> Fut + Send + Sync + 'static,
     Fut: Future<Output = Result<(), ActorError>> + Send + 'static, {
-    Self(Arc::new(move |rch, me| {
-      Box::pin(f(rch, me)) as BoxFuture<'static, Result<(), ActorError>>
-    }))
+    let async_step: ReceiverAsyncFn = Arc::new(move |snapshot: ReceiverSnapshot| {
+      let (context_snapshot, message) = snapshot.into_parts();
+      let context_handle = context_snapshot
+        .context_handle()
+        .cloned()
+        .expect("ContextSnapshot missing ContextHandle in receiver middleware tail");
+      Box::pin(f(ReceiverContextHandle::new(context_handle), message))
+    });
+
+    Self {
+      sync_step: Arc::new(|snapshot| snapshot),
+      async_step,
+    }
+  }
+
+  pub fn with_sync<F>(self, sync: F) -> Self
+  where
+    F: Fn(ReceiverSnapshot) -> ReceiverSnapshot + Send + Sync + 'static, {
+    let previous = self.sync_step.clone();
+    Self {
+      sync_step: Arc::new(move |snapshot| {
+        let after_prev = previous(snapshot);
+        sync(after_prev)
+      }),
+      async_step: self.async_step.clone(),
+    }
+  }
+
+  pub fn with_async<F>(self, wrapper: F) -> Self
+  where
+    F: Fn(ReceiverSnapshot, ReceiverAsyncFn) -> BoxFuture<'static, Result<(), ActorError>> + Send + Sync + 'static, {
+    let async_prev = self.async_step.clone();
+    Self {
+      sync_step: self.sync_step.clone(),
+      async_step: Arc::new(move |snapshot| wrapper(snapshot, async_prev.clone())),
+    }
   }
 
   pub async fn run(&self, context: ReceiverContextHandle, envelope: MessageEnvelope) -> Result<(), ActorError> {
     let stats_before = context.context_cell_stats();
-    let result = (self.0)(context.clone(), envelope).await;
+    let snapshot = ReceiverSnapshot::new(context.snapshot(), envelope);
+    let transformed = (self.sync_step)(snapshot);
+    let result = (self.async_step)(transformed).await;
     let stats_after = context.context_cell_stats();
 
     let hits_delta = stats_after.hits.saturating_sub(stats_before.hits);
@@ -68,7 +105,7 @@ impl Debug for ReceiverMiddlewareChain {
 
 impl PartialEq for ReceiverMiddlewareChain {
   fn eq(&self, other: &Self) -> bool {
-    Arc::ptr_eq(&self.0, &other.0)
+    Arc::ptr_eq(&self.sync_step, &other.sync_step) && Arc::ptr_eq(&self.async_step, &other.async_step)
   }
 }
 
@@ -76,9 +113,8 @@ impl Eq for ReceiverMiddlewareChain {}
 
 impl std::hash::Hash for ReceiverMiddlewareChain {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    (self.0.as_ref()
-      as *const dyn Fn(ReceiverContextHandle, MessageEnvelope) -> BoxFuture<'static, Result<(), ActorError>>)
-      .hash(state);
+    (Arc::as_ptr(&self.sync_step) as *const ()).hash(state);
+    (Arc::as_ptr(&self.async_step) as *const ()).hash(state);
   }
 }
 
