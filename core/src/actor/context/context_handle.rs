@@ -8,7 +8,7 @@ use async_trait::async_trait;
 use tokio::sync::RwLock;
 
 use crate::actor::actor_system::ActorSystem;
-use crate::actor::context::actor_context::ActorContext;
+use crate::actor::context::actor_context::{ActorContext, ContextBorrow};
 use crate::actor::context::{
   BasePart, Context, ExtensionContext, ExtensionPart, InfoPart, MessagePart, ReceiverContext, ReceiverPart,
   SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart,
@@ -25,6 +25,109 @@ use crate::actor::message::ReadonlyMessageHeadersHandle;
 use crate::actor::message::ResponseHandle;
 use crate::actor::process::actor_future::ActorFuture;
 use crate::ctxext::extensions::{ContextExtensionHandle, ContextExtensionId};
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ContextLockMetricsSnapshot {
+  pub read_lock_acquisitions: u64,
+  pub write_lock_acquisitions: u64,
+  pub snapshot_hits: u64,
+  pub snapshot_misses: u64,
+}
+
+#[cfg(feature = "lock-metrics")]
+struct ContextLockMetrics {
+  read_lock_acquisitions: AtomicU64,
+  write_lock_acquisitions: AtomicU64,
+  snapshot_hits: AtomicU64,
+  snapshot_misses: AtomicU64,
+}
+
+#[cfg(feature = "lock-metrics")]
+impl ContextLockMetrics {
+  const fn new() -> Self {
+    Self {
+      read_lock_acquisitions: AtomicU64::new(0),
+      write_lock_acquisitions: AtomicU64::new(0),
+      snapshot_hits: AtomicU64::new(0),
+      snapshot_misses: AtomicU64::new(0),
+    }
+  }
+}
+
+#[cfg(feature = "lock-metrics")]
+static CONTEXT_LOCK_METRICS: ContextLockMetrics = ContextLockMetrics::new();
+
+#[cfg(feature = "lock-metrics")]
+#[inline(always)]
+fn record_snapshot_hit() {
+  CONTEXT_LOCK_METRICS.snapshot_hits.fetch_add(1, Ordering::Relaxed);
+}
+
+#[cfg(not(feature = "lock-metrics"))]
+#[inline(always)]
+fn record_snapshot_hit() {}
+
+#[cfg(feature = "lock-metrics")]
+#[inline(always)]
+fn record_snapshot_miss() {
+  CONTEXT_LOCK_METRICS.snapshot_misses.fetch_add(1, Ordering::Relaxed);
+}
+
+#[cfg(not(feature = "lock-metrics"))]
+#[inline(always)]
+fn record_snapshot_miss() {}
+
+#[cfg(feature = "lock-metrics")]
+#[inline(always)]
+fn record_read_lock_acquisition() {
+  CONTEXT_LOCK_METRICS
+    .read_lock_acquisitions
+    .fetch_add(1, Ordering::Relaxed);
+}
+
+#[cfg(not(feature = "lock-metrics"))]
+#[inline(always)]
+fn record_read_lock_acquisition() {}
+
+#[cfg(feature = "lock-metrics")]
+#[inline(always)]
+fn record_write_lock_acquisition() {
+  CONTEXT_LOCK_METRICS
+    .write_lock_acquisitions
+    .fetch_add(1, Ordering::Relaxed);
+}
+
+#[cfg(not(feature = "lock-metrics"))]
+#[inline(always)]
+fn record_write_lock_acquisition() {}
+
+#[cfg(feature = "lock-metrics")]
+pub fn reset_context_lock_metrics() {
+  CONTEXT_LOCK_METRICS.read_lock_acquisitions.store(0, Ordering::Relaxed);
+  CONTEXT_LOCK_METRICS.write_lock_acquisitions.store(0, Ordering::Relaxed);
+  CONTEXT_LOCK_METRICS.snapshot_hits.store(0, Ordering::Relaxed);
+  CONTEXT_LOCK_METRICS.snapshot_misses.store(0, Ordering::Relaxed);
+}
+
+#[cfg(not(feature = "lock-metrics"))]
+#[inline(always)]
+pub fn reset_context_lock_metrics() {}
+
+#[cfg(feature = "lock-metrics")]
+pub fn context_lock_metrics_snapshot() -> ContextLockMetricsSnapshot {
+  ContextLockMetricsSnapshot {
+    read_lock_acquisitions: CONTEXT_LOCK_METRICS.read_lock_acquisitions.load(Ordering::Relaxed),
+    write_lock_acquisitions: CONTEXT_LOCK_METRICS.write_lock_acquisitions.load(Ordering::Relaxed),
+    snapshot_hits: CONTEXT_LOCK_METRICS.snapshot_hits.load(Ordering::Relaxed),
+    snapshot_misses: CONTEXT_LOCK_METRICS.snapshot_misses.load(Ordering::Relaxed),
+  }
+}
+
+#[cfg(not(feature = "lock-metrics"))]
+#[inline(always)]
+pub fn context_lock_metrics_snapshot() -> ContextLockMetricsSnapshot {
+  ContextLockMetricsSnapshot::default()
+}
 
 #[derive(Debug, Default)]
 pub struct ContextCell {
@@ -53,7 +156,8 @@ impl ContextCell {
 
   pub fn capture_from<C>(&self, ctx: &C)
   where
-    C: Context + Any + Clone, {
+    C: Context + Any + Clone,
+  {
     if let Some(actor_ctx) = (ctx as &dyn Any).downcast_ref::<ActorContext>() {
       self.replace_actor_context(actor_ctx.clone());
     }
@@ -97,7 +201,8 @@ impl ContextHandle {
 
   pub fn new<C>(c: C) -> Self
   where
-    C: Context + Clone + Any + 'static, {
+    C: Context + Clone + Any + 'static,
+  {
     let cell = Arc::new(ContextCell::default());
     cell.capture_from(&c);
     let context_arc: Arc<RwLock<Box<dyn Context>>> = Arc::new(RwLock::new(Box::new(c) as Box<dyn Context>));
@@ -113,7 +218,33 @@ impl ContextHandle {
   }
 
   pub fn actor_context_arc(&self) -> Option<Arc<ActorContext>> {
-    self.cell.load_actor_context()
+    let result = self.cell.load_actor_context();
+    #[cfg(feature = "lock-metrics")]
+    {
+      if result.is_some() {
+        record_snapshot_hit();
+      } else {
+        record_snapshot_miss();
+      }
+    }
+    result
+  }
+
+  pub fn with_actor_context<R, F>(&self, f: F) -> Option<R>
+  where
+    F: FnOnce(&ActorContext) -> R,
+  {
+    self.actor_context_arc().map(|ctx| f(ctx.as_ref()))
+  }
+
+  pub fn with_actor_borrow<R, F>(&self, f: F) -> Option<R>
+  where
+    F: for<'a> FnOnce(ContextBorrow<'a>) -> R,
+  {
+    self.actor_context_arc().map(|ctx| {
+      let borrow = ctx.borrow();
+      f(borrow)
+    })
   }
 
   fn context_arc(&self) -> Arc<RwLock<Box<dyn Context>>> {
@@ -133,6 +264,8 @@ impl ContextHandle {
       return Some(actor_ctx.as_ref().clone());
     }
     let ctx = self.context_arc();
+    #[cfg(feature = "lock-metrics")]
+    record_read_lock_acquisition();
     let mg = ctx.read().await;
     mg.as_ref().as_any().downcast_ref::<ActorContext>().cloned()
   }
@@ -145,7 +278,7 @@ impl ContextHandle {
 impl WeakContextHandle {
   pub fn upgrade(&self) -> Option<ContextHandle> {
     let inner = self.inner.upgrade()?;
-    let cell = self.cell.upgrade().unwrap_or_else(|| Arc::new(ContextCell::default()));
+    let cell = self.cell.upgrade()?;
     Some(ContextHandle::from_swap(inner, cell))
   }
 }
@@ -156,6 +289,8 @@ impl ExtensionContext for ContextHandle {}
 impl ExtensionPart for ContextHandle {
   async fn get(&mut self, id: ContextExtensionId) -> Option<ContextExtensionHandle> {
     let ctx = self.context_arc();
+    #[cfg(feature = "lock-metrics")]
+    record_write_lock_acquisition();
     let mut mg = ctx.write().await;
     mg.get(id).await
   }
@@ -177,6 +312,8 @@ impl InfoPart for ContextHandle {
       return snapshot.parent().cloned();
     }
     let ctx = self.context_arc();
+    #[cfg(feature = "lock-metrics")]
+    record_read_lock_acquisition();
     let mg = ctx.read().await;
     mg.get_parent().await
   }
@@ -187,12 +324,16 @@ impl InfoPart for ContextHandle {
       return snapshot.self_pid().cloned();
     }
     let ctx = self.context_arc();
+    #[cfg(feature = "lock-metrics")]
+    record_read_lock_acquisition();
     let mg = ctx.read().await;
     mg.get_self_opt().await
   }
 
   async fn set_self(&mut self, pid: ExtendedPid) {
     let ctx = self.context_arc();
+    #[cfg(feature = "lock-metrics")]
+    record_write_lock_acquisition();
     let mut mg = ctx.write().await;
     mg.set_self(pid).await
   }
@@ -203,6 +344,8 @@ impl InfoPart for ContextHandle {
       return snapshot.actor().cloned();
     }
     let ctx = self.context_arc();
+    #[cfg(feature = "lock-metrics")]
+    record_read_lock_acquisition();
     let mg = ctx.read().await;
     mg.get_actor().await
   }
@@ -213,6 +356,8 @@ impl InfoPart for ContextHandle {
       return snapshot.actor_system().clone();
     }
     let ctx = self.context_arc();
+    #[cfg(feature = "lock-metrics")]
+    record_read_lock_acquisition();
     let mg = ctx.read().await;
     mg.get_actor_system().await
   }
@@ -222,30 +367,40 @@ impl InfoPart for ContextHandle {
 impl SenderPart for ContextHandle {
   async fn get_sender(&self) -> Option<ExtendedPid> {
     let ctx = self.context_arc();
+    #[cfg(feature = "lock-metrics")]
+    record_read_lock_acquisition();
     let mg = ctx.read().await;
     mg.get_sender().await
   }
 
   async fn send(&mut self, pid: ExtendedPid, message_handle: MessageHandle) {
     let ctx = self.context_arc();
+    #[cfg(feature = "lock-metrics")]
+    record_write_lock_acquisition();
     let mut mg = ctx.write().await;
     mg.send(pid, message_handle).await
   }
 
   async fn request(&mut self, pid: ExtendedPid, message_handle: MessageHandle) {
     let ctx = self.context_arc();
+    #[cfg(feature = "lock-metrics")]
+    record_write_lock_acquisition();
     let mut mg = ctx.write().await;
     mg.request(pid, message_handle).await
   }
 
   async fn request_with_custom_sender(&mut self, pid: ExtendedPid, message_handle: MessageHandle, sender: ExtendedPid) {
     let ctx = self.context_arc();
+    #[cfg(feature = "lock-metrics")]
+    record_write_lock_acquisition();
     let mut mg = ctx.write().await;
     mg.request_with_custom_sender(pid, message_handle, sender).await
   }
 
   async fn request_future(&self, pid: ExtendedPid, message_handle: MessageHandle, timeout: Duration) -> ActorFuture {
     let ctx = self.context_arc();
+    #[cfg(feature = "lock-metrics")]
+    record_read_lock_acquisition();
     let mg = ctx.read().await;
     mg.request_future(pid, message_handle, timeout).await
   }
@@ -258,6 +413,8 @@ impl MessagePart for ContextHandle {
       return Some(envelope);
     }
     let ctx = self.context_arc();
+    #[cfg(feature = "lock-metrics")]
+    record_read_lock_acquisition();
     let mg = ctx.read().await;
     mg.get_message_envelope_opt().await
   }
@@ -267,6 +424,8 @@ impl MessagePart for ContextHandle {
       return Some(handle);
     }
     let ctx = self.context_arc();
+    #[cfg(feature = "lock-metrics")]
+    record_read_lock_acquisition();
     let mg = ctx.read().await;
     mg.get_message_handle_opt().await
   }
@@ -276,6 +435,8 @@ impl MessagePart for ContextHandle {
       return Some(header);
     }
     let ctx = self.context_arc();
+    #[cfg(feature = "lock-metrics")]
+    record_read_lock_acquisition();
     let mg = ctx.read().await;
     mg.get_message_header_handle().await
   }
@@ -305,6 +466,8 @@ impl ReceiverContext for ContextHandle {}
 impl ReceiverPart for ContextHandle {
   async fn receive(&mut self, envelope: MessageEnvelope) -> Result<(), ActorError> {
     let ctx = self.context_arc();
+    #[cfg(feature = "lock-metrics")]
+    record_write_lock_acquisition();
     let mut mg = ctx.write().await;
     mg.receive(envelope).await
   }
@@ -316,18 +479,24 @@ impl SpawnerContext for ContextHandle {}
 impl SpawnerPart for ContextHandle {
   async fn spawn(&mut self, props: Props) -> ExtendedPid {
     let ctx = self.context_arc();
+    #[cfg(feature = "lock-metrics")]
+    record_write_lock_acquisition();
     let mut mg = ctx.write().await;
     mg.spawn(props).await
   }
 
   async fn spawn_prefix(&mut self, props: Props, prefix: &str) -> ExtendedPid {
     let ctx = self.context_arc();
+    #[cfg(feature = "lock-metrics")]
+    record_write_lock_acquisition();
     let mut mg = ctx.write().await;
     mg.spawn_prefix(props, prefix).await
   }
 
   async fn spawn_named(&mut self, props: Props, id: &str) -> Result<ExtendedPid, SpawnError> {
     let ctx = self.context_arc();
+    #[cfg(feature = "lock-metrics")]
+    record_write_lock_acquisition();
     let mut mg = ctx.write().await;
     mg.spawn_named(props, id).await
   }
@@ -341,66 +510,88 @@ impl BasePart for ContextHandle {
 
   async fn get_receive_timeout(&self) -> Duration {
     let ctx = self.context_arc();
+    #[cfg(feature = "lock-metrics")]
+    record_read_lock_acquisition();
     let mg = ctx.read().await;
     mg.get_receive_timeout().await
   }
 
   async fn get_children(&self) -> Vec<ExtendedPid> {
     let ctx = self.context_arc();
+    #[cfg(feature = "lock-metrics")]
+    record_read_lock_acquisition();
     let mg = ctx.read().await;
     mg.get_children().await
   }
 
   async fn respond(&self, response: ResponseHandle) {
     let ctx = self.context_arc();
+    #[cfg(feature = "lock-metrics")]
+    record_read_lock_acquisition();
     let mg = ctx.read().await;
     mg.respond(response).await
   }
 
   async fn stash(&mut self) {
     let ctx = self.context_arc();
+    #[cfg(feature = "lock-metrics")]
+    record_write_lock_acquisition();
     let mut mg = ctx.write().await;
     mg.stash().await
   }
 
   async fn un_stash_all(&mut self) -> Result<(), ActorError> {
     let ctx = self.context_arc();
+    #[cfg(feature = "lock-metrics")]
+    record_write_lock_acquisition();
     let mut mg = ctx.write().await;
     mg.un_stash_all().await
   }
 
   async fn watch(&mut self, pid: &ExtendedPid) {
     let ctx = self.context_arc();
+    #[cfg(feature = "lock-metrics")]
+    record_write_lock_acquisition();
     let mut mg = ctx.write().await;
     mg.watch(pid).await
   }
 
   async fn unwatch(&mut self, pid: &ExtendedPid) {
     let ctx = self.context_arc();
+    #[cfg(feature = "lock-metrics")]
+    record_write_lock_acquisition();
     let mut mg = ctx.write().await;
     mg.unwatch(pid).await
   }
 
   async fn set_receive_timeout(&mut self, d: &Duration) {
     let ctx = self.context_arc();
+    #[cfg(feature = "lock-metrics")]
+    record_write_lock_acquisition();
     let mut mg = ctx.write().await;
     mg.set_receive_timeout(d).await
   }
 
   async fn cancel_receive_timeout(&mut self) {
     let ctx = self.context_arc();
+    #[cfg(feature = "lock-metrics")]
+    record_write_lock_acquisition();
     let mut mg = ctx.write().await;
     mg.cancel_receive_timeout().await
   }
 
   async fn forward(&self, pid: &ExtendedPid) {
     let ctx = self.context_arc();
+    #[cfg(feature = "lock-metrics")]
+    record_read_lock_acquisition();
     let mg = ctx.read().await;
     mg.forward(pid).await
   }
 
   async fn reenter_after(&self, f: ActorFuture, continuation: Continuer) {
     let ctx = self.context_arc();
+    #[cfg(feature = "lock-metrics")]
+    record_read_lock_acquisition();
     let mg = ctx.read().await;
     mg.reenter_after(f, continuation).await
   }
@@ -410,27 +601,72 @@ impl BasePart for ContextHandle {
 impl StopperPart for ContextHandle {
   async fn stop(&mut self, pid: &ExtendedPid) {
     let ctx = self.context_arc();
+    #[cfg(feature = "lock-metrics")]
+    record_write_lock_acquisition();
     let mut mg = ctx.write().await;
     mg.stop(pid).await
   }
 
   async fn stop_future_with_timeout(&mut self, pid: &ExtendedPid, timeout: Duration) -> ActorFuture {
     let ctx = self.context_arc();
+    #[cfg(feature = "lock-metrics")]
+    record_write_lock_acquisition();
     let mut mg = ctx.write().await;
     mg.stop_future_with_timeout(pid, timeout).await
   }
 
   async fn poison(&mut self, pid: &ExtendedPid) {
     let ctx = self.context_arc();
+    #[cfg(feature = "lock-metrics")]
+    record_write_lock_acquisition();
     let mut mg = ctx.write().await;
     mg.poison(pid).await
   }
 
   async fn poison_future_with_timeout(&mut self, pid: &ExtendedPid, timeout: Duration) -> ActorFuture {
     let ctx = self.context_arc();
+    #[cfg(feature = "lock-metrics")]
+    record_write_lock_acquisition();
     let mut mg = ctx.write().await;
     mg.poison_future_with_timeout(pid, timeout).await
   }
 }
 
 impl Context for ContextHandle {}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::actor::actor_system::ActorSystem;
+  use crate::actor::core::{ActorError, Props};
+
+  #[tokio::test]
+  async fn with_actor_borrow_returns_actor_system_clone() {
+    let system = ActorSystem::new().await.expect("actor system");
+    let props = Props::from_async_actor_receiver(|_ctx| async { Ok::<(), ActorError>(()) }).await;
+    let actor_context = ActorContext::new(system.clone(), props, None).await;
+    let handle = ContextHandle::new(actor_context);
+
+    let borrowed_system = handle
+      .with_actor_borrow(|borrow| borrow.actor_system().clone())
+      .expect("actor system snapshot");
+
+    let original_id = system.get_id().await;
+    let borrowed_id = borrowed_system.get_id().await;
+    assert_eq!(original_id, borrowed_id);
+  }
+
+  #[tokio::test]
+  async fn weak_context_handle_upgrade_fails_when_cell_dropped() {
+    let system = ActorSystem::new().await.expect("actor system");
+    let props = Props::from_async_actor_receiver(|_ctx| async { Ok::<(), ActorError>(()) }).await;
+    let actor_context = ActorContext::new(system, props, None).await;
+
+    let weak_handle = {
+      let handle = ContextHandle::new(actor_context);
+      handle.downgrade()
+    };
+
+    assert!(weak_handle.upgrade().is_none());
+  }
+}

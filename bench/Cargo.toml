@@ -3,6 +3,10 @@ name = "nexus-actor-bench"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = []
+lock-metrics = ["nexus-actor-core-rs/lock-metrics"]
+
 [dependencies]
 criterion = { version = "0.7", default-features = false, features = ["html_reports"] }
 nexus-actor-core-rs = { path = "../core" }
