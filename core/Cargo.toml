@@ -23,10 +23,10 @@ nexus-actor-utils-rs = { version = "0.*", path = "../utils" }
 num_enum = "0.7.2"
 once_cell = "1.19.0"
 oni-comb-uri-rs = "0.2.1"
-opentelemetry = { version = "0.25.0", features = ["metrics"] }
-opentelemetry-otlp = { version = "0.25.0", features = ["grpc-tonic", "trace", "metrics"] }
-opentelemetry-stdout = { version = "0.25.0", features = ["metrics"] }
-opentelemetry_sdk = { version = "0.25.0", features = ["metrics", "rt-tokio", "testing"] }
+opentelemetry = { version = "0.31.0", features = ["metrics"] }
+opentelemetry-otlp = { version = "0.31.0", features = ["grpc-tonic", "trace", "metrics"] }
+opentelemetry-stdout = { version = "0.31.0", features = ["metrics"] }
+opentelemetry_sdk = { version = "0.31.0", features = ["metrics", "rt-tokio", "testing"] }
 prost = "0.13.0"
 prost-types = "0.13"
 rand = { version = "0.9.0-alpha.2", features = ["small_rng"] }
