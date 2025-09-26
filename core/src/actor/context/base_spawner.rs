@@ -24,7 +24,8 @@ impl BaseSpawnerExt for RootContext {
   async fn spawn_base_actor<F, B>(&mut self, factory: F) -> ExtendedPid
   where
     F: Fn() -> B + Send + Sync + 'static,
-    B: BaseActor + 'static, {
+    B: BaseActor + 'static,
+  {
     let props = MigrationHelpers::props_from_base_actor_fn(factory).await;
     self.spawn(props).await
   }
@@ -32,7 +33,8 @@ impl BaseSpawnerExt for RootContext {
   async fn spawn_base_actor_named<F, B>(&mut self, factory: F, name: &str) -> Result<ExtendedPid, SpawnError>
   where
     F: Fn() -> B + Send + Sync + 'static,
-    B: BaseActor + 'static, {
+    B: BaseActor + 'static,
+  {
     let props = MigrationHelpers::props_from_base_actor_fn(factory).await;
     self.spawn_named(props, name).await
   }

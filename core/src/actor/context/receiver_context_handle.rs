@@ -34,11 +34,9 @@ impl ReceiverContextHandle {
 
   pub fn with_actor_borrow<R, F>(&self, f: F) -> Option<R>
   where
-    F: for<'a> FnOnce(ContextBorrow<'a>) -> R, {
-    self.actor_context_arc().map(|ctx| {
-      let borrow = ctx.borrow();
-      f(borrow)
-    })
+    F: for<'a> FnOnce(ContextBorrow<'a>) -> R,
+  {
+    self.context.with_actor_borrow(f)
   }
 
   pub fn context_cell_stats(&self) -> ContextCellStats {

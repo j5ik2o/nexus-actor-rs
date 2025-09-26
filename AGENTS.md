@@ -40,3 +40,11 @@
 
 ## セキュリティと設定のヒント
 リモート 接続 を 試験 する 際 は `RUST_LOG=debug` を 設定 し、シークレット は `.env` など 非公開 設定 に 保管。`coverage.sh` が 依存 する `grcov` と `llvm-tools-preview` は `rustup component add` / `cargo install` で 同期。CI と ローカル の ツール バージョン が 合致 している こと を 定期 的 に 確認 してください。
+
+## ドキュメントの編集
+
+mdファイルなどの編集は Claude Code を使って編集してください。
+
+```shell
+./scripts/run-claude.sh "この作業の進捗を当該ドキュメントに反映してください。反映する作業結果は以下です・・・・・・"
+```

@@ -285,7 +285,9 @@ impl ActorContext {
   fn supervisor_handle_with_snapshot(&self) -> SupervisorHandle {
     let supervisor_clone = self.clone();
     let supervisor_arc: Arc<dyn Supervisor> = Arc::new(supervisor_clone);
-    SupervisorHandle::new_arc(supervisor_arc)
+    let handle = SupervisorHandle::new_arc_with_metrics(supervisor_arc.clone(), self.metrics_runtime.clone());
+    handle.inject_snapshot(supervisor_arc);
+    handle
   }
 
   pub async fn receive_timeout_handler(&mut self) {

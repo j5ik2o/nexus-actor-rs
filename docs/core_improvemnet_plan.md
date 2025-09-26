@@ -18,27 +18,28 @@
 - `docs/typed_context_guidelines.md` / `docs/dispatcher_runtime_policy.md` を整備し、ライフタイム利用とランタイム管理の指針を共有。
 - CI: PR ベンチ (`bench.yml`) + 週次ベンチ (`bench-weekly.yml`) で `reentrancy` / `context_borrow` を監視。
 
-## TODOサマリ（2025-09-25 時点）
-※ `[ ]` が付いているもののみ未完了タスク。
+## TODOサマリ（2025-09-26 時点）
 
-**最新完了項目**
+### 未完了タスク
+- [x] **ContextHandle の ArcSwap 本実装** - PoC をプロダクション品質に引き上げ、ContextBorrow<'_> のライフタイム境界を明確化する。ReceiverContext 系で所有権移譲が複雑化するリスクに対する対策も含める。
+- [x] **Supervisor Metrics の完全同期化** - record_supervisor_metrics 経路を ArcSwap<MetricsRuntime> 経由で同期アクセス化し、exporter 初期化順のボトルネックを解消してライフタイム再入リスクを下げる。
+- [x] **Concurrent Test（loom 等）の整備** - 同期アクセス設計の安全性を loom などで検証し、並行シナリオで予期しない await が混在しないか確認する。
+- [ ] ベンチ結果を CSV 化して履歴追跡 (`scripts/export_bench_metrics.py`)
+- [ ] `docs/bench_dashboard_plan.md` に沿った GitHub Pages 公開
+- [ ] `cargo make coverage` をライフタイム回帰テストに組み込み
+- [x] **ContextBorrow ホットパスのロック計測** - context_borrow/borrow_hot_path ベンチの軽度な退行を調査するため、ContextHandle 経路のロック取得頻度を計測し、プロファイラでホットパスを再確認する。同期 getter 再設計メモに計測ログを反映済み。
+
+### 完了項目
 - ✅ `TypedActorHandle` / `PidActorRef` の弱参照化を完了 (2025-09-25)
 - ✅ `ReceiverContextHandle` / `TypedContextHandle` に同期 borrow API を追加し、`ReceiverPart` ホットパスのロックを回避 (2025-09-25)
 - ✅ SupervisorHandle の同期 borrow 化を完了（SupervisorCell を主記憶として RwLock を排除, 2025-09-26）
-- **フェーズ B: コンテキスト拡張と Supervisor**
-- **フェーズ C: 観測と回帰防止**
-  - [ ] ベンチ結果を CSV 化して履歴追跡 (`scripts/export_bench_metrics.py`)
-  - [ ] `docs/bench_dashboard_plan.md` に沿った GitHub Pages 公開
-  - [ ] `cargo make coverage` をライフタイム回帰テストに組み込み
-  - [ ] リグレッション用のスプリント別タスク整理と完了チェック運用の自動化
-- **同期 API 移行**
-  - ✅ `async_trait` 依存を棚卸しし、同期化できるメソッドを通常メソッドへ置換（2025-09-26 時点、追加置換対象なし）
-  - ✅ `TypedContext` 系 getter の同期化可能箇所を再調査し、代替 API を策定・実装（同期 getter 再設計メモ参照, 2025-09-26 完了）
-  - [ ] protoactor-go (`actor/context.go`, `actor/supervision.go`) の呼び出し順序差分を `docs/dispatcher_runtime_policy.md` へ反映するドラフトを作成
-  - [ ] TypedActorContext 系の同期化済み borrow に合わせて情報取得メソッドを再整理する
-- **計測とスナップショット運用**
-  - [ ] ReceiverMiddlewareChain 実行部で `context_cell_stats()` の差分をログ収集する
-  - [ ] `SupervisorHandle::new(self.clone())` など既存生成箇所に `inject_snapshot()` を組み込み、初期化直後からスナップショットが利用されるか確認する
+- ✅ リグレッション用のスプリント別タスク整理と完了チェック運用の自動化（scripts/report_todos.py 追加, 2025-09-26）
+- ✅ `async_trait` 依存を棚卸しし、同期化できるメソッドを通常メソッドへ置換（2025-09-26 時点、追加置換対象なし）
+- ✅ `TypedContext` 系 getter の同期化可能箇所を再調査し、代替 API を策定・実装（同期 getter 再設計メモ参照, 2025-09-26）
+- ✅ protoactor-go (`actor/context.go`, `actor/supervision.go`) の呼び出し順序差分を `docs/dispatcher_runtime_policy.md` へ反映するドラフトを作成（2025-09-26）
+- ✅ TypedActorContext 系の同期化済み borrow に合わせて情報取得メソッドを再整理する（2025-09-26）
+- ✅ ReceiverMiddlewareChain 実行部で `context_cell_stats()` の差分をログ収集する（ヒット/ミスをデバッグ出力, 2025-09-26）
+- ✅ `SupervisorHandle::new(self.clone())` など既存生成箇所に `inject_snapshot()` を組み込み、初期化直後からスナップショットが利用されるか確認する（2025-09-26）
 
 ### 同期 getter 再設計メモ（2025-09-26 更新）
 - 実装進捗: `ActorContext::try_sender` / `ContextHandle::try_get_sender_opt` を導入し、TypedContextHandle/TypedActorContext/TypedRootContext に `sync_view()` を実装。Remote/Cluster のホットパスでは `try_get_message_handle_opt` と送信者スナップショットを計測用に組み込み済み。
@@ -46,8 +47,10 @@
 - 目的: `TypedContext` 系のホットパスから await を除去し、`ContextBorrow<'_>` を中心としたライフタイム指向 API と整合させる。
 - 同期化しやすい getter: `get_parent` / `get_self_opt` / `get_actor` / `get_actor_system` / メッセージ系は `ContextHandle::actor_context_arc()` 由来のスナップショットからクローンを返せる。デコレーター経路や RootContext などで `None` が返る場合は Option で扱う。
 - 同期化が難しい箇所: 送信者取得は同期アクセサが無いため `ActorContext::try_sender()` と `ContextHandle::try_get_sender_opt()` 追加が前提。`M: Clone` 制約や `RwLock::try_read` 失敗時の `None` 返却を仕様として文書化する。
+- 2025-09-26 計測: `cargo bench -p nexus-actor-bench --features lock-metrics` の `context_borrow/borrow_hot_path` で read lock 654,000 回 (約 2,000/iteration), write lock 0, snapshot hit 1,308,654, snapshot miss 0。`ctx.get_message_handle_opt().await` 以外のルート (RootContext/request_future経路など) で read lock が維持されている可能性があるため、対象 API の分解と同期アクセサ適用範囲の再確認が必要。
 - 設計方針: `TypedContextSyncView` を実装体付きに拡張し、`TypedContext` へ `sync_view()`（仮称）を追加。内部で `ContextBorrow` と `ContextCell` のスナップショットを束ねた `TypedContextSnapshot` を返し、取得できなかった項目は既存 async getter へフォールバックする。
 - 残タスク: ContextHandle に送信者スナップショット API を追加、TypedContextHandle / TypedActorContext / TypedRootContext に `TypedContextSyncView` 実装を提供、`ContextAdapter` やベンチ用コードを `sync_view()` に移行、関連ドキュメント（`docs/typed_context_guidelines.md` など）を更新。
+- 2025-09-26 計測: `cargo bench -p nexus-actor-bench --features lock-metrics` の `context_borrow/borrow_hot_path` で read lock 654,000 回 (約 2,000/iteration), write lock 0, snapshot hit 1,308,654, snapshot miss 0。`ctx.get_message_handle_opt().await` 以外のルート (RootContext/request_future 経路など) で read lock が維持されている可能性があるため、対象 API の分解と同期アクセサ適用範囲の再確認が必要。
 
 ## ロードマップ詳細
 ### フェーズ A: ActorContext コアの再編
@@ -66,12 +69,9 @@
 ### フェーズ C: 観測と回帰防止
 **完了済み**
 - ✅ `scripts/check_context_borrow_bench.sh` を CI へ統合
+- ✅ `scripts/report_todos.py` を追加し、docs/core_improvemnet_plan.md の未完了タスクを自動一覧化（2025-09-26）
 
 **残タスク（TODOサマリ参照）**
-- ⏳ ベンチ結果を CSV 化して履歴追跡 (`scripts/export_bench_metrics.py`)
-- ⏳ `docs/bench_dashboard_plan.md` に沿った GitHub Pages 公開
-- ⏳ `cargo make coverage` をライフタイム回帰テストに組み込み
-- ⏳ リグレッション用のスプリント別タスク整理と完了チェック運用の自動化
 
 ## スプリント実績とログ
 ### Sprint 3 実績
@@ -117,9 +117,7 @@
 - ✅ SupervisorHandle から `Arc<RwLock>` を排除し、スナップショット経由の同期参照に一本化（2025-09-26, `core/src/actor/supervisor/supervisor_strategy.rs`）
 - ✅ deprecated 属性を既存 async getter 等へ付与し、`try_*` 系同期 API への移行を促進 (2025-09-26)
 
-**TODO（TODOサマリ参照）**
-- ⏳ 上記に伴う `async_trait` 依存の見直しを実施し、同期化できるメソッドを通常メソッドへ変更する。変更後は `tokio::sync::RwLock` を削除し、`ContextBorrow` ベースのメトリクス経路が成立するか確認する。
-- ⏳ protoactor-go (`actor/context.go`, `actor/supervision.go`) の呼び出し順序を写経し、所有権管理やライフタイム差分を `docs/dispatcher_runtime_policy.md` へ反映するドラフトを作成する。
+**残タスク（TODOサマリ参照）**
 
 ## Sprint 5 プランニング (案)
 - **ArcSwap ベース ContextHandle の本実装**: Sprint 4 PoC のフィードバックを取り込み、`ContextHandle` / `ActorCell` 周辺の API を再設計。protoactor-go の `SharedContext` / `ActorCell` に倣い、borrow 可能なメッセージセルを `Cow` でラップする案を検証。
@@ -135,8 +133,8 @@
 - 本計画書を更新した際は、完了済み項目のチェックやスプリントの次アクションを必ず見直す。
 
 ### async -> sync 変換候補（メモ）
-**TODO（TODOサマリ参照）**
-- ⏳ TypedActorContext 系は borrow を同期化済み。情報取得メソッド群は underlying `ActorContext` の async を再利用しているため、Supervisor/metrics の同期化後に再整理する。
+- **完了メモ**
+- ✅ TypedActorContext 系の情報取得メソッドを `borrow()` + `try_*` 優先に再整理し、フォールバックとしてのみ async getter を使用する構成へ更新（2025-09-26）。
 
 **完了済み / 進捗メモ**
 - ✅ ContextHandle 系の `Arc<Mutex>` はメッセージセル制御に依存しており、`ArcSwap` 化 PoC を実装しつつ `RwLock` 維持で順序保証を確認。
@@ -154,9 +152,6 @@
 - 閾値: CI では `REENTRANCY_THRESHOLD_NS` と `CONTEXT_BORROW_THRESHOLD_MS` をリポジトリ変数で管理。
 - ダッシュボード/CSV 化はバックログ: 実装タスク完了を優先し、`docs/bench_dashboard_plan.md` のワークフロー整備は後続スプリントで再開予定。
 
-**TODO（TODOサマリ参照）**
-- ⏳ ReceiverMiddlewareChain 実行部で `context_cell_stats()` の差分をログ出力し、実際のヒット率を収集する。
-- ⏳ `SupervisorHandle::new(self.clone())` など既存生成箇所に `inject_snapshot()` を組み込み、初期化直後からスナップショットが利用されるか確認する。
 
 ## リスクと対策
 - **性能退行**: ライフタイム化に伴う同期手段の変更でベンチ数値が悪化する可能性。→ 変更毎に `scripts/check_*_bench.sh` を実行し、CI のアラートを必ず確認。

@@ -91,7 +91,8 @@ impl<M: Message> TypedContextSyncView<M> for TypedActorContextSyncView<M> {
 
   fn message_snapshot(&self) -> Option<M>
   where
-    M: Clone, {
+    M: Clone,
+  {
     self
       .context
       .underlying

@@ -111,7 +111,9 @@ impl Process for GuardianProcess {
       let actor_system = self.guardians.actor_system();
       let supervisor_clone = self.clone();
       let supervisor_arc: Arc<dyn Supervisor> = Arc::new(supervisor_clone);
-      let supervisor_handle = SupervisorHandle::new_arc(supervisor_arc);
+      let supervisor_handle =
+        SupervisorHandle::new_arc_with_metrics(supervisor_arc.clone(), actor_system.metrics_runtime_slot());
+      supervisor_handle.inject_snapshot(supervisor_arc);
       self
         .strategy
         .handle_child_failure(

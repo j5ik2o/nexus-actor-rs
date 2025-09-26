@@ -85,7 +85,8 @@ impl TestMessageBase for TestMessageBaseHandle {
 
 async fn new_priority_ring_queue<M>() -> PriorityQueue<M, MpscUnboundedChannelQueue<M>>
 where
-  M: TestMessageBase + Clone, {
+  M: TestMessageBase + Clone,
+{
   let queue = PriorityQueue::new(|| MpscUnboundedChannelQueue::new());
   assert_eq!(queue.len().await, QueueSize::Limited(0));
   assert_eq!(queue.capacity().await, QueueSize::Limitless);
