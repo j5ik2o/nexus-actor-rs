@@ -59,8 +59,7 @@ impl Metrics {
 
   pub fn foreach<F>(&self, f: F)
   where
-    F: FnOnce(&ActorMetrics, &MetricsRuntime),
-  {
+    F: FnOnce(&ActorMetrics, &MetricsRuntime), {
     if let Some(runtime) = self.runtime() {
       let actor_metrics = runtime.actor_metrics();
       f(&actor_metrics, &runtime);

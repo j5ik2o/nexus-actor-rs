@@ -32,8 +32,7 @@ impl Decider {
   pub fn new<F, Fut>(f: F) -> Self
   where
     F: Fn(ErrorReason) -> Fut + Send + Sync + 'static,
-    Fut: Future<Output = Directive> + Send + 'static,
-  {
+    Fut: Future<Output = Directive> + Send + 'static, {
     Decider(Arc::new(move |error| Box::pin(f(error))))
   }
 
@@ -230,15 +229,13 @@ impl SupervisorHandle {
 
   pub fn new_with_metrics<S>(supervisor: S, metrics_runtime: Arc<ArcSwapOption<MetricsRuntime>>) -> Self
   where
-    S: Supervisor + Clone + 'static,
-  {
+    S: Supervisor + Clone + 'static, {
     SupervisorHandle::new_arc_with_metrics(Arc::new(supervisor), metrics_runtime)
   }
 
   pub fn new<S>(supervisor: S) -> Self
   where
-    S: Supervisor + Clone + 'static,
-  {
+    S: Supervisor + Clone + 'static, {
     SupervisorHandle::new_arc(Arc::new(supervisor))
   }
 }

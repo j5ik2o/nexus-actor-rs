@@ -376,8 +376,7 @@ pub fn deserialize_message(
 
 pub fn initialize_serializers<T>() -> Result<(), SerializerError>
 where
-  T: Message + Default + ProstMessage + Serialize + for<'de> Deserialize<'de> + Send + Sync + 'static,
-{
+  T: Message + Default + ProstMessage + Serialize + for<'de> Deserialize<'de> + Send + Sync + 'static, {
   initialize_proto_serializers::<T>()?;
   initialize_json_serializers::<T>()?;
   Ok(())

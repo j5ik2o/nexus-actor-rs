@@ -399,7 +399,7 @@ impl ActorContext {
         } else {
           let refreshed = cloned.prepare_context_handle().await;
           extras.set_context(refreshed.clone()).await;
-          SenderContextHandle::new(refreshed)
+          SenderContextHandle::from_context(refreshed)
         };
         chain
           .run(sender_context, pid, MessageEnvelope::new(message_handle))
@@ -419,7 +419,16 @@ impl ActorContext {
   }
 
   async fn set_message_or_envelope(&mut self, message_handle: MessageHandle) {
-    self.message_swap().store(Some(Arc::new(message_handle)));
+    let swap = self.message_swap();
+    if let Some(mut existing) = swap.load_full() {
+      if Arc::strong_count(&existing) == 1 {
+        let slot = Arc::make_mut(&mut existing);
+        *slot = message_handle;
+        swap.store(Some(existing));
+        return;
+      }
+    }
+    swap.store(Some(Arc::new(message_handle)));
   }
 
   async fn reset_message_or_envelope(&mut self) {
@@ -690,7 +699,16 @@ impl ActorContext {
 #[cfg(test)]
 impl ActorContext {
   pub(crate) async fn inject_message_for_test(&self, message_handle: MessageHandle) {
-    self.message_swap().store(Some(Arc::new(message_handle)));
+    let swap = self.message_swap();
+    if let Some(mut existing) = swap.load_full() {
+      if Arc::strong_count(&existing) == 1 {
+        let slot = Arc::make_mut(&mut existing);
+        *slot = message_handle;
+        swap.store(Some(existing));
+        return;
+      }
+    }
+    swap.store(Some(Arc::new(message_handle)));
   }
 
   pub(crate) async fn clear_message_for_test(&self) {
