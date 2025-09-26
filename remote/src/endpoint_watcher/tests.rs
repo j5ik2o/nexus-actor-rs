@@ -47,18 +47,18 @@ async fn get_watched_exposes_live_pid_set_map() -> TestResult<()> {
   let watcher = EndpointWatcher::new(Arc::downgrade(&remote), "endpoint-test".to_string());
 
   let watched_map = watcher.get_watched();
-  let mut pid_set = PidSet::new().await;
+  let pid_set = PidSet::new();
   let target_pid = Pid {
     address: "remote-address".to_string(),
     id: "watched".to_string(),
     request_id: 0,
   };
-  pid_set.add(target_pid.clone()).await;
+  pid_set.add(target_pid.clone());
   watched_map.insert("watcher".to_string(), pid_set);
 
   let stored_map = watcher.get_watched();
   let entry = stored_map.get("watcher").expect("watcher entry missing");
-  assert!(entry.contains(&target_pid).await);
+  assert!(entry.contains(&target_pid));
 
   Ok(())
 }
