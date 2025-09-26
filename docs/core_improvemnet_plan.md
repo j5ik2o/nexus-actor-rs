@@ -24,13 +24,13 @@
 - [x] **ContextHandle の ArcSwap 本実装** - PoC をプロダクション品質に引き上げ、ContextBorrow<'_> のライフタイム境界を明確化する。ReceiverContext 系で所有権移譲が複雑化するリスクに対する対策も含める。
 - [x] **Supervisor Metrics の完全同期化** - record_supervisor_metrics 経路を ArcSwap<MetricsRuntime> 経由で同期アクセス化し、exporter 初期化順のボトルネックを解消してライフタイム再入リスクを下げる。
 - [x] **Concurrent Test（loom 等）の整備** - 同期アクセス設計の安全性を loom などで検証し、並行シナリオで予期しない await が混在しないか確認する。
-- [ ] ベンチ結果を CSV 化して履歴追跡 (`scripts/export_bench_metrics.py`)
-- [ ] `docs/bench_dashboard_plan.md` に沿った GitHub Pages 公開
-- [ ] `cargo make coverage` をライフタイム回帰テストに組み込み
+- [x] ベンチ結果を CSV 化して履歴追跡 (`scripts/export_bench_metrics.py`)
+- [x] `docs/bench_dashboard_plan.md` に沿った GitHub Pages 公開（bench-weekly ワークフロー & Pages ダッシュボードを追加）
+- [x] `cargo make coverage` をライフタイム回帰テストに組み込み（`cargo make lifetime-regression` タスクを追加）
 - [x] **ContextBorrow ホットパスのロック計測** - context_borrow/borrow_hot_path ベンチの軽度な退行を調査するため、ContextHandle 経路のロック取得頻度を計測し、プロファイラでホットパスを再確認する。同期 getter 再設計メモに計測ログを反映済み。
-- [ ] **RootContext/SenderContext の同期アクセサ再設計** - RootContext::request_future 経路を含む送信系 API から非同期ロックを排除し、ContextHandle と同様の ArcSwap スナップショットを適用する。
+- [x] **RootContext/SenderContext の同期アクセサ再設計** - RootContext::request_future 経路を含む送信系 API から非同期ロックを排除し、guardian/metrics 取得も ArcSwap スナップショット化する。SenderContextHandle は ContextHandle/RootContext の同期参照のみを許可し、pipeline 経路で await を撤廃する。**完了 (2025-09-26)**: RootSendPipeline/RootRequestFuturePipeline を同期化、ActorSystem::guardians_snapshot 追加、SenderContextHandle で try_get_sender_opt 利用
 - [x] **ContextHandle メッセージセル刷新** - message_or_envelope_opt を ArcSwap ベースに置換し、借用系 API を同期化。ベンチでは若干のばらつきが残るため、追加の最適化（割り当て削減など）を検討中。
-- [ ] **ContextDecorator/Middleware 連鎖の同期化** - ContextDecoratorChain/ReceiverMiddlewareChain が ContextBorrow を保持したまま同期処理できるよう再設計し、余分な ContextHandle::new を排除する。
+- [ ] **ContextDecorator/Middleware 連鎖の同期化** - ContextDecoratorChain/ReceiverMiddlewareChain を ContextSnapshot (borrow + ArcSwap スナップショット) ベースへ再設計し、`ContextHandle::new` 多重生成を排除する。lock-metrics の read ロックをゼロに近づけるため、同期パス優先＋async フォールバックの二段構えを整備する。
 - [ ] **Supervisor メトリクスの周辺プロセス展開** - DeadLetterProcess や ActorFutureProcess へ ArcSwap<MetricsRuntime> の同期アクセスを拡張し、メトリクス API を統一する。
 
 ### 完了項目
@@ -56,6 +56,9 @@
 - 残タスク: ContextHandle に送信者スナップショット API を追加、TypedContextHandle / TypedActorContext / TypedRootContext に `TypedContextSyncView` 実装を提供、`ContextAdapter` やベンチ用コードを `sync_view()` に移行、関連ドキュメント（`docs/typed_context_guidelines.md` など）を更新。
 - 2025-09-26 計測: `cargo bench -p nexus-actor-bench --features lock-metrics` の `context_borrow/borrow_hot_path` で read lock 654,000 回 (約 2,000/iteration), write lock 0, snapshot hit 1,308,654, snapshot miss 0。`ctx.get_message_handle_opt().await` 以外のルート (RootContext/request_future 経路など) で read lock が維持されている可能性があるため、対象 API の分解と同期アクセサ適用範囲の再確認が必要。
 - 2025-09-26 追試: `cargo bench -p nexus-actor-bench --bench reentrancy` で `context_borrow/borrow_hot_path` は 32.08ms (変化域 −1.5%〜+0.27%)。`--features lock-metrics` 付きでは 32.28ms（約 −8.8% 改善）と揮発する結果。ArcSwap 化による追加 `Arc` 割り当てがオーバーヘッドとなる可能性があるため、引き続きプロファイラでの解析とメモリ割り当ての削減策（専用セル構造検討など）が必要。
+- 次ステップ: メッセージセルの追加割り当て削減 PoC を SmallVec / 再利用 Arc / 専用セルの3案で実施し、`context_borrow/borrow_hot_path` の alloc 指標を比較する。採用案を pipeline と ContextHandle に反映し、ドキュメントへ記録する。
+- Decorator/Middleware 連鎖は ContextSnapshot (borrow + sender/receiver スナップショット) を入力とする同期 API へ置換し、async フォールバックのみ Future を生成する構成を検討する。`ContextHandle::new` 多重生成箇所の棚卸しと lock-metrics の read ロック再測定を行う。
+- `cargo make lifetime-regression` で tests + coverage を一括実行するタスクを追加。CI/手動回帰時はこのタスクを利用する。
 
 ## ロードマップ詳細
 ### フェーズ A: ActorContext コアの再編
