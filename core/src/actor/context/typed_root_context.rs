@@ -4,8 +4,8 @@ use crate::actor::core::{ActorHandle, SpawnError, TypedExtendedPid, TypedProps};
 use crate::actor::message::{Message, MessageHandle, ReadonlyMessageHeadersHandle, TypedMessageEnvelope};
 use crate::actor::process::actor_future::ActorFuture;
 use crate::actor::typed_context::{
-  TypedInfoPart, TypedMessagePart, TypedSenderContext, TypedSenderPart, TypedSpawnerContext, TypedSpawnerPart,
-  TypedStopperPart,
+  TypedContextSyncView, TypedInfoPart, TypedMessagePart, TypedSenderContext, TypedSenderPart, TypedSpawnerContext,
+  TypedSpawnerPart, TypedStopperPart,
 };
 use async_trait::async_trait;
 use nexus_actor_message_derive_rs::Message;
@@ -14,7 +14,7 @@ use std::time::Duration;
 #[derive(Debug, Clone, PartialEq, Eq, Message)]
 pub struct UnitMessage;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TypedRootContext {
   inner: RootContext,
 }
@@ -22,6 +22,33 @@ pub struct TypedRootContext {
 impl TypedRootContext {
   pub fn new(inner: RootContext) -> Self {
     Self { inner }
+  }
+
+  pub fn sync_view(&self) -> TypedRootContextSyncView {
+    TypedRootContextSyncView::new(self.clone())
+  }
+}
+
+#[derive(Debug, Clone)]
+pub struct TypedRootContextSyncView {
+  context: TypedRootContext,
+}
+
+impl TypedRootContextSyncView {
+  fn new(context: TypedRootContext) -> Self {
+    Self { context }
+  }
+}
+
+impl TypedContextSyncView<UnitMessage> for TypedRootContextSyncView {
+  fn actor_system_snapshot(&self) -> Option<ActorSystem> {
+    Some(self.context.inner.actor_system_snapshot())
+  }
+
+  fn message_header_snapshot(&self) -> Option<ReadonlyMessageHeadersHandle> {
+    Some(ReadonlyMessageHeadersHandle::new_arc(
+      self.context.inner.message_headers_snapshot(),
+    ))
   }
 }
 
@@ -169,5 +196,27 @@ impl TypedStopperPart<UnitMessage> for TypedRootContext {
       .inner
       .poison_future_with_timeout(pid.get_underlying(), timeout)
       .await
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::actor::actor_system::ActorSystem;
+  use crate::actor::message::MessageHeaders;
+  use std::sync::Arc;
+
+  #[tokio::test]
+  async fn sync_view_exposes_snapshots() {
+    let actor_system = ActorSystem::new().await.expect("actor system");
+    let root = actor_system.get_root_context().await;
+    let headers = Arc::new(MessageHeaders::default());
+    let typed_root = root.with_headers(headers.clone()).to_typed();
+
+    let snapshot = typed_root.sync_view();
+    assert!(snapshot.actor_system_snapshot().is_some());
+    assert!(snapshot.message_header_snapshot().is_some());
+    assert!(snapshot.parent_snapshot().is_none());
+    assert!(snapshot.sender_snapshot().is_none());
   }
 }

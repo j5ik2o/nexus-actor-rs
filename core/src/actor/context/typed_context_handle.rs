@@ -10,8 +10,8 @@ use crate::actor::message::{
 };
 use crate::actor::process::actor_future::ActorFuture;
 use crate::actor::typed_context::{
-  TypedContext, TypedInfoPart, TypedMessagePart, TypedReceiverContext, TypedReceiverPart, TypedSenderContext,
-  TypedSenderPart, TypedSpawnerContext, TypedSpawnerPart, TypedStopperPart,
+  TypedContext, TypedContextSyncView, TypedInfoPart, TypedMessagePart, TypedReceiverContext, TypedReceiverPart,
+  TypedSenderContext, TypedSenderPart, TypedSpawnerContext, TypedSpawnerPart, TypedStopperPart,
 };
 use crate::ctxext::extensions::{ContextExtensionHandle, ContextExtensionId};
 use async_trait::async_trait;
@@ -20,10 +20,19 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::Duration;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct TypedContextHandle<M: Message> {
   underlying: ContextHandle,
   phantom_data: PhantomData<M>,
+}
+
+impl<M: Message> Clone for TypedContextHandle<M> {
+  fn clone(&self) -> Self {
+    Self {
+      underlying: self.underlying.clone(),
+      phantom_data: PhantomData,
+    }
+  }
 }
 
 impl<M: Message> TypedContextHandle<M> {
@@ -77,6 +86,70 @@ impl<M: Message> TypedContextHandle<M> {
   pub fn try_message_header(&self) -> Option<ReadonlyMessageHeadersHandle> {
     self.underlying.try_get_message_header_handle()
   }
+
+  pub fn try_sender(&self) -> Option<TypedExtendedPid<M>> {
+    self.underlying.try_get_sender_opt().map(|pid| pid.into())
+  }
+
+  pub fn sync_view(&self) -> TypedContextHandleSyncView<M> {
+    TypedContextHandleSyncView::new(self.clone())
+  }
+}
+
+#[derive(Debug)]
+pub struct TypedContextHandleSyncView<M: Message> {
+  handle: TypedContextHandle<M>,
+}
+
+impl<M: Message> TypedContextHandleSyncView<M> {
+  fn new(handle: TypedContextHandle<M>) -> Self {
+    Self { handle }
+  }
+}
+
+impl<M: Message> TypedContextSyncView<M> for TypedContextHandleSyncView<M> {
+  fn actor_system_snapshot(&self) -> Option<ActorSystem> {
+    self.handle.with_actor_borrow(|borrow| borrow.actor_system().clone())
+  }
+
+  fn actor_snapshot(&self) -> Option<ActorHandle> {
+    self
+      .handle
+      .with_actor_borrow(|borrow| borrow.actor().cloned())
+      .and_then(|actor| actor)
+  }
+
+  fn parent_snapshot(&self) -> Option<TypedExtendedPid<M>> {
+    self
+      .handle
+      .with_actor_borrow(|borrow| borrow.parent().cloned().map(|pid| pid.into()))
+      .and_then(|pid| pid)
+  }
+
+  fn self_snapshot(&self) -> Option<TypedExtendedPid<M>> {
+    self
+      .handle
+      .with_actor_borrow(|borrow| borrow.self_pid().cloned().map(|pid| pid.into()))
+      .and_then(|pid| pid)
+  }
+
+  fn message_handle_snapshot(&self) -> Option<MessageHandle> {
+    self.handle.try_message_handle()
+  }
+
+  fn message_snapshot(&self) -> Option<M>
+  where
+    M: Clone, {
+    self.handle.try_message_opt()
+  }
+
+  fn message_header_snapshot(&self) -> Option<ReadonlyMessageHeadersHandle> {
+    self.handle.try_message_header()
+  }
+
+  fn sender_snapshot(&self) -> Option<TypedExtendedPid<M>> {
+    self.handle.try_sender()
+  }
 }
 
 #[cfg(test)]
@@ -86,7 +159,7 @@ mod tests {
   use crate::actor::context::actor_context::ActorContext;
   use crate::actor::context::context_handle::ContextHandle;
   use crate::actor::core::{ActorError, Props};
-  use crate::actor::message::Message;
+  use crate::actor::message::{Message, MessageEnvelope};
   use std::any::Any;
 
   #[derive(Debug, Clone, PartialEq, Eq)]
@@ -110,19 +183,27 @@ mod tests {
   async fn try_typed_message_snapshot() {
     let actor_system = ActorSystem::new().await.expect("actor system");
     let props = Props::from_async_actor_receiver(|_ctx| async { Ok::<(), ActorError>(()) }).await;
-    let actor_context = ActorContext::new(actor_system, props, None).await;
+    let actor_context = ActorContext::new(actor_system.clone(), props, None).await;
+
+    let sender_pid = actor_system.new_local_pid("sender").await;
+    let envelope = MessageEnvelope::new(MessageHandle::new(TestMessage.clone())).with_sender(sender_pid.clone());
     actor_context
-      .inject_message_for_test(MessageHandle::new(TestMessage.clone()))
+      .inject_message_for_test(MessageHandle::new(envelope))
       .await;
 
     let typed_handle = TypedContextHandle::<TestMessage>::new(ContextHandle::new(actor_context.clone()));
+    let snapshot = typed_handle.sync_view();
 
-    assert!(typed_handle.try_message_opt().is_some());
-    assert!(typed_handle.try_message_envelope().is_none());
-    assert!(typed_handle.try_message_header().is_none());
+    assert_eq!(snapshot.message_snapshot(), Some(TestMessage));
+    assert!(snapshot.message_handle_snapshot().is_some());
+    assert_eq!(
+      snapshot.sender_snapshot().map(|pid| pid.get_underlying().clone()),
+      Some(sender_pid.clone()),
+    );
+    assert!(snapshot.actor_system_snapshot().is_some());
 
     actor_context.clear_message_for_test().await;
-    assert!(typed_handle.try_message_opt().is_none());
+    assert!(snapshot.message_snapshot().is_none());
   }
 }
 
