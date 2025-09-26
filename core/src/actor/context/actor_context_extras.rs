@@ -14,6 +14,7 @@ use crate::actor::core::RestartStatistics;
 use crate::actor::dispatch::Runnable;
 use crate::actor::message::MessageHandles;
 use crate::ctxext::extensions::ContextExtensions;
+use arc_swap::ArcSwapOption;
 
 #[derive(Debug, Clone)]
 struct ActorContextExtrasInner {
@@ -22,19 +23,20 @@ struct ActorContextExtrasInner {
   rs: Arc<RwLock<Option<RestartStatistics>>>,
   stash: MessageHandles,
   watchers: PidSet,
-  context: WeakContextHandle,
+  context: Arc<ArcSwapOption<WeakContextHandle>>,
   extensions: ContextExtensions,
 }
 
 impl ActorContextExtrasInner {
   pub async fn new(context: ContextHandle) -> Self {
+    let context_arc = Arc::new(ArcSwapOption::from(Some(Arc::new(context.downgrade()))));
     Self {
       children: PidSet::new().await,
       receive_timeout_timer: None,
       rs: Arc::new(RwLock::new(None)),
       stash: MessageHandles::new(vec![]),
       watchers: PidSet::new().await,
-      context: context.downgrade(),
+      context: context_arc,
       extensions: ContextExtensions::new(),
     }
   }
@@ -58,22 +60,30 @@ impl ActorContextExtras {
 
   pub async fn get_context(&self) -> Option<ContextHandle> {
     let mg = self.inner.read().await;
-    mg.context.upgrade()
+    mg.context.load_full().and_then(|weak| weak.upgrade())
   }
 
   pub async fn get_sender_context(&self) -> Option<SenderContextHandle> {
     let inner_mg = self.inner.read().await;
-    inner_mg.context.upgrade().map(SenderContextHandle::new)
+    inner_mg
+      .context
+      .load_full()
+      .and_then(|weak| weak.upgrade())
+      .map(SenderContextHandle::from_context)
   }
 
   pub async fn get_receiver_context(&self) -> Option<ReceiverContextHandle> {
     let inner_mg = self.inner.read().await;
-    inner_mg.context.upgrade().map(ReceiverContextHandle::new)
+    inner_mg
+      .context
+      .load_full()
+      .and_then(|weak| weak.upgrade())
+      .map(ReceiverContextHandle::new)
   }
 
   pub async fn set_context(&self, context: ContextHandle) {
-    let mut mg = self.inner.write().await;
-    mg.context = context.downgrade();
+    let mg = self.inner.write().await;
+    mg.context.store(Some(Arc::new(context.downgrade())));
   }
 
   pub async fn get_extensions(&self) -> ContextExtensions {
