@@ -2,9 +2,9 @@ use crate::actor::core::ActorError;
 use crate::actor::core::ErrorReason;
 use crate::actor::dispatch::bounded::BoundedMailboxQueue;
 use crate::actor::dispatch::dispatcher::{DispatcherHandle, TokioRuntimeContextDispatcher};
-use crate::actor::dispatch::mailbox::Mailbox;
 use crate::actor::dispatch::message_invoker::{MessageInvoker, MessageInvokerHandle};
 use crate::actor::dispatch::unbounded::unbounded_mpsc_mailbox_creator;
+use crate::actor::dispatch::{Mailbox, MailboxQueueKind};
 use crate::actor::message::MessageHandle;
 use async_trait::async_trait;
 use nexus_actor_utils_rs::collections::{QueueReader, QueueWriter, RingQueue};
@@ -61,6 +61,8 @@ impl MessageInvoker for TestMessageInvoker {
   }
 
   async fn escalate_failure(&mut self, _: ErrorReason, _: MessageHandle) {}
+
+  async fn record_mailbox_queue_latency(&mut self, _: MailboxQueueKind, _: Duration) {}
 }
 
 #[tokio::test]

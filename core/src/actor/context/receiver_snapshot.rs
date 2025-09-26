@@ -22,7 +22,8 @@ impl ReceiverSnapshot {
 
   pub fn map_message<F>(mut self, f: F) -> Self
   where
-    F: FnOnce(MessageEnvelope) -> MessageEnvelope, {
+    F: FnOnce(MessageEnvelope) -> MessageEnvelope,
+  {
     self.message = f(self.message);
     self
   }

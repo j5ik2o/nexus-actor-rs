@@ -89,7 +89,8 @@ impl PidSet {
 
   pub fn for_each<F>(&self, mut f: F)
   where
-    F: FnMut(usize, &Pid), {
+    F: FnMut(usize, &Pid),
+  {
     let pids = self.inner.pids.read();
     for (idx, pid) in pids.iter().enumerate() {
       f(idx, pid);

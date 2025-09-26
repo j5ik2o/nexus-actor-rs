@@ -98,7 +98,8 @@ pub struct ActorConfigOption(Arc<RwLock<dyn FnMut(&mut Config) + Send + Sync + '
 impl ActorConfigOption {
   pub fn new<F>(f: F) -> Self
   where
-    F: FnMut(&mut Config) + Send + Sync + 'static, {
+    F: FnMut(&mut Config) + Send + Sync + 'static,
+  {
     Self(Arc::new(RwLock::new(f)))
   }
 

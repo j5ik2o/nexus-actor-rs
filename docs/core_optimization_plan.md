@@ -12,8 +12,8 @@
 - [x] MessageHandles の MPSC キュー化やバッチ処理案を調査し、影響範囲と移行ステップを整理する。 **(2025-09-26: parking_lot::Mutex ベース同期化 + stash 非 async 化)**
 - [x] RestartStatistics の lazy 初期化を OnceCell 等で代替する設計メモを用意し、ActorContext API の非同期依存を洗い出す。 **(2025-09-26: OnceCell 化 + extras lock リファクタ)**
 - [x] ActorContextExtrasInner の読み取り専用データと可変データを分離し、ロックスコープ短縮の設計をまとめる。 **(2025-09-26: mutable 専用 InstrumentedRwLock + PidSet 内部同期)**
-- [ ] ディスパッチャ経路のメトリクスを整備し、ActorContext 操作前後のキュー滞留時間を計測するベンチマークを追加する。 **(ベンチテンプレート作成済み)**
-- [ ] core の変更が remote/cluster に及ぼす影響調査と移行計画のドラフトを作成する。 **(影響メモ・連携セクション追加済み)**
+- [x] ディスパッチャ経路のメトリクスを整備し、ActorContext 操作前後のキュー滞留時間を計測するベンチマークを追加する。 **(2025-09-26: mailbox queue dwell histogram と bench/benches/dispatcher_queue_latency.rs 追加)**
+- [x] core の変更が remote/cluster に及ぼす影響調査と移行計画のドラフトを作成する。 **(2025-09-26: MessageInvoker::record_mailbox_queue_latency 追加と remote/cluster フォローアップメモ)**
 
 ## 優先度と進行ステップ
 1. ロック待ち計測 (tokio-console + tracing) をセットアップし、ActorContext 周辺の待機時間ヒートマップを取得する。
@@ -43,6 +43,12 @@
 - QA/テスト担当: 新規ベンチや DelayQueue 置換シナリオを回帰テストスイートへ組み込む計画を作成する。
 - PM/プロダクト: マイルストーンとリスクを把握し、必要なリソースやスケジュール調整を行う。
 
+## remote/cluster 影響サマリ (2025-09-26)
+- `MessageInvoker` トレイトに `record_mailbox_queue_latency` (async) を追加し、mailbox 側からキュー滞留時間を伝播できるようにした。既存の invoker 実装は no-op 実装を追加済みだが、今後 remote/cluster で独自 invoker を追加する場合はメトリクスを forward する必要がある。
+- remote: EndpointWriterMailbox などの既存コードは新メソッドを利用しないが、遅延監視を導入する際は dispatcher queue latency を OpenTelemetry へ橋渡しできる。テスト用 `NoopInvoker` で新メソッドがカバーされていることを確認済み。
+- cluster: 現状 MessageInvoker 実装は存在しないため即時影響はなし。ただしアクター拡張で独自 invoker を導入する計画がある場合は、mailbox queue 指標を引き継ぐフックを追加すること。
+- 追従タスク: remote 側で `MetricsRuntime` へ滞留時間を送出するか検討し、必要であれば remote metrics のスキーマに `queue_kind` ラベルを追加。cluster 側はフェイルオーバーベンチ更新のみでよい見込み。
+
 ## 成果物 (ドキュメント/コード)
 - docs/benchmarks/tracing_actor_context.md (仮): tracing/tokio-console 計測結果と分析サマリ
 - docs/benchmarks/core_actor_context_lock.md (仮): PidSet/MessageHandles 同期化ベンチマークの比較表
@@ -50,6 +56,7 @@
 - docs/design/pid_set_sync_transition.md (仮): PidSet 同期化に伴う API 変更・テスト移行計画
 - core/examples/receive_timeout_delayqueue.rs (仮): DelayQueue 置換サンプル
 - bench/actor_context_lock.rs (仮): ActorContext ロック挙動を計測するベンチ
+- bench/benches/dispatcher_queue_latency.rs: メールボックス滞留時間の新規ベンチマーク
 
 ## マイルストーン案
 - M1: tracing/tokio-console PoC 完了、ヒートマップ共有 (2 週間目)
@@ -136,4 +143,10 @@
 ## 影響範囲リスト (初回調査)
 - core/src/actor/context/actor_context_extras.rs
 - core/src/actor/context/actor_context.rs
+- core/src/actor/dispatch/mailbox/default_mailbox.rs
+- core/src/actor/dispatch/message_invoker.rs
+- core/src/metrics/actor_metrics.rs
+- core/src/actor/metrics/metrics_impl.rs
+- bench/benches/dispatcher_queue_latency.rs
+- remote/src/tests.rs (MessageInvoker 追従の確認用)
 - remote/cluster 以下での ActorContextExtras 参照は現時点で検出されず。

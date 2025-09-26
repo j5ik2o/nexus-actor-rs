@@ -24,7 +24,8 @@ impl ReceiverMiddlewareChain {
   pub fn new<F, Fut>(f: F) -> Self
   where
     F: Fn(ReceiverContextHandle, MessageEnvelope) -> Fut + Send + Sync + 'static,
-    Fut: Future<Output = Result<(), ActorError>> + Send + 'static, {
+    Fut: Future<Output = Result<(), ActorError>> + Send + 'static,
+  {
     let async_step: ReceiverAsyncFn = Arc::new(move |snapshot: ReceiverSnapshot| {
       let (context_snapshot, message) = snapshot.into_parts();
       let context_handle = context_snapshot
@@ -42,7 +43,8 @@ impl ReceiverMiddlewareChain {
 
   pub fn with_sync<F>(self, sync: F) -> Self
   where
-    F: Fn(ReceiverSnapshot) -> ReceiverSnapshot + Send + Sync + 'static, {
+    F: Fn(ReceiverSnapshot) -> ReceiverSnapshot + Send + Sync + 'static,
+  {
     let previous = self.sync_step.clone();
     Self {
       sync_step: Arc::new(move |snapshot| {
@@ -55,7 +57,8 @@ impl ReceiverMiddlewareChain {
 
   pub fn with_async<F>(self, wrapper: F) -> Self
   where
-    F: Fn(ReceiverSnapshot, ReceiverAsyncFn) -> BoxFuture<'static, Result<(), ActorError>> + Send + Sync + 'static, {
+    F: Fn(ReceiverSnapshot, ReceiverAsyncFn) -> BoxFuture<'static, Result<(), ActorError>> + Send + Sync + 'static,
+  {
     let async_prev = self.async_step.clone();
     Self {
       sync_step: self.sync_step.clone(),

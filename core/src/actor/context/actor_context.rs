@@ -26,6 +26,7 @@ use crate::actor::core::SenderMiddlewareChain;
 use crate::actor::core::SpawnError;
 use crate::actor::core_types::message_types::Message as _;
 use crate::actor::dispatch::MailboxMessage;
+use crate::actor::dispatch::MailboxQueueKind;
 use crate::actor::dispatch::MessageInvoker;
 use crate::actor::message::AutoReceiveMessage;
 use crate::actor::message::Continuation;
@@ -241,7 +242,8 @@ impl ActorContext {
   pub fn with_typed_borrow<M, R, F>(&self, f: F) -> R
   where
     M: crate::actor::message::Message,
-    F: for<'a> FnOnce(crate::actor::context::TypedContextBorrow<'a, M>) -> R, {
+    F: for<'a> FnOnce(crate::actor::context::TypedContextBorrow<'a, M>) -> R,
+  {
     let borrow = self.borrow();
     let context_handle = self.context_handle();
     let view = crate::actor::context::TypedContextBorrow::new(self, context_handle, borrow);
@@ -1227,6 +1229,12 @@ impl MessageInvoker for ActorContext {
     }
 
     result
+  }
+
+  async fn record_mailbox_queue_latency(&mut self, queue: MailboxQueueKind, latency: Duration) {
+    if let Some(sink) = self.metrics_sink() {
+      sink.record_mailbox_queue_dwell_duration(latency.as_secs_f64(), queue.as_str());
+    }
   }
 
   async fn escalate_failure(&mut self, reason: ErrorReason, message_handle: MessageHandle) {

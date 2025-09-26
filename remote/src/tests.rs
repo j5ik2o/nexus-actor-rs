@@ -17,7 +17,7 @@ use nexus_actor_core_rs::actor::core::{ActorError, ErrorReason, Props};
 use nexus_actor_core_rs::actor::core_types::message_types::Message;
 use nexus_actor_core_rs::actor::dispatch::DeadLetterEvent;
 use nexus_actor_core_rs::actor::dispatch::{
-  Dispatcher, DispatcherHandle, Mailbox, MessageInvoker, MessageInvokerHandle, Runnable,
+  Dispatcher, DispatcherHandle, Mailbox, MailboxQueueKind, MessageInvoker, MessageInvokerHandle, Runnable,
 };
 use nexus_actor_core_rs::actor::message::MessageHandle;
 use nexus_actor_core_rs::generated::actor::Pid;
@@ -141,6 +141,8 @@ impl MessageInvoker for NoopInvoker {
   }
 
   async fn escalate_failure(&mut self, _reason: ErrorReason, _message_handle: MessageHandle) {}
+
+  async fn record_mailbox_queue_latency(&mut self, _: MailboxQueueKind, _: Duration) {}
 }
 
 #[derive(Debug, Clone)]

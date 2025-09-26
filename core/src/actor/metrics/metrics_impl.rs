@@ -58,7 +58,8 @@ impl Metrics {
 
   pub fn foreach<F>(&self, f: F)
   where
-    F: FnOnce(&ActorMetrics, &MetricsRuntime), {
+    F: FnOnce(&ActorMetrics, &MetricsRuntime),
+  {
     if let Some(runtime) = self.runtime() {
       let actor_metrics = runtime.actor_metrics();
       f(&actor_metrics, &runtime);
@@ -191,6 +192,13 @@ impl MetricsSink {
   pub fn record_message_size_with_labels(&self, size: u64, additional: &[KeyValue]) {
     let merged = self.merge_labels(additional);
     self.actor_metrics.record_message_size_with_opts(size, &merged);
+  }
+
+  pub fn record_mailbox_queue_dwell_duration(&self, duration: f64, queue_kind: &str) {
+    let merged = self.merge_labels(&[KeyValue::new("queue_kind", queue_kind.to_string())]);
+    self
+      .actor_metrics
+      .record_mailbox_queue_dwell_duration_with_opts(duration, &merged);
   }
 
   pub fn increment_dead_letter(&self) {

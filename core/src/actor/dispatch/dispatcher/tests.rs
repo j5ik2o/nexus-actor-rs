@@ -1,11 +1,13 @@
 use std::sync::Arc;
+use std::time::Duration;
 
 use crate::actor::core::ActorError;
 use crate::actor::core::ErrorReason;
 use crate::actor::core::Task;
-use crate::actor::dispatch::mailbox::Mailbox;
 use crate::actor::dispatch::message_invoker::MessageInvoker;
-use crate::actor::dispatch::{CurrentThreadDispatcher, DefaultMailbox, DispatcherHandle, MessageInvokerHandle};
+use crate::actor::dispatch::{
+  CurrentThreadDispatcher, DefaultMailbox, DispatcherHandle, Mailbox, MailboxQueueKind, MessageInvokerHandle,
+};
 use crate::actor::message::{Message, MessageHandle};
 use async_trait::async_trait;
 use nexus_actor_message_derive_rs::Message;
@@ -64,6 +66,8 @@ impl MessageInvoker for TestMessageInvoker {
     };
     self.received.lock().await.push(ReceivedMessage::Failure(reason_msg));
   }
+
+  async fn record_mailbox_queue_latency(&mut self, _: MailboxQueueKind, _: Duration) {}
 }
 
 // Test message types
