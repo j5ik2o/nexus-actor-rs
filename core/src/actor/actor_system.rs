@@ -27,7 +27,6 @@ struct ActorSystemInner {
   process_registry: Option<ProcessRegistry>,
   root_context: Option<RootContext>,
   event_stream: Arc<EventStream>,
-  guardians: Option<GuardiansValue>,
   dead_letter: Option<DeadLetterProcess>,
   extensions: Extensions,
   id: String,
@@ -43,7 +42,6 @@ impl ActorSystemInner {
       config,
       process_registry: None,
       root_context: None,
-      guardians: None,
       event_stream: Arc::new(EventStream::new()),
       dead_letter: None,
       extensions: Extensions::new(),
@@ -57,6 +55,7 @@ pub struct ActorSystem {
   inner: Arc<RwLock<ActorSystemInner>>,
   config: Arc<ArcSwap<Config>>,
   metrics_runtime: Arc<ArcSwapOption<MetricsRuntime>>,
+  guardians: Arc<ArcSwapOption<GuardiansValue>>,
 }
 
 #[derive(Debug, Clone)]
@@ -64,6 +63,7 @@ pub struct WeakActorSystem {
   inner: Weak<RwLock<ActorSystemInner>>,
   config: Weak<ArcSwap<Config>>,
   metrics_runtime: Weak<ArcSwapOption<MetricsRuntime>>,
+  guardians: Weak<ArcSwapOption<GuardiansValue>>,
 }
 
 impl ActorSystem {
@@ -80,6 +80,7 @@ impl ActorSystem {
   pub async fn new_with_config(config: Config) -> Result<Self, MetricsError> {
     let config_swap = Arc::new(ArcSwap::from_pointee(config.clone()));
     let metrics_runtime_swap = Arc::new(ArcSwapOption::from(None::<Arc<MetricsRuntime>>));
+    let guardians_swap = Arc::new(ArcSwapOption::from(None::<Arc<GuardiansValue>>));
 
     let system = Self {
       inner: Arc::new(RwLock::new(
@@ -87,6 +88,7 @@ impl ActorSystem {
       )),
       config: config_swap.clone(),
       metrics_runtime: metrics_runtime_swap.clone(),
+      guardians: guardians_swap.clone(),
     };
     system
       .set_root_context(RootContext::new(system.clone(), EMPTY_MESSAGE_HEADER.clone(), &[]))
@@ -123,6 +125,7 @@ impl ActorSystem {
       inner: Arc::downgrade(&self.inner),
       config: Arc::downgrade(&self.config),
       metrics_runtime: Arc::downgrade(&self.metrics_runtime),
+      guardians: Arc::downgrade(&self.guardians),
     }
   }
 
@@ -161,10 +164,17 @@ impl ActorSystem {
     self.metrics_runtime.clone()
   }
 
+  pub(crate) fn guardians_slot(&self) -> Arc<ArcSwapOption<GuardiansValue>> {
+    self.guardians.clone()
+  }
+
+  pub fn guardians_snapshot(&self) -> Option<GuardiansValue> {
+    self.guardians.load_full().map(|guardians| (*guardians).clone())
+  }
+
   pub fn metrics_foreach<R, F>(&self, f: F) -> Option<R>
   where
-    F: FnOnce(&Arc<MetricsRuntime>) -> R,
-  {
+    F: FnOnce(&Arc<MetricsRuntime>) -> R, {
     let runtime = self.metrics_runtime()?;
     Some(f(&runtime))
   }
@@ -195,8 +205,9 @@ impl ActorSystem {
   }
 
   pub async fn get_guardians(&self) -> GuardiansValue {
-    let inner_mg = self.inner.read().await;
-    inner_mg.guardians.as_ref().unwrap().clone()
+    self
+      .guardians_snapshot()
+      .expect("GuardiansValue must be initialized before access")
   }
 
   async fn set_root_context(&self, root: RootContext) {
@@ -210,8 +221,7 @@ impl ActorSystem {
   }
 
   async fn set_guardians(&self, guardians: GuardiansValue) {
-    let mut inner_mg = self.inner.write().await;
-    inner_mg.guardians = Some(guardians);
+    self.guardians.store(Some(Arc::new(guardians)));
   }
 
   async fn set_dead_letter(&self, dead_letter: DeadLetterProcess) {
@@ -230,10 +240,12 @@ impl WeakActorSystem {
     let inner = self.inner.upgrade()?;
     let config = self.config.upgrade()?;
     let metrics_runtime = self.metrics_runtime.upgrade()?;
+    let guardians = self.guardians.upgrade()?;
     Some(ActorSystem {
       inner,
       config,
       metrics_runtime,
+      guardians,
     })
   }
 }
