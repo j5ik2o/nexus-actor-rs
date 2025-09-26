@@ -7,10 +7,12 @@ if [ "$#" -eq 0 ]; then
 fi
 
 sanitize() {
-  local input="$1"
-  input="${input//\`/'}"
-  input="${input//\"/'}"
-  printf '%s' "$input"
+  python3 - "$1" <<'PY'
+import sys
+text = sys.argv[1]
+text = text.replace('`', "'").replace('"', "'")
+print(text, end='')
+PY
 }
 
 RAW_PROMPT="$*"
