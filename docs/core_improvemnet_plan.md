@@ -29,7 +29,7 @@
 - [ ] `cargo make coverage` をライフタイム回帰テストに組み込み
 - [x] **ContextBorrow ホットパスのロック計測** - context_borrow/borrow_hot_path ベンチの軽度な退行を調査するため、ContextHandle 経路のロック取得頻度を計測し、プロファイラでホットパスを再確認する。同期 getter 再設計メモに計測ログを反映済み。
 - [ ] **RootContext/SenderContext の同期アクセサ再設計** - RootContext::request_future 経路を含む送信系 API から非同期ロックを排除し、ContextHandle と同様の ArcSwap スナップショットを適用する。
-- [ ] **ContextHandle メッセージセル刷新** - message_or_envelope_opt を ArcSwap/Cow 等へ置換し、borrow ホットパスでの read lock を削減する。
+- [x] **ContextHandle メッセージセル刷新** - message_or_envelope_opt を ArcSwap ベースに置換し、借用系 API を同期化。ベンチでは若干のばらつきが残るため、追加の最適化（割り当て削減など）を検討中。
 - [ ] **ContextDecorator/Middleware 連鎖の同期化** - ContextDecoratorChain/ReceiverMiddlewareChain が ContextBorrow を保持したまま同期処理できるよう再設計し、余分な ContextHandle::new を排除する。
 - [ ] **Supervisor メトリクスの周辺プロセス展開** - DeadLetterProcess や ActorFutureProcess へ ArcSwap<MetricsRuntime> の同期アクセスを拡張し、メトリクス API を統一する。
 
@@ -55,6 +55,7 @@
 - 設計方針: `TypedContextSyncView` を実装体付きに拡張し、`TypedContext` へ `sync_view()`（仮称）を追加。内部で `ContextBorrow` と `ContextCell` のスナップショットを束ねた `TypedContextSnapshot` を返し、取得できなかった項目は既存 async getter へフォールバックする。
 - 残タスク: ContextHandle に送信者スナップショット API を追加、TypedContextHandle / TypedActorContext / TypedRootContext に `TypedContextSyncView` 実装を提供、`ContextAdapter` やベンチ用コードを `sync_view()` に移行、関連ドキュメント（`docs/typed_context_guidelines.md` など）を更新。
 - 2025-09-26 計測: `cargo bench -p nexus-actor-bench --features lock-metrics` の `context_borrow/borrow_hot_path` で read lock 654,000 回 (約 2,000/iteration), write lock 0, snapshot hit 1,308,654, snapshot miss 0。`ctx.get_message_handle_opt().await` 以外のルート (RootContext/request_future 経路など) で read lock が維持されている可能性があるため、対象 API の分解と同期アクセサ適用範囲の再確認が必要。
+- 2025-09-26 追試: `cargo bench -p nexus-actor-bench --bench reentrancy` で `context_borrow/borrow_hot_path` は 32.08ms (変化域 −1.5%〜+0.27%)。`--features lock-metrics` 付きでは 32.28ms（約 −8.8% 改善）と揮発する結果。ArcSwap 化による追加 `Arc` 割り当てがオーバーヘッドとなる可能性があるため、引き続きプロファイラでの解析とメモリ割り当ての削減策（専用セル構造検討など）が必要。
 
 ## ロードマップ詳細
 ### フェーズ A: ActorContext コアの再編
