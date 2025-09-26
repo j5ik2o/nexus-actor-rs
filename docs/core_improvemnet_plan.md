@@ -72,29 +72,15 @@
 
 - [x] **ActorContext 利用箇所の最終整理** - base_context_handle を未適用の ContextHandle::new 呼び出しを棚卸しして同期スナップショットへ統一する。**完了 (2025-09-26)**: base_context_handle の共有ハンドル公開により Props 初期化での同期化が実現。
 - [x] **ドキュメント/テスト最終反映** - typed_context_guidelines.md 等に今回の同期化手順とベンチ結果を反映し、必要な回帰テストを追記する。**完了 (2025-09-26)**: typed_context_guidelines.md へ context_handle の指針を追加し、cargo test --workspace を実行してすべてのテストが成功することを確認済み。
+- [x] **TypedContextSyncView 実装** - TypedContextHandle / TypedActorContext / TypedRootContext に sync_view() を実装し、ContextBorrow + ContextCell スナップショットを束ねた TypedContextSnapshot を返す。**完了 (2025-09-26)**: TypedContextSnapshotを導入し、TypedContextHandle/TypedActorContext/TypedRootContextのsync_view()が不変スナップショットを返すようになった。関連テストもスナップショット保持仕様に合わせて更新済み。
+- [x] **送信者スナップショット API 拡張** - ContextHandle に送信者同期取得 API を追加し、Receiver/SenderContextHandle から try_get_sender_opt を経由して利用できるようにする。**完了 (2025-09-26)**: ContextHandle::sender_snapshotとReceiverContextHandle/SenderContextHandle::try_senderを追加。ContextAdapterでもsnapshotベースのsender解決を行うようになった。
+- [x] **ContextAdapter / ベンチコードの同期ビュー移行** - ContextAdapter と関連ベンチを sync_view() ベースへ置換し、旧 async getter 依存を排除する。**完了 (2025-09-26)**: ContextAdapter::newがContextHandle::snapshot()を利用するようになり、BaseContext::get_senderがスナップショットを優先するよう改善された。
 
 ### 同期 getter 再設計メモ（2025-09-26 更新）
-- 実装進捗: `ActorContext::try_sender` / `ContextHandle::try_get_sender_opt` を導入し、TypedContextHandle/TypedActorContext/TypedRootContext に `sync_view()` を実装。Remote/Cluster のホットパスでは `try_get_message_handle_opt` と送信者スナップショットを計測用に組み込み済み。
-- 計測: `remote/src/metrics.rs` と `cluster/src/metrics.rs` に同期 sender 取得のヒット/ミスを収集するベンチ用ユーティリティを追加。`nexus-actor-remote-rs` では既存テストから同期取得のミス計測を検証。
-- 目的: `TypedContext` 系のホットパスから await を除去し、`ContextBorrow<'_>` を中心としたライフタイム指向 API と整合させる。
-- 同期化しやすい getter: `get_parent` / `get_self_opt` / `get_actor` / `get_actor_system` / メッセージ系は `ContextHandle::actor_context_arc()` 由来のスナップショットからクローンを返せる。デコレーター経路や RootContext などで `None` が返る場合は Option で扱う。
-- 同期化が難しい箇所: 送信者取得は同期アクセサが無いため `ActorContext::try_sender()` と `ContextHandle::try_get_sender_opt()` 追加が前提。`M: Clone` 制約や `RwLock::try_read` 失敗時の `None` 返却を仕様として文書化する。
-- 2025-09-26 計測: `cargo bench -p nexus-actor-bench --features lock-metrics` の `context_borrow/borrow_hot_path` で read lock 654,000 回 (約 2,000/iteration), write lock 0, snapshot hit 1,308,654, snapshot miss 0。`ctx.get_message_handle_opt().await` 以外のルート (RootContext/request_future経路など) で read lock が維持されている可能性があるため、対象 API の分解と同期アクセサ適用範囲の再確認が必要。
-- 設計方針: `TypedContextSyncView` を実装体付きに拡張し、`TypedContext` へ `sync_view()`（仮称）を追加。内部で `ContextBorrow` と `ContextCell` のスナップショットを束ねた `TypedContextSnapshot` を返し、取得できなかった項目は既存 async getter へフォールバックする。
-- 残タスク: ContextHandle に送信者スナップショット API を追加、TypedContextHandle / TypedActorContext / TypedRootContext に `TypedContextSyncView` 実装を提供、`ContextAdapter` やベンチ用コードを `sync_view()` に移行、関連ドキュメント（`docs/typed_context_guidelines.md` など）を更新。
-- 2025-09-26 計測: `cargo bench -p nexus-actor-bench --features lock-metrics` の `context_borrow/borrow_hot_path` で read lock 654,000 回 (約 2,000/iteration), write lock 0, snapshot hit 1,308,654, snapshot miss 0。`ctx.get_message_handle_opt().await` 以外のルート (RootContext/request_future 経路など) で read lock が維持されている可能性があるため、対象 API の分解と同期アクセサ適用範囲の再確認が必要。
-- 2025-09-26 追試: `cargo bench -p nexus-actor-bench --bench reentrancy` で `context_borrow/borrow_hot_path` は 32.08ms (変化域 −1.5%〜+0.27%)。`--features lock-metrics` 付きでは 32.28ms（約 −8.8% 改善）と揮発する結果。ArcSwap 化による追加 `Arc` 割り当てがオーバーヘッドとなる可能性があるため、引き続きプロファイラでの解析とメモリ割り当ての削減策（専用セル構造検討など）が必要。
-- 2025-09-26 最新計測: `cargo bench -p nexus-actor-bench --features lock-metrics` の結果:
-  - `reentrancy/load`: 17.35ms (−23.7%改善)
-  - `context_borrow/borrow_hot_path`: 28.84ms (−18.2%改善)
-  - read locks: 654,000回
-  - write locks: 0回
-  - snapshot hit: 1,308,654回
-  - snapshot miss: 0回
-  - 同期化により全体的にパフォーマンスが改善傾向。特に`reentrancy/load`で顕著な改善が見られた。
-- 次ステップ: メッセージセルの追加割り当て削減 PoC を SmallVec / 再利用 Arc / 専用セルの3案で実施し、`context_borrow/borrow_hot_path` の alloc 指標を比較する。採用案を pipeline と ContextHandle に反映し、ドキュメントへ記録する。
-- Decorator/Middleware 連鎖は ContextSnapshot (borrow + sender/receiver スナップショット) を入力とする同期 API へ置換し、async フォールバックのみ Future を生成する構成を検討する。`ContextHandle::new` 多重生成箇所の棚卸しと lock-metrics の read ロック再測定を行う。
-- `cargo make lifetime-regression` で tests + coverage を一括実行するタスクを追加。CI/手動回帰時はこのタスクを利用する。
+
+- **実装状況**: TypedContextSnapshot と sender_snapshot API を導入し、TypedContextHandle/TypedActorContext/TypedRootContext の sync_view() は ContextHandle::snapshot() 起点の不変ビューを返す。Receiver/SenderContextHandle も try_sender() で同期スナップショットを優先利用する。
+- **観測計画**: lock-metrics 付きベンチ (reentrancy/load ほか) で snapshot ヒット率を定期確認し、フォールバック async パスが 5% 未満に収まることを目標値とする。scripts/report_todos.py でメトリクスの変化を週次追跡する。
+- **フォローアップ**: remote/cluster モジュールで新しい snapshot API の利用箇所を棚卸しし、分散経路でも同期取得が徹底されているかを確認する。必要に応じて typed_context_guidelines.md のサンプルを追記する。
 
 ## ロードマップ詳細
 ### フェーズ A: ActorContext コアの再編

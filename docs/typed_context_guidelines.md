@@ -26,6 +26,17 @@
 5. **コンテキスト/ミドルウェアの再利用**
    - `ActorContext` は `context_handle()` メソッドを公開し、`OnceCell` キャッシュ経由で `ContextHandle` を再利用する。Props.on_init など所有 ActorContext を持つ場面では、この同期ハンドルを取得して再利用すること。
    - 既に `ActorContext` インスタンスがある場合は `context_handle()` を使用する。`ContextHandle::new(self.clone())` の直接呼び出しは避け、既存のハンドルか `ContextSnapshot` / `ContextHandle::snapshot()` を活用してスナップショットを引き渡す。
+
+   **TypedContextSnapshot の活用**
+   - `TypedContextSnapshot` は型付きコンテキストの不変スナップショットを提供する。このスナップショットは作成時点の状態を保持し、元のコンテキストでメッセージや sender がクリアされても既存のスナップショットの内容は維持される。
+   - `TypedActorContext` と `TypedRootContext` は `snapshot()` メソッドを提供し、現在の状態の `TypedContextSnapshot` を返す。
+   - スナップショットは `Debug` トレイトを実装しており、デバッグやロギング時に有用。
+
+   **ContextAdapter の snapshot ベース移行**
+   - `ContextAdapter` は内部的に `ContextHandle::snapshot()` を使用するように移行された。これにより、アダプター経由のアクセスがスナップショットベースとなり、より安定した動作を実現。
+   - 同期参照を優先する運用として、`ContextHandle::snapshot()` で取得したスナップショットを使用することで、ロック競合を最小化できる。
+   - 旧 API の `snapshot()` を避ける記述は維持されるが、新しい snapshot API (`ContextHandle::snapshot()`, `TypedContextSnapshot`) は推奨される。これらは不変データの安全な共有を実現し、パフォーマンス上の利点もある。
+
    - Receiver ミドルウェアを実装する際は `ReceiverMiddleware::from_sync` / `from_async` を用い、`ReceiverSnapshot` を入力に同期パス優先で処理する。必要に応じて非同期フォールバックへ委譲することで lock-metrics 上の read ロックを最小化できる。
 
 ## よくあるアンチパターン

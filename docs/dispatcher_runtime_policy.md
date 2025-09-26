@@ -45,7 +45,7 @@
   3. 呼び出し完了後に必ず `ctx.messageOrEnvelope = nil` でクリアする。
   この設計では Actor は常に `'static` な `Context` 実装へ同期アクセスし、送信者・メッセージはフィールド経由で参照する。
 - **nexus-actor-rs の対応**
-  - `ContextHandle::receive` はメッセージを `ActorContext::set_message_or_envelope` に格納した後、`ContextBorrow<'_>` と `TypedContextSyncView` を介したライフタイム安全な参照を提供する。`sync_view()` により、ホットパスでは `try_get_message_handle_opt` / `try_get_sender_opt` / `try_get_message_header_handle` のスナップショットを取得し、フォールバックとして既存の async getter を呼び出す二段構えにしている。
+  - `ContextHandle::receive` はメッセージを `ActorContext::set_message_or_envelope` に格納した後、`ContextBorrow<'_>` と `TypedContextSnapshot` を介したライフタイム安全な参照を提供する。`sync_view()` は `TypedContextSnapshot` を返す不変ビューであり、取得時に `ContextHandle::snapshot()` を介してデータを固定化するため、後続の状態変化に影響されない。このスナップショットを通じて `try_get_message_handle_opt` / `try_get_sender_opt` / `try_get_message_header_handle` にアクセスし、必要に応じて新たなスナップショットを取得する。
   - decorator 相当の経路では `ContextBorrow` を短時間で解放するために `with_actor_borrow(|borrow| ...)` パターンを用い、長寿命の `ArcSwap` スナップショットを通じてライフタイム準拠を保つ。
 - **スーパー ビジョンの順序**（protoactor-go `actor/supervision.go`）
   - Go 実装は `SupervisorStrategy.HandleFailure(actorSystem, supervisor, child, rs, reason, message)` を同期呼び出しし、`Supervisor` から `RestartChildren` や `StopChildren` を直ちに呼ぶ。
