@@ -44,7 +44,11 @@ impl<B: BaseActor> Actor for MigratedActor<B> {
   async fn handle(&mut self, context: ContextHandle) -> Result<(), ActorError> {
     use crate::actor::message::AutoReceiveMessage;
 
-    let message_handle = context.get_message_handle().await;
+    let message_handle = if let Some(handle) = context.try_get_message_handle_opt() {
+      handle
+    } else {
+      context.get_message_handle_opt().await.expect("message not found")
+    };
     let arm = message_handle.to_typed::<AutoReceiveMessage>();
 
     let base_context = self.adapt_context(context.clone()).await;

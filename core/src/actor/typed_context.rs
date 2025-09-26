@@ -51,6 +51,10 @@ pub trait TypedInfoPart<M: Message>: Debug + Send + Sync + 'static {
 pub trait TypedMessagePart<M: Message>: Debug + Send + Sync + 'static {
   async fn get_message_envelope_opt(&self) -> Option<TypedMessageEnvelope<M>>;
 
+  #[deprecated(
+    since = "1.1.0",
+    note = "Use get_message_envelope_opt().await or try_message_envelope()"
+  )]
   async fn get_message_envelope(&self) -> TypedMessageEnvelope<M> {
     self
       .get_message_envelope_opt()
@@ -60,6 +64,7 @@ pub trait TypedMessagePart<M: Message>: Debug + Send + Sync + 'static {
 
   async fn get_message_handle_opt(&self) -> Option<MessageHandle>;
 
+  #[deprecated(since = "1.1.0", note = "Use get_message_handle_opt().await or try_message_opt()")]
   async fn get_message_handle(&self) -> MessageHandle {
     self.get_message_handle_opt().await.expect("message handle not found")
   }

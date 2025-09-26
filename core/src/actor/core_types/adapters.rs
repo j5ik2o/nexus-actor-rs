@@ -176,7 +176,11 @@ impl BaseContext for ContextAdapter {
   }
 
   async fn get_message(&self) -> MessageHandle {
-    self.context.get_message_handle().await
+    if let Some(handle) = self.context.try_get_message_handle_opt() {
+      handle
+    } else {
+      self.context.get_message_handle_opt().await.expect("message not found")
+    }
   }
 
   async fn get_sender(&self) -> Option<Box<dyn ActorRef>> {

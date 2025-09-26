@@ -172,7 +172,7 @@ struct EchoActor;
 #[async_trait::async_trait]
 impl Actor for EchoActor {
   async fn receive(&mut self, ctx: ContextHandle) -> Result<(), ActorError> {
-    if let Some(msg) = ctx.get_message_handle().await.to_typed::<EchoMessage>() {
+    if let Some(msg) = ctx.get_message_handle_opt().await.expect("message not found").to_typed::<EchoMessage>() {
       tracing::info!(">>> EchoActor received: {}", msg.message);
       ctx
         .respond(ResponseHandle::new(EchoMessage::new(format!("Echo: {}", msg.message))))

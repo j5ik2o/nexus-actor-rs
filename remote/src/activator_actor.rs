@@ -106,7 +106,7 @@ impl Activator {
 #[async_trait]
 impl Actor for Activator {
   async fn receive(&mut self, context_handle: ContextHandle) -> Result<(), ActorError> {
-    let message_handle = context_handle.get_message_handle().await;
+    let message_handle = context_handle.get_message_handle_opt().await.expect("message not found");
     if message_handle.is_typed::<Ping>() {
       context_handle.respond(ResponseHandle::new(Pong {})).await;
     }

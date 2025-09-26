@@ -100,7 +100,7 @@ impl EndpointSupervisor {
 impl Actor for EndpointSupervisor {
   async fn receive(&mut self, context_handle: ContextHandle) -> Result<(), ActorError> {
     tracing::debug!("EndpointSupervisor::receive");
-    let address_opt = context_handle.get_message_handle().await.to_typed::<String>();
+    let address_opt = context_handle.get_message_handle_opt().await.expect("message not found").to_typed::<String>();
     if address_opt.is_none() {
       return Err(ActorError::ReceiveError(ErrorReason::new("address not found", 0)));
     }

@@ -584,7 +584,7 @@ fn add_to_sender_lookup(m: &mut DashMap<String, i32>, pid: Option<&Pid>, arr: &m
 impl Actor for EndpointWriter {
   async fn receive(&mut self, mut context_handle: ContextHandle) -> Result<(), ActorError> {
     tracing::debug!("EndpointWriter received message");
-    let msg = context_handle.get_message_handle().await;
+    let msg = context_handle.get_message_handle_opt().await.expect("message not found");
     let endpoint_event = msg.to_typed::<EndpointEvent>();
     match endpoint_event {
       Some(EndpointEvent::EndpointTerminated(_)) => {
