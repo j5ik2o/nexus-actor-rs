@@ -7,6 +7,7 @@ use crate::generated::remote::{
   ConnectRequest, ConnectResponse, MessageBatch, MessageEnvelope, MessageHeader, RemoteMessage, ServerConnection,
 };
 use crate::messages::{EndpointConnectedEvent, EndpointEvent, EndpointTerminatedEvent, RemoteDeliver};
+use crate::metrics::record_sender_snapshot;
 use crate::remote::Remote;
 use crate::serializer::RootSerializable;
 use crate::serializer::{serialize_any, SerializerId};
@@ -584,7 +585,15 @@ fn add_to_sender_lookup(m: &mut DashMap<String, i32>, pid: Option<&Pid>, arr: &m
 impl Actor for EndpointWriter {
   async fn receive(&mut self, mut context_handle: ContextHandle) -> Result<(), ActorError> {
     tracing::debug!("EndpointWriter received message");
-    let msg = context_handle.get_message_handle_opt().await.expect("message not found");
+    let _ = record_sender_snapshot(&context_handle);
+    let msg = if let Some(handle) = context_handle.try_get_message_handle_opt() {
+      handle
+    } else {
+      context_handle
+        .get_message_handle_opt()
+        .await
+        .expect("message not found")
+    };
     let endpoint_event = msg.to_typed::<EndpointEvent>();
     match endpoint_event {
       Some(EndpointEvent::EndpointTerminated(_)) => {

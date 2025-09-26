@@ -1,5 +1,6 @@
 use crate::generated::remote::{ActorPidRequest, ActorPidResponse};
 use crate::messages::{Ping, Pong};
+use crate::metrics::record_sender_snapshot;
 use crate::remote::Remote;
 use crate::response_status_code::ResponseStatusCode;
 use async_trait::async_trait;
@@ -106,7 +107,15 @@ impl Activator {
 #[async_trait]
 impl Actor for Activator {
   async fn receive(&mut self, context_handle: ContextHandle) -> Result<(), ActorError> {
-    let message_handle = context_handle.get_message_handle_opt().await.expect("message not found");
+    let _ = record_sender_snapshot(&context_handle);
+    let message_handle = if let Some(handle) = context_handle.try_get_message_handle_opt() {
+      handle
+    } else {
+      context_handle
+        .get_message_handle_opt()
+        .await
+        .expect("message not found")
+    };
     if message_handle.is_typed::<Ping>() {
       context_handle.respond(ResponseHandle::new(Pong {})).await;
     }
