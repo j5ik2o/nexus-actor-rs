@@ -37,10 +37,10 @@
    - `TypedContextBorrow` はメッセージや sender を同期的に取得でき、必要になったタイミングだけ `TypedContextBorrow::snapshot()` で所有スナップショットを生成できる。
    - Decorator/Middleware などホットパスではまず借用ビューで処理し、スナップショット生成はフォールバックに留めることで割り当てとロックを抑制できる。
 
-   **ContextAdapter の snapshot ベース移行**
-   - `ContextAdapter` は内部的に `ContextHandle::snapshot()` を使用するように移行された。これにより、アダプター経由のアクセスがスナップショットベースとなり、より安定した動作を実現。
-   - 同期参照を優先する運用として、`ContextHandle::snapshot()` で取得したスナップショットを使用することで、ロック競合を最小化できる。
-   - 旧 API の `snapshot()` を避ける記述は維持されるが、新しい snapshot API (`ContextHandle::snapshot()`, `TypedContextSnapshot`) は推奨される。これらは不変データの安全な共有を実現し、パフォーマンス上の利点もある。
+   **ContextHandle Snapshot の活用**
+   - `ContextHandle::snapshot()` は不変スナップショットを提供し、`ContextAdapter` などのアダプターレイヤーなしで状態を参照できる。
+   - 同期参照を優先する場合は `try_get_message_handle_opt()` や `try_get_sender_opt()` を利用し、必要なときのみスナップショット化することでロック競合を最小化できる。
+   - 旧アダプターレイヤー（ContextAdapter）は撤去されたため、直接 `ContextHandle` / `TypedContextHandle` API を利用すること。
 
    - Receiver ミドルウェアを実装する際は `ReceiverMiddleware::from_sync` / `from_async` を用い、`ReceiverSnapshot` を入力に同期パス優先で処理する。必要に応じて非同期フォールバックへ委譲することで lock-metrics 上の read ロックを最小化できる。
 
@@ -66,5 +66,5 @@
 
 ## 参考
 - `core/src/actor/context/actor_context.rs` `ContextBorrow` 実装
-- `core/src/actor/core_types/adapters.rs` `ContextAdapter`
+- `core/src/actor/context/context_handle.rs` `ContextHandle` スナップショット API
 - `bench/benches/reentrancy.rs` `BorrowingActor` のサンプル

@@ -59,3 +59,5 @@ Note: As versions may be updated regularly, it's recommended to check for the la
 - [ベンチマークダッシュボード](https://j5ik2o.github.io/nexus-actor-rs/bench_dashboard.html): GitHub Pages 上で週次ベンチのトレンドを確認できます。履歴 CSV は `benchmarks/history/bench_history.csv` に公開されています。
 - [ActorContext ロック計測レポート](docs/benchmarks/tracing_actor_context.md): tokio-console/tracing を用いた ActorContext 周辺のロック待ち分析とホットスポットのまとめです。
 - [ReceiveTimeout DelayQueue PoC](docs/benchmarks/receive_timeout_delayqueue.md): DelayQueue を用いた receive timeout の再アーム性能ベースラインと PoC コードの解説です。
+- [Actor トレイト統一リリースノート](docs/releases/2025-09-26-actor-trait-unification.md): BaseActor 廃止と `ActorSpawnerExt` 追加に関する移行ガイドです。
+- [レガシーサンプル一覧](docs/legacy_examples.md): 互換性維持のため `core/examples/legacy/` に隔離した旧サンプルの一覧です。

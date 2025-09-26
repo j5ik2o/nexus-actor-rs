@@ -13,30 +13,25 @@ The circular dependency between core and context modules has been successfully r
 
 1. **Phase 1-4 Completed**
    - Extracted independent message types to `core_types` module
-   - Created base traits (BaseActor, BaseContext) without circular dependencies
-   - Implemented adapter layer for backward compatibility
-   - Migrated internal actors (ActorBehaviorBase, ActorHandleBase)
-   - Added dual support for both Actor and BaseActor types
+   - Resolved circular dependencies by splitting actor/context responsibilities
+   - Implemented adapter layer for backward compatibility（2025/09/26 に撤去済み）
+   - BaseActor ブリッジを撤去し、循環参照を完全排除
 
-2. **BaseContext Extensions (NEW - 2025/05/28)**
-   - Implemented `BaseContextExt` trait for Props compatibility
-   - Added `spawn_child_with_props` method to BaseContext
-   - Added `spawn_child_actor` factory method for BaseActor
-   - Created helper functions for Props creation from BaseActor
-   - Full Props support now available in BaseContext
+> ❗ 今後は BaseActor 系 API を段階的に撤去する方針に切り替え済み
+
+2. **BaseContext Extensions (2025/05/28)**
+   - 当時は `BaseContextExt` や BaseActor 向けヘルパを導入
+   - 2025/09/26 時点で BaseActor 系 API を削除済み。以降は Actor トレイトのみを利用
 
 3. **Key Achievements**
    - ✅ All 85+ tests passing
-   - ✅ Zero breaking changes to existing API
-   - ✅ Complete backward compatibility
-   - ✅ New cleaner BaseActor trait for new development
-   - ✅ Existing code continues to work unchanged
-   - ✅ Props fully integrated with BaseActor system
+   - ✅ Zero breaking changes to既存 Actor API
+   - ✅ BaseActor / BaseContext / MigrationHelpers / ContextAdapter を削除し、Actor トレイトへ統一
 
 ### Architecture Improvement
 ```
 Before: actor ←→ context (circular dependency)
-After:  core_types → BaseActor → BaseContext → Adapters → Traditional Actor/Context
+After:  core_types → Actor (Props/Context) → Modules (dispatch, supervisor, etc.)
 ```
 
 ## High Priority Issues
@@ -76,11 +71,11 @@ After:  core_types → BaseActor → BaseContext → Adapters → Traditional Ac
 ## Future Roadmap
 
 ### Phase 5: Complete Migration (Future)
-1. Deprecate old Actor trait (with migration warnings)
-2. Update all examples to use BaseActor
-3. Complete documentation update
+1. ドキュメント更新（BaseActor 記述の削除・Actor 統一方針の明文化）
+2. API 名称変更（`spawn_base_actor*` の再命名と段階的非推奨）
+3. すべての examples を Actor トレイトベースへ統一（legacy ディレクトリ整理）
 4. Performance optimization
-5. Remove adapter layer (major version)
+5. Public API リリースノート更新（Breaking change の告知）
 
 ### Long-term Goals
 1. **Simplify Module Structure**
@@ -101,16 +96,14 @@ After:  core_types → BaseActor → BaseContext → Adapters → Traditional Ac
 ## Development Guidelines
 
 ### For New Code
-- Use `BaseActor` trait for all new actors
-- Follow the examples in `examples/actor-base-traits/`
-- Use `BaseSpawnerExt` for convenient actor spawning
-- Props can still be used with `BaseContextExt` trait
+- `Actor` トレイトのみを使用
+- 既存 examples（Actor ベース）を参照
+- Props は `Props::from_async_actor_producer` を利用
 
 ### For Existing Code
-- No immediate changes required
-- Migrate to BaseActor when convenient
-- Use migration helpers for gradual transition
-- Props-based actors work seamlessly with BaseActor system
+- BaseActor 系実装は削除済み。Actor トレイトへ移行済みであることを確認
+- 旧 MigrationHelpers / ActorBridge を利用していたコードは Props + Actor トレイトへ書き換え
+- Props ベースのアクターは Actor トレイトで統一
 
 ### Testing Guidelines
 - **Unit tests**: Place alongside implementation (e.g., `foo/tests.rs`)
@@ -122,8 +115,8 @@ After:  core_types → BaseActor → BaseContext → Adapters → Traditional Ac
 
 1. **Remove unused imports** - Multiple warnings in various modules
 2. **Clean up test modules** - Remove unused test utilities
-3. **Update documentation** - Reflect new BaseActor approach
-4. **Optimize Props creation** - Reduce overhead in migration layer
+3. **Update documentation** - BaseActor 廃止を反映
+4. ~~BaseActor 依存コードの撤去~~ ✅ 完了
 
 ## Project Structure
 
@@ -131,13 +124,14 @@ After:  core_types → BaseActor → BaseContext → Adapters → Traditional Ac
 nexus-actor-rs/
 ├── core/                      # Core actor implementation
 │   ├── src/actor/
-│   │   ├── core_types/       # Independent types (NEW)
-│   │   ├── core/             # Traditional actor implementation
+│   │   ├── core_types/       # Independent types (Actor-only)
+│   │   ├── core/             # Actor implementation (no BaseActor)
 │   │   └── context/          # Context implementation
 │   └── examples/
-│       ├── actor-base-traits/     # BaseActor usage
-│       ├── actor-migration/       # Migration patterns
-│       └── actor-dual-support/    # Both types together
+│       ├── actor-advanced-migration/   # Actor traitへの移行デモ
+│       ├── actor-base-traits/          # Legacy (要整理)
+│       ├── actor-migration/            # Legacy (要整理)
+│       └── actor-dual-support/         # Legacy (要整理)
 ├── remote/                    # Remote actor support
 ├── cluster/                   # Cluster support
 └── utils/                     # Utility modules
