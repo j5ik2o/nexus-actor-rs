@@ -5,6 +5,7 @@ use async_trait::async_trait;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::actor_context::{ActorContext, ContextBorrow};
 use crate::actor::context::context_handle::{ContextCellStats, ContextHandle};
+use crate::actor::context::context_snapshot::ContextSnapshot;
 use crate::actor::context::{ExtensionContext, ExtensionPart, InfoPart, MessagePart, ReceiverContext, ReceiverPart};
 use crate::actor::core::ActorError;
 use crate::actor::core::ActorHandle;
@@ -52,6 +53,10 @@ impl ReceiverContextHandle {
 
   pub fn try_message_header(&self) -> Option<ReadonlyMessageHeadersHandle> {
     self.context.try_get_message_header_handle()
+  }
+
+  pub fn snapshot(&self) -> ContextSnapshot {
+    self.context.snapshot()
   }
 }
 

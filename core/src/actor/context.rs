@@ -20,9 +20,11 @@ mod actor_context;
 mod actor_context_extras;
 mod base_spawner;
 mod context_handle;
+mod context_snapshot;
 mod mock_context;
 mod receive_timeout_timer;
 mod receiver_context_handle;
+mod receiver_snapshot;
 mod root_context;
 mod sender_context_handle;
 mod spawner_context_handle;
@@ -33,9 +35,10 @@ mod typed_root_context;
 
 use crate::actor::process::actor_future::ActorFuture;
 pub use {
-  self::actor_context::*, self::base_spawner::*, self::context_handle::*, self::mock_context::*,
-  self::receiver_context_handle::*, self::root_context::*, self::sender_context_handle::*,
-  self::spawner_context_handle::*, self::typed_context_handle::*, self::typed_root_context::*,
+  self::actor_context::*, self::base_spawner::*, self::context_handle::*, self::context_snapshot::*,
+  self::mock_context::*, self::receiver_context_handle::*, self::receiver_snapshot::*, self::root_context::*,
+  self::sender_context_handle::*, self::spawner_context_handle::*, self::typed_context_handle::*,
+  self::typed_root_context::*,
 };
 
 pub trait Context:

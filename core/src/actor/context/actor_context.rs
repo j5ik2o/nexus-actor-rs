@@ -90,6 +90,7 @@ pub struct ActorContext {
   metrics_runtime: Arc<ArcSwapOption<MetricsRuntime>>,
   metrics_sink: Arc<OnceCell<Arc<MetricsSink>>>,
   actor_type: Arc<OnceCell<Arc<str>>>,
+  base_context_handle: Arc<OnceCell<ContextHandle>>,
 }
 
 #[derive(Debug)]
@@ -150,6 +151,7 @@ impl ActorContext {
       metrics_runtime,
       metrics_sink,
       actor_type,
+      base_context_handle: Arc::new(OnceCell::new()),
     };
     ctx.incarnate_actor().await;
     ctx
@@ -197,6 +199,15 @@ impl ActorContext {
       .actor_system
       .upgrade()
       .expect("ActorSystem dropped before ActorContext")
+  }
+
+  fn base_context_handle(&self) -> ContextHandle {
+    if let Some(handle) = self.base_context_handle.get() {
+      return handle.clone();
+    }
+    let handle = ContextHandle::new(self.clone());
+    let _ = self.base_context_handle.set(handle.clone());
+    handle
   }
 
   pub fn props_ref(&self) -> &Props {
@@ -300,8 +311,8 @@ impl ActorContext {
       return existing;
     }
 
-    let context = self.prepare_context_handle().await;
-    let extras = ActorContextExtras::new(context).await;
+    let context_handle = self.base_context_handle();
+    let extras = ActorContextExtras::new(context_handle.clone()).await;
 
     let extras_cell = self.extras_cell();
     let mut guard = extras_cell.write().await;
@@ -313,11 +324,20 @@ impl ActorContext {
   }
 
   async fn prepare_context_handle(&mut self) -> ContextHandle {
-    let ctxd = self.clone();
     if let Some(decorator) = self.props_ref().get_context_decorator_chain() {
-      decorator.run(ContextHandle::new(ctxd)).await
+      let extras = self.ensure_extras().await;
+      let base_handle = if let Some(handle) = extras.get_context().await {
+        handle
+      } else {
+        let handle = self.base_context_handle();
+        extras.set_context(handle.clone()).await;
+        handle
+      };
+      let decorated = decorator.run(base_handle).await;
+      extras.set_context(decorated.clone()).await;
+      decorated
     } else {
-      ContextHandle::new(ctxd)
+      self.base_context_handle()
     }
   }
 
@@ -332,7 +352,7 @@ impl ActorContext {
         refreshed
       }
     } else {
-      ContextHandle::new(self.clone())
+      self.base_context_handle()
     }
   }
 
@@ -370,7 +390,7 @@ impl ActorContext {
 
   async fn incarnate_actor(&mut self) {
     self.state.store(State::Alive as u8, Ordering::SeqCst);
-    let ch = ContextHandle::new(self.clone());
+    let ch = self.base_context_handle();
     let actor = self.props_ref().get_producer().run(ch).await;
     let actor_type = actor.type_name_arc();
     let _ = self.actor_type.set(actor_type.clone());
