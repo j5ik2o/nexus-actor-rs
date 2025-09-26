@@ -1,6 +1,6 @@
 # core ライフタイム移行計画
 
-最終更新: 2025-09-25
+最終更新: 2025-09-26
 
 ## ビジョン
 - `ActorContext` / `TypedActorContext` 系の API をライフタイム指向に統一し、`ContextBorrow<'_>` を中心とした参照モデルへ移行する。
@@ -45,6 +45,7 @@
      - 既存の async インターフェースを維持しつつ内部実装を同期化
      - デコレーター処理を ContextSnapshot を入力とする同期関数へ変換
      - 既存コードとの互換性のため async ラッパーを提供
+     - ActorContext::context_handle 公開により on_init も同期スナップショットを再利用できるようになった
 
   3. [x] **ReceiverMiddlewareChain の同期パス優先設計（非同期フォールバック）** - 完了: ReceiverMiddlewareChain の同期パス実装
      - ミドルウェアチェーンの各処理を同期優先で実装（主な内製ミドルウェアを from_sync/from_async に移行済み）
@@ -68,6 +69,9 @@
 - ✅ TypedActorContext 系の同期化済み borrow に合わせて情報取得メソッドを再整理する（2025-09-26）
 - ✅ ReceiverMiddlewareChain 実行部で `context_cell_stats()` の差分をログ収集する（ヒット/ミスをデバッグ出力, 2025-09-26）
 - ✅ `SupervisorHandle::new(self.clone())` など既存生成箇所に `inject_snapshot()` を組み込み、初期化直後からスナップショットが利用されるか確認する（2025-09-26）
+
+- [x] **ActorContext 利用箇所の最終整理** - base_context_handle を未適用の ContextHandle::new 呼び出しを棚卸しして同期スナップショットへ統一する。**完了 (2025-09-26)**: base_context_handle の共有ハンドル公開により Props 初期化での同期化が実現。
+- [x] **ドキュメント/テスト最終反映** - typed_context_guidelines.md 等に今回の同期化手順とベンチ結果を反映し、必要な回帰テストを追記する。**完了 (2025-09-26)**: typed_context_guidelines.md へ context_handle の指針を追加し、cargo test --workspace を実行してすべてのテストが成功することを確認済み。
 
 ### 同期 getter 再設計メモ（2025-09-26 更新）
 - 実装進捗: `ActorContext::try_sender` / `ContextHandle::try_get_sender_opt` を導入し、TypedContextHandle/TypedActorContext/TypedRootContext に `sync_view()` を実装。Remote/Cluster のホットパスでは `try_get_message_handle_opt` と送信者スナップショットを計測用に組み込み済み。

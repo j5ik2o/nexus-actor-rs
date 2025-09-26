@@ -24,7 +24,8 @@
    - 長時間保持する場合はガーベジ化の可能性に注意し、極力そのスコープ内でのみ使用する。
 
 5. **コンテキスト/ミドルウェアの再利用**
-   - `ActorContext` は `ContextHandle` を `OnceCell` キャッシュ経由で再利用するようになっている。`ContextHandle::new(self.clone())` を直接呼び出すのではなく、`ContextSnapshot` や `ContextHandle::snapshot()` を活用してスナップショットを引き渡す。
+   - `ActorContext` は `context_handle()` メソッドを公開し、`OnceCell` キャッシュ経由で `ContextHandle` を再利用する。Props.on_init など所有 ActorContext を持つ場面では、この同期ハンドルを取得して再利用すること。
+   - 既に `ActorContext` インスタンスがある場合は `context_handle()` を使用する。`ContextHandle::new(self.clone())` の直接呼び出しは避け、既存のハンドルか `ContextSnapshot` / `ContextHandle::snapshot()` を活用してスナップショットを引き渡す。
    - Receiver ミドルウェアを実装する際は `ReceiverMiddleware::from_sync` / `from_async` を用い、`ReceiverSnapshot` を入力に同期パス優先で処理する。必要に応じて非同期フォールバックへ委譲することで lock-metrics 上の read ロックを最小化できる。
 
 ## よくあるアンチパターン

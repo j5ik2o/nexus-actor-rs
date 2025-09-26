@@ -115,7 +115,7 @@ static DEFAULT_SPAWNER: Lazy<Spawner> = Lazy::new(|| {
 
 fn initialize(props: Props, ctx: ActorContext) {
   for init in props.on_init {
-    init.run(ContextHandle::new(ctx.clone()));
+    init.run(ctx.context_handle());
   }
 }
 

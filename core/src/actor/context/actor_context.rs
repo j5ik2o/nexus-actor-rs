@@ -210,6 +210,10 @@ impl ActorContext {
     handle
   }
 
+  pub(crate) fn context_handle(&self) -> ContextHandle {
+    self.base_context_handle()
+  }
+
   pub fn props_ref(&self) -> &Props {
     &self.props
   }
