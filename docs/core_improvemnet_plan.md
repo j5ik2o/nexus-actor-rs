@@ -32,13 +32,20 @@
   - [ ] `cargo make coverage` をライフタイム回帰テストに組み込み
   - [ ] リグレッション用のスプリント別タスク整理と完了チェック運用の自動化
 - **同期 API 移行**
-  - [ ] `async_trait` 依存を棚卸しし、同期化できるメソッドを通常メソッドへ置換
-  - [ ] `TypedContext` 系 getter の同期化可能箇所を再調査し、代替 API の設計方針を策定
+  - ✅ `async_trait` 依存を棚卸しし、同期化できるメソッドを通常メソッドへ置換（2025-09-26 時点、追加置換対象なし）
+  - [ ] `TypedContext` 系 getter の同期化可能箇所を再調査し、代替 API の設計方針を策定（同期 getter 再設計メモ参照）
   - [ ] protoactor-go (`actor/context.go`, `actor/supervision.go`) の呼び出し順序差分を `docs/dispatcher_runtime_policy.md` へ反映するドラフトを作成
   - [ ] TypedActorContext 系の同期化済み borrow に合わせて情報取得メソッドを再整理する
 - **計測とスナップショット運用**
   - [ ] ReceiverMiddlewareChain 実行部で `context_cell_stats()` の差分をログ収集する
   - [ ] `SupervisorHandle::new(self.clone())` など既存生成箇所に `inject_snapshot()` を組み込み、初期化直後からスナップショットが利用されるか確認する
+
+### 同期 getter 再設計メモ（2025-09-26 更新）
+- 目的: `TypedContext` 系のホットパスから await を除去し、`ContextBorrow<'_>` を中心としたライフタイム指向 API と整合させる。
+- 同期化しやすい getter: `get_parent` / `get_self_opt` / `get_actor` / `get_actor_system` / メッセージ系は `ContextHandle::actor_context_arc()` 由来のスナップショットからクローンを返せる。デコレーター経路や RootContext などで `None` が返る場合は Option で扱う。
+- 同期化が難しい箇所: 送信者取得は同期アクセサが無いため `ActorContext::try_sender()` と `ContextHandle::try_get_sender_opt()` 追加が前提。`M: Clone` 制約や `RwLock::try_read` 失敗時の `None` 返却を仕様として文書化する。
+- 設計方針: `TypedContextSyncView` を実装体付きに拡張し、`TypedContext` へ `sync_view()`（仮称）を追加。内部で `ContextBorrow` と `ContextCell` のスナップショットを束ねた `TypedContextSnapshot` を返し、取得できなかった項目は既存 async getter へフォールバックする。
+- 残タスク: ContextHandle に送信者スナップショット API を追加、TypedContextHandle / TypedActorContext / TypedRootContext に `TypedContextSyncView` 実装を提供、`ContextAdapter` やベンチ用コードを `sync_view()` に移行、関連ドキュメント（`docs/typed_context_guidelines.md` など）を更新。
 
 ## ロードマップ詳細
 ### フェーズ A: ActorContext コアの再編
