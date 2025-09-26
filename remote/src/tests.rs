@@ -8,17 +8,19 @@ use crate::generated::remote::{
   self, connect_request::ConnectionType, ClientConnection, ConnectRequest, RemoteMessage,
 };
 use crate::messages::{BackpressureLevel, RemoteDeliver};
+use crate::metrics::{record_sender_snapshot, reset_sender_snapshot_metrics, sender_snapshot_report};
 use crate::remote::Remote;
 use bytes::Bytes;
 use http_body_util::Empty;
 use nexus_actor_core_rs::actor::actor_system::ActorSystem;
-use nexus_actor_core_rs::actor::core::{ActorError, ErrorReason};
+use nexus_actor_core_rs::actor::context::{ActorContext, ContextHandle};
+use nexus_actor_core_rs::actor::core::{ActorError, ErrorReason, Props};
 use nexus_actor_core_rs::actor::core_types::message_types::Message;
 use nexus_actor_core_rs::actor::dispatch::DeadLetterEvent;
 use nexus_actor_core_rs::actor::dispatch::{
   Dispatcher, DispatcherHandle, Mailbox, MessageInvoker, MessageInvokerHandle, Runnable,
 };
-use nexus_actor_core_rs::actor::message::MessageHandle;
+use nexus_actor_core_rs::actor::message::{MessageEnvelope, MessageHandle};
 use nexus_actor_core_rs::generated::actor::Pid;
 use std::sync::Arc;
 use tokio::sync::{mpsc, Mutex, OnceCell, RwLock};
@@ -60,6 +62,24 @@ fn make_request_key() -> RequestKeyWrapper {
   let mut codec: ProstCodec<RemoteMessage, RemoteMessage> = ProstCodec::default();
   let streaming = Streaming::new_request(codec.decoder(), Empty::<Bytes>::new(), None, None);
   RequestKeyWrapper::new(Arc::new(Mutex::new(Request::new(streaming))))
+}
+
+#[tokio::test]
+async fn sender_snapshot_metrics_records_miss_without_snapshot() -> TestResult<()> {
+  reset_sender_snapshot_metrics();
+
+  let actor_system = ActorSystem::new().await.expect("actor system init");
+  let props = Props::from_async_actor_receiver(|_ctx| async { Ok::<(), ActorError>(()) }).await;
+  let actor_context = ActorContext::new(actor_system, props, None).await;
+  let context_handle = ContextHandle::new(actor_context);
+
+  let sender = record_sender_snapshot(&context_handle);
+  assert!(sender.is_none());
+  let report = sender_snapshot_report();
+  assert_eq!(report.hits, 0);
+  assert_eq!(report.misses, 1);
+
+  Ok(())
 }
 
 #[tokio::test]

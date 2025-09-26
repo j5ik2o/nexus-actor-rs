@@ -39,7 +39,12 @@ struct LoadActor;
 #[async_trait::async_trait]
 impl Actor for LoadActor {
   async fn handle(&mut self, ctx: ContextHandle) -> Result<(), ActorError> {
-    if let Some(msg) = ctx.get_message_handle_opt().await.expect("message not found").to_typed::<LoadMessage>() {
+    if let Some(msg) = ctx
+      .get_message_handle_opt()
+      .await
+      .expect("message not found")
+      .to_typed::<LoadMessage>()
+    {
       let remote_pid = ExtendedPid::new(Pid::new("remote-host", &format!("load-{}", msg.seq)));
       remote_pid
         .send_user_message(
@@ -74,7 +79,12 @@ struct BorrowingActor;
 #[async_trait::async_trait]
 impl Actor for BorrowingActor {
   async fn handle(&mut self, ctx: ContextHandle) -> Result<(), ActorError> {
-    if let Some(message) = ctx.get_message_handle_opt().await.expect("message not found").to_typed::<BorrowRequest>() {
+    if let Some(message) = ctx
+      .get_message_handle_opt()
+      .await
+      .expect("message not found")
+      .to_typed::<BorrowRequest>()
+    {
       if let Some(actor_context) = ctx.try_into_actor_context().await {
         let borrow = actor_context.borrow();
         let _ = borrow.self_pid();
