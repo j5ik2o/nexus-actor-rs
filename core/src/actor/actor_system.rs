@@ -1,5 +1,4 @@
 use arc_swap::{ArcSwap, ArcSwapOption};
-use opentelemetry::metrics::MetricsError;
 use std::sync::{Arc, Weak};
 use tokio::sync::{Mutex, RwLock};
 use uuid::Uuid;
@@ -11,6 +10,7 @@ use crate::actor::event_stream::EventStreamProcess;
 use crate::actor::guardian::GuardiansValue;
 use crate::actor::message::EMPTY_MESSAGE_HEADER;
 use crate::actor::metrics::metrics_impl::{Metrics, MetricsRuntime};
+use crate::metrics::MetricsError;
 use crate::actor::process::process_registry::ProcessRegistry;
 use crate::actor::process::ProcessHandle;
 use crate::actor::supervisor::subscribe_supervision;

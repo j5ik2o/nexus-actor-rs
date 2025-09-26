@@ -324,7 +324,7 @@ mod tests {
   use super::*;
   use crate::actor::config::MetricsProvider;
   use crate::actor::ConfigOption;
-  use opentelemetry::metrics::noop::NoopMeterProvider;
+  use opentelemetry_sdk::metrics::SdkMeterProvider;
   use tokio::runtime::Runtime;
 
   #[derive(Debug)]
@@ -352,7 +352,7 @@ mod tests {
   fn make_runtime() -> Arc<MetricsRuntime> {
     let runtime = Runtime::new().expect("tokio runtime");
     runtime.block_on(async {
-      let provider = Arc::new(MetricsProvider::Noop(NoopMeterProvider::default()));
+      let provider = Arc::new(MetricsProvider::Sdk(SdkMeterProvider::default()));
       let system = ActorSystem::new_config_options([ConfigOption::SetMetricsProvider(provider)])
         .await
         .expect("actor system");

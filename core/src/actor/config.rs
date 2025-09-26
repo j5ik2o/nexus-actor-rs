@@ -1,51 +1,42 @@
 use crate::actor::dispatch::{Dispatcher, TokioRuntimeContextDispatcher};
 use crate::actor::ConfigOption;
-use opentelemetry::global::GlobalMeterProvider;
-use opentelemetry::metrics::noop::NoopMeterProvider;
+use opentelemetry::{global, InstrumentationScope};
 use opentelemetry::metrics::{Meter, MeterProvider};
-use opentelemetry::KeyValue;
 use opentelemetry_sdk::metrics::SdkMeterProvider;
-use std::borrow::Cow;
 use std::sync::Arc;
 use std::time::Duration;
 
-#[derive(Debug)]
+#[derive(Clone)]
 pub enum MetricsProvider {
-  Global(GlobalMeterProvider),
-  Noop(NoopMeterProvider),
+  Global,
   Sdk(SdkMeterProvider),
+  Custom(Arc<dyn MeterProvider + Send + Sync>),
 }
 
-impl Clone for MetricsProvider {
-  fn clone(&self) -> Self {
+impl std::fmt::Debug for MetricsProvider {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     match self {
-      MetricsProvider::Global(provider) => MetricsProvider::Global(provider.clone()),
-      MetricsProvider::Noop(_) => MetricsProvider::Noop(NoopMeterProvider::default()),
-      MetricsProvider::Sdk(provider) => MetricsProvider::Sdk(provider.clone()),
+      MetricsProvider::Global => write!(f, "MetricsProvider::Global"),
+      MetricsProvider::Sdk(_) => write!(f, "MetricsProvider::Sdk"),
+      MetricsProvider::Custom(_) => write!(f, "MetricsProvider::Custom"),
     }
   }
 }
 
 impl MeterProvider for MetricsProvider {
-  fn meter(&self, name: impl Into<Cow<'static, str>>) -> Meter {
+  fn meter(&self, name: &'static str) -> Meter {
     match self {
-      MetricsProvider::Global(provider) => provider.meter(name),
-      MetricsProvider::Noop(provider) => provider.meter(name),
+      MetricsProvider::Global => global::meter_provider().meter(name),
       MetricsProvider::Sdk(provider) => provider.meter(name),
+      MetricsProvider::Custom(provider) => provider.meter(name),
     }
   }
 
-  fn versioned_meter(
-    &self,
-    name: impl Into<Cow<'static, str>>,
-    version: Option<impl Into<Cow<'static, str>>>,
-    schema_url: Option<impl Into<Cow<'static, str>>>,
-    attributes: Option<Vec<KeyValue>>,
-  ) -> Meter {
+  fn meter_with_scope(&self, scope: InstrumentationScope) -> Meter {
     match self {
-      MetricsProvider::Global(provider) => provider.versioned_meter(name, version, schema_url, attributes),
-      MetricsProvider::Noop(provider) => provider.versioned_meter(name, version, schema_url, attributes),
-      MetricsProvider::Sdk(provider) => provider.versioned_meter(name, version, schema_url, attributes),
+      MetricsProvider::Global => global::meter_provider().meter_with_scope(scope),
+      MetricsProvider::Sdk(provider) => provider.meter_with_scope(scope),
+      MetricsProvider::Custom(provider) => provider.meter_with_scope(scope),
     }
   }
 }
