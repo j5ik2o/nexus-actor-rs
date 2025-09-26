@@ -34,7 +34,8 @@ impl AllForOneStrategy {
   pub fn with_decider<F, Fut>(mut self, decider: F) -> Self
   where
     F: Fn(ErrorReason) -> Fut + Send + Sync + 'static,
-    Fut: futures::future::Future<Output = Directive> + Send + 'static, {
+    Fut: futures::future::Future<Output = Directive> + Send + 'static,
+  {
     self.decider = Arc::new(Decider::new(decider));
     self
   }
@@ -68,7 +69,6 @@ impl SupervisorStrategy for AllForOneStrategy {
     let child_pid = child.id().to_string();
     let record_decision = |decision: &str, affected_children: usize| {
       record_supervisor_metrics(
-        &actor_system,
         &supervisor,
         "all_for_one",
         decision,

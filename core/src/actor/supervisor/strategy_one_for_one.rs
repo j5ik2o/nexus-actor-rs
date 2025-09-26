@@ -36,7 +36,8 @@ impl OneForOneStrategy {
   pub fn with_decider<F, Fut>(mut self, decider: F) -> Self
   where
     F: Fn(ErrorReason) -> Fut + Send + Sync + 'static,
-    Fut: futures::future::Future<Output = Directive> + Send + 'static, {
+    Fut: futures::future::Future<Output = Directive> + Send + 'static,
+  {
     self.decider = Arc::new(Decider::new(decider));
     self
   }
@@ -101,14 +102,7 @@ impl SupervisorStrategy for OneForOneStrategy {
     );
     let child_pid = child.id().to_string();
     let record_decision = |decision: &str| {
-      record_supervisor_metrics(
-        &actor_system,
-        &supervisor,
-        "one_for_one",
-        decision,
-        &child_pid,
-        Vec::new(),
-      );
+      record_supervisor_metrics(&supervisor, "one_for_one", decision, &child_pid, Vec::new());
     };
 
     let directive = self.decider.run(reason.clone()).await;
