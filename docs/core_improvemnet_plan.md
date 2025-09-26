@@ -61,7 +61,7 @@
 - [x] **Supervisor メトリクスの周辺プロセス展開** - DeadLetterProcess や ActorFutureProcess へ ArcSwap<MetricsRuntime> の同期アクセスを拡張し、メトリクス API を統一する。**完了 (2025-09-26)**: DeadLetterProcess/ActorFutureProcess が ArcSwapOption<MetricsRuntime> + lazy metrics sink で同期化された。
 - [x] **借用スナップショット API 設計** - ContextBorrow<'a> を活かした TypedContextBorrow<'a> ラッパーを設計し、Decorators/Middleware から所有スナップショットを生成せずに参照共有できるようにする。**完了 (2025-09-26)**: `TypedContextBorrow` と `with_typed_borrow()` を追加し、TypedActor のホットパスで snapshot 生成を回避できるようにした。
 - [x] **Decorator/Middleware の借用経路追加** - Decorator/Middleware 実装に borrow ベースのパスを追加し、必要な箇所だけ TypedContextSnapshot を生成する二段構えを整える。**完了 (2025-09-26)**: ContextHandle::snapshot_with_borrow() を導入し、ContextDecoratorChain/ReceiverMiddlewareChain が借用優先で同期処理を行うようになった。
-- [ ] **Remote/Cluster のライフタイム棚卸し** - Remote/Cluster モジュールで ContextHandle::snapshot() を使っている箇所を調査し、借用で代替できるケースに ContextBorrow<'a> API を適用する。
+- [x] **Remote/Cluster のライフタイム棚卸し** - Remote/Cluster モジュールで ContextHandle::snapshot() を使っている箇所を調査し、借用で代替できるケースに ContextBorrow<'a> API を適用する。**完了 (2025-09-26)**: 現状のコードでは ContextHandle::snapshot() 直接呼び出しは見つからず、監視タスクのみ継続する状況を確認。
 
 ### 完了項目
 - ✅ `TypedActorHandle` / `PidActorRef` の弱参照化を完了 (2025-09-25)
