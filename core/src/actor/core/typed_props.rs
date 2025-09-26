@@ -26,7 +26,8 @@ impl<M: Message + Clone> TypedProps<M> {
   where
     A: TypedActor<M>,
     F: Fn(TypedContextHandle<M>) -> Fut + Clone + Send + Sync + 'static,
-    Fut: Future<Output = A> + Send + 'static, {
+    Fut: Future<Output = A> + Send + 'static,
+  {
     Self::from_async_actor_producer_with_opts(f, []).await
   }
 
@@ -37,7 +38,8 @@ impl<M: Message + Clone> TypedProps<M> {
   where
     A: TypedActor<M>,
     F: Fn(TypedContextHandle<M>) -> Fut + Clone + Send + Sync + 'static,
-    Fut: Future<Output = A> + Send + 'static, {
+    Fut: Future<Output = A> + Send + 'static,
+  {
     Props::from_async_actor_producer_with_opts(
       move |c| {
         let f = f.clone();
@@ -57,7 +59,8 @@ impl<M: Message + Clone> TypedProps<M> {
   pub async fn from_sync_actor_producer<A, F>(f: F) -> TypedProps<M>
   where
     A: TypedActor<M>,
-    F: Fn(TypedContextHandle<M>) -> A + Clone + Send + Sync + 'static, {
+    F: Fn(TypedContextHandle<M>) -> A + Clone + Send + Sync + 'static,
+  {
     let f = Arc::new(f);
     Self::from_async_actor_producer(move |ctx| {
       let f = f.clone();
@@ -72,7 +75,8 @@ impl<M: Message + Clone> TypedProps<M> {
   ) -> TypedProps<M>
   where
     A: TypedActor<M>,
-    F: Fn(TypedContextHandle<M>) -> A + Clone + Send + Sync + 'static, {
+    F: Fn(TypedContextHandle<M>) -> A + Clone + Send + Sync + 'static,
+  {
     let f = Arc::new(f);
     Self::from_async_actor_producer_with_opts(
       move |ctx| {
@@ -87,7 +91,8 @@ impl<M: Message + Clone> TypedProps<M> {
   pub async fn from_async_actor_receiver<F, Fut>(f: F) -> TypedProps<M>
   where
     F: Fn(TypedContextHandle<M>) -> Fut + Send + Sync + 'static,
-    Fut: Future<Output = Result<(), crate::actor::core::ActorError>> + Send + 'static, {
+    Fut: Future<Output = Result<(), crate::actor::core::ActorError>> + Send + 'static,
+  {
     Self::from_async_actor_receiver_with_opts(f, []).await
   }
 
@@ -97,7 +102,8 @@ impl<M: Message + Clone> TypedProps<M> {
   ) -> TypedProps<M>
   where
     F: Fn(TypedContextHandle<M>) -> Fut + Send + Sync + 'static,
-    Fut: Future<Output = Result<(), crate::actor::core::ActorError>> + Send + 'static, {
+    Fut: Future<Output = Result<(), crate::actor::core::ActorError>> + Send + 'static,
+  {
     Props::from_async_actor_receiver_with_opts(
       move |c| {
         let r = f(TypedContextHandle::new(c));
@@ -111,7 +117,8 @@ impl<M: Message + Clone> TypedProps<M> {
 
   pub async fn from_sync_actor_receiver<F>(f: F) -> TypedProps<M>
   where
-    F: Fn(TypedContextHandle<M>) -> Result<(), crate::actor::core::ActorError> + Send + Sync + 'static, {
+    F: Fn(TypedContextHandle<M>) -> Result<(), crate::actor::core::ActorError> + Send + Sync + 'static,
+  {
     let f = Arc::new(f);
     Self::from_async_actor_receiver(move |ctx| {
       let f = f.clone();
@@ -120,12 +127,10 @@ impl<M: Message + Clone> TypedProps<M> {
     .await
   }
 
-  pub async fn from_sync_actor_receiver_with_opts<F>(
-    f: F,
-    opts: impl IntoIterator<Item = PropsOption>,
-  ) -> TypedProps<M>
+  pub async fn from_sync_actor_receiver_with_opts<F>(f: F, opts: impl IntoIterator<Item = PropsOption>) -> TypedProps<M>
   where
-    F: Fn(TypedContextHandle<M>) -> Result<(), crate::actor::core::ActorError> + Send + Sync + 'static, {
+    F: Fn(TypedContextHandle<M>) -> Result<(), crate::actor::core::ActorError> + Send + Sync + 'static,
+  {
     let f = Arc::new(f);
     Self::from_async_actor_receiver_with_opts(
       move |ctx| {
