@@ -114,9 +114,25 @@ pub struct ContextAdapter {
 
 impl ContextAdapter {
   pub async fn new(context: ContextHandle) -> Self {
-    let actor_system = context.get_actor_system().await;
-    let self_pid = context.get_self_opt().await;
-    let parent_pid = context.get_parent().await;
+    let snapshot = context.snapshot();
+
+    let actor_system = if let Some(system) = snapshot.actor_system().cloned() {
+      system
+    } else {
+      context.get_actor_system().await
+    };
+
+    let self_pid = if let Some(pid) = snapshot.self_pid().cloned() {
+      Some(pid)
+    } else {
+      context.get_self_opt().await
+    };
+
+    let parent_pid = if let Some(pid) = snapshot.parent().cloned() {
+      Some(pid)
+    } else {
+      context.get_parent().await
+    };
 
     let self_ref = self_pid
       .clone()
@@ -184,13 +200,28 @@ impl BaseContext for ContextAdapter {
   }
 
   async fn get_sender(&self) -> Option<Box<dyn ActorRef>> {
-    let sender_opt = self.context.get_sender().await;
-    if let Some(pid) = sender_opt {
-      let actor_system = self.context.get_actor_system().await;
-      Some(Box::new(PidActorRef::new(pid, actor_system)) as Box<dyn ActorRef>)
-    } else {
-      None
+    let snapshot = self.context.snapshot();
+    let sender_from_snapshot = snapshot.sender().cloned();
+    let mut actor_system_opt = snapshot.actor_system().cloned();
+    drop(snapshot);
+
+    if let Some(pid) = sender_from_snapshot {
+      let actor_system = match actor_system_opt.take() {
+        Some(system) => system,
+        None => self.context.get_actor_system().await,
+      };
+      return Some(Box::new(PidActorRef::new(pid, actor_system)) as Box<dyn ActorRef>);
     }
+
+    if let Some(pid) = self.context.get_sender().await {
+      let actor_system = match actor_system_opt.take() {
+        Some(system) => system,
+        None => self.context.get_actor_system().await,
+      };
+      return Some(Box::new(PidActorRef::new(pid, actor_system)) as Box<dyn ActorRef>);
+    }
+
+    None
   }
 
   async fn spawn_child(
