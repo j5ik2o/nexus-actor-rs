@@ -462,6 +462,10 @@ impl ContextHandle {
   pub fn try_get_sender_opt(&self) -> Option<ExtendedPid> {
     self.actor_context_arc().and_then(|ctx| ctx.try_sender())
   }
+
+  pub fn sender_snapshot(&self) -> Option<ExtendedPid> {
+    self.try_get_sender_opt()
+  }
 }
 
 impl ReceiverContext for ContextHandle {}

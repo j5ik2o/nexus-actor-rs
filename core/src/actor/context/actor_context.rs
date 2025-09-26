@@ -816,8 +816,11 @@ impl BasePart for ActorContext {
 
   async fn respond(&self, response: ResponseHandle) {
     let mh = MessageHandle::new(response);
-    let sender = self.get_sender().await;
-    if sender.is_none() {
+    if let Some(sender) = self.try_sender() {
+      let mut cloned = self.clone();
+      tracing::info!("ActorContext::respond: pid = {:?}", sender);
+      cloned.send(sender, mh).await
+    } else {
       tracing::info!("ActorContext::respond: sender is none");
       self
         .actor_system()
@@ -825,11 +828,6 @@ impl BasePart for ActorContext {
         .await
         .send_user_message(None, mh)
         .await;
-    } else {
-      let mut cloned = self.clone();
-      let pid = self.get_sender().await;
-      tracing::info!("ActorContext::respond: pid = {:?}", pid);
-      cloned.send(pid.unwrap(), mh).await
     }
   }
 

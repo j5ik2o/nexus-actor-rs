@@ -33,6 +33,13 @@ impl SenderContextHandle {
   pub fn from_root(root: RootContext) -> Self {
     SenderContextHandle(SenderContextRef::Root(root))
   }
+
+  pub fn try_sender(&self) -> Option<ExtendedPid> {
+    match &self.0 {
+      SenderContextRef::Context(context) => context.try_get_sender_opt(),
+      SenderContextRef::Root(_) => None,
+    }
+  }
 }
 
 impl From<ContextHandle> for SenderContextHandle {
@@ -89,7 +96,13 @@ impl InfoPart for SenderContextHandle {
 impl SenderPart for SenderContextHandle {
   async fn get_sender(&self) -> Option<ExtendedPid> {
     match &self.0 {
-      SenderContextRef::Context(context) => context.get_sender().await,
+      SenderContextRef::Context(context) => {
+        if let Some(sender) = context.try_get_sender_opt() {
+          Some(sender)
+        } else {
+          context.get_sender().await
+        }
+      }
       SenderContextRef::Root(root) => root.get_sender().await,
     }
   }

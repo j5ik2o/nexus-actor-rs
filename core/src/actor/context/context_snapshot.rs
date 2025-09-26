@@ -87,6 +87,51 @@ impl ContextSnapshot {
     self.message_header.as_ref()
   }
 
+  pub fn with_actor_system_opt(mut self, actor_system: Option<ActorSystem>) -> Self {
+    self.actor_system = actor_system;
+    self
+  }
+
+  pub fn with_actor_opt(mut self, actor: Option<ActorHandle>) -> Self {
+    self.actor = actor;
+    self
+  }
+
+  pub fn with_parent_opt(mut self, parent: Option<ExtendedPid>) -> Self {
+    self.parent = parent;
+    self
+  }
+
+  pub fn with_self_pid_opt(mut self, self_pid: Option<ExtendedPid>) -> Self {
+    self.self_pid = self_pid;
+    self
+  }
+
+  pub fn with_sender_opt(mut self, sender: Option<ExtendedPid>) -> Self {
+    self.sender = sender;
+    self
+  }
+
+  pub fn with_message_envelope_opt(mut self, envelope: Option<MessageEnvelope>) -> Self {
+    self.message_envelope = envelope;
+    self
+  }
+
+  pub fn with_message_handle_opt(mut self, handle: Option<MessageHandle>) -> Self {
+    self.message_handle = handle;
+    self
+  }
+
+  pub fn with_message_header_opt(mut self, header: Option<ReadonlyMessageHeadersHandle>) -> Self {
+    self.message_header = header;
+    self
+  }
+
+  pub fn with_context_handle_opt(mut self, handle: Option<ContextHandle>) -> Self {
+    self.context_handle = handle;
+    self
+  }
+
   pub fn context_handle(&self) -> Option<&ContextHandle> {
     self.context_handle.as_ref()
   }

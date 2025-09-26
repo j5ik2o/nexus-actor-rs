@@ -58,6 +58,10 @@ impl ReceiverContextHandle {
   pub fn snapshot(&self) -> ContextSnapshot {
     self.context.snapshot()
   }
+
+  pub fn try_sender(&self) -> Option<ExtendedPid> {
+    self.context.try_get_sender_opt()
+  }
 }
 
 impl ExtensionContext for ReceiverContextHandle {}
