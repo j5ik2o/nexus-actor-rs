@@ -1,7 +1,6 @@
 use crate::actor::MetricsProvider;
-use crate::metrics::ActorMetrics;
+use crate::metrics::{ActorMetrics, MetricsError};
 use dashmap::DashMap;
-use opentelemetry::metrics::MetricsError;
 use std::sync::Arc;
 
 #[derive(Debug, Clone)]
@@ -14,12 +13,12 @@ impl ProtoMetrics {
   pub const INTERNAL_ACTOR_METRICS: &'static str = "internal.actor.metrics";
 
   pub fn new(meter_provider: Arc<MetricsProvider>) -> Result<Self, MetricsError> {
-    let actor_metrics = ActorMetrics::new(meter_provider.clone())?;
+    let actor_metrics = ActorMetrics::new(meter_provider.clone());
     let mut myself = ProtoMetrics {
       actor_metrics,
       known_metrics: Arc::new(DashMap::new()),
     };
-    myself.register(Self::INTERNAL_ACTOR_METRICS, ActorMetrics::new(meter_provider)?)?;
+    myself.register(Self::INTERNAL_ACTOR_METRICS, ActorMetrics::new(meter_provider))?;
     Ok(myself)
   }
 
@@ -33,7 +32,7 @@ impl ProtoMetrics {
 
   pub fn register(&mut self, key: &str, instance: ActorMetrics) -> Result<(), MetricsError> {
     if self.known_metrics.contains_key(key) {
-      return Err(MetricsError::Other(format!("Key {} already exists", key)));
+      return Err(MetricsError::DuplicateMetricKey(key.to_string()));
     }
     self.known_metrics.insert(key.to_string(), instance);
     Ok(())

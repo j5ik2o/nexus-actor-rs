@@ -1,6 +1,5 @@
 use crate::actor::MetricsProvider;
-use opentelemetry::metrics::MeterProvider;
-use opentelemetry::metrics::{Counter, Histogram, Meter};
+use opentelemetry::metrics::{Counter, Histogram, Meter, MeterProvider};
 use opentelemetry::KeyValue;
 use parking_lot::RwLock;
 use std::sync::Arc;
@@ -35,100 +34,100 @@ pub struct ActorMetrics {
 }
 
 impl ActorMetrics {
-  pub fn new(meter_provider: Arc<MetricsProvider>) -> Result<Self, opentelemetry::metrics::MetricsError> {
+  pub fn new(meter_provider: Arc<MetricsProvider>) -> Self {
     let meter = meter_provider.meter(LIB_NAME);
 
-    Ok(ActorMetrics {
+    ActorMetrics {
       inner: Arc::new(RwLock::new(ActorMetricsInner {
         meter: meter.clone(),
         actor_failure_count: meter
           .u64_counter("nexus_actor_actor_failure_count")
           .with_description("Number of actor failures")
           .with_unit("1")
-          .try_init()?,
+          .build(),
         actor_mailbox_length: meter
           .u64_counter("nexus_actor_actor_mailbox_length")
           .with_description("Actor mailbox length")
           .with_unit("1")
-          .try_init()?,
+          .build(),
         actor_message_receive_histogram: meter
           .f64_histogram("nexus_actor_actor_message_receive_duration_seconds")
           .with_description("Actor's messages received duration in seconds")
           .with_unit("s")
-          .try_init()?,
+          .build(),
         actor_restarted_count: meter
           .u64_counter("nexus_actor_actor_restarted_count")
           .with_description("Number of actors restarts")
           .with_unit("1")
-          .try_init()?,
+          .build(),
         actor_spawn_count: meter
           .u64_counter("nexus_actor_actor_spawn_count")
           .with_description("Number of actors spawn")
           .with_unit("1")
-          .try_init()?,
+          .build(),
         actor_stopped_count: meter
           .u64_counter("nexus_actor_actor_stopped_count")
           .with_description("Number of actors stopped")
           .with_unit("1")
-          .try_init()?,
+          .build(),
         dead_letter_count: meter
           .u64_counter("nexus_actor_deadletter_count")
           .with_description("Number of deadletters")
           .with_unit("1")
-          .try_init()?,
+          .build(),
         futures_started_count: meter
           .u64_counter("nexus_actor_futures_started_count")
           .with_description("Number of futures started")
           .with_unit("1")
-          .try_init()?,
+          .build(),
         futures_completed_count: meter
           .u64_counter("nexus_actor_futures_completed_count")
           .with_description("Number of futures completed")
           .with_unit("1")
-          .try_init()?,
+          .build(),
         futures_timed_out_count: meter
           .u64_counter("nexus_actor_futures_timed_out_count")
           .with_description("Number of futures timed out")
           .with_unit("1")
-          .try_init()?,
+          .build(),
         thread_pool_latency: meter
           .f64_histogram("nexus_actor_thread_pool_latency_duration_seconds")
           .with_description("History of latency in seconds")
           .with_unit("s")
-          .try_init()?,
+          .build(),
         mailbox_length_histogram: meter
           .f64_histogram("nexus_actor_mailbox_length")
           .with_description("Mailbox length samples")
           .with_unit("1")
-          .try_init()?,
+          .build(),
         message_size_histogram: meter
           .f64_histogram("nexus_actor_message_size_bytes")
           .with_description("Serialized message size in bytes")
           .with_unit("By")
-          .try_init()?,
+          .build(),
         remote_delivery_success_count: meter
           .u64_counter("nexus_actor_remote_delivery_success_count")
           .with_description("Number of remote delivery successes")
           .with_unit("1")
-          .try_init()?,
+          .build(),
         remote_delivery_failure_count: meter
           .u64_counter("nexus_actor_remote_delivery_failure_count")
           .with_description("Number of remote delivery failures")
           .with_unit("1")
-          .try_init()?,
+          .build(),
         remote_receive_success_count: meter
           .u64_counter("nexus_actor_remote_receive_success_count")
           .with_description("Number of remote receive successes")
           .with_unit("1")
-          .try_init()?,
+          .build(),
         remote_receive_failure_count: meter
           .u64_counter("nexus_actor_remote_receive_failure_count")
           .with_description("Number of remote receive failures")
           .with_unit("1")
-          .try_init()?,
+          .build(),
         // mailbox_length,
       })),
-    })
+    }
   }
 
   pub fn increment_actor_failure_count(&self) {
@@ -279,14 +278,12 @@ impl ActorMetrics {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use opentelemetry_sdk::metrics::{ManualReader, MeterProviderBuilder};
+  use opentelemetry_sdk::metrics::SdkMeterProvider;
 
   #[test]
   fn test_actor_metrics() {
-    let reader = ManualReader::builder().build();
-    let meter_provider = MeterProviderBuilder::default().with_reader(reader).build();
-    let meter_provider = MetricsProvider::Sdk(meter_provider);
-    let metrics = ActorMetrics::new(Arc::new(meter_provider)).expect("メトリクスの初期化に失敗しました");
+    let meter_provider = MetricsProvider::Sdk(SdkMeterProvider::default());
+    let metrics = ActorMetrics::new(Arc::new(meter_provider));
 
     metrics.increment_actor_failure_count();
     metrics.increment_actor_mailbox_length();
