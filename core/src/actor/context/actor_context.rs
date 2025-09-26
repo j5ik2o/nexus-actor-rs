@@ -80,7 +80,7 @@ impl ActorContextShared {
 pub struct ActorContext {
   shared: Arc<ActorContextShared>,
   extras: Arc<RwLock<Option<ActorContextExtras>>>,
-  message_or_envelope_opt: Arc<RwLock<Option<MessageHandle>>>,
+  message_or_envelope: Arc<ArcSwapOption<MessageHandle>>,
   state: Arc<AtomicU8>,
   receive_timeout: Arc<RwLock<Option<Duration>>>,
   props: Props,
@@ -128,7 +128,7 @@ impl ActorContext {
 
   pub async fn new(actor_system: ActorSystem, props: Props, parent: Option<ExtendedPid>) -> Self {
     let extras = Arc::new(RwLock::new(None));
-    let message_or_envelope_opt = Arc::new(RwLock::new(None));
+    let message_or_envelope = Arc::new(ArcSwapOption::from(None::<Arc<MessageHandle>>));
     let state = Arc::new(AtomicU8::new(State::Alive as u8));
     let receive_timeout = Arc::new(RwLock::new(None));
     let self_pid_cell = OnceCell::new();
@@ -140,7 +140,7 @@ impl ActorContext {
     let mut ctx = ActorContext {
       shared: Arc::new(ActorContextShared::default()),
       extras,
-      message_or_envelope_opt,
+      message_or_envelope,
       state,
       receive_timeout,
       props,
@@ -159,43 +159,37 @@ impl ActorContext {
     self.extras.clone()
   }
 
-  fn message_cell(&self) -> Arc<RwLock<Option<MessageHandle>>> {
-    self.message_or_envelope_opt.clone()
+  fn message_swap(&self) -> &Arc<ArcSwapOption<MessageHandle>> {
+    &self.message_or_envelope
+  }
+
+  fn load_message_arc(&self) -> Option<Arc<MessageHandle>> {
+    self.message_swap().load_full()
   }
 
   pub fn try_message_envelope(&self) -> Option<MessageEnvelope> {
-    match self.message_cell().try_read() {
-      Ok(guard) => guard.as_ref().and_then(|moe| moe.to_typed::<MessageEnvelope>()),
-      Err(_err) => None,
-    }
+    self
+      .load_message_arc()
+      .and_then(|handle| handle.as_ref().to_typed::<MessageEnvelope>())
   }
 
   pub fn try_message_handle(&self) -> Option<MessageHandle> {
-    match self.message_cell().try_read() {
-      Ok(guard) => guard
-        .as_ref()
-        .map(|message_or_envelope| unwrap_envelope_message(message_or_envelope.clone())),
-      Err(_err) => None,
-    }
+    self
+      .load_message_arc()
+      .map(|handle| unwrap_envelope_message(handle.as_ref().clone()))
   }
 
   pub fn try_sender(&self) -> Option<ExtendedPid> {
-    match self.message_cell().try_read() {
-      Ok(guard) => guard
-        .as_ref()
-        .and_then(|message_or_envelope| unwrap_envelope_sender(message_or_envelope.clone())),
-      Err(_err) => None,
-    }
+    self
+      .load_message_arc()
+      .and_then(|handle| unwrap_envelope_sender(handle.as_ref().clone()))
   }
 
   pub fn try_message_header(&self) -> Option<ReadonlyMessageHeadersHandle> {
-    match self.message_cell().try_read() {
-      Ok(guard) => guard
-        .as_ref()
-        .and_then(|message_or_envelope| unwrap_envelope_header(message_or_envelope.clone()))
-        .map(ReadonlyMessageHeadersHandle::new),
-      Err(_err) => None,
-    }
+    self
+      .load_message_arc()
+      .and_then(|handle| unwrap_envelope_header(handle.as_ref().clone()))
+      .map(ReadonlyMessageHeadersHandle::new)
   }
 
   fn actor_system(&self) -> ActorSystem {
@@ -418,22 +412,18 @@ impl ActorContext {
   }
 
   async fn get_message_or_envelop(&self) -> MessageHandle {
-    let message_cell = self.message_cell();
-    let message_guard = message_cell.read().await;
-    let message = message_guard.clone().unwrap();
-    message
+    self
+      .load_message_arc()
+      .map(|handle| handle.as_ref().clone())
+      .expect("message not found")
   }
 
   async fn set_message_or_envelope(&mut self, message_handle: MessageHandle) {
-    let message_cell = self.message_cell();
-    let mut moe_opt = message_cell.write().await;
-    *moe_opt = Some(message_handle);
+    self.message_swap().store(Some(Arc::new(message_handle)));
   }
 
   async fn reset_message_or_envelope(&mut self) {
-    let message_cell = self.message_cell();
-    let mut moe_opt = message_cell.write().await;
-    *moe_opt = None;
+    self.message_swap().store(None);
   }
 
   async fn process_message(&mut self, message_handle: MessageHandle) -> Result<(), ActorError> {
@@ -700,15 +690,11 @@ impl ActorContext {
 #[cfg(test)]
 impl ActorContext {
   pub(crate) async fn inject_message_for_test(&self, message_handle: MessageHandle) {
-    let message_cell = self.message_cell();
-    let mut guard = message_cell.write().await;
-    *guard = Some(message_handle);
+    self.message_swap().store(Some(Arc::new(message_handle)));
   }
 
   pub(crate) async fn clear_message_for_test(&self) {
-    let message_cell = self.message_cell();
-    let mut guard = message_cell.write().await;
-    guard.take();
+    self.message_swap().store(None);
   }
 }
 
@@ -885,15 +871,12 @@ impl BasePart for ActorContext {
   }
 
   async fn forward(&self, pid: &ExtendedPid) {
-    let message_cell = self.message_cell();
-    let mg = message_cell.read().await;
-    if let Some(message_or_envelope) = &*mg {
-      if let Some(sm) = message_or_envelope.to_typed::<SystemMessage>() {
+    if let Some(message_arc) = self.load_message_arc() {
+      let message = message_arc.as_ref();
+      if let Some(sm) = message.to_typed::<SystemMessage>() {
         panic!("SystemMessage cannot be forwarded: {:?}", sm);
       } else {
-        pid
-          .send_user_message(self.actor_system(), message_or_envelope.clone())
-          .await;
+        pid.send_user_message(self.actor_system(), message.clone()).await;
       }
     }
   }
@@ -933,44 +916,31 @@ impl BasePart for ActorContext {
 #[async_trait]
 impl MessagePart for ActorContext {
   async fn get_message_envelope_opt(&self) -> Option<MessageEnvelope> {
-    let message_cell = self.message_cell();
-    let mg = message_cell.read().await;
-    if let Some(message_or_envelope) = &*mg {
-      message_or_envelope.to_typed::<MessageEnvelope>()
-    } else {
-      None
-    }
+    self
+      .load_message_arc()
+      .and_then(|handle| handle.as_ref().to_typed::<MessageEnvelope>())
   }
 
   async fn get_message_handle_opt(&self) -> Option<MessageHandle> {
-    let message_cell = self.message_cell();
-    let mg = message_cell.read().await;
-    (*mg)
-      .as_ref()
-      .map(|message_or_envelope| unwrap_envelope_message(message_or_envelope.clone()))
+    self
+      .load_message_arc()
+      .map(|handle| unwrap_envelope_message(handle.as_ref().clone()))
   }
 
   async fn get_message_header_handle(&self) -> Option<ReadonlyMessageHeadersHandle> {
-    let message_cell = self.message_cell();
-    let mg = message_cell.read().await;
-    if let Some(moe) = &*mg {
-      unwrap_envelope_header(moe.clone()).map(ReadonlyMessageHeadersHandle::new)
-    } else {
-      None
-    }
+    self
+      .load_message_arc()
+      .and_then(|handle| unwrap_envelope_header(handle.as_ref().clone()))
+      .map(ReadonlyMessageHeadersHandle::new)
   }
 }
 
 #[async_trait]
 impl SenderPart for ActorContext {
   async fn get_sender(&self) -> Option<ExtendedPid> {
-    let message_cell = self.message_cell();
-    let mg = message_cell.read().await;
-    if let Some(message_or_envelope) = &*mg {
-      unwrap_envelope_sender(message_or_envelope.clone())
-    } else {
-      None
-    }
+    self
+      .load_message_arc()
+      .and_then(|handle| unwrap_envelope_sender(handle.as_ref().clone()))
   }
 
   async fn send(&mut self, pid: ExtendedPid, message_handle: MessageHandle) {
