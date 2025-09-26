@@ -28,6 +28,14 @@ use crate::actor::process::Process;
 use crate::actor::supervisor::SupervisorStrategyHandle;
 use crate::generated::actor::{PoisonPill, Watch};
 
+fn ensure_envelope(message_handle: MessageHandle) -> MessageEnvelope {
+  if let Some(envelope) = message_handle.to_typed::<MessageEnvelope>() {
+    envelope.clone()
+  } else {
+    MessageEnvelope::new(message_handle)
+  }
+}
+
 #[derive(Debug, Clone)]
 pub struct RootContext {
   actor_system: WeakActorSystem,
@@ -35,6 +43,90 @@ pub struct RootContext {
   spawn_middleware: Option<Spawner>,
   message_headers: Arc<MessageHeaders>,
   guardian_strategy: Option<SupervisorStrategyHandle>,
+}
+
+#[derive(Debug, Clone)]
+pub struct RootSendPipeline {
+  actor_system: ActorSystem,
+  target: ExtendedPid,
+  message_handle: MessageHandle,
+  middleware_chain: Option<SenderMiddlewareChain>,
+  root_context: RootContext,
+}
+
+impl RootSendPipeline {
+  pub fn actor_system(&self) -> &ActorSystem {
+    &self.actor_system
+  }
+
+  pub fn target(&self) -> &ExtendedPid {
+    &self.target
+  }
+
+  pub fn message_handle(&self) -> &MessageHandle {
+    &self.message_handle
+  }
+
+  pub async fn dispatch(self) {
+    let RootSendPipeline {
+      actor_system,
+      target,
+      message_handle,
+      middleware_chain,
+      root_context,
+    } = self;
+
+    if let Some(chain) = middleware_chain {
+      let sender_context = SenderContextHandle::from_root(root_context);
+      let envelope = ensure_envelope(message_handle);
+      chain.run(sender_context, target, envelope).await;
+    } else {
+      target.send_user_message(actor_system, message_handle).await;
+    }
+  }
+}
+
+#[derive(Debug, Clone)]
+pub struct RootRequestFuturePipeline {
+  actor_system: ActorSystem,
+  target: ExtendedPid,
+  message_handle: MessageHandle,
+  timeout: Duration,
+  middleware_chain: Option<SenderMiddlewareChain>,
+  root_context: RootContext,
+}
+
+impl RootRequestFuturePipeline {
+  pub fn timeout(&self) -> Duration {
+    self.timeout
+  }
+
+  pub async fn dispatch(self) -> ActorFuture {
+    let RootRequestFuturePipeline {
+      actor_system,
+      target,
+      message_handle,
+      timeout,
+      middleware_chain,
+      root_context,
+    } = self;
+
+    let future_process = ActorFutureProcess::new(actor_system.clone(), timeout).await;
+    let future_pid = future_process.get_pid().await;
+    let envelope = ensure_envelope(message_handle).with_sender(future_pid.clone());
+
+    RootSendPipeline {
+      actor_system,
+      target,
+      message_handle: MessageHandle::new(envelope),
+      middleware_chain,
+      root_context,
+    }
+    .dispatch()
+    .await;
+
+    future_process.get_future().await
+  }
 }
 
 impl RootContext {
@@ -91,13 +183,49 @@ impl RootContext {
 
   async fn send_user_message(&self, pid: ExtendedPid, message_handle: MessageHandle) {
     if self.sender_middleware_chain.is_some() {
-      let sch = SenderContextHandle::new(self.clone());
+      let sch = SenderContextHandle::from_root(self.clone());
       let me = MessageEnvelope::new(message_handle);
       self.sender_middleware_chain.clone().unwrap().run(sch, pid, me).await;
     } else {
       tracing::debug!("Sending user message to pid: {}", pid);
       let actor_system = self.actor_system();
       pid.send_user_message(actor_system, message_handle).await;
+    }
+  }
+
+  pub fn prepare_send(&self, pid: ExtendedPid, message_handle: MessageHandle) -> RootSendPipeline {
+    RootSendPipeline {
+      actor_system: self.actor_system(),
+      target: pid,
+      message_handle,
+      middleware_chain: self.sender_middleware_chain.clone(),
+      root_context: self.clone(),
+    }
+  }
+
+  pub fn prepare_request_with_sender(
+    &self,
+    pid: ExtendedPid,
+    message_handle: MessageHandle,
+    sender: ExtendedPid,
+  ) -> RootSendPipeline {
+    let envelope = ensure_envelope(message_handle).with_sender(sender);
+    self.prepare_send(pid, MessageHandle::new(envelope))
+  }
+
+  pub fn prepare_request_future(
+    &self,
+    pid: ExtendedPid,
+    message_handle: MessageHandle,
+    timeout: Duration,
+  ) -> RootRequestFuturePipeline {
+    RootRequestFuturePipeline {
+      actor_system: self.actor_system(),
+      target: pid,
+      message_handle,
+      timeout,
+      middleware_chain: self.sender_middleware_chain.clone(),
+      root_context: self.clone(),
     }
   }
 
@@ -154,29 +282,25 @@ impl SenderPart for RootContext {
   }
 
   async fn send(&mut self, pid: ExtendedPid, message_handle: MessageHandle) {
-    self.send_user_message(pid, message_handle).await
+    self.prepare_send(pid, message_handle).dispatch().await
   }
 
   async fn request(&mut self, pid: ExtendedPid, message_handle: MessageHandle) {
-    self.send_user_message(pid, message_handle).await
+    self.prepare_send(pid, message_handle).dispatch().await
   }
 
   async fn request_with_custom_sender(&mut self, pid: ExtendedPid, message_handle: MessageHandle, sender: ExtendedPid) {
     self
-      .send_user_message(
-        pid,
-        MessageHandle::new(MessageEnvelope::new(message_handle).with_sender(sender)),
-      )
+      .prepare_request_with_sender(pid, message_handle, sender)
+      .dispatch()
       .await
   }
 
   async fn request_future(&self, pid: ExtendedPid, message_handle: MessageHandle, timeout: Duration) -> ActorFuture {
-    let actor_system = self.actor_system();
-    let future_process = ActorFutureProcess::new(actor_system.clone(), timeout).await;
-    let future_pid = future_process.get_pid().await;
-    let moe = MessageEnvelope::new(message_handle).with_sender(future_pid.clone());
-    self.send_user_message(pid, MessageHandle::new(moe)).await;
-    future_process.get_future().await
+    self
+      .prepare_request_future(pid, message_handle, timeout)
+      .dispatch()
+      .await
   }
 }
 
