@@ -990,7 +990,13 @@ mod tests {
   #[async_trait]
   impl Actor for SupervisorStub {
     async fn receive(&mut self, context_handle: ContextHandle) -> Result<(), ActorError> {
-      if context_handle.get_message_handle().await.to_typed::<String>().is_some() {
+      if context_handle
+        .get_message_handle_opt()
+        .await
+        .expect("message not found")
+        .to_typed::<String>()
+        .is_some()
+      {
         context_handle.respond(ResponseHandle::new(self.endpoint.clone())).await;
       }
       Ok(())

@@ -35,12 +35,15 @@ pub struct EchoActor;
 #[async_trait]
 impl Actor for EchoActor {
   async fn receive(&mut self, context_handle: ContextHandle) -> Result<(), ActorError> {
-    if context_handle
-      .get_message_handle()
-      .await
-      .to_typed::<EchoRequest>()
-      .is_some()
-    {
+    let message_handle = if let Some(handle) = context_handle.try_get_message_handle_opt() {
+      handle
+    } else {
+      context_handle
+        .get_message_handle_opt()
+        .await
+        .expect("message not found")
+    };
+    if message_handle.to_typed::<EchoRequest>().is_some() {
       context_handle.respond(ResponseHandle::new(EchoResponse)).await;
     }
     Ok(())

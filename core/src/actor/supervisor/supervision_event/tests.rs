@@ -31,7 +31,12 @@ mod test {
   #[async_trait]
   impl Actor for PanicActor {
     async fn receive(&mut self, ctx: ContextHandle) -> Result<(), ActorError> {
-      if ctx.get_message_handle().await.to_typed::<String>().is_some() {
+      let message_handle = if let Some(handle) = ctx.try_get_message_handle_opt() {
+        handle
+      } else {
+        ctx.get_message_handle_opt().await.expect("message not found")
+      };
+      if message_handle.to_typed::<String>().is_some() {
         Err(ActorError::ReceiveError(ErrorReason::new("Boom!".to_string(), 0)))
       } else {
         Ok(())

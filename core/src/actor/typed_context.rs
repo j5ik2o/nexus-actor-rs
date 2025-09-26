@@ -29,6 +29,52 @@ pub trait TypedReceiverContext<M: Message>:
 }
 pub trait TypedSpawnerContext<M: Message>: TypedInfoPart<M> + TypedSpawnerPart + Send + Sync + 'static {}
 
+/// 同期スナップショット経由で Typed コンテキストの状態にアクセスするための補助トレイト。
+/// 既存の非同期 getter から移行する際の代替 API として利用する。
+pub trait TypedContextSyncView<M: Message>: Send + Sync {
+  /// `ActorSystem` をスナップショットから取得できる場合は返す。
+  fn actor_system_snapshot(&self) -> Option<ActorSystem> {
+    None
+  }
+
+  /// `ActorHandle` をスナップショットから取得できる場合は返す。
+  fn actor_snapshot(&self) -> Option<ActorHandle> {
+    None
+  }
+
+  /// 親 PID の同期スナップショット。
+  fn parent_snapshot(&self) -> Option<TypedExtendedPid<M>> {
+    None
+  }
+
+  /// 自身の PID の同期スナップショット。
+  fn self_snapshot(&self) -> Option<TypedExtendedPid<M>> {
+    None
+  }
+
+  /// メッセージハンドルの同期スナップショット。
+  fn message_handle_snapshot(&self) -> Option<MessageHandle> {
+    None
+  }
+
+  /// メッセージの同期スナップショット。
+  fn message_snapshot(&self) -> Option<M>
+  where
+    M: Clone, {
+    None
+  }
+
+  /// メッセージヘッダの同期スナップショット。
+  fn message_header_snapshot(&self) -> Option<ReadonlyMessageHeadersHandle> {
+    None
+  }
+
+  /// 送信者 PID の同期スナップショット。
+  fn sender_snapshot(&self) -> Option<TypedExtendedPid<M>> {
+    None
+  }
+}
+
 #[async_trait]
 pub trait TypedInfoPart<M: Message>: Debug + Send + Sync + 'static {
   // Parent returns the PID for the current actors parent
@@ -51,6 +97,10 @@ pub trait TypedInfoPart<M: Message>: Debug + Send + Sync + 'static {
 pub trait TypedMessagePart<M: Message>: Debug + Send + Sync + 'static {
   async fn get_message_envelope_opt(&self) -> Option<TypedMessageEnvelope<M>>;
 
+  #[deprecated(
+    since = "1.1.0",
+    note = "Use get_message_envelope_opt().await or try_message_envelope()"
+  )]
   async fn get_message_envelope(&self) -> TypedMessageEnvelope<M> {
     self
       .get_message_envelope_opt()
@@ -60,6 +110,7 @@ pub trait TypedMessagePart<M: Message>: Debug + Send + Sync + 'static {
 
   async fn get_message_handle_opt(&self) -> Option<MessageHandle>;
 
+  #[deprecated(since = "1.1.0", note = "Use get_message_handle_opt().await or try_message_opt()")]
   async fn get_message_handle(&self) -> MessageHandle {
     self.get_message_handle_opt().await.expect("message handle not found")
   }

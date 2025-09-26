@@ -1,15 +1,18 @@
-name: Benchmarks Weekly
+name: Weekly Benchmarks
 
 on:
+  workflow_dispatch:
   schedule:
     - cron: '0 3 * * 1'
-  workflow_dispatch:
 
 jobs:
-  weekly-bench:
+  benchmarks:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - name: Install protoc
         run: |
@@ -18,8 +21,6 @@ jobs:
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt
 
       - name: Cache cargo
         uses: actions/cache@v4
@@ -30,26 +31,35 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Run reentrancy bench
+      - name: Fetch previous benchmark history
+        shell: bash
+        run: |
+          if git ls-remote --exit-code origin gh-pages >/dev/null 2>&1; then
+            git fetch origin gh-pages
+            git checkout origin/gh-pages -- benchmarks || true
+          fi
+
+      - name: Run benchmarks
         env:
+          RUSTFLAGS: "-Copt-level=3"
           THRESHOLD_NS: ${{ vars.REENTRANCY_THRESHOLD_NS != '' && vars.REENTRANCY_THRESHOLD_NS || 90000000 }}
-        run: |
-          chmod +x scripts/check_reentrancy_bench.sh
-          scripts/check_reentrancy_bench.sh
+        run: cargo bench -p nexus-actor-bench --bench reentrancy
 
-      - name: Run context borrow bench
-        env:
-          THRESHOLD_MS: ${{ vars.CONTEXT_BORROW_THRESHOLD_MS != '' && vars.CONTEXT_BORROW_THRESHOLD_MS || 35.0 }}
-          RUN_BENCH: 1
+      - name: Export benchmark metrics
         run: |
-          chmod +x scripts/check_context_borrow_bench.sh
-          scripts/check_context_borrow_bench.sh
+          mkdir -p benchmarks/history
+          scripts/export_bench_metrics.py --output benchmarks/history/bench_history.csv
 
-      - name: Upload benchmark report
+      - name: Upload benchmark artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: weekly-bench-report
-          path: |
-            target/criterion/reentrancy/load
-            target/criterion/context_borrow/borrow_hot_path
-          if-no-files-found: warn
+          name: bench-history
+          path: benchmarks/history/bench_history.csv
+
+      - name: Publish to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: benchmarks
+          keep_files: true

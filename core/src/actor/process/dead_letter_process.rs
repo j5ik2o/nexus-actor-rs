@@ -7,11 +7,12 @@ use crate::actor::message::Message;
 use crate::actor::message::MessageHandle;
 use crate::actor::message::SystemMessage;
 use crate::actor::message::TerminateReason;
-use crate::actor::metrics::metrics_impl::MetricsSink;
+use crate::actor::metrics::metrics_impl::{MetricsRuntime, MetricsSink};
 use crate::actor::process::{Process, ProcessHandle};
 use crate::generated::actor::{DeadLetterResponse, Terminated};
 
 use crate::actor::dispatch::throttler::{Throttle, Valve};
+use arc_swap::ArcSwapOption;
 use async_trait::async_trait;
 use nexus_actor_message_derive_rs::Message;
 use opentelemetry::KeyValue;
@@ -20,18 +21,21 @@ use std::sync::Arc;
 #[derive(Debug, Clone)]
 pub struct DeadLetterProcess {
   actor_system: WeakActorSystem,
-  metrics_sink: Option<Arc<MetricsSink>>,
+  metrics_runtime: Arc<ArcSwapOption<MetricsRuntime>>,
+  metrics_sink: Arc<ArcSwapOption<MetricsSink>>,
 }
 
 impl DeadLetterProcess {
+  const METRICS_ACTOR_NAME: &'static str = "dead_letter_process";
+
   pub async fn new(actor_system: ActorSystem) -> Self {
-    let metrics_sink = actor_system
-      .metrics_runtime()
-      .map(|runtime| Arc::new(runtime.sink_for_actor(Some("dead_letter_process"))));
+    let metrics_runtime = actor_system.metrics_runtime_slot();
+    let metrics_sink = Arc::new(ArcSwapOption::from(None::<Arc<MetricsSink>>));
 
     let myself = Self {
       actor_system: actor_system.downgrade(),
-      metrics_sink: metrics_sink.clone(),
+      metrics_runtime,
+      metrics_sink,
     };
     let config = myself.actor_system().get_config();
     let dead_letter_throttle_count = config.dead_letter_throttle_count;
@@ -155,7 +159,13 @@ impl DeadLetterProcess {
   }
 
   fn metrics_sink(&self) -> Option<Arc<MetricsSink>> {
-    self.metrics_sink.clone()
+    if let Some(existing) = self.metrics_sink.load_full() {
+      return Some(existing);
+    }
+    let runtime = self.metrics_runtime.load_full()?;
+    let sink = Arc::new(runtime.sink_for_actor(Some(Self::METRICS_ACTOR_NAME)));
+    self.metrics_sink.store(Some(sink.clone()));
+    Some(sink)
   }
 }
 

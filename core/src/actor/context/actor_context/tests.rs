@@ -16,7 +16,7 @@ use crate::actor::message::MessageHandle;
 use crate::actor::message::ResponseHandle;
 use crate::actor::message::Touched;
 use nexus_actor_message_derive_rs::Message;
-use opentelemetry::metrics::noop::NoopMeterProvider;
+use opentelemetry_sdk::metrics::SdkMeterProvider;
 use tokio::task::yield_now;
 use tokio::time::timeout;
 use tracing_subscriber::EnvFilter;
@@ -34,7 +34,12 @@ async fn test_actor_continue_future_in_actor() {
   let pid = root_context
     .spawn(
       Props::from_async_actor_receiver(move |ctx| async move {
-        if let Some(msg) = ctx.get_message_handle().await.to_typed::<String>() {
+        if let Some(msg) = ctx
+          .get_message_handle_opt()
+          .await
+          .expect("message not found")
+          .to_typed::<String>()
+        {
           let self_pid = ctx.get_self().await;
           if msg == "request" {
             ctx.respond(ResponseHandle::new("done".to_string())).await;
@@ -158,8 +163,8 @@ async fn test_actor_context_auto_respond_touched_message() {
 
 #[tokio::test]
 async fn test_actor_context_metrics_reentrancy() {
-  let system = ActorSystem::new_config_options([ConfigOption::SetMetricsProvider(Arc::new(MetricsProvider::Noop(
-    NoopMeterProvider::default(),
+  let system = ActorSystem::new_config_options([ConfigOption::SetMetricsProvider(Arc::new(MetricsProvider::Sdk(
+    SdkMeterProvider::default(),
   )))])
   .await
   .expect("actor system with metrics");

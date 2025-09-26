@@ -86,7 +86,7 @@ impl nexus_actor_core_rs::actor::core::Actor for ParentActor {
   ) -> Result<(), ActorError> {
     use nexus_actor_core_rs::actor::context::{MessagePart, SpawnerPart};
 
-    let msg = context.get_message_handle().await;
+    let msg = context.get_message_handle_opt().await.expect("message not found");
 
     if let Some(create_child) = msg.to_typed::<CreateChild>() {
       println!(

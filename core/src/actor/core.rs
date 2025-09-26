@@ -45,6 +45,6 @@ pub use {
   self::error_reason::*, self::middleware::*, self::middleware_chain::*, self::pid::*, self::pid_set::*,
   self::props::*, self::receiver_middleware::*, self::receiver_middleware_chain::*, self::restart_statistics::*,
   self::sender_middleware::*, self::sender_middleware_chain::*, self::spawn_middleware::*, self::spawner::*,
-  self::taks::*, self::typed_actor::*, self::typed_actor_producer::*, self::typed_actor_receiver::*,
-  self::typed_pid::*, self::typed_props::*,
+  self::taks::*, self::typed_actor::*, self::typed_actor_handle::*, self::typed_actor_producer::*,
+  self::typed_actor_receiver::*, self::typed_pid::*, self::typed_props::*,
 };

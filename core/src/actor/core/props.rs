@@ -115,7 +115,7 @@ static DEFAULT_SPAWNER: Lazy<Spawner> = Lazy::new(|| {
 
 fn initialize(props: Props, ctx: ActorContext) {
   for init in props.on_init {
-    init.run(ContextHandle::new(ctx.clone()));
+    init.run(ctx.context_handle());
   }
 }
 
@@ -204,9 +204,11 @@ impl Props {
       props.context_decorator.extend(cloned_decorators.clone());
       props.context_decorator_chain = make_context_decorator_chain(
         &props.context_decorator,
-        ContextDecoratorChain::new(move |ch| {
-          let cloned_ch = ch.clone();
-          async move { cloned_ch.clone() }
+        ContextDecoratorChain::new(move |snapshot| {
+          let handle = snapshot
+            .into_context_handle()
+            .expect("ContextSnapshot must carry ContextHandle for decorator tail");
+          async move { handle }
         }),
       );
     })

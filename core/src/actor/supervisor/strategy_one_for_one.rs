@@ -101,14 +101,7 @@ impl SupervisorStrategy for OneForOneStrategy {
     );
     let child_pid = child.id().to_string();
     let record_decision = |decision: &str| {
-      record_supervisor_metrics(
-        &actor_system,
-        &supervisor,
-        "one_for_one",
-        decision,
-        &child_pid,
-        Vec::new(),
-      );
+      record_supervisor_metrics(&supervisor, "one_for_one", decision, &child_pid, Vec::new());
     };
 
     let directive = self.decider.run(reason.clone()).await;

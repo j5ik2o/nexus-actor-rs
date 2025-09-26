@@ -10,7 +10,6 @@ mod test {
   use crate::actor::core::ExtendedPid;
   use crate::actor::core::Props;
   use crate::actor::core::ReceiverMiddleware;
-  use crate::actor::core::ReceiverMiddlewareChain;
   use crate::actor::core::RestartStatistics;
   use crate::actor::message::AutoReceiveMessage;
   use crate::actor::message::Message;
@@ -66,19 +65,25 @@ mod test {
     let mut root_context = system.get_root_context().await;
 
     let cloned_observer = observer.clone();
-    let middles = ReceiverMiddleware::new(move |next| {
+    let cloned_observer = observer.clone();
+    let middles = ReceiverMiddleware::from_async(move |snapshot, next| {
       let cloned_observer = cloned_observer.clone();
-      ReceiverMiddlewareChain::new(move |ctx, moe| {
-        let next = next.clone();
-        let cloned_observer = cloned_observer.clone();
-        async move {
-          tracing::debug!("ReceiverMiddleware: moe = {:?}", moe);
-          let msg = moe.get_message_handle();
-          tracing::debug!(">>>> msg = {:?}", msg);
-          let result = cloned_observer.receive(ctx.clone(), msg.clone()).await;
-          result?;
-          next.run(ctx, moe).await
-        }
+      Box::pin(async move {
+        tracing::debug!("ReceiverMiddleware: envelope = {:?}", snapshot.message());
+        let msg = snapshot.message().get_message_handle();
+        tracing::debug!(">>>> msg = {:?}", msg);
+
+        let context_handle = snapshot
+          .context()
+          .context_handle()
+          .cloned()
+          .expect("receiver snapshot missing context handle");
+
+        cloned_observer
+          .receive(ReceiverContextHandle::new(context_handle), msg.clone())
+          .await?;
+
+        next(snapshot).await
       })
     });
 
@@ -191,7 +196,7 @@ mod test {
     }
 
     async fn receive(&mut self, ctx: ContextHandle) -> Result<(), ActorError> {
-      let message_handle = ctx.get_message_handle().await;
+      let message_handle = ctx.get_message_handle_opt().await.expect("message not found");
       tracing::debug!("FailingChildActor::receive: msg = {:?}", message_handle);
       if let Some(StringMessage(msg)) = message_handle.to_typed::<StringMessage>() {
         tracing::debug!("FailingChildActor::receive: msg = {:?}", msg);

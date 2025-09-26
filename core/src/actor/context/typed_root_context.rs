@@ -1,5 +1,7 @@
 use crate::actor::actor_system::ActorSystem;
-use crate::actor::context::{InfoPart, MessagePart, RootContext, SenderPart, SpawnerPart, StopperPart};
+use crate::actor::context::{
+  ContextSnapshot, InfoPart, MessagePart, RootContext, SenderPart, SpawnerPart, StopperPart, TypedContextSnapshot,
+};
 use crate::actor::core::{ActorHandle, SpawnError, TypedExtendedPid, TypedProps};
 use crate::actor::message::{Message, MessageHandle, ReadonlyMessageHeadersHandle, TypedMessageEnvelope};
 use crate::actor::process::actor_future::ActorFuture;
@@ -14,7 +16,7 @@ use std::time::Duration;
 #[derive(Debug, Clone, PartialEq, Eq, Message)]
 pub struct UnitMessage;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TypedRootContext {
   inner: RootContext,
 }
@@ -22,6 +24,15 @@ pub struct TypedRootContext {
 impl TypedRootContext {
   pub fn new(inner: RootContext) -> Self {
     Self { inner }
+  }
+
+  pub fn sync_view(&self) -> TypedContextSnapshot<UnitMessage> {
+    let snapshot = ContextSnapshot::default()
+      .with_actor_system_opt(Some(self.inner.actor_system_snapshot()))
+      .with_message_header_opt(Some(ReadonlyMessageHeadersHandle::new_arc(
+        self.inner.message_headers_snapshot(),
+      )));
+    TypedContextSnapshot::new(snapshot)
   }
 }
 
@@ -169,5 +180,27 @@ impl TypedStopperPart<UnitMessage> for TypedRootContext {
       .inner
       .poison_future_with_timeout(pid.get_underlying(), timeout)
       .await
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use crate::actor::actor_system::ActorSystem;
+  use crate::actor::message::MessageHeaders;
+  use crate::actor::typed_context::TypedContextSyncView;
+  use std::sync::Arc;
+
+  #[tokio::test]
+  async fn sync_view_exposes_snapshots() {
+    let actor_system = ActorSystem::new().await.expect("actor system");
+    let root = actor_system.get_root_context().await;
+    let headers = Arc::new(MessageHeaders::default());
+    let typed_root = root.with_headers(headers.clone()).to_typed();
+
+    let snapshot = typed_root.sync_view();
+    assert!(snapshot.actor_system_snapshot().is_some());
+    assert!(snapshot.message_header_snapshot().is_some());
+    assert!(snapshot.parent_snapshot().is_none());
+    assert!(snapshot.sender_snapshot().is_none());
   }
 }

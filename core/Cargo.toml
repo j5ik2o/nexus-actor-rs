@@ -10,6 +10,10 @@ categories = [ "concurrency", "asynchronous", "network-programming" ]
 readme = "../README.md"
 repository = "https://github.com/j5ik2o/nexus-actor-rs"
 
+[features]
+default = []
+lock-metrics = []
+
 [dependencies]
 async-trait = "0.1.80"
 backtrace = "0.3"
@@ -56,6 +60,7 @@ clap = { version = "4.5.9", features = ["derive"] }
 governor = "0.10.0"
 humantime = "2.1"
 rstest = "0.26.0"
+loom = "0.7"
 
 [build-dependencies]
 tonic-build = { version = "0.13.0" }

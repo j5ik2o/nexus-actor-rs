@@ -42,7 +42,7 @@ impl Actor for TraditionalGreeter {
   async fn receive(&mut self, context: nexus_actor_core_rs::actor::context::ContextHandle) -> Result<(), ActorError> {
     use nexus_actor_core_rs::actor::context::MessagePart;
 
-    let msg = context.get_message_handle().await;
+    let msg = context.get_message_handle_opt().await.expect("message not found");
     if let Some(greeting) = msg.to_typed::<Greeting>() {
       println!("[Traditional {}] Hello, {}!", self.id, greeting.name);
     }

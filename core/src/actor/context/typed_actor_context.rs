@@ -1,8 +1,8 @@
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::actor_context::ContextBorrow;
 use crate::actor::context::{
-  ActorContext, BasePart, ExtensionContext, ExtensionPart, InfoPart, MessagePart, ReceiverPart, SenderPart,
-  SpawnerPart, StopperPart,
+  ActorContext, BasePart, ContextSnapshot, ExtensionContext, ExtensionPart, InfoPart, MessagePart, ReceiverPart,
+  SenderPart, SpawnerPart, StopperPart, TypedContextSnapshot,
 };
 use crate::actor::core::{ActorError, ActorHandle, Continuer, ExtendedPid, SpawnError, TypedExtendedPid, TypedProps};
 use crate::actor::message::{
@@ -19,10 +19,19 @@ use std::any::Any;
 use std::fmt::Debug;
 use std::time::Duration;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct TypedActorContext<M: Message> {
   underlying: ActorContext,
   _phantom: std::marker::PhantomData<M>,
+}
+
+impl<M: Message> Clone for TypedActorContext<M> {
+  fn clone(&self) -> Self {
+    Self {
+      underlying: self.underlying.clone(),
+      _phantom: std::marker::PhantomData,
+    }
+  }
 }
 
 impl<M: Message> TypedActorContext<M> {
@@ -41,6 +50,10 @@ impl<M: Message> TypedActorContext<M> {
   /// a [`ContextBorrow`] view bound to the current lifetime.
   pub fn borrow(&self) -> ContextBorrow<'_> {
     self.underlying.borrow()
+  }
+
+  pub fn sync_view(&self) -> TypedContextSnapshot<M> {
+    TypedContextSnapshot::new(ContextSnapshot::from_actor_context(&self.underlying))
   }
 }
 
@@ -74,11 +87,11 @@ impl<M: Message + Clone> TypedSenderContext<M> for TypedActorContext<M> {}
 #[async_trait]
 impl<M: Message> TypedInfoPart<M> for TypedActorContext<M> {
   async fn get_parent(&self) -> Option<TypedExtendedPid<M>> {
-    self.underlying.get_parent().await.map(|pid| pid.into())
+    self.underlying.borrow().parent().cloned().map(|pid| pid.into())
   }
 
   async fn get_self_opt(&self) -> Option<TypedExtendedPid<M>> {
-    self.underlying.get_self_opt().await.map(|pid| pid.into())
+    self.underlying.borrow().self_pid().cloned().map(|pid| pid.into())
   }
 
   async fn set_self(&mut self, pid: TypedExtendedPid<M>) {
@@ -86,18 +99,18 @@ impl<M: Message> TypedInfoPart<M> for TypedActorContext<M> {
   }
 
   async fn get_actor(&self) -> Option<ActorHandle> {
-    self.underlying.get_actor().await
+    self.underlying.borrow().actor().cloned()
   }
 
   async fn get_actor_system(&self) -> ActorSystem {
-    self.underlying.get_actor_system().await
+    self.underlying.borrow().actor_system().clone()
   }
 }
 
 #[async_trait]
 impl<M: Message> TypedSenderPart<M> for TypedActorContext<M> {
   async fn get_sender(&self) -> Option<TypedExtendedPid<M>> {
-    self.underlying.get_sender().await.map(|pid| pid.into())
+    self.underlying.try_sender().map(|pid| pid.into())
   }
 
   async fn send<A: Message>(&mut self, pid: TypedExtendedPid<A>, message: A) {
@@ -131,27 +144,43 @@ impl<M: Message> TypedSenderPart<M> for TypedActorContext<M> {
 #[async_trait]
 impl<M: Message + Clone> TypedMessagePart<M> for TypedActorContext<M> {
   async fn get_message_envelope_opt(&self) -> Option<TypedMessageEnvelope<M>> {
-    self
-      .underlying
-      .get_message_envelope_opt()
-      .await
-      .map(|envelope| TypedMessageEnvelope::new(envelope))
+    if let Some(envelope) = self.underlying.try_message_envelope() {
+      Some(TypedMessageEnvelope::new(envelope))
+    } else {
+      self
+        .underlying
+        .get_message_envelope_opt()
+        .await
+        .map(|envelope| TypedMessageEnvelope::new(envelope))
+    }
   }
 
   async fn get_message_handle_opt(&self) -> Option<MessageHandle> {
-    self.underlying.get_message_handle_opt().await
+    if let Some(handle) = self.underlying.try_message_handle() {
+      Some(handle)
+    } else {
+      self.underlying.get_message_handle_opt().await
+    }
   }
 
   async fn get_message_opt(&self) -> Option<M> {
-    self
-      .underlying
-      .get_message_handle_opt()
-      .await
-      .and_then(|handle| handle.to_typed::<M>())
+    if let Some(handle) = self.underlying.try_message_handle() {
+      handle.to_typed::<M>()
+    } else {
+      self
+        .underlying
+        .get_message_handle_opt()
+        .await
+        .and_then(|handle| handle.to_typed::<M>())
+    }
   }
 
   async fn get_message_header_handle(&self) -> Option<ReadonlyMessageHeadersHandle> {
-    self.underlying.get_message_header_handle().await
+    if let Some(header) = self.underlying.try_message_header() {
+      Some(header)
+    } else {
+      self.underlying.get_message_header_handle().await
+    }
   }
 }
 

@@ -4,11 +4,9 @@ use futures::future::BoxFuture;
 use once_cell::sync::Lazy;
 use std::fmt::Debug;
 use std::future::Future;
-use std::ops::{Deref, DerefMut};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::ActorContext;
@@ -16,6 +14,7 @@ use crate::actor::core::ErrorReason;
 use crate::actor::core::ExtendedPid;
 use crate::actor::core::RestartStatistics;
 use crate::actor::message::MessageHandle;
+use crate::actor::metrics::metrics_impl::MetricsRuntime;
 use crate::actor::supervisor::directive::Directive;
 use crate::actor::supervisor::strategy_one_for_one::OneForOneStrategy;
 use crate::actor::supervisor::strategy_restarting::RestartingStrategy;
@@ -72,24 +71,23 @@ pub(crate) fn supervisor_actor_type(supervisor: &SupervisorHandle) -> Option<Arc
 }
 
 pub(crate) fn record_supervisor_metrics(
-  actor_system: &ActorSystem,
   supervisor: &SupervisorHandle,
   strategy: &'static str,
   decision: &str,
   child_pid: &str,
   mut extra_labels: Vec<KeyValue>,
 ) {
-  let actor_type = supervisor_actor_type(supervisor).map(|arc| arc.to_string());
-  let mut labels = vec![
-    KeyValue::new("supervisor.strategy", strategy),
-    KeyValue::new("supervisor.decision", decision.to_string()),
-    KeyValue::new("supervisor.child_pid", child_pid.to_string()),
-  ];
-  labels.append(&mut extra_labels);
-  let _ = actor_system.metrics_foreach(|runtime| {
+  if let Some(runtime) = supervisor.metrics_runtime() {
+    let actor_type = supervisor_actor_type(supervisor).map(|arc| arc.to_string());
+    let mut labels = vec![
+      KeyValue::new("supervisor.strategy", strategy),
+      KeyValue::new("supervisor.decision", decision.to_string()),
+      KeyValue::new("supervisor.child_pid", child_pid.to_string()),
+    ];
+    labels.append(&mut extra_labels);
     let sink = runtime.sink_for_actor(actor_type.as_deref());
     sink.increment_actor_failure_with_additional_labels(&labels);
-  });
+  }
 }
 
 #[async_trait]
@@ -135,11 +133,21 @@ impl SupervisorSnapshot {
 #[derive(Debug)]
 pub struct SupervisorCell {
   supervisor: Arc<ArcSwapOption<SupervisorSnapshot>>,
+  metrics_runtime: Arc<ArcSwapOption<MetricsRuntime>>,
   snapshot_hits: AtomicU64,
   snapshot_misses: AtomicU64,
 }
 
 impl SupervisorCell {
+  pub fn new(metrics_runtime: Arc<ArcSwapOption<MetricsRuntime>>) -> Self {
+    Self {
+      supervisor: Arc::new(ArcSwapOption::from(None::<Arc<SupervisorSnapshot>>)),
+      metrics_runtime,
+      snapshot_hits: AtomicU64::new(0),
+      snapshot_misses: AtomicU64::new(0),
+    }
+  }
+
   pub fn replace_supervisor(&self, supervisor: Arc<dyn Supervisor>) {
     let snapshot = SupervisorSnapshot::new(supervisor);
     self.supervisor.store(Some(Arc::new(snapshot)));
@@ -166,16 +174,6 @@ impl SupervisorCell {
   }
 }
 
-impl Default for SupervisorCell {
-  fn default() -> Self {
-    Self {
-      supervisor: Arc::new(ArcSwapOption::from(None::<Arc<SupervisorSnapshot>>)),
-      snapshot_hits: AtomicU64::new(0),
-      snapshot_misses: AtomicU64::new(0),
-    }
-  }
-}
-
 #[derive(Debug, Default, Clone, Copy)]
 pub struct SupervisorCellStats {
   pub hits: u64,
@@ -184,25 +182,12 @@ pub struct SupervisorCellStats {
 
 #[derive(Debug, Clone)]
 pub struct SupervisorHandle {
-  inner: Arc<RwLock<dyn Supervisor>>,
   cell: Arc<SupervisorCell>,
 }
 
 impl SupervisorHandle {
-  pub async fn get_supervisor(&self) -> Arc<RwLock<dyn Supervisor>> {
-    self.inner.clone()
-  }
-
-  pub async fn borrow(&self) -> SupervisorBorrow<'_> {
-    SupervisorBorrow {
-      guard: self.inner.read().await,
-    }
-  }
-
-  pub async fn borrow_mut(&self) -> SupervisorBorrowMut<'_> {
-    SupervisorBorrowMut {
-      guard: self.inner.write().await,
-    }
+  pub fn get_supervisor(&self) -> Arc<dyn Supervisor> {
+    self.supervisor_arc().expect("Supervisor snapshot is not initialized")
   }
 
   pub fn supervisor_arc(&self) -> Option<Arc<dyn Supervisor>> {
@@ -217,30 +202,47 @@ impl SupervisorHandle {
     self.cell.snapshot_stats()
   }
 
-  pub fn inject_snapshot(&self, supervisor: Arc<dyn Supervisor>) {
+  pub fn replace_supervisor_arc(&self, supervisor: Arc<dyn Supervisor>) {
     self.cell.replace_supervisor(supervisor);
   }
 
-  pub fn new_arc(s: Arc<RwLock<dyn Supervisor>>) -> Self {
-    SupervisorHandle {
-      inner: s,
-      cell: Arc::new(SupervisorCell::default()),
-    }
+  pub fn inject_snapshot(&self, supervisor: Arc<dyn Supervisor>) {
+    self.replace_supervisor_arc(supervisor);
   }
 
-  pub fn new<S>(s: S) -> Self
+  pub fn metrics_runtime(&self) -> Option<Arc<MetricsRuntime>> {
+    self.cell.metrics_runtime.load_full()
+  }
+
+  pub fn new_arc_with_metrics(
+    supervisor: Arc<dyn Supervisor>,
+    metrics_runtime: Arc<ArcSwapOption<MetricsRuntime>>,
+  ) -> Self {
+    let cell = Arc::new(SupervisorCell::new(metrics_runtime));
+    cell.replace_supervisor(supervisor);
+    SupervisorHandle { cell }
+  }
+
+  pub fn new_arc(supervisor: Arc<dyn Supervisor>) -> Self {
+    SupervisorHandle::new_arc_with_metrics(supervisor, Arc::new(ArcSwapOption::from(None::<Arc<MetricsRuntime>>)))
+  }
+
+  pub fn new_with_metrics<S>(supervisor: S, metrics_runtime: Arc<ArcSwapOption<MetricsRuntime>>) -> Self
   where
     S: Supervisor + Clone + 'static, {
-    SupervisorHandle {
-      inner: Arc::new(RwLock::new(s)),
-      cell: Arc::new(SupervisorCell::default()),
-    }
+    SupervisorHandle::new_arc_with_metrics(Arc::new(supervisor), metrics_runtime)
+  }
+
+  pub fn new<S>(supervisor: S) -> Self
+  where
+    S: Supervisor + Clone + 'static, {
+    SupervisorHandle::new_arc(Arc::new(supervisor))
   }
 }
 
 impl PartialEq for SupervisorHandle {
   fn eq(&self, other: &Self) -> bool {
-    Arc::ptr_eq(&self.inner, &other.inner)
+    Arc::ptr_eq(&self.cell, &other.cell)
   }
 }
 
@@ -248,37 +250,7 @@ impl Eq for SupervisorHandle {}
 
 impl std::hash::Hash for SupervisorHandle {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    (self.inner.as_ref() as *const RwLock<dyn Supervisor>).hash(state);
-  }
-}
-
-pub struct SupervisorBorrow<'a> {
-  guard: RwLockReadGuard<'a, dyn Supervisor>,
-}
-
-impl<'a> Deref for SupervisorBorrow<'a> {
-  type Target = dyn Supervisor;
-
-  fn deref(&self) -> &Self::Target {
-    &*self.guard
-  }
-}
-
-pub struct SupervisorBorrowMut<'a> {
-  guard: RwLockWriteGuard<'a, dyn Supervisor>,
-}
-
-impl<'a> Deref for SupervisorBorrowMut<'a> {
-  type Target = dyn Supervisor;
-
-  fn deref(&self) -> &Self::Target {
-    &*self.guard
-  }
-}
-
-impl<'a> DerefMut for SupervisorBorrowMut<'a> {
-  fn deref_mut(&mut self) -> &mut Self::Target {
-    &mut *self.guard
+    (self.cell.as_ref() as *const SupervisorCell).hash(state);
   }
 }
 
@@ -289,28 +261,43 @@ impl Supervisor for SupervisorHandle {
   }
 
   async fn get_children(&self) -> Vec<ExtendedPid> {
-    let mg = self.inner.read().await;
-    mg.get_children().await
+    self
+      .supervisor_arc()
+      .expect("Supervisor snapshot is not initialized")
+      .get_children()
+      .await
   }
 
   async fn escalate_failure(&self, reason: ErrorReason, message_handle: MessageHandle) {
-    let mg = self.inner.read().await;
-    mg.escalate_failure(reason, message_handle).await;
+    self
+      .supervisor_arc()
+      .expect("Supervisor snapshot is not initialized")
+      .escalate_failure(reason, message_handle)
+      .await;
   }
 
   async fn restart_children(&self, pids: &[ExtendedPid]) {
-    let mg = self.inner.read().await;
-    mg.restart_children(pids).await;
+    self
+      .supervisor_arc()
+      .expect("Supervisor snapshot is not initialized")
+      .restart_children(pids)
+      .await;
   }
 
   async fn stop_children(&self, pids: &[ExtendedPid]) {
-    let mg = self.inner.read().await;
-    mg.stop_children(pids).await;
+    self
+      .supervisor_arc()
+      .expect("Supervisor snapshot is not initialized")
+      .stop_children(pids)
+      .await;
   }
 
   async fn resume_children(&self, pids: &[ExtendedPid]) {
-    let mg = self.inner.read().await;
-    mg.resume_children(pids).await;
+    self
+      .supervisor_arc()
+      .expect("Supervisor snapshot is not initialized")
+      .resume_children(pids)
+      .await;
   }
 }
 
@@ -331,3 +318,85 @@ pub static DEFAULT_SUPERVISION_STRATEGY: Lazy<SupervisorStrategyHandle> =
 
 pub static RESTARTING_SUPERVISION_STRATEGY: Lazy<SupervisorStrategyHandle> =
   Lazy::new(|| SupervisorStrategyHandle::new(RestartingStrategy::new()));
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::actor::config::MetricsProvider;
+  use crate::actor::ConfigOption;
+  use opentelemetry_sdk::metrics::SdkMeterProvider;
+  use tokio::runtime::Runtime;
+
+  #[derive(Debug)]
+  struct TestSupervisor;
+
+  #[async_trait]
+  impl Supervisor for TestSupervisor {
+    fn as_any(&self) -> &dyn std::any::Any {
+      self
+    }
+
+    async fn get_children(&self) -> Vec<ExtendedPid> {
+      Vec::new()
+    }
+
+    async fn escalate_failure(&self, _: ErrorReason, _: MessageHandle) {}
+
+    async fn restart_children(&self, _: &[ExtendedPid]) {}
+
+    async fn stop_children(&self, _: &[ExtendedPid]) {}
+
+    async fn resume_children(&self, _: &[ExtendedPid]) {}
+  }
+
+  fn make_runtime() -> Arc<MetricsRuntime> {
+    let runtime = Runtime::new().expect("tokio runtime");
+    runtime.block_on(async {
+      let provider = Arc::new(MetricsProvider::Sdk(SdkMeterProvider::default()));
+      let system = ActorSystem::new_config_options([ConfigOption::SetMetricsProvider(provider)])
+        .await
+        .expect("actor system");
+      system.metrics_runtime().expect("metrics runtime")
+    })
+  }
+
+  #[test]
+  fn metrics_runtime_slot_upgrades_cleanly() {
+    let slot = Arc::new(ArcSwapOption::from(None::<Arc<MetricsRuntime>>));
+    let supervisor_arc: Arc<dyn Supervisor> = Arc::new(TestSupervisor);
+    let handle = SupervisorHandle::new_arc_with_metrics(supervisor_arc.clone(), slot.clone());
+    handle.inject_snapshot(supervisor_arc);
+
+    assert!(handle.metrics_runtime().is_none());
+    slot.store(Some(make_runtime()));
+    assert!(handle.metrics_runtime().is_some());
+  }
+
+  #[test]
+  fn loom_metrics_runtime_swap_is_race_free() {
+    let runtime_arc = make_runtime();
+    loom::model(move || {
+      let slot = Arc::new(ArcSwapOption::from(Some(runtime_arc.clone())));
+      let supervisor_arc: Arc<dyn Supervisor> = Arc::new(TestSupervisor);
+      let handle = SupervisorHandle::new_arc_with_metrics(supervisor_arc.clone(), slot.clone());
+      handle.inject_snapshot(supervisor_arc);
+
+      let reader = {
+        let handle = handle.clone();
+        loom::thread::spawn(move || {
+          let _ = handle.metrics_runtime();
+        })
+      };
+
+      let writer = {
+        let slot = slot.clone();
+        loom::thread::spawn(move || {
+          slot.store(None);
+        })
+      };
+
+      reader.join().unwrap();
+      writer.join().unwrap();
+    });
+  }
+}

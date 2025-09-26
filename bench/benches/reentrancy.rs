@@ -12,11 +12,39 @@ use nexus_actor_core_rs::actor::message::{MessageHandle, ResponseHandle};
 use nexus_actor_core_rs::actor::process::process_registry::AddressResolver;
 use nexus_actor_core_rs::actor::{ConfigOption, MetricsProvider};
 use nexus_actor_core_rs::generated::actor::Pid;
-use opentelemetry::metrics::noop::NoopMeterProvider;
+use opentelemetry_sdk::metrics::SdkMeterProvider;
 use rand::random;
 use tokio::runtime::Builder;
 use tokio::sync::Mutex;
 use tokio::time::{timeout, Duration, Instant};
+
+#[cfg(feature = "lock-metrics")]
+use nexus_actor_core_rs::actor::context::{
+  context_lock_metrics_snapshot, reset_context_lock_metrics, ContextLockMetricsSnapshot,
+};
+#[cfg(feature = "lock-metrics")]
+use std::sync::Mutex as StdMutex;
+
+#[cfg(feature = "lock-metrics")]
+#[derive(Debug, Default, Clone, Copy)]
+struct LockMetricsAggregate {
+  iterations: u64,
+  read_lock_acquisitions: u64,
+  write_lock_acquisitions: u64,
+  snapshot_hits: u64,
+  snapshot_misses: u64,
+}
+
+#[cfg(feature = "lock-metrics")]
+impl LockMetricsAggregate {
+  fn add_snapshot(&mut self, snapshot: ContextLockMetricsSnapshot) {
+    self.iterations += 1;
+    self.read_lock_acquisitions += snapshot.read_lock_acquisitions;
+    self.write_lock_acquisitions += snapshot.write_lock_acquisitions;
+    self.snapshot_hits += snapshot.snapshot_hits;
+    self.snapshot_misses += snapshot.snapshot_misses;
+  }
+}
 
 #[derive(Debug, Clone, PartialEq, ::nexus_actor_message_derive_rs::Message)]
 struct LoadMessage {
@@ -39,7 +67,12 @@ struct LoadActor;
 #[async_trait::async_trait]
 impl Actor for LoadActor {
   async fn handle(&mut self, ctx: ContextHandle) -> Result<(), ActorError> {
-    if let Some(msg) = ctx.get_message_handle().await.to_typed::<LoadMessage>() {
+    if let Some(msg) = ctx
+      .get_message_handle_opt()
+      .await
+      .expect("message not found")
+      .to_typed::<LoadMessage>()
+    {
       let remote_pid = ExtendedPid::new(Pid::new("remote-host", &format!("load-{}", msg.seq)));
       remote_pid
         .send_user_message(
@@ -74,7 +107,12 @@ struct BorrowingActor;
 #[async_trait::async_trait]
 impl Actor for BorrowingActor {
   async fn handle(&mut self, ctx: ContextHandle) -> Result<(), ActorError> {
-    if let Some(message) = ctx.get_message_handle().await.to_typed::<BorrowRequest>() {
+    if let Some(message) = ctx
+      .get_message_handle_opt()
+      .await
+      .expect("message not found")
+      .to_typed::<BorrowRequest>()
+    {
       if let Some(actor_context) = ctx.try_into_actor_context().await {
         let borrow = actor_context.borrow();
         let _ = borrow.self_pid();
@@ -98,8 +136,8 @@ struct ScenarioMetrics {
 }
 
 async fn run_scenario(total_requests: usize, concurrency: usize, failure_ratio: f64) -> ScenarioMetrics {
-  let system = ActorSystem::new_config_options([ConfigOption::SetMetricsProvider(Arc::new(MetricsProvider::Noop(
-    NoopMeterProvider::default(),
+  let system = ActorSystem::new_config_options([ConfigOption::SetMetricsProvider(Arc::new(MetricsProvider::Sdk(
+    SdkMeterProvider::default(),
   )))])
   .await
   .expect("init actor system");
@@ -216,19 +254,56 @@ fn context_borrow_benchmark(c: &mut Criterion) {
   let runtime = Builder::new_multi_thread().enable_all().build().expect("runtime");
   let total_requests = 2_000;
 
+  #[cfg(feature = "lock-metrics")]
+  let lock_metrics = Arc::new(StdMutex::new(LockMetricsAggregate::default()));
+
   group.bench_function("borrow_hot_path", |b| {
+    #[cfg(feature = "lock-metrics")]
+    let lock_metrics = Arc::clone(&lock_metrics);
     b.iter_custom(|iters| {
+      #[cfg(feature = "lock-metrics")]
+      let lock_metrics = Arc::clone(&lock_metrics);
       runtime.block_on(async {
         let mut total = StdDuration::ZERO;
         for _ in 0..iters {
+          #[cfg(feature = "lock-metrics")]
+          reset_context_lock_metrics();
           let start = Instant::now();
           run_context_borrow_scenario(total_requests).await;
           total += start.elapsed();
+          #[cfg(feature = "lock-metrics")]
+          {
+            let snapshot = context_lock_metrics_snapshot();
+            let mut guard = lock_metrics.lock().unwrap();
+            guard.add_snapshot(snapshot);
+          }
         }
         total
       })
     });
   });
+  #[cfg(feature = "lock-metrics")]
+  {
+    let metrics = lock_metrics.lock().unwrap().clone();
+    if metrics.iterations > 0 {
+      let total_requests_count = metrics.iterations * total_requests as u64;
+      let read_per_iter = metrics.read_lock_acquisitions as f64 / metrics.iterations as f64;
+      let write_per_iter = metrics.write_lock_acquisitions as f64 / metrics.iterations as f64;
+      println!(
+        "[lock-metrics] borrow_hot_path: iterations={}, total_requests={}, read_locks={}, write_locks={}, snapshot_hits={}, snapshot_misses={}, read_locks_per_iter={:.2}, write_locks_per_iter={:.2}",
+        metrics.iterations,
+        total_requests_count,
+        metrics.read_lock_acquisitions,
+        metrics.write_lock_acquisitions,
+        metrics.snapshot_hits,
+        metrics.snapshot_misses,
+        read_per_iter,
+        write_per_iter
+      );
+    } else {
+      println!("[lock-metrics] borrow_hot_path: no iterations recorded");
+    }
+  }
   group.finish();
 }
 

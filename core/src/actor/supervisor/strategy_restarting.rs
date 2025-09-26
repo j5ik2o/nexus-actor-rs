@@ -53,14 +53,7 @@ impl SupervisorStrategy for RestartingStrategy {
     _: MessageHandle,
   ) {
     let child_pid = child.id().to_string();
-    record_supervisor_metrics(
-      &actor_system,
-      &supervisor,
-      "restarting",
-      "restart",
-      &child_pid,
-      Vec::new(),
-    );
+    record_supervisor_metrics(&supervisor, "restarting", "restart", &child_pid, Vec::new());
     // always restart
     log_failure(actor_system, &child, reason, Directive::Restart).await;
     supervisor.restart_children(&[child]).await

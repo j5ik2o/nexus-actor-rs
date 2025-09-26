@@ -45,7 +45,10 @@ struct CreateChildActor;
 #[async_trait]
 impl Actor for CreateChildActor {
   async fn receive(&mut self, mut context_handle: ContextHandle) -> Result<(), ActorError> {
-    let msg = context_handle.get_message_handle().await;
+    let msg = context_handle
+      .get_message_handle_opt()
+      .await
+      .expect("message not found");
     if msg.to_typed::<CreateChildMessage>().is_some() {
       context_handle
         .spawn(Props::from_async_actor_producer(|_| async { BlackHoleActor }).await)
@@ -121,7 +124,10 @@ struct CreateChildThenStopActor {
 #[async_trait]
 impl Actor for CreateChildThenStopActor {
   async fn receive(&mut self, mut context_handle: ContextHandle) -> Result<(), ActorError> {
-    let msg = context_handle.get_message_handle().await;
+    let msg = context_handle
+      .get_message_handle_opt()
+      .await
+      .expect("message not found");
     tracing::debug!("CreateChildThenStopActor: {:?}", msg);
     if msg.to_typed::<CreateChildMessage>().is_some() {
       context_handle
@@ -217,7 +223,7 @@ async fn test_actor_receives_terminated_from_watched() {
         let cloned_ab = cloned_ab.clone();
         let cloned_future = cloned_future.clone();
         async move {
-          let msg = ctx.get_message_handle().await;
+          let msg = ctx.get_message_handle_opt().await.expect("message not found");
           if let Some(AutoReceiveMessage::PostStart) = msg.to_typed::<AutoReceiveMessage>() {
             ctx.watch(&cloned_child).await;
             cloned_ab.wait().await;
@@ -265,7 +271,7 @@ async fn test_future_does_not_timeout() {
   let pid = root_context
     .spawn(
       Props::from_async_actor_receiver(|ctx| async move {
-        let msg = ctx.get_message_handle().await;
+        let msg = ctx.get_message_handle_opt().await.expect("message not found");
         if msg.to_typed::<String>().is_some() {
           sleep(Duration::from_millis(50)).await;
           ctx.respond(ResponseHandle::new("foo".to_string())).await;

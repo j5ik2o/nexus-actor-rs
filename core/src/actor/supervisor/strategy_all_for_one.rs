@@ -68,7 +68,6 @@ impl SupervisorStrategy for AllForOneStrategy {
     let child_pid = child.id().to_string();
     let record_decision = |decision: &str, affected_children: usize| {
       record_supervisor_metrics(
-        &actor_system,
         &supervisor,
         "all_for_one",
         decision,

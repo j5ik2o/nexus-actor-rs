@@ -3,6 +3,7 @@ use crate::endpoint::Endpoint;
 use crate::endpoint_watcher::EndpointWatcher;
 use crate::endpoint_writer::EndpointWriter;
 use crate::endpoint_writer_mailbox::EndpointWriterMailbox;
+use crate::metrics::record_sender_snapshot;
 use crate::remote::Remote;
 use async_trait::async_trait;
 use nexus_actor_core_rs::actor::actor_system::ActorSystem;
@@ -100,7 +101,16 @@ impl EndpointSupervisor {
 impl Actor for EndpointSupervisor {
   async fn receive(&mut self, context_handle: ContextHandle) -> Result<(), ActorError> {
     tracing::debug!("EndpointSupervisor::receive");
-    let address_opt = context_handle.get_message_handle().await.to_typed::<String>();
+    let _ = record_sender_snapshot(&context_handle);
+    let message_handle = if let Some(handle) = context_handle.try_get_message_handle_opt() {
+      handle
+    } else {
+      context_handle
+        .get_message_handle_opt()
+        .await
+        .expect("message not found")
+    };
+    let address_opt = message_handle.to_typed::<String>();
     if address_opt.is_none() {
       return Err(ActorError::ReceiveError(ErrorReason::new("address not found", 0)));
     }

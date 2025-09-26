@@ -13,7 +13,7 @@ use crate::actor::{Config, ConfigOption, MetricsProvider};
 use async_trait::async_trait;
 use nexus_actor_message_derive_rs::Message;
 use nexus_actor_utils_rs::concurrent::AsyncBarrier;
-use opentelemetry::metrics::noop::NoopMeterProvider;
+use opentelemetry_sdk::metrics::SdkMeterProvider;
 use tokio::time::sleep;
 use tracing_subscriber::EnvFilter;
 
@@ -84,7 +84,7 @@ async fn test_actor_system_spawn_actor() {
 
 #[tokio::test]
 async fn test_metrics_foreach_sync_access() {
-  let provider = Arc::new(MetricsProvider::Noop(NoopMeterProvider::default()));
+  let provider = Arc::new(MetricsProvider::Sdk(SdkMeterProvider::default()));
   let system = ActorSystem::new_config_options([ConfigOption::SetMetricsProvider(provider)])
     .await
     .unwrap();

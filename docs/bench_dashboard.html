@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <title>ベンチマークダッシュボード</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        margin: 2rem;
+        background-color: #f7f7f9;
+      }
+      h1 {
+        margin-bottom: 0.5rem;
+      }
+      #chart-container {
+        max-width: 960px;
+      }
+      canvas {
+        background-color: #fff;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 1rem;
+      }
+      .note {
+        color: #555;
+        font-size: 0.9rem;
+        margin-bottom: 1rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>ベンチマークダッシュボード</h1>
+    <p class="note">
+      週次実行した Criterion ベンチマークの履歴を可視化しています。CSV は
+      <code>benchmarks/history/bench_history.csv</code>
+      に公開されています。
+    </p>
+    <div id="chart-container">
+      <canvas id="bench-chart" height="400"></canvas>
+    </div>
+
+    <script>
+      const CSV_URL = '../benchmarks/history/bench_history.csv';
+
+      async function loadCsv(url) {
+        const response = await fetch(url, { cache: 'no-store' });
+        if (!response.ok) {
+          throw new Error(`Failed to fetch ${url}: ${response.status}`);
+        }
+        const text = await response.text();
+        const lines = text.trim().split(/\r?\n/);
+        const [headerLine, ...rows] = lines;
+        const headers = headerLine.split(',');
+        return rows.map((line) => {
+          const cols = line.split(',');
+          const record = {};
+          headers.forEach((h, idx) => {
+            record[h] = cols[idx];
+          });
+          return record;
+        });
+      }
+
+      function groupByBenchmark(records) {
+        const map = new Map();
+        for (const row of records) {
+          const bench = row.benchmark || row.group || 'unknown';
+          if (!map.has(bench)) {
+            map.set(bench, []);
+          }
+          map.get(bench).push(row);
+        }
+        map.forEach((arr) =>
+          arr.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+        );
+        return map;
+      }
+
+      function buildDatasets(grouped) {
+        const colors = [
+          '#3366CC',
+          '#DC3912',
+          '#FF9900',
+          '#109618',
+          '#990099',
+        ];
+        let idx = 0;
+        const datasets = [];
+        grouped.forEach((rows, bench) => {
+          const color = colors[idx % colors.length];
+          idx += 1;
+          datasets.push({
+            label: bench,
+            data: rows.map((row) => ({
+              x: row.timestamp,
+              y: Number(row.mean_ns) / 1e6,
+            })),
+            borderColor: color,
+            backgroundColor: color + '33',
+            tension: 0.2,
+          });
+        });
+        return datasets;
+      }
+
+      async function renderChart() {
+        try {
+          const rows = await loadCsv(CSV_URL);
+          const grouped = groupByBenchmark(rows);
+          const datasets = buildDatasets(grouped);
+
+          const ctx = document.getElementById('bench-chart');
+          new Chart(ctx, {
+            type: 'line',
+            data: { datasets },
+            options: {
+              parsing: false,
+              plugins: {
+                tooltip: {
+                  callbacks: {
+                    label: (context) => {
+                      const value = context.parsed.y.toFixed(3);
+                      return `${context.dataset.label}: ${value} ms`;
+                    },
+                  },
+                },
+              },
+              scales: {
+                x: {
+                  type: 'time',
+                  time: { unit: 'week' },
+                  title: { display: true, text: 'timestamp (UTC)' },
+                },
+                y: {
+                  title: { display: true, text: 'mean (ms)' },
+                  beginAtZero: false,
+                },
+              },
+            },
+          });
+        } catch (err) {
+          const container = document.getElementById('chart-container');
+          container.innerHTML = `<p style="color:red;">${err}</p>`;
+        }
+      }
+
+      renderChart();
+    </script>
+  </body>
+</html>

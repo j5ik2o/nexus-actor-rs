@@ -6,20 +6,38 @@ use crate::actor::message::MessageHandle;
 use async_trait::async_trait;
 use std::any::Any;
 use std::fmt::{Debug, Formatter};
+use std::sync::{Arc, Weak};
 use std::time::Duration;
 
 /// Adapter to make ExtendedPid implement ActorRef
 #[derive(Clone)]
 pub struct PidActorRef {
-  pid: ExtendedPid,
+  pid: Arc<ExtendedPid>,
+  actor_system: WeakActorSystem,
+}
+
+#[derive(Clone)]
+pub struct WeakPidActorRef {
+  pid: Weak<ExtendedPid>,
   actor_system: WeakActorSystem,
 }
 
 impl PidActorRef {
   pub fn new(pid: ExtendedPid, actor_system: ActorSystem) -> Self {
+    Self::from_arc(Arc::new(pid), actor_system)
+  }
+
+  pub fn from_arc(pid: Arc<ExtendedPid>, actor_system: ActorSystem) -> Self {
     PidActorRef {
       pid,
       actor_system: actor_system.downgrade(),
+    }
+  }
+
+  pub fn downgrade(&self) -> WeakPidActorRef {
+    WeakPidActorRef {
+      pid: Arc::downgrade(&self.pid),
+      actor_system: self.actor_system.clone(),
     }
   }
 
@@ -29,26 +47,49 @@ impl PidActorRef {
       .upgrade()
       .expect("ActorSystem dropped before PidActorRef")
   }
+
+  fn pid(&self) -> &ExtendedPid {
+    self.pid.as_ref()
+  }
+}
+
+impl WeakPidActorRef {
+  pub fn upgrade(&self) -> Option<PidActorRef> {
+    self.pid.upgrade().map(|pid| PidActorRef {
+      pid,
+      actor_system: self.actor_system.clone(),
+    })
+  }
+
+  pub fn is_alive(&self) -> bool {
+    self.pid.strong_count() > 0
+  }
 }
 
 impl Debug for PidActorRef {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "PidActorRef({:?})", self.pid)
+    write!(f, "PidActorRef({:?})", self.pid())
+  }
+}
+
+impl Debug for WeakPidActorRef {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "WeakPidActorRef(strong={})", self.pid.strong_count())
   }
 }
 
 #[async_trait]
 impl ActorRef for PidActorRef {
   fn get_id(&self) -> String {
-    self.pid.id().to_string()
+    self.pid().id().to_string()
   }
 
   fn get_address(&self) -> String {
-    self.pid.address().to_string()
+    self.pid().address().to_string()
   }
 
   async fn tell(&self, message: MessageHandle) {
-    self.pid.send_user_message(self.actor_system(), message).await
+    self.pid().send_user_message(self.actor_system(), message).await
   }
 
   async fn request(&self, _message: MessageHandle, _timeout: Duration) -> Result<MessageHandle, ActorRefError> {
@@ -67,20 +108,38 @@ impl ActorRef for PidActorRef {
 /// Adapter to make ContextHandle work with BaseContext
 pub struct ContextAdapter {
   context: ContextHandle,
-  self_ref: Option<PidActorRef>,
-  parent_ref: Option<PidActorRef>,
+  self_ref: Option<WeakPidActorRef>,
+  parent_ref: Option<WeakPidActorRef>,
 }
 
 impl ContextAdapter {
   pub async fn new(context: ContextHandle) -> Self {
-    let actor_system = context.get_actor_system().await;
-    let self_pid = context.get_self_opt().await;
-    let parent_pid = context.get_parent().await;
+    let snapshot = context.snapshot();
 
-    let self_ref = self_pid.clone().map(|pid| PidActorRef::new(pid, actor_system.clone()));
+    let actor_system = if let Some(system) = snapshot.actor_system().cloned() {
+      system
+    } else {
+      context.get_actor_system().await
+    };
+
+    let self_pid = if let Some(pid) = snapshot.self_pid().cloned() {
+      Some(pid)
+    } else {
+      context.get_self_opt().await
+    };
+
+    let parent_pid = if let Some(pid) = snapshot.parent().cloned() {
+      Some(pid)
+    } else {
+      context.get_parent().await
+    };
+
+    let self_ref = self_pid
+      .clone()
+      .map(|pid| PidActorRef::new(pid, actor_system.clone()).downgrade());
     let parent_ref = parent_pid
       .clone()
-      .map(|pid| PidActorRef::new(pid, actor_system.clone()));
+      .map(|pid| PidActorRef::new(pid, actor_system.clone()).downgrade());
 
     ContextAdapter {
       context,
@@ -107,6 +166,8 @@ impl BaseContext for ContextAdapter {
       .self_ref
       .as_ref()
       .expect("ContextAdapter: self reference is unavailable")
+      .upgrade()
+      .expect("ContextAdapter: self reference dropped")
       .clone();
     Box::new(pid_ref)
   }
@@ -115,7 +176,8 @@ impl BaseContext for ContextAdapter {
     self
       .parent_ref
       .as_ref()
-      .map(|pid_ref| Box::new(pid_ref.clone()) as Box<dyn ActorRef>)
+      .and_then(|pid_ref| pid_ref.upgrade())
+      .map(|pid_ref| Box::new(pid_ref) as Box<dyn ActorRef>)
   }
 
   async fn send(&self, target: &dyn ActorRef, message: MessageHandle) {
@@ -130,17 +192,36 @@ impl BaseContext for ContextAdapter {
   }
 
   async fn get_message(&self) -> MessageHandle {
-    self.context.get_message_handle().await
+    if let Some(handle) = self.context.try_get_message_handle_opt() {
+      handle
+    } else {
+      self.context.get_message_handle_opt().await.expect("message not found")
+    }
   }
 
   async fn get_sender(&self) -> Option<Box<dyn ActorRef>> {
-    let sender_opt = self.context.get_sender().await;
-    if let Some(pid) = sender_opt {
-      let actor_system = self.context.get_actor_system().await;
-      Some(Box::new(PidActorRef::new(pid, actor_system)) as Box<dyn ActorRef>)
-    } else {
-      None
+    let snapshot = self.context.snapshot();
+    let sender_from_snapshot = snapshot.sender().cloned();
+    let mut actor_system_opt = snapshot.actor_system().cloned();
+    drop(snapshot);
+
+    if let Some(pid) = sender_from_snapshot {
+      let actor_system = match actor_system_opt.take() {
+        Some(system) => system,
+        None => self.context.get_actor_system().await,
+      };
+      return Some(Box::new(PidActorRef::new(pid, actor_system)) as Box<dyn ActorRef>);
     }
+
+    if let Some(pid) = self.context.get_sender().await {
+      let actor_system = match actor_system_opt.take() {
+        Some(system) => system,
+        None => self.context.get_actor_system().await,
+      };
+      return Some(Box::new(PidActorRef::new(pid, actor_system)) as Box<dyn ActorRef>);
+    }
+
+    None
   }
 
   async fn spawn_child(
@@ -183,5 +264,24 @@ pub trait ActorBridge: crate::actor::core::Actor {
   /// Convert ContextHandle to BaseContext for use with new traits
   async fn adapt_context(&self, context: ContextHandle) -> Box<dyn BaseContext> {
     Box::new(ContextAdapter::new(context).await)
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::actor::actor_system::ActorSystem;
+
+  #[tokio::test]
+  async fn weak_pid_actor_ref_lifecycle() {
+    let actor_system = ActorSystem::new().await.expect("actor system should start");
+    let pid = ExtendedPid::new(crate::generated::actor::Pid::new("test", "pid"));
+    let strong = PidActorRef::new(pid, actor_system.clone());
+    let weak = strong.downgrade();
+    assert!(weak.is_alive());
+    assert!(weak.upgrade().is_some());
+    drop(strong);
+    assert!(weak.upgrade().is_none());
+    assert!(!weak.is_alive());
   }
 }

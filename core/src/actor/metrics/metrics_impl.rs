@@ -1,9 +1,8 @@
 use crate::actor::actor_system::ActorSystem;
 use crate::extensions::{next_extension_id, Extension, ExtensionId};
-use crate::metrics::{ActorMetrics, ProtoMetrics};
+use crate::metrics::{ActorMetrics, MetricsError, ProtoMetrics};
 use arc_swap::ArcSwapOption;
 use once_cell::sync::Lazy;
-use opentelemetry::metrics::MetricsError;
 use opentelemetry::KeyValue;
 use std::any::Any;
 use std::sync::Arc;

@@ -1,4 +1,5 @@
 use crate::messages::{EndpointEvent, RemoteTerminate, RemoteUnwatch, RemoteWatch};
+use crate::metrics::record_sender_snapshot;
 use crate::remote::Remote;
 use crate::serializer::SerializerId;
 use async_trait::async_trait;
@@ -59,7 +60,12 @@ impl EndpointWatcher {
 
   async fn connected(&mut self, mut ctx: ContextHandle) -> Result<(), ActorError> {
     let system = self.get_actor_system();
-    let msg = ctx.get_message_handle().await;
+    let _ = record_sender_snapshot(&ctx);
+    let msg = if let Some(handle) = ctx.try_get_message_handle_opt() {
+      handle
+    } else {
+      ctx.get_message_handle_opt().await.expect("message not found")
+    };
     if let Some(remote_terminate) = msg.to_typed::<RemoteTerminate>() {
       let watcher_id = remote_terminate.watcher.clone().unwrap().id.clone();
       let watchee_opt = remote_terminate.watchee;
@@ -156,7 +162,12 @@ impl EndpointWatcher {
 
   async fn terminated(&mut self, ctx: ContextHandle) -> Result<(), ActorError> {
     let system = self.get_actor_system();
-    let msg = ctx.get_message_handle().await;
+    let _ = record_sender_snapshot(&ctx);
+    let msg = if let Some(handle) = ctx.try_get_message_handle_opt() {
+      handle
+    } else {
+      ctx.get_message_handle_opt().await.expect("message not found")
+    };
     if let Some(remote_watch) = msg.to_typed::<RemoteWatch>() {
       let watcher_id = remote_watch.watcher.clone().id.clone();
       let watchee = remote_watch.watchee.clone();

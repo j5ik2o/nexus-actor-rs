@@ -42,11 +42,11 @@ pub fn make_context_decorator_chain(
   if decorator.is_empty() {
     return None;
   }
-  let mut h = decorator.last().unwrap().run(last_decorator);
-  for d in decorator.iter().rev().skip(1) {
-    h = d.run(h);
+  let mut chain = last_decorator;
+  for d in decorator.iter().rev() {
+    chain = chain.prepend(d.clone());
   }
-  Some(h)
+  Some(chain)
 }
 
 pub fn make_spawn_middleware_chain(spawn_middleware: &[SpawnMiddleware], last_spawner: Spawner) -> Option<Spawner> {

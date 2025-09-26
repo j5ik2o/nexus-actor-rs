@@ -24,7 +24,7 @@ struct HelloActor;
 #[async_trait]
 impl Actor for HelloActor {
   async fn receive(&mut self, ctx: ContextHandle) -> Result<(), ActorError> {
-    let message_handle = ctx.get_message_handle().await;
+    let message_handle = ctx.get_message_handle_opt().await.expect("message not found");
     let hello = message_handle.to_typed::<Hello>().unwrap();
     tracing::info!("Hello, {}!", hello.who);
     Ok(())

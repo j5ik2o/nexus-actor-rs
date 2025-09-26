@@ -1,6 +1,9 @@
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
 
+use arc_swap::ArcSwapOption;
 use async_trait::async_trait;
 
 use crate::actor::actor_system::{ActorSystem, WeakActorSystem};
@@ -22,11 +25,20 @@ use crate::actor::message::MessageHandle;
 use crate::actor::message::MessageHeaders;
 use crate::actor::message::ReadonlyMessageHeadersHandle;
 use crate::actor::message::SystemMessage;
+use crate::actor::metrics::metrics_impl::{MetricsRuntime, MetricsSink};
 use crate::actor::process::actor_future::ActorFuture;
 use crate::actor::process::future::ActorFutureProcess;
 use crate::actor::process::Process;
 use crate::actor::supervisor::SupervisorStrategyHandle;
 use crate::generated::actor::{PoisonPill, Watch};
+
+fn ensure_envelope(message_handle: MessageHandle) -> MessageEnvelope {
+  if let Some(envelope) = message_handle.to_typed::<MessageEnvelope>() {
+    envelope.clone()
+  } else {
+    MessageEnvelope::new(message_handle)
+  }
+}
 
 #[derive(Debug, Clone)]
 pub struct RootContext {
@@ -34,12 +46,115 @@ pub struct RootContext {
   sender_middleware_chain: Option<SenderMiddlewareChain>,
   spawn_middleware: Option<Spawner>,
   message_headers: Arc<MessageHeaders>,
-  guardian_strategy: Option<SupervisorStrategyHandle>,
+  guardian_strategy: Arc<ArcSwapOption<SupervisorStrategyHandle>>,
+  guardian_pid: Arc<ArcSwapOption<ExtendedPid>>,
+  metrics_runtime: Arc<ArcSwapOption<MetricsRuntime>>,
+  metrics_sink: Arc<ArcSwapOption<MetricsSink>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct RootSendPipeline {
+  actor_system: ActorSystem,
+  target: ExtendedPid,
+  message_handle: MessageHandle,
+  middleware_chain: Option<SenderMiddlewareChain>,
+  root_context: RootContext,
+  metrics_sink: Option<Arc<MetricsSink>>,
+}
+
+pub type RootSendDispatchFuture = Pin<Box<dyn Future<Output = ()> + Send + 'static>>;
+
+impl RootSendPipeline {
+  pub fn actor_system(&self) -> &ActorSystem {
+    &self.actor_system
+  }
+
+  pub fn target(&self) -> &ExtendedPid {
+    &self.target
+  }
+
+  pub fn message_handle(&self) -> &MessageHandle {
+    &self.message_handle
+  }
+
+  pub fn dispatch(self) -> RootSendDispatchFuture {
+    Box::pin(async move {
+      let RootSendPipeline {
+        actor_system,
+        target,
+        message_handle,
+        middleware_chain,
+        root_context,
+        metrics_sink,
+      } = self;
+
+      if let Some(chain) = middleware_chain {
+        let sender_context = SenderContextHandle::from_root(root_context);
+        let envelope = ensure_envelope(message_handle);
+        chain.run(sender_context, target, envelope).await;
+      } else {
+        target.send_user_message(actor_system, message_handle).await;
+      }
+
+      drop(metrics_sink);
+    })
+  }
+}
+
+#[derive(Debug, Clone)]
+pub struct RootRequestFuturePipeline {
+  actor_system: ActorSystem,
+  target: ExtendedPid,
+  message_handle: MessageHandle,
+  timeout: Duration,
+  middleware_chain: Option<SenderMiddlewareChain>,
+  root_context: RootContext,
+  metrics_sink: Option<Arc<MetricsSink>>,
+}
+
+pub type RootRequestDispatchFuture = Pin<Box<dyn Future<Output = ActorFuture> + Send + 'static>>;
+
+impl RootRequestFuturePipeline {
+  pub fn timeout(&self) -> Duration {
+    self.timeout
+  }
+
+  pub fn dispatch(self) -> RootRequestDispatchFuture {
+    Box::pin(async move {
+      let RootRequestFuturePipeline {
+        actor_system,
+        target,
+        message_handle,
+        timeout,
+        middleware_chain,
+        root_context,
+        metrics_sink,
+      } = self;
+
+      let future_process = ActorFutureProcess::new(actor_system.clone(), timeout).await;
+      let future_pid = future_process.get_pid().await;
+      let envelope = ensure_envelope(message_handle).with_sender(future_pid.clone());
+
+      RootSendPipeline {
+        actor_system,
+        target,
+        message_handle: MessageHandle::new(envelope),
+        middleware_chain,
+        root_context,
+        metrics_sink,
+      }
+      .dispatch()
+      .await;
+
+      future_process.get_future().await
+    })
+  }
 }
 
 impl RootContext {
   pub fn new(actor_system: ActorSystem, headers: Arc<MessageHeaders>, sender_middleware: &[SenderMiddleware]) -> Self {
     let weak_system = actor_system.downgrade();
+    let metrics_runtime = actor_system.metrics_runtime_slot();
     let sender_middleware_chain = make_sender_middleware_chain(
       sender_middleware,
       SenderMiddlewareChain::new({
@@ -62,7 +177,10 @@ impl RootContext {
       sender_middleware_chain,
       spawn_middleware: None,
       message_headers: headers,
-      guardian_strategy: None,
+      guardian_strategy: Arc::new(ArcSwapOption::from(None::<Arc<SupervisorStrategyHandle>>)),
+      guardian_pid: Arc::new(ArcSwapOption::from(None::<Arc<ExtendedPid>>)),
+      metrics_runtime,
+      metrics_sink: Arc::new(ArcSwapOption::from(None::<Arc<MetricsSink>>)),
     }
   }
 
@@ -71,8 +189,9 @@ impl RootContext {
     self
   }
 
-  pub fn with_guardian(mut self, strategy: SupervisorStrategyHandle) -> Self {
-    self.guardian_strategy = Some(strategy);
+  pub fn with_guardian(self, strategy: SupervisorStrategyHandle) -> Self {
+    self.guardian_strategy.store(Some(Arc::new(strategy)));
+    self.guardian_pid.store(None);
     self
   }
 
@@ -81,15 +200,69 @@ impl RootContext {
     self
   }
 
+  pub fn actor_system_snapshot(&self) -> ActorSystem {
+    self.actor_system()
+  }
+
+  pub fn message_headers_snapshot(&self) -> Arc<MessageHeaders> {
+    self.message_headers.clone()
+  }
+
+  pub fn guardian_strategy_snapshot(&self) -> Option<SupervisorStrategyHandle> {
+    self.guardian_strategy.load_full().map(|strategy| (*strategy).clone())
+  }
+
+  pub fn guardian_pid_snapshot(&self) -> Option<ExtendedPid> {
+    self.guardian_pid.load_full().map(|pid| (*pid).clone())
+  }
+
   async fn send_user_message(&self, pid: ExtendedPid, message_handle: MessageHandle) {
     if self.sender_middleware_chain.is_some() {
-      let sch = SenderContextHandle::new(self.clone());
+      let sch = SenderContextHandle::from_root(self.clone());
       let me = MessageEnvelope::new(message_handle);
       self.sender_middleware_chain.clone().unwrap().run(sch, pid, me).await;
     } else {
       tracing::debug!("Sending user message to pid: {}", pid);
       let actor_system = self.actor_system();
       pid.send_user_message(actor_system, message_handle).await;
+    }
+  }
+
+  pub fn prepare_send(&self, pid: ExtendedPid, message_handle: MessageHandle) -> RootSendPipeline {
+    RootSendPipeline {
+      actor_system: self.actor_system(),
+      target: pid,
+      message_handle,
+      middleware_chain: self.sender_middleware_chain.clone(),
+      root_context: self.clone(),
+      metrics_sink: self.metrics_sink(),
+    }
+  }
+
+  pub fn prepare_request_with_sender(
+    &self,
+    pid: ExtendedPid,
+    message_handle: MessageHandle,
+    sender: ExtendedPid,
+  ) -> RootSendPipeline {
+    let envelope = ensure_envelope(message_handle).with_sender(sender);
+    self.prepare_send(pid, MessageHandle::new(envelope))
+  }
+
+  pub fn prepare_request_future(
+    &self,
+    pid: ExtendedPid,
+    message_handle: MessageHandle,
+    timeout: Duration,
+  ) -> RootRequestFuturePipeline {
+    RootRequestFuturePipeline {
+      actor_system: self.actor_system(),
+      target: pid,
+      message_handle,
+      timeout,
+      middleware_chain: self.sender_middleware_chain.clone(),
+      root_context: self.clone(),
+      metrics_sink: self.metrics_sink(),
     }
   }
 
@@ -103,6 +276,27 @@ impl RootContext {
       .upgrade()
       .expect("ActorSystem dropped before RootContext")
   }
+
+  fn guardian_strategy(&self) -> Option<SupervisorStrategyHandle> {
+    self.guardian_strategy.load_full().map(|strategy| (*strategy).clone())
+  }
+
+  fn metrics_runtime(&self) -> Option<Arc<MetricsRuntime>> {
+    self.metrics_runtime.load_full()
+  }
+
+  pub fn metrics_sink(&self) -> Option<Arc<MetricsSink>> {
+    if let Some(existing) = self.metrics_sink.load_full() {
+      return Some(existing);
+    }
+    let runtime = self.metrics_runtime()?;
+    let sink = Arc::new(runtime.sink_without_actor());
+    self.metrics_sink.store(Some(sink.clone()));
+    match self.metrics_sink.load_full() {
+      Some(existing) => Some(existing),
+      None => Some(sink),
+    }
+  }
 }
 
 #[async_trait]
@@ -112,20 +306,16 @@ impl InfoPart for RootContext {
   }
 
   async fn get_self_opt(&self) -> Option<ExtendedPid> {
-    if self.guardian_strategy.is_some() {
-      let ssh = self.guardian_strategy.clone().unwrap();
-      Some(
-        self
-          .get_actor_system()
-          .await
-          .get_guardians()
-          .await
-          .get_guardian_pid(ssh)
-          .await,
-      )
-    } else {
-      None
+    if let Some(pid) = self.guardian_pid_snapshot() {
+      return Some(pid);
     }
+
+    let strategy = self.guardian_strategy()?;
+    let actor_system = self.actor_system();
+    let guardians = actor_system.guardians_snapshot()?;
+    let pid = guardians.get_guardian_pid(strategy.clone()).await;
+    self.guardian_pid.store(Some(Arc::new(pid.clone())));
+    Some(pid)
   }
 
   async fn set_self(&mut self, _pid: ExtendedPid) {}
@@ -146,29 +336,25 @@ impl SenderPart for RootContext {
   }
 
   async fn send(&mut self, pid: ExtendedPid, message_handle: MessageHandle) {
-    self.send_user_message(pid, message_handle).await
+    self.prepare_send(pid, message_handle).dispatch().await
   }
 
   async fn request(&mut self, pid: ExtendedPid, message_handle: MessageHandle) {
-    self.send_user_message(pid, message_handle).await
+    self.prepare_send(pid, message_handle).dispatch().await
   }
 
   async fn request_with_custom_sender(&mut self, pid: ExtendedPid, message_handle: MessageHandle, sender: ExtendedPid) {
     self
-      .send_user_message(
-        pid,
-        MessageHandle::new(MessageEnvelope::new(message_handle).with_sender(sender)),
-      )
+      .prepare_request_with_sender(pid, message_handle, sender)
+      .dispatch()
       .await
   }
 
   async fn request_future(&self, pid: ExtendedPid, message_handle: MessageHandle, timeout: Duration) -> ActorFuture {
-    let actor_system = self.actor_system();
-    let future_process = ActorFutureProcess::new(actor_system.clone(), timeout).await;
-    let future_pid = future_process.get_pid().await;
-    let moe = MessageEnvelope::new(message_handle).with_sender(future_pid.clone());
-    self.send_user_message(pid, MessageHandle::new(moe)).await;
-    future_process.get_future().await
+    self
+      .prepare_request_future(pid, message_handle, timeout)
+      .dispatch()
+      .await
   }
 }
 
@@ -223,8 +409,8 @@ impl SpawnerPart for RootContext {
 
   async fn spawn_named(&mut self, props: Props, id: &str) -> Result<ExtendedPid, SpawnError> {
     let mut root_context = self.clone();
-    if self.guardian_strategy.is_some() {
-      root_context = root_context.with_guardian(self.guardian_strategy.clone().unwrap());
+    if let Some(strategy) = self.guardian_strategy() {
+      root_context = root_context.with_guardian(strategy);
     }
 
     if let Some(sm) = &root_context.spawn_middleware {

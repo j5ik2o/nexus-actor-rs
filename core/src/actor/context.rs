@@ -20,22 +20,27 @@ mod actor_context;
 mod actor_context_extras;
 mod base_spawner;
 mod context_handle;
+mod context_snapshot;
 mod mock_context;
 mod receive_timeout_timer;
 mod receiver_context_handle;
+mod receiver_snapshot;
 mod root_context;
 mod sender_context_handle;
 mod spawner_context_handle;
 mod state;
 mod typed_actor_context;
+mod typed_context_borrow;
 mod typed_context_handle;
+mod typed_context_snapshot;
 mod typed_root_context;
 
 use crate::actor::process::actor_future::ActorFuture;
 pub use {
-  self::actor_context::*, self::base_spawner::*, self::context_handle::*, self::mock_context::*,
-  self::receiver_context_handle::*, self::root_context::*, self::sender_context_handle::*,
-  self::spawner_context_handle::*, self::typed_context_handle::*, self::typed_root_context::*,
+  self::actor_context::*, self::base_spawner::*, self::context_handle::*, self::context_snapshot::*,
+  self::mock_context::*, self::receiver_context_handle::*, self::receiver_snapshot::*, self::root_context::*,
+  self::sender_context_handle::*, self::spawner_context_handle::*, self::typed_context_borrow::*,
+  self::typed_context_handle::*, self::typed_context_snapshot::*, self::typed_root_context::*,
 };
 
 pub trait Context:
@@ -126,6 +131,10 @@ pub trait BasePart: Debug + Send + Sync + 'static {
 pub trait MessagePart: Debug + Send + Sync + 'static {
   async fn get_message_envelope_opt(&self) -> Option<MessageEnvelope>;
 
+  #[deprecated(
+    since = "1.1.0",
+    note = "Use get_message_envelope_opt().await or try_message_envelope()"
+  )]
   async fn get_message_envelope(&self) -> MessageEnvelope {
     self
       .get_message_envelope_opt()
@@ -136,12 +145,24 @@ pub trait MessagePart: Debug + Send + Sync + 'static {
   // Message returns the current message to be processed
   async fn get_message_handle_opt(&self) -> Option<MessageHandle>;
 
+  #[deprecated(since = "1.1.0", note = "Use get_message_handle_opt().await or try_message_handle()")]
   async fn get_message_handle(&self) -> MessageHandle {
     self.get_message_handle_opt().await.expect("message not found")
   }
 
   // MessageHeader returns the meta information for the currently processed message
   async fn get_message_header_handle(&self) -> Option<ReadonlyMessageHeadersHandle>;
+
+  #[deprecated(
+    since = "1.1.0",
+    note = "Use get_message_header_handle().await or try_message_header()"
+  )]
+  async fn get_message_header(&self) -> ReadonlyMessageHeadersHandle {
+    self
+      .get_message_header_handle()
+      .await
+      .expect("message header not found")
+  }
 }
 
 #[async_trait]

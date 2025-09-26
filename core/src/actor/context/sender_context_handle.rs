@@ -1,10 +1,9 @@
-use std::sync::Arc;
+use async_trait::async_trait;
 use std::time::Duration;
 
-use async_trait::async_trait;
-use tokio::sync::RwLock;
-
 use crate::actor::actor_system::ActorSystem;
+use crate::actor::context::context_handle::ContextHandle;
+use crate::actor::context::root_context::RootContext;
 use crate::actor::context::{InfoPart, MessagePart, SenderContext, SenderPart};
 use crate::actor::core::ActorHandle;
 use crate::actor::core::ExtendedPid;
@@ -14,89 +13,150 @@ use crate::actor::message::ReadonlyMessageHeadersHandle;
 use crate::actor::process::actor_future::ActorFuture;
 
 #[derive(Debug, Clone)]
-pub struct SenderContextHandle(Arc<RwLock<dyn SenderContext>>);
+enum SenderContextRef {
+  Context(ContextHandle),
+  Root(RootContext),
+}
+
+#[derive(Debug, Clone)]
+pub struct SenderContextHandle(SenderContextRef);
 
 impl SenderContextHandle {
-  pub fn new_arc(context: Arc<RwLock<dyn SenderContext>>) -> Self {
-    SenderContextHandle(context)
+  pub fn new(context: ContextHandle) -> Self {
+    SenderContextHandle::from_context(context)
   }
 
-  pub fn new(c: impl SenderContext + 'static) -> Self {
-    SenderContextHandle(Arc::new(RwLock::new(c)))
+  pub fn from_context(context: ContextHandle) -> Self {
+    SenderContextHandle(SenderContextRef::Context(context))
+  }
+
+  pub fn from_root(root: RootContext) -> Self {
+    SenderContextHandle(SenderContextRef::Root(root))
+  }
+
+  pub fn try_sender(&self) -> Option<ExtendedPid> {
+    match &self.0 {
+      SenderContextRef::Context(context) => context.try_get_sender_opt(),
+      SenderContextRef::Root(_) => None,
+    }
+  }
+}
+
+impl From<ContextHandle> for SenderContextHandle {
+  fn from(value: ContextHandle) -> Self {
+    SenderContextHandle::from_context(value)
+  }
+}
+
+impl From<RootContext> for SenderContextHandle {
+  fn from(value: RootContext) -> Self {
+    SenderContextHandle::from_root(value)
   }
 }
 
 #[async_trait]
 impl InfoPart for SenderContextHandle {
   async fn get_parent(&self) -> Option<ExtendedPid> {
-    let mg = self.0.read().await;
-    mg.get_parent().await
+    match &self.0 {
+      SenderContextRef::Context(context) => context.get_parent().await,
+      SenderContextRef::Root(root) => root.get_parent().await,
+    }
   }
 
   async fn get_self_opt(&self) -> Option<ExtendedPid> {
-    let mg = self.0.read().await;
-    mg.get_self_opt().await
+    match &self.0 {
+      SenderContextRef::Context(context) => context.get_self_opt().await,
+      SenderContextRef::Root(root) => root.get_self_opt().await,
+    }
   }
 
   async fn set_self(&mut self, pid: ExtendedPid) {
-    let mut mg = self.0.write().await;
-    mg.set_self(pid).await
+    match &mut self.0 {
+      SenderContextRef::Context(context) => context.set_self(pid).await,
+      SenderContextRef::Root(root) => root.set_self(pid).await,
+    }
   }
 
   async fn get_actor(&self) -> Option<ActorHandle> {
-    let mg = self.0.read().await;
-    mg.get_actor().await
+    match &self.0 {
+      SenderContextRef::Context(context) => context.get_actor().await,
+      SenderContextRef::Root(root) => root.get_actor().await,
+    }
   }
 
   async fn get_actor_system(&self) -> ActorSystem {
-    let mg = self.0.read().await;
-    mg.get_actor_system().await
+    match &self.0 {
+      SenderContextRef::Context(context) => context.get_actor_system().await,
+      SenderContextRef::Root(root) => root.get_actor_system().await,
+    }
   }
 }
 
 #[async_trait]
 impl SenderPart for SenderContextHandle {
   async fn get_sender(&self) -> Option<ExtendedPid> {
-    let mg = self.0.read().await;
-    mg.get_sender().await
+    match &self.0 {
+      SenderContextRef::Context(context) => {
+        if let Some(sender) = context.try_get_sender_opt() {
+          Some(sender)
+        } else {
+          context.get_sender().await
+        }
+      }
+      SenderContextRef::Root(root) => root.get_sender().await,
+    }
   }
 
   async fn send(&mut self, pid: ExtendedPid, message_handle: MessageHandle) {
-    let mut mg = self.0.write().await;
-    mg.send(pid, message_handle).await
+    match &mut self.0 {
+      SenderContextRef::Context(context) => context.send(pid, message_handle).await,
+      SenderContextRef::Root(root) => root.send(pid, message_handle).await,
+    }
   }
 
   async fn request(&mut self, pid: ExtendedPid, message_handle: MessageHandle) {
-    let mut mg = self.0.write().await;
-    mg.request(pid, message_handle).await
+    match &mut self.0 {
+      SenderContextRef::Context(context) => context.request(pid, message_handle).await,
+      SenderContextRef::Root(root) => root.request(pid, message_handle).await,
+    }
   }
 
   async fn request_with_custom_sender(&mut self, pid: ExtendedPid, message_handle: MessageHandle, sender: ExtendedPid) {
-    let mut mg = self.0.write().await;
-    mg.request_with_custom_sender(pid, message_handle, sender).await
+    match &mut self.0 {
+      SenderContextRef::Context(context) => context.request_with_custom_sender(pid, message_handle, sender).await,
+      SenderContextRef::Root(root) => root.request_with_custom_sender(pid, message_handle, sender).await,
+    }
   }
 
   async fn request_future(&self, pid: ExtendedPid, message_handle: MessageHandle, timeout: Duration) -> ActorFuture {
-    let mg = self.0.read().await;
-    mg.request_future(pid, message_handle, timeout).await
+    match &self.0 {
+      SenderContextRef::Context(context) => context.request_future(pid, message_handle, timeout).await,
+      SenderContextRef::Root(root) => root.request_future(pid, message_handle, timeout).await,
+    }
   }
 }
 
 #[async_trait]
 impl MessagePart for SenderContextHandle {
   async fn get_message_envelope_opt(&self) -> Option<MessageEnvelope> {
-    let mg = self.0.read().await;
-    mg.get_message_envelope_opt().await
+    match &self.0 {
+      SenderContextRef::Context(context) => context.get_message_envelope_opt().await,
+      SenderContextRef::Root(root) => root.get_message_envelope_opt().await,
+    }
   }
 
   async fn get_message_handle_opt(&self) -> Option<MessageHandle> {
-    let mg = self.0.read().await;
-    mg.get_message_handle_opt().await
+    match &self.0 {
+      SenderContextRef::Context(context) => context.get_message_handle_opt().await,
+      SenderContextRef::Root(root) => root.get_message_handle_opt().await,
+    }
   }
 
   async fn get_message_header_handle(&self) -> Option<ReadonlyMessageHeadersHandle> {
-    let mg = self.0.read().await;
-    mg.get_message_header_handle().await
+    match &self.0 {
+      SenderContextRef::Context(context) => context.get_message_header_handle().await,
+      SenderContextRef::Root(root) => root.get_message_header_handle().await,
+    }
   }
 }
 

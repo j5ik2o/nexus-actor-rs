@@ -61,15 +61,20 @@ mod test {
     }
   }
 
-  async fn setup_test_environment() -> (ActorSystem, SupervisorHandle, ExtendedPid, RestartStatistics) {
+  async fn setup_test_environment() -> (
+    ActorSystem,
+    SupervisorHandle,
+    Arc<MockSupervisor>,
+    ExtendedPid,
+    RestartStatistics,
+  ) {
     let actor_system = ActorSystem::new().await.unwrap();
-    let supervisor_instance = MockSupervisor::new();
-    let supervisor = SupervisorHandle::new(supervisor_instance.clone());
-    let supervisor_arc: Arc<dyn Supervisor> = Arc::new(supervisor_instance);
-    supervisor.inject_snapshot(supervisor_arc);
+    let supervisor_instance = Arc::new(MockSupervisor::new());
+    let supervisor_arc: Arc<dyn Supervisor> = supervisor_instance.clone();
+    let supervisor = SupervisorHandle::new_arc(supervisor_arc);
     let child = ExtendedPid::new(Pid::new("test", "1"));
     let rs = RestartStatistics::new();
-    (actor_system, supervisor, child, rs)
+    (actor_system, supervisor, supervisor_instance, child, rs)
   }
 
   #[tokio::test]
@@ -79,7 +84,7 @@ mod test {
       .with_env_filter(EnvFilter::from_default_env())
       .try_init();
 
-    let (actor_system, supervisor, child, rs) = setup_test_environment().await;
+    let (actor_system, supervisor, mock_supervisor, child, rs) = setup_test_environment().await;
     let strategy = RestartingStrategy::new();
 
     strategy
@@ -94,9 +99,6 @@ mod test {
       .await;
 
     tokio::time::sleep(Duration::from_millis(100)).await;
-    let mock_supervisor = supervisor.get_supervisor().await;
-    let guard = mock_supervisor.read().await;
-    let mock_supervisor = guard.as_any().downcast_ref::<MockSupervisor>().unwrap();
     let last_action = mock_supervisor.last_action.lock().unwrap().clone();
     assert_eq!(last_action.as_str(), "restart");
   }

@@ -110,8 +110,9 @@ impl Process for GuardianProcess {
     if let Some(failure) = message_handle.to_typed::<Failure>() {
       let actor_system = self.guardians.actor_system();
       let supervisor_clone = self.clone();
-      let supervisor_handle = SupervisorHandle::new(supervisor_clone.clone());
       let supervisor_arc: Arc<dyn Supervisor> = Arc::new(supervisor_clone);
+      let supervisor_handle =
+        SupervisorHandle::new_arc_with_metrics(supervisor_arc.clone(), actor_system.metrics_runtime_slot());
       supervisor_handle.inject_snapshot(supervisor_arc);
       self
         .strategy

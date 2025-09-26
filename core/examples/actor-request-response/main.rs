@@ -24,7 +24,12 @@ async fn main() {
   let system = ActorSystem::new().await.unwrap();
   let mut root_context = system.get_root_context().await;
   let props = Props::from_async_actor_receiver(|ctx| async move {
-    if let Some(msg) = ctx.get_message_handle().await.to_typed::<Hello>() {
+    if let Some(msg) = ctx
+      .get_message_handle_opt()
+      .await
+      .expect("message not found")
+      .to_typed::<Hello>()
+    {
       ctx.respond(ResponseHandle::new(format!("Hello, {}!", msg.who))).await;
     }
     Ok(())
