@@ -30,6 +30,7 @@ mod sender_context_handle;
 mod spawner_context_handle;
 mod state;
 mod typed_actor_context;
+mod typed_context_borrow;
 mod typed_context_handle;
 mod typed_context_snapshot;
 mod typed_root_context;
@@ -38,8 +39,8 @@ use crate::actor::process::actor_future::ActorFuture;
 pub use {
   self::actor_context::*, self::base_spawner::*, self::context_handle::*, self::context_snapshot::*,
   self::mock_context::*, self::receiver_context_handle::*, self::receiver_snapshot::*, self::root_context::*,
-  self::sender_context_handle::*, self::spawner_context_handle::*, self::typed_context_handle::*,
-  self::typed_context_snapshot::*, self::typed_root_context::*,
+  self::sender_context_handle::*, self::spawner_context_handle::*, self::typed_context_borrow::*,
+  self::typed_context_handle::*, self::typed_context_snapshot::*, self::typed_root_context::*,
 };
 
 pub trait Context:

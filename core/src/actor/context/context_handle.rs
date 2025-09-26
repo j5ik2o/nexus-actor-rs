@@ -260,6 +260,21 @@ impl ContextHandle {
     ContextSnapshot::from_context_handle(self)
   }
 
+  pub fn snapshot_with_borrow(&self) -> ContextSnapshot {
+    if let Some(snapshot) = self.with_actor_borrow(|borrow| {
+      ContextSnapshot::from_borrow(&borrow)
+        .with_sender_opt(self.try_get_sender_opt())
+        .with_message_envelope_opt(self.try_get_message_envelope_opt())
+        .with_message_handle_opt(self.try_get_message_handle_opt())
+        .with_message_header_opt(self.try_get_message_header_handle())
+        .with_context_handle_opt(Some(self.clone()))
+    }) {
+      snapshot
+    } else {
+      ContextSnapshot::from_context_handle(self).with_context_handle(self.clone())
+    }
+  }
+
   pub async fn try_into_actor_context(&self) -> Option<ActorContext> {
     if let Some(actor_ctx) = self.actor_context_arc() {
       return Some(actor_ctx.as_ref().clone());
@@ -465,6 +480,16 @@ impl ContextHandle {
 
   pub fn sender_snapshot(&self) -> Option<ExtendedPid> {
     self.try_get_sender_opt()
+  }
+
+  pub fn with_typed_borrow<M, R, F>(&self, f: F) -> Option<R>
+  where
+    M: crate::actor::message::Message,
+    F: for<'a> FnOnce(crate::actor::context::TypedContextBorrow<'a, M>) -> R, {
+    let actor_ctx = self.actor_context_arc()?;
+    let borrow = actor_ctx.borrow();
+    let view = crate::actor::context::TypedContextBorrow::new(actor_ctx.as_ref(), self.clone(), borrow);
+    Some(f(view))
   }
 }
 
