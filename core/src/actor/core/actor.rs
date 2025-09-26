@@ -19,7 +19,10 @@ pub trait Actor: Debug + Send + Sync + 'static {
 
   #[instrument(skip_all)]
   async fn handle(&mut self, context_handle: ContextHandle) -> Result<(), ActorError> {
-    let message_handle = context_handle.get_message_handle().await;
+    let message_handle = context_handle
+      .get_message_handle_opt()
+      .await
+      .expect("message not found");
     let arm = message_handle.to_typed::<AutoReceiveMessage>();
     match arm {
       Some(arm) => match arm {

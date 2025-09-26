@@ -13,7 +13,10 @@ use tracing::instrument;
 pub trait TypedActor<M: Message + Clone>: Debug + Send + Sync + 'static {
   #[instrument(skip_all)]
   async fn handle(&mut self, context_handle: TypedContextHandle<M>) -> Result<(), ActorError> {
-    let message_handle = context_handle.get_message_handle().await;
+    let message_handle = context_handle
+      .get_message_handle_opt()
+      .await
+      .expect("message not found");
     let arm = message_handle.to_typed::<AutoReceiveMessage>();
     match arm {
       Some(arm) => match arm {

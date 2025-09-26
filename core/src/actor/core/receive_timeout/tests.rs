@@ -25,7 +25,11 @@ impl SetReceiveTimeoutActor {
 #[async_trait]
 impl Actor for SetReceiveTimeoutActor {
   async fn receive(&mut self, context_handle: ContextHandle) -> Result<(), ActorError> {
-    let msg = context_handle.get_message_handle().await.to_typed::<ReceiveTimeout>();
+    let msg = context_handle
+      .get_message_handle_opt()
+      .await
+      .expect("message not found")
+      .to_typed::<ReceiveTimeout>();
     if msg.is_some() {
       tracing::debug!("ReceiveTimeout");
       self.barrier.wait().await;

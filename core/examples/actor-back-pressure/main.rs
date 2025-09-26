@@ -122,12 +122,23 @@ impl Producer {
 impl Actor for Producer {
   async fn receive(&mut self, mut ctx: ContextHandle) -> Result<(), ActorError> {
     // Handle requests for more tasks
-    if let Some(request_more_work) = ctx.get_message_handle().await.to_typed::<RequestMoreTask>() {
+    if let Some(request_more_work) = ctx
+      .get_message_handle_opt()
+      .await
+      .expect("message not found")
+      .to_typed::<RequestMoreTask>()
+    {
       self.requested_tasks += request_more_work.items;
       self.produced_tasks = 0;
       ctx.send(ctx.get_self().await, MessageHandle::new(Produce)).await;
     }
-    if ctx.get_message_handle().await.to_typed::<Produce>().is_some() {
+    if ctx
+      .get_message_handle_opt()
+      .await
+      .expect("message not found")
+      .to_typed::<Produce>()
+      .is_some()
+    {
       self.produced_tasks += 1;
       ctx
         .send(
@@ -171,7 +182,12 @@ impl Consumer {
 impl Actor for Consumer {
   async fn receive(&mut self, context_handle: ContextHandle) -> Result<(), ActorError> {
     // Receive and process tasks
-    if let Some(task) = context_handle.get_message_handle().await.to_typed::<Task>() {
+    if let Some(task) = context_handle
+      .get_message_handle_opt()
+      .await
+      .expect("message not found")
+      .to_typed::<Task>()
+    {
       tracing::info!("Consumer: received task: {:?}", task);
       sleep(std::time::Duration::from_millis(100)).await;
       self.wait_group.done().await;

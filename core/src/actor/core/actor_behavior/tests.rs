@@ -41,10 +41,14 @@ impl EchoSetBehaviorActor {
   }
 
   async fn one(&mut self, context: ContextHandle) -> Result<(), ActorError> {
-    tracing::debug!("one: {:?}", context.get_message_handle().await);
+    tracing::debug!(
+      "one: {:?}",
+      context.get_message_handle_opt().await.expect("message not found")
+    );
     if context
-      .get_message_handle()
+      .get_message_handle_opt()
       .await
+      .expect("message not found")
       .to_typed::<BehaviorMessage>()
       .is_some()
     {
@@ -61,8 +65,17 @@ impl EchoSetBehaviorActor {
   }
 
   async fn other(&mut self, context: ContextHandle) -> Result<(), ActorError> {
-    tracing::debug!("other: {:?}", context.get_message_handle().await);
-    if context.get_message_handle().await.to_typed::<EchoRequest>().is_some() {
+    tracing::debug!(
+      "other: {:?}",
+      context.get_message_handle_opt().await.expect("message not found")
+    );
+    if context
+      .get_message_handle_opt()
+      .await
+      .expect("message not found")
+      .to_typed::<EchoRequest>()
+      .is_some()
+    {
       context.respond(ResponseHandle::new(EchoResponse)).await;
     }
     Ok(())
@@ -74,7 +87,10 @@ impl Actor for EchoSetBehaviorActor {
   async fn receive(&mut self, context_handle: ContextHandle) -> Result<(), ActorError> {
     tracing::debug!(
       "EchoSetBehaviorActor::receive: {:?}",
-      context_handle.get_message_handle().await
+      context_handle
+        .get_message_handle_opt()
+        .await
+        .expect("message not found")
     );
     self.behavior.receive(context_handle).await
   }

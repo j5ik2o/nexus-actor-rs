@@ -22,7 +22,11 @@ async fn test_actor_receives_each_message_in_amessage_batch() {
   let props = Props::from_async_actor_receiver(move |ctx| {
     let cloned_seen_messages_wg = cloned_seen_messages_wg.clone();
     async move {
-      let message = ctx.get_message_handle().await;
+      let message = if let Some(handle) = ctx.try_get_message_handle_opt() {
+        handle
+      } else {
+        ctx.get_message_handle_opt().await.expect("message not found")
+      };
       tracing::debug!("Received message: {:?}", message);
       if message.to_typed::<MessageBatch>().is_some() {
         cloned_seen_messages_wg.done().await;

@@ -76,9 +76,8 @@ struct TestUserMessage;
 #[derive(Debug, Clone, PartialEq, Eq, Message)]
 struct TestTask;
 
-#[async_trait]
 impl Task for TestTask {
-  async fn run(&self) {}
+  fn run(&self) {}
 }
 
 #[tokio::test]

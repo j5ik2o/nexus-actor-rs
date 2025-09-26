@@ -30,7 +30,10 @@ impl Parent {
 #[async_trait]
 impl Actor for Parent {
   async fn receive(&mut self, mut context_handle: ContextHandle) -> Result<(), ActorError> {
-    let message_handle = context_handle.get_message_handle().await;
+    let message_handle = context_handle
+      .get_message_handle_opt()
+      .await
+      .expect("message not found");
     let msg = message_handle.to_typed::<Hello>().unwrap();
     let props = Props::from_async_actor_producer(|_| async { Child::new() }).await;
     let child = context_handle.spawn(props).await;
@@ -51,7 +54,7 @@ impl Child {
 #[async_trait]
 impl Actor for Child {
   async fn receive(&mut self, ctx: ContextHandle) -> Result<(), ActorError> {
-    let message_handle = ctx.get_message_handle().await;
+    let message_handle = ctx.get_message_handle_opt().await.expect("message not found");
     let msg = message_handle.to_typed::<Hello>().unwrap();
     tracing::info!("Hello, {}", msg.who);
     msg.async_barrier.wait().await;

@@ -34,7 +34,12 @@ async fn test_actor_continue_future_in_actor() {
   let pid = root_context
     .spawn(
       Props::from_async_actor_receiver(move |ctx| async move {
-        if let Some(msg) = ctx.get_message_handle().await.to_typed::<String>() {
+        if let Some(msg) = ctx
+          .get_message_handle_opt()
+          .await
+          .expect("message not found")
+          .to_typed::<String>()
+        {
           let self_pid = ctx.get_self().await;
           if msg == "request" {
             ctx.respond(ResponseHandle::new("done".to_string())).await;

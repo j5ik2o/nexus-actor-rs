@@ -58,7 +58,7 @@ async fn example_synchronous() {
   let mut root_context = system.get_root_context().await;
 
   let callee_props = Props::from_async_actor_receiver(move |ctx| async move {
-    let msg = ctx.get_message_handle().await;
+    let msg = ctx.get_message_handle_opt().await.expect("message not found");
     tracing::debug!("callee msg = {:?}", msg);
     if let Some(msg) = msg.to_typed::<Request>() {
       tracing::debug!("{:?}", msg);
@@ -74,7 +74,7 @@ async fn example_synchronous() {
     let cloned_async_barrier = cloned_async_barrier.clone();
     let cloned_callee_pid = cloned_callee_pid.clone();
     async move {
-      let msg = ctx.get_message_handle().await;
+      let msg = ctx.get_message_handle_opt().await.expect("message not found");
       tracing::debug!("caller msg = {:?}", msg);
       if let Some(AutoReceiveMessage::PreStart) = msg.to_typed::<AutoReceiveMessage>() {
         ctx
