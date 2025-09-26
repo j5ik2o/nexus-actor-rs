@@ -32,6 +32,11 @@
    - `TypedActorContext` と `TypedRootContext` は `snapshot()` メソッドを提供し、現在の状態の `TypedContextSnapshot` を返す。
    - スナップショットは `Debug` トレイトを実装しており、デバッグやロギング時に有用。
 
+   **TypedContextBorrow の利用**
+   - ライフタイム付きの参照だけで十分な場合は `ActorContext::with_typed_borrow::<M, _, _>` または `ContextHandle::with_typed_borrow::<M, _, _>` を利用し、`TypedContextBorrow<'_>` から props/self/sender を同期参照する。
+   - `TypedContextBorrow` はメッセージや sender を同期的に取得でき、必要になったタイミングだけ `TypedContextBorrow::snapshot()` で所有スナップショットを生成できる。
+   - Decorator/Middleware などホットパスではまず借用ビューで処理し、スナップショット生成はフォールバックに留めることで割り当てとロックを抑制できる。
+
    **ContextAdapter の snapshot ベース移行**
    - `ContextAdapter` は内部的に `ContextHandle::snapshot()` を使用するように移行された。これにより、アダプター経由のアクセスがスナップショットベースとなり、より安定した動作を実現。
    - 同期参照を優先する運用として、`ContextHandle::snapshot()` で取得したスナップショットを使用することで、ロック競合を最小化できる。
