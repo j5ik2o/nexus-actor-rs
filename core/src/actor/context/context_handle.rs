@@ -254,21 +254,44 @@ impl SenderPart for ContextHandle {
 #[async_trait]
 impl MessagePart for ContextHandle {
   async fn get_message_envelope_opt(&self) -> Option<MessageEnvelope> {
+    if let Some(envelope) = self.try_get_message_envelope_opt() {
+      return Some(envelope);
+    }
     let ctx = self.context_arc();
     let mg = ctx.read().await;
     mg.get_message_envelope_opt().await
   }
 
   async fn get_message_handle_opt(&self) -> Option<MessageHandle> {
+    if let Some(handle) = self.try_get_message_handle_opt() {
+      return Some(handle);
+    }
     let ctx = self.context_arc();
     let mg = ctx.read().await;
     mg.get_message_handle_opt().await
   }
 
   async fn get_message_header_handle(&self) -> Option<ReadonlyMessageHeadersHandle> {
+    if let Some(header) = self.try_get_message_header_handle() {
+      return Some(header);
+    }
     let ctx = self.context_arc();
     let mg = ctx.read().await;
     mg.get_message_header_handle().await
+  }
+}
+
+impl ContextHandle {
+  pub fn try_get_message_envelope_opt(&self) -> Option<MessageEnvelope> {
+    self.actor_context_arc().and_then(|ctx| ctx.try_message_envelope())
+  }
+
+  pub fn try_get_message_handle_opt(&self) -> Option<MessageHandle> {
+    self.actor_context_arc().and_then(|ctx| ctx.try_message_handle())
+  }
+
+  pub fn try_get_message_header_handle(&self) -> Option<ReadonlyMessageHeadersHandle> {
+    self.actor_context_arc().and_then(|ctx| ctx.try_message_header())
   }
 }
 

@@ -1,5 +1,5 @@
 use crate::actor::actor_system::ActorSystem;
-use crate::actor::context::actor_context::ActorContext;
+use crate::actor::context::actor_context::{ActorContext, ContextBorrow};
 use crate::actor::context::{
   BasePart, ContextCellStats, ContextHandle, ExtensionContext, ExtensionPart, InfoPart, MessagePart, ReceiverPart,
   SenderPart, SpawnerPart, StopperPart,
@@ -42,8 +42,87 @@ impl<M: Message> TypedContextHandle<M> {
     self.underlying.actor_context_arc()
   }
 
+  pub fn with_actor_borrow<R, F>(&self, f: F) -> Option<R>
+  where
+    F: for<'a> FnOnce(ContextBorrow<'a>) -> R, {
+    self.actor_context_arc().map(|ctx| {
+      let borrow = ctx.borrow();
+      f(borrow)
+    })
+  }
+
   pub fn context_cell_stats(&self) -> ContextCellStats {
     self.underlying.context_cell_stats()
+  }
+
+  pub fn try_message_envelope(&self) -> Option<TypedMessageEnvelope<M>>
+  where
+    M: Clone, {
+    self
+      .underlying
+      .try_get_message_envelope_opt()
+      .map(TypedMessageEnvelope::new)
+  }
+
+  pub fn try_message_handle(&self) -> Option<MessageHandle> {
+    self.underlying.try_get_message_handle_opt()
+  }
+
+  pub fn try_message_opt(&self) -> Option<M>
+  where
+    M: Clone, {
+    self.try_message_handle().and_then(|handle| handle.to_typed::<M>())
+  }
+
+  pub fn try_message_header(&self) -> Option<ReadonlyMessageHeadersHandle> {
+    self.underlying.try_get_message_header_handle()
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::actor::actor_system::ActorSystem;
+  use crate::actor::context::actor_context::ActorContext;
+  use crate::actor::context::context_handle::ContextHandle;
+  use crate::actor::core::{ActorError, Props};
+  use crate::actor::message::Message;
+  use std::any::Any;
+
+  #[derive(Debug, Clone, PartialEq, Eq)]
+  struct TestMessage;
+
+  impl Message for TestMessage {
+    fn eq_message(&self, other: &dyn Message) -> bool {
+      other.as_any().downcast_ref::<Self>().is_some()
+    }
+
+    fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
+      self
+    }
+
+    fn get_type_name(&self) -> String {
+      "TestMessage".to_string()
+    }
+  }
+
+  #[tokio::test]
+  async fn try_typed_message_snapshot() {
+    let actor_system = ActorSystem::new().await.expect("actor system");
+    let props = Props::from_async_actor_receiver(|_ctx| async { Ok::<(), ActorError>(()) }).await;
+    let actor_context = ActorContext::new(actor_system, props, None).await;
+    actor_context
+      .inject_message_for_test(MessageHandle::new(TestMessage.clone()))
+      .await;
+
+    let typed_handle = TypedContextHandle::<TestMessage>::new(ContextHandle::new(actor_context.clone()));
+
+    assert!(typed_handle.try_message_opt().is_some());
+    assert!(typed_handle.try_message_envelope().is_none());
+    assert!(typed_handle.try_message_header().is_none());
+
+    actor_context.clear_message_for_test().await;
+    assert!(typed_handle.try_message_opt().is_none());
   }
 }
 

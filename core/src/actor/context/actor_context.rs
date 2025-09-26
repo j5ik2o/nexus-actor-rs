@@ -163,6 +163,32 @@ impl ActorContext {
     self.message_or_envelope_opt.clone()
   }
 
+  pub fn try_message_envelope(&self) -> Option<MessageEnvelope> {
+    match self.message_cell().try_read() {
+      Ok(guard) => guard.as_ref().and_then(|moe| moe.to_typed::<MessageEnvelope>()),
+      Err(_err) => None,
+    }
+  }
+
+  pub fn try_message_handle(&self) -> Option<MessageHandle> {
+    match self.message_cell().try_read() {
+      Ok(guard) => guard
+        .as_ref()
+        .map(|message_or_envelope| unwrap_envelope_message(message_or_envelope.clone())),
+      Err(_err) => None,
+    }
+  }
+
+  pub fn try_message_header(&self) -> Option<ReadonlyMessageHeadersHandle> {
+    match self.message_cell().try_read() {
+      Ok(guard) => guard
+        .as_ref()
+        .and_then(|message_or_envelope| unwrap_envelope_header(message_or_envelope.clone()))
+        .map(ReadonlyMessageHeadersHandle::new),
+      Err(_err) => None,
+    }
+  }
+
   fn actor_system(&self) -> ActorSystem {
     self
       .actor_system
@@ -249,10 +275,8 @@ impl ActorContext {
 
   fn supervisor_handle_with_snapshot(&self) -> SupervisorHandle {
     let supervisor_clone = self.clone();
-    let handle = SupervisorHandle::new(supervisor_clone.clone());
     let supervisor_arc: Arc<dyn Supervisor> = Arc::new(supervisor_clone);
-    handle.inject_snapshot(supervisor_arc);
-    handle
+    SupervisorHandle::new_arc(supervisor_arc)
   }
 
   pub async fn receive_timeout_handler(&mut self) {
@@ -662,6 +686,21 @@ impl ActorContext {
   }
 }
 
+#[cfg(test)]
+impl ActorContext {
+  pub(crate) async fn inject_message_for_test(&self, message_handle: MessageHandle) {
+    let message_cell = self.message_cell();
+    let mut guard = message_cell.write().await;
+    *guard = Some(message_handle);
+  }
+
+  pub(crate) async fn clear_message_for_test(&self) {
+    let message_cell = self.message_cell();
+    let mut guard = message_cell.write().await;
+    guard.take();
+  }
+}
+
 impl<'a> ContextBorrow<'a> {
   pub fn actor_system(&self) -> &ActorSystem {
     &self.actor_system
@@ -758,7 +797,9 @@ impl BasePart for ActorContext {
   async fn stash(&mut self) {
     let extra = self.ensure_extras().await;
     let mut stash = extra.get_stash().await;
-    stash.push(self.get_message_handle().await).await;
+    stash
+      .push(self.get_message_handle_opt().await.expect("message not found"))
+      .await;
   }
 
   async fn un_stash_all(&mut self) -> Result<(), ActorError> {

@@ -126,6 +126,10 @@ pub trait BasePart: Debug + Send + Sync + 'static {
 pub trait MessagePart: Debug + Send + Sync + 'static {
   async fn get_message_envelope_opt(&self) -> Option<MessageEnvelope>;
 
+  #[deprecated(
+    since = "1.1.0",
+    note = "Use get_message_envelope_opt().await or try_message_envelope()"
+  )]
   async fn get_message_envelope(&self) -> MessageEnvelope {
     self
       .get_message_envelope_opt()
@@ -136,12 +140,24 @@ pub trait MessagePart: Debug + Send + Sync + 'static {
   // Message returns the current message to be processed
   async fn get_message_handle_opt(&self) -> Option<MessageHandle>;
 
+  #[deprecated(since = "1.1.0", note = "Use get_message_handle_opt().await or try_message_handle()")]
   async fn get_message_handle(&self) -> MessageHandle {
     self.get_message_handle_opt().await.expect("message not found")
   }
 
   // MessageHeader returns the meta information for the currently processed message
   async fn get_message_header_handle(&self) -> Option<ReadonlyMessageHeadersHandle>;
+
+  #[deprecated(
+    since = "1.1.0",
+    note = "Use get_message_header_handle().await or try_message_header()"
+  )]
+  async fn get_message_header(&self) -> ReadonlyMessageHeadersHandle {
+    self
+      .get_message_header_handle()
+      .await
+      .expect("message header not found")
+  }
 }
 
 #[async_trait]
