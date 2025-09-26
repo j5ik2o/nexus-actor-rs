@@ -23,6 +23,10 @@
    - `ContextBorrow<'_>` から得られる `actor_system()` は強参照を返すが、内部では `WeakActorSystem` が利用されている。
    - 長時間保持する場合はガーベジ化の可能性に注意し、極力そのスコープ内でのみ使用する。
 
+5. **コンテキスト/ミドルウェアの再利用**
+   - `ActorContext` は `ContextHandle` を `OnceCell` キャッシュ経由で再利用するようになっている。`ContextHandle::new(self.clone())` を直接呼び出すのではなく、`ContextSnapshot` や `ContextHandle::snapshot()` を活用してスナップショットを引き渡す。
+   - Receiver ミドルウェアを実装する際は `ReceiverMiddleware::from_sync` / `from_async` を用い、`ReceiverSnapshot` を入力に同期パス優先で処理する。必要に応じて非同期フォールバックへ委譲することで lock-metrics 上の read ロックを最小化できる。
+
 ## よくあるアンチパターン
 - 旧 API `snapshot()` / `get_props()` をコピー目的で乱用すること。
 - `ContextHandle` から `to_actor_context()` を呼ぶことを前提にしたモジュール境界越えの依存。
