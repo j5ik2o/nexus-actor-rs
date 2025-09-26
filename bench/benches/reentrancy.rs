@@ -136,9 +136,9 @@ struct ScenarioMetrics {
 }
 
 async fn run_scenario(total_requests: usize, concurrency: usize, failure_ratio: f64) -> ScenarioMetrics {
-  let system = ActorSystem::new_config_options([ConfigOption::SetMetricsProvider(Arc::new(
-    MetricsProvider::Sdk(SdkMeterProvider::default()),
-  ))])
+  let system = ActorSystem::new_config_options([ConfigOption::SetMetricsProvider(Arc::new(MetricsProvider::Sdk(
+    SdkMeterProvider::default(),
+  )))])
   .await
   .expect("init actor system");
 

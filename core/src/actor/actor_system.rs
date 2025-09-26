@@ -10,7 +10,6 @@ use crate::actor::event_stream::EventStreamProcess;
 use crate::actor::guardian::GuardiansValue;
 use crate::actor::message::EMPTY_MESSAGE_HEADER;
 use crate::actor::metrics::metrics_impl::{Metrics, MetricsRuntime};
-use crate::metrics::MetricsError;
 use crate::actor::process::process_registry::ProcessRegistry;
 use crate::actor::process::ProcessHandle;
 use crate::actor::supervisor::subscribe_supervision;
@@ -18,6 +17,7 @@ use crate::actor::{Config, ConfigOption};
 use crate::event_stream::EventStream;
 use crate::extensions::Extensions;
 use crate::generated::actor::Pid;
+use crate::metrics::MetricsError;
 
 #[cfg(test)]
 mod tests;

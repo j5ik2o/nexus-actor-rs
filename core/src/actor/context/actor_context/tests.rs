@@ -163,9 +163,9 @@ async fn test_actor_context_auto_respond_touched_message() {
 
 #[tokio::test]
 async fn test_actor_context_metrics_reentrancy() {
-  let system = ActorSystem::new_config_options([ConfigOption::SetMetricsProvider(Arc::new(
-    MetricsProvider::Sdk(SdkMeterProvider::default()),
-  ))])
+  let system = ActorSystem::new_config_options([ConfigOption::SetMetricsProvider(Arc::new(MetricsProvider::Sdk(
+    SdkMeterProvider::default(),
+  )))])
   .await
   .expect("actor system with metrics");
 
