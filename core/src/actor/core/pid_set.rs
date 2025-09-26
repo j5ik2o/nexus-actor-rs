@@ -1,79 +1,67 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use tokio::sync::RwLock;
+use parking_lot::RwLock;
 
 use crate::generated::actor::Pid;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default)]
+struct PidSetInner {
+  pids: RwLock<Vec<Pid>>,
+  lookup: RwLock<HashMap<String, Pid>>,
+}
+
+#[derive(Debug, Clone, Default)]
 pub struct PidSet {
-  pids: Arc<RwLock<Vec<Pid>>>,
-  lookup: Arc<RwLock<HashMap<String, Pid>>>,
+  inner: Arc<PidSetInner>,
 }
 
 impl PidSet {
-  pub fn key(&self, pid: &Pid) -> String {
-    format!("{}::{}", pid.address, pid.id)
+  pub fn new() -> Self {
+    Self::default()
   }
 
-  pub async fn new() -> Self {
-    Self::new_with_pids(&[]).await
-  }
-
-  pub async fn new_with_pids(pids: &[Pid]) -> Self {
-    let mut set = PidSet {
-      pids: Arc::new(RwLock::new(Vec::new())),
-      lookup: Arc::new(RwLock::new(HashMap::new())),
-    };
+  pub fn new_with_pids(pids: &[Pid]) -> Self {
+    let set = Self::new();
     for pid in pids {
-      set.add(pid.clone()).await;
+      set.add(pid.clone());
     }
     set
   }
 
-  pub async fn ensure_init(&mut self) {
-    let mut mg = self.lookup.write().await;
-    if mg.is_empty() {
-      *mg = HashMap::new();
-    }
+  fn key(pid: &Pid) -> String {
+    format!("{}::{}", pid.address, pid.id)
   }
 
-  pub async fn index_of(&self, v: &Pid) -> Option<usize> {
-    let pids_mg = self.pids.read().await;
-    pids_mg.iter().position(|pid| *v == *pid)
+  pub fn contains(&self, pid: &Pid) -> bool {
+    let lookup = self.inner.lookup.read();
+    lookup.contains_key(&Self::key(pid))
   }
 
-  pub async fn contains(&self, v: &Pid) -> bool {
-    let mg = self.lookup.read().await;
-    mg.contains_key(&self.key(v))
-  }
-
-  pub async fn add(&mut self, v: Pid) {
-    self.ensure_init().await;
-    if self.contains(&v).await {
+  pub fn add(&self, pid: Pid) {
+    if self.contains(&pid) {
       return;
     }
-    let key = self.key(&v);
+    let key = Self::key(&pid);
     {
-      let mut lookup_mg = self.lookup.write().await;
-      lookup_mg.insert(key, v.clone());
+      let mut lookup = self.inner.lookup.write();
+      lookup.insert(key, pid.clone());
     }
     {
-      let mut pids_mg = self.pids.write().await;
-      pids_mg.push(v);
+      let mut pids = self.inner.pids.write();
+      pids.push(pid);
     }
   }
 
-  pub async fn remove(&mut self, v: &Pid) -> bool {
-    self.ensure_init().await;
-    if let Some(i) = self.index_of(v).await {
+  pub fn remove(&self, pid: &Pid) -> bool {
+    if let Some(index) = self.index_of(pid) {
       {
-        let mut lookup_mg = self.lookup.write().await;
-        lookup_mg.remove(&self.key(v));
+        let mut lookup = self.inner.lookup.write();
+        lookup.remove(&Self::key(pid));
       }
       {
-        let mut pids_mg = self.pids.write().await;
-        pids_mg.remove(i);
+        let mut pids = self.inner.pids.write();
+        pids.remove(index);
       }
       true
     } else {
@@ -81,43 +69,41 @@ impl PidSet {
     }
   }
 
-  pub async fn len(&self) -> usize {
-    let pids_mg = self.pids.read().await;
-    pids_mg.len()
+  pub fn len(&self) -> usize {
+    let pids = self.inner.pids.read();
+    pids.len()
   }
 
-  pub async fn clear(&mut self) {
-    {
-      let mut pids_mg = self.pids.write().await;
-      pids_mg.clear();
-    }
-    {
-      let mut lookup_mg = self.lookup.write().await;
-      lookup_mg.clear();
-    }
+  pub fn is_empty(&self) -> bool {
+    self.len() == 0
   }
 
-  pub async fn is_empty(&self) -> bool {
-    self.len().await == 0
+  pub fn clear(&self) {
+    self.inner.lookup.write().clear();
+    self.inner.pids.write().clear();
   }
 
-  pub async fn to_vec(&self) -> Vec<Pid> {
-    let pids_mg = self.pids.read().await;
-    pids_mg.clone()
+  pub fn to_vec(&self) -> Vec<Pid> {
+    self.inner.pids.read().clone()
   }
 
-  pub async fn for_each<F>(&self, mut f: F)
+  pub fn for_each<F>(&self, mut f: F)
   where
     F: FnMut(usize, &Pid), {
-    let pids_mg = self.pids.read().await;
-    for (i, pid) in pids_mg.iter().enumerate() {
-      f(i, pid);
+    let pids = self.inner.pids.read();
+    for (idx, pid) in pids.iter().enumerate() {
+      f(idx, pid);
     }
   }
 
-  pub async fn get(&self, index: usize) -> Option<Pid> {
-    let pids_mg = self.pids.read().await;
-    pids_mg.get(index).cloned()
+  pub fn get(&self, index: usize) -> Option<Pid> {
+    let pids = self.inner.pids.read();
+    pids.get(index).cloned()
+  }
+
+  fn index_of(&self, pid: &Pid) -> Option<usize> {
+    let pids = self.inner.pids.read();
+    pids.iter().position(|candidate| candidate == pid)
   }
 }
 
