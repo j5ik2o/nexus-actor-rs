@@ -8,10 +8,11 @@ use crate::actor::core::ExtendedPid;
 use crate::actor::dispatch::Runnable;
 use crate::actor::message::Message;
 use crate::actor::message::MessageHandle;
-use crate::actor::metrics::metrics_impl::MetricsSink;
+use crate::actor::metrics::metrics_impl::{MetricsRuntime, MetricsSink};
 use crate::actor::process::actor_future::{ActorFuture, ActorFutureInner};
 use crate::actor::process::{Process, ProcessHandle};
 use crate::generated::actor::DeadLetterResponse;
+use arc_swap::ArcSwapOption;
 use async_trait::async_trait;
 use nexus_actor_message_derive_rs::Message;
 use opentelemetry::KeyValue;
@@ -32,14 +33,16 @@ pub enum ActorFutureError {
 #[derive(Debug, Clone)]
 pub struct ActorFutureProcess {
   future: Arc<RwLock<ActorFuture>>,
-  metrics_sink: Option<Arc<MetricsSink>>,
+  metrics_runtime: Arc<ArcSwapOption<MetricsRuntime>>,
+  metrics_sink: Arc<ArcSwapOption<MetricsSink>>,
 }
 
 impl ActorFutureProcess {
+  const METRICS_ACTOR_NAME: &'static str = "actor_future_process";
+
   pub async fn new(system: ActorSystem, duration: Duration) -> Arc<Self> {
-    let metrics_sink = system
-      .metrics_runtime()
-      .map(|runtime| Arc::new(runtime.sink_for_actor(Some("actor_future_process"))));
+    let metrics_runtime = system.metrics_runtime_slot();
+    let metrics_sink = Arc::new(ArcSwapOption::from(None::<Arc<MetricsSink>>));
 
     let inner = Arc::new(RwLock::new(ActorFutureInner {
       actor_system: system.downgrade(),
@@ -56,7 +59,8 @@ impl ActorFutureProcess {
 
     let future_process = Arc::new(ActorFutureProcess {
       future: Arc::new(RwLock::new(future.clone())),
-      metrics_sink: metrics_sink.clone(),
+      metrics_runtime,
+      metrics_sink,
     });
 
     let process_registry = system.get_process_registry().await;
@@ -110,7 +114,13 @@ impl ActorFutureProcess {
   }
 
   fn metrics_sink(&self) -> Option<Arc<MetricsSink>> {
-    self.metrics_sink.clone()
+    if let Some(existing) = self.metrics_sink.load_full() {
+      return Some(existing);
+    }
+    let runtime = self.metrics_runtime.load_full()?;
+    let sink = Arc::new(runtime.sink_for_actor(Some(Self::METRICS_ACTOR_NAME)));
+    self.metrics_sink.store(Some(sink.clone()));
+    Some(sink)
   }
 
   async fn get_actor_system(&self) -> ActorSystem {
