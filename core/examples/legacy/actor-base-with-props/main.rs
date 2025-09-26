@@ -1,57 +1,21 @@
 use async_trait::async_trait;
 use nexus_actor_core_rs::actor::actor_system::ActorSystem;
-use nexus_actor_core_rs::actor::context::{SenderPart, SpawnerPart};
-use nexus_actor_core_rs::actor::core::{ActorError, Props};
-use nexus_actor_core_rs::actor::core_types::{BaseActor, BaseActorError, BaseContext, Message, MigrationHelpers};
-use nexus_actor_core_rs::actor::message::MessageHandle;
-use std::any::Any;
-use std::fmt::Debug;
+use nexus_actor_core_rs::actor::context::{ContextHandle, MessagePart, SenderPart, SpawnerPart};
+use nexus_actor_core_rs::actor::core::{Actor, ActorError, ErrorReason, Props};
+use nexus_actor_core_rs::actor::message::{Message, MessageHandle};
+use nexus_actor_message_derive_rs::Message as MessageDerive;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::time::Duration;
 
-// メッセージ定義
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, MessageDerive)]
 struct CreateChild {
   name: String,
-  with_props: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, MessageDerive)]
 struct ChildMessage;
 
-impl Message for CreateChild {
-  fn eq_message(&self, other: &dyn Message) -> bool {
-    if let Some(other_msg) = other.as_any().downcast_ref::<CreateChild>() {
-      self.name == other_msg.name
-    } else {
-      false
-    }
-  }
-
-  fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-    self
-  }
-
-  fn get_type_name(&self) -> String {
-    "CreateChild".to_string()
-  }
-}
-
-impl Message for ChildMessage {
-  fn eq_message(&self, other: &dyn Message) -> bool {
-    other.as_any().downcast_ref::<ChildMessage>().is_some()
-  }
-
-  fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
-    self
-  }
-
-  fn get_type_name(&self) -> String {
-    "ChildMessage".to_string()
-  }
-}
-
-// 子アクター
 #[derive(Debug)]
 struct ChildActor {
   name: String,
@@ -59,84 +23,51 @@ struct ChildActor {
 }
 
 #[async_trait]
-impl BaseActor for ChildActor {
-  async fn handle(&mut self, _context: &dyn BaseContext) -> Result<(), BaseActorError> {
-    let count = self.counter.fetch_add(1, Ordering::SeqCst) + 1;
-    println!("[Child {}] Received message #{}", self.name, count);
+impl Actor for ChildActor {
+  async fn pre_start(&mut self, _: ContextHandle) -> Result<(), ActorError> {
+    println!("[Child {}] started", self.name);
     Ok(())
   }
 
-  async fn pre_start(&mut self, _context: &dyn BaseContext) -> Result<(), BaseActorError> {
-    println!("[Child {}] Started!", self.name);
+  async fn receive(&mut self, ctx: ContextHandle) -> Result<(), ActorError> {
+    let message = ctx.get_message_handle_opt().await.expect("message not found");
+
+    if message.is_typed::<ChildMessage>() {
+      let current = self.counter.fetch_add(1, Ordering::SeqCst) + 1;
+      println!("[Child {}] processed message #{}", self.name, current);
+    }
+
     Ok(())
   }
 }
 
-// 親アクター（従来のActorトレイトを使用してPropsアクセスを簡単にする）
 #[derive(Debug)]
 struct ParentActor {
   child_counter: Arc<AtomicUsize>,
 }
 
 #[async_trait]
-impl nexus_actor_core_rs::actor::core::Actor for ParentActor {
-  async fn receive(
-    &mut self,
-    mut context: nexus_actor_core_rs::actor::context::ContextHandle,
-  ) -> Result<(), ActorError> {
-    use nexus_actor_core_rs::actor::context::{MessagePart, SpawnerPart};
+impl Actor for ParentActor {
+  async fn receive(&mut self, mut ctx: ContextHandle) -> Result<(), ActorError> {
+    let message = ctx.get_message_handle_opt().await.expect("message not found");
 
-    let msg = context.get_message_handle_opt().await.expect("message not found");
+    if let Some(command) = message.to_typed::<CreateChild>() {
+      let child_counter = self.child_counter.clone();
+      let child_name = command.name.clone();
+      let props = Props::from_async_actor_producer(move |_| {
+        let counter = child_counter.clone();
+        let name = child_name.clone();
+        async move { ChildActor { name, counter } }
+      })
+      .await;
 
-    if let Some(create_child) = msg.to_typed::<CreateChild>() {
-      println!(
-        "[Parent] Creating child '{}' with_props={}",
-        create_child.name, create_child.with_props
-      );
+      let mut ctx_clone = ctx.clone();
+      let child_pid = ctx_clone
+        .spawn_named(props, &command.name)
+        .await
+        .map_err(|err| ActorError::ReceiveError(ErrorReason::new(err.to_string(), 0)))?;
 
-      if create_child.with_props {
-        // Propsを直接使って子アクターを作成
-        let counter = self.child_counter.clone();
-        let child_name = create_child.name.clone();
-
-        let child_props = Props::from_async_actor_receiver(move |ctx| {
-          let actor = ChildActor {
-            name: child_name.clone(),
-            counter: counter.clone(),
-          };
-          let mut migrated = nexus_actor_core_rs::actor::core_types::MigratedActor::new(actor);
-          async move { migrated.handle(ctx).await }
-        })
-        .await;
-
-        let mut ctx_clone = context.clone();
-        let child_pid = ctx_clone
-          .spawn_named(child_props, &create_child.name)
-          .await
-          .expect("Failed to spawn child actor");
-
-        // 子アクターにメッセージを送信
-        context.send(child_pid, MessageHandle::new(ChildMessage)).await;
-      } else {
-        // BaseActorを直接作成（MigrationHelpersを使用）
-        let counter = self.child_counter.clone();
-        let child_name = create_child.name.clone();
-
-        let child_props = MigrationHelpers::props_from_base_actor_fn(move || ChildActor {
-          name: child_name.clone(),
-          counter: counter.clone(),
-        })
-        .await;
-
-        let mut ctx_clone = context.clone();
-        let child_pid = ctx_clone
-          .spawn_named(child_props, &create_child.name)
-          .await
-          .expect("Failed to spawn child actor");
-
-        // 子アクターにメッセージを送信
-        context.send(child_pid, MessageHandle::new(ChildMessage)).await;
-      }
+      ctx.send(child_pid, MessageHandle::new(ChildMessage)).await;
     }
 
     Ok(())
@@ -145,47 +76,31 @@ impl nexus_actor_core_rs::actor::core::Actor for ParentActor {
 
 #[tokio::main]
 async fn main() {
-  println!("=== BaseActor with Props Example ===\n");
+  println!("=== Actor Props Example (BaseActor 移行後) ===\n");
 
-  // アクターシステムの作成
-  let actor_system = ActorSystem::new().await.unwrap();
-  let mut root_context = actor_system.get_root_context().await;
+  let system = ActorSystem::new().await.expect("actor system");
+  let mut root = system.get_root_context().await;
 
-  // 親アクターの作成
   let child_counter = Arc::new(AtomicUsize::new(0));
-  let child_counter_clone = child_counter.clone();
-  // 親アクターをspawn（従来のActorなのでそのままPropsを作成）
+  let counter_clone = child_counter.clone();
   let parent_props = Props::from_async_actor_producer(move |_| {
-    let parent_actor = ParentActor {
-      child_counter: child_counter_clone.clone(),
-    };
-    async move { parent_actor }
+    let counter = counter_clone.clone();
+    async move { ParentActor { child_counter: counter } }
   })
   .await;
-  let parent_pid = root_context.spawn(parent_props).await;
 
-  println!("Creating children using different methods...\n");
+  let parent_pid = root.spawn(parent_props).await;
 
-  // 方法1: ActorFactoryを使った子アクター作成
-  let msg1 = MessageHandle::new(CreateChild {
-    name: "child-factory".to_string(),
-    with_props: false,
-  });
-  root_context.send(parent_pid.clone(), msg1).await;
+  for name in ["child-props-a", "child-props-b"] {
+    root
+      .send(
+        parent_pid.clone(),
+        MessageHandle::new(CreateChild { name: name.to_string() }),
+      )
+      .await;
+  }
 
-  // 少し待つ
-  tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-
-  // 方法2: Propsを使った子アクター作成
-  let msg2 = MessageHandle::new(CreateChild {
-    name: "child-props".to_string(),
-    with_props: true,
-  });
-  root_context.send(parent_pid.clone(), msg2).await;
-
-  // 処理を待つ
-  tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
-
+  tokio::time::sleep(Duration::from_millis(200)).await;
   println!(
     "\nTotal child messages processed: {}",
     child_counter.load(Ordering::SeqCst)
