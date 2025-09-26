@@ -326,7 +326,7 @@ impl ActorContext {
     }
 
     let context_handle = self.base_context_handle();
-    let extras = ActorContextExtras::new(context_handle.clone()).await;
+    let extras = ActorContextExtras::new(context_handle.clone());
 
     let extras_cell = self.extras_cell();
     let mut guard = extras_cell.write().await;
@@ -543,7 +543,7 @@ impl ActorContext {
     if let Some(extras) = self.get_extras().await {
       let watchers = extras.get_watchers().await;
       let actor_system = self.actor_system();
-      for watcher in watchers.to_vec().await {
+      for watcher in watchers.to_vec() {
         ExtendedPid::new(watcher)
           .send_system_message(actor_system.clone(), other_stopped.clone())
           .await;
@@ -558,7 +558,7 @@ impl ActorContext {
   async fn stop_all_children(&mut self) {
     let extras = self.ensure_extras().await;
     let children = extras.get_children().await;
-    for child in children.to_vec().await {
+    for child in children.to_vec() {
       let child = ExtendedPid::new(child);
       self.stop(&child).await;
     }
@@ -566,7 +566,7 @@ impl ActorContext {
 
   async fn try_restart_or_terminate(&mut self) -> Result<(), ActorError> {
     match self.get_extras().await {
-      Some(extras) if extras.get_children().await.is_empty().await => {
+      Some(extras) if extras.get_children().await.is_empty() => {
         let state = State::try_from(self.state.load(Ordering::SeqCst)).unwrap();
         match state {
           State::Restarting => {
@@ -655,13 +655,13 @@ impl ActorContext {
   async fn handle_watch(&mut self, watch: &Watch) {
     let extras = self.ensure_extras().await;
     let pid = ExtendedPid::new(watch.clone().watcher.unwrap());
-    extras.get_watchers().await.add(pid.inner_pid).await;
+    extras.get_watchers().await.add(pid.inner_pid);
   }
 
   async fn handle_unwatch(&mut self, unwatch: &Unwatch) {
     let extras = self.ensure_extras().await;
     let pid = ExtendedPid::new(unwatch.clone().watcher.unwrap());
-    extras.get_watchers().await.remove(&pid.inner_pid).await;
+    extras.get_watchers().await.remove(&pid.inner_pid);
   }
 
   async fn handle_child_failure(&mut self, f: &Failure) {
@@ -818,7 +818,6 @@ impl BasePart for ActorContext {
       .get_children()
       .await
       .to_vec()
-      .await
       .into_iter()
       .map(ExtendedPid::new)
       .collect()
@@ -843,16 +842,14 @@ impl BasePart for ActorContext {
 
   async fn stash(&mut self) {
     let extra = self.ensure_extras().await;
-    let mut stash = extra.get_stash().await;
-    stash
-      .push(self.get_message_handle_opt().await.expect("message not found"))
-      .await;
+    let stash = extra.get_stash().await;
+    stash.push(self.get_message_handle_opt().await.expect("message not found"));
   }
 
   async fn un_stash_all(&mut self) -> Result<(), ActorError> {
     if let Some(extras) = self.get_extras().await {
-      while !extras.get_stash().await.is_empty().await {
-        let msg = extras.get_stash().await.pop().await.unwrap();
+      while !extras.get_stash().await.is_empty() {
+        let msg = extras.get_stash().await.pop().unwrap();
         let result = self.invoke_user_message(msg).await;
         if result.is_err() {
           tracing::error!("Failed to handle stashed message");
@@ -1071,8 +1068,8 @@ impl SpawnerPart for ActorContext {
     match result {
       Ok(pid) => {
         let extras = self.ensure_extras().await;
-        let mut children = extras.get_children().await;
-        children.add(pid.inner_pid.clone()).await;
+        let children = extras.get_children().await;
+        children.add(pid.inner_pid.clone());
         Ok(pid)
       }
       Err(e) => Err(e),
@@ -1281,7 +1278,6 @@ impl Supervisor for ActorContext {
       .get_children()
       .await
       .to_vec()
-      .await
       .into_iter()
       .map(ExtendedPid::new)
       .collect()
