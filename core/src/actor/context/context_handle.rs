@@ -293,6 +293,10 @@ impl ContextHandle {
   pub fn try_get_message_header_handle(&self) -> Option<ReadonlyMessageHeadersHandle> {
     self.actor_context_arc().and_then(|ctx| ctx.try_message_header())
   }
+
+  pub fn try_get_sender_opt(&self) -> Option<ExtendedPid> {
+    self.actor_context_arc().and_then(|ctx| ctx.try_sender())
+  }
 }
 
 impl ReceiverContext for ContextHandle {}

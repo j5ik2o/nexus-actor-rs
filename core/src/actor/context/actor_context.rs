@@ -179,6 +179,15 @@ impl ActorContext {
     }
   }
 
+  pub fn try_sender(&self) -> Option<ExtendedPid> {
+    match self.message_cell().try_read() {
+      Ok(guard) => guard
+        .as_ref()
+        .and_then(|message_or_envelope| unwrap_envelope_sender(message_or_envelope.clone())),
+      Err(_err) => None,
+    }
+  }
+
   pub fn try_message_header(&self) -> Option<ReadonlyMessageHeadersHandle> {
     match self.message_cell().try_read() {
       Ok(guard) => guard

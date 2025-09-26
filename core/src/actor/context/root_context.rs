@@ -81,6 +81,14 @@ impl RootContext {
     self
   }
 
+  pub fn actor_system_snapshot(&self) -> ActorSystem {
+    self.actor_system()
+  }
+
+  pub fn message_headers_snapshot(&self) -> Arc<MessageHeaders> {
+    self.message_headers.clone()
+  }
+
   async fn send_user_message(&self, pid: ExtendedPid, message_handle: MessageHandle) {
     if self.sender_middleware_chain.is_some() {
       let sch = SenderContextHandle::new(self.clone());
