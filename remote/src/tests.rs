@@ -13,6 +13,7 @@ use bytes::Bytes;
 use http_body_util::Empty;
 use nexus_actor_core_rs::actor::actor_system::ActorSystem;
 use nexus_actor_core_rs::actor::core::{ActorError, ErrorReason};
+use nexus_actor_core_rs::actor::message::Message;
 use nexus_actor_core_rs::actor::dispatch::DeadLetterEvent;
 use nexus_actor_core_rs::actor::dispatch::{
   Dispatcher, DispatcherHandle, Mailbox, MailboxQueueKind, MessageInvoker, MessageInvokerHandle, Runnable,
@@ -120,7 +121,7 @@ async fn client_connection_registers_and_receives_disconnect() -> TestResult<()>
   Ok(())
 }
 
-#[derive(Debug, Clone, PartialEq, nexus_actor_core_rs::Message)]
+#[derive(Debug, Clone, PartialEq, nexus_actor_message_derive_rs::Message)]
 struct DummyPayload {
   value: &'static str,
 }

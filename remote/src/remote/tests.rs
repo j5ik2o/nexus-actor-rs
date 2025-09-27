@@ -105,7 +105,7 @@ async fn start_remote_instance(
   let handle = tokio::spawn(async move {
     cloned_remote
       .start_with_callback(|| async {
-        cloned_wait.done().await;
+        cloned_wait.done();
       })
       .await
   });
@@ -239,7 +239,7 @@ async fn test_remote_communication() {
   tokio::spawn(async move {
     server_remote_for_start
       .start_with_callback(|| async {
-        cloned_server_wait_group.done().await;
+      cloned_server_wait_group.done();
       })
       .await
       .expect("Failed to start server");
@@ -258,7 +258,7 @@ async fn test_remote_communication() {
   tokio::spawn(async move {
     client_remote_for_start
       .start_with_callback(|| async {
-        cloned_client_wait_group.done().await;
+      cloned_client_wait_group.done();
       })
       .await
       .expect("Failed to start client");
@@ -310,7 +310,7 @@ async fn spawn_remote_unknown_kind_returns_error() -> TestResult<()> {
   tokio::spawn(async move {
     server_remote_start
       .start_with_callback(|| async {
-        server_wait_clone.done().await;
+      server_wait_clone.done();
       })
       .await
       .expect("server start");
@@ -330,7 +330,7 @@ async fn spawn_remote_unknown_kind_returns_error() -> TestResult<()> {
   tokio::spawn(async move {
     client_remote_start
       .start_with_callback(|| async {
-        client_wait_clone.done().await;
+      client_wait_clone.done();
       })
       .await
       .expect("client start");
