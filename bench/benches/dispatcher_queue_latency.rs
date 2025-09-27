@@ -4,14 +4,13 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
+use criterion::{criterion_group, criterion_main, Criterion, Throughput};
 use nexus_actor_core_rs::actor::core::{ActorError, ErrorReason};
 use nexus_actor_core_rs::actor::dispatch::dispatcher::{DispatcherHandle, TokioRuntimeContextDispatcher};
 use nexus_actor_core_rs::actor::dispatch::message_invoker::{MessageInvoker, MessageInvokerHandle};
-use nexus_actor_core_rs::actor::dispatch::{
-  unbounded::unbounded_mpsc_mailbox_creator, Mailbox, MailboxHandle, MailboxQueueKind,
-};
-use nexus_actor_core_rs::actor::message::MessageHandle;
+use nexus_actor_core_rs::actor::dispatch::{Mailbox, MailboxHandle, MailboxQueueKind, unbounded_mpsc_mailbox_creator};
+use nexus_actor_core_rs::actor::message::{Message, MessageHandle};
+use std::hint::black_box;
 use tokio::runtime::Runtime;
 use tokio::sync::{Mutex, RwLock};
 use tokio::task::yield_now;
