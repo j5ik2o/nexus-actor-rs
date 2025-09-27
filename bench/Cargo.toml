@@ -27,3 +27,7 @@ harness = false
 [[bench]]
 name = "actor_context_lock"
 harness = false
+
+[[bench]]
+name = "queue_throughput"
+harness = false
