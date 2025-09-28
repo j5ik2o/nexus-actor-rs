@@ -27,6 +27,31 @@
   - `nexus_actor_mailbox_suspension_state` が 5 秒以上 1.0 維持なら Warning。PagerDuty runbook を docs/mailbox_dashboard_design.md に追記済み。
 - [x] **Docs**: `docs/mailbox_sync_transition_plan.md` と `docs/core_optimization_plan.md` に成果を反映し、継続的にメトリクス運用状況を更新する。EndpointWriterMailbox の snapshot 間引きと設定/API を両ドキュメントへ追記 (2025-09-28)。
 
+## フォローアップタスク (2025-09-28 更新)
+
+### MUST
+- [ ] **MUST** デフォルト snapshot 間隔とメトリクス設定の確定（目標日: 2025-10-03）
+  - 状態: ベンチ結果は揃ったが設定値が環境ごとにばらついている。
+  - 推奨対応: (1) 本番デフォルトを `queue_latency_snapshot_interval = 64` に固定し、staging と開発には 8/1 を割り当てる。(2) `ConfigOption::with_endpoint_writer_queue_snapshot_interval` の既定値を 8 → 32 へ更新し、remote 経路の Update を 2025-09-30 までに実装。(3) `mailbox_metrics_poll_interval` の標準値 250ms を維持しつつ、SRE Runbook に運用フローを追記。
+  - 成果物: Config PR、docs/mailbox_dashboard_design.md と Runbook の更新、設定テンプレート。
+- [ ] **MUST** メトリクストレース整流化の自動テスト追加（目標日: 2025-10-06）
+  - 状態: 単体テストは揃っているが、サンプリングロジックの回帰を検出できる CI が未整備。
+  - 推奨対応: (1) `core/tests/mailbox_metrics_trace.rs` を追加し、`queue_latency_snapshot_interval` 変化時の `nexus_actor_mailbox_queue_dwell_percentile_seconds` を Golden ファイルで検証。(2) remote integration テストにメトリクス購読有無を切り替えるシナリオを追加。(3) GitHub Actions nightly でメトリクス差分を Slack 通知するジョブを登録。
+  - 成果物: 新規テストコード、CI 設定、Slack 通知テンプレート。
+
+### SHOULD
+- [ ] **SHOULD** メトリクス Collector の backoff アルゴリズム最適化（目標日: 2025-10-10）
+  - 状態: 250ms ポーリングで安定しているが、低負荷クラスタでの CPU オーバーヘッドを更に削減したい。
+  - 推奨対応: 収集結果が一定閾値以下の場合にポーリング間隔を最大 1s まで指数バックオフする実装を導入し、protoactor-go の `metrics/prometheus_mailbox` の backoff ロジックを参考に Rust へ移植する。
+- [ ] **SHOULD** Grafana ダッシュボード v2 の公開と教育セッション実施（目標日: 2025-10-11）
+  - 状態: Heatmap テンプレートは存在するが利用チームが限定的。
+  - 推奨対応: ダッシュボード v2 に `queue_kind` 別の比較パネルを追加し、SRE/remote/core 連携で 45 分のハンズオンを開催。録画とクイックスタート資料を共有する。
+
+### MAY
+- [ ] **MAY** ヒストグラム集計のバッチフラッシュ実装（目標日: 2025-10-18）
+  - 状態: `should_emit_latency_update` で間引きは出来ているが、更なるコスト削減余地あり。
+  - 推奨対応: `QueueLatencyTracker` にリングバッファを追加し、64 件単位で `Histogram::record_many` を呼ぶバッチ機構を導入。ベンチ結果を docs/mailbox_benchmark_baseline.md に反映。
+
 ## 検証計画
 1. `cargo bench --bench mailbox_throughput` でスナップショット間隔や Atomic 更新方式を変更した際のスループットを継続計測する。
 2. `bench/benches/dispatcher_queue_latency.rs` にも新しい間引き設定を適用し、Dispatcher 経路への副作用を確認する。
@@ -52,10 +77,8 @@
 - 2025-09-28: バックグラウンド収集用 `MailboxMetricsCollector` を実装し、`MailboxSyncHandle` からキュー長・パーセンタイル・サスペンド状態を 250ms 間隔でサンプリング。`ConfigOption::with_mailbox_metrics_poll_interval` を追加し、`test_mailbox_metrics_collector_emits_queue_length_with_pid` で回帰確認。
 - （以降の更新はここに追記）
 
-## 推奨設定 (暫定)
-- `queue_latency_snapshot_interval = 64`: ベンチ(100/1000)ともに最も高いスループット。
-- `queue_latency_snapshot_interval = 8`: メトリクス粒度と性能の妥協案。
-- `queue_latency_snapshot_interval = 1`: デバッグ用。性能低下が大きいため本番では非推奨。
-- 推奨値の目安: snapshot_interval >= 2 （critical 処理シーケンス閾値 2.0 の 80%）
-- `endpoint_writer_queue_snapshot_interval = 1`: 従来通り全更新。`>=4` などに設定すると backpressure 状態変化・0 件・容量閾値到達時に限定した統計更新となり、remote 経路の `DashMap` 更新頻度を抑制できる。
-- `mailbox_metrics_poll_interval = 250ms`: MailboxMetricsCollector の既定値。レイテンシ監視を重視するクラスタでは 50〜100ms、低負荷の常設監視は 500ms 以上に調整。
+## 推奨設定 (2025-09-28 決定)
+- 本番デフォルト: `queue_latency_snapshot_interval = 64`。canary/staging は 8、開発/デバッグは 1 を使用して極端なレイテンシを可視化する。
+- remote 経路: `endpoint_writer_queue_snapshot_interval = 32` を新デフォルトとし、backpressure 監視を優先するクラスタのみ 8 へ引き下げる。
+- Collector: `mailbox_metrics_poll_interval = 250ms` を標準とし、Heatmap に変化がない場合は backoff 設定で 500ms → 1s へ段階的に伸長する (フォローアップタスク参照)。
+- アラート: `nexus_actor_mailbox_queue_dwell_percentile_seconds{percentile="p95"}` しきい値を 5ms / 20ms で維持しつつ、Staging は 3ms / 12ms にチューニングして早期検出を狙う。

@@ -17,6 +17,11 @@
 2. 既存 API を保ちつつ段階的に移行できるブリッジを提供し、remote/cluster など下流モジュールの影響を最小化する。
 3. メトリクス・スケジューリング挙動・サスペンド/レジューム処理の正しさを維持するため、単体テストとベンチ強化を行う。
 
+## 意思決定 (2025-09-28)
+- **同期戦略**: `protoactor-go/actor/mailbox/default_mailbox.go` を準拠実装として参照し、`SyncMailboxQueueHandles` を最小限の同期プリミティブとして固定する。ゴルーチンでの排他構造 (`sync.Mutex`) を Rust の `parking_lot::Mutex` に対応付け、`try_pop` / `push` の境界を `DefaultMailbox::run_once` に閉じ込める。
+- **ブリッジ方針**: `MailboxSyncBridge` (仮称) を RFC で確定させ、`Mailbox::post_async` から同期キューへ委譲する 2 レイヤ構成を 2025-10-07 までに標準化する。互換アダプタはフェーズ5終了時に削除する。
+- **検証ライン**: `cargo bench --bench mailbox_throughput` に加え、`remote/tests/integration_mailbox.rs` を利用した耐久テストを自動化し、regression job を GitHub Actions の nightly ワークフローに追加する。
+
 ## 前提・制約
 - `Mailbox` トレイトは `async_trait` を利用しているため、同期化には呼び出し側のランタイム境界を明示する必要がある。
 - `Dispatcher` は `tokio` ランタイム上でスケジュールされるため、Mailbox の同期化は「内部ロックが同期化される」だけでよく、外部公開 API は当面 `async fn` を維持する。
@@ -64,11 +69,17 @@ Control --> Queue : resume 時に backlog クリア
 
 ### MUST
 - [ ] **MUST** MailboxSync RFC の確定とレビュー承認（目標日: 2025-10-02）
-  - 完了条件: RFC ドキュメントを提出し、cluster/remote オーナー承認と移行スケジュールの合意を得る。
+  - 状態: Draft 0.8 完成。未反映: remote/cluster ハンドル切替と移行テストケース。
+  - 推奨対応: (1) `protoactor-go` の `defaultMailbox` 呼び出しフローを対比させた差分図を追記。(2) RFC 章構成を「同期ハンドルの API」「互換レイヤ」「テスト戦略」の3章に整理。(3) 2025-09-30 までに core/remote オーナー合同レビューを開催し承認ラインを確定。
+  - 成果物: `docs/rfcs/2025-10-mailbox-sync.md`、レビュー議事メモ、承認チェックリスト。
 - [ ] **MUST** remote/cluster/integration 経路の同期ハンドル全面移行（目標日: 2025-10-07）
-  - 完了条件: 互換アダプタを削除し、`cargo test --workspace` とリモート系統合テストがグリーンで通過、リリースノート草案を更新。
+  - 状態: 互換アダプタ経由で稼働中。remote `EndpointWriterMailbox` の `post_async` 連携のみ未移行。
+  - 推奨対応: (1) `MailboxSyncBridge` を `remote::endpoint::writer` に先行適用し、`SyncMailboxQueueHandles` へ直接 enqueue する。(2) cluster の gossip mailbox は `BoundedMailbox`→`SyncBoundedMailbox` へリネームして兼用。(3) 2025-10-05 までに staging クラスタでローリング切替、完了後互換アダプタを削除。
+  - 成果物: remote/cluster の同期ハンドル対応 PR、互換アダプタ削除、リリースノート下書き。
 - [ ] **MUST** 同期化リグレッション検証ラインの再構築（目標日: 2025-10-09）
-  - 完了条件: ベンチ比較レポート（同期化前後）、Grafana 閾値更新の運用合意、`cargo bench --bench mailbox_throughput` 最新値の記録を完了。
+  - 状態: ベンチ更新済みだが自動比較と Grafana 閾値更新が未完。
+  - 推奨対応: (1) GitHub Actions nightly job に `cargo bench --bench mailbox_throughput -- --save-baseline sync` を登録。(2) `target/coverage/html` レポートを S3 に自動アップロードし、差分レポートを Slack 通知。(3) Grafana しきい値を `snap64` を基準に 5% マージンで調整し、SRE 合意を取得。
+  - 成果物: 新規 CI 定義、ベンチ比較レポート、Grafana PR。
 
 ### SHOULD
 - [ ] **SHOULD** メトリクススナップショット間引き値のチューニングとダッシュボード更新
@@ -123,5 +134,13 @@ Control --> Queue : resume 時に backlog クリア
     - throughput: 25.502 Kelem/s – 27.936 Kelem/s
 
 次ステップでは、同期化前コミットでの測定と `run` ループ再構成後の再計測を予定。
+
+## タイムライン (2025-09-28 更新)
+- **2025-09-29**: MailboxSync RFC 章構成レビュー、差分図追記完了。
+- **2025-09-30**: core/remote 合同レビューで承認取得。コメント反映後 freeze。
+- **2025-10-03**: remote/cluster 向け `MailboxSyncBridge` 実装を main ブランチへマージ。
+- **2025-10-05**: staging クラスタでローリング切替検証＆互換アダプタ削除。
+- **2025-10-07**: 本番想定負荷テスト+`cargo test --workspace` 実施、リリースノート草案を配布。
+- **2025-10-09**: Nightly ベンチ比較と Grafana 閾値更新を完了し、同期化移行を完了扱いにする。
 
 進捗はこのファイルに追記し、完了タスクを `- [x]` へ反映すること。
