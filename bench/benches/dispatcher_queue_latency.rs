@@ -8,7 +8,7 @@ use criterion::{criterion_group, criterion_main, Criterion, Throughput};
 use nexus_actor_core_rs::actor::core::{ActorError, ErrorReason};
 use nexus_actor_core_rs::actor::dispatch::dispatcher::{DispatcherHandle, TokioRuntimeContextDispatcher};
 use nexus_actor_core_rs::actor::dispatch::message_invoker::{MessageInvoker, MessageInvokerHandle};
-use nexus_actor_core_rs::actor::dispatch::{Mailbox, MailboxHandle, MailboxQueueKind, unbounded_mpsc_mailbox_creator};
+use nexus_actor_core_rs::actor::dispatch::{unbounded_mpsc_mailbox_creator, Mailbox, MailboxHandle, MailboxQueueKind};
 use nexus_actor_core_rs::actor::message::{Message, MessageHandle};
 use std::hint::black_box;
 use tokio::runtime::Runtime;
