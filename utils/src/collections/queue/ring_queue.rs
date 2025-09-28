@@ -2,9 +2,9 @@ use std::fmt::Debug;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 
-use crate::collections::queue::{QueueBase, QueueError, QueueReader, QueueSize, QueueWriter};
+use crate::collections::queue::{QueueError, QueueSize};
+use crate::collections::queue_sync::{SyncQueueBase, SyncQueueReader, SyncQueueSupport, SyncQueueWriter};
 use crate::collections::Element;
-use async_trait::async_trait;
 use parking_lot::Mutex;
 
 #[derive(Debug, Clone)]
@@ -74,17 +74,8 @@ impl<E> RingQueue<E> {
   }
 }
 
-#[async_trait]
-impl<E: Element> QueueBase<E> for RingQueue<E> {
-  async fn is_empty(&self) -> bool {
-    self.inner.head.load(Ordering::SeqCst) == self.inner.tail.load(Ordering::SeqCst)
-  }
-
-  async fn is_full(&self) -> bool {
-    self.is_full()
-  }
-
-  async fn len(&self) -> QueueSize {
+impl<E: Element> SyncQueueBase<E> for RingQueue<E> {
+  fn len(&self) -> QueueSize {
     let head = self.inner.head.load(Ordering::SeqCst);
     let tail = self.inner.tail.load(Ordering::SeqCst);
     let capacity = self.inner.capacity.load(Ordering::SeqCst);
@@ -96,14 +87,13 @@ impl<E: Element> QueueBase<E> for RingQueue<E> {
     QueueSize::Limited(len)
   }
 
-  async fn capacity(&self) -> QueueSize {
+  fn capacity(&self) -> QueueSize {
     QueueSize::Limited(self.inner.capacity.load(Ordering::SeqCst))
   }
 }
 
-#[async_trait]
-impl<E: Element> QueueReader<E> for RingQueue<E> {
-  async fn poll(&mut self) -> Result<Option<E>, QueueError<E>> {
+impl<E: Element> SyncQueueReader<E> for RingQueue<E> {
+  fn poll(&mut self) -> Result<Option<E>, QueueError<E>> {
     let mut buffer = self.inner.buffer.lock();
     let head = self.inner.head.load(Ordering::SeqCst);
     let tail = self.inner.tail.load(Ordering::SeqCst);
@@ -117,7 +107,7 @@ impl<E: Element> QueueReader<E> for RingQueue<E> {
     Ok(item)
   }
 
-  async fn clean_up(&mut self) {
+  fn clean_up(&mut self) {
     let mut buffer = self.inner.buffer.lock();
     buffer.iter_mut().for_each(|item| *item = None);
     self.inner.head.store(0, Ordering::SeqCst);
@@ -125,9 +115,8 @@ impl<E: Element> QueueReader<E> for RingQueue<E> {
   }
 }
 
-#[async_trait]
-impl<E: Element> QueueWriter<E> for RingQueue<E> {
-  async fn offer(&mut self, element: E) -> Result<(), QueueError<E>> {
+impl<E: Element> SyncQueueWriter<E> for RingQueue<E> {
+  fn offer(&mut self, element: E) -> Result<(), QueueError<E>> {
     if self.is_full() {
       if self.inner.dynamic.load(Ordering::SeqCst) {
         self.resize();
@@ -143,6 +132,8 @@ impl<E: Element> QueueWriter<E> for RingQueue<E> {
     Ok(())
   }
 }
+
+impl<E: Element> SyncQueueSupport for RingQueue<E> {}
 
 #[cfg(test)]
 mod tests;
