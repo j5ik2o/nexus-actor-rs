@@ -9,7 +9,7 @@ use async_trait::async_trait;
 use nexus_actor_core_rs::actor::actor_system::ActorSystem;
 use nexus_actor_core_rs::actor::context::{BasePart, ContextHandle, MessagePart, SpawnerPart};
 use nexus_actor_core_rs::actor::core::{Actor, ActorError, ErrorReason, ExtendedPid, Props, RestartStatistics};
-use nexus_actor_core_rs::actor::dispatch::{MailboxHandle, MailboxProducer};
+use nexus_actor_core_rs::actor::dispatch::{MailboxHandle, MailboxProducer, MailboxSyncHandle};
 use nexus_actor_core_rs::actor::message::{MessageHandle, ResponseHandle};
 use nexus_actor_core_rs::actor::supervisor::{
   Supervisor, SupervisorHandle, SupervisorStrategy, SupervisorStrategyHandle,
@@ -49,11 +49,10 @@ impl EndpointSupervisor {
           .clone();
         let batch_size = config.get_endpoint_writer_batch_size().await;
         let queue_size = config.get_endpoint_writer_queue_size().await;
-        MailboxHandle::new(EndpointWriterMailbox::new(
-          cloned_remote.clone(),
-          batch_size,
-          queue_size,
-        ))
+        let snapshot_interval = config.get_endpoint_writer_queue_snapshot_interval().await;
+        let mailbox = EndpointWriterMailbox::new(cloned_remote.clone(), batch_size, queue_size, snapshot_interval);
+        let sync = MailboxSyncHandle::new(mailbox.clone());
+        MailboxHandle::new_with_sync(mailbox, Some(sync))
       }
     })
   }

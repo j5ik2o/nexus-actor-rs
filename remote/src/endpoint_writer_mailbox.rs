@@ -4,15 +4,15 @@ use nexus_actor_core_rs::actor::context::SenderPart;
 use nexus_actor_core_rs::actor::core::ExtendedPid;
 use nexus_actor_core_rs::actor::core_types::Message;
 use nexus_actor_core_rs::actor::dispatch::{
-  DeadLetterEvent, Dispatcher, DispatcherHandle, Mailbox, MailboxHandle, MailboxMessage, MessageInvoker,
-  MessageInvokerHandle, Runnable,
+  DeadLetterEvent, Dispatcher, DispatcherHandle, Mailbox, MailboxHandle, MailboxMessage, MailboxQueueLatencyMetrics,
+  MailboxSuspensionMetrics, MailboxSync, MailboxSyncHandle, MessageInvoker, MessageInvokerHandle, Runnable,
 };
 use nexus_actor_core_rs::actor::message::MessageHandle;
 use nexus_actor_core_rs::generated::actor::DeadLetterResponse;
 use nexus_actor_utils_rs::collections::{
   MpscUnboundedChannelQueue, QueueBase, QueueError, QueueReader, QueueWriter, RingQueue,
 };
-use std::sync::atomic::{AtomicBool, AtomicI32, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Weak};
 use tokio::sync::RwLock;
 
@@ -31,10 +31,15 @@ pub struct EndpointWriterMailbox {
   dispatcher_opt: Arc<ArcSwapOption<DispatcherHandle>>,
   queue_capacity: usize,
   remote: Weak<Remote>,
+  user_messages_count: Arc<AtomicI32>,
+  system_messages_count: Arc<AtomicI32>,
+  queue_state_snapshot_interval: Arc<AtomicUsize>,
+  queue_state_snapshot_counter: Arc<AtomicU64>,
+  queue_state_last_len: Arc<AtomicUsize>,
 }
 
 impl EndpointWriterMailbox {
-  pub fn new(remote: Weak<Remote>, batch_size: usize, queue_capacity: usize) -> Self {
+  pub fn new(remote: Weak<Remote>, batch_size: usize, queue_capacity: usize, queue_snapshot_interval: usize) -> Self {
     assert!(queue_capacity > 0, "queue_capacity must be greater than zero");
     let ring_queue = RingQueue::new(queue_capacity).with_dynamic(false);
     let user_mailbox = Arc::new(RwLock::new(ring_queue));
@@ -50,6 +55,11 @@ impl EndpointWriterMailbox {
       dispatcher_opt: Arc::new(ArcSwapOption::from(None)),
       queue_capacity,
       remote,
+      user_messages_count: Arc::new(AtomicI32::new(0)),
+      system_messages_count: Arc::new(AtomicI32::new(0)),
+      queue_state_snapshot_interval: Arc::new(AtomicUsize::new(queue_snapshot_interval.max(1))),
+      queue_state_snapshot_counter: Arc::new(AtomicU64::new(0)),
+      queue_state_last_len: Arc::new(AtomicUsize::new(0)),
     }
   }
 
@@ -79,13 +89,29 @@ impl EndpointWriterMailbox {
 
   async fn poll_system_mailbox(&self) -> Result<Option<MessageHandle>, QueueError<MessageHandle>> {
     let mut mg = self.system_mailbox.write().await;
-    mg.poll().await
+    let result = mg.poll().await;
+    drop(mg);
+    if let Ok(Some(_)) = &result {
+      self.system_messages_count.fetch_sub(1, Ordering::SeqCst);
+    }
+    result
   }
 
   async fn poll_user_mailbox(&self) -> Result<Vec<MessageHandle>, QueueError<MessageHandle>> {
     let mut mg = self.user_mailbox.write().await;
     let batch_size = self.batch_size.load(Ordering::SeqCst).max(1);
-    mg.poll_many(batch_size).await
+    let result = mg.poll_many(batch_size).await;
+    match result {
+      Ok(messages) => {
+        let len = messages.len();
+        drop(mg);
+        if len > 0 {
+          self.user_messages_count.fetch_sub(len as i32, Ordering::SeqCst);
+        }
+        Ok(messages)
+      }
+      Err(err) => Err(err),
+    }
   }
 
   async fn schedule(&self) {
@@ -180,7 +206,7 @@ impl EndpointWriterMailbox {
 
   async fn handle_overflow(&self, message_handle: MessageHandle) {
     self.increment_dead_letter_for_message(&message_handle).await;
-    self.record_queue_state_for_message(&message_handle).await;
+    self.record_queue_state_for_message(&message_handle, true).await;
     tracing::warn!(
       "EndpointWriterMailbox queue full; dropping message: {:?}",
       message_handle
@@ -245,19 +271,27 @@ impl EndpointWriterMailbox {
     None
   }
 
-  async fn record_queue_state_for_message(&self, message_handle: &MessageHandle) {
+  async fn record_queue_state_for_message(&self, message_handle: &MessageHandle, force: bool) {
     if let Some(address) = Self::extract_endpoint_address(message_handle) {
-      self.record_queue_state_for_address(&address).await;
+      self.record_queue_state_for_address_internal(&address, force).await;
     }
   }
 
   async fn record_queue_state_for_address(&self, address: &str) {
+    self.record_queue_state_for_address_internal(address, false).await;
+  }
+
+  async fn record_queue_state_for_address_internal(&self, address: &str, force: bool) {
     let queue_len = {
       let mailbox = self.user_mailbox.read().await;
       let len = mailbox.len().await.to_usize();
       drop(mailbox);
       len
     };
+
+    if !self.should_record_queue_state(queue_len, force) {
+      return;
+    }
 
     if let Some(remote) = self.remote.upgrade() {
       if let Some(manager) = remote.get_endpoint_manager_opt().await {
@@ -277,18 +311,90 @@ impl EndpointWriterMailbox {
       }
     }
   }
+
+  fn should_record_queue_state(&self, len: usize, force: bool) -> bool {
+    if force {
+      self.queue_state_snapshot_counter.store(0, Ordering::Relaxed);
+      self.queue_state_last_len.store(len, Ordering::Relaxed);
+      return true;
+    }
+
+    let interval = self.queue_state_snapshot_interval.load(Ordering::Relaxed).max(1);
+    let previous = self.queue_state_last_len.load(Ordering::Relaxed);
+
+    if interval == 1 {
+      if previous == len {
+        return false;
+      }
+      self.queue_state_last_len.store(len, Ordering::Relaxed);
+      return true;
+    }
+
+    if len == previous {
+      return false;
+    }
+
+    if len == 0 || len >= self.queue_capacity {
+      self.queue_state_snapshot_counter.store(0, Ordering::Relaxed);
+      self.queue_state_last_len.store(len, Ordering::Relaxed);
+      return true;
+    }
+
+    if previous == 0 && len > 0 {
+      self.queue_state_snapshot_counter.store(1, Ordering::Relaxed);
+      self.queue_state_last_len.store(len, Ordering::Relaxed);
+      return true;
+    }
+
+    let warning_threshold = (self.queue_capacity.saturating_mul(3) + 3) / 4;
+    let warning_threshold = warning_threshold.max(1);
+    if len >= warning_threshold && len > previous {
+      self.queue_state_snapshot_counter.store(0, Ordering::Relaxed);
+      self.queue_state_last_len.store(len, Ordering::Relaxed);
+      return true;
+    }
+
+    let counter = self.queue_state_snapshot_counter.fetch_add(1, Ordering::Relaxed) + 1;
+    if counter >= interval as u64 {
+      self.queue_state_snapshot_counter.store(0, Ordering::Relaxed);
+      self.queue_state_last_len.store(len, Ordering::Relaxed);
+      return true;
+    }
+
+    false
+  }
+}
+
+impl MailboxSync for EndpointWriterMailbox {
+  fn user_messages_count(&self) -> i32 {
+    self.user_messages_count.load(Ordering::SeqCst)
+  }
+
+  fn system_messages_count(&self) -> i32 {
+    self.system_messages_count.load(Ordering::SeqCst)
+  }
+
+  fn suspension_metrics(&self) -> MailboxSuspensionMetrics {
+    MailboxSuspensionMetrics::default()
+  }
+
+  fn queue_latency_metrics(&self) -> MailboxQueueLatencyMetrics {
+    MailboxQueueLatencyMetrics::default()
+  }
+
+  fn is_suspended(&self) -> bool {
+    self.is_suspended()
+  }
 }
 
 #[async_trait]
 impl Mailbox for EndpointWriterMailbox {
   async fn get_user_messages_count(&self) -> i32 {
-    let mg = self.user_mailbox.read().await;
-    mg.len().await.to_usize() as i32
+    self.user_messages_count.load(Ordering::SeqCst)
   }
 
   async fn get_system_messages_count(&self) -> i32 {
-    let mg = self.system_mailbox.read().await;
-    mg.len().await.to_usize() as i32
+    self.system_messages_count.load(Ordering::SeqCst)
   }
 
   async fn process_messages(&self) {
@@ -322,11 +428,13 @@ impl Mailbox for EndpointWriterMailbox {
         return;
       }
 
-      if let Err(QueueError::OfferError(message)) = mg.offer(message_handle).await {
+      if let Err(QueueError::OfferError(message)) = mg.offer(message_handle.clone()).await {
         drop(mg);
         self.handle_overflow(message).await;
         return;
       }
+      drop(mg);
+      self.user_messages_count.fetch_add(1, Ordering::SeqCst);
     }
     if let Some(address) = address_hint {
       self.record_queue_state_for_address(&address).await;
@@ -340,6 +448,7 @@ impl Mailbox for EndpointWriterMailbox {
       let mut mg = self.system_mailbox.write().await;
       mg.offer(message_handle).await.unwrap();
     }
+    self.system_messages_count.fetch_add(1, Ordering::SeqCst);
     self.schedule().await;
   }
 
@@ -350,15 +459,19 @@ impl Mailbox for EndpointWriterMailbox {
   ) {
     self.set_message_invoker_handle(message_invoker_handle);
     self.set_dispatcher_handle(dispatcher_handle);
+    self.queue_state_snapshot_counter.store(0, Ordering::Relaxed);
+    self.queue_state_last_len.store(0, Ordering::Relaxed);
   }
 
   async fn start(&self) {}
 
   async fn user_message_count(&self) -> i32 {
-    self.get_user_messages_count().await
+    self.user_messages_count.load(Ordering::SeqCst)
   }
 
   async fn to_handle(&self) -> MailboxHandle {
-    MailboxHandle::new(self.clone())
+    let mailbox_clone = self.clone();
+    let sync = MailboxSyncHandle::new(mailbox_clone.clone());
+    MailboxHandle::new_with_sync(mailbox_clone, Some(sync))
   }
 }

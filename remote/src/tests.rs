@@ -185,7 +185,11 @@ async fn client_connection_backpressure_overflow() -> TestResult<()> {
     .await?
     .ok_or_else(|| "no connect response".to_string())??;
 
-  let mut mailbox = EndpointWriterMailbox::new(Arc::downgrade(&remote_arc), 1, 1);
+  let snapshot_interval = remote_arc
+    .get_config()
+    .get_endpoint_writer_queue_snapshot_interval()
+    .await;
+  let mut mailbox = EndpointWriterMailbox::new(Arc::downgrade(&remote_arc), 1, 1, snapshot_interval);
   mailbox
     .register_handlers(
       Some(MessageInvokerHandle::new(Arc::new(RwLock::new(NoopInvoker)))),
@@ -287,7 +291,11 @@ async fn client_connection_backpressure_drain() -> TestResult<()> {
   .await?;
 
   let manager = remote_arc.get_endpoint_manager().await;
-  let mut mailbox = EndpointWriterMailbox::new(Arc::downgrade(&remote_arc), 2, 4);
+  let snapshot_interval = remote_arc
+    .get_config()
+    .get_endpoint_writer_queue_snapshot_interval()
+    .await;
+  let mut mailbox = EndpointWriterMailbox::new(Arc::downgrade(&remote_arc), 2, 4, snapshot_interval);
   mailbox
     .register_handlers(
       Some(MessageInvokerHandle::new(Arc::new(RwLock::new(NoopInvoker)))),
@@ -331,6 +339,83 @@ async fn client_connection_backpressure_drain() -> TestResult<()> {
     .statistics_snapshot("endpoint-drain")
     .expect("statistics should exist");
   assert!(after.queue_size <= 1);
+
+  Ok(())
+}
+
+#[tokio::test]
+async fn endpoint_writer_queue_snapshot_interval_samples_updates() -> TestResult<()> {
+  let (remote_arc, _endpoint_reader) = setup_remote_with_options(vec![
+    ConfigOption::with_host("127.0.0.1"),
+    ConfigOption::with_port(19130),
+    ConfigOption::with_endpoint_writer_queue_size(32),
+    ConfigOption::with_endpoint_writer_queue_snapshot_interval(4),
+  ])
+  .await?;
+
+  let manager = remote_arc.get_endpoint_manager().await;
+  let snapshot_interval = remote_arc
+    .get_config()
+    .get_endpoint_writer_queue_snapshot_interval()
+    .await;
+  let mut mailbox = EndpointWriterMailbox::new(Arc::downgrade(&remote_arc), 4, 32, snapshot_interval);
+  mailbox
+    .register_handlers(
+      Some(MessageInvokerHandle::new(Arc::new(RwLock::new(NoopInvoker)))),
+      Some(DispatcherHandle::new(NoopDispatcher)),
+    )
+    .await;
+
+  let target_pid = Pid {
+    address: "endpoint-snapshot".to_string(),
+    id: "target".to_string(),
+    request_id: 0,
+  };
+
+  let enqueue_message = |value: &'static str| {
+    let deliver = RemoteDeliver {
+      header: None,
+      message: MessageHandle::new(DummyPayload { value }),
+      target: target_pid.clone(),
+      sender: None,
+      serializer_id: 0,
+    };
+    mailbox.post_user_message(MessageHandle::new(deliver))
+  };
+
+  enqueue_message("msg-0").await;
+  tokio::time::sleep(Duration::from_millis(20)).await;
+
+  let snapshot_first = manager
+    .statistics_snapshot(&target_pid.address)
+    .expect("stats after first enqueue");
+  assert_eq!(snapshot_first.queue_size, 1);
+
+  enqueue_message("msg-1").await;
+  enqueue_message("msg-2").await;
+  tokio::time::sleep(Duration::from_millis(20)).await;
+
+  let snapshot_mid = manager
+    .statistics_snapshot(&target_pid.address)
+    .expect("stats after third enqueue");
+  assert_eq!(snapshot_mid.queue_size, 1);
+
+  enqueue_message("msg-3").await;
+  tokio::time::sleep(Duration::from_millis(20)).await;
+
+  let snapshot_after_interval = manager
+    .statistics_snapshot(&target_pid.address)
+    .expect("stats after hitting snapshot interval");
+  assert!(snapshot_after_interval.queue_size >= 4);
+
+  let handle = mailbox.to_handle().await;
+  handle.process_messages().await;
+  tokio::time::sleep(Duration::from_millis(20)).await;
+
+  let snapshot_final = manager
+    .statistics_snapshot(&target_pid.address)
+    .expect("stats after drain");
+  assert_eq!(snapshot_final.queue_size, 0);
 
   Ok(())
 }

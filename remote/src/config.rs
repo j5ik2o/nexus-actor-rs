@@ -16,6 +16,7 @@ struct ConfigInner {
   advertised_address: Option<String>,
   endpoint_writer_batch_size: usize,
   endpoint_writer_queue_size: usize,
+  endpoint_writer_queue_snapshot_interval: usize,
   endpoint_manager_batch_size: usize,
   endpoint_manager_queue_size: usize,
   kinds: DashMap<String, Props>,
@@ -46,6 +47,7 @@ impl Default for Config {
         endpoint_writer_batch_size: 1000,
         endpoint_manager_batch_size: 1000,
         endpoint_writer_queue_size: 1000000,
+        endpoint_writer_queue_snapshot_interval: 1,
         endpoint_manager_queue_size: 1000000,
         kinds: DashMap::new(),
         max_retry_count: 5,
@@ -141,6 +143,16 @@ impl Config {
   pub async fn set_endpoint_writer_queue_size(&mut self, endpoint_writer_queue_size: usize) {
     let mut mg = self.inner.lock().await;
     mg.endpoint_writer_queue_size = endpoint_writer_queue_size;
+  }
+
+  pub async fn get_endpoint_writer_queue_snapshot_interval(&self) -> usize {
+    let mg = self.inner.lock().await;
+    mg.endpoint_writer_queue_snapshot_interval
+  }
+
+  pub async fn set_endpoint_writer_queue_snapshot_interval(&mut self, endpoint_writer_queue_snapshot_interval: usize) {
+    let mut mg = self.inner.lock().await;
+    mg.endpoint_writer_queue_snapshot_interval = endpoint_writer_queue_snapshot_interval.max(1);
   }
 
   pub async fn get_endpoint_manager_batch_size(&self) -> usize {
