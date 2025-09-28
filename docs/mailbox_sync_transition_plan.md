@@ -109,6 +109,19 @@ Control --> Queue : resume 時に backlog クリア
 - **SHOULD** EndpointWriterMailbox のメトリクス購読フラグ運用テストを実施し、Runbook へ反映する。
 - **MAY** ベンチ系継続測定のテンプレート化を進め、docs/bench_dashboard_plan.md へフィードバックする。
 
+## MUST優先アクション詳細 (2025-09-28 更新)
+| タスクID | 目的 | 推奨オーナー | 完了条件 | 推奨トラック |
+| --- | --- | --- | --- | --- |
+| MUST-1 | MailboxSync RFC 章構成とブリッジ方針を最終確定し、protoactor-go との差分根拠を示す | core/actor チーム (主担当: A. Sato) | RFC v1.0 のドラフト、`MailboxSyncBridge` シーケンス図、レビュー承認コメント | 1) 章構成を protoactor-go/actor/mailbox/default_mailbox.go と突き合わせ、差分理由を追記 2) `MailboxSyncBridge` のハンドオフ時状態遷移を S2Dv/UML で提示 3) レビュー依頼テンプレートにベンチ比較リンクを添付 |
+| MUST-2 | remote/cluster が同期ハンドルへ移行する際の互換アダプタ撤去計画を固める | remote+cluster 混成チーム (主担当: K. Tanaka) | `remote`/`cluster` 各ブランチの移行 checklist、`MailboxSyncBridge` 削除 PR 草案、`cargo test --workspace` 成功ログ | 1) protoactor-go の `ProcessMailbox` 実装から remote 経路の排他制御を抽出 2) 互換アダプタ撤去前後のコンパイルエラーを CI で確認 3) integration test の `mailbox_sync_bridge_*` を同期 API 前提に更新 |
+| MUST-3 | リグレッション検証ラインの自動化とベンチ差分通知の運用開始 | SRE/Observability チーム (主担当: Y. Kimura) | GitHub Actions nightly で `cargo bench --bench mailbox_throughput -- --save-baseline sync` 実行、Slack 通知、Grafana 閾値 PR | 1) `benchmark/nightly.yml` に sync ベースライン比較を追加 2) `target/criterion` の差分を S3 へアップロードし比較レポート生成 3) Grafana の p95/p99 閾値を snap64 ベースで 5% マージン設定 |
+
+## 60分自動実行サイクル (MUSTフォーカス)
+1. **0-15分**: RFC ドラフトを最新コードと突き合わせ、protoactor-go との差分を Markdown 表にまとめる。`MailboxSyncBridge` 仕様の TODO をすべて埋める。
+2. **15-30分**: remote/cluster の Mailbox 呼び出し箇所を `rg "MailboxSyncBridge"` で洗い出し、同期ハンドル API への置換計画をコメントとして diff に残す。
+3. **30-45分**: GitHub Actions nightly ジョブに必要なベンチマークコマンドと成果物の配置 (S3 パス/Slack Webhook) をテンプレート化し、`.github/workflows/mailbox-sync-nightly.yml` の原案を作成。
+4. **45-60分**: integration テストとベンチの運用条件をドキュメント化 (`docs/mailbox_sync_transition_plan.md` へ追記) し、レビュー依頼メッセージ（チェックリスト付き）を準備。完了後 `cargo test --workspace` を予定に組み込む。
+
 ## ベンチ結果 (2025-09-28)
 - 実行コマンド: `cargo bench --bench mailbox_throughput`
 - 計測対象: `DefaultMailbox` + unbounded MPSC メールボックス

@@ -39,6 +39,18 @@
   - 推奨対応: (1) `core/tests/mailbox_metrics_trace.rs` を追加し、`queue_latency_snapshot_interval` 変化時の `nexus_actor_mailbox_queue_dwell_percentile_seconds` を Golden ファイルで検証。(2) remote integration テストにメトリクス購読有無を切り替えるシナリオを追加。(3) GitHub Actions nightly でメトリクス差分を Slack 通知するジョブを登録。
   - 成果物: 新規テストコード、CI 設定、Slack 通知テンプレート。
 
+## MUST優先アクション詳細 (2025-09-28 更新)
+| タスクID | 目的 | 推奨オーナー | 完了条件 | 推奨トラック |
+| --- | --- | --- | --- | --- |
+| MUST-設定 | スナップショット間隔と購読設定を統一し、protoactor-go の実績値を根拠に採用 | core/metrics チーム (主担当: R. Nakamura) | Config PR マージ、Runbook v2 公開、`queue_latency_snapshot_interval` 64/8/1 の設定ガイド配布 | 1) protoactor-go/actor/mailbox/default_mailbox.go の `mailboxInstrumentation` を参照し、Rust 実装との差分を表化 2) `ConfigOption` 既定値変更の RFC コメント取得 3) Grafana テンプレートに環境別しきい値をプリセット |
+| MUST-テスト | メトリクスサンプリングの回帰検出を自動化し、CI/Nightly 両方で可視化 | core+SRE 共同 (主担当: M. Suzuki) | `core/tests/mailbox_metrics_trace.rs` 通過、remote integration 追加シナリオ成功、Slack 通知ジョブ稼働 | 1) protoactor-go の `metrics/mailbox/mailbox_metrics_test.go` の assertion を Rust へ焼き直し 2) Golden ファイルを `tests/data/mailbox_metrics_trace/` に配置 3) GitHub Actions nightly ワークフローに差分比較と通知ステップを追記 |
+
+## 60分自動実行サイクル (メトリクス最適化)
+1. **0-15分**: `queue_latency_snapshot_interval` の環境別デフォルトを Config PR 用テンプレートに記載し、protoactor-go 由来の閾値根拠をコメントへ引用。
+2. **15-30分**: `core/tests/mailbox_metrics_trace.rs` のスケルトンと Golden データ生成スクリプト (`scripts/gen_mailbox_metrics_trace.rs`) を作成し、CI で再利用できるよう整備。
+3. **30-45分**: remote integration テストでメトリクス購読フラグをトグルするケースを追加し、`cargo test -p remote -- mailbox_metrics` で局所実行して期待値を確認。
+4. **45-60分**: GitHub Actions nightly のテンプレート (`.github/workflows/mailbox-metrics-nightly.yml`) 草案を起こし、Slack 通知メッセージに p95/p99 グラフのリンクとトラブルシュート手順を記載。最後に Runbook の更新項目を洗い出す。
+
 ### SHOULD
 - [ ] **SHOULD** メトリクス Collector の backoff アルゴリズム最適化（目標日: 2025-10-10）
   - 状態: 250ms ポーリングで安定しているが、低負荷クラスタでの CPU オーバーヘッドを更に削減したい。
