@@ -37,10 +37,7 @@ struct WorkerActor {
 
 impl WorkerActor {
   fn new(id: String) -> Self {
-    Self {
-      id,
-      tasks_processed: 0,
-    }
+    Self { id, tasks_processed: 0 }
   }
 }
 

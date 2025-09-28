@@ -39,8 +39,7 @@ impl SenderMiddlewareChain {
   pub fn new<F, Fut>(f: F) -> Self
   where
     F: Fn(SenderContextHandle, ExtendedPid, MessageEnvelope) -> Fut + Send + Sync + 'static,
-    Fut: Future<Output = ()> + Send + 'static,
-  {
+    Fut: Future<Output = ()> + Send + 'static, {
     Self(Arc::new(move |sch, ep, me| {
       Box::pin(f(sch, ep, me)) as BoxFuture<'static, ()>
     }))

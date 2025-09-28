@@ -174,8 +174,7 @@ impl ActorSystem {
 
   pub fn metrics_foreach<R, F>(&self, f: F) -> Option<R>
   where
-    F: FnOnce(&Arc<MetricsRuntime>) -> R,
-  {
+    F: FnOnce(&Arc<MetricsRuntime>) -> R, {
     let runtime = self.metrics_runtime()?;
     Some(f(&runtime))
   }
