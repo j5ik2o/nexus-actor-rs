@@ -1,5 +1,6 @@
 use std::collections::VecDeque;
 use std::convert::TryFrom;
+use std::env;
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -9,11 +10,10 @@ use crate::actor::dispatch::mailbox::mailbox_handle::MailboxHandle;
 use crate::actor::dispatch::mailbox::sync_queue_handles::{
   SyncMailboxQueue, SyncMailboxQueueHandles, SyncQueueReaderHandle, SyncQueueWriterHandle,
 };
-use crate::actor::dispatch::mailbox::Mailbox;
+use crate::actor::dispatch::mailbox::{Mailbox, MailboxQueueKind, MailboxSync, MailboxSyncHandle};
 use crate::actor::dispatch::mailbox_message::MailboxMessage;
 use crate::actor::dispatch::mailbox_middleware::{MailboxMiddleware, MailboxMiddlewareHandle};
 use crate::actor::dispatch::message_invoker::{MessageInvoker, MessageInvokerHandle};
-use crate::actor::dispatch::MailboxQueueKind;
 use crate::actor::message::MessageHandle;
 use arc_swap::ArcSwapOption;
 use async_trait::async_trait;
@@ -25,6 +25,7 @@ pub(crate) struct MailboxYieldConfig {
   pub system_burst_limit: usize,
   pub user_priority_ratio: i32,
   pub backlog_sensitivity: usize,
+  pub queue_latency_snapshot_interval: usize,
 }
 
 impl Default for MailboxYieldConfig {
@@ -33,6 +34,7 @@ impl Default for MailboxYieldConfig {
       system_burst_limit: 4,
       user_priority_ratio: 2,
       backlog_sensitivity: 2,
+      queue_latency_snapshot_interval: 64,
     }
   }
 }
@@ -82,6 +84,14 @@ impl QueueLatencyTracker {
   }
 }
 
+#[derive(Debug, Clone, Copy)]
+enum QueueLengthEvent {
+  Enqueue,
+  Dequeue,
+}
+
+const SMALL_QUEUE_LENGTH_THRESHOLD: u64 = 4;
+
 #[derive(Debug)]
 struct LatencyHistogram {
   counts: Box<[AtomicU64]>,
@@ -92,6 +102,15 @@ struct LatencyHistogram {
 pub(crate) struct LatencyHistogramSnapshot {
   counts: Vec<u64>,
   total: u64,
+}
+
+impl Default for LatencyHistogramSnapshot {
+  fn default() -> Self {
+    Self {
+      counts: vec![0; LATENCY_BUCKET_BOUNDS.len() + 1],
+      total: 0,
+    }
+  }
 }
 
 impl LatencyHistogram {
@@ -235,7 +254,7 @@ impl MailboxSuspensionState {
 }
 
 #[derive(Debug, Clone, Copy, Default)]
-pub(crate) struct MailboxSuspensionMetrics {
+pub struct MailboxSuspensionMetrics {
   pub resume_events: u64,
   pub total_duration: Duration,
 }
@@ -257,6 +276,15 @@ pub struct MailboxQueueLatencyMetrics {
   system: LatencyHistogramSnapshot,
 }
 
+impl Default for MailboxQueueLatencyMetrics {
+  fn default() -> Self {
+    Self {
+      user: LatencyHistogramSnapshot::default(),
+      system: LatencyHistogramSnapshot::default(),
+    }
+  }
+}
+
 impl MailboxQueueLatencyMetrics {
   pub fn percentile(&self, queue: MailboxQueueKind, percentile: f64) -> Option<Duration> {
     match queue {
@@ -271,20 +299,26 @@ impl MailboxQueueLatencyMetrics {
       MailboxQueueKind::System => self.system.total(),
     }
   }
+
+  pub fn bucket_counts(&self, queue: MailboxQueueKind) -> &[u64] {
+    match queue {
+      MailboxQueueKind::User => self.user.counts(),
+      MailboxQueueKind::System => self.system.counts(),
+    }
+  }
 }
 
 #[derive(Debug)]
 pub(crate) struct DefaultMailboxInner<UQ, SQ>
 where
   UQ: SyncMailboxQueue,
-  SQ: SyncMailboxQueue, {
+  SQ: SyncMailboxQueue,
+{
   user_mailbox_writer: SyncQueueWriterHandle<UQ>,
   user_mailbox_reader: SyncQueueReaderHandle<UQ>,
   system_mailbox_writer: SyncQueueWriterHandle<SQ>,
   system_mailbox_reader: SyncQueueReaderHandle<SQ>,
   middlewares: Vec<MailboxMiddlewareHandle>,
-  user_queue_latency: QueueLatencyTracker,
-  system_queue_latency: QueueLatencyTracker,
 }
 
 // DefaultMailbox implementation
@@ -292,7 +326,8 @@ where
 pub(crate) struct DefaultMailbox<UQ, SQ>
 where
   UQ: SyncMailboxQueue,
-  SQ: SyncMailboxQueue, {
+  SQ: SyncMailboxQueue,
+{
   inner: Arc<Mutex<DefaultMailboxInner<UQ, SQ>>>,
   scheduler_status: Arc<AtomicBool>,
   user_messages_count: Arc<AtomicI32>,
@@ -302,6 +337,11 @@ where
   invoker_opt: Arc<ArcSwapOption<MessageInvokerHandle>>,
   dispatcher_opt: Arc<ArcSwapOption<DispatcherHandle>>,
   config: MailboxYieldConfig,
+  user_queue_latency: QueueLatencyTracker,
+  system_queue_latency: QueueLatencyTracker,
+  metrics_enabled: Arc<AtomicBool>,
+  user_snapshot_counter: Arc<AtomicU64>,
+  system_snapshot_counter: Arc<AtomicU64>,
 }
 
 impl<UQ, SQ> DefaultMailbox<UQ, SQ>
@@ -317,7 +357,15 @@ where
     let system_messages_count = Arc::new(AtomicI32::new(0));
     let suspension = Arc::new(MailboxSuspensionState::default());
     let last_backlog = Arc::new(AtomicI32::new(0));
-    let config = MailboxYieldConfig::default();
+    let mut config = MailboxYieldConfig::default();
+    if let Ok(value) = env::var("MAILBOX_QUEUE_SNAPSHOT_INTERVAL") {
+      if let Ok(interval) = value.parse::<usize>() {
+        config.queue_latency_snapshot_interval = interval.max(1);
+      }
+    }
+
+    let user_queue_latency = QueueLatencyTracker::default();
+    let system_queue_latency = QueueLatencyTracker::default();
 
     Self {
       inner: Arc::new(Mutex::new(DefaultMailboxInner {
@@ -326,8 +374,6 @@ where
         system_mailbox_writer: system_handles.writer_handle(),
         system_mailbox_reader: system_handles.reader_handle(),
         middlewares: vec![],
-        user_queue_latency: QueueLatencyTracker::default(),
-        system_queue_latency: QueueLatencyTracker::default(),
       })),
       scheduler_status,
       user_messages_count,
@@ -337,6 +383,11 @@ where
       invoker_opt: Arc::new(ArcSwapOption::from(None)),
       dispatcher_opt: Arc::new(ArcSwapOption::from(None)),
       config,
+      user_queue_latency,
+      system_queue_latency,
+      metrics_enabled: Arc::new(AtomicBool::new(false)),
+      user_snapshot_counter: Arc::new(AtomicU64::new(0)),
+      system_snapshot_counter: Arc::new(AtomicU64::new(0)),
     }
   }
 
@@ -353,18 +404,22 @@ where
     self
   }
 
+  pub(crate) fn with_latency_snapshot_interval(mut self, interval: usize) -> Self {
+    self.config.queue_latency_snapshot_interval = interval.max(1);
+    self
+  }
+
   pub(crate) fn suspension_metrics(&self) -> MailboxSuspensionMetrics {
     self.suspension.metrics()
   }
 
+  pub(crate) fn to_sync_handle(&self) -> MailboxSyncHandle {
+    MailboxSyncHandle::new(self.clone())
+  }
+
   pub(crate) fn queue_latency_metrics(&self) -> MailboxQueueLatencyMetrics {
-    let (user_snapshot, system_snapshot) = {
-      let inner_mg = self.inner.lock();
-      (
-        inner_mg.user_queue_latency.snapshot(),
-        inner_mg.system_queue_latency.snapshot(),
-      )
-    };
+    let user_snapshot = self.user_queue_latency.snapshot();
+    let system_snapshot = self.system_queue_latency.snapshot();
     MailboxQueueLatencyMetrics {
       user: user_snapshot,
       system: system_snapshot,
@@ -373,14 +428,10 @@ where
 
   #[cfg(test)]
   pub(crate) fn test_record_queue_latency(&self, queue: MailboxQueueKind, duration: Duration) {
-    let tracker = {
-      let inner_mg = self.inner.lock();
-      match queue {
-        MailboxQueueKind::User => inner_mg.user_queue_latency.clone(),
-        MailboxQueueKind::System => inner_mg.system_queue_latency.clone(),
-      }
-    };
-    tracker.record_for_tests(duration);
+    match queue {
+      MailboxQueueKind::User => self.user_queue_latency.record_for_tests(duration),
+      MailboxQueueKind::System => self.system_queue_latency.record_for_tests(duration),
+    }
   }
 
   fn message_invoker_opt(&self) -> Option<MessageInvokerHandle> {
@@ -405,47 +456,90 @@ where
     self.dispatcher_opt.store(dispatcher_opt.map(|handle| Arc::new(handle)));
   }
 
-  async fn initialize_scheduler_status(&self) {
+  fn initialize_scheduler_status(&self) {
     self.scheduler_status.store(false, Ordering::SeqCst);
   }
 
-  async fn compare_exchange_scheduler_status(&self, current: bool, new: bool) -> Result<bool, bool> {
+  fn compare_exchange_scheduler_status(&self, current: bool, new: bool) -> Result<bool, bool> {
     self
       .scheduler_status
       .compare_exchange(current, new, Ordering::SeqCst, Ordering::SeqCst)
   }
 
-  async fn record_queue_enqueue(&self, queue: MailboxQueueKind) {
-    let tracker = {
-      let inner_mg = self.inner.lock();
-      match queue {
-        MailboxQueueKind::User => inner_mg.user_queue_latency.clone(),
-        MailboxQueueKind::System => inner_mg.system_queue_latency.clone(),
-      }
-    };
-    tracker.record_enqueue();
+  fn metrics_enabled(&self) -> bool {
+    self.metrics_enabled.load(Ordering::Relaxed)
   }
 
-  async fn record_queue_dequeue(&self, queue: MailboxQueueKind) -> Option<Duration> {
-    let tracker = {
-      let inner_mg = self.inner.lock();
-      match queue {
-        MailboxQueueKind::User => inner_mg.user_queue_latency.clone(),
-        MailboxQueueKind::System => inner_mg.system_queue_latency.clone(),
-      }
-    };
-    tracker.record_dequeue()
+  fn queue_length(&self, queue: MailboxQueueKind) -> u64 {
+    match queue {
+      MailboxQueueKind::User => self.user_messages_count.load(Ordering::SeqCst).max(0) as u64,
+      MailboxQueueKind::System => self.system_messages_count.load(Ordering::SeqCst).max(0) as u64,
+    }
   }
 
-  async fn clear_queue_latency(&self, queue: MailboxQueueKind) {
-    let tracker = {
-      let inner_mg = self.inner.lock();
-      match queue {
-        MailboxQueueKind::User => inner_mg.user_queue_latency.clone(),
-        MailboxQueueKind::System => inner_mg.system_queue_latency.clone(),
+  fn should_emit_queue_length(&self, event: QueueLengthEvent, length: u64) -> bool {
+    let interval = self.config.queue_latency_snapshot_interval.max(1) as u64;
+    match event {
+      QueueLengthEvent::Enqueue => {
+        if length == 0 {
+          return false;
+        }
+        if length <= SMALL_QUEUE_LENGTH_THRESHOLD {
+          return true;
+        }
+        length % interval == 0
       }
+      QueueLengthEvent::Dequeue => {
+        if length == 0 {
+          return true;
+        }
+        if length < SMALL_QUEUE_LENGTH_THRESHOLD {
+          return true;
+        }
+        (length + 1) % interval == 0
+      }
+    }
+  }
+
+  async fn maybe_emit_queue_length(&self, queue: MailboxQueueKind, event: QueueLengthEvent) {
+    if !self.metrics_enabled() {
+      return;
+    }
+    let Some(mut invoker) = self.message_invoker_opt() else {
+      return;
     };
-    tracker.clear();
+    let length = self.queue_length(queue);
+    if !self.should_emit_queue_length(event, length) {
+      return;
+    }
+    invoker.record_mailbox_queue_length(queue, length).await;
+  }
+
+  fn record_queue_enqueue(&self, queue: MailboxQueueKind) {
+    if !self.metrics_enabled() {
+      return;
+    }
+    match queue {
+      MailboxQueueKind::User => self.user_queue_latency.record_enqueue(),
+      MailboxQueueKind::System => self.system_queue_latency.record_enqueue(),
+    }
+  }
+
+  fn record_queue_dequeue(&self, queue: MailboxQueueKind) -> Option<Duration> {
+    if !self.metrics_enabled() {
+      return None;
+    }
+    match queue {
+      MailboxQueueKind::User => self.user_queue_latency.record_dequeue(),
+      MailboxQueueKind::System => self.system_queue_latency.record_dequeue(),
+    }
+  }
+
+  fn clear_queue_latency(&self, queue: MailboxQueueKind) {
+    match queue {
+      MailboxQueueKind::User => self.user_queue_latency.clear(),
+      MailboxQueueKind::System => self.system_queue_latency.clear(),
+    }
   }
 
   fn set_suspended(&self, suspended: bool) {
@@ -456,73 +550,73 @@ where
     self.suspension.is_suspended()
   }
 
-  async fn increment_system_messages_count(&self) {
+  fn increment_system_messages_count(&self) {
     self.system_messages_count.fetch_add(1, Ordering::SeqCst);
   }
 
-  async fn decrement_system_messages_count(&self) {
+  fn decrement_system_messages_count(&self) {
     self.system_messages_count.fetch_sub(1, Ordering::SeqCst);
   }
 
-  async fn increment_user_messages_count(&self) {
+  fn increment_user_messages_count(&self) {
     self.user_messages_count.fetch_add(1, Ordering::SeqCst);
   }
 
-  async fn decrement_user_messages_count(&self) {
+  fn decrement_user_messages_count(&self) {
     self.user_messages_count.fetch_sub(1, Ordering::SeqCst);
   }
 
-  async fn get_middlewares(&self) -> Vec<MailboxMiddlewareHandle> {
+  fn middlewares(&self) -> Vec<MailboxMiddlewareHandle> {
     let inner_mg = self.inner.lock();
     inner_mg.middlewares.clone()
   }
 
-  async fn poll_system_mailbox(&self) -> Result<Option<MessageHandle>, QueueError<MessageHandle>> {
+  fn poll_system_mailbox(&self) -> Result<Option<MessageHandle>, QueueError<MessageHandle>> {
     let receiver = {
       let inner_mg = self.inner.lock();
       inner_mg.system_mailbox_reader.clone()
     };
-    match receiver.poll().await {
+    match receiver.poll_sync() {
       Ok(message) => Ok(message),
       Err(err) => {
         if matches!(err, QueueError::PoolError) {
-          self.clear_queue_latency(MailboxQueueKind::System).await;
+          self.clear_queue_latency(MailboxQueueKind::System);
         }
         Err(err)
       }
     }
   }
 
-  async fn poll_user_mailbox(&self) -> Result<Option<MessageHandle>, QueueError<MessageHandle>> {
+  fn poll_user_mailbox(&self) -> Result<Option<MessageHandle>, QueueError<MessageHandle>> {
     let receiver = {
       let inner_mg = self.inner.lock();
       inner_mg.user_mailbox_reader.clone()
     };
-    match receiver.poll().await {
+    match receiver.poll_sync() {
       Ok(message) => Ok(message),
       Err(err) => {
         if matches!(err, QueueError::PoolError) {
-          self.clear_queue_latency(MailboxQueueKind::User).await;
+          self.clear_queue_latency(MailboxQueueKind::User);
         }
         Err(err)
       }
     }
   }
 
-  async fn offer_system_mailbox(&self, element: MessageHandle) -> Result<(), QueueError<MessageHandle>> {
+  fn offer_system_mailbox(&self, element: MessageHandle) -> Result<(), QueueError<MessageHandle>> {
     let sender = {
       let inner_mg = self.inner.lock();
       inner_mg.system_mailbox_writer.clone()
     };
-    sender.offer(element).await
+    sender.offer_sync(element)
   }
 
-  async fn offer_user_mailbox(&self, element: MessageHandle) -> Result<(), QueueError<MessageHandle>> {
+  fn offer_user_mailbox(&self, element: MessageHandle) -> Result<(), QueueError<MessageHandle>> {
     let sender = {
       let inner_mg = self.inner.lock();
       inner_mg.user_mailbox_writer.clone()
     };
-    sender.offer(element).await
+    sender.offer_sync(element)
   }
 
   fn should_yield(
@@ -569,24 +663,44 @@ where
     &self,
     message_invoker: &mut MessageInvokerHandle,
   ) -> Result<bool, QueueError<MessageHandle>> {
-    match self.poll_system_mailbox().await {
+    match self.poll_system_mailbox() {
       Ok(Some(msg)) => {
-        if let Some(latency) = self.record_queue_dequeue(MailboxQueueKind::System).await {
-          message_invoker
-            .record_mailbox_queue_latency(MailboxQueueKind::System, latency)
-            .await;
+        let mut emit_snapshot = false;
+        if let Some(latency) = self.record_queue_dequeue(MailboxQueueKind::System) {
+          let emit_update = self.should_emit_latency_update(MailboxQueueKind::System);
+          if emit_update {
+            message_invoker
+              .record_mailbox_queue_latency(MailboxQueueKind::System, latency)
+              .await;
+          }
+          emit_snapshot = emit_update;
+        }
+        self.decrement_system_messages_count();
+        self
+          .maybe_emit_queue_length(MailboxQueueKind::System, QueueLengthEvent::Dequeue)
+          .await;
+        if emit_snapshot {
           message_invoker
             .record_mailbox_queue_latency_snapshot(self.queue_latency_metrics())
             .await;
         }
-        self.decrement_system_messages_count().await;
         let mailbox_message = msg.to_typed::<MailboxMessage>();
         match mailbox_message {
           Some(MailboxMessage::SuspendMailbox) => {
             self.set_suspended(true);
+            if self.metrics_enabled() {
+              message_invoker
+                .record_mailbox_suspension_metrics(self.suspension.metrics(), true)
+                .await;
+            }
           }
           Some(MailboxMessage::ResumeMailbox) => {
             self.set_suspended(false);
+            if self.metrics_enabled() {
+              message_invoker
+                .record_mailbox_suspension_metrics(self.suspension.metrics(), false)
+                .await;
+            }
           }
           _ => {
             if let Err(err) = message_invoker.invoke_system_message(msg.clone()).await {
@@ -596,13 +710,19 @@ where
             }
           }
         }
-        let mut middlewares = self.get_middlewares().await;
+        let mut middlewares = self.middlewares();
         for middleware in &mut middlewares {
           middleware.message_received(&msg).await;
         }
         Ok(true)
       }
-      Ok(None) | Err(_) => Ok(false),
+      Ok(None) => Ok(false),
+      Err(err) => {
+        if matches!(err, QueueError::PoolError) {
+          self.clear_queue_latency(MailboxQueueKind::System);
+        }
+        Err(err)
+      }
     }
   }
 
@@ -610,35 +730,51 @@ where
     &self,
     message_invoker: &mut MessageInvokerHandle,
   ) -> Result<bool, QueueError<MessageHandle>> {
-    match self.poll_user_mailbox().await {
+    match self.poll_user_mailbox() {
       Ok(Some(message)) => {
-        if let Some(latency) = self.record_queue_dequeue(MailboxQueueKind::User).await {
-          message_invoker
-            .record_mailbox_queue_latency(MailboxQueueKind::User, latency)
-            .await;
+        let mut emit_snapshot = false;
+        if let Some(latency) = self.record_queue_dequeue(MailboxQueueKind::User) {
+          let emit_update = self.should_emit_latency_update(MailboxQueueKind::User);
+          if emit_update {
+            message_invoker
+              .record_mailbox_queue_latency(MailboxQueueKind::User, latency)
+              .await;
+          }
+          emit_snapshot = emit_update;
+        }
+        self.decrement_user_messages_count();
+        self
+          .maybe_emit_queue_length(MailboxQueueKind::User, QueueLengthEvent::Dequeue)
+          .await;
+        if emit_snapshot {
           message_invoker
             .record_mailbox_queue_latency_snapshot(self.queue_latency_metrics())
             .await;
         }
-        self.decrement_user_messages_count().await;
         let result = message_invoker.invoke_user_message(message.clone()).await;
         if let Err(e) = result {
           message_invoker
             .escalate_failure(e.reason().cloned().unwrap(), message.clone())
             .await;
         }
-        let mut middlewares = self.get_middlewares().await;
+        let mut middlewares = self.middlewares();
         for middleware in &mut middlewares {
           middleware.message_received(&message).await;
         }
         Ok(true)
       }
-      Ok(None) | Err(_) => Ok(false),
+      Ok(None) => Ok(false),
+      Err(err) => {
+        if matches!(err, QueueError::PoolError) {
+          self.clear_queue_latency(MailboxQueueKind::User);
+        }
+        Err(err)
+      }
     }
   }
 
   async fn schedule(&self) {
-    if self.compare_exchange_scheduler_status(false, true).await.is_ok() {
+    if self.compare_exchange_scheduler_status(false, true).is_ok() {
       let dispatcher = self.dispatcher_opt().expect("Dispatcher is not set");
       let self_clone = self.to_handle().await;
       dispatcher
@@ -724,6 +860,54 @@ where
   }
 }
 
+impl<UQ, SQ> MailboxSync for DefaultMailbox<UQ, SQ>
+where
+  UQ: SyncMailboxQueue,
+  SQ: SyncMailboxQueue,
+{
+  fn user_messages_count(&self) -> i32 {
+    self.user_messages_count.load(Ordering::SeqCst)
+  }
+
+  fn system_messages_count(&self) -> i32 {
+    self.system_messages_count.load(Ordering::SeqCst)
+  }
+
+  fn suspension_metrics(&self) -> MailboxSuspensionMetrics {
+    self.suspension_metrics()
+  }
+
+  fn queue_latency_metrics(&self) -> MailboxQueueLatencyMetrics {
+    self.queue_latency_metrics()
+  }
+
+  fn is_suspended(&self) -> bool {
+    self.is_suspended()
+  }
+}
+impl<UQ, SQ> DefaultMailbox<UQ, SQ>
+where
+  UQ: SyncMailboxQueue,
+  SQ: SyncMailboxQueue,
+{
+  fn should_emit_latency_update(&self, queue: MailboxQueueKind) -> bool {
+    if !self.metrics_enabled() {
+      return false;
+    }
+    let interval = self.config.queue_latency_snapshot_interval.max(1) as u64;
+    match queue {
+      MailboxQueueKind::User => {
+        let prev = self.user_snapshot_counter.fetch_add(1, Ordering::Relaxed);
+        prev == 0 || (prev + 1) % interval == 0
+      }
+      MailboxQueueKind::System => {
+        let prev = self.system_snapshot_counter.fetch_add(1, Ordering::Relaxed);
+        prev == 0 || (prev + 1) % interval == 0
+      }
+    }
+  }
+}
+
 #[async_trait]
 impl<UQ, SQ> Mailbox for DefaultMailbox<UQ, SQ>
 where
@@ -742,18 +926,18 @@ where
     loop {
       self.run().await;
 
-      self.initialize_scheduler_status().await;
+      self.initialize_scheduler_status();
       let system_messages_count = self.get_system_messages_count().await;
       let user_messages_count = self.get_user_messages_count().await;
 
       if (system_messages_count > 0 || (!self.is_suspended() && user_messages_count > 0))
-        && self.compare_exchange_scheduler_status(false, true).await.is_ok()
+        && self.compare_exchange_scheduler_status(false, true).is_ok()
       {
         continue;
       }
 
-      // if system_messages_count > 0 || (!self.is_suspended().await && user_messages_count > 0) {
-      //   if self.compare_exchange_scheduler_status(false, true).await.is_ok() {
+      // if system_messages_count > 0 || (!self.is_suspended() && user_messages_count > 0) {
+      //   if self.compare_exchange_scheduler_status(false, true).is_ok() {
       //     continue;
       //   }
       // }
@@ -761,35 +945,41 @@ where
       break;
     }
 
-    for mut middleware in self.get_middlewares().await {
+    for mut middleware in self.middlewares() {
       middleware.mailbox_empty().await;
     }
   }
 
   async fn post_user_message(&self, message_handle: MessageHandle) {
-    for mut middleware in self.get_middlewares().await {
+    for mut middleware in self.middlewares() {
       middleware.message_posted(&message_handle).await;
     }
 
-    if let Err(e) = self.offer_user_mailbox(message_handle).await {
+    if let Err(e) = self.offer_user_mailbox(message_handle) {
       tracing::error!("Failed to send message: {:?}", e);
     } else {
-      self.increment_user_messages_count().await;
-      self.record_queue_enqueue(MailboxQueueKind::User).await;
+      self.increment_user_messages_count();
+      self.record_queue_enqueue(MailboxQueueKind::User);
+      self
+        .maybe_emit_queue_length(MailboxQueueKind::User, QueueLengthEvent::Enqueue)
+        .await;
       self.schedule().await;
     }
   }
 
   async fn post_system_message(&self, message_handle: MessageHandle) {
-    for mut middleware in self.get_middlewares().await {
+    for mut middleware in self.middlewares() {
       middleware.message_posted(&message_handle).await;
     }
 
-    if let Err(e) = self.offer_system_mailbox(message_handle).await {
+    if let Err(e) = self.offer_system_mailbox(message_handle) {
       tracing::error!("Failed to send message: {:?}", e);
     } else {
-      self.increment_system_messages_count().await;
-      self.record_queue_enqueue(MailboxQueueKind::System).await;
+      self.increment_system_messages_count();
+      self.record_queue_enqueue(MailboxQueueKind::System);
+      self
+        .maybe_emit_queue_length(MailboxQueueKind::System, QueueLengthEvent::Enqueue)
+        .await;
       self.schedule().await;
     }
   }
@@ -799,12 +989,26 @@ where
     message_invoker_handle: Option<MessageInvokerHandle>,
     dispatcher_handle: Option<DispatcherHandle>,
   ) {
+    let metrics_enabled = message_invoker_handle
+      .as_ref()
+      .map(|handle| handle.wants_metrics())
+      .unwrap_or(false);
+    if let Some(handle) = message_invoker_handle.as_ref() {
+      handle.set_wants_metrics(metrics_enabled);
+    }
+    self.metrics_enabled.store(metrics_enabled, Ordering::SeqCst);
+    self.user_snapshot_counter.store(0, Ordering::Relaxed);
+    self.system_snapshot_counter.store(0, Ordering::Relaxed);
+    if !metrics_enabled {
+      self.user_queue_latency.clear();
+      self.system_queue_latency.clear();
+    }
     self.set_message_invoker_opt(message_invoker_handle);
     self.set_dispatcher_opt(dispatcher_handle);
   }
 
   async fn start(&self) {
-    for mut middleware in self.get_middlewares().await {
+    for mut middleware in self.middlewares() {
       middleware.mailbox_started().await;
     }
   }
@@ -814,6 +1018,7 @@ where
   }
 
   async fn to_handle(&self) -> MailboxHandle {
-    MailboxHandle::new(self.clone())
+    let sync = self.to_sync_handle();
+    MailboxHandle::new_with_sync(self.clone(), Some(sync))
   }
 }

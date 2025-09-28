@@ -14,6 +14,11 @@ struct ActorMetricsInner {
   actor_message_receive_histogram: Histogram<f64>,
   mailbox_queue_dwell_histogram: Histogram<f64>,
   mailbox_queue_dwell_percentile_gauge: Gauge<f64>,
+  mailbox_queue_length_gauge: Gauge<f64>,
+  mailbox_queue_dwell_bucket_total_gauge: Gauge<f64>,
+  mailbox_suspension_state_gauge: Gauge<f64>,
+  mailbox_suspension_resume_counter: Counter<u64>,
+  mailbox_suspension_duration_histogram: Histogram<f64>,
   actor_restarted_count: Counter<u64>,
   actor_spawn_count: Counter<u64>,
   actor_stopped_count: Counter<u64>,
@@ -65,6 +70,31 @@ impl ActorMetrics {
         mailbox_queue_dwell_percentile_gauge: meter
           .f64_gauge("nexus_actor_mailbox_queue_dwell_percentile_seconds")
           .with_description("Mailbox queue dwell duration percentiles")
+          .with_unit("s")
+          .build(),
+        mailbox_queue_length_gauge: meter
+          .f64_gauge("nexus_actor_mailbox_queue_length")
+          .with_description("Current mailbox queue length")
+          .with_unit("1")
+          .build(),
+        mailbox_queue_dwell_bucket_total_gauge: meter
+          .f64_gauge("nexus_actor_mailbox_queue_dwell_bucket_total")
+          .with_description("Cumulative mailbox queue dwell histogram bucket totals")
+          .with_unit("1")
+          .build(),
+        mailbox_suspension_state_gauge: meter
+          .f64_gauge("nexus_actor_mailbox_suspension_state")
+          .with_description("Mailbox suspension state (1 = suspended, 0 = active)")
+          .with_unit("1")
+          .build(),
+        mailbox_suspension_resume_counter: meter
+          .u64_counter("nexus_actor_mailbox_suspension_resume_count")
+          .with_description("Number of mailbox resume events")
+          .with_unit("1")
+          .build(),
+        mailbox_suspension_duration_histogram: meter
+          .f64_histogram("nexus_actor_mailbox_suspension_duration_seconds")
+          .with_description("Duration of mailbox suspension intervals in seconds")
           .with_unit("s")
           .build(),
         actor_restarted_count: meter
@@ -194,6 +224,56 @@ impl ActorMetrics {
   pub fn record_mailbox_queue_dwell_percentile_with_opts(&self, value: f64, attributes: &[KeyValue]) {
     let inner_mg = self.inner.read();
     inner_mg.mailbox_queue_dwell_percentile_gauge.record(value, attributes);
+  }
+
+  pub fn record_mailbox_queue_length(&self, length: u64) {
+    self.record_mailbox_queue_length_with_opts(length, &[]);
+  }
+
+  pub fn record_mailbox_queue_length_with_opts(&self, length: u64, attributes: &[KeyValue]) {
+    let inner_mg = self.inner.read();
+    inner_mg.mailbox_queue_length_gauge.record(length as f64, attributes);
+  }
+
+  pub fn record_mailbox_queue_dwell_bucket_total(&self, total: f64) {
+    self.record_mailbox_queue_dwell_bucket_total_with_opts(total, &[]);
+  }
+
+  pub fn record_mailbox_queue_dwell_bucket_total_with_opts(&self, total: f64, attributes: &[KeyValue]) {
+    let inner_mg = self.inner.read();
+    inner_mg
+      .mailbox_queue_dwell_bucket_total_gauge
+      .record(total, attributes);
+  }
+
+  pub fn increment_mailbox_suspension_resume(&self, count: u64) {
+    self.increment_mailbox_suspension_resume_with_opts(count, &[]);
+  }
+
+  pub fn increment_mailbox_suspension_resume_with_opts(&self, count: u64, attributes: &[KeyValue]) {
+    let inner_mg = self.inner.read();
+    inner_mg.mailbox_suspension_resume_counter.add(count, attributes);
+  }
+
+  pub fn record_mailbox_suspension_duration(&self, duration: f64) {
+    self.record_mailbox_suspension_duration_with_opts(duration, &[]);
+  }
+
+  pub fn record_mailbox_suspension_duration_with_opts(&self, duration: f64, attributes: &[KeyValue]) {
+    let inner_mg = self.inner.read();
+    inner_mg
+      .mailbox_suspension_duration_histogram
+      .record(duration, attributes);
+  }
+
+  pub fn record_mailbox_suspension_state(&self, suspended: bool) {
+    self.record_mailbox_suspension_state_with_opts(suspended, &[]);
+  }
+
+  pub fn record_mailbox_suspension_state_with_opts(&self, suspended: bool, attributes: &[KeyValue]) {
+    let inner_mg = self.inner.read();
+    let value = if suspended { 1.0 } else { 0.0 };
+    inner_mg.mailbox_suspension_state_gauge.record(value, attributes);
   }
 
   pub fn record_message_size(&self, size: u64) {

@@ -6,6 +6,7 @@ use nexus_actor_core_rs::actor::dispatch::dispatcher::{DispatcherHandle, TokioRu
 use nexus_actor_core_rs::actor::dispatch::message_invoker::{MessageInvoker, MessageInvokerHandle};
 use nexus_actor_core_rs::actor::dispatch::{self, Mailbox, MailboxQueueKind};
 use nexus_actor_core_rs::actor::message::MessageHandle;
+use std::env;
 use tokio::runtime::Runtime;
 use tokio::sync::RwLock;
 
@@ -38,30 +39,35 @@ fn bench_mailbox_process(c: &mut Criterion) {
 
   for &load in &[100usize, 1000usize] {
     group.throughput(Throughput::Elements(load as u64));
-    group.bench_function(format!("unbounded_mpsc_{load}"), |b| {
-      b.to_async(&runtime).iter(|| async move {
-        let producer = dispatch::unbounded_mpsc_mailbox_creator();
-        let mut mailbox = producer.run().await;
+    for &interval in &[1usize, 8, 64] {
+      let bench_name = format!("unbounded_mpsc_{load}_snap{interval}");
+      group.bench_function(bench_name, |b| {
+        b.to_async(&runtime).iter(|| async move {
+          env::set_var("MAILBOX_QUEUE_SNAPSHOT_INTERVAL", interval.to_string());
+          let producer = dispatch::unbounded_mpsc_mailbox_creator();
+          let mut mailbox = producer.run().await;
 
-        let dispatcher = TokioRuntimeContextDispatcher::new().expect("dispatcher");
-        let invoker_handle = MessageInvokerHandle::new(Arc::new(RwLock::new(CountingInvoker)));
-        let dispatcher_handle = DispatcherHandle::new(dispatcher.clone());
+          let dispatcher = TokioRuntimeContextDispatcher::new().expect("dispatcher");
+          let invoker_handle = MessageInvokerHandle::new(Arc::new(RwLock::new(CountingInvoker)));
+          let dispatcher_handle = DispatcherHandle::new(dispatcher.clone());
 
-        mailbox
-          .register_handlers(Some(invoker_handle.clone()), Some(dispatcher_handle.clone()))
-          .await;
-
-        mailbox.start().await;
-
-        for i in 0..load {
           mailbox
-            .post_user_message(MessageHandle::new(format!("payload-{i}")))
+            .register_handlers(Some(invoker_handle.clone()), Some(dispatcher_handle.clone()))
             .await;
-        }
 
-        mailbox.process_messages().await;
+          mailbox.start().await;
+
+          for i in 0..load {
+            mailbox
+              .post_user_message(MessageHandle::new(format!("payload-{i}")))
+              .await;
+          }
+
+          mailbox.process_messages().await;
+          env::remove_var("MAILBOX_QUEUE_SNAPSHOT_INTERVAL");
+        });
       });
-    });
+    }
   }
 
   group.finish();

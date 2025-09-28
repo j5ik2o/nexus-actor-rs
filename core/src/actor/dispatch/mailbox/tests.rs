@@ -10,6 +10,7 @@ use crate::actor::dispatch::{Mailbox, MailboxQueueKind};
 use crate::actor::message::MessageHandle;
 use async_trait::async_trait;
 use nexus_actor_utils_rs::collections::{MpscUnboundedChannelQueue, QueueReader, QueueWriter, RingQueue};
+use parking_lot::Mutex;
 use rand::prelude::*;
 use rand::rngs::SmallRng;
 use std::env;
@@ -20,6 +21,29 @@ use tokio::runtime::Handle;
 use tokio::sync::{Notify, RwLock};
 use tokio::time::{sleep, timeout};
 use tracing_subscriber::EnvFilter;
+
+struct EnvVarGuard {
+  key: &'static str,
+  original: Option<String>,
+}
+
+impl EnvVarGuard {
+  fn set(key: &'static str, value: &str) -> Self {
+    let original = env::var(key).ok();
+    env::set_var(key, value);
+    Self { key, original }
+  }
+}
+
+impl Drop for EnvVarGuard {
+  fn drop(&mut self) {
+    if let Some(ref value) = self.original {
+      env::set_var(self.key, value);
+    } else {
+      env::remove_var(self.key);
+    }
+  }
+}
 
 #[derive(Debug)]
 struct TestMessageInvoker {
@@ -150,6 +174,77 @@ impl MessageInvoker for YieldAwareMessageInvoker {
   async fn escalate_failure(&mut self, _: ErrorReason, _: MessageHandle) {}
 
   async fn record_mailbox_queue_latency(&mut self, _: MailboxQueueKind, _: Duration) {}
+}
+
+#[derive(Debug)]
+struct MetricsProbeInvoker {
+  notify: Arc<Notify>,
+  latency_calls: Arc<AtomicUsize>,
+}
+
+impl MetricsProbeInvoker {
+  fn new(notify: Arc<Notify>, latency_calls: Arc<AtomicUsize>) -> Self {
+    Self { notify, latency_calls }
+  }
+}
+
+#[async_trait]
+impl MessageInvoker for MetricsProbeInvoker {
+  async fn invoke_system_message(&mut self, _: MessageHandle) -> Result<(), ActorError> {
+    Ok(())
+  }
+
+  async fn invoke_user_message(&mut self, _: MessageHandle) -> Result<(), ActorError> {
+    self.notify.notify_waiters();
+    Ok(())
+  }
+
+  async fn escalate_failure(&mut self, _: ErrorReason, _: MessageHandle) {}
+
+  async fn record_mailbox_queue_latency(&mut self, _: MailboxQueueKind, _: Duration) {
+    self.latency_calls.fetch_add(1, Ordering::SeqCst);
+  }
+}
+
+#[derive(Debug)]
+struct QueueLengthProbeInvoker {
+  notify: Arc<Notify>,
+  samples: Arc<Mutex<Vec<u64>>>,
+  target: usize,
+}
+
+impl QueueLengthProbeInvoker {
+  fn new(notify: Arc<Notify>, samples: Arc<Mutex<Vec<u64>>>, target: usize) -> Self {
+    Self {
+      notify,
+      samples,
+      target,
+    }
+  }
+}
+
+#[async_trait]
+impl MessageInvoker for QueueLengthProbeInvoker {
+  async fn invoke_system_message(&mut self, _: MessageHandle) -> Result<(), ActorError> {
+    Ok(())
+  }
+
+  async fn invoke_user_message(&mut self, _: MessageHandle) -> Result<(), ActorError> {
+    Ok(())
+  }
+
+  async fn escalate_failure(&mut self, _: ErrorReason, _: MessageHandle) {}
+
+  async fn record_mailbox_queue_length(&mut self, queue: MailboxQueueKind, length: u64) {
+    if !matches!(queue, MailboxQueueKind::User) {
+      return;
+    }
+    let mut guard = self.samples.lock();
+    guard.push(length);
+    if guard.len() >= self.target {
+      self.notify.notify_waiters();
+    }
+  }
 }
 
 #[tokio::test]
@@ -354,6 +449,117 @@ async fn test_mailbox_suspension_metrics_accumulates_duration() {
 }
 
 #[tokio::test]
+async fn test_default_mailbox_skips_latency_metrics_without_interest() {
+  let producer = unbounded_mpsc_mailbox_creator();
+  let mut mailbox = producer.run().await;
+  let dispatcher = TokioRuntimeContextDispatcher::new().unwrap();
+
+  let notify = Arc::new(Notify::new());
+  let latency_calls = Arc::new(AtomicUsize::new(0));
+  let invoker = Arc::new(RwLock::new(MetricsProbeInvoker::new(
+    notify.clone(),
+    latency_calls.clone(),
+  )));
+
+  mailbox
+    .register_handlers(
+      Some(MessageInvokerHandle::new(invoker.clone())),
+      Some(DispatcherHandle::new(dispatcher.clone())),
+    )
+    .await;
+  mailbox.start().await;
+
+  mailbox.post_user_message(MessageHandle::new("probe".to_string())).await;
+
+  timeout(Duration::from_millis(500), notify.notified())
+    .await
+    .expect("message was not processed");
+
+  assert_eq!(latency_calls.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn test_default_mailbox_emits_latency_metrics_with_interest() {
+  let _interval_guard = EnvVarGuard::set("MAILBOX_QUEUE_SNAPSHOT_INTERVAL", "1");
+  let producer = unbounded_mpsc_mailbox_creator();
+  let mut mailbox = producer.run().await;
+  let dispatcher = TokioRuntimeContextDispatcher::new().unwrap();
+
+  let notify = Arc::new(Notify::new());
+  let latency_calls = Arc::new(AtomicUsize::new(0));
+  let invoker = Arc::new(RwLock::new(MetricsProbeInvoker::new(
+    notify.clone(),
+    latency_calls.clone(),
+  )));
+
+  mailbox
+    .register_handlers(
+      Some(MessageInvokerHandle::new_with_metrics(invoker.clone(), true)),
+      Some(DispatcherHandle::new(dispatcher.clone())),
+    )
+    .await;
+  mailbox.start().await;
+
+  mailbox.post_user_message(MessageHandle::new("probe".to_string())).await;
+
+  timeout(Duration::from_millis(500), notify.notified())
+    .await
+    .expect("message was not processed");
+
+  assert!(latency_calls.load(Ordering::SeqCst) >= 1);
+}
+
+#[tokio::test]
+async fn test_default_mailbox_emits_queue_length_samples() {
+  let _interval_guard = EnvVarGuard::set("MAILBOX_QUEUE_SNAPSHOT_INTERVAL", "2");
+  let producer = unbounded_mpsc_mailbox_creator();
+  let mut mailbox = producer.run().await;
+  let dispatcher = TokioRuntimeContextDispatcher::new().unwrap();
+
+  let notify = Arc::new(Notify::new());
+  let samples = Arc::new(Mutex::new(Vec::new()));
+  let invoker = Arc::new(RwLock::new(QueueLengthProbeInvoker::new(
+    notify.clone(),
+    samples.clone(),
+    3,
+  )));
+
+  mailbox
+    .register_handlers(
+      Some(MessageInvokerHandle::new_with_metrics(invoker.clone(), true)),
+      Some(DispatcherHandle::new(dispatcher.clone())),
+    )
+    .await;
+  mailbox.start().await;
+
+  mailbox.post_user_message(MessageHandle::new("first".to_string())).await;
+  mailbox
+    .post_user_message(MessageHandle::new("second".to_string()))
+    .await;
+
+  timeout(Duration::from_millis(500), notify.notified())
+    .await
+    .expect("queue length samples not observed");
+
+  let collected = samples.lock().clone();
+  assert!(
+    collected.contains(&1),
+    "expected queue length sample for 1, got {:?}",
+    collected
+  );
+  assert!(
+    collected.iter().any(|len| *len >= 2),
+    "expected queue length sample >= 2, got {:?}",
+    collected
+  );
+  assert!(
+    collected.contains(&0),
+    "expected queue length sample for 0, got {:?}",
+    collected
+  );
+}
+
+#[tokio::test]
 async fn test_mailbox_queue_latency_histogram_percentiles() {
   let user_queue = UnboundedMailboxQueue::new(MpscUnboundedChannelQueue::new());
   let system_queue = UnboundedMailboxQueue::new(MpscUnboundedChannelQueue::new());
@@ -369,6 +575,16 @@ async fn test_mailbox_queue_latency_histogram_percentiles() {
     .percentile(MailboxQueueKind::User, 50.0)
     .expect("p50 should exist");
   assert!(p50 >= Duration::from_millis(50));
+}
+
+#[tokio::test]
+async fn test_mailbox_handle_exposes_sync_handle() {
+  let producer = unbounded_mpsc_mailbox_creator();
+  let mailbox = producer.run().await;
+  let sync_handle = mailbox.sync_handle().expect("sync handle should exist");
+  assert_eq!(sync_handle.user_messages_count(), 0);
+  assert_eq!(sync_handle.system_messages_count(), 0);
+  assert!(!sync_handle.is_suspended());
 }
 
 #[tokio::test]
