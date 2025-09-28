@@ -1,56 +1,52 @@
+use crate::actor::dispatch::mailbox::sync_queue_handles::SyncMailboxQueue;
 use crate::actor::dispatch::mailbox::DefaultMailbox;
 use crate::actor::dispatch::mailbox::MailboxHandle;
 use crate::actor::dispatch::mailbox_middleware::MailboxMiddlewareHandle;
 use crate::actor::dispatch::mailbox_producer::MailboxProducer;
 use crate::actor::message::MessageHandle;
-use async_trait::async_trait;
 use nexus_actor_utils_rs::collections::{
-  MpscUnboundedChannelQueue, PriorityQueue, QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, RingQueue,
+  MpscUnboundedChannelQueue, PriorityQueue, QueueError, QueueSize, RingQueue, SyncQueueBase, SyncQueueReader,
+  SyncQueueSupport, SyncQueueWriter,
 };
 
 #[derive(Debug, Clone)]
-pub struct UnboundedMailboxQueue<Q: QueueReader<MessageHandle> + QueueWriter<MessageHandle>> {
+pub(crate) struct UnboundedMailboxQueue<Q: SyncMailboxQueue> {
   user_mailbox: Q,
 }
 
-impl<Q: QueueReader<MessageHandle> + QueueWriter<MessageHandle>> UnboundedMailboxQueue<Q> {
+impl<Q: SyncMailboxQueue> UnboundedMailboxQueue<Q> {
   pub fn new(user_mailbox: Q) -> Self {
     UnboundedMailboxQueue { user_mailbox }
   }
 }
 
-#[async_trait]
-impl<Q: QueueReader<MessageHandle> + QueueWriter<MessageHandle>> QueueBase<MessageHandle> for UnboundedMailboxQueue<Q> {
-  async fn len(&self) -> QueueSize {
-    self.user_mailbox.len().await
+impl<Q: SyncMailboxQueue> SyncQueueBase<MessageHandle> for UnboundedMailboxQueue<Q> {
+  fn len(&self) -> QueueSize {
+    self.user_mailbox.len()
   }
 
-  async fn capacity(&self) -> QueueSize {
-    self.user_mailbox.capacity().await
+  fn capacity(&self) -> QueueSize {
+    self.user_mailbox.capacity()
   }
 }
 
-#[async_trait]
-impl<Q: QueueReader<MessageHandle> + QueueWriter<MessageHandle>> QueueReader<MessageHandle>
-  for UnboundedMailboxQueue<Q>
-{
-  async fn poll(&mut self) -> Result<Option<MessageHandle>, QueueError<MessageHandle>> {
-    self.user_mailbox.poll().await
-  }
-
-  async fn clean_up(&mut self) {
-    self.user_mailbox.clean_up().await
+impl<Q: SyncMailboxQueue> SyncQueueWriter<MessageHandle> for UnboundedMailboxQueue<Q> {
+  fn offer(&mut self, element: MessageHandle) -> Result<(), QueueError<MessageHandle>> {
+    self.user_mailbox.offer(element)
   }
 }
 
-#[async_trait]
-impl<Q: QueueReader<MessageHandle> + QueueWriter<MessageHandle>> QueueWriter<MessageHandle>
-  for UnboundedMailboxQueue<Q>
-{
-  async fn offer(&mut self, element: MessageHandle) -> Result<(), QueueError<MessageHandle>> {
-    self.user_mailbox.offer(element).await
+impl<Q: SyncMailboxQueue> SyncQueueReader<MessageHandle> for UnboundedMailboxQueue<Q> {
+  fn poll(&mut self) -> Result<Option<MessageHandle>, QueueError<MessageHandle>> {
+    self.user_mailbox.poll()
+  }
+
+  fn clean_up(&mut self) {
+    self.user_mailbox.clean_up();
   }
 }
+
+impl<Q: SyncMailboxQueue> SyncQueueSupport for UnboundedMailboxQueue<Q> {}
 
 // ---
 

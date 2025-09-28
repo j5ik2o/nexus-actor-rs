@@ -7,9 +7,9 @@ use crate::actor::dispatch::mailbox_middleware::MailboxMiddlewareHandle;
 use crate::actor::dispatch::mailbox_producer::MailboxProducer;
 use crate::actor::dispatch::unbounded::UnboundedMailboxQueue;
 use crate::actor::message::MessageHandle;
-use async_trait::async_trait;
 use nexus_actor_utils_rs::collections::{
-  MpscUnboundedChannelQueue, QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, RingQueue,
+  MpscUnboundedChannelQueue, QueueError, QueueSize, RingQueue, SyncQueueBase, SyncQueueReader, SyncQueueSupport,
+  SyncQueueWriter,
 };
 use std::fmt::Debug;
 
@@ -30,38 +30,37 @@ impl BoundedMailboxQueue {
   }
 }
 
-#[async_trait]
-impl QueueBase<MessageHandle> for BoundedMailboxQueue {
-  async fn len(&self) -> QueueSize {
-    self.user_mailbox.len().await
+impl SyncQueueBase<MessageHandle> for BoundedMailboxQueue {
+  fn len(&self) -> QueueSize {
+    self.user_mailbox.len()
   }
 
-  async fn capacity(&self) -> QueueSize {
-    self.user_mailbox.capacity().await
+  fn capacity(&self) -> QueueSize {
+    self.user_mailbox.capacity()
   }
 }
 
-#[async_trait]
-impl QueueWriter<MessageHandle> for BoundedMailboxQueue {
-  async fn offer(&mut self, element: MessageHandle) -> Result<(), QueueError<MessageHandle>> {
-    let len = self.user_mailbox.len().await;
+impl SyncQueueWriter<MessageHandle> for BoundedMailboxQueue {
+  fn offer(&mut self, element: MessageHandle) -> Result<(), QueueError<MessageHandle>> {
+    let len = self.user_mailbox.len();
     if self.dropping && len == QueueSize::Limited(self.initial_capacity) {
-      let _ = self.user_mailbox.poll().await;
+      let _ = self.user_mailbox.poll()?;
     }
-    self.user_mailbox.offer(element).await
+    self.user_mailbox.offer(element)
   }
 }
 
-#[async_trait]
-impl QueueReader<MessageHandle> for BoundedMailboxQueue {
-  async fn poll(&mut self) -> Result<Option<MessageHandle>, QueueError<MessageHandle>> {
-    self.user_mailbox.poll().await
+impl SyncQueueReader<MessageHandle> for BoundedMailboxQueue {
+  fn poll(&mut self) -> Result<Option<MessageHandle>, QueueError<MessageHandle>> {
+    self.user_mailbox.poll()
   }
 
-  async fn clean_up(&mut self) {
-    self.user_mailbox.clean_up().await
+  fn clean_up(&mut self) {
+    self.user_mailbox.clean_up();
   }
 }
+
+impl SyncQueueSupport for BoundedMailboxQueue {}
 
 pub fn bounded_mailbox_creator_with_opts(
   size: usize,

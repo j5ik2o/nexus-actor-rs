@@ -8,6 +8,7 @@ use crate::actor::message::MessageHandle;
 
 mod default_mailbox;
 mod mailbox_handle;
+pub(crate) mod sync_queue_handles;
 #[cfg(test)]
 mod tests;
 
