@@ -1,5 +1,5 @@
 use crate::actor::MetricsProvider;
-use opentelemetry::metrics::{Counter, Histogram, Meter, MeterProvider};
+use opentelemetry::metrics::{Counter, Gauge, Histogram, Meter, MeterProvider};
 use opentelemetry::KeyValue;
 use parking_lot::RwLock;
 use std::sync::Arc;
@@ -13,6 +13,7 @@ struct ActorMetricsInner {
   actor_mailbox_length: Counter<u64>,
   actor_message_receive_histogram: Histogram<f64>,
   mailbox_queue_dwell_histogram: Histogram<f64>,
+  mailbox_queue_dwell_percentile_gauge: Gauge<f64>,
   actor_restarted_count: Counter<u64>,
   actor_spawn_count: Counter<u64>,
   actor_stopped_count: Counter<u64>,
@@ -59,6 +60,11 @@ impl ActorMetrics {
         mailbox_queue_dwell_histogram: meter
           .f64_histogram("nexus_actor_mailbox_queue_dwell_duration_seconds")
           .with_description("Time spent by messages waiting in mailbox queues before dispatch")
+          .with_unit("s")
+          .build(),
+        mailbox_queue_dwell_percentile_gauge: meter
+          .f64_gauge("nexus_actor_mailbox_queue_dwell_percentile_seconds")
+          .with_description("Mailbox queue dwell duration percentiles")
           .with_unit("s")
           .build(),
         actor_restarted_count: meter
@@ -179,6 +185,15 @@ impl ActorMetrics {
   pub fn record_mailbox_queue_dwell_duration_with_opts(&self, duration: f64, attributes: &[KeyValue]) {
     let inner_mg = self.inner.read();
     inner_mg.mailbox_queue_dwell_histogram.record(duration, attributes);
+  }
+
+  pub fn record_mailbox_queue_dwell_percentile(&self, value: f64) {
+    self.record_mailbox_queue_dwell_percentile_with_opts(value, &[]);
+  }
+
+  pub fn record_mailbox_queue_dwell_percentile_with_opts(&self, value: f64, attributes: &[KeyValue]) {
+    let inner_mg = self.inner.read();
+    inner_mg.mailbox_queue_dwell_percentile_gauge.record(value, attributes);
   }
 
   pub fn record_message_size(&self, size: u64) {

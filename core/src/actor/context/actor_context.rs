@@ -27,6 +27,7 @@ use crate::actor::core::SpawnError;
 use crate::actor::core_types::message_types::Message as _;
 use crate::actor::dispatch::MailboxMessage;
 use crate::actor::dispatch::MailboxQueueKind;
+use crate::actor::dispatch::MailboxQueueLatencyMetrics;
 use crate::actor::dispatch::MessageInvoker;
 use crate::actor::message::AutoReceiveMessage;
 use crate::actor::message::Continuation;
@@ -1233,6 +1234,21 @@ impl MessageInvoker for ActorContext {
   async fn record_mailbox_queue_latency(&mut self, queue: MailboxQueueKind, latency: Duration) {
     if let Some(sink) = self.metrics_sink() {
       sink.record_mailbox_queue_dwell_duration(latency.as_secs_f64(), queue.as_str());
+    }
+  }
+
+  async fn record_mailbox_queue_latency_snapshot(&mut self, metrics: MailboxQueueLatencyMetrics) {
+    if let Some(sink) = self.metrics_sink() {
+      for queue in [MailboxQueueKind::User, MailboxQueueKind::System] {
+        if metrics.total_samples(queue) == 0 {
+          continue;
+        }
+        for (label, percentile) in [("p50", 50.0), ("p95", 95.0), ("p99", 99.0)] {
+          if let Some(duration) = metrics.percentile(queue, percentile) {
+            sink.record_mailbox_queue_dwell_percentile(label, duration.as_secs_f64(), queue.as_str());
+          }
+        }
+      }
     }
   }
 

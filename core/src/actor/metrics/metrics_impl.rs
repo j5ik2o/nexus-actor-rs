@@ -200,6 +200,16 @@ impl MetricsSink {
       .record_mailbox_queue_dwell_duration_with_opts(duration, &merged);
   }
 
+  pub fn record_mailbox_queue_dwell_percentile(&self, percentile_label: &str, duration: f64, queue_kind: &str) {
+    let merged = self.merge_labels(&[
+      KeyValue::new("queue_kind", queue_kind.to_string()),
+      KeyValue::new("percentile", percentile_label.to_string()),
+    ]);
+    self
+      .actor_metrics
+      .record_mailbox_queue_dwell_percentile_with_opts(duration, &merged);
+  }
+
   pub fn increment_dead_letter(&self) {
     self
       .actor_metrics
@@ -296,4 +306,63 @@ fn build_common_labels(address: &str, actor_type: Option<&str>) -> Arc<[KeyValue
     labels.push(KeyValue::new("actor_type", actor_type.replace('*', "")));
   }
   Arc::from(labels.into_boxed_slice())
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::actor::config::MetricsProvider;
+  use crate::metrics::ProtoMetrics;
+  use opentelemetry_sdk::metrics::{InMemoryMetricExporter, PeriodicReader, SdkMeterProvider};
+  use std::sync::Arc;
+
+  #[test]
+  fn test_mailbox_queue_dwell_percentile_is_exported() {
+    let exporter = InMemoryMetricExporter::default();
+    let reader = PeriodicReader::builder(exporter.clone()).build();
+    let provider = SdkMeterProvider::builder().with_reader(reader).build();
+    let metrics_provider = Arc::new(MetricsProvider::Sdk(provider.clone()));
+    let proto_metrics = ProtoMetrics::new(metrics_provider).expect("metrics init");
+    let runtime = MetricsRuntime::new("test-system".to_string(), proto_metrics);
+    let sink = runtime.sink_without_actor();
+
+    sink.record_mailbox_queue_dwell_percentile("p50", 0.123, "user");
+
+    provider.force_flush().expect("force flush");
+    let exported = exporter.get_finished_metrics().expect("exported metrics");
+
+    use opentelemetry::Value;
+    use opentelemetry_sdk::metrics::data::{AggregatedMetrics, MetricData};
+    let mut found = false;
+    for resource in exported {
+      for scope in resource.scope_metrics() {
+        for metric in scope.metrics() {
+          if metric.name() == "nexus_actor_mailbox_queue_dwell_percentile_seconds" {
+            if let AggregatedMetrics::F64(MetricData::Gauge(gauge)) = metric.data() {
+              for data_point in gauge.data_points() {
+                let mut queue_kind = None;
+                let mut percentile = None;
+                for kv in data_point.attributes() {
+                  match kv.key.as_str() {
+                    "queue_kind" => queue_kind = Some(&kv.value),
+                    "percentile" => percentile = Some(&kv.value),
+                    _ => {}
+                  }
+                }
+                let is_user = matches!(queue_kind, Some(Value::String(ref s)) if s.as_ref() == "user");
+                let is_p50 = matches!(percentile, Some(Value::String(ref s)) if s.as_ref() == "p50");
+                if is_user && is_p50
+                {
+                  assert!((data_point.value() - 0.123).abs() < f64::EPSILON);
+                  found = true;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    assert!(found, "percentile gauge should be exported");
+  }
 }

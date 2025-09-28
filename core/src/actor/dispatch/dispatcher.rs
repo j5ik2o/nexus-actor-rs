@@ -33,6 +33,10 @@ impl Runnable {
 pub trait Dispatcher: Debug + Send + Sync + 'static {
   async fn schedule(&self, runner: Runnable);
   async fn throughput(&self) -> i32;
+
+  fn yield_hint(&self) -> bool {
+    false
+  }
 }
 
 #[derive(Debug, Clone)]
@@ -56,6 +60,10 @@ impl Dispatcher for DispatcherHandle {
 
   async fn throughput(&self) -> i32 {
     self.0.throughput().await
+  }
+
+  fn yield_hint(&self) -> bool {
+    self.0.yield_hint()
   }
 }
 
@@ -126,6 +134,10 @@ impl Dispatcher for TokioRuntimeDispatcher {
 
   async fn throughput(&self) -> i32 {
     self.throughput
+  }
+
+  fn yield_hint(&self) -> bool {
+    false
   }
 }
 
