@@ -31,3 +31,7 @@ harness = false
 [[bench]]
 name = "queue_throughput"
 harness = false
+
+[[bench]]
+name = "mailbox_throughput"
+harness = false

@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use criterion::{criterion_group, criterion_main, Criterion, Throughput};
 use nexus_actor_utils_rs::collections::{
-  MpscBoundedChannelQueue, MpscUnboundedChannelQueue, QueueReader, QueueWriter, RingQueue,
+  MpscBoundedChannelQueue, MpscUnboundedChannelQueue, RingQueue, SyncQueueReader, SyncQueueWriter,
 };
 use tokio::runtime::Runtime;
 use tokio::sync::mpsc;
@@ -135,7 +135,6 @@ mod legacy {
 }
 
 fn bench_ring_queue(c: &mut Criterion) {
-  let runtime = Runtime::new().expect("tokio runtime");
   let mut group = c.benchmark_group("ring_queue_offer_poll");
   group.sample_size(10);
   group.warm_up_time(Duration::from_millis(200));
@@ -144,13 +143,13 @@ fn bench_ring_queue(c: &mut Criterion) {
   for &load in &[1_000usize, 10_000usize] {
     group.throughput(Throughput::Elements(load as u64));
     group.bench_function(format!("ring_queue_current_{load}"), |b| {
-      b.to_async(&runtime).iter(|| async move {
+      b.iter(|| {
         let mut queue = RingQueue::new(load + 1);
         for i in 0..load {
-          queue.offer(i).await.unwrap();
+          queue.offer(i).unwrap();
         }
         for _ in 0..load {
-          queue.poll().await.unwrap();
+          queue.poll().unwrap();
         }
       });
     });
@@ -170,13 +169,13 @@ fn bench_async_queue(c: &mut Criterion) {
     group.throughput(Throughput::Elements(load as u64));
 
     group.bench_function(format!("unbounded_current_{load}"), |b| {
-      b.to_async(&runtime).iter(|| async move {
+      b.iter(|| {
         let mut queue = MpscUnboundedChannelQueue::new();
         for i in 0..load {
-          queue.offer(i).await.unwrap();
+          queue.offer(i).unwrap();
         }
         for _ in 0..load {
-          queue.poll().await.unwrap();
+          queue.poll().unwrap();
         }
       });
     });
@@ -194,13 +193,13 @@ fn bench_async_queue(c: &mut Criterion) {
     });
 
     group.bench_function(format!("bounded_current_{load}"), |b| {
-      b.to_async(&runtime).iter(|| async move {
+      b.iter(|| {
         let mut queue = MpscBoundedChannelQueue::new(load + 1);
         for i in 0..load {
-          queue.offer(i).await.unwrap();
+          queue.offer(i).unwrap();
         }
         for _ in 0..load {
-          queue.poll().await.unwrap();
+          queue.poll().unwrap();
         }
       });
     });
