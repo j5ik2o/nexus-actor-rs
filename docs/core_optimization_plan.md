@@ -45,7 +45,7 @@
 
 ## remote/cluster 影響サマリ (2025-09-26)
 - `MessageInvoker` トレイトに `record_mailbox_queue_latency` (async) を追加し、mailbox 側からキュー滞留時間を伝播できるようにした。既存の invoker 実装は no-op 実装を追加済みだが、今後 remote/cluster で独自 invoker を追加する場合はメトリクスを forward する必要がある。
-- remote: EndpointWriterMailbox などの既存コードは新メソッドを利用しないが、遅延監視を導入する際は dispatcher queue latency を OpenTelemetry へ橋渡しできる。テスト用 `NoopInvoker` で新メソッドがカバーされていることを確認済み。
+- remote: EndpointWriterMailbox などの既存コードは新メソッドを利用しないが、遅延監視を導入する際は dispatcher queue latency を OpenTelemetry へ橋渡しできる。テスト用 `NoopInvoker` で新メソッドがカバーされていることを確認済み。2025-09-28 時点で queue 統計更新の間引き設定 `endpoint_writer_queue_snapshot_interval` を追加し、backpressure 判定や統計更新を backlog 開始・容量閾値・指定カウンタ毎に制限できるようにした (`endpoint_writer_queue_snapshot_interval_samples_updates` テストで回帰確認)。
 - cluster: 現状 MessageInvoker 実装は存在しないため即時影響はなし。ただしアクター拡張で独自 invoker を導入する計画がある場合は、mailbox queue 指標を引き継ぐフックを追加すること。
 - 追従タスク: remote 側で `MetricsRuntime` へ滞留時間を送出するか検討し、必要であれば remote metrics のスキーマに `queue_kind` ラベルを追加。cluster 側はフェイルオーバーベンチ更新のみでよい見込み。
 
@@ -137,6 +137,8 @@
 
 ## メモ
 - TODO の進捗はこのファイルに追記すること。
+- 2025-09-28: MailboxSync 導入後の `cargo bench --bench mailbox_throughput` を再計測し、スナップショット間隔制御によりスループットが約 4 倍改善したことを docs/mailbox_sync_transition_plan.md に記録（同期化前ピークとの差分は引き続き要観測）。
+- TODO: 残余のメトリクスコスト分析（中長期平均のサンプリング、Atomic 操作の緩和）を行い、必要なら追加最適化案をまとめる。
 - ベンチマークは bench/ 以下の既存ケースを流用し、不足分は追加する。
 - 変更のたびに cargo test --workspace を実施し、回帰がないことを確認する。
 

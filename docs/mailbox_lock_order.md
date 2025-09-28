@@ -15,8 +15,8 @@
 - `DefaultMailbox.inner` を保持したまま `await` しない。
 
 ## 4. 現状のコード確認
-- `poll_system_mailbox` / `poll_user_mailbox`: `inner` ロック → handle clone → ロック解放 → `await`
-- `offer_*`: 同上
+- `poll_system_mailbox` / `poll_user_mailbox`: `inner` ロック → handle clone → ロック解放 → `poll_sync`（await なし）
+- `offer_*`: `inner` ロック → handle clone → ロック解放 → `offer_sync`（await なし）
 - メトリクス (`record_queue_*`): `inner` ロック → tracker clone → ロック解放 → 同期処理
 - スケジューラ (`compare_exchange_scheduler_status` など): `inner` ロックのみ、`await` 無し
 
@@ -24,4 +24,3 @@
 - 新しいメソッドを追加する際は「ロック取得→必要情報複製→ロック解放→非同期処理」の順序を守る。
 - `SyncQueue*Handle` 内部の `Mutex<Q>` 取得後は同期呼び出しのみを行う。`await` を導入しない。
 - デバッグ時は `parking_lot::deadlock` feature で検知可能。
-

@@ -53,7 +53,8 @@ impl<M: Message> TypedContextHandle<M> {
 
   pub fn with_actor_borrow<R, F>(&self, f: F) -> Option<R>
   where
-    F: for<'a> FnOnce(ContextBorrow<'a>) -> R, {
+    F: for<'a> FnOnce(ContextBorrow<'a>) -> R,
+  {
     self.underlying.with_actor_borrow(f)
   }
 
@@ -63,7 +64,8 @@ impl<M: Message> TypedContextHandle<M> {
 
   pub fn try_message_envelope(&self) -> Option<TypedMessageEnvelope<M>>
   where
-    M: Clone, {
+    M: Clone,
+  {
     self
       .underlying
       .try_get_message_envelope_opt()
@@ -76,7 +78,8 @@ impl<M: Message> TypedContextHandle<M> {
 
   pub fn try_message_opt(&self) -> Option<M>
   where
-    M: Clone, {
+    M: Clone,
+  {
     self.try_message_handle().and_then(|handle| handle.to_typed::<M>())
   }
 

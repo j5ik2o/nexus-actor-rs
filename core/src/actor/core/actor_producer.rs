@@ -18,7 +18,8 @@ impl ActorProducer {
   pub fn from_handle<F, Fut>(f: F) -> Self
   where
     F: Fn(ContextHandle) -> Fut + Send + Sync + 'static,
-    Fut: Future<Output = ActorHandle> + Send + 'static, {
+    Fut: Future<Output = ActorHandle> + Send + 'static,
+  {
     Self(Arc::new(move |ch| Box::pin(f(ch)) as BoxFuture<'static, ActorHandle>))
   }
 
@@ -26,7 +27,8 @@ impl ActorProducer {
   where
     A: Actor,
     F: Fn(ContextHandle) -> Fut + Clone + Send + Sync + 'static,
-    Fut: Future<Output = A> + Send + 'static, {
+    Fut: Future<Output = A> + Send + 'static,
+  {
     Self::from_handle(move |c| {
       let f = f.clone();
       async move {

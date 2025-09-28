@@ -76,7 +76,7 @@ async fn run_dispatch_cycle(load: usize, process_delay: Duration) -> f64 {
   let mut mailbox: MailboxHandle = producer.run().await;
   mailbox
     .register_handlers(
-      Some(MessageInvokerHandle::new(invoker.clone())),
+      Some(MessageInvokerHandle::new_with_metrics(invoker.clone(), true)),
       Some(DispatcherHandle::new_arc(dispatcher.clone())),
     )
     .await;

@@ -15,7 +15,8 @@ pub struct LocalStateSender(Arc<dyn Fn(&MemberStateDelta, &Member) + Send + Sync
 impl LocalStateSender {
   pub fn new<F>(f: F) -> Self
   where
-    F: Fn(&MemberStateDelta, &Member) + Send + Sync + 'static, {
+    F: Fn(&MemberStateDelta, &Member) + Send + Sync + 'static,
+  {
     Self(Arc::new(f))
   }
 
