@@ -39,7 +39,10 @@ impl CountDownLatch {
 
   pub async fn count_down(&self) {
     let prev = self.count.fetch_sub(1, Ordering::SeqCst);
-    assert!(prev > 0, "CountDownLatch::count_down called more times than initial count");
+    assert!(
+      prev > 0,
+      "CountDownLatch::count_down called more times than initial count"
+    );
     if prev == 1 {
       self.notify.notify_waiters();
     }
