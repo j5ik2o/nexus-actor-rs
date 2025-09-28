@@ -59,11 +59,11 @@ pub fn unbounded_mailbox_creator_with_opts(
     async move {
       let user_queue = UnboundedMailboxQueue::new(RingQueue::new(10));
       let system_queue = UnboundedMailboxQueue::new(MpscUnboundedChannelQueue::new());
-      MailboxHandle::new(
-        DefaultMailbox::new(user_queue, system_queue)
-          .with_middlewares(cloned_mailbox_stats.clone())
-          .await,
-      )
+      let mailbox = DefaultMailbox::new(user_queue, system_queue)
+        .with_middlewares(cloned_mailbox_stats.clone())
+        .await;
+      let sync = mailbox.to_sync_handle();
+      MailboxHandle::new_with_sync(mailbox, Some(sync))
     }
   })
 }
@@ -81,11 +81,11 @@ pub fn unbounded_priority_mailbox_creator_with_opts(
     async move {
       let user_queue = UnboundedMailboxQueue::new(PriorityQueue::new(|| RingQueue::new(10)));
       let system_queue = UnboundedMailboxQueue::new(MpscUnboundedChannelQueue::new());
-      MailboxHandle::new(
-        DefaultMailbox::new(user_queue, system_queue)
-          .with_middlewares(cloned_mailbox_stats.clone())
-          .await,
-      )
+      let mailbox = DefaultMailbox::new(user_queue, system_queue)
+        .with_middlewares(cloned_mailbox_stats.clone())
+        .await;
+      let sync = mailbox.to_sync_handle();
+      MailboxHandle::new_with_sync(mailbox, Some(sync))
     }
   })
 }
@@ -103,11 +103,11 @@ pub fn unbounded_mpsc_mailbox_creator_with_opts(
     async move {
       let user_queue = UnboundedMailboxQueue::new(MpscUnboundedChannelQueue::new());
       let system_queue = UnboundedMailboxQueue::new(MpscUnboundedChannelQueue::new());
-      MailboxHandle::new(
-        DefaultMailbox::new(user_queue, system_queue)
-          .with_middlewares(cloned_mailbox_stats.clone())
-          .await,
-      )
+      let mailbox = DefaultMailbox::new(user_queue, system_queue)
+        .with_middlewares(cloned_mailbox_stats.clone())
+        .await;
+      let sync = mailbox.to_sync_handle();
+      MailboxHandle::new_with_sync(mailbox, Some(sync))
     }
   })
 }

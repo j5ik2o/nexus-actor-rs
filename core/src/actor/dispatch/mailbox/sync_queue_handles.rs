@@ -16,7 +16,8 @@ pub(crate) trait SyncMailboxQueue:
   + Send
   + Sync
   + Clone
-  + 'static {
+  + 'static
+{
 }
 
 impl<T> SyncMailboxQueue for T where
@@ -34,7 +35,8 @@ impl<T> SyncMailboxQueue for T where
 #[derive(Debug, Clone)]
 pub(crate) struct SyncQueueWriterHandle<Q>
 where
-  Q: SyncMailboxQueue, {
+  Q: SyncMailboxQueue,
+{
   inner: Arc<Mutex<Q>>,
 }
 
@@ -59,7 +61,8 @@ where
 #[derive(Debug, Clone)]
 pub(crate) struct SyncQueueReaderHandle<Q>
 where
-  Q: SyncMailboxQueue, {
+  Q: SyncMailboxQueue,
+{
   inner: Arc<Mutex<Q>>,
 }
 
@@ -102,7 +105,8 @@ where
 #[derive(Debug, Clone)]
 pub(crate) struct SyncMailboxQueueHandles<Q>
 where
-  Q: SyncMailboxQueue, {
+  Q: SyncMailboxQueue,
+{
   shared: Arc<Mutex<Q>>,
 }
 
