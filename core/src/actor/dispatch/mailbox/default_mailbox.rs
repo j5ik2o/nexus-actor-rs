@@ -312,8 +312,7 @@ impl MailboxQueueLatencyMetrics {
 pub(crate) struct DefaultMailboxInner<UQ, SQ>
 where
   UQ: SyncMailboxQueue,
-  SQ: SyncMailboxQueue,
-{
+  SQ: SyncMailboxQueue, {
   user_mailbox_writer: SyncQueueWriterHandle<UQ>,
   user_mailbox_reader: SyncQueueReaderHandle<UQ>,
   system_mailbox_writer: SyncQueueWriterHandle<SQ>,
@@ -326,8 +325,7 @@ where
 pub(crate) struct DefaultMailbox<UQ, SQ>
 where
   UQ: SyncMailboxQueue,
-  SQ: SyncMailboxQueue,
-{
+  SQ: SyncMailboxQueue, {
   inner: Arc<Mutex<DefaultMailboxInner<UQ, SQ>>>,
   scheduler_status: Arc<AtomicBool>,
   user_messages_count: Arc<AtomicI32>,

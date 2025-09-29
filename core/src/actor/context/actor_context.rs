@@ -253,8 +253,7 @@ impl ActorContext {
   pub fn with_typed_borrow<M, R, F>(&self, f: F) -> R
   where
     M: crate::actor::message::Message,
-    F: for<'a> FnOnce(crate::actor::context::TypedContextBorrow<'a, M>) -> R,
-  {
+    F: for<'a> FnOnce(crate::actor::context::TypedContextBorrow<'a, M>) -> R, {
     let borrow = self.borrow();
     let context_handle = self.context_handle();
     let view = crate::actor::context::TypedContextBorrow::new(self, context_handle, borrow);

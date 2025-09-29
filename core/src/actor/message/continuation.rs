@@ -18,8 +18,7 @@ impl Continuation {
   pub(crate) fn new<F, Fut>(message_handle: MessageHandle, f: F) -> Self
   where
     F: Fn() -> Fut + Send + Sync + 'static,
-    Fut: Future<Output = ()> + Send + 'static,
-  {
+    Fut: Future<Output = ()> + Send + 'static, {
     Continuation {
       message_handle,
       f: ContinuationCallback::new(move || Box::pin(f()) as BoxFuture<'static, ()>),
@@ -66,8 +65,7 @@ impl ContinuationCallback {
   pub fn new<F, Fut>(f: F) -> Self
   where
     F: Fn() -> Fut + Send + Sync + 'static,
-    Fut: Future<Output = ()> + Send + 'static,
-  {
+    Fut: Future<Output = ()> + Send + 'static, {
     Self(Arc::new(move || Box::pin(f()) as BoxFuture<'static, ()>))
   }
 

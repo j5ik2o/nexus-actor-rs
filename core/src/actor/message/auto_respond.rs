@@ -21,8 +21,7 @@ impl AutoRespond {
   pub fn new<F, Fut>(f: F) -> Self
   where
     F: Fn(ContextHandle) -> Fut + Send + Sync + 'static,
-    Fut: Future<Output = ResponseHandle> + Send + 'static,
-  {
+    Fut: Future<Output = ResponseHandle> + Send + 'static, {
     Self(Arc::new(move |mh| Box::pin(f(mh))))
   }
 }

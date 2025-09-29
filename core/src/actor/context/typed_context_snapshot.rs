@@ -56,8 +56,7 @@ impl<M: Message> TypedContextSyncView<M> for TypedContextSnapshot<M> {
 
   fn message_snapshot(&self) -> Option<M>
   where
-    M: Clone,
-  {
+    M: Clone, {
     self.snapshot.message_handle().and_then(|handle| handle.to_typed::<M>())
   }
 
