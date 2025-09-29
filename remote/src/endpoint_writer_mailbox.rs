@@ -10,19 +10,19 @@ use nexus_actor_core_rs::actor::dispatch::{
 use nexus_actor_core_rs::actor::message::MessageHandle;
 use nexus_actor_core_rs::generated::actor::DeadLetterResponse;
 use nexus_actor_utils_rs::collections::{
-  MpscUnboundedChannelQueue, QueueBase, QueueError, QueueReader, QueueWriter, RingQueue,
+  MpscUnboundedChannelQueue, QueueError, RingQueue, SyncQueueBase, SyncQueueReader, SyncQueueWriter,
 };
+use parking_lot::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Weak};
-use tokio::sync::RwLock;
 
 use crate::messages::{EndpointEvent, RemoteDeliver};
 use crate::remote::Remote;
 
 #[derive(Debug, Clone)]
 pub struct EndpointWriterMailbox {
-  user_mailbox: Arc<RwLock<RingQueue<MessageHandle>>>,
-  system_mailbox: Arc<RwLock<MpscUnboundedChannelQueue<MessageHandle>>>,
+  user_mailbox: Arc<Mutex<RingQueue<MessageHandle>>>,
+  system_mailbox: Arc<Mutex<MpscUnboundedChannelQueue<MessageHandle>>>,
   scheduler_status: Arc<AtomicBool>,
   has_more_messages: Arc<AtomicI32>,
   batch_size: Arc<AtomicUsize>,
@@ -42,8 +42,8 @@ impl EndpointWriterMailbox {
   pub fn new(remote: Weak<Remote>, batch_size: usize, queue_capacity: usize, queue_snapshot_interval: usize) -> Self {
     assert!(queue_capacity > 0, "queue_capacity must be greater than zero");
     let ring_queue = RingQueue::new(queue_capacity).with_dynamic(false);
-    let user_mailbox = Arc::new(RwLock::new(ring_queue));
-    let system_mailbox = Arc::new(RwLock::new(MpscUnboundedChannelQueue::new()));
+    let user_mailbox = Arc::new(Mutex::new(ring_queue));
+    let system_mailbox = Arc::new(Mutex::new(MpscUnboundedChannelQueue::new()));
     Self {
       user_mailbox,
       system_mailbox,
@@ -88,9 +88,10 @@ impl EndpointWriterMailbox {
   }
 
   async fn poll_system_mailbox(&self) -> Result<Option<MessageHandle>, QueueError<MessageHandle>> {
-    let mut mg = self.system_mailbox.write().await;
-    let result = mg.poll().await;
-    drop(mg);
+    let result = {
+      let mut mailbox = self.system_mailbox.lock();
+      SyncQueueReader::poll(&mut *mailbox)
+    };
     if let Ok(Some(_)) = &result {
       self.system_messages_count.fetch_sub(1, Ordering::SeqCst);
     }
@@ -98,20 +99,24 @@ impl EndpointWriterMailbox {
   }
 
   async fn poll_user_mailbox(&self) -> Result<Vec<MessageHandle>, QueueError<MessageHandle>> {
-    let mut mg = self.user_mailbox.write().await;
     let batch_size = self.batch_size.load(Ordering::SeqCst).max(1);
-    let result = mg.poll_many(batch_size).await;
-    match result {
-      Ok(messages) => {
-        let len = messages.len();
-        drop(mg);
-        if len > 0 {
-          self.user_messages_count.fetch_sub(len as i32, Ordering::SeqCst);
+    let result = {
+      let mut mailbox = self.user_mailbox.lock();
+      let mut messages = Vec::with_capacity(batch_size);
+      for _ in 0..batch_size {
+        match SyncQueueReader::poll(&mut *mailbox)? {
+          Some(message) => messages.push(message),
+          None => break,
         }
-        Ok(messages)
       }
-      Err(err) => Err(err),
+      Ok::<_, QueueError<MessageHandle>>(messages)
+    }?;
+
+    let len = result.len();
+    if len > 0 {
+      self.user_messages_count.fetch_sub(len as i32, Ordering::SeqCst);
     }
+    Ok(result)
   }
 
   async fn schedule(&self) {
@@ -283,8 +288,8 @@ impl EndpointWriterMailbox {
 
   async fn record_queue_state_for_address_internal(&self, address: &str, force: bool) {
     let queue_len = {
-      let mailbox = self.user_mailbox.read().await;
-      let len = mailbox.len().await.to_usize();
+      let mailbox = self.user_mailbox.lock();
+      let len = SyncQueueBase::len(&*mailbox).to_usize();
       drop(mailbox);
       len
     };
@@ -419,23 +424,30 @@ impl Mailbox for EndpointWriterMailbox {
   async fn post_user_message(&self, message_handle: MessageHandle) {
     tracing::trace!(message_type = %message_handle.get_type_name(), "EndpointWriterMailbox::post_user_message");
     let address_hint = Self::extract_endpoint_address(&message_handle);
-    {
-      let mut mg = self.user_mailbox.write().await;
-      let len = mg.len().await.to_usize();
+    let enqueue_result = {
+      let mut mailbox = self.user_mailbox.lock();
+      let len = SyncQueueBase::len(&*mailbox).to_usize();
       if len >= self.queue_capacity {
-        drop(mg);
-        self.handle_overflow(message_handle).await;
-        return;
+        Err(QueueError::OfferError(message_handle.clone()))
+      } else {
+        SyncQueueWriter::offer(&mut *mailbox, message_handle.clone())
       }
+    };
 
-      if let Err(QueueError::OfferError(message)) = mg.offer(message_handle.clone()).await {
-        drop(mg);
-        self.handle_overflow(message).await;
-        return;
+    if let Err(err) = enqueue_result {
+      match err {
+        QueueError::OfferError(message) => {
+          self.handle_overflow(message).await;
+        }
+        other => {
+          tracing::error!(error = ?other, "EndpointWriterMailbox failed to enqueue user message");
+          self.handle_overflow(message_handle).await;
+        }
       }
-      drop(mg);
-      self.user_messages_count.fetch_add(1, Ordering::SeqCst);
+      return;
     }
+
+    self.user_messages_count.fetch_add(1, Ordering::SeqCst);
     if let Some(address) = address_hint {
       self.record_queue_state_for_address(&address).await;
     }
@@ -444,9 +456,12 @@ impl Mailbox for EndpointWriterMailbox {
 
   async fn post_system_message(&self, message_handle: MessageHandle) {
     tracing::trace!(message = %message_handle.get_type_name(), "EndpointWriterMailbox::post_system_message");
-    {
-      let mut mg = self.system_mailbox.write().await;
-      mg.offer(message_handle).await.unwrap();
+    if let Err(err) = {
+      let mut mailbox = self.system_mailbox.lock();
+      SyncQueueWriter::offer(&mut *mailbox, message_handle)
+    } {
+      tracing::error!(error = ?err, "EndpointWriterMailbox failed to enqueue system message");
+      return;
     }
     self.system_messages_count.fetch_add(1, Ordering::SeqCst);
     self.schedule().await;
