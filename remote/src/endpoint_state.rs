@@ -199,8 +199,7 @@ impl EndpointState {
 
   pub async fn wait_until<F>(&self, mut predicate: F) -> ConnectionState
   where
-    F: FnMut(ConnectionState) -> bool,
-  {
+    F: FnMut(ConnectionState) -> bool, {
     loop {
       let current = self.connection_state();
       if predicate(current) {
