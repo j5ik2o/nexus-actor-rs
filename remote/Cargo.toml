@@ -1,6 +1,6 @@
 [package]
 name = "nexus-actor-remote-rs"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 description = "Remote library for Nexus Actor"
 license = "MIT OR Apache-2.0"
@@ -13,7 +13,7 @@ repository = "https://github.com/j5ik2o/nexus-actor-rs"
 async-trait = { workspace = true }
 dashmap = { workspace = true }
 futures = { workspace = true }
-nexus-actor-core-rs = { version = "1.*", path = "../core" }
+nexus-actor-core-rs = { version = "2.*", path = "../core" }
 nexus-actor-message-derive-rs = { version = "0.*", path = "../message-derive" }
 nexus-actor-utils-rs = { version = "0.*", path = "../utils" }
 num_enum = { workspace = true }
