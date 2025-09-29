@@ -14,3 +14,14 @@
 - PartitionManager のリバランス挙動を拡張し、トポロジ変化時に新オーナー側への再アクティベーション／キャッシュ同期を確実に行う。
 - Remote 経由の Activation/Request を検証する統合テスト（`remote` クレートと接続した E2E）を追加し、ネットワーク越しの PID 解決とメッセージ往復を継続的に確認できるようにする。
 - ClusterProvider の実装ラインナップを整理し、InMemory 以外（例: gRPC/k8s バッキング）へ拡張できる設計指針と TODO をまとめる。
+
+## セッションログ (2025-09-29 Remote 警告整理)
+- `Remote::get_endpoint_manager*` を crate 内公開へ絞り、`EndpointManager` の可視性と整合させることで `private_interfaces` 警告を解消。
+- 未使用メソッド／構造体には `#[allow(dead_code)]` を明示付与し、実際に不要だった `Endpoint::get_address` を削除してクリーンなビルドを確保。
+- プロト生成コード（`remote/src/generated.rs` と example messages）にも dead code 許容を追加し、生成物に起因する警告を抑止。
+- `cargo test -p nexus-actor-remote-rs` / `cargo test -p nexus-actor-cluster-rs` を実行し、警告ゼロでテストグリーンを確認。
+
+## push & close ログ (refactor-0925)
+- `refactor-0925` ブランチを最新 main に同期済み。今回の警告整理コミット `chore(remote): clean warning surfaces` を含む。
+- `cargo test -p nexus-actor-remote-rs` / `cargo test -p nexus-actor-cluster-rs` を再実行し、警告ゼロ・テスト成功を再確認。
+- `git push origin refactor-0925` でリモートへ反映済み。次セッションではレビュー対応または PartitionManager リバランス実装に着手可能な状態。

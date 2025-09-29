@@ -15,6 +15,7 @@
 - serena mcpを有効活用すること
 - 当該ディレクトリ以外を読まないこと
 - 作業の最後に cargo test を行うこと
+- 作業途中に適宜git commitすること(@.claude/commands/git-commit.md)
 
 ## プロジェクト構成とモジュール
 本 リポジトリ は Cargo ワークスペース。主要 ディレクトリ は 以下 の 通り。
