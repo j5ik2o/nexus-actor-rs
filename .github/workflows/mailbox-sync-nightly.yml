@@ -1,0 +1,44 @@
+name: Mailbox Sync Nightly Bench
+
+on:
+  schedule:
+    - cron: '30 6 * * *'
+  workflow_dispatch:
+
+jobs:
+  mailbox-sync-bench:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install protoc
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-mailbox-sync-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run mailbox throughput bench
+        env:
+          MAILBOX_SYNC_BASELINE: sync
+        run: |
+          cargo bench --bench mailbox_throughput -- --save-baseline "${MAILBOX_SYNC_BASELINE}"
+
+      - name: Upload criterion results
+        uses: actions/upload-artifact@v4
+        with:
+          name: mailbox-sync-criterion
+          path: target/criterion
+          if-no-files-found: warn
