@@ -12,6 +12,7 @@ pub enum ConfigOption {
   SetDeadLetterThrottleInterval(Duration),
   SetDeadLetterThrottleCount(usize),
   SetDeadLetterRequestLogging(bool),
+  SetMailboxMetricsPollInterval(Duration),
   // Other options...
 }
 
@@ -38,6 +39,9 @@ impl ConfigOption {
       }
       ConfigOption::SetDeadLetterRequestLogging(enabled) => {
         config.dead_letter_request_logging = *enabled;
+      }
+      ConfigOption::SetMailboxMetricsPollInterval(interval) => {
+        config.mailbox_metrics_poll_interval = *interval;
       } // Handle other options...
     }
   }
@@ -52,5 +56,9 @@ impl ConfigOption {
 
   pub fn with_dead_letter_request_logging(enabled: bool) -> ConfigOption {
     ConfigOption::SetDeadLetterRequestLogging(enabled)
+  }
+
+  pub fn with_mailbox_metrics_poll_interval(duration: Duration) -> ConfigOption {
+    ConfigOption::SetMailboxMetricsPollInterval(duration)
   }
 }

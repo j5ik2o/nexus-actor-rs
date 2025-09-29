@@ -25,8 +25,9 @@ use crate::actor::core::ReceiverMiddlewareChain;
 use crate::actor::core::SenderMiddlewareChain;
 use crate::actor::core::SpawnError;
 use crate::actor::core_types::message_types::Message as _;
-use crate::actor::dispatch::MailboxMessage;
-use crate::actor::dispatch::MessageInvoker;
+use crate::actor::dispatch::{
+  MailboxMessage, MailboxQueueKind, MailboxQueueLatencyMetrics, MailboxSuspensionMetrics, MessageInvoker,
+};
 use crate::actor::message::AutoReceiveMessage;
 use crate::actor::message::Continuation;
 use crate::actor::message::Failure;
@@ -76,6 +77,15 @@ impl ActorContextShared {
   }
 }
 
+#[derive(Debug, Default)]
+struct MailboxMetricsState {
+  last_resume_events: u64,
+  last_total_suspension_secs: f64,
+  user_bucket_counts: Vec<u64>,
+  system_bucket_counts: Vec<u64>,
+  last_suspended_state: bool,
+}
+
 #[derive(Debug, Clone)]
 pub struct ActorContext {
   shared: Arc<ActorContextShared>,
@@ -91,6 +101,7 @@ pub struct ActorContext {
   metrics_sink: Arc<OnceCell<Arc<MetricsSink>>>,
   actor_type: Arc<OnceCell<Arc<str>>>,
   base_context_handle: Arc<OnceCell<ContextHandle>>,
+  mailbox_metrics_state: Arc<RwLock<MailboxMetricsState>>,
 }
 
 #[derive(Debug)]
@@ -152,6 +163,7 @@ impl ActorContext {
       metrics_sink,
       actor_type,
       base_context_handle: Arc::new(OnceCell::new()),
+      mailbox_metrics_state: Arc::new(RwLock::new(MailboxMetricsState::default())),
     };
     ctx.incarnate_actor().await;
     ctx
@@ -326,7 +338,7 @@ impl ActorContext {
     }
 
     let context_handle = self.base_context_handle();
-    let extras = ActorContextExtras::new(context_handle.clone()).await;
+    let extras = ActorContextExtras::new(context_handle.clone());
 
     let extras_cell = self.extras_cell();
     let mut guard = extras_cell.write().await;
@@ -543,7 +555,7 @@ impl ActorContext {
     if let Some(extras) = self.get_extras().await {
       let watchers = extras.get_watchers().await;
       let actor_system = self.actor_system();
-      for watcher in watchers.to_vec().await {
+      for watcher in watchers.to_vec() {
         ExtendedPid::new(watcher)
           .send_system_message(actor_system.clone(), other_stopped.clone())
           .await;
@@ -558,7 +570,7 @@ impl ActorContext {
   async fn stop_all_children(&mut self) {
     let extras = self.ensure_extras().await;
     let children = extras.get_children().await;
-    for child in children.to_vec().await {
+    for child in children.to_vec() {
       let child = ExtendedPid::new(child);
       self.stop(&child).await;
     }
@@ -566,7 +578,7 @@ impl ActorContext {
 
   async fn try_restart_or_terminate(&mut self) -> Result<(), ActorError> {
     match self.get_extras().await {
-      Some(extras) if extras.get_children().await.is_empty().await => {
+      Some(extras) if extras.get_children().await.is_empty() => {
         let state = State::try_from(self.state.load(Ordering::SeqCst)).unwrap();
         match state {
           State::Restarting => {
@@ -655,13 +667,13 @@ impl ActorContext {
   async fn handle_watch(&mut self, watch: &Watch) {
     let extras = self.ensure_extras().await;
     let pid = ExtendedPid::new(watch.clone().watcher.unwrap());
-    extras.get_watchers().await.add(pid.inner_pid).await;
+    extras.get_watchers().await.add(pid.inner_pid);
   }
 
   async fn handle_unwatch(&mut self, unwatch: &Unwatch) {
     let extras = self.ensure_extras().await;
     let pid = ExtendedPid::new(unwatch.clone().watcher.unwrap());
-    extras.get_watchers().await.remove(&pid.inner_pid).await;
+    extras.get_watchers().await.remove(&pid.inner_pid);
   }
 
   async fn handle_child_failure(&mut self, f: &Failure) {
@@ -818,7 +830,6 @@ impl BasePart for ActorContext {
       .get_children()
       .await
       .to_vec()
-      .await
       .into_iter()
       .map(ExtendedPid::new)
       .collect()
@@ -843,16 +854,14 @@ impl BasePart for ActorContext {
 
   async fn stash(&mut self) {
     let extra = self.ensure_extras().await;
-    let mut stash = extra.get_stash().await;
-    stash
-      .push(self.get_message_handle_opt().await.expect("message not found"))
-      .await;
+    let stash = extra.get_stash().await;
+    stash.push(self.get_message_handle_opt().await.expect("message not found"));
   }
 
   async fn un_stash_all(&mut self) -> Result<(), ActorError> {
     if let Some(extras) = self.get_extras().await {
-      while !extras.get_stash().await.is_empty().await {
-        let msg = extras.get_stash().await.pop().await.unwrap();
+      while !extras.get_stash().await.is_empty() {
+        let msg = extras.get_stash().await.pop().unwrap();
         let result = self.invoke_user_message(msg).await;
         if result.is_err() {
           tracing::error!("Failed to handle stashed message");
@@ -1071,8 +1080,8 @@ impl SpawnerPart for ActorContext {
     match result {
       Ok(pid) => {
         let extras = self.ensure_extras().await;
-        let mut children = extras.get_children().await;
-        children.add(pid.inner_pid.clone()).await;
+        let children = extras.get_children().await;
+        children.add(pid.inner_pid.clone());
         Ok(pid)
       }
       Err(e) => Err(e),
@@ -1232,6 +1241,74 @@ impl MessageInvoker for ActorContext {
     result
   }
 
+  async fn record_mailbox_queue_latency(&mut self, queue: MailboxQueueKind, latency: Duration) {
+    if let Some(sink) = self.metrics_sink() {
+      sink.record_mailbox_queue_dwell_duration(latency.as_secs_f64(), queue.as_str());
+    }
+  }
+
+  async fn record_mailbox_queue_latency_snapshot(&mut self, metrics: MailboxQueueLatencyMetrics) {
+    if let Some(sink_arc) = self.metrics_sink() {
+      let sink = sink_arc.as_ref();
+      let mut state = self.mailbox_metrics_state.write().await;
+      for queue in [MailboxQueueKind::User, MailboxQueueKind::System] {
+        if metrics.total_samples(queue) == 0 {
+          continue;
+        }
+
+        for (label, percentile) in [("p50", 50.0), ("p95", 95.0), ("p99", 99.0)] {
+          if let Some(duration) = metrics.percentile(queue, percentile) {
+            sink.record_mailbox_queue_dwell_percentile(label, duration.as_secs_f64(), queue.as_str());
+          }
+        }
+
+        let bucket_counts = metrics.bucket_counts(queue);
+        let bucket_state = match queue {
+          MailboxQueueKind::User => &mut state.user_bucket_counts,
+          MailboxQueueKind::System => &mut state.system_bucket_counts,
+        };
+        if bucket_state.len() < bucket_counts.len() {
+          bucket_state.resize(bucket_counts.len(), 0);
+        }
+        for (idx, &count) in bucket_counts.iter().enumerate() {
+          if bucket_state[idx] != count {
+            let bucket_label = format!("bucket_{idx}");
+            sink.record_mailbox_queue_dwell_bucket_total(&bucket_label, queue.as_str(), count);
+            bucket_state[idx] = count;
+          }
+        }
+      }
+    }
+  }
+
+  async fn record_mailbox_suspension_metrics(&mut self, metrics: MailboxSuspensionMetrics, suspended: bool) {
+    if let Some(sink_arc) = self.metrics_sink() {
+      let sink = sink_arc.as_ref();
+      let mut state = self.mailbox_metrics_state.write().await;
+      let delta_events = metrics.resume_events.saturating_sub(state.last_resume_events);
+      if delta_events > 0 {
+        sink.increment_mailbox_suspension_resume(delta_events);
+      }
+      let total_secs = metrics.total_duration.as_secs_f64();
+      let delta_secs = (total_secs - state.last_total_suspension_secs).max(0.0);
+      if delta_secs > 0.0 {
+        sink.record_mailbox_suspension_duration(delta_secs);
+      }
+      if state.last_suspended_state != suspended {
+        sink.record_mailbox_suspension_state(suspended);
+      }
+      state.last_resume_events = metrics.resume_events;
+      state.last_total_suspension_secs = total_secs;
+      state.last_suspended_state = suspended;
+    }
+  }
+
+  async fn record_mailbox_queue_length(&mut self, queue: MailboxQueueKind, length: u64) {
+    if let Some(sink) = self.metrics_sink() {
+      sink.record_mailbox_queue_length(length, queue.as_str());
+    }
+  }
+
   async fn escalate_failure(&mut self, reason: ErrorReason, message_handle: MessageHandle) {
     tracing::info!("[ACTOR] Recovering: reason = {:?}", reason.backtrace(),);
 
@@ -1281,7 +1358,6 @@ impl Supervisor for ActorContext {
       .get_children()
       .await
       .to_vec()
-      .await
       .into_iter()
       .map(ExtendedPid::new)
       .collect()

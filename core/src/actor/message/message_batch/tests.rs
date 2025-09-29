@@ -15,7 +15,7 @@ async fn test_actor_receives_each_message_in_amessage_batch() {
 
   let seen_messages_wg = WaitGroup::new();
   let cloned_seen_messages_wg = seen_messages_wg.clone();
-  seen_messages_wg.add(1).await;
+  seen_messages_wg.add(1);
 
   let system = ActorSystem::new().await.unwrap();
 
@@ -29,7 +29,7 @@ async fn test_actor_receives_each_message_in_amessage_batch() {
       };
       tracing::debug!("Received message: {:?}", message);
       if message.to_typed::<MessageBatch>().is_some() {
-        cloned_seen_messages_wg.done().await;
+        cloned_seen_messages_wg.done();
       }
       Ok(())
     }

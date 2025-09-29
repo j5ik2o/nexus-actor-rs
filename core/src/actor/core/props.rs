@@ -90,7 +90,8 @@ static DEFAULT_SPAWNER: Lazy<Spawner> = Lazy::new(|| {
 
       initialize(props, ctx.clone());
 
-      let mut mi = MessageInvokerHandle::new(Arc::new(RwLock::new(ctx.clone())));
+      let wants_metrics = ctx.metrics_sink().is_some();
+      let mut mi = MessageInvokerHandle::new_with_metrics(Arc::new(RwLock::new(ctx.clone())), wants_metrics);
 
       mb.register_handlers(Some(mi.clone()), Some(dp.clone())).await;
       tracing::debug!("mailbox handlers registered: {}", name);

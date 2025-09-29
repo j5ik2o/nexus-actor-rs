@@ -46,10 +46,12 @@ impl EndpointWatcher {
       .clone()
   }
 
+  #[cfg_attr(not(test), allow(dead_code))]
   pub fn get_address(&self) -> String {
     self.address.clone()
   }
 
+  #[cfg_attr(not(test), allow(dead_code))]
   pub fn get_watched(&self) -> Arc<DashMap<String, PidSet>> {
     self.watched.clone()
   }
@@ -69,11 +71,11 @@ impl EndpointWatcher {
     if let Some(remote_terminate) = msg.to_typed::<RemoteTerminate>() {
       let watcher_id = remote_terminate.watcher.clone().unwrap().id.clone();
       let watchee_opt = remote_terminate.watchee;
-      if let Some(mut entry) = self.watched.get_mut(&watcher_id) {
+      if let Some(entry) = self.watched.get_mut(&watcher_id) {
         if let Some(watchee) = &watchee_opt {
-          entry.remove(watchee).await;
+          entry.remove(watchee);
         }
-        if entry.is_empty().await {
+        if entry.is_empty() {
           self.watched.remove(&watcher_id);
         }
         let why = TerminatedReason::Stopped as i32;
@@ -97,7 +99,7 @@ impl EndpointWatcher {
         for entry in self.watched.iter() {
           let (id, pid_set) = entry.pair();
           if let Some(ref_process) = system.get_process_registry().await.get_local_process(id).await {
-            for pid in pid_set.to_vec().await.iter() {
+            for pid in pid_set.to_vec().iter() {
               let why = TerminatedReason::AddressTerminated as i32;
               let msg = Terminated {
                 who: Some(pid.clone()),
@@ -121,11 +123,11 @@ impl EndpointWatcher {
     if let Some(remote_watch) = msg.to_typed::<RemoteWatch>() {
       let watcher_id = remote_watch.watcher.clone().id.clone();
       let watchee = remote_watch.watchee.clone();
-      if let Some(mut entry) = self.watched.get_mut(&watcher_id) {
-        entry.add(watchee.clone()).await;
+      if let Some(entry) = self.watched.get_mut(&watcher_id) {
+        entry.add(watchee.clone());
       } else {
-        let mut pid_set = PidSet::new().await;
-        pid_set.add(watchee.clone()).await;
+        let pid_set = PidSet::new();
+        pid_set.add(watchee.clone());
         self.watched.insert(watcher_id.clone(), pid_set);
       }
       let u = SystemMessage::Watch(Watch {
@@ -141,9 +143,9 @@ impl EndpointWatcher {
     if let Some(remote_un_watch) = msg.to_typed::<RemoteUnwatch>() {
       let watcher_id = remote_un_watch.watcher.clone().id.clone();
       let watchee = remote_un_watch.watchee.clone();
-      if let Some(mut entry) = self.watched.get_mut(&watcher_id) {
-        entry.remove(&watchee).await;
-        if entry.is_empty().await {
+      if let Some(entry) = self.watched.get_mut(&watcher_id) {
+        entry.remove(&watchee);
+        if entry.is_empty() {
           self.watched.remove(&watcher_id);
         }
       }

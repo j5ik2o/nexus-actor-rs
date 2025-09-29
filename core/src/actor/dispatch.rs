@@ -1,6 +1,6 @@
 mod bounded;
 pub mod dispatcher;
-mod mailbox;
+pub mod mailbox;
 mod mailbox_message;
 mod mailbox_middleware;
 mod mailbox_producer;
@@ -13,3 +13,5 @@ pub use {
   self::bounded::*, self::dispatcher::*, self::mailbox::*, self::mailbox_message::*, self::mailbox_middleware::*,
   self::mailbox_producer::*, self::message_invoker::*, self::unbounded::*,
 };
+
+pub use mailbox::{MailboxQueueLatencyMetrics, MailboxSuspensionMetrics, MailboxSync, MailboxSyncHandle};

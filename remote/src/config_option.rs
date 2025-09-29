@@ -10,6 +10,7 @@ pub enum ConfigOption {
   PutKind(String, Props),
   SetEndpointWriterBatchSize(usize),
   SetEndpointWriterQueueSize(usize),
+  SetEndpointWriterQueueSnapshotInterval(usize),
   SetEndpointManagerBatchSize(usize),
   SetEndpointManagerQueueSize(usize),
   SetEndpointReconnectMaxRetries(u32),
@@ -41,6 +42,9 @@ impl ConfigOption {
       }
       ConfigOption::SetEndpointWriterQueueSize(queue_size) => {
         config.set_endpoint_writer_queue_size(*queue_size).await;
+      }
+      ConfigOption::SetEndpointWriterQueueSnapshotInterval(interval) => {
+        config.set_endpoint_writer_queue_snapshot_interval(*interval).await;
       }
       ConfigOption::SetEndpointManagerBatchSize(batch_size) => {
         config.set_endpoint_manager_batch_size(*batch_size).await;
@@ -96,6 +100,10 @@ impl ConfigOption {
     ConfigOption::SetEndpointWriterQueueSize(queue_size)
   }
 
+  pub fn with_endpoint_writer_queue_snapshot_interval(interval: usize) -> ConfigOption {
+    ConfigOption::SetEndpointWriterQueueSnapshotInterval(interval)
+  }
+
   pub fn with_endpoint_manager_batch_size(batch_size: usize) -> ConfigOption {
     ConfigOption::SetEndpointManagerBatchSize(batch_size)
   }
@@ -146,6 +154,7 @@ mod tests {
       ConfigOption::with_advertised_address("my-host:9001"),
       ConfigOption::with_endpoint_writer_batch_size(5),
       ConfigOption::with_endpoint_writer_queue_size(20),
+      ConfigOption::with_endpoint_writer_queue_snapshot_interval(7),
       ConfigOption::with_endpoint_manager_batch_size(13),
       ConfigOption::with_endpoint_manager_queue_size(23),
       ConfigOption::with_endpoint_reconnect_max_retries(8),
@@ -166,6 +175,7 @@ mod tests {
     assert_eq!(config.get_advertised_address().await.unwrap(), "my-host:9001");
     assert_eq!(config.get_endpoint_writer_batch_size().await, 5);
     assert_eq!(config.get_endpoint_writer_queue_size().await, 20);
+    assert_eq!(config.get_endpoint_writer_queue_snapshot_interval().await, 7);
     assert_eq!(config.get_endpoint_manager_batch_size().await, 13);
     assert_eq!(config.get_endpoint_manager_queue_size().await, 23);
     assert_eq!(config.get_endpoint_reconnect_max_retries().await, 8);

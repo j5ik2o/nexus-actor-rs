@@ -51,6 +51,7 @@ pub struct Config {
   pub dead_letter_throttle_count: usize,
   pub dead_letter_request_logging: bool,
   pub developer_supervision_logging: bool,
+  pub mailbox_metrics_poll_interval: Duration,
   // Other fields...
 }
 
@@ -65,6 +66,7 @@ impl Default for Config {
       dead_letter_throttle_count: 10,
       dead_letter_request_logging: false,
       developer_supervision_logging: false,
+      mailbox_metrics_poll_interval: Duration::from_millis(250),
       // Set other default values...
     }
   }

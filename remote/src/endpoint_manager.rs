@@ -537,11 +537,13 @@ impl EndpointManager {
     *mg = Some(pid);
   }
 
+  #[cfg_attr(not(test), allow(dead_code))]
   async fn reset_endpoint_supervisor(&self) {
     let mut mg = self.endpoint_supervisor.lock().await;
     *mg = None;
   }
 
+  #[cfg_attr(not(test), allow(dead_code))]
   async fn get_endpoint_subscription(&self) -> Subscription {
     let subscription = self.endpoint_subscription.lock().await;
     subscription.clone().expect("Endpoint subscription not set")
@@ -942,6 +944,7 @@ impl EndpointManager {
     self.client_connections.contains_key(system_id)
   }
 
+  #[cfg_attr(not(test), allow(dead_code))]
   pub(crate) async fn send_to_client(&self, system_id: &str, message: RemoteMessage) -> Result<(), ClientSendError> {
     let sender = self
       .client_connections
@@ -1297,6 +1300,7 @@ mod tests {
   }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum ClientSendError {
   #[error("client connection not found: {0}")]

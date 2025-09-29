@@ -12,6 +12,7 @@ use std::any::Any;
 
 #[derive(Debug, Clone)]
 pub struct RemoteProcess {
+  #[cfg_attr(not(test), allow(dead_code))]
   pid: Pid,
   remote: Remote,
 }
@@ -21,18 +22,22 @@ impl RemoteProcess {
     Self { pid, remote }
   }
 
+  #[cfg_attr(not(test), allow(dead_code))]
   pub fn get_pid(&self) -> &Pid {
     &self.pid
   }
 
+  #[cfg_attr(not(test), allow(dead_code))]
   pub fn get_pid_mut(&mut self) -> &mut Pid {
     &mut self.pid
   }
 
+  #[cfg_attr(not(test), allow(dead_code))]
   pub fn get_remote(&self) -> &Remote {
     &self.remote
   }
 
+  #[cfg_attr(not(test), allow(dead_code))]
   pub fn get_remote_mut(&mut self) -> &mut Remote {
     &mut self.remote
   }

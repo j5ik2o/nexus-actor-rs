@@ -190,7 +190,7 @@ impl Actor for Consumer {
     {
       tracing::info!("Consumer: received task: {:?}", task);
       sleep(std::time::Duration::from_millis(100)).await;
-      self.wait_group.done().await;
+      self.wait_group.done();
     }
     Ok(())
   }

@@ -42,6 +42,10 @@ impl ActorProcess {
   pub fn is_dead(&self) -> bool {
     self.dead.load(Ordering::SeqCst)
   }
+
+  pub fn mailbox_handle(&self) -> MailboxHandle {
+    self.mailbox.clone()
+  }
 }
 
 #[async_trait]

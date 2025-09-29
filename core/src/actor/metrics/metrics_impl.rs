@@ -1,4 +1,8 @@
 use crate::actor::actor_system::ActorSystem;
+use crate::actor::core::ActorProcess;
+use crate::actor::dispatch::{MailboxQueueKind, MailboxQueueLatencyMetrics, MailboxSyncHandle};
+use crate::actor::process::process_registry::ProcessRegistry;
+use crate::actor::process::Process;
 use crate::extensions::{next_extension_id, Extension, ExtensionId};
 use crate::metrics::{ActorMetrics, MetricsError, ProtoMetrics};
 use arc_swap::ArcSwapOption;
@@ -6,12 +10,16 @@ use once_cell::sync::Lazy;
 use opentelemetry::KeyValue;
 use std::any::Any;
 use std::sync::Arc;
+use std::time::Duration;
+use tokio::task::JoinHandle;
+use tokio::time::{interval as tokio_interval, MissedTickBehavior};
 
 pub static EXTENSION_ID: Lazy<ExtensionId> = Lazy::new(next_extension_id);
 
 #[derive(Debug, Clone)]
 pub struct Metrics {
   runtime: Arc<ArcSwapOption<MetricsRuntime>>,
+  mailbox_collector: Option<Arc<MailboxMetricsCollector>>,
 }
 
 impl Extension for Metrics {
@@ -33,7 +41,9 @@ impl Metrics {
     system: ActorSystem,
     runtime_slot: Arc<ArcSwapOption<MetricsRuntime>>,
   ) -> Result<Self, MetricsError> {
-    let metrics_provider = system.get_config().metrics_provider.clone();
+    let config = system.get_config();
+    let metrics_provider = config.metrics_provider.clone();
+    let poll_interval = config.mailbox_metrics_poll_interval;
     let runtime = match metrics_provider {
       Some(provider) => {
         let address = system.get_address().await;
@@ -45,7 +55,14 @@ impl Metrics {
 
     runtime_slot.store(runtime.clone());
 
-    Ok(Metrics { runtime: runtime_slot })
+    let mailbox_collector = runtime
+      .as_ref()
+      .map(|runtime| MailboxMetricsCollector::spawn(&system, runtime.clone(), poll_interval));
+
+    Ok(Metrics {
+      runtime: runtime_slot,
+      mailbox_collector,
+    })
   }
 
   pub fn runtime(&self) -> Option<Arc<MetricsRuntime>> {
@@ -99,6 +116,127 @@ impl MetricsRuntime {
   pub fn address(&self) -> &str {
     &self.address
   }
+}
+
+#[derive(Debug)]
+struct MailboxMetricsCollector {
+  handle: JoinHandle<()>,
+}
+
+impl MailboxMetricsCollector {
+  fn spawn(system: &ActorSystem, runtime: Arc<MetricsRuntime>, poll_interval: Duration) -> Arc<Self> {
+    let weak_system = system.downgrade();
+    let interval = if poll_interval.is_zero() {
+      Duration::from_millis(1)
+    } else {
+      poll_interval
+    };
+    let task_runtime = runtime.clone();
+    let handle = tokio::spawn(async move {
+      let mut ticker = tokio_interval(interval);
+      ticker.set_missed_tick_behavior(MissedTickBehavior::Delay);
+      loop {
+        ticker.tick().await;
+        let Some(system) = weak_system.upgrade() else {
+          break;
+        };
+        collect_mailbox_metrics(task_runtime.clone(), system).await;
+      }
+    });
+    Arc::new(Self { handle })
+  }
+}
+
+impl Drop for MailboxMetricsCollector {
+  fn drop(&mut self) {
+    self.handle.abort();
+  }
+}
+
+async fn collect_mailbox_metrics(runtime: Arc<MetricsRuntime>, system: ActorSystem) {
+  let registry: ProcessRegistry = system.get_process_registry().await;
+  let pids = registry.list_local_pids().await;
+  if pids.is_empty() {
+    return;
+  }
+
+  let sink = runtime.sink_without_actor();
+  let base_labels: Vec<KeyValue> = sink.common_labels().to_vec();
+  let actor_metrics = sink.actor_metrics().clone();
+  drop(sink);
+
+  for pid in pids {
+    let pid_id = pid.id.clone();
+    let Some(process) = registry.find_local_process_handle(&pid_id).await else {
+      continue;
+    };
+    let Some(actor_process) = process.as_any().downcast_ref::<ActorProcess>() else {
+      continue;
+    };
+    let mailbox = actor_process.mailbox_handle();
+    let Some(sync) = mailbox.sync_handle() else {
+      continue;
+    };
+    let pid_label = KeyValue::new("pid", pid_id.clone());
+    record_queue_lengths(&actor_metrics, &base_labels, &pid_label, &sync);
+    let latency_metrics = sync.queue_latency_metrics();
+    record_queue_latency_percentiles(&actor_metrics, &base_labels, &pid_label, &latency_metrics);
+    record_mailbox_suspension_state(&actor_metrics, &base_labels, &pid_label, sync.is_suspended());
+  }
+}
+
+fn record_queue_lengths(
+  actor_metrics: &ActorMetrics,
+  base_labels: &[KeyValue],
+  pid_label: &KeyValue,
+  sync: &MailboxSyncHandle,
+) {
+  for queue in [MailboxQueueKind::User, MailboxQueueKind::System] {
+    let length = match queue {
+      MailboxQueueKind::User => sync.user_messages_count(),
+      MailboxQueueKind::System => sync.system_messages_count(),
+    }
+    .max(0) as u64;
+
+    let mut labels = Vec::with_capacity(base_labels.len() + 2);
+    labels.extend_from_slice(base_labels);
+    labels.push(pid_label.clone());
+    labels.push(KeyValue::new("queue_kind", queue.as_str().to_string()));
+    actor_metrics.record_mailbox_queue_length_with_opts(length, &labels);
+  }
+}
+
+fn record_queue_latency_percentiles(
+  actor_metrics: &ActorMetrics,
+  base_labels: &[KeyValue],
+  pid_label: &KeyValue,
+  metrics: &MailboxQueueLatencyMetrics,
+) {
+  const PERCENTILES: [(&str, f64); 3] = [("p50", 50.0), ("p95", 95.0), ("p99", 99.0)];
+  for queue in [MailboxQueueKind::User, MailboxQueueKind::System] {
+    for &(label, percentile) in PERCENTILES.iter() {
+      if let Some(duration) = metrics.percentile(queue, percentile) {
+        let mut labels = Vec::with_capacity(base_labels.len() + 3);
+        labels.extend_from_slice(base_labels);
+        labels.push(pid_label.clone());
+        labels.push(KeyValue::new("queue_kind", queue.as_str().to_string()));
+        labels.push(KeyValue::new("percentile", label.to_string()));
+        actor_metrics.record_mailbox_queue_dwell_percentile_with_opts(duration.as_secs_f64(), &labels);
+      }
+    }
+  }
+}
+
+fn record_mailbox_suspension_state(
+  actor_metrics: &ActorMetrics,
+  base_labels: &[KeyValue],
+  pid_label: &KeyValue,
+  suspended: bool,
+) {
+  let mut labels = Vec::with_capacity(base_labels.len() + 1);
+  labels.extend_from_slice(base_labels);
+  labels.push(pid_label.clone());
+  actor_metrics.record_mailbox_suspension_state_with_opts(suspended, &labels);
 }
 
 #[derive(Debug, Clone)]
@@ -191,6 +329,64 @@ impl MetricsSink {
   pub fn record_message_size_with_labels(&self, size: u64, additional: &[KeyValue]) {
     let merged = self.merge_labels(additional);
     self.actor_metrics.record_message_size_with_opts(size, &merged);
+  }
+
+  pub fn record_mailbox_queue_dwell_duration(&self, duration: f64, queue_kind: &str) {
+    let merged = self.merge_labels(&[KeyValue::new("queue_kind", queue_kind.to_string())]);
+    self
+      .actor_metrics
+      .record_mailbox_queue_dwell_duration_with_opts(duration, &merged);
+  }
+
+  pub fn record_mailbox_queue_dwell_percentile(&self, percentile_label: &str, duration: f64, queue_kind: &str) {
+    let merged = self.merge_labels(&[
+      KeyValue::new("queue_kind", queue_kind.to_string()),
+      KeyValue::new("percentile", percentile_label.to_string()),
+    ]);
+    self
+      .actor_metrics
+      .record_mailbox_queue_dwell_percentile_with_opts(duration, &merged);
+  }
+
+  pub fn record_mailbox_queue_dwell_bucket_total(&self, bucket_label: &str, queue_kind: &str, total: u64) {
+    let merged = self.merge_labels(&[
+      KeyValue::new("queue_kind", queue_kind.to_string()),
+      KeyValue::new("bucket", bucket_label.to_string()),
+    ]);
+    self
+      .actor_metrics
+      .record_mailbox_queue_dwell_bucket_total_with_opts(total as f64, &merged);
+  }
+
+  pub fn record_mailbox_queue_length(&self, length: u64, queue_kind: &str) {
+    let merged = self.merge_labels(&[KeyValue::new("queue_kind", queue_kind.to_string())]);
+    self
+      .actor_metrics
+      .record_mailbox_queue_length_with_opts(length, &merged);
+  }
+
+  pub fn increment_mailbox_suspension_resume(&self, count: u64) {
+    if count == 0 {
+      return;
+    }
+    self
+      .actor_metrics
+      .increment_mailbox_suspension_resume_with_opts(count, &self.common_labels);
+  }
+
+  pub fn record_mailbox_suspension_duration(&self, duration: f64) {
+    if duration <= 0.0 {
+      return;
+    }
+    self
+      .actor_metrics
+      .record_mailbox_suspension_duration_with_opts(duration, &self.common_labels);
+  }
+
+  pub fn record_mailbox_suspension_state(&self, suspended: bool) {
+    self
+      .actor_metrics
+      .record_mailbox_suspension_state_with_opts(suspended, &self.common_labels);
   }
 
   pub fn increment_dead_letter(&self) {
@@ -289,4 +485,244 @@ fn build_common_labels(address: &str, actor_type: Option<&str>) -> Arc<[KeyValue
     labels.push(KeyValue::new("actor_type", actor_type.replace('*', "")));
   }
   Arc::from(labels.into_boxed_slice())
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::actor::config::MetricsProvider;
+  use crate::actor::context::SpawnerPart;
+  use crate::actor::core::Props;
+  use crate::actor::ConfigOption;
+  use crate::metrics::ProtoMetrics;
+  use opentelemetry_sdk::metrics::{InMemoryMetricExporter, PeriodicReader, SdkMeterProvider};
+  use std::sync::Arc;
+  use std::time::Duration;
+
+  #[test]
+  fn test_mailbox_queue_dwell_percentile_is_exported() {
+    let exporter = InMemoryMetricExporter::default();
+    let reader = PeriodicReader::builder(exporter.clone()).build();
+    let provider = SdkMeterProvider::builder().with_reader(reader).build();
+    let metrics_provider = Arc::new(MetricsProvider::Sdk(provider.clone()));
+    let proto_metrics = ProtoMetrics::new(metrics_provider).expect("metrics init");
+    let runtime = MetricsRuntime::new("test-system".to_string(), proto_metrics);
+    let sink = runtime.sink_without_actor();
+
+    sink.record_mailbox_queue_dwell_percentile("p50", 0.123, "user");
+
+    provider.force_flush().expect("force flush");
+    let exported = exporter.get_finished_metrics().expect("exported metrics");
+
+    use opentelemetry::Value;
+    use opentelemetry_sdk::metrics::data::{AggregatedMetrics, MetricData};
+    let mut found = false;
+    for resource in exported {
+      for scope in resource.scope_metrics() {
+        for metric in scope.metrics() {
+          if metric.name() == "nexus_actor_mailbox_queue_dwell_percentile_seconds" {
+            if let AggregatedMetrics::F64(MetricData::Gauge(gauge)) = metric.data() {
+              for data_point in gauge.data_points() {
+                let mut queue_kind = None;
+                let mut percentile = None;
+                for kv in data_point.attributes() {
+                  match kv.key.as_str() {
+                    "queue_kind" => queue_kind = Some(&kv.value),
+                    "percentile" => percentile = Some(&kv.value),
+                    _ => {}
+                  }
+                }
+                let is_user = matches!(queue_kind, Some(Value::String(ref s)) if s.as_ref() == "user");
+                let is_p50 = matches!(percentile, Some(Value::String(ref s)) if s.as_ref() == "p50");
+                if is_user && is_p50 {
+                  assert!((data_point.value() - 0.123).abs() < f64::EPSILON);
+                  found = true;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    assert!(found, "percentile gauge should be exported");
+  }
+
+  #[test]
+  fn test_mailbox_queue_dwell_bucket_total_is_exported() {
+    let exporter = InMemoryMetricExporter::default();
+    let reader = PeriodicReader::builder(exporter.clone()).build();
+    let provider = SdkMeterProvider::builder().with_reader(reader).build();
+    let metrics_provider = Arc::new(MetricsProvider::Sdk(provider.clone()));
+    let proto_metrics = ProtoMetrics::new(metrics_provider).expect("metrics init");
+    let runtime = MetricsRuntime::new("test-system".to_string(), proto_metrics);
+    let sink = runtime.sink_without_actor();
+
+    sink.record_mailbox_queue_dwell_bucket_total("bucket_2", "system", 42);
+
+    provider.force_flush().expect("force flush");
+    let exported = exporter.get_finished_metrics().expect("exported metrics");
+
+    use opentelemetry::Value;
+    use opentelemetry_sdk::metrics::data::{AggregatedMetrics, MetricData};
+    let mut found = false;
+    for resource in exported {
+      for scope in resource.scope_metrics() {
+        for metric in scope.metrics() {
+          if metric.name() == "nexus_actor_mailbox_queue_dwell_bucket_total" {
+            if let AggregatedMetrics::F64(MetricData::Gauge(gauge)) = metric.data() {
+              for data_point in gauge.data_points() {
+                let mut queue_kind = None;
+                let mut bucket = None;
+                for kv in data_point.attributes() {
+                  match kv.key.as_str() {
+                    "queue_kind" => queue_kind = Some(&kv.value),
+                    "bucket" => bucket = Some(&kv.value),
+                    _ => {}
+                  }
+                }
+                let is_system = matches!(queue_kind, Some(Value::String(ref s)) if s.as_ref() == "system");
+                let is_bucket_2 = matches!(bucket, Some(Value::String(ref s)) if s.as_ref() == "bucket_2");
+                if is_system && is_bucket_2 {
+                  assert!((data_point.value() - 42.0).abs() < f64::EPSILON);
+                  found = true;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    assert!(found, "bucket gauge should be exported");
+  }
+
+  #[test]
+  fn test_mailbox_suspension_metrics_are_exported() {
+    let exporter = InMemoryMetricExporter::default();
+    let reader = PeriodicReader::builder(exporter.clone()).build();
+    let provider = SdkMeterProvider::builder().with_reader(reader).build();
+    let metrics_provider = Arc::new(MetricsProvider::Sdk(provider.clone()));
+    let proto_metrics = ProtoMetrics::new(metrics_provider).expect("metrics init");
+    let runtime = MetricsRuntime::new("test-system".to_string(), proto_metrics);
+    let sink = runtime.sink_without_actor();
+
+    sink.increment_mailbox_suspension_resume(3);
+    sink.record_mailbox_suspension_duration(1.5);
+    sink.record_mailbox_suspension_state(true);
+
+    provider.force_flush().expect("force flush");
+    let exported = exporter.get_finished_metrics().expect("exported metrics");
+
+    use opentelemetry_sdk::metrics::data::{AggregatedMetrics, MetricData};
+    let mut resume_found = false;
+    let mut duration_found = false;
+    let mut state_found = false;
+
+    for resource in exported {
+      for scope in resource.scope_metrics() {
+        for metric in scope.metrics() {
+          match metric.name() {
+            "nexus_actor_mailbox_suspension_resume_count" => {
+              if let AggregatedMetrics::U64(MetricData::Sum(sum)) = metric.data() {
+                for data_point in sum.data_points() {
+                  if data_point.value() == 3 {
+                    resume_found = true;
+                  }
+                }
+              }
+            }
+            "nexus_actor_mailbox_suspension_duration_seconds" => {
+              if let AggregatedMetrics::F64(MetricData::Histogram(hist)) = metric.data() {
+                for data_point in hist.data_points() {
+                  if (data_point.sum() - 1.5).abs() < f64::EPSILON {
+                    duration_found = true;
+                  }
+                }
+              }
+            }
+            "nexus_actor_mailbox_suspension_state" => {
+              if let AggregatedMetrics::F64(MetricData::Gauge(gauge)) = metric.data() {
+                for data_point in gauge.data_points() {
+                  if (data_point.value() - 1.0).abs() < f64::EPSILON {
+                    state_found = true;
+                  }
+                }
+              }
+            }
+            _ => {}
+          }
+        }
+      }
+    }
+
+    assert!(resume_found, "resume counter should be exported");
+    assert!(duration_found, "duration histogram should be exported");
+    assert!(state_found, "state gauge should be exported");
+  }
+
+  #[tokio::test]
+  async fn test_mailbox_metrics_collector_emits_queue_length_with_pid() {
+    let exporter = InMemoryMetricExporter::default();
+    let reader = PeriodicReader::builder(exporter.clone()).build();
+    let provider = SdkMeterProvider::builder().with_reader(reader).build();
+    let metrics_provider = Arc::new(MetricsProvider::Sdk(provider.clone()));
+
+    let system = ActorSystem::new_config_options([
+      ConfigOption::SetMetricsProvider(metrics_provider.clone()),
+      ConfigOption::with_mailbox_metrics_poll_interval(Duration::from_millis(10)),
+    ])
+    .await
+    .expect("actor system with metrics");
+
+    let mut root = system.get_root_context().await;
+    let props = Props::from_async_actor_receiver(|_| async { Ok(()) }).await;
+    let pid = root.spawn(props).await;
+
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    provider.force_flush().expect("force flush");
+    let exported = exporter.get_finished_metrics().expect("metrics exported");
+
+    use opentelemetry::Value;
+    use opentelemetry_sdk::metrics::data::{AggregatedMetrics, MetricData};
+
+    let pid_value = pid.id().to_string();
+    let mut found = false;
+
+    for resource in exported {
+      for scope in resource.scope_metrics() {
+        for metric in scope.metrics() {
+          if metric.name() == "nexus_actor_mailbox_queue_length" {
+            if let AggregatedMetrics::F64(MetricData::Gauge(gauge)) = metric.data() {
+              for data_point in gauge.data_points() {
+                let mut has_pid = false;
+                let mut is_user_queue = false;
+                for kv in data_point.attributes() {
+                  match kv.key.as_str() {
+                    "pid" => {
+                      if let Value::String(ref s) = kv.value {
+                        has_pid = s.as_ref() == pid_value.as_str();
+                      }
+                    }
+                    "queue_kind" => {
+                      if let Value::String(ref s) = kv.value {
+                        is_user_queue = s.as_ref() == "user";
+                      }
+                    }
+                    _ => {}
+                  }
+                }
+                if has_pid && is_user_queue {
+                  found = true;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    assert!(found, "collector should export queue length with pid label");
+  }
 }

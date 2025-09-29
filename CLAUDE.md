@@ -14,6 +14,7 @@ MUST: 必ず日本語で応対すること
   - protoactor-go(@docs/sources/protoactor-go)の実装を参考にすること（Goの実装からRustイディオムに変換）
 - **後方互換性**: 後方互換は不要（破壊的変更を恐れずに最適な設計を追求すること） 
 - serena mcpを有効活用すること
+- **ドキュメント方針**: すべてのドキュメントは MECE を意識して構成し、節や箇条書きの区分が重複・抜け漏れのないようにすること。
 
 ## プロジェクト概要
 
@@ -92,7 +93,7 @@ cargo run --example actor-hello-world
    - タイプセーフなメッセージハンドリング
 
 3. **core** - アクターシステムのコア実装
-   - **actor/core_types**: 独立した型定義（BaseActor, BaseContext）
+   - **actor/core_types**: 独立した型定義（Actor trait サポートのみに整理済み）
    - **actor/core**: 従来のアクター実装（Actor trait、PID、Props）
    - **actor/context**: コンテキスト実装（ActorContext、生命周期管理）
    - **actor/dispatch**: メールボックスとディスパッチャー
@@ -135,11 +136,11 @@ cargo run --example actor-hello-world
    - バックプレッシャー制御
    - デッドレター処理
 
-4. **BaseActorとActorの二層構造**
-   - **BaseActor**: 新しい循環依存のないクリーンな実装
-   - **Actor**: 従来の互換性を保つ実装
-   - アダプターレイヤーによる相互運用性
-   - Props経由での統一的なアクター生成
+4. **Actor トレイトの統一方針**
+   - 2025/09/26 時点で BaseActor 系 API は削除済み
+   - 以降は従来の `Actor` トレイトへ一本化
+   - Props 経由の生成は既存 Actor トレイトで継続利用
+   - Props 経由の生成は既存 Actor トレイトで継続利用
 
 ### Protocol Buffers
 
@@ -176,9 +177,9 @@ cargo run --example actor-hello-world
    - ProtoMetricsによるProtocol Buffersメッセージのメトリクス
 
 6. **循環依存の解決（PROJECT_STATUS.md参照）**:
-   - BaseActorとBaseContextによる新しいクリーンなAPI
-   - 新規開発では`BaseActor`トレイトを使用推奨
-   - 既存コードは互換性維持のためそのまま動作
+   - 当初は BaseActor / BaseContext で一時回避
+   - 現在は Actor トレイトへ再集約し、BaseActor 系アダプタを撤去済み
+   - 既存コードは Actor トレイトで互換性を維持
 
 ## 例
 
@@ -197,11 +198,8 @@ cargo run --example actor-hello-world
   - actor-lifecycle-events: ライフサイクルイベント処理
   - actor-auto-respond: 自動応答パターン
 
-- **BaseActor移行例**:
-  - actor-base-traits: BaseActorの基本使用法
-  - actor-base-with-props: Props経由のBaseActor使用
-  - actor-migration: 従来のActorからBaseActorへの移行
-  - actor-dual-support: 両方のActorタイプの共存
+- **レガシー移行サンプル**:
+  - `core/examples/legacy/*` に旧 BaseActor 系サンプルを隔離（新規コードでは利用しない）
 
 PROJECT_STATUS.mdに沿って作業を進めること
 
@@ -230,7 +228,7 @@ PROJECT_STATUS.mdに沿って作業を進めること
 ## 今後の開発優先順位
 
 1. **coreモジュールの継続的改善**
-   - BaseActorへの完全移行
+   - Actor トレイト前提での最適化・クリーンアップ
    - パフォーマンス最適化
 
 2. **remoteモジュールの安定化**

@@ -1,23 +1,25 @@
 use std::fmt::Debug;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 
 use crate::collections::element::Element;
-use crate::collections::{QueueBase, QueueError, QueueReader, QueueSize, QueueWriter};
-use async_trait::async_trait;
+use crate::collections::queue_sync::{SyncQueueBase, SyncQueueReader, SyncQueueSupport, SyncQueueWriter};
+use crate::collections::{QueueError, QueueSize};
+use parking_lot::Mutex;
+use tokio::sync::mpsc;
 use tokio::sync::mpsc::error::{SendError, TryRecvError};
-use tokio::sync::{mpsc, RwLock};
 
 #[derive(Debug)]
 struct MpscUnboundedChannelQueueInner<E> {
-  receiver: mpsc::UnboundedReceiver<E>,
-  count: usize,
-  is_closed: bool,
+  receiver: Mutex<mpsc::UnboundedReceiver<E>>,
+  is_closed: AtomicBool,
 }
 
 #[derive(Debug, Clone)]
 pub struct MpscUnboundedChannelQueue<E> {
   sender: mpsc::UnboundedSender<E>,
-  inner: Arc<RwLock<MpscUnboundedChannelQueueInner<E>>>,
+  inner: Arc<MpscUnboundedChannelQueueInner<E>>,
+  count: Arc<AtomicUsize>,
 }
 
 impl<T> MpscUnboundedChannelQueue<T> {
@@ -25,64 +27,88 @@ impl<T> MpscUnboundedChannelQueue<T> {
     let (sender, receiver) = mpsc::unbounded_channel();
     Self {
       sender,
-      inner: Arc::new(RwLock::new(MpscUnboundedChannelQueueInner {
-        receiver,
-        count: 0,
-        is_closed: false,
-      })),
+      inner: Arc::new(MpscUnboundedChannelQueueInner {
+        receiver: Mutex::new(receiver),
+        is_closed: AtomicBool::new(false),
+      }),
+      count: Arc::new(AtomicUsize::new(0)),
     }
   }
 
-  async fn try_recv(&self) -> Result<T, TryRecvError> {
-    let mut inner_mg = self.inner.write().await;
-    if inner_mg.is_closed {
+  fn try_recv(&self) -> Result<T, TryRecvError> {
+    if self.inner.is_closed.load(Ordering::SeqCst) {
       return Err(TryRecvError::Disconnected);
     }
-    inner_mg.receiver.try_recv()
+    let mut guard = self.inner.receiver.lock();
+    guard.try_recv()
   }
 
-  async fn send(&self, element: T) -> Result<(), SendError<T>> {
-    let inner_mg = self.inner.read().await;
-    if inner_mg.is_closed {
+  fn send(&self, element: T) -> Result<(), SendError<T>> {
+    if self.inner.is_closed.load(Ordering::SeqCst) {
       return Err(SendError(element));
     }
-    drop(inner_mg);
-    self.sender.send(element)
+    match self.sender.send(element) {
+      Ok(()) => Ok(()),
+      Err(err) => {
+        self.inner.is_closed.store(true, Ordering::SeqCst);
+        Err(err)
+      }
+    }
   }
 
-  async fn increment_count(&self) {
-    let mut inner_mg = self.inner.write().await;
-    inner_mg.count += 1;
+  fn increment_count(&self) {
+    self.count.fetch_add(1, Ordering::SeqCst);
   }
 
-  async fn decrement_count(&self) {
-    let mut inner_mg = self.inner.write().await;
-    inner_mg.count = inner_mg.count.saturating_sub(1);
+  fn decrement_count(&self) {
+    self
+      .count
+      .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |current| {
+        Some(current.saturating_sub(1))
+      })
+      .ok();
   }
 }
 
-#[async_trait]
-impl<E: Element> QueueBase<E> for MpscUnboundedChannelQueue<E> {
-  async fn len(&self) -> QueueSize {
-    let inner_mg = self.inner.read().await;
-    QueueSize::Limited(inner_mg.count)
+impl<E: Element> SyncQueueBase<E> for MpscUnboundedChannelQueue<E> {
+  fn len(&self) -> QueueSize {
+    QueueSize::Limited(self.count.load(Ordering::SeqCst))
   }
 
-  async fn capacity(&self) -> QueueSize {
+  fn capacity(&self) -> QueueSize {
     QueueSize::Limitless
   }
 }
 
-#[async_trait]
-impl<E: Element> QueueWriter<E> for MpscUnboundedChannelQueue<E> {
-  async fn offer(&mut self, element: E) -> Result<(), QueueError<E>> {
-    match self.send(element).await {
+impl<E: Element> SyncQueueWriter<E> for MpscUnboundedChannelQueue<E> {
+  fn offer(&mut self, element: E) -> Result<(), QueueError<E>> {
+    match self.send(element) {
       Ok(_) => {
-        self.increment_count().await;
+        self.increment_count();
         Ok(())
       }
       Err(SendError(err)) => Err(QueueError::OfferError(err)),
     }
+  }
+}
+
+impl<E: Element> SyncQueueReader<E> for MpscUnboundedChannelQueue<E> {
+  fn poll(&mut self) -> Result<Option<E>, QueueError<E>> {
+    match self.try_recv() {
+      Ok(element) => {
+        self.decrement_count();
+        Ok(Some(element))
+      }
+      Err(TryRecvError::Empty) => Ok(None),
+      Err(TryRecvError::Disconnected) => Err(QueueError::<E>::PoolError),
+    }
+  }
+
+  fn clean_up(&mut self) {
+    self.count.store(0, Ordering::SeqCst);
+    self.inner.is_closed.store(true, Ordering::SeqCst);
+    let mut guard = self.inner.receiver.lock();
+    guard.close();
   }
 }
 
@@ -92,28 +118,6 @@ impl Default for MpscUnboundedChannelQueue<i32> {
   }
 }
 
-#[async_trait]
-impl<E: Element> QueueReader<E> for MpscUnboundedChannelQueue<E> {
-  async fn poll(&mut self) -> Result<Option<E>, QueueError<E>> {
-    match self.try_recv().await {
-      Ok(element) => {
-        self.decrement_count().await;
-        Ok(Some(element))
-      }
-      Err(TryRecvError::Empty) => Ok(None),
-      Err(TryRecvError::Disconnected) => Err(QueueError::<E>::PoolError),
-    }
-  }
-
-  async fn clean_up(&mut self) {
-    let mut inner_mg = self.inner.write().await;
-    inner_mg.count = 0;
-    inner_mg.receiver.close();
-    inner_mg.is_closed = true;
-    drop(inner_mg);
-    self.sender.closed().await;
-  }
-}
-
+impl<E: Element> SyncQueueSupport for MpscUnboundedChannelQueue<E> {}
 #[cfg(test)]
 mod tests;

@@ -36,6 +36,7 @@ use tonic::{Request, Response, Status, Streaming};
 pub enum EndpointReaderError {
   #[error("Unknown target")]
   UnknownTarget,
+  #[allow(dead_code)]
   #[error("Unknown sender")]
   UnknownSender,
   #[error("Deserialization error: {0}")]
@@ -334,6 +335,7 @@ impl EndpointReader {
     self.suspended.store(suspend, std::sync::atomic::Ordering::SeqCst);
   }
 
+  #[cfg_attr(not(test), allow(dead_code))]
   async fn get_suspend(suspended: Arc<Mutex<bool>>) -> bool {
     *suspended.lock().await
   }

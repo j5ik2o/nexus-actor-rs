@@ -78,6 +78,7 @@ impl std::error::Error for ResponseError {}
 
 pub trait ActorPidResponseExt {
   fn status_code_enum(&self) -> ResponseStatusCode;
+  #[cfg_attr(not(test), allow(dead_code))]
   fn status_error(&self) -> Option<ResponseError>;
 }
 

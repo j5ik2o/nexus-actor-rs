@@ -82,6 +82,7 @@ impl HeartbeatConfig {
 
 #[derive(Debug)]
 pub struct EndpointState {
+  #[cfg_attr(not(test), allow(dead_code))]
   address: String,
   connection_state: AtomicU8,
   reconnect_policy: ReconnectPolicy,
@@ -109,6 +110,7 @@ impl EndpointState {
     state
   }
 
+  #[cfg_attr(not(test), allow(dead_code))]
   pub fn address(&self) -> &str {
     &self.address
   }
@@ -132,6 +134,7 @@ impl EndpointState {
     &self.heartbeat
   }
 
+  #[cfg_attr(not(test), allow(dead_code))]
   pub fn retries(&self) -> u32 {
     self.retry_count.load(Ordering::SeqCst)
   }
@@ -144,6 +147,7 @@ impl EndpointState {
     self.retry_count.fetch_add(1, Ordering::SeqCst) + 1
   }
 
+  #[cfg_attr(not(test), allow(dead_code))]
   pub fn has_exceeded_retries(&self) -> bool {
     let max = self.reconnect_policy.max_retries();
     max > 0 && self.retries() >= max
@@ -154,6 +158,7 @@ impl EndpointState {
   /// This mirrors protoactor-go where the retry counter is incremented before
   /// scheduling the attempt. The current retry count therefore maps directly
   /// to the attempt number whose delay we need to compute.
+  #[cfg_attr(not(test), allow(dead_code))]
   pub fn next_backoff_delay(&self) -> Duration {
     let attempts = self.retries().max(1);
     self.compute_backoff_delay(attempts)

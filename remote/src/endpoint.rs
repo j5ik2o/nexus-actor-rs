@@ -20,8 +20,4 @@ impl Endpoint {
   pub fn get_writer(&self) -> Pid {
     self.writer.clone()
   }
-
-  pub fn get_address(&self) -> String {
-    self.watcher.address.clone()
-  }
 }

@@ -120,6 +120,54 @@ impl Actor for Activator {
       context_handle.respond(ResponseHandle::new(Pong {})).await;
     }
     if let Some(msg) = message_handle.to_typed::<ActorPidRequest>() {
+      if let Some(remote) = self.remote.upgrade() {
+        if let Some(handler) = remote.activation_handler().await {
+          let identity_name = if msg.name.is_empty() {
+            context_handle
+              .get_actor_system()
+              .await
+              .get_process_registry()
+              .await
+              .next_id()
+          } else {
+            msg.name.clone()
+          };
+
+          match handler.activate(&msg.kind, &identity_name).await {
+            Ok(Some(pid)) => {
+              context_handle
+                .respond(ResponseHandle::new(ActorPidResponse {
+                  pid: Some(pid),
+                  status_code: ResponseStatusCode::Ok.to_i32(),
+                }))
+                .await;
+              return Ok(());
+            }
+            Ok(None) => {
+              context_handle
+                .respond(ResponseHandle::new(ActorPidResponse {
+                  pid: None,
+                  status_code: ResponseStatusCode::Error.to_i32(),
+                }))
+                .await;
+              return Err(ActorError::ReceiveError(ErrorReason::new("Actor not found", 0)));
+            }
+            Err(err) => {
+              context_handle
+                .respond(ResponseHandle::new(ActorPidResponse {
+                  pid: None,
+                  status_code: err.status_code().to_i32(),
+                }))
+                .await;
+              return Err(ActorError::ReceiveError(ErrorReason::new(
+                "Activation handler failed",
+                0,
+              )));
+            }
+          }
+        }
+      }
+
       return match self.get_kinds().get(&msg.kind) {
         None => {
           context_handle

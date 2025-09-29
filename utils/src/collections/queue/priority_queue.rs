@@ -2,9 +2,9 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 
 use crate::collections::element::Element;
-use crate::collections::{QueueBase, QueueError, QueueReader, QueueSize, QueueWriter};
-use async_trait::async_trait;
-use tokio::sync::RwLock;
+use crate::collections::queue_sync::{SyncQueueBase, SyncQueueReader, SyncQueueSupport, SyncQueueWriter};
+use crate::collections::{QueueError, QueueSize};
+use parking_lot::RwLock;
 
 pub const PRIORITY_LEVELS: usize = 8;
 pub const DEFAULT_PRIORITY: i8 = (PRIORITY_LEVELS / 2) as i8;
@@ -19,7 +19,11 @@ pub struct PriorityQueue<E, Q> {
   phantom_data: PhantomData<E>,
 }
 
-impl<E: PriorityMessage, Q: Clone + QueueReader<E> + QueueWriter<E>> PriorityQueue<E, Q> {
+impl<E, Q> PriorityQueue<E, Q>
+where
+  E: PriorityMessage,
+  Q: Clone + SyncQueueReader<E> + SyncQueueWriter<E> + SyncQueueSupport,
+{
   pub fn new(queue_producer: impl Fn() -> Q + 'static) -> Self {
     let mut queues = Vec::with_capacity(PRIORITY_LEVELS);
     for _ in 0..PRIORITY_LEVELS {
@@ -33,50 +37,59 @@ impl<E: PriorityMessage, Q: Clone + QueueReader<E> + QueueWriter<E>> PriorityQue
   }
 }
 
-#[async_trait]
-impl<E: PriorityMessage, Q: QueueReader<E> + QueueWriter<E>> QueueBase<E> for PriorityQueue<E, Q> {
-  async fn len(&self) -> QueueSize {
-    let queues_mg = self.priority_queues.read().await;
+impl<E, Q> SyncQueueBase<E> for PriorityQueue<E, Q>
+where
+  E: PriorityMessage,
+  Q: SyncQueueReader<E> + SyncQueueWriter<E> + SyncQueueSupport,
+{
+  fn len(&self) -> QueueSize {
+    let queues_guard = self.priority_queues.read();
     let mut len = QueueSize::Limited(0);
-    for queue in queues_mg.iter() {
-      len = len + queue.len().await;
+    for queue in queues_guard.iter() {
+      len = len + queue.len();
     }
     len
   }
 
-  async fn capacity(&self) -> QueueSize {
-    let queues_mg = self.priority_queues.read().await;
+  fn capacity(&self) -> QueueSize {
+    let queues_guard = self.priority_queues.read();
     let mut capacity = QueueSize::Limited(0);
-    for queue in queues_mg.iter() {
-      capacity = capacity + queue.capacity().await;
+    for queue in queues_guard.iter() {
+      capacity = capacity + queue.capacity();
     }
     capacity
   }
 }
 
-#[async_trait]
-impl<E: PriorityMessage, Q: QueueReader<E> + QueueWriter<E>> QueueReader<E> for PriorityQueue<E, Q> {
-  async fn poll(&mut self) -> Result<Option<E>, QueueError<E>> {
+impl<E, Q> SyncQueueReader<E> for PriorityQueue<E, Q>
+where
+  E: PriorityMessage,
+  Q: SyncQueueReader<E> + SyncQueueWriter<E> + SyncQueueSupport,
+{
+  fn poll(&mut self) -> Result<Option<E>, QueueError<E>> {
+    let mut guard = self.priority_queues.write();
     for p in (0..PRIORITY_LEVELS).rev() {
-      let mut priority_queues_mg = self.priority_queues.write().await;
-      if let Ok(Some(item)) = priority_queues_mg[p].poll().await {
+      if let Ok(Some(item)) = guard[p].poll() {
         return Ok(Some(item));
       }
     }
     Ok(None)
   }
 
-  async fn clean_up(&mut self) {
-    let mut mg = self.priority_queues.write().await;
-    for queue in mg.iter_mut() {
-      queue.clean_up().await;
+  fn clean_up(&mut self) {
+    let mut guard = self.priority_queues.write();
+    for queue in guard.iter_mut() {
+      queue.clean_up();
     }
   }
 }
 
-#[async_trait]
-impl<E: PriorityMessage, Q: QueueReader<E> + QueueWriter<E>> QueueWriter<E> for PriorityQueue<E, Q> {
-  async fn offer(&mut self, element: E) -> Result<(), QueueError<E>> {
+impl<E, Q> SyncQueueWriter<E> for PriorityQueue<E, Q>
+where
+  E: PriorityMessage,
+  Q: SyncQueueReader<E> + SyncQueueWriter<E> + SyncQueueSupport,
+{
+  fn offer(&mut self, element: E) -> Result<(), QueueError<E>> {
     let mut item_priority = DEFAULT_PRIORITY;
     if let Some(priority) = element.get_priority() {
       item_priority = priority;
@@ -87,9 +100,16 @@ impl<E: PriorityMessage, Q: QueueReader<E> + QueueWriter<E>> QueueWriter<E> for 
         item_priority = PRIORITY_LEVELS as i8 - 1;
       }
     }
-    let mut mg = self.priority_queues.write().await;
-    mg[item_priority as usize].offer(element).await
+    let mut guard = self.priority_queues.write();
+    guard[item_priority as usize].offer(element)
   }
+}
+
+impl<E, Q> SyncQueueSupport for PriorityQueue<E, Q>
+where
+  E: PriorityMessage,
+  Q: SyncQueueReader<E> + SyncQueueWriter<E> + SyncQueueSupport,
+{
 }
 
 #[cfg(test)]

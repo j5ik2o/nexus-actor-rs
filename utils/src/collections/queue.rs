@@ -13,6 +13,7 @@ mod ring_queue;
 pub use self::{mpsc_bounded_channel_queue::*, mpsc_unbounded_channel_queue::*, priority_queue::*, ring_queue::*};
 
 use crate::collections::element::Element;
+use crate::collections::queue_sync::{SyncQueueBase, SyncQueueReader, SyncQueueSupport, SyncQueueWriter};
 
 /// An error that occurs when a queue operation fails.<br/>
 /// キューの操作に失敗した場合に発生するエラー。
@@ -311,4 +312,45 @@ pub trait BlockingQueueReader<E: Element>: BlockingQueueBase<E> {
   /// - `Ok(None)` - If the queue is empty.
   /// - `Err(QueueError::InterruptedError)` - If the operation is interrupted.
   async fn take(&mut self) -> Result<Option<E>, QueueError<E>>;
+}
+
+#[async_trait]
+impl<E, T> QueueBase<E> for T
+where
+  E: Element,
+  T: SyncQueueBase<E> + SyncQueueSupport + Debug + Send + Sync,
+{
+  async fn len(&self) -> QueueSize {
+    SyncQueueBase::len(self)
+  }
+
+  async fn capacity(&self) -> QueueSize {
+    SyncQueueBase::capacity(self)
+  }
+}
+
+#[async_trait]
+impl<E, T> QueueWriter<E> for T
+where
+  E: Element,
+  T: SyncQueueWriter<E> + SyncQueueSupport + Debug + Send + Sync,
+{
+  async fn offer(&mut self, element: E) -> Result<(), QueueError<E>> {
+    SyncQueueWriter::offer(self, element)
+  }
+}
+
+#[async_trait]
+impl<E, T> QueueReader<E> for T
+where
+  E: Element,
+  T: SyncQueueReader<E> + SyncQueueSupport + Debug + Send + Sync,
+{
+  async fn poll(&mut self) -> Result<Option<E>, QueueError<E>> {
+    SyncQueueReader::poll(self)
+  }
+
+  async fn clean_up(&mut self) {
+    SyncQueueReader::clean_up(self);
+  }
 }

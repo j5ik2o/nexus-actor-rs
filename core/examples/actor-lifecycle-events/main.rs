@@ -59,7 +59,7 @@ impl Actor for HelloActor {
 
   async fn post_stop(&mut self, _: ContextHandle) -> Result<(), ActorError> {
     tracing::info!("Stopped, actor and its children are stopped");
-    self.wait_group.done().await;
+    self.wait_group.done();
     Ok(())
   }
 }
