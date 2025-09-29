@@ -279,6 +279,7 @@ impl AnyDowncastExt for Arc<dyn Any + Send + Sync> {
   }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 pub fn find_serializer<T: 'static>(serializer_id: &SerializerId, type_name: &str) -> Option<Arc<dyn Serializer<T>>> {
   let key = SerializerKey::new(serializer_id.clone(), type_name.to_string(), false);
   SERIALIZERS
@@ -321,6 +322,7 @@ pub fn find_serializer_any_all(type_name: &str) -> Option<Arc<dyn SerializerAny>
   None
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 pub fn serialize<T: 'static>(msg: &T, serializer_id: &SerializerId) -> Result<Vec<u8>, SerializerError> {
   let serializer =
     find_serializer::<T>(serializer_id, std::any::type_name::<T>()).ok_or(SerializerError::UnknownType)?;
@@ -342,6 +344,7 @@ pub fn serialize_any(msg: &dyn Any, serializer_id: &SerializerId, type_name: &st
   serializer.serialize_any(msg)
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 pub fn deserialize<T: 'static>(bytes: &[u8], serializer_id: &SerializerId) -> Result<T, SerializerError> {
   let serializer =
     find_serializer::<T>(serializer_id, std::any::type_name::<T>()).ok_or(SerializerError::UnknownType)?;
@@ -374,6 +377,7 @@ pub fn deserialize_message(
   serializer.deserialize_message(bytes)
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 pub fn initialize_serializers<T>() -> Result<(), SerializerError>
 where
   T: Message + Default + ProstMessage + Serialize + for<'de> Deserialize<'de> + Send + Sync + 'static, {

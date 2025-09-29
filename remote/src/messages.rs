@@ -90,6 +90,7 @@ pub struct EndpointReconnectEvent {
   pub success: bool,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Message, Serialize, Deserialize)]
 pub struct JsonMessage {
   pub type_name: String,

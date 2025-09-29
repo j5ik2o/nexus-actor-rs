@@ -15,6 +15,8 @@ dashmap = { workspace = true }
 futures = { workspace = true }
 nexus-actor-core-rs = { version = "1.*", path = "../core" }
 nexus-actor-message-derive-rs = { version = "0.*", path = "../message-derive" }
+nexus-actor-remote-rs = { path = "../remote" }
+fnv = "1.0"
 num_enum = "0.7.2"
 once_cell = "1.19.0"
 prost = "0.13.0"
@@ -24,6 +26,7 @@ tokio = { version = "1.37.0" , features = ["full"] }
 tonic = "0.13.0"
 tonic-types = "0.14.0"
 tracing = "0.1"
+serde = { workspace = true, features = ["derive"] }
 
 [dev-dependencies]
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

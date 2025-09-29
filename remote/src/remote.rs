@@ -14,6 +14,7 @@ use crate::remote_process::RemoteProcess;
 use crate::response_status_code::{ActorPidResponseExt, ResponseError, ResponseStatusCode};
 use crate::serializer::initialize_proto_serializers;
 use crate::serializer::SerializerId;
+use async_trait::async_trait;
 use dashmap::DashMap;
 use nexus_actor_core_rs::actor::actor_system::ActorSystem;
 use nexus_actor_core_rs::actor::context::SenderPart;
@@ -28,6 +29,7 @@ use nexus_actor_core_rs::extensions::{next_extension_id, Extension, ExtensionId}
 use nexus_actor_core_rs::generated::actor::Pid;
 use once_cell::sync::Lazy;
 use std::any::Any;
+use std::fmt;
 use std::future::Future;
 use std::net::ToSocketAddrs;
 use std::sync::Arc;
@@ -54,6 +56,31 @@ pub enum RemoteSpawnError {
   MissingPid(ResponseStatusCode),
   #[error("spawn rejected: {0}")]
   Status(#[from] ResponseError),
+}
+
+#[derive(Debug, Clone, Error)]
+#[error("activation handler error: {status_code:?} - {reason}")]
+pub struct ActivationHandlerError {
+  status_code: ResponseStatusCode,
+  reason: String,
+}
+
+impl ActivationHandlerError {
+  pub fn new(status_code: ResponseStatusCode, reason: impl Into<String>) -> Self {
+    Self {
+      status_code,
+      reason: reason.into(),
+    }
+  }
+
+  pub fn status_code(&self) -> ResponseStatusCode {
+    self.status_code
+  }
+}
+
+#[async_trait]
+pub trait ActivationHandler: Send + Sync + fmt::Debug + 'static {
+  async fn activate(&self, kind: &str, identity: &str) -> Result<Option<Pid>, ActivationHandlerError>;
 }
 
 pub static EXTENSION_ID: Lazy<ExtensionId> = Lazy::new(next_extension_id);
@@ -91,6 +118,7 @@ struct RemoteInner {
   block_list: BlockList,
   shutdown: Mutex<Option<Shutdown>>,
   metrics_sink: OnceCell<Option<Arc<MetricsSink>>>,
+  activation_handler: Mutex<Option<Arc<dyn ActivationHandler>>>,
 }
 
 impl RemoteInner {
@@ -105,6 +133,21 @@ impl RemoteInner {
       })
       .await
       .clone()
+  }
+
+  async fn set_activation_handler(&self, handler: Arc<dyn ActivationHandler>) {
+    let mut guard = self.activation_handler.lock().await;
+    *guard = Some(handler);
+  }
+
+  async fn clear_activation_handler(&self) {
+    let mut guard = self.activation_handler.lock().await;
+    *guard = None;
+  }
+
+  async fn activation_handler(&self) -> Option<Arc<dyn ActivationHandler>> {
+    let guard = self.activation_handler.lock().await;
+    guard.clone()
   }
 }
 
@@ -125,6 +168,7 @@ impl Remote {
         block_list: BlockList::new(),
         shutdown: Mutex::new(None),
         metrics_sink: OnceCell::new(),
+        activation_handler: Mutex::new(None),
       }),
     };
 
@@ -151,12 +195,12 @@ impl Remote {
     *mg = Some(endpoint_reader);
   }
 
-  pub async fn get_endpoint_manager_opt(&self) -> Option<EndpointManager> {
+  pub(crate) async fn get_endpoint_manager_opt(&self) -> Option<EndpointManager> {
     let mg = self.inner.endpoint_manager.lock().await;
     mg.clone()
   }
 
-  pub async fn get_endpoint_manager(&self) -> EndpointManager {
+  pub(crate) async fn get_endpoint_manager(&self) -> EndpointManager {
     let mg = self.inner.endpoint_manager.lock().await;
     mg.as_ref().expect("EndpointManager is not found").clone()
   }
@@ -167,7 +211,7 @@ impl Remote {
   }
 
   #[cfg(test)]
-  pub async fn set_endpoint_manager_for_test(&self, endpoint_manager: EndpointManager) {
+  pub(crate) async fn set_endpoint_manager_for_test(&self, endpoint_manager: EndpointManager) {
     self.set_endpoint_manager(endpoint_manager).await;
   }
 
@@ -189,6 +233,18 @@ impl Remote {
 
   pub async fn metrics_sink(&self) -> Option<Arc<MetricsSink>> {
     self.inner.metrics_sink().await
+  }
+
+  pub async fn set_activation_handler(&self, handler: Arc<dyn ActivationHandler>) {
+    self.inner.set_activation_handler(handler).await;
+  }
+
+  pub async fn clear_activation_handler(&self) {
+    self.inner.clear_activation_handler().await;
+  }
+
+  pub async fn activation_handler(&self) -> Option<Arc<dyn ActivationHandler>> {
+    self.inner.activation_handler().await
   }
 
   pub async fn get_endpoint_statistics(&self, address: &str) -> Option<EndpointStatisticsSnapshot> {

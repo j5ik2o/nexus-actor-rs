@@ -11,6 +11,7 @@ struct SenderSnapshotCounters {
 
 static SENDER_SNAPSHOT_COUNTERS: Lazy<SenderSnapshotCounters> = Lazy::new(SenderSnapshotCounters::default);
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct SenderSnapshotReport {
   pub hits: u64,
@@ -28,6 +29,7 @@ pub fn record_sender_snapshot(context: &ContextHandle) -> Option<ExtendedPid> {
   }
 }
 
+#[allow(dead_code)]
 pub fn sender_snapshot_report() -> SenderSnapshotReport {
   SenderSnapshotReport {
     hits: SENDER_SNAPSHOT_COUNTERS.hits.load(Ordering::Relaxed),
@@ -35,6 +37,7 @@ pub fn sender_snapshot_report() -> SenderSnapshotReport {
   }
 }
 
+#[allow(dead_code)]
 pub fn reset_sender_snapshot_metrics() {
   SENDER_SNAPSHOT_COUNTERS.hits.store(0, Ordering::Relaxed);
   SENDER_SNAPSHOT_COUNTERS.misses.store(0, Ordering::Relaxed);

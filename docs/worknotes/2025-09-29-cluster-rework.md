@@ -4,8 +4,13 @@
 - gossip / consensus 系コードを撤去し、`Cluster` を Virtual Actor 前提のシンプルな構成へ再構築。
 - `ClusterKind::virtual_actor` と `make_virtual_actor_props` を導入し、Virtual Actor の登録から Props 生成までを統一化。
 - `VirtualActorRuntime` を追加し、`respond`/`tell`/`request(_future)`/`forward`/`spawn_child` 等のユーティリティを提供。`Cluster::request_future` も併せて整備し、`ActorFuture::result()` で応答取得できるようにした。
-- Cluster テストを Virtual Actor ランタイム API ベースに刷新し、起動済み PID のキャッシュとメッセージ配送、Future 応答を検証。
-- `cluster/examples/virtual_actor_basic.rs` を追加し、Virtual Actor の登録と `request_message` / タイムアウト処理の流れを最小構成で確認できるようにした。
+- Rendezvous Hash に基づく `PartitionManager` / `PlacementActor` を実装し、Virtual Actor の所有ノード決定と移譲に対応。
+- `DistributedIdentityLookup` を導入し、PartitionManager と連携した `(kind, identity) → PID` 解決の集中管理を可能にした。
+- `Cluster::ensure_remote` を追加して Remote 拡張の起動・停止と ActivationHandler 登録をクラスタ本体へ統合。`start_member`/`start_client`/`shutdown` からリモート統合経路を握るようにした。
+- InMemory プロバイダーを Rendezvous と結合し、クラスタ参加時に他ノードへトポロジ更新をブロードキャストする流れを整備。
+- `cluster/examples/virtual_actor_basic.rs` で Virtual Actor の基本シナリオ、`cluster/examples/provider_in_memory.rs` でプロバイダー連携の確認ができるようにした。
 
-## 未完了事項
-- (なし) — 今後の着手は必要に応じて追加する。
+## 未完了事項 (MUST 優先)
+- PartitionManager のリバランス挙動を拡張し、トポロジ変化時に新オーナー側への再アクティベーション／キャッシュ同期を確実に行う。
+- Remote 経由の Activation/Request を検証する統合テスト（`remote` クレートと接続した E2E）を追加し、ネットワーク越しの PID 解決とメッセージ往復を継続的に確認できるようにする。
+- ClusterProvider の実装ラインナップを整理し、InMemory 以外（例: gRPC/k8s バッキング）へ拡張できる設計指針と TODO をまとめる。

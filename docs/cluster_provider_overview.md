@@ -30,3 +30,4 @@ cluster.start_member().await?;
 ## 今後の構想
 - Consul / etcd / Kubernetes バッキングの Provider を Rust でも実装可能。
 - `ClusterProviderContext` にノード情報やシャードメタデータを追加し、外部ストア連携を強化する。
+- `IdentityLookup`（InMemory 実装を含む）と連携し、`(kind, identity)` 解決を Provider と同列に扱う。これにより将来的な Distribute Hash / Sharding 実装への足場が整備されました。

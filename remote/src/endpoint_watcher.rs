@@ -46,10 +46,12 @@ impl EndpointWatcher {
       .clone()
   }
 
+  #[cfg_attr(not(test), allow(dead_code))]
   pub fn get_address(&self) -> String {
     self.address.clone()
   }
 
+  #[cfg_attr(not(test), allow(dead_code))]
   pub fn get_watched(&self) -> Arc<DashMap<String, PidSet>> {
     self.watched.clone()
   }
