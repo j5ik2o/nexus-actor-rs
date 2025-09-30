@@ -15,7 +15,7 @@ use tokio::runtime::Runtime;
 use tokio::sync::{Mutex, RwLock};
 use tokio::task::yield_now;
 
-#[derive(Debug, Clone, PartialEq, ::nexus_actor_message_derive_rs::Message)]
+#[derive(Debug, Clone, PartialEq, ::nexus_message_derive_rs::Message)]
 struct BenchPayload {
   seq: usize,
 }

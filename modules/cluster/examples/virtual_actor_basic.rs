@@ -4,10 +4,10 @@ use std::time::Duration;
 use async_trait::async_trait;
 use nexus_actor_core_rs::actor::core::{ActorError, ErrorReason};
 use nexus_actor_core_rs::actor::message::{Message, MessageHandle};
-use nexus_actor_message_derive_rs::Message as MessageDerive;
+use nexus_message_derive_rs::Message as MessageDerive;
 use tokio::time::timeout;
 
-use nexus_actor_cluster_rs::{
+use nexus_cluster_core_rs::{
   Cluster, ClusterConfig, ClusterIdentity, ClusterKind, InMemoryClusterProvider, VirtualActor, VirtualActorContext,
   VirtualActorRuntime,
 };

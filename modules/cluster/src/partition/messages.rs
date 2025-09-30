@@ -1,6 +1,6 @@
 use nexus_actor_core_rs::actor::message::Message;
 use nexus_actor_core_rs::generated::actor::Pid;
-use nexus_actor_message_derive_rs::Message as MessageDerive;
+use nexus_message_derive_rs::Message as MessageDerive;
 use serde::{Deserialize, Serialize};
 
 use crate::identity::ClusterIdentity;

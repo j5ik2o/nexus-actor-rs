@@ -9,7 +9,7 @@ lock-metrics = ["nexus-actor-core-rs/lock-metrics"]
 
 [dependencies]
 criterion = { version = "0.7", default-features = false, features = ["html_reports", "async_tokio"] }
-nexus-actor-core-rs = { path = "../core" }
+nexus-actor-core-rs = { path = "../actor" }
 rand = "0.9"
 opentelemetry = { version = "0.31.0", features = ["metrics"] }
 opentelemetry-stdout = { version = "0.31.0", features = ["metrics"] }
@@ -17,8 +17,8 @@ opentelemetry_sdk = { version = "0.31.0", features = ["metrics", "rt-tokio", "te
 tokio = { version = "1.37.0", features = ["rt-multi-thread", "macros", "time", "sync"] }
 futures = { workspace = true }
 async-trait = "0.1.80"
-nexus-actor-message-derive-rs = { path = "../message-derive" }
-nexus-actor-utils-rs = { path = "../utils" }
+nexus-message-derive-rs = { path = "../message-derive" }
+nexus-utils-core-rs = { path = "../utils" }
 
 [[bench]]
 name = "reentrancy"

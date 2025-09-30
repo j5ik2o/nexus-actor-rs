@@ -21,7 +21,7 @@ use nexus_actor_core_rs::actor::process::future::ActorFutureError;
 use nexus_actor_core_rs::actor::supervisor::{RestartingStrategy, SupervisorStrategyHandle};
 use nexus_actor_core_rs::event_stream::{EventHandler, Predicate, Subscription};
 use nexus_actor_core_rs::generated::actor::Pid;
-use nexus_actor_utils_rs::collections::DashMapExtension;
+use nexus_utils_core_rs::collections::DashMapExtension;
 use opentelemetry::KeyValue;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};

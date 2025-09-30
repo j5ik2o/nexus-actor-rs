@@ -2,7 +2,7 @@
 resolver = "2"
 members = [
   "modules/utils"
-  ,"modules/core"
+  ,"modules/actor"
   ,"modules/message-derive"
   ,"modules/remote"
   ,"modules/cluster"

@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use criterion::{criterion_group, criterion_main, Criterion, Throughput};
 use nexus_actor_core_rs::actor::message::MessageHandle;
-use nexus_actor_utils_rs::collections::{MpscUnboundedChannelQueue, QueueReader, QueueWriter};
+use nexus_utils_core_rs::collections::{MpscUnboundedChannelQueue, QueueReader, QueueWriter};
 use tokio::runtime::Runtime;
 use tokio::task::yield_now;
 use tokio::time::Instant;

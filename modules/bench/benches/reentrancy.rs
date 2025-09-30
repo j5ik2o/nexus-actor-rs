@@ -46,17 +46,17 @@ impl LockMetricsAggregate {
   }
 }
 
-#[derive(Debug, Clone, PartialEq, ::nexus_actor_message_derive_rs::Message)]
+#[derive(Debug, Clone, PartialEq, ::nexus_message_derive_rs::Message)]
 struct LoadMessage {
   seq: u64,
 }
 
-#[derive(Debug, Clone, PartialEq, ::nexus_actor_message_derive_rs::Message)]
+#[derive(Debug, Clone, PartialEq, ::nexus_message_derive_rs::Message)]
 struct LoadReply {
   seq: u64,
 }
 
-#[derive(Debug, Clone, PartialEq, ::nexus_actor_message_derive_rs::Message)]
+#[derive(Debug, Clone, PartialEq, ::nexus_message_derive_rs::Message)]
 struct LoadAck {
   seq: u64,
 }
@@ -91,12 +91,12 @@ impl Actor for LoadActor {
   }
 }
 
-#[derive(Debug, Clone, PartialEq, ::nexus_actor_message_derive_rs::Message)]
+#[derive(Debug, Clone, PartialEq, ::nexus_message_derive_rs::Message)]
 struct BorrowRequest {
   seq: u64,
 }
 
-#[derive(Debug, Clone, PartialEq, ::nexus_actor_message_derive_rs::Message)]
+#[derive(Debug, Clone, PartialEq, ::nexus_message_derive_rs::Message)]
 struct BorrowResponse {
   seq: u64,
 }

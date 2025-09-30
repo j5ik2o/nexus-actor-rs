@@ -5,7 +5,7 @@ use nexus_actor_core_rs::actor::context::{SenderPart, SpawnerPart, StopperPart};
 use nexus_actor_core_rs::actor::core::{ExtendedPid, Props, SpawnError};
 use nexus_actor_core_rs::actor::message::{Message, MessageHandle};
 use nexus_actor_core_rs::actor::process::future::ActorFutureError;
-use nexus_actor_message_derive_rs::Message as MessageDerive;
+use nexus_message_derive_rs::Message as MessageDerive;
 use thiserror::Error;
 use tokio::sync::RwLock;
 
