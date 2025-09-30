@@ -2,9 +2,9 @@
 set -euo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)"
-THRESHOLD_NS=${THRESHOLD_NS:-25000000}
-TIME_FACTOR=${TIME_FACTOR:-1.0}
 BENCH_TARGET="target/criterion/reentrancy/load/new/estimates.json"
+TIME_FACTOR=${TIME_FACTOR:-1.0}
+BASE_THRESHOLD_NS=25000000
 
 pushd "$PROJECT_ROOT" >/dev/null
 
@@ -21,9 +21,9 @@ MEAN_NS=$(jq '.mean.point_estimate' "$BENCH_TARGET")
 MEDIAN_NS=$(jq '.median.point_estimate' "$BENCH_TARGET")
 STDDEV_NS=$(jq '.std_dev.point_estimate' "$BENCH_TARGET")
 
-SCALED_THRESHOLD_NS=$(awk -v threshold="$THRESHOLD_NS" -v factor="$TIME_FACTOR" 'BEGIN {
+SCALED_THRESHOLD_NS=$(awk -v base="$BASE_THRESHOLD_NS" -v factor="$TIME_FACTOR" 'BEGIN {
   if (factor <= 0) factor = 1.0;
-  printf "%.0f", threshold * factor;
+  printf "%.0f", base * factor;
 }')
 
 cat <<REPORT
@@ -34,8 +34,7 @@ reentrancy/load
   limit  : $(printf "%.3f ms" "$(bc -l <<< "$SCALED_THRESHOLD_NS/1000000")")
 REPORT
 
-if (( $(printf '%.0f
-' "$MEAN_NS") > SCALED_THRESHOLD_NS )); then
+if (( $(printf '%.0f\n' "$MEAN_NS") > SCALED_THRESHOLD_NS )); then
   echo "Mean execution time exceeded threshold" >&2
   exit 2
 fi
