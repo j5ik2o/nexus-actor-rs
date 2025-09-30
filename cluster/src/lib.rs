@@ -1,5 +1,6 @@
 mod cluster;
 mod config;
+mod generated;
 mod identity;
 mod identity_lookup;
 mod kind;

@@ -8,9 +8,16 @@ use tokio::sync::{broadcast, RwLock};
 use tokio::task::JoinHandle;
 use tokio_stream::wrappers::BroadcastStream;
 
+use crate::generated::registry::cluster_registry_client::ClusterRegistryClient;
+use crate::generated::registry::{
+  JoinRequest, LeaveRequest, Member as ProtoMember, RegisterClientRequest, WatchUpdate,
+};
 use crate::kind::ClusterKind;
 use crate::partition::manager::{ClusterTopology, PartitionManager};
 use crate::rendezvous::ClusterMember;
+use tonic::transport::{Channel, Endpoint};
+use tonic::Status;
+use tracing::warn;
 
 #[derive(Debug, Clone)]
 pub struct ClusterProviderContext {
@@ -85,7 +92,6 @@ pub struct RegistryWatch {
   updates: BroadcastStream<ClusterTopology>,
 }
 
-#[allow(dead_code)]
 impl RegistryWatch {
   fn new(initial_topology: ClusterTopology, receiver: broadcast::Receiver<ClusterTopology>) -> Self {
     Self {
@@ -239,6 +245,118 @@ impl<R: RegistryClient> GrpcRegistryClusterProvider<R> {
     if let Some(existing) = tasks.insert(node_address, handle) {
       existing.abort();
     }
+  }
+}
+
+#[derive(Debug, Clone)]
+#[allow(dead_code)]
+pub struct GrpcRegistryClient {
+  uri: String,
+}
+
+#[allow(dead_code)]
+impl GrpcRegistryClient {
+  pub fn new(uri: impl Into<String>) -> Self {
+    Self { uri: uri.into() }
+  }
+
+  fn endpoint(&self) -> Result<Endpoint, RegistryError> {
+    Endpoint::from_shared(self.uri.clone()).map_err(|err| RegistryError::OperationFailed(err.to_string()))
+  }
+
+  async fn client(&self) -> Result<ClusterRegistryClient<Channel>, RegistryError> {
+    let endpoint = self.endpoint()?;
+    endpoint
+      .connect()
+      .await
+      .map(ClusterRegistryClient::new)
+      .map_err(|err| RegistryError::OperationFailed(err.to_string()))
+  }
+
+  fn topology_from_members(members: Vec<ProtoMember>) -> ClusterTopology {
+    let converted = members
+      .into_iter()
+      .map(|member| ClusterMember::new(member.node_address, member.kinds))
+      .collect();
+    ClusterTopology { members: converted }
+  }
+
+  fn update_from_watch(watch: WatchUpdate) -> ClusterTopology {
+    Self::topology_from_members(watch.members)
+  }
+}
+
+impl From<tonic::transport::Error> for RegistryError {
+  fn from(value: tonic::transport::Error) -> Self {
+    RegistryError::OperationFailed(value.to_string())
+  }
+}
+
+impl From<Status> for RegistryError {
+  fn from(value: Status) -> Self {
+    RegistryError::OperationFailed(value.to_string())
+  }
+}
+
+#[async_trait]
+impl RegistryClient for GrpcRegistryClient {
+  async fn join_member(&self, member: RegistryMember) -> Result<RegistryWatch, RegistryError> {
+    let mut client = self.client().await?;
+
+    let request = JoinRequest {
+      member: Some(ProtoMember {
+        cluster_name: member.cluster_name.clone(),
+        node_address: member.node_address.clone(),
+        kinds: member.kinds.clone(),
+      }),
+    };
+
+    let mut stream = client.join(request).await?.into_inner();
+
+    let first_update = stream.message().await?.ok_or_else(|| RegistryError::WatchClosed)?;
+
+    let topology = Self::update_from_watch(first_update);
+    let (sender, receiver) = broadcast::channel(32);
+    let _ = sender.send(topology.clone());
+
+    let sender_clone = sender.clone();
+    tokio::spawn(async move {
+      loop {
+        match stream.message().await {
+          Ok(Some(update)) => {
+            let topology = GrpcRegistryClient::update_from_watch(update);
+            let _ = sender_clone.send(topology);
+          }
+          Ok(None) => break,
+          Err(status) => {
+            warn!(?status, "registry watch terminated");
+            break;
+          }
+        }
+      }
+    });
+
+    Ok(RegistryWatch::new(topology, receiver))
+  }
+
+  async fn leave_member(&self, cluster_name: &str, node_address: &str) -> Result<(), RegistryError> {
+    let mut client = self.client().await?;
+    let request = LeaveRequest {
+      cluster_name: cluster_name.to_string(),
+      node_address: node_address.to_string(),
+    };
+    client.leave(request).await?;
+    Ok(())
+  }
+
+  async fn register_client(&self, cluster_name: &str, client_id: &str) -> Result<(), RegistryError> {
+    let mut client = self.client().await?;
+    let request = RegisterClientRequest {
+      cluster_name: cluster_name.to_string(),
+      client_id: client_id.to_string(),
+    };
+    client.register_client(request).await?;
+    Ok(())
   }
 }
 
