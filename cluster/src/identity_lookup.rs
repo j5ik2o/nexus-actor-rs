@@ -5,6 +5,7 @@ use std::sync::{Arc, RwLock as StdRwLock};
 use async_trait::async_trait;
 use dashmap::DashMap;
 use thiserror::Error;
+use tracing::warn;
 
 use nexus_actor_core_rs::actor::core::ExtendedPid;
 
@@ -153,6 +154,44 @@ impl DistributedIdentityLookup {
 
   fn forget(&self, identity: &ClusterIdentity) {
     self.entries.remove(identity);
+  }
+
+  pub async fn sync_after_topology_change(&self, manager: Arc<PartitionManager>, local_address: String) {
+    let mut to_remove = Vec::new();
+    let mut to_reactivate = Vec::new();
+
+    for entry in self.entries.iter() {
+      let identity = entry.key().clone();
+      let pid = entry.value().clone();
+      match manager.owner_for(identity.kind(), identity.id()) {
+        Some(owner) if owner == pid.address() => {}
+        Some(owner) if owner == local_address => {
+          to_reactivate.push(identity);
+        }
+        _ => {
+          to_remove.push(identity);
+        }
+      }
+    }
+
+    for identity in to_remove {
+      self.entries.remove(&identity);
+    }
+
+    for identity in to_reactivate {
+      self.entries.remove(&identity);
+      let kind = identity.kind().to_string();
+      let id = identity.id().to_string();
+      match manager.activate(identity.clone()).await {
+        Ok(Some(pid)) => {
+          self.record(identity, pid);
+        }
+        Ok(None) => {}
+        Err(err) => {
+          warn!(?err, %kind, %id, "failed to reactivate identity after topology change");
+        }
+      }
+    }
   }
 }
 

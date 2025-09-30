@@ -13,6 +13,7 @@ use crate::partition::manager::ClusterTopology;
 use crate::partition::messages::{ActivationRequest, ActivationResponse};
 use crate::rendezvous::Rendezvous;
 use crate::virtual_actor::VirtualActorContext;
+use tracing::warn;
 
 #[derive(Debug, Clone)]
 struct ActivationEntry {
@@ -95,7 +96,10 @@ impl PlacementActor {
     let rendezvous = Rendezvous::new();
     rendezvous.update_members(topology.members);
 
-    let to_poison = self
+    let identity_lookup = self.cluster.identity_lookup();
+    let partition_manager = self.cluster.partition_manager();
+
+    let handoffs = self
       .activations
       .iter()
       .filter_map(|entry| {
@@ -103,12 +107,41 @@ impl PlacementActor {
         let owner = rendezvous.owner_for_kind_identity(activation.identity.kind(), activation.identity.id());
         match owner.as_deref() {
           Some(owner_addr) if owner_addr == address => None,
-          _ => Some(activation.pid.clone()),
+          _ => Some((
+            entry.key().clone(),
+            activation.identity.clone(),
+            activation.pid.clone(),
+            owner,
+          )),
         }
       })
       .collect::<Vec<_>>();
 
-    for pid in to_poison {
+    for (key, identity, pid, owner) in handoffs {
+      if let Err(err) = identity_lookup.remove(&identity).await {
+        warn!(
+          ?err,
+          kind = identity.kind(),
+          id = identity.id(),
+          "failed to purge identity from lookup during rebalance"
+        );
+      }
+
+      if let Some(owner_addr) = owner {
+        if owner_addr != address {
+          if let Err(err) = partition_manager.activate(identity.clone()).await {
+            warn!(
+              ?err,
+              kind = identity.kind(),
+              id = identity.id(),
+              owner = owner_addr,
+              "failed to activate identity on new owner during rebalance"
+            );
+          }
+        }
+      }
+
+      self.activations.remove(&key);
       context.poison(&pid).await;
     }
 
