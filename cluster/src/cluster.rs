@@ -430,7 +430,10 @@ mod tests {
   use nexus_actor_core_rs::actor::message::MessageHandle;
   use nexus_actor_core_rs::actor::process::actor_future::ActorFuture;
   use nexus_actor_message_derive_rs::Message as MessageDerive;
+  use nexus_actor_remote_rs::initialize_json_serializers;
+  use serde::{Deserialize, Serialize};
   use std::collections::HashSet;
+  use std::net::TcpListener;
   use std::sync::Arc;
   use std::time::Duration;
   use tokio::sync::{oneshot, Mutex};
@@ -470,6 +473,56 @@ mod tests {
       }
       Err(ActorError::of_receive_error(ErrorReason::from("unexpected message")))
     }
+  }
+
+  #[derive(Debug, Clone, PartialEq, MessageDerive, Serialize, Deserialize)]
+  struct RemoteEchoRequest {
+    text: String,
+  }
+
+  impl RemoteEchoRequest {
+    fn new<T: Into<String>>(text: T) -> Self {
+      Self { text: text.into() }
+    }
+  }
+
+  #[derive(Debug, Clone, PartialEq, MessageDerive, Serialize, Deserialize)]
+  struct RemoteEchoResponse {
+    text: String,
+  }
+
+  impl RemoteEchoResponse {
+    fn new<T: Into<String>>(text: T) -> Self {
+      Self { text: text.into() }
+    }
+  }
+
+  #[derive(Debug)]
+  struct RemoteEchoActor;
+
+  #[async_trait]
+  impl VirtualActor for RemoteEchoActor {
+    async fn activate(&mut self, _ctx: &VirtualActorContext) -> Result<(), ActorError> {
+      Ok(())
+    }
+
+    async fn handle(&mut self, message: MessageHandle, runtime: VirtualActorRuntime<'_>) -> Result<(), ActorError> {
+      if let Some(request) = message.to_typed::<RemoteEchoRequest>() {
+        runtime
+          .respond(RemoteEchoResponse::new(format!("echo:{}", request.text)))
+          .await;
+        return Ok(());
+      }
+
+      Err(ActorError::of_receive_error(ErrorReason::from("unsupported message")))
+    }
+  }
+
+  fn allocate_port() -> u16 {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("allocate port");
+    let port = listener.local_addr().expect("local addr").port();
+    drop(listener);
+    port
   }
 
   #[derive(Debug)]
@@ -844,6 +897,89 @@ mod tests {
 
     cluster_a.shutdown(true).await.expect("shutdown a");
     cluster_b.shutdown(true).await.expect("shutdown b");
+  }
+
+  #[tokio::test]
+  async fn remote_activation_request_roundtrip() {
+    initialize_json_serializers::<RemoteEchoRequest>().expect("register request serializer");
+    initialize_json_serializers::<RemoteEchoResponse>().expect("register response serializer");
+
+    let provider = Arc::new(InMemoryClusterProvider::new());
+
+    let port_a = allocate_port();
+    let port_b = allocate_port();
+
+    let system_a = Arc::new(ActorSystem::new().await.expect("system a"));
+    let system_b = Arc::new(ActorSystem::new().await.expect("system b"));
+
+    let cluster_a = Cluster::new(
+      system_a.clone(),
+      ClusterConfig::new("cluster-remote-a")
+        .with_provider(provider.clone())
+        .with_remote_options(RemoteOptions::new("127.0.0.1", port_a)),
+    );
+    let cluster_b = Cluster::new(
+      system_b.clone(),
+      ClusterConfig::new("cluster-remote-b")
+        .with_provider(provider.clone())
+        .with_remote_options(RemoteOptions::new("127.0.0.1", port_b)),
+    );
+
+    cluster_a.register_kind(ClusterKind::virtual_actor("remote-echo", move |_identity| async {
+      RemoteEchoActor
+    }));
+    cluster_b.register_kind(ClusterKind::virtual_actor("remote-echo", move |_identity| async {
+      RemoteEchoActor
+    }));
+
+    cluster_a.start_member().await.expect("start member a");
+    cluster_b.start_member().await.expect("start member b");
+
+    let addr_a = system_a.get_address().await;
+    let addr_b = system_b.get_address().await;
+
+    let partition_manager = cluster_a.partition_manager();
+    let identity_key = loop {
+      if let Some(candidate) = (0..1024).map(|idx| format!("remote-{idx}")).find(|candidate| {
+        partition_manager
+          .owner_for("remote-echo", candidate)
+          .map(|owner| owner == addr_b)
+          .unwrap_or(false)
+      }) {
+        break candidate;
+      }
+
+      tokio::time::sleep(Duration::from_millis(50)).await;
+    };
+
+    let identity = ClusterIdentity::new("remote-echo", identity_key);
+
+    let response = cluster_a
+      .request_message(identity.clone(), RemoteEchoRequest::new("hi"))
+      .await
+      .expect("remote request response");
+
+    let echo = response.to_typed::<RemoteEchoResponse>().expect("typed response");
+    assert_eq!(echo.text, "echo:hi");
+
+    let lookup_handle = cluster_a.identity_lookup();
+    let distributed = lookup_handle
+      .as_any()
+      .downcast_ref::<DistributedIdentityLookup>()
+      .expect("distributed lookup");
+    let cached = distributed
+      .snapshot()
+      .into_iter()
+      .find(|(cached_identity, _)| cached_identity == &identity);
+    let (_, pid) = cached.expect("cached remote pid");
+    assert_eq!(pid.address(), addr_b);
+
+    cluster_a.shutdown(true).await.expect("shutdown a");
+    cluster_b.shutdown(true).await.expect("shutdown b");
+
+    // ensure local system address unchanged
+    assert_eq!(system_a.get_address().await, addr_a);
+    assert_eq!(system_b.get_address().await, addr_b);
   }
 
   #[tokio::test]
