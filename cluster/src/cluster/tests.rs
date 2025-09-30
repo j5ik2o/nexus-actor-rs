@@ -532,6 +532,58 @@ async fn test_rebalance_moves_activation_to_new_owner() {
 }
 
 #[tokio::test]
+async fn test_activate_local_populates_lookup_cache() {
+  let provider = Arc::new(InMemoryClusterProvider::new());
+
+  let system = ActorSystem::new().await.expect("actor system");
+  let system_arc = Arc::new(system.clone());
+
+  let cluster = Cluster::new(
+    system_arc.clone(),
+    ClusterConfig::new("cluster-local-cache").with_provider(provider.clone()),
+  );
+
+  cluster.register_kind(ClusterKind::virtual_actor(
+    "ask",
+    move |_identity| async move { AskActor },
+  ));
+
+  cluster.start_member().await.expect("start member");
+
+  let address = system.get_address().await;
+  let partition_manager = cluster.partition_manager();
+
+  partition_manager
+    .update_topology(ClusterTopology {
+      members: vec![ClusterMember::new(address.clone(), vec!["ask".to_string()])],
+    })
+    .await;
+
+  let identity = ClusterIdentity::new("ask", "cache-target");
+
+  let pid = partition_manager
+    .activate_local(identity.clone())
+    .await
+    .expect("activation succeeds")
+    .expect("pid returned");
+  assert_eq!(pid.address(), address);
+
+  let lookup = cluster.identity_lookup();
+  let distributed = lookup
+    .as_any()
+    .downcast_ref::<DistributedIdentityLookup>()
+    .expect("distributed lookup");
+  let cached = distributed
+    .snapshot()
+    .into_iter()
+    .find(|(cached_identity, _)| cached_identity == &identity)
+    .expect("cached identity");
+  assert_eq!(cached.1.address(), address);
+
+  cluster.shutdown(true).await.expect("shutdown");
+}
+
+#[tokio::test]
 async fn remote_activation_request_roundtrip() {
   initialize_json_serializers::<RemoteEchoRequest>().expect("register request serializer");
   initialize_json_serializers::<RemoteEchoResponse>().expect("register response serializer");

@@ -35,6 +35,16 @@ impl PlacementActor {
     }
   }
 
+  async fn sync_local_identity_cache(&self, identity: ClusterIdentity, pid: ExtendedPid) {
+    let kind = identity.kind().to_string();
+    let id = identity.id().to_string();
+    let lookup = self.cluster.identity_lookup();
+
+    if let Err(err) = lookup.set(identity, pid).await {
+      warn!(?err, %kind, %id, "failed to update identity lookup cache after activation");
+    }
+  }
+
   async fn handle_activation_request(
     &self,
     request: ActivationRequest,
@@ -43,10 +53,15 @@ impl PlacementActor {
     let key = request.identity.as_key();
 
     if let Some(existing) = self.activations.get(&key) {
+      let pid = existing.value().pid.clone();
+      drop(existing);
+
+      self
+        .sync_local_identity_cache(request.identity.clone(), pid.clone())
+        .await;
+
       context
-        .respond(ResponseHandle::new(ActivationResponse {
-          pid: Some(existing.value().pid.clone()),
-        }))
+        .respond(ResponseHandle::new(ActivationResponse { pid: Some(pid) }))
         .await;
       return Ok(());
     }
@@ -80,6 +95,10 @@ impl PlacementActor {
         pid: pid.clone(),
       },
     );
+
+    self
+      .sync_local_identity_cache(request.identity.clone(), pid.clone())
+      .await;
 
     context
       .respond(ResponseHandle::new(ActivationResponse { pid: Some(pid) }))
