@@ -5,6 +5,7 @@ use async_trait::async_trait;
 use nexus_actor_core_rs::actor::core::{ActorError, ErrorReason};
 use nexus_actor_core_rs::actor::message::MessageHandle;
 use nexus_actor_core_rs::actor::process::actor_future::ActorFuture;
+use nexus_actor_core_rs::actor::process::future::ActorFutureError;
 use nexus_actor_message_derive_rs::Message as MessageDerive;
 use nexus_actor_remote_rs::{initialize_json_serializers, initialize_proto_serializers};
 use serde::{Deserialize, Serialize};
@@ -219,6 +220,20 @@ impl VirtualActor for MissingSerializerActor {
     }
 
     Err(ActorError::of_receive_error(ErrorReason::from("unsupported message")))
+  }
+}
+
+#[derive(Debug)]
+struct RemoteFailingActor;
+
+#[async_trait]
+impl VirtualActor for RemoteFailingActor {
+  async fn activate(&mut self, _ctx: &VirtualActorContext) -> Result<(), ActorError> {
+    Ok(())
+  }
+
+  async fn handle(&mut self, _message: MessageHandle, _runtime: VirtualActorRuntime<'_>) -> Result<(), ActorError> {
+    Err(ActorError::of_receive_error(ErrorReason::from("intentional failure")))
   }
 }
 
@@ -739,6 +754,75 @@ async fn remote_activation_timeout_propagates_error() {
   match err {
     ClusterError::RequestTimeout(duration) => assert!(duration <= Duration::from_millis(200)),
     other => panic!("unexpected error: {other:?}"),
+  }
+
+  cluster_a.shutdown(true).await.expect("shutdown a");
+  cluster_b.shutdown(true).await.expect("shutdown b");
+}
+
+#[tokio::test]
+async fn remote_activation_failure_propagates_status() {
+  initialize_json_serializers::<RemoteEchoRequest>().expect("register request serializer");
+
+  let provider = Arc::new(InMemoryClusterProvider::new());
+
+  let port_a = allocate_port();
+  let port_b = allocate_port();
+
+  let system_a = Arc::new(ActorSystem::new().await.expect("system a"));
+  let system_b = Arc::new(ActorSystem::new().await.expect("system b"));
+
+  let cluster_a = Cluster::new(
+    system_a.clone(),
+    ClusterConfig::new("cluster-remote-failure-a")
+      .with_provider(provider.clone())
+      .with_remote_options(RemoteOptions::new("127.0.0.1", port_a)),
+  );
+  let cluster_b = Cluster::new(
+    system_b.clone(),
+    ClusterConfig::new("cluster-remote-failure-b")
+      .with_provider(provider.clone())
+      .with_remote_options(RemoteOptions::new("127.0.0.1", port_b)),
+  );
+
+  cluster_a.register_kind(ClusterKind::virtual_actor("remote-fail", move |_identity| async {
+    RemoteFailingActor
+  }));
+  cluster_b.register_kind(ClusterKind::virtual_actor("remote-fail", move |_identity| async {
+    RemoteFailingActor
+  }));
+
+  cluster_a.start_member().await.expect("start member a");
+  cluster_b.start_member().await.expect("start member b");
+
+  let addr_b = system_b.get_address().await;
+  let partition_manager = cluster_a.partition_manager();
+  let identity_key = loop {
+    if let Some(candidate) = (0..1024).map(|idx| format!("fail-{idx}")).find(|candidate| {
+      partition_manager
+        .owner_for("remote-fail", candidate)
+        .map(|owner| owner == addr_b)
+        .unwrap_or(false)
+    }) {
+      break candidate;
+    }
+
+    sleep(Duration::from_millis(50)).await;
+  };
+
+  let identity = ClusterIdentity::new("remote-fail", identity_key);
+
+  let err = cluster_a
+    .request_message(identity, RemoteEchoRequest::new("boom"))
+    .await
+    .expect_err("remote failure");
+
+  match err {
+    ClusterError::Partition(PartitionManagerError::RequestFailed(inner))
+      if inner == ActorFutureError::DeadLetterError => {}
+    ClusterError::RequestFailed(inner) if inner == ActorFutureError::DeadLetterError => {}
+    ClusterError::RequestTimeout(_) => {}
+    other => panic!("unexpected error variant: {other:?}"),
   }
 
   cluster_a.shutdown(true).await.expect("shutdown a");
