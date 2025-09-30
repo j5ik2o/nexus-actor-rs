@@ -430,7 +430,7 @@ mod tests {
   use nexus_actor_core_rs::actor::message::MessageHandle;
   use nexus_actor_core_rs::actor::process::actor_future::ActorFuture;
   use nexus_actor_message_derive_rs::Message as MessageDerive;
-  use nexus_actor_remote_rs::initialize_json_serializers;
+  use nexus_actor_remote_rs::{initialize_json_serializers, initialize_proto_serializers};
   use serde::{Deserialize, Serialize};
   use std::collections::HashSet;
   use std::net::TcpListener;
@@ -510,6 +510,65 @@ mod tests {
       if let Some(request) = message.to_typed::<RemoteEchoRequest>() {
         runtime
           .respond(RemoteEchoResponse::new(format!("echo:{}", request.text)))
+          .await;
+        return Ok(());
+      }
+
+      Err(ActorError::of_receive_error(ErrorReason::from("unsupported message")))
+    }
+  }
+
+  #[derive(Debug)]
+  struct RemoteSilentActor;
+
+  #[async_trait]
+  impl VirtualActor for RemoteSilentActor {
+    async fn activate(&mut self, _ctx: &VirtualActorContext) -> Result<(), ActorError> {
+      Ok(())
+    }
+
+    async fn handle(&mut self, _message: MessageHandle, _runtime: VirtualActorRuntime<'_>) -> Result<(), ActorError> {
+      Ok(())
+    }
+  }
+
+  #[derive(Clone, PartialEq, MessageDerive, prost::Message)]
+  struct RemoteProtoRequest {
+    #[prost(string, tag = "1")]
+    text: String,
+  }
+
+  impl RemoteProtoRequest {
+    fn new<T: Into<String>>(text: T) -> Self {
+      Self { text: text.into() }
+    }
+  }
+
+  #[derive(Clone, PartialEq, MessageDerive, prost::Message)]
+  struct RemoteProtoResponse {
+    #[prost(string, tag = "1")]
+    text: String,
+  }
+
+  impl RemoteProtoResponse {
+    fn new<T: Into<String>>(text: T) -> Self {
+      Self { text: text.into() }
+    }
+  }
+
+  #[derive(Debug)]
+  struct RemoteProtoActor;
+
+  #[async_trait]
+  impl VirtualActor for RemoteProtoActor {
+    async fn activate(&mut self, _ctx: &VirtualActorContext) -> Result<(), ActorError> {
+      Ok(())
+    }
+
+    async fn handle(&mut self, message: MessageHandle, runtime: VirtualActorRuntime<'_>) -> Result<(), ActorError> {
+      if let Some(request) = message.to_typed::<RemoteProtoRequest>() {
+        runtime
+          .respond(RemoteProtoResponse::new(format!("proto:{}", request.text)))
           .await;
         return Ok(());
       }
@@ -980,6 +1039,153 @@ mod tests {
     // ensure local system address unchanged
     assert_eq!(system_a.get_address().await, addr_a);
     assert_eq!(system_b.get_address().await, addr_b);
+  }
+
+  #[tokio::test]
+  async fn remote_activation_timeout_propagates_error() {
+    initialize_json_serializers::<RemoteEchoRequest>().expect("register request serializer");
+
+    let provider = Arc::new(InMemoryClusterProvider::new());
+
+    let port_a = allocate_port();
+    let port_b = allocate_port();
+
+    let system_a = Arc::new(ActorSystem::new().await.expect("system a"));
+    let system_b = Arc::new(ActorSystem::new().await.expect("system b"));
+
+    let cluster_a = Cluster::new(
+      system_a.clone(),
+      ClusterConfig::new("cluster-remote-timeout-a")
+        .with_provider(provider.clone())
+        .with_request_timeout(Duration::from_millis(200))
+        .with_remote_options(RemoteOptions::new("127.0.0.1", port_a)),
+    );
+    let cluster_b = Cluster::new(
+      system_b.clone(),
+      ClusterConfig::new("cluster-remote-timeout-b")
+        .with_provider(provider.clone())
+        .with_request_timeout(Duration::from_millis(200))
+        .with_remote_options(RemoteOptions::new("127.0.0.1", port_b)),
+    );
+
+    cluster_a.register_kind(ClusterKind::virtual_actor("remote-silent", move |_identity| async {
+      RemoteSilentActor
+    }));
+    cluster_b.register_kind(ClusterKind::virtual_actor("remote-silent", move |_identity| async {
+      RemoteSilentActor
+    }));
+
+    cluster_a.start_member().await.expect("start member a");
+    cluster_b.start_member().await.expect("start member b");
+
+    let addr_b = system_b.get_address().await;
+    let partition_manager = cluster_a.partition_manager();
+    let identity_key = loop {
+      if let Some(candidate) = (0..1024).map(|idx| format!("silent-{idx}")).find(|candidate| {
+        partition_manager
+          .owner_for("remote-silent", candidate)
+          .map(|owner| owner == addr_b)
+          .unwrap_or(false)
+      }) {
+        break candidate;
+      }
+
+      tokio::time::sleep(Duration::from_millis(50)).await;
+    };
+
+    let identity = ClusterIdentity::new("remote-silent", identity_key);
+
+    let err = cluster_a
+      .request_message(identity, RemoteEchoRequest::new("timeout"))
+      .await
+      .expect_err("timeout error");
+
+    match err {
+      ClusterError::RequestTimeout(duration) => assert!(duration <= Duration::from_millis(200)),
+      other => panic!("unexpected error: {other:?}"),
+    }
+
+    cluster_a.shutdown(true).await.expect("shutdown a");
+    cluster_b.shutdown(true).await.expect("shutdown b");
+  }
+
+  #[tokio::test]
+  async fn remote_activation_proto_roundtrip() {
+    initialize_proto_serializers::<RemoteProtoRequest>().expect("register proto request");
+    initialize_proto_serializers::<RemoteProtoResponse>().expect("register proto response");
+
+    let provider = Arc::new(InMemoryClusterProvider::new());
+
+    let port_a = allocate_port();
+    let port_b = allocate_port();
+
+    let system_a = Arc::new(ActorSystem::new().await.expect("system a"));
+    let system_b = Arc::new(ActorSystem::new().await.expect("system b"));
+
+    let cluster_a = Cluster::new(
+      system_a.clone(),
+      ClusterConfig::new("cluster-remote-proto-a")
+        .with_provider(provider.clone())
+        .with_remote_options(RemoteOptions::new("127.0.0.1", port_a)),
+    );
+    let cluster_b = Cluster::new(
+      system_b.clone(),
+      ClusterConfig::new("cluster-remote-proto-b")
+        .with_provider(provider.clone())
+        .with_remote_options(RemoteOptions::new("127.0.0.1", port_b)),
+    );
+
+    cluster_a.register_kind(ClusterKind::virtual_actor("remote-proto", move |_identity| async {
+      RemoteProtoActor
+    }));
+    cluster_b.register_kind(ClusterKind::virtual_actor("remote-proto", move |_identity| async {
+      RemoteProtoActor
+    }));
+
+    cluster_a.start_member().await.expect("start member a");
+    cluster_b.start_member().await.expect("start member b");
+
+    let addr_b = system_b.get_address().await;
+    let partition_manager = cluster_a.partition_manager();
+    let identity_key = loop {
+      if let Some(candidate) = (0..1024).map(|idx| format!("proto-{idx}")).find(|candidate| {
+        partition_manager
+          .owner_for("remote-proto", candidate)
+          .map(|owner| owner == addr_b)
+          .unwrap_or(false)
+      }) {
+        break candidate;
+      }
+
+      tokio::time::sleep(Duration::from_millis(50)).await;
+    };
+
+    let identity = ClusterIdentity::new("remote-proto", identity_key);
+
+    let response = cluster_a
+      .request_message(identity.clone(), RemoteProtoRequest::new("hi"))
+      .await
+      .expect("proto response");
+
+    let echo = response
+      .to_typed::<RemoteProtoResponse>()
+      .expect("proto typed response");
+    assert_eq!(echo.text, "proto:hi");
+
+    let lookup_handle = cluster_a.identity_lookup();
+    let distributed = lookup_handle
+      .as_any()
+      .downcast_ref::<DistributedIdentityLookup>()
+      .expect("distributed lookup");
+    let cached = distributed
+      .snapshot()
+      .into_iter()
+      .find(|(cached_identity, _)| cached_identity == &identity);
+    let (_, pid) = cached.expect("cached proto pid");
+    assert_eq!(pid.address(), addr_b);
+
+    cluster_a.shutdown(true).await.expect("shutdown a");
+    cluster_b.shutdown(true).await.expect("shutdown b");
   }
 
   #[tokio::test]
