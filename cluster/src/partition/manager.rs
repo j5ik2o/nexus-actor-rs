@@ -16,6 +16,7 @@ use crate::partition::messages::{ActivationRequest, ActivationResponse};
 use crate::partition::placement_actor::PlacementActor;
 use crate::rendezvous::{ClusterMember, Rendezvous};
 use nexus_actor_core_rs::generated::actor::Pid;
+use tracing::warn;
 
 const PARTITION_ACTIVATOR_NAME: &str = "partition-activator";
 
@@ -107,7 +108,9 @@ impl PartitionManager {
       };
       let mut root = cluster.actor_system().get_root_context().await;
       let future = root.poison_future_with_timeout(&pid, self.request_timeout()).await;
-      let _ = future.result().await;
+      if let Err(err) = future.result().await {
+        warn!(?err, actor = %pid, "failed to poison placement actor during shutdown");
+      }
     }
   }
 

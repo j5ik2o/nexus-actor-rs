@@ -318,7 +318,9 @@ impl Cluster {
 
     for pid in &pids {
       let future = root.stop_future_with_timeout(pid, self.request_timeout()).await;
-      let _ = future.result().await;
+      if let Err(err) = future.result().await {
+        warn!(?err, pid = %pid, "failed to stop actor during shutdown");
+      }
     }
 
     self.identity_lookup.shutdown().await.map_err(ClusterError::from)?;
@@ -435,8 +437,12 @@ mod tests {
 
   use crate::config::RemoteOptions;
   use crate::identity::ClusterIdentity;
+  use crate::identity_lookup::DistributedIdentityLookup;
+  use crate::partition::manager::ClusterTopology;
   use crate::provider::InMemoryClusterProvider;
+  use crate::rendezvous::ClusterMember;
   use crate::virtual_actor::{VirtualActor, VirtualActorContext, VirtualActorRuntime};
+  use tokio::time::{sleep, timeout};
 
   #[derive(Debug, Clone, PartialEq, MessageDerive)]
   struct Ping(pub String);
@@ -721,6 +727,120 @@ mod tests {
     assert!(owners_a.contains(&addr_b));
     assert!(owners_b.contains(&addr_a));
     assert!(owners_b.contains(&addr_b));
+
+    cluster_a.shutdown(true).await.expect("shutdown a");
+    cluster_b.shutdown(true).await.expect("shutdown b");
+  }
+
+  #[tokio::test]
+  async fn test_rebalance_moves_activation_to_new_owner() {
+    let provider = Arc::new(InMemoryClusterProvider::new());
+
+    let system_a = ActorSystem::new().await.expect("system a");
+    let system_b = ActorSystem::new().await.expect("system b");
+    let system_a_arc = Arc::new(system_a.clone());
+    let system_b_arc = Arc::new(system_b.clone());
+
+    let cluster_a = Cluster::new(
+      system_a_arc.clone(),
+      ClusterConfig::new("cluster-rebalance").with_provider(provider.clone()),
+    );
+    let cluster_b = Cluster::new(
+      system_b_arc.clone(),
+      ClusterConfig::new("cluster-rebalance").with_provider(provider.clone()),
+    );
+
+    cluster_a.register_kind(ClusterKind::virtual_actor(
+      "ask",
+      move |_identity| async move { AskActor },
+    ));
+    cluster_b.register_kind(ClusterKind::virtual_actor(
+      "ask",
+      move |_identity| async move { AskActor },
+    ));
+
+    cluster_a.start_member().await.expect("start member a");
+    cluster_b.start_member().await.expect("start member b");
+
+    let addr_a = system_a.get_address().await;
+    let addr_b = system_b.get_address().await;
+
+    let pm_a = cluster_a.partition_manager();
+    let pm_b = cluster_b.partition_manager();
+
+    let identity_key = (0..2048)
+      .map(|idx| format!("id-{idx}"))
+      .find(|id| pm_a.owner_for("ask", id.as_str()) == Some(addr_b.clone()))
+      .expect("identity for remote owner");
+
+    let identity = ClusterIdentity::new("ask", identity_key.clone());
+    let lookup_a = cluster_a.identity_lookup();
+
+    let remote_pid = lookup_a
+      .get(&identity)
+      .await
+      .expect("lookup remote")
+      .expect("remote pid");
+    assert_eq!(remote_pid.address(), addr_b);
+
+    let distributed_a = lookup_a
+      .as_any()
+      .downcast_ref::<DistributedIdentityLookup>()
+      .expect("distributed lookup a");
+    let cached_remote = distributed_a
+      .snapshot()
+      .into_iter()
+      .find(|(cached_identity, _)| cached_identity == &identity)
+      .expect("cached identity entry");
+    assert_eq!(cached_remote.1.address(), addr_b);
+
+    let single_member = ClusterMember::new(addr_a.clone(), vec!["ask".to_string()]);
+    pm_a
+      .update_topology(ClusterTopology {
+        members: vec![single_member.clone()],
+      })
+      .await;
+    pm_b
+      .update_topology(ClusterTopology {
+        members: vec![single_member],
+      })
+      .await;
+
+    let identity_for_poll = identity.clone();
+    let addr_a_for_poll = addr_a.clone();
+    let lookup_for_poll = lookup_a.clone();
+
+    let local_pid = timeout(Duration::from_secs(3), async move {
+      loop {
+        if let Some(distributed) = lookup_for_poll.as_any().downcast_ref::<DistributedIdentityLookup>() {
+          if let Some((_, pid)) = distributed
+            .snapshot()
+            .into_iter()
+            .find(|(cached_identity, _)| cached_identity == &identity_for_poll)
+          {
+            if pid.address() == addr_a_for_poll {
+              return pid;
+            }
+          }
+        }
+        sleep(Duration::from_millis(50)).await;
+      }
+    })
+    .await
+    .expect("rebalance to local owner within timeout");
+
+    assert_eq!(local_pid.address(), addr_a);
+
+    let lookup_b = cluster_b.identity_lookup();
+    let distributed_b = lookup_b
+      .as_any()
+      .downcast_ref::<DistributedIdentityLookup>()
+      .expect("distributed lookup b");
+    let retained_remote = distributed_b
+      .snapshot()
+      .into_iter()
+      .any(|(cached_identity, _)| cached_identity == identity);
+    assert!(!retained_remote, "remote cache should be cleared after handoff");
 
     cluster_a.shutdown(true).await.expect("shutdown a");
     cluster_b.shutdown(true).await.expect("shutdown b");

@@ -156,6 +156,14 @@ impl DistributedIdentityLookup {
     self.entries.remove(identity);
   }
 
+  pub fn snapshot(&self) -> Vec<(ClusterIdentity, ExtendedPid)> {
+    self
+      .entries
+      .iter()
+      .map(|entry| (entry.key().clone(), entry.value().clone()))
+      .collect()
+  }
+
   pub async fn sync_after_topology_change(&self, manager: Arc<PartitionManager>, local_address: String) {
     let mut to_remove = Vec::new();
     let mut to_reactivate = Vec::new();
