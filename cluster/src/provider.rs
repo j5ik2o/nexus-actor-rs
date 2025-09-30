@@ -709,6 +709,7 @@ mod tests {
   use nexus_actor_core_rs::actor::core::ActorError;
   use nexus_actor_core_rs::actor::message::MessageHandle;
   use std::collections::{HashMap, HashSet};
+  use std::env;
   use std::net::SocketAddr;
   use std::sync::Arc;
   use tokio::sync::Mutex as TokioMutex;
@@ -821,6 +822,19 @@ mod tests {
     async fn handle(&mut self, _message: MessageHandle, _runtime: VirtualActorRuntime<'_>) -> Result<(), ActorError> {
       Ok(())
     }
+  }
+
+  fn time_factor() -> f64 {
+    env::var("TIME_FACTOR")
+      .ok()
+      .and_then(|value| value.parse::<f64>().ok())
+      .filter(|factor| *factor > 0.0)
+      .unwrap_or(1.0)
+  }
+
+  fn scaled_duration(base: Duration) -> Duration {
+    let nanos = base.as_secs_f64() * time_factor();
+    Duration::from_secs_f64(nanos)
   }
 
   async fn wait_for_event<F>(
@@ -963,7 +977,7 @@ mod tests {
     let remote_addr = system_b.get_address().await;
 
     assert!(
-      wait_for_event(&events, Duration::from_secs(3), |items| {
+      wait_for_event(&events, scaled_duration(Duration::from_secs(3)), |items| {
         items
           .iter()
           .any(|event| event.event_type == "registered" && event.node_address.is_some())
@@ -973,7 +987,7 @@ mod tests {
     );
 
     assert!(
-      wait_for_event(&events, Duration::from_secs(3), |items| {
+      wait_for_event(&events, scaled_duration(Duration::from_secs(3)), |items| {
         items
           .iter()
           .filter(|event| event.event_type == "snapshot")
@@ -987,7 +1001,7 @@ mod tests {
     cluster_b.shutdown(true).await.expect("shutdown b");
 
     assert!(
-      wait_for_event(&events, Duration::from_secs(3), |items| {
+      wait_for_event(&events, scaled_duration(Duration::from_secs(3)), |items| {
         items
           .iter()
           .any(|event| event.event_type == "deregistered" && event.node_address.is_some())
@@ -1003,10 +1017,10 @@ mod tests {
   async fn grpc_registry_provider_real_server_handles_heartbeat_timeout() {
     let addr = SocketAddr::new("127.0.0.1".parse().unwrap(), MockRegistryClient::allocate_port());
     let server_config = GrpcRegistryServerConfig {
-      heartbeat_timeout: Duration::from_millis(600),
-      cleanup_interval: Duration::from_millis(200),
-      http2_keepalive_interval: Duration::from_millis(200),
-      http2_keepalive_timeout: Duration::from_millis(100),
+      heartbeat_timeout: scaled_duration(Duration::from_millis(600)),
+      cleanup_interval: scaled_duration(Duration::from_millis(200)),
+      http2_keepalive_interval: scaled_duration(Duration::from_millis(200)),
+      http2_keepalive_timeout: scaled_duration(Duration::from_millis(100)),
     };
     let (_service, server_handle) = spawn_registry_server(addr, server_config.clone());
 
@@ -1014,7 +1028,7 @@ mod tests {
     let grpc_provider = Arc::new(GrpcRegistryClusterProvider::with_settings(
       client.clone(),
       GrpcRegistrySettings {
-        heartbeat_interval: Duration::from_millis(150),
+        heartbeat_interval: scaled_duration(Duration::from_millis(150)),
         heartbeat_timeout: server_config.heartbeat_timeout,
       },
     ));
@@ -1064,7 +1078,7 @@ mod tests {
       .await;
 
     assert!(
-      wait_for_event(&events, Duration::from_secs(3), |items| {
+      wait_for_event(&events, scaled_duration(Duration::from_secs(3)), |items| {
         items
           .iter()
           .filter(|event| event.event_type == "snapshot")
@@ -1079,7 +1093,7 @@ mod tests {
     grpc_provider.stop_heartbeat_for_test(&addr_a).await;
 
     assert!(
-      wait_for_event(&events, Duration::from_secs(5), |items| {
+      wait_for_event(&events, scaled_duration(Duration::from_secs(5)), |items| {
         items
           .iter()
           .filter(|event| event.event_type == "snapshot")
