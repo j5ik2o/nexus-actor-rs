@@ -11,7 +11,7 @@
 3. Nightly ベンチ（`mailbox_throughput`）で継続監視し、性能回帰を即検知する。
 
 ## 現況
-- DefaultMailbox 本体とハンドル層（SyncQueue）リファクタは完了。`core/src/actor/dispatch/mailbox/default_mailbox.rs` の `post_*`/`poll_*` は同期化済み。
+- DefaultMailbox 本体とハンドル層（SyncQueue）リファクタは完了。`modules/actor/src/actor/dispatch/mailbox/default_mailbox.rs` の `post_*`/`poll_*` は同期化済み。
 - Remote: `EndpointWriterMailbox` が `parking_lot::Mutex` + SyncQueue API を採用。
 - Cluster: Virtual Actor 経路を含め専用 mailbox は不要となり、DefaultMailbox を直接利用。
 - Integration: `remote/src/tests.rs` で同期化 mailbox が通過する経路をカバーし、互換ブリッジは存在しない。

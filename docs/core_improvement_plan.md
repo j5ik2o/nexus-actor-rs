@@ -5,8 +5,8 @@
 - **検証タスク**: 今後の評価・改善でフォローすべき項目。
 
 ## 同期化の現状
-- `core/src/actor/context/actor_context.rs` と `context_handle.rs` は `ContextBorrow` / `ContextSnapshot` を提供し、ミドルウェアが同期参照で完結するパスを確保済み。
-- Supervisor・メトリクス周りは `ArcSwap` に統一され、`ContextExtensions` も `ArcSwapOption<WeakContextHandle>` ベースで共有（`core/src/actor/context/actor_context_extras.rs`）。
+- `modules/actor/src/actor/context/actor_context.rs` と `context_handle.rs` は `ContextBorrow` / `ContextSnapshot` を提供し、ミドルウェアが同期参照で完結するパスを確保済み。
+- Supervisor・メトリクス周りは `ArcSwap` に統一され、`ContextExtensions` も `ArcSwapOption<WeakContextHandle>` ベースで共有（`modules/actor/src/actor/context/actor_context_extras.rs`）。
 - `scripts/list_arc_mutex_usage.sh` で棚卸しした `Arc<Mutex<_>>` の主要箇所は `PidSet`・`ActorContextExtras` へ移行し、同期ロックによる再入リスクを低減済み。
 
 ## 検証タスク
