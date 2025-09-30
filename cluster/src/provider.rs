@@ -699,6 +699,7 @@ impl InMemoryClusterProvider {
 #[cfg(test)]
 mod tests {
   use super::broadcast;
+  use super::registry_server::{spawn_registry_server, GrpcRegistryServerConfig};
   use super::*;
   use crate::cluster::Cluster;
   use crate::config::{ClusterConfig, RemoteOptions};
@@ -712,7 +713,6 @@ mod tests {
   use std::sync::Arc;
   use tokio::sync::Mutex as TokioMutex;
   use tokio::time::{sleep, timeout, Duration};
-  use super::registry_server::{spawn_registry_server, GrpcRegistryServerConfig};
 
   #[derive(Debug)]
   struct RegistryClusterState {
@@ -1221,7 +1221,9 @@ pub mod registry_server {
 
     async fn upsert_member(&self, member: Member) -> WatchUpdate {
       let mut clusters = self.state.clusters.write().await;
-      let cluster_state = clusters.entry(member.cluster_name.clone()).or_insert_with(ClusterState::new);
+      let cluster_state = clusters
+        .entry(member.cluster_name.clone())
+        .or_insert_with(ClusterState::new);
       cluster_state.members.insert(
         member.node_address.clone(),
         NodeEntry {
@@ -1260,7 +1262,9 @@ pub mod registry_server {
 
     async fn add_client(&self, cluster_name: &str, client_id: &str) {
       let mut clusters = self.state.clusters.write().await;
-      let cluster_state = clusters.entry(cluster_name.to_string()).or_insert_with(ClusterState::new);
+      let cluster_state = clusters
+        .entry(cluster_name.to_string())
+        .or_insert_with(ClusterState::new);
       cluster_state.clients.insert(client_id.to_string());
     }
 
@@ -1295,10 +1299,7 @@ pub mod registry_server {
   impl ClusterRegistry for GrpcRegistryService {
     type JoinStream = UnboundedReceiverStream<Result<WatchUpdate, Status>>;
 
-    async fn join(
-      &self,
-      request: tonic::Request<JoinRequest>,
-    ) -> Result<Response<Self::JoinStream>, Status> {
+    async fn join(&self, request: tonic::Request<JoinRequest>) -> Result<Response<Self::JoinStream>, Status> {
       let member = request
         .into_inner()
         .member
@@ -1334,28 +1335,19 @@ pub mod registry_server {
       Ok(Response::new(UnboundedReceiverStream::new(rx)))
     }
 
-    async fn leave(
-      &self,
-      request: tonic::Request<LeaveRequest>,
-    ) -> Result<Response<()>, Status> {
+    async fn leave(&self, request: tonic::Request<LeaveRequest>) -> Result<Response<()>, Status> {
       let req = request.into_inner();
       self.remove_member(&req.cluster_name, &req.node_address).await;
       Ok(Response::new(()))
     }
 
-    async fn register_client(
-      &self,
-      request: tonic::Request<RegisterClientRequest>,
-    ) -> Result<Response<()>, Status> {
+    async fn register_client(&self, request: tonic::Request<RegisterClientRequest>) -> Result<Response<()>, Status> {
       let req = request.into_inner();
       self.add_client(&req.cluster_name, &req.client_id).await;
       Ok(Response::new(()))
     }
 
-    async fn heartbeat(
-      &self,
-      request: tonic::Request<HeartbeatRequest>,
-    ) -> Result<Response<()>, Status> {
+    async fn heartbeat(&self, request: tonic::Request<HeartbeatRequest>) -> Result<Response<()>, Status> {
       let req = request.into_inner();
       self.update_heartbeat(&req.cluster_name, &req.node_address).await?;
       Ok(Response::new(()))
@@ -1375,4 +1367,4 @@ pub mod registry_server {
 }
 
 #[allow(unused_imports)]
-pub use registry_server::{GrpcRegistryServerConfig, GrpcRegistryService, spawn_registry_server};
+pub use registry_server::{spawn_registry_server, GrpcRegistryServerConfig, GrpcRegistryService};
