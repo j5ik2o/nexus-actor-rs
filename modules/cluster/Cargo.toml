@@ -6,7 +6,7 @@ description = "Cluster library for Nexus Actor"
 license = "MIT OR Apache-2.0"
 keywords = [ "nexus", "actor", "cluster", "grpc", "tonic" ]
 categories = [ "concurrency", "asynchronous", "network-programming" ]
-readme = "../README.md"
+readme = "../../README.md"
 repository = "https://github.com/j5ik2o/nexus-actor-rs"
 
 [dependencies]

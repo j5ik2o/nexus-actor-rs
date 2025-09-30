@@ -6,7 +6,7 @@ description = "A Rust crate for Actors message"
 license = "MIT OR Apache-2.0"
 keywords = [ "actors", "actor-model", "async", "tokio" ]
 categories = [ "concurrency", "asynchronous", "network-programming" ]
-readme = "../README.md"
+readme = "../../README.md"
 repository = "https://github.com/j5ik2o/nexus-actor-rs"
 
 [lib]

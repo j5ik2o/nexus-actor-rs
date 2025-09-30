@@ -145,7 +145,7 @@ cargo run --example actor-hello-world
 ### Protocol Buffers
 
 プロジェクトは通信とシリアライゼーションにProtocol Buffersを使用：
-- `proto/` ディレクトリに`.proto`定義ファイル
+- `modules/proto/` ディレクトリに`.proto`定義ファイル
 - `build.rs` でprostを使用したコード生成
 - `generated/` ディレクトリに生成されたコード
 - remote/clusterモジュールで活用
