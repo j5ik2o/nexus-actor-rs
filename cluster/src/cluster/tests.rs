@@ -666,6 +666,120 @@ async fn remote_activation_request_roundtrip() {
 }
 
 #[tokio::test]
+async fn remote_activation_request_repeated_roundtrip() {
+  initialize_json_serializers::<RemoteEchoRequest>().expect("register request serializer");
+  initialize_json_serializers::<RemoteEchoResponse>().expect("register response serializer");
+
+  let provider = Arc::new(InMemoryClusterProvider::new());
+
+  let port_a = allocate_port();
+  let port_b = allocate_port();
+
+  let system_a = Arc::new(ActorSystem::new().await.expect("system a"));
+  let system_b = Arc::new(ActorSystem::new().await.expect("system b"));
+
+  let cluster_a = Cluster::new(
+    system_a.clone(),
+    ClusterConfig::new("cluster-remote-repeat-a")
+      .with_provider(provider.clone())
+      .with_remote_options(RemoteOptions::new("127.0.0.1", port_a)),
+  );
+  let cluster_b = Cluster::new(
+    system_b.clone(),
+    ClusterConfig::new("cluster-remote-repeat-b")
+      .with_provider(provider.clone())
+      .with_remote_options(RemoteOptions::new("127.0.0.1", port_b)),
+  );
+
+  cluster_a.register_kind(ClusterKind::virtual_actor("remote-echo", move |_identity| async {
+    RemoteEchoActor
+  }));
+  cluster_b.register_kind(ClusterKind::virtual_actor("remote-echo", move |_identity| async {
+    RemoteEchoActor
+  }));
+
+  cluster_a.start_member().await.expect("start member a");
+  cluster_b.start_member().await.expect("start member b");
+
+  let addr_a = system_a.get_address().await;
+  let addr_b = system_b.get_address().await;
+
+  let partition_manager = cluster_a.partition_manager();
+  let identity_key = loop {
+    if let Some(candidate) = (0..2048).map(|idx| format!("repeat-{idx}")).find(|candidate| {
+      partition_manager
+        .owner_for("remote-echo", candidate)
+        .map(|owner| owner == addr_b)
+        .unwrap_or(false)
+    }) {
+      break candidate;
+    }
+    sleep(Duration::from_millis(50)).await;
+  };
+
+  let identity = ClusterIdentity::new("remote-echo", identity_key.clone());
+
+  let mut last_pid = None;
+  let lookup_a = cluster_a.identity_lookup();
+
+  for round in 0..8 {
+    let payload = format!("hi-{round}");
+    let response = cluster_a
+      .request_message(identity.clone(), RemoteEchoRequest::new(payload.clone()))
+      .await
+      .expect("remote response");
+
+    let echo = response.to_typed::<RemoteEchoResponse>().expect("typed response");
+    assert_eq!(echo.text, format!("echo:{payload}"));
+
+    let distributed = lookup_a
+      .as_any()
+      .downcast_ref::<DistributedIdentityLookup>()
+      .expect("distributed lookup a");
+    let cached = distributed
+      .snapshot()
+      .into_iter()
+      .find(|(cached_identity, _)| cached_identity == &identity)
+      .expect("cached remote pid");
+    if let Some(previous) = &last_pid {
+      assert_eq!(cached.1, *previous, "remote pid should remain stable across requests");
+    } else {
+      last_pid = Some(cached.1.clone());
+    }
+    assert_eq!(cached.1.address(), addr_b);
+  }
+
+  let distributed_a = lookup_a
+    .as_any()
+    .downcast_ref::<DistributedIdentityLookup>()
+    .expect("distributed lookup a final");
+  let (_, cached_pid) = distributed_a
+    .snapshot()
+    .into_iter()
+    .find(|(cached_identity, _)| cached_identity == &identity)
+    .expect("cached remote pid final");
+  assert_eq!(cached_pid.address(), addr_b);
+
+  let lookup_b = cluster_b.identity_lookup();
+  let distributed_b = lookup_b
+    .as_any()
+    .downcast_ref::<DistributedIdentityLookup>()
+    .expect("distributed lookup b");
+  let (_, local_pid) = distributed_b
+    .snapshot()
+    .into_iter()
+    .find(|(cached_identity, _)| cached_identity == &identity)
+    .expect("owner cache entry");
+  assert_eq!(local_pid.address(), addr_b);
+
+  cluster_a.shutdown(true).await.expect("shutdown a");
+  cluster_b.shutdown(true).await.expect("shutdown b");
+
+  assert_eq!(system_a.get_address().await, addr_a);
+  assert_eq!(system_b.get_address().await, addr_b);
+}
+
+#[tokio::test]
 async fn remote_activation_proto_roundtrip() {
   initialize_proto_serializers::<RemoteProtoRequest>().expect("register proto request");
   initialize_proto_serializers::<RemoteProtoResponse>().expect("register proto response");
