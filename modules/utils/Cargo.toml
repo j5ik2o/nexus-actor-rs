@@ -6,7 +6,7 @@ description = "Utility library for Nexus Actor"
 license = "MIT OR Apache-2.0"
 keywords = [ "nexus", "actor", "utils" ]
 categories = [ "concurrency", "asynchronous", "network-programming" ]
-readme = "../README.md"
+readme = "../../README.md"
 repository = "https://github.com/j5ik2o/nexus-actor-rs"
 
 [dependencies]
@@ -18,4 +18,3 @@ tokio = { workspace = true }
 tokio-condvar = "0.3.0"
 tracing = { workspace = true }
 parking_lot = { workspace = true }
-
