@@ -1,19 +1,24 @@
-# DefaultMailbox 同期化ロードマップ (2025-09-29)
+# DefaultMailbox 同期化ロードマップ (2025-09-29 時点)
+
+## 区分基準
+- **ゴール**: ロードマップ全体の到達点。
+- **現況**: 2025-09-29 時点で達成済みの事項。
+- **TODO**: 残課題。
 
 ## ゴール
 1. DefaultMailbox を同期キュー化し、ホットパスから不要な `await` を排除する。
-2. Remote/cluster/integration の全経路で同期化 DefaultMailbox を適用し、互換レイヤは撤廃する。
-3. Nightly ベンチ（mailbox_throughput）の結果を継続的に確認し、劣化があれば即対応する。
+2. Remote / Cluster / Integration の全経路で同期化 DefaultMailbox を適用し、互換レイヤを撤廃する。
+3. Nightly ベンチ（`mailbox_throughput`）で継続監視し、性能回帰を即検知する。
 
-## 現況 (2025-09-29)
-- DefaultMailbox 本体とハンドル層（SyncQueue）リファクタは完了済み。
-- Remote: `EndpointWriterMailbox` を `parking_lot::Mutex` + SyncQueue API で再実装済み。
-- Cluster: 専用 mailbox はなく、DefaultMailbox 同期化版をそのまま利用している。
-- Integration: `remote/src/tests.rs` で同期化 mailbox を利用。互換ブリッジ経路は存在しない。
+## 現況
+- DefaultMailbox 本体とハンドル層（SyncQueue）リファクタは完了。`core/src/actor/dispatch/mailbox/default_mailbox.rs` の `post_*`/`poll_*` は同期化済み。
+- Remote: `EndpointWriterMailbox` が `parking_lot::Mutex` + SyncQueue API を採用。
+- Cluster: Virtual Actor 経路を含め専用 mailbox は不要となり、DefaultMailbox を直接利用。
+- Integration: `remote/src/tests.rs` で同期化 mailbox が通過する経路をカバーし、互換ブリッジは存在しない。
 - Nightly: `.github/workflows/mailbox-sync-nightly.yml` で `cargo bench --bench mailbox_throughput -- --save-baseline sync` を毎日実行。
 
 ## TODO
-- **MUST-2**: Virtual Actor 実装が追加されたら DefaultMailbox を直適用し、残る互換アダプタを撤廃する。
-- **MUST-3**: Nightly ベンチ結果を定期確認（追加の S3/Slack/Grafana 連携は不要）。
-- **MUST-P**: Legacy ユーティリティ／メトリクス最適化は必要に応じて後追い実施。
+- Virtual Actor 実装で新規 mailbox を導入する必要が生じた場合も同期化構造を流用し、互換アダプタを増やさない。
+- Nightly ベンチ結果を定期確認し、閾値逸脱時のレスポンス（Issue 起票/Slack 通知）を自動化する。
+- Legacy メトリクスの整理（旧 API の削除）は後追いで検討。
 

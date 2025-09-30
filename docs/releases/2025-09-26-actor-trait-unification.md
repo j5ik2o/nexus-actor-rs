@@ -1,5 +1,11 @@
 # 2025-09-26 Actor トレイト統一アップデート
 
+## 区分基準
+- **ハイライト**: リリース内容の概要。
+- **マイグレーション**: 利用者が実施する対応。
+- **既知の非互換/今後**: リスクとフォローアップ。
+
+
 ## ハイライト
 - BaseActor / BaseContext / MigrationHelpers / ContextAdapter をコードベースから削除し、`Actor` トレイトのみに統一しました。
 - `RootContext` には新たに `ActorSpawnerExt` を追加し、`spawn_actor` / `spawn_actor_named` で `Props::from_async_actor_producer` を直接利用できるようになりました。

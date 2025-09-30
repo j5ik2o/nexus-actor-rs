@@ -1,4 +1,10 @@
-# Virtual Actor Runtime ガイド
+# Virtual Actor Runtime ガイド (2025-09-29 時点)
+
+## 区分基準
+- **概要**: API と全体像。
+- **実装フロー**: 時系列での利用手順。
+- **ベストプラクティス**: 運用の指針。
+
 
 ## 概要
 Virtual Actor は `ClusterKind::virtual_actor` を通じて登録し、`VirtualActorRuntime` を介してメッセージの送受信や子アクター管理を行います。本ドキュメントは実装時に必要となる主要 API と利用パターンを整理したものです。

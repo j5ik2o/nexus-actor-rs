@@ -1,33 +1,22 @@
-# Cluster Provider 概要
+# Cluster Provider 概要 (2025-09-29 時点)
 
-## 目的
-`ClusterProvider` はクラスタのメンバーシップ管理を抽象化するトレイトです。protoactor-go と同様に、環境ごとの実装（インメモリ、Consul、Kubernetes など）を差し替えられるよう設計しています。
+## 区分基準
+- **API 概要**: `ClusterProvider` トレイトとコンテキストの仕様。
+- **既定実装**: `InMemoryClusterProvider` がどのようにクラスタ状態を管理しているか。
+- **拡張余地**: 新規プロバイダーや改善案。
 
-## トレイト
-```rust
-#[async_trait]
-pub trait ClusterProvider {
-  async fn start_member(&self, ctx: &ClusterProviderContext) -> Result<(), ClusterProviderError>;
-  async fn start_client(&self, ctx: &ClusterProviderContext) -> Result<(), ClusterProviderError>;
-  async fn shutdown(&self, graceful: bool) -> Result<(), ClusterProviderError>;
-}
-```
+## API 概要
+- `cluster/src/provider.rs` で `ClusterProvider` が定義され、`start_member` / `start_client` / `shutdown` に加えて `resolve_partition_manager` を要求。後者でクラスタ内の他ノードが保持する `PartitionManager` を参照できる。
+- `ClusterProviderContext` は `cluster_name`・`node_address`・`kinds`・`partition_manager` を保持し、`provider_context_from_kinds`（`cluster/src/provider.rs:118`）で `Cluster` から構築される。
+- `Cluster::start_member` / `start_client` / `shutdown` はプロバイダーへ委譲しつつ、Virtual Actor ランタイム (`cluster/src/virtual_actor.rs`) と連携する。
 
-`ClusterProviderContext` にはクラスタ名と登録済み Kind の一覧が入ります。`Cluster::start_member` / `start_client` / `shutdown` から呼び出され、`ClusterConfig::with_provider` で差し替えが可能です。
+## 既定実装（InMemory）
+- `InMemoryClusterProvider` は `members`（`HashMap<String, Vec<String>>`）と `clients`（`HashSet<String>`）を `RwLock` で保持し、起動時に登録／停止時は現状 no-op。
+- `partition_managers` は `Weak<PartitionManager>` で管理され、`broadcast_topology` が呼ばれるたびに生存している `PartitionManager` へ最新の `ClusterTopology` を伝搬する。
+- `members_snapshot` / `clients_snapshot` / `topology_snapshot` などの補助メソッドで、テストや診断から状態を検査できる。
 
-## インメモリ実装
-デフォルトでは `InMemoryClusterProvider` が利用されます。メンバー／クライアントを内部の `HashSet` に保持するだけの軽量実装ですが、テストやローカル開発用途に利用できます。
+## 拡張余地
+- Consul / etcd / Kubernetes 向けプロバイダーでは `resolve_partition_manager` をクラスタストア経由で実装し、ノード復旧時のトポロジ再配布を自動化できる。
+- `ClusterProviderContext` へ gossip 心拍やゾーン情報を追加し、`PartitionManager` のリバランス戦略を拡充する余地がある。
+- 監視用途として `broadcast_topology` の発火イベントを `ClusterEvent` として公開し、メトリクスへ転送するタスクが `docs/worknotes/2025-09-29-cluster-rework.md` で検討中。
 
-```rust
-let provider = Arc::new(InMemoryClusterProvider::new());
-let config = ClusterConfig::new("test-cluster").with_provider(provider.clone());
-let cluster = Cluster::new(actor_system, config);
-cluster.start_member().await?;
-```
-
-`snapshot` メソッドで登録状況を検査できます。
-
-## 今後の構想
-- Consul / etcd / Kubernetes バッキングの Provider を Rust でも実装可能。
-- `ClusterProviderContext` にノード情報やシャードメタデータを追加し、外部ストア連携を強化する。
-- `IdentityLookup`（InMemory 実装を含む）と連携し、`(kind, identity)` 解決を Provider と同列に扱う。これにより将来的な Distribute Hash / Sharding 実装への足場が整備されました。

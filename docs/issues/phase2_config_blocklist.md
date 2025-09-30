@@ -1,5 +1,11 @@
 # Issue: Phase 2 ConfigOption 拡張と BlockList 公開 API
 
+## 区分基準
+- **背景/ゴール**: 取り組みの位置付け。
+- **設計案**: 実装方針。
+- **テスト/ドキュメント**: フォローアップ計画。
+
+
 ## 背景
 - Phase 1.5 で EndpointManager/Writer の backpressure と再接続基盤を整備したが、運用時に必要な管理機能（BlockList API、構成の細かな調整）が未整備。
 - LAN 内で運用するクラスタを想定しており、TLS は当面不要。代わりに BlockList によるアクセス制御を充実させたい。

@@ -1,14 +1,16 @@
-# レガシー例の整理 (2025-09-26)
+# レガシーサンプル棚卸し (2025-09-29 時点)
 
-## 目的
-- BaseActor ベースから移行済みのサンプルを `legacy/` ディレクトリへ隔離し、新しい Actor トレイト例と区別する。
+## 区分基準
+- **現存レガシー**: `core/examples/legacy` に残した BaseActor 時代のスナップショット。
+- **扱い方針**: 今後の維持／削除に関するルール。
 
-## 現状リスト
+## 現存レガシー
 - `core/examples/legacy/actor-base-traits`
 - `core/examples/legacy/actor-base-with-props`
 - `core/examples/legacy/actor-dual-support`
 - `core/examples/legacy/actor-migration`
 
-## 今後の方針
-- これら legacy 例を段階的に削除またはドキュメント用スナップショットへ移行。
-- 新しい Actor トレイト例を `core/examples/` 直下に配置して維持する。
+## 扱い方針
+- 教材用途のため当面残置するが、新規コードは Actor トレイト版のみを使用する。必要時は `cargo run --example <name>` で挙動確認。
+- BaseActor 系 API を完全削除するタイミングで、各ディレクトリをアーカイブまたは `docs/releases` に引用のみ残す方針を検討する。
+

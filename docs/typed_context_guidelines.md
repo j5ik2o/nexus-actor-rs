@@ -1,4 +1,9 @@
-# Typed Context / PID ガイドライン
+# Typed Context / PID ガイドライン (2025-09-29 時点)
+
+## 区分基準
+- **目的**: ガイドライン全体の意義。
+- **推奨パターン**: 実装で遵守すべき具体的手順。
+- **アンチパターン/チェックリスト**: 避けるべき実装と未完タスクの確認。
 
 ## 目的
 - `ContextBorrow<'_>` を用いたライフタイム安全な参照取得の流れを整理する。
@@ -50,9 +55,9 @@
 - `ActorSystem` を構造体に強参照として保持し、循環参照を招く設計。
 
 ## 移行チェックリスト
-- [ ] `ContextHandle` 経由の `ActorContext` 取得箇所が `try_into_actor_context` を利用しているか。
-- [ ] `ActorContext` を保持する構造体が `WeakActorSystem` を使っているか。
-- [ ] `TypedExtendedPid` / `TypedActorContext` を利用するコードで冗長な clone / Arc 共有をしていないか。
+- [ ] `ContextHandle` 経由の `ActorContext` 取得が `try_into_actor_context` ベースに統一されているか（例: `core/src/actor/core/child/tests.rs` では `to_actor_context` 依存が残存）。
+- [x] `ActorContext` を保持する構造体が `WeakActorSystem` を使っているか（`core/src/actor/context/actor_context.rs`・`root_context.rs` で確認済み）。
+- [ ] `TypedExtendedPid` / `TypedActorContext` を利用するコードで冗長な clone / Arc 共有をしていないか（`core/src/actor/context/typed_actor_context.rs` の send/request 系で再確認が必要）。
 
 ## `Arc<Mutex<_>>` 棚卸しと優先順位
 - `scripts/list_arc_mutex_usage.sh` を実行することで、リポジトリ全体の `Arc<Mutex<_>>` 使用箇所を一覧化できる。
@@ -62,7 +67,7 @@
   - `core/src/actor/supervisor/supervisor_strategy.rs` : `SupervisorHandle` を `Arc<RwLock<dyn Supervisor>>` 化し、再入ロックを削減済み。今後は `ContextBorrow` ベースの API 拡張を検討する。
 - `remote/src/endpoint_manager.rs` / `remote/src/remote.rs` : リモート起動経路で `Arc<Mutex<Option<_>>>` が多用され、タイムアウト処理と競合。ライフタイム移行後は `OnceCell` + 借用で行ロックを排除する計画。
 
-棚卸し結果は `docs/core_improvemnet_plan.md` のロードマップと同期し、移行作業の進捗に合わせて定期的に更新すること。
+棚卸し結果は `docs/core_improvement_plan.md` のロードマップと同期し、移行作業の進捗に合わせて定期的に更新すること。
 
 ## 参考
 - `core/src/actor/context/actor_context.rs` `ContextBorrow` 実装
