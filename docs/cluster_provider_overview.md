@@ -8,7 +8,7 @@
 
 ## API 概要
 - `cluster/src/provider.rs` で `ClusterProvider` が定義され、`start_member` / `start_client` / `shutdown` に加えて `resolve_partition_manager` を要求。後者でクラスタ内の他ノードが保持する `PartitionManager` を参照できる。
-- `ClusterProviderContext` は `cluster_name`・`node_address`・`kinds`・`partition_manager` を保持し、`provider_context_from_kinds`（`cluster/src/provider.rs:118`）で `Cluster` から構築される。
+- `ClusterProviderContext` は `cluster_name`・`node_address`・`kinds`・`partition_manager` に加え、`EventStream` 参照を保持する。`provider_context_from_kinds` で `Cluster` から構築され、トポロジ更新時には `TopologyEvent` を publish できる。
 - `Cluster::start_member` / `start_client` / `shutdown` はプロバイダーへ委譲しつつ、Virtual Actor ランタイム (`cluster/src/virtual_actor.rs`) と連携する。
 
 ## ラインナップ整理
@@ -28,6 +28,7 @@
 - Registry サービスに対し `Join`/`Leave`/`UpdateKinds` を gRPC で送出し、他ノードからの `PartitionManager` 参照は registry 経由で ``(cluster_name, node_address)`` をキーに解決。
 - トポロジ変更時は registry が Pub/Sub で通知し、ローカル `PartitionManager` が `ClusterTopology` を再計算。
 - フェイルオーバ時は registry 側のヘルスチェック（KeepAlive）でノード欠落を検知し、通知先で再アクティベーションを実行。
+- `TopologyEvent`（`registered` / `snapshot` / `deregistered`）を `EventStream` に流し、`Cluster::ensure_remote` 側で監視ログを出力する。
 
 **Kubernetes プロバイダー（新規）**
 - `ClusterProviderContext.node_address` を Pod IP + ポートから生成し、`ClusterKind` 情報は `ConfigMap` または `CustomResource` に反映。
@@ -39,6 +40,7 @@
 1. **責務分割**
    - Provider は「ノード登録・解決」のみ担当し、Virtual Actor のアクティベーションは `PartitionManager`/`IdentityLookup` に委譲。
    - トポロジ変更通知を受けた際は `ClusterTopology` を構築し、必ず `PartitionManager::update_topology` を呼び出す。
+   - 監視用に `TopologyEvent` を `EventStream` へ publish し、`Cluster::ensure_remote` の購読経路（`topology event observed` ログ）と連携する。
 
 2. **データモデル**
    - 共有キー: `(cluster_name, node_id, advertised_address)` を基礎とし、`kinds` の配列は Provider 側でキャッシュ。

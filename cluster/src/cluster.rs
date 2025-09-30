@@ -22,12 +22,15 @@ use crate::identity_lookup::{
 };
 use crate::kind::ClusterKind;
 use crate::partition::manager::{ClusterTopology, PartitionManager, PartitionManagerError};
-use crate::provider::{provider_context_from_kinds, ClusterProvider, ClusterProviderContext, ClusterProviderError};
+use crate::provider::{
+  provider_context_from_kinds, ClusterProvider, ClusterProviderContext, ClusterProviderError, TopologyEvent,
+};
 use crate::rendezvous::ClusterMember;
+use nexus_actor_core_rs::event_stream::Subscription;
 use tokio::runtime::Handle;
 use tokio::sync::{oneshot, Mutex};
 use tokio::task::JoinHandle;
-use tracing::{error, warn};
+use tracing::{error, info, warn};
 
 use thiserror::Error;
 
@@ -113,6 +116,7 @@ pub struct Cluster {
   partition_manager: Arc<PartitionManager>,
   remote: Arc<Mutex<Option<Arc<Remote>>>>,
   remote_task: Arc<Mutex<Option<JoinHandle<()>>>>,
+  topology_subscription: Arc<Mutex<Option<Subscription>>>,
 }
 
 impl Cluster {
@@ -129,6 +133,7 @@ impl Cluster {
       partition_manager,
       remote: Arc::new(Mutex::new(None)),
       remote_task: Arc::new(Mutex::new(None)),
+      topology_subscription: Arc::new(Mutex::new(None)),
     };
     cluster
       .partition_manager
@@ -177,12 +182,50 @@ impl Cluster {
 
   async fn provider_context(&self) -> ClusterProviderContext {
     let address = self.actor_system.get_address().await;
+    let event_stream = self.actor_system.get_event_stream().await;
     provider_context_from_kinds(
       &self.config.cluster_name,
       address,
       &self.kinds,
       self.partition_manager.clone(),
+      event_stream,
     )
+  }
+
+  async fn ensure_topology_logging(&self) {
+    let mut guard = self.topology_subscription.lock().await;
+    if guard.is_some() {
+      return;
+    }
+
+    let event_stream = self.actor_system.get_event_stream().await;
+    let cluster_name = self.config.cluster_name.clone();
+    let subscription = event_stream
+      .subscribe(move |message| {
+        let cluster = cluster_name.clone();
+        async move {
+          if let Some(event) = message.to_typed::<TopologyEvent>() {
+            info!(
+              cluster = %event.cluster_name,
+              observer = %cluster,
+              node = ?event.node_address,
+              event_type = %event.event_type,
+              member_count = event.members.len(),
+              "topology event observed"
+            );
+          }
+        }
+      })
+      .await;
+    *guard = Some(subscription);
+  }
+
+  async fn clear_topology_logging(&self) {
+    let mut guard = self.topology_subscription.lock().await;
+    if let Some(subscription) = guard.take() {
+      let event_stream = self.actor_system.get_event_stream().await;
+      event_stream.unsubscribe(subscription).await;
+    }
   }
 
   async fn ensure_remote(&self) -> Result<(), ClusterError> {
@@ -237,6 +280,8 @@ impl Cluster {
       let mut guard = self.remote_task.lock().await;
       *guard = Some(handle);
     }
+
+    self.ensure_topology_logging().await;
 
     Ok(())
   }
@@ -338,6 +383,7 @@ impl Cluster {
     } {
       let _ = handle.await;
     }
+    self.clear_topology_logging().await;
     self.partition_manager.stop().await;
     self.provider.shutdown(graceful).await.map_err(ClusterError::from)
   }

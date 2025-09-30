@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use futures::StreamExt;
+use std::any::Any;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::sync::{Arc, Weak};
@@ -15,9 +16,11 @@ use crate::generated::registry::{
 use crate::kind::ClusterKind;
 use crate::partition::manager::{ClusterTopology, PartitionManager};
 use crate::rendezvous::ClusterMember;
+use nexus_actor_core_rs::actor::message::{Message, MessageHandle};
+use nexus_actor_core_rs::event_stream::EventStream;
 use tonic::transport::{Channel, Endpoint};
 use tonic::Status;
-use tracing::warn;
+use tracing::{debug, info, warn};
 
 #[derive(Debug, Clone)]
 pub struct ClusterProviderContext {
@@ -25,6 +28,7 @@ pub struct ClusterProviderContext {
   pub node_address: String,
   pub kinds: Vec<String>,
   pub partition_manager: Arc<PartitionManager>,
+  event_stream: Arc<EventStream>,
 }
 
 impl ClusterProviderContext {
@@ -33,13 +37,23 @@ impl ClusterProviderContext {
     node_address: impl Into<String>,
     kinds: impl IntoIterator<Item = String>,
     partition_manager: Arc<PartitionManager>,
+    event_stream: Arc<EventStream>,
   ) -> Self {
     Self {
       cluster_name: cluster_name.into(),
       node_address: node_address.into(),
       kinds: kinds.into_iter().collect(),
       partition_manager,
+      event_stream,
     }
+  }
+
+  pub async fn publish_topology_event(&self, event: TopologyEvent) {
+    self.event_stream.publish(MessageHandle::new(event)).await;
+  }
+
+  pub fn event_stream(&self) -> Arc<EventStream> {
+    self.event_stream.clone()
   }
 }
 
@@ -47,6 +61,72 @@ impl ClusterProviderContext {
 pub enum ClusterProviderError {
   #[error("provider failed: {0}")]
   ProviderError(String),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct TopologyEvent {
+  pub cluster_name: String,
+  pub node_address: Option<String>,
+  pub event_type: String,
+  pub members: Vec<ClusterMember>,
+}
+
+impl TopologyEvent {
+  pub fn registered(cluster_name: &str, node_address: &str, kinds: &[String]) -> Self {
+    info!(
+      cluster = cluster_name,
+      node = node_address,
+      kinds = ?kinds,
+      "cluster node registered"
+    );
+    Self {
+      cluster_name: cluster_name.to_string(),
+      node_address: Some(node_address.to_string()),
+      event_type: "registered".to_string(),
+      members: Vec::new(),
+    }
+  }
+
+  pub fn deregistered(cluster_name: &str, node_address: &str) -> Self {
+    info!(cluster = cluster_name, node = node_address, "cluster node deregistered");
+    Self {
+      cluster_name: cluster_name.to_string(),
+      node_address: Some(node_address.to_string()),
+      event_type: "deregistered".to_string(),
+      members: Vec::new(),
+    }
+  }
+
+  pub fn snapshot(cluster_name: &str, members: Vec<ClusterMember>) -> Self {
+    debug!(
+      cluster = cluster_name,
+      member_count = members.len(),
+      "cluster topology snapshot"
+    );
+    Self {
+      cluster_name: cluster_name.to_string(),
+      node_address: None,
+      event_type: "snapshot".to_string(),
+      members,
+    }
+  }
+}
+
+impl Message for TopologyEvent {
+  fn eq_message(&self, other: &dyn Message) -> bool {
+    other
+      .as_any()
+      .downcast_ref::<TopologyEvent>()
+      .map_or(false, |event| event == self)
+  }
+
+  fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
+    self
+  }
+
+  fn get_type_name(&self) -> String {
+    std::any::type_name::<Self>().to_string()
+  }
 }
 
 #[async_trait]
@@ -196,17 +276,30 @@ pub fn provider_context_from_kinds(
   node_address: String,
   kinds: &DashMap<String, ClusterKind>,
   partition_manager: Arc<PartitionManager>,
+  event_stream: Arc<EventStream>,
 ) -> ClusterProviderContext {
   let kind_names = kinds.iter().map(|entry| entry.key().clone()).collect::<Vec<_>>();
-  ClusterProviderContext::new(cluster_name.to_string(), node_address, kind_names, partition_manager)
+  ClusterProviderContext::new(
+    cluster_name.to_string(),
+    node_address,
+    kind_names,
+    partition_manager,
+    event_stream,
+  )
 }
 
 use dashmap::DashMap;
 
+#[derive(Debug, Clone)]
+struct RegisteredMember {
+  member: RegistryMember,
+  event_stream: Arc<EventStream>,
+}
+
 pub struct GrpcRegistryClusterProvider<R: RegistryClient> {
   registry: Arc<R>,
   partition_managers: RwLock<HashMap<String, Weak<PartitionManager>>>,
-  members: RwLock<HashMap<String, RegistryMember>>,
+  members: RwLock<HashMap<String, RegisteredMember>>,
   watch_tasks: RwLock<HashMap<String, JoinHandle<()>>>,
 }
 
@@ -228,15 +321,28 @@ impl<R: RegistryClient> GrpcRegistryClusterProvider<R> {
 
   async fn register_watch(
     &self,
+    cluster_name: String,
     node_address: String,
     partition_manager: Arc<PartitionManager>,
+    event_stream: Arc<EventStream>,
     mut stream: BroadcastStream<ClusterTopology>,
   ) {
+    let cluster_for_log = cluster_name.clone();
+    let address_for_log = node_address.clone();
     let handle = tokio::spawn(async move {
       while let Some(result) = stream.next().await {
         match result {
-          Ok(topology) => partition_manager.update_topology(topology).await,
-          Err(_) => break,
+          Ok(topology) => {
+            let members = topology.members.clone();
+            partition_manager.update_topology(topology).await;
+            event_stream
+              .publish(MessageHandle::new(TopologyEvent::snapshot(&cluster_for_log, members)))
+              .await;
+          }
+          Err(err) => {
+            warn!(?err, cluster = %cluster_for_log, node = %address_for_log, "registry watch terminated");
+            break;
+          }
         }
       }
     });
@@ -245,6 +351,52 @@ impl<R: RegistryClient> GrpcRegistryClusterProvider<R> {
     if let Some(existing) = tasks.insert(node_address, handle) {
       existing.abort();
     }
+  }
+
+  async fn register_node(&self, ctx: &ClusterProviderContext) -> Result<RegistryWatch, ClusterProviderError> {
+    let member = RegistryMember::new(ctx.cluster_name.clone(), ctx.node_address.clone(), ctx.kinds.clone());
+    let watch = self.registry.join_member(member.clone()).await?;
+
+    {
+      let mut managers = self.partition_managers.write().await;
+      managers.insert(ctx.node_address.clone(), Arc::downgrade(&ctx.partition_manager));
+    }
+
+    {
+      let mut members = self.members.write().await;
+      members.insert(
+        ctx.node_address.clone(),
+        RegisteredMember {
+          member,
+          event_stream: ctx.event_stream(),
+        },
+      );
+    }
+
+    ctx
+      .publish_topology_event(TopologyEvent::registered(
+        &ctx.cluster_name,
+        &ctx.node_address,
+        &ctx.kinds,
+      ))
+      .await;
+
+    Ok(watch)
+  }
+
+  async fn deregister_node(&self, cluster_name: &str, node_address: &str) -> Result<(), ClusterProviderError> {
+    self.registry.leave_member(cluster_name, node_address).await?;
+    let mut members = self.members.write().await;
+    if let Some(registered) = members.remove(node_address) {
+      registered
+        .event_stream
+        .publish(MessageHandle::new(TopologyEvent::deregistered(
+          cluster_name,
+          node_address,
+        )))
+        .await;
+    }
+    Ok(())
   }
 }
 
@@ -363,29 +515,26 @@ impl RegistryClient for GrpcRegistryClient {
 #[async_trait]
 impl<R: RegistryClient> ClusterProvider for GrpcRegistryClusterProvider<R> {
   async fn start_member(&self, ctx: &ClusterProviderContext) -> Result<(), ClusterProviderError> {
-    let member = RegistryMember::new(ctx.cluster_name.clone(), ctx.node_address.clone(), ctx.kinds.clone());
-
-    let watch = self.registry.join_member(member.clone()).await?;
-
-    {
-      let mut managers = self.partition_managers.write().await;
-      managers.insert(ctx.node_address.clone(), Arc::downgrade(&ctx.partition_manager));
-    }
-
-    {
-      let mut members = self.members.write().await;
-      members.insert(ctx.node_address.clone(), member);
-    }
+    let watch = self.register_node(ctx).await?;
 
     ctx
       .partition_manager
       .update_topology(watch.initial_topology.clone())
       .await;
 
+    ctx
+      .publish_topology_event(TopologyEvent::snapshot(
+        &ctx.cluster_name,
+        watch.initial_topology.members.clone(),
+      ))
+      .await;
+
     let stream = watch.into_stream();
     let pm = ctx.partition_manager.clone();
     let node_address = ctx.node_address.clone();
-    self.register_watch(node_address, pm, stream).await;
+    self
+      .register_watch(ctx.cluster_name.clone(), node_address, pm, ctx.event_stream(), stream)
+      .await;
 
     Ok(())
   }
@@ -399,27 +548,33 @@ impl<R: RegistryClient> ClusterProvider for GrpcRegistryClusterProvider<R> {
   }
 
   async fn shutdown(&self, graceful: bool) -> Result<(), ClusterProviderError> {
-    let mut tasks = self.watch_tasks.write().await;
-    let mut managers = self.partition_managers.write().await;
-    let mut members = self.members.write().await;
-
-    let addresses: Vec<String> = members.keys().cloned().collect();
+    let addresses: Vec<String> = {
+      let members = self.members.read().await;
+      members.keys().cloned().collect()
+    };
 
     for address in addresses {
       if graceful {
-        if let Some(member) = members.get(&address) {
-          self
-            .registry
-            .leave_member(&member.cluster_name, &member.node_address)
-            .await?;
+        if let Some(member) = {
+          let members = self.members.read().await;
+          members.get(&address).map(|entry| entry.member.clone())
+        } {
+          self.deregister_node(&member.cluster_name, &member.node_address).await?;
         }
+      } else {
+        let mut members = self.members.write().await;
+        members.remove(&address);
       }
 
-      if let Some(handle) = tasks.remove(&address) {
+      if let Some(handle) = {
+        let mut tasks = self.watch_tasks.write().await;
+        tasks.remove(&address)
+      } {
         handle.abort();
       }
+
+      let mut managers = self.partition_managers.write().await;
       managers.remove(&address);
-      members.remove(&address);
     }
 
     Ok(())
@@ -473,7 +628,7 @@ mod tests {
   use std::collections::{HashMap, HashSet};
   use std::sync::Arc;
   use tokio::sync::Mutex as TokioMutex;
-  use tokio::time::{sleep, Duration};
+  use tokio::time::{sleep, timeout, Duration};
 
   #[derive(Debug)]
   struct RegistryClusterState {
@@ -584,6 +739,27 @@ mod tests {
     }
   }
 
+  async fn wait_for_event<F>(
+    events: &Arc<TokioMutex<Vec<TopologyEvent>>>,
+    timeout_duration: Duration,
+    condition: F,
+  ) -> bool
+  where
+    F: Fn(&[TopologyEvent]) -> bool, {
+    timeout(timeout_duration, async {
+      loop {
+        let snapshot = events.lock().await.clone();
+        if condition(&snapshot) {
+          return true;
+        }
+        drop(snapshot);
+        sleep(Duration::from_millis(25)).await;
+      }
+    })
+    .await
+    .unwrap_or(false)
+  }
+
   #[tokio::test]
   async fn grpc_registry_provider_shares_topology() {
     let registry = Arc::new(MockRegistryClient::new());
@@ -645,5 +821,96 @@ mod tests {
     cluster_b.shutdown(true).await.expect("shutdown b");
 
     assert!(registry.list_members("grpc-registry").await.is_empty());
+  }
+
+  #[tokio::test]
+  async fn grpc_registry_provider_emits_topology_events() {
+    let registry = Arc::new(MockRegistryClient::new());
+    let provider = Arc::new(GrpcRegistryClusterProvider::new(registry.clone())) as Arc<dyn ClusterProvider>;
+
+    let system_a = Arc::new(ActorSystem::new().await.expect("system a"));
+    let system_b = Arc::new(ActorSystem::new().await.expect("system b"));
+
+    let events = Arc::new(TokioMutex::new(Vec::<TopologyEvent>::new()));
+    let event_stream = system_a.get_event_stream().await;
+    let events_clone = events.clone();
+    let subscription = event_stream
+      .subscribe(move |message| {
+        let events_clone = events_clone.clone();
+        async move {
+          if let Some(event) = message.to_typed::<TopologyEvent>() {
+            events_clone.lock().await.push(event);
+          }
+        }
+      })
+      .await;
+
+    let port_a = MockRegistryClient::allocate_port();
+    let port_b = MockRegistryClient::allocate_port();
+
+    let cluster_a = Cluster::new(
+      system_a.clone(),
+      ClusterConfig::new("grpc-registry-events")
+        .with_provider(provider.clone())
+        .with_remote_options(
+          RemoteOptions::new("127.0.0.1", port_a).with_advertised_address(format!("127.0.0.1:{port_a}")),
+        ),
+    );
+    let cluster_b = Cluster::new(
+      system_b.clone(),
+      ClusterConfig::new("grpc-registry-events")
+        .with_provider(provider.clone())
+        .with_remote_options(
+          RemoteOptions::new("127.0.0.1", port_b).with_advertised_address(format!("127.0.0.1:{port_b}")),
+        ),
+    );
+
+    cluster_a.register_kind(ClusterKind::virtual_actor("dummy", move |_identity| async {
+      DummyActor
+    }));
+    cluster_b.register_kind(ClusterKind::virtual_actor("dummy", move |_identity| async {
+      DummyActor
+    }));
+
+    cluster_a.start_member().await.expect("start member a");
+    cluster_b.start_member().await.expect("start member b");
+
+    let remote_addr = system_b.get_address().await;
+
+    assert!(
+      wait_for_event(&events, Duration::from_secs(3), |items| {
+        items
+          .iter()
+          .any(|event| event.event_type == "registered" && event.node_address.is_some())
+      })
+      .await,
+      "registered event should be emitted",
+    );
+
+    assert!(
+      wait_for_event(&events, Duration::from_secs(3), |items| {
+        items
+          .iter()
+          .filter(|event| event.event_type == "snapshot")
+          .any(|event| event.members.iter().any(|member| member.address == remote_addr))
+      })
+      .await,
+      "snapshot event should include remote member",
+    );
+
+    cluster_a.shutdown(true).await.expect("shutdown a");
+    cluster_b.shutdown(true).await.expect("shutdown b");
+
+    assert!(
+      wait_for_event(&events, Duration::from_secs(3), |items| {
+        items
+          .iter()
+          .any(|event| event.event_type == "deregistered" && event.node_address.is_some())
+      })
+      .await,
+      "deregistered event should be emitted when shutting down",
+    );
+
+    system_a.get_event_stream().await.unsubscribe(subscription).await;
   }
 }
