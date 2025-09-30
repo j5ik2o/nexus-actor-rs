@@ -7,6 +7,7 @@ fn main() {
         "../proto/grain.proto",
         "../proto/pubsub.proto",
         "../proto/gossip.proto",
+        "../proto/registry.proto",
       ],
       &["../proto"],
     )

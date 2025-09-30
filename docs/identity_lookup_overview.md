@@ -1,25 +1,22 @@
-# IdentityLookup 概要
+# IdentityLookup 概要 (2025-09-29 時点)
 
-`IdentityLookup` は Virtual Actor の `(kind, identity) → PID` 解決をクラスタ全体で扱うためのレイヤーです。protoactor-go の `cluster/identity_lookup.go` と同じ役割を担います。
+## 区分基準
+- **提供 API**: トレイトとコンテキストの仕様。
+- **実装バリエーション**: 既存の Lookup 実装と用途。
+- **今後の展開**: 設計上の拡張ポイント。
 
-## インターフェース
-```rust
-#[async_trait]
-pub trait IdentityLookup {
-  async fn setup(&self, ctx: &IdentityLookupContext) -> Result<(), IdentityLookupError>;
-  async fn shutdown(&self) -> Result<(), IdentityLookupError>;
-  async fn get(&self, identity: &ClusterIdentity) -> Result<Option<ExtendedPid>, IdentityLookupError>;
-  async fn set(&self, identity: ClusterIdentity, pid: ExtendedPid) -> Result<(), IdentityLookupError>;
-  async fn remove(&self, identity: &ClusterIdentity) -> Result<(), IdentityLookupError>;
-  async fn list(&self) -> Result<Vec<ExtendedPid>, IdentityLookupError>;
-}
-```
-`IdentityLookupContext` にはクラスタ名と登録済み Kind の一覧が入ります。
+## 提供 API
+- `cluster/src/identity_lookup.rs` で `IdentityLookup` トレイトを定義。`setup` / `shutdown` は既定実装で no-op、`get`・`set`・`remove`・`list` を実装側が担当する。
+- `IdentityLookupContext` はクラスタ名と Kind 一覧を保持し、`identity_lookup_context_from_kinds` で `Cluster` 起動時に生成される。
+- `IdentityLookupHandle = Arc<dyn IdentityLookup>` を通じてクラスタ本体へ DI される。
 
-## InMemoryIdentityLookup
-現在はローカルノードの `DashMap` を利用した InMemory 実装を提供しています。`Cluster::get` / `request_message` / `request_future` はこの Lookup 経由で PID を解決し、`Cluster::shutdown` 時に `list()` を使ってアクティベーションを停止します。
+## 実装バリエーション
+- **InMemoryIdentityLookup**: `DashMap<ClusterIdentity, ExtendedPid>` を保持するローカル専用実装。テストおよび単一ノード検証向けで、`snapshot()` により状態確認が可能。
+- **DistributedIdentityLookup**: `PartitionManager` と連携し、`activate` を通じて Virtual Actor を動的に起動。`attach_partition_manager` で `Cluster::ensure_remote` からマネージャを結合し、`entries` キャッシュで PID を記録する。
+- いずれも `IdentityLookup` を `Arc` で共有できるため、`Cluster::shutdown` 時に `list()` でアクティベーションを停止する流れは共通。
 
 ## 今後の展開
-- protoactor-go の `identitylookup/disthash` を移植し、Consistent Hash に基づいた分散配置を実現する。
-- 外部ストア（etcd/Consul など）と連携する StorageLookup や SpawnLock を導入し、シャード再配置・ノード離脱時の動作を強化する。
-- Provider と IdentityLookup を組み合わせ、Akka/Pekko の Cluster Sharding 相当のワークロードへ拡張する。
+- protoactor-go の `identitylookup/disthash` を移植し、Consistent Hash の分散配置を Rust 実装へ展開する。
+- `DistributedIdentityLookup` に `PartitionManager` 側のリバランス通知をフックし、トポロジ変化時にキャッシュを自動無効化する仕組みを追加する。
+- 外部ストア（etcd / Consul）を利用した永続化 Lookup をモジュールとして追加し、ノード再起動時の PID 復元を担保する。
+

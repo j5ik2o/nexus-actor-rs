@@ -437,3 +437,82 @@ async fn remote_reconnect_after_server_restart() -> Result<(), Box<dyn std::erro
 
   Ok(())
 }
+
+#[tokio::test]
+async fn spawn_remote_named_duplicate_returns_conflict() -> TestResult<()> {
+  initialize_proto_serializers::<EchoMessage>().expect("Failed to register serializer");
+
+  let server_port = allocate_port()?;
+  let client_port = allocate_port()?;
+
+  // server setup
+  let server_system = ActorSystem::new().await.expect("server actor system");
+  let server_config = Config::from([
+    ConfigOption::with_host("127.0.0.1"),
+    ConfigOption::with_port(server_port),
+  ])
+  .await;
+  let server_remote = Remote::new(server_system.clone(), server_config).await;
+  let echo_props = Props::from_async_actor_producer(|_| async { EchoActor }).await;
+  let kind = "dup-kind";
+  server_remote.register(kind, echo_props);
+
+  let server_wait = WaitGroup::with_count(1);
+  let server_wait_clone = server_wait.clone();
+  let server_remote_start = server_remote.clone();
+  tokio::spawn(async move {
+    server_remote_start
+      .start_with_callback(|| async {
+        server_wait_clone.done();
+      })
+      .await
+      .expect("server start");
+  });
+  server_wait.wait().await;
+
+  // client setup
+  let client_system = ActorSystem::new().await.expect("client actor system");
+  let client_config = Config::from([
+    ConfigOption::with_host("127.0.0.1"),
+    ConfigOption::with_port(client_port),
+  ])
+  .await;
+  let client_remote = Remote::new(client_system.clone(), client_config).await;
+  let client_wait = WaitGroup::with_count(1);
+  let client_wait_clone = client_wait.clone();
+  let client_remote_start = client_remote.clone();
+  tokio::spawn(async move {
+    client_remote_start
+      .start_with_callback(|| async {
+        client_wait_clone.done();
+      })
+      .await
+      .expect("client start");
+  });
+  client_wait.wait().await;
+
+  let server_address = format!("127.0.0.1:{}", server_port);
+  let name = "dup-actor";
+
+  // first spawn succeeds
+  client_remote
+    .spawn_remote_named(&server_address, name, kind, Duration::from_secs(2))
+    .await
+    .expect("first remote spawn");
+
+  // second spawn should conflict
+  let result = client_remote
+    .spawn_remote_named(&server_address, name, kind, Duration::from_secs(2))
+    .await;
+  match result {
+    Err(RemoteSpawnError::Status(status)) => {
+      assert_eq!(status.code(), ResponseStatusCode::ProcessNameAlreadyExists);
+    }
+    other => panic!("unexpected result: {other:?}"),
+  }
+
+  client_remote.shutdown(true).await?;
+  server_remote.shutdown(true).await?;
+
+  Ok(())
+}

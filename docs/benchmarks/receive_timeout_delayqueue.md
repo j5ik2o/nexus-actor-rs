@@ -1,5 +1,11 @@
 # ReceiveTimeout DelayQueue PoC 記録
 
+## 区分基準
+- **実行要約**: PoC の設定。
+- **結果**: 計測値。
+- **メモ**: 実装検討事項。
+
+
 ## 実行要約
 - 日付: 2025-09-26 (JST)
 - コマンド: `DELAYQUEUE_ITERATIONS=20000 DELAYQUEUE_TIMEOUT_MS=10 cargo run -p nexus-actor-core-rs --example receive_timeout_delayqueue`

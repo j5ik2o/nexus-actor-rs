@@ -27,6 +27,7 @@ tonic = "0.13.0"
 tonic-types = "0.14.0"
 tracing = "0.1"
 serde = { workspace = true, features = ["derive"] }
+tokio-stream = { version = "0.1", features = ["sync"] }
 
 [dev-dependencies]
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

@@ -11,10 +11,12 @@ use tokio::sync::RwLock;
 
 use crate::cluster::Cluster;
 use crate::identity::ClusterIdentity;
+use crate::identity_lookup::DistributedIdentityLookup;
 use crate::partition::messages::{ActivationRequest, ActivationResponse};
 use crate::partition::placement_actor::PlacementActor;
 use crate::rendezvous::{ClusterMember, Rendezvous};
 use nexus_actor_core_rs::generated::actor::Pid;
+use tracing::warn;
 
 const PARTITION_ACTIVATOR_NAME: &str = "partition-activator";
 
@@ -106,12 +108,16 @@ impl PartitionManager {
       };
       let mut root = cluster.actor_system().get_root_context().await;
       let future = root.poison_future_with_timeout(&pid, self.request_timeout()).await;
-      let _ = future.result().await;
+      if let Err(err) = future.result().await {
+        warn!(?err, actor = %pid, "failed to poison placement actor during shutdown");
+      }
     }
   }
 
   pub async fn update_topology(&self, topology: ClusterTopology) {
     self.rendezvous.update_members(topology.members.clone());
+
+    self.sync_identity_lookup().await;
 
     let pid = {
       let guard = self.placement_actor.read().await;
@@ -125,6 +131,23 @@ impl PartitionManager {
       let mut root = cluster.actor_system().get_root_context().await;
       root.send(pid, MessageHandle::new(topology)).await;
     }
+  }
+
+  async fn sync_identity_lookup(&self) {
+    let Ok(cluster) = self.get_cluster() else {
+      return;
+    };
+
+    let identity_lookup = cluster.identity_lookup();
+
+    let Some(distributed) = identity_lookup.as_any().downcast_ref::<DistributedIdentityLookup>() else {
+      return;
+    };
+
+    let manager = cluster.partition_manager();
+    let local_address = cluster.actor_system().get_address().await;
+
+    distributed.sync_after_topology_change(manager, local_address).await;
   }
 
   pub fn owner_for(&self, kind: &str, identity: &str) -> Option<String> {

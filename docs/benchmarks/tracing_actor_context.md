@@ -28,5 +28,5 @@
 ```
 
 ## 次のアクション
-- [ ] PidSet/ActorContextExtras の同期ロック分離後に再計測して差分を取得
+- [ ] ActorContextExtras の残ロック分離（PidSet は同期化済み）後に再計測して差分を取得
 - [ ] DelayQueue 置換 PoC 完了後に receive_timeout 系メトリクスを更新

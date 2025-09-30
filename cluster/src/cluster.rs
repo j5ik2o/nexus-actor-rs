@@ -22,12 +22,15 @@ use crate::identity_lookup::{
 };
 use crate::kind::ClusterKind;
 use crate::partition::manager::{ClusterTopology, PartitionManager, PartitionManagerError};
-use crate::provider::{provider_context_from_kinds, ClusterProvider, ClusterProviderContext, ClusterProviderError};
+use crate::provider::{
+  provider_context_from_kinds, ClusterProvider, ClusterProviderContext, ClusterProviderError, TopologyEvent,
+};
 use crate::rendezvous::ClusterMember;
+use nexus_actor_core_rs::event_stream::Subscription;
 use tokio::runtime::Handle;
 use tokio::sync::{oneshot, Mutex};
 use tokio::task::JoinHandle;
-use tracing::{error, warn};
+use tracing::{error, info, warn};
 
 use thiserror::Error;
 
@@ -113,6 +116,7 @@ pub struct Cluster {
   partition_manager: Arc<PartitionManager>,
   remote: Arc<Mutex<Option<Arc<Remote>>>>,
   remote_task: Arc<Mutex<Option<JoinHandle<()>>>>,
+  topology_subscription: Arc<Mutex<Option<Subscription>>>,
 }
 
 impl Cluster {
@@ -129,6 +133,7 @@ impl Cluster {
       partition_manager,
       remote: Arc::new(Mutex::new(None)),
       remote_task: Arc::new(Mutex::new(None)),
+      topology_subscription: Arc::new(Mutex::new(None)),
     };
     cluster
       .partition_manager
@@ -177,12 +182,50 @@ impl Cluster {
 
   async fn provider_context(&self) -> ClusterProviderContext {
     let address = self.actor_system.get_address().await;
+    let event_stream = self.actor_system.get_event_stream().await;
     provider_context_from_kinds(
       &self.config.cluster_name,
       address,
       &self.kinds,
       self.partition_manager.clone(),
+      event_stream,
     )
+  }
+
+  async fn ensure_topology_logging(&self) {
+    let mut guard = self.topology_subscription.lock().await;
+    if guard.is_some() {
+      return;
+    }
+
+    let event_stream = self.actor_system.get_event_stream().await;
+    let cluster_name = self.config.cluster_name.clone();
+    let subscription = event_stream
+      .subscribe(move |message| {
+        let cluster = cluster_name.clone();
+        async move {
+          if let Some(event) = message.to_typed::<TopologyEvent>() {
+            info!(
+              cluster = %event.cluster_name,
+              observer = %cluster,
+              node = ?event.node_address,
+              event_type = %event.event_type,
+              member_count = event.members.len(),
+              "topology event observed"
+            );
+          }
+        }
+      })
+      .await;
+    *guard = Some(subscription);
+  }
+
+  async fn clear_topology_logging(&self) {
+    let mut guard = self.topology_subscription.lock().await;
+    if let Some(subscription) = guard.take() {
+      let event_stream = self.actor_system.get_event_stream().await;
+      event_stream.unsubscribe(subscription).await;
+    }
   }
 
   async fn ensure_remote(&self) -> Result<(), ClusterError> {
@@ -237,6 +280,8 @@ impl Cluster {
       let mut guard = self.remote_task.lock().await;
       *guard = Some(handle);
     }
+
+    self.ensure_topology_logging().await;
 
     Ok(())
   }
@@ -318,7 +363,9 @@ impl Cluster {
 
     for pid in &pids {
       let future = root.stop_future_with_timeout(pid, self.request_timeout()).await;
-      let _ = future.result().await;
+      if let Err(err) = future.result().await {
+        warn!(?err, pid = %pid, "failed to stop actor during shutdown");
+      }
     }
 
     self.identity_lookup.shutdown().await.map_err(ClusterError::from)?;
@@ -336,6 +383,7 @@ impl Cluster {
     } {
       let _ = handle.await;
     }
+    self.clear_topology_logging().await;
     self.partition_manager.stop().await;
     self.provider.shutdown(graceful).await.map_err(ClusterError::from)
   }
@@ -421,363 +469,4 @@ impl Cluster {
 }
 
 #[cfg(test)]
-mod tests {
-  use super::*;
-  use async_trait::async_trait;
-  use nexus_actor_core_rs::actor::core::{ActorError, ErrorReason};
-  use nexus_actor_core_rs::actor::message::MessageHandle;
-  use nexus_actor_core_rs::actor::process::actor_future::ActorFuture;
-  use nexus_actor_message_derive_rs::Message as MessageDerive;
-  use std::collections::HashSet;
-  use std::sync::Arc;
-  use std::time::Duration;
-  use tokio::sync::{oneshot, Mutex};
-
-  use crate::config::RemoteOptions;
-  use crate::identity::ClusterIdentity;
-  use crate::provider::InMemoryClusterProvider;
-  use crate::virtual_actor::{VirtualActor, VirtualActorContext, VirtualActorRuntime};
-
-  #[derive(Debug, Clone, PartialEq, MessageDerive)]
-  struct Ping(pub String);
-
-  #[derive(Debug, Clone, PartialEq, MessageDerive)]
-  struct Ask(pub String);
-
-  #[derive(Debug, Clone, PartialEq, MessageDerive)]
-  struct Answer(pub String);
-
-  #[derive(Debug)]
-  struct AskActor;
-
-  #[async_trait]
-  impl VirtualActor for AskActor {
-    async fn activate(&mut self, _ctx: &VirtualActorContext) -> Result<(), ActorError> {
-      Ok(())
-    }
-
-    async fn handle(&mut self, message: MessageHandle, runtime: VirtualActorRuntime<'_>) -> Result<(), ActorError> {
-      if let Some(ask) = message.as_typed::<Ask>() {
-        let reply = Answer(format!("reply:{text}", text = ask.0));
-        runtime.respond(reply).await;
-        return Ok(());
-      }
-      Err(ActorError::of_receive_error(ErrorReason::from("unexpected message")))
-    }
-  }
-
-  #[derive(Debug)]
-  struct TestVirtualActor {
-    init_probe: Arc<Mutex<Option<oneshot::Sender<String>>>>,
-    message_probe: Arc<Mutex<Option<oneshot::Sender<String>>>>,
-  }
-
-  impl TestVirtualActor {
-    fn new(
-      init_probe: Arc<Mutex<Option<oneshot::Sender<String>>>>,
-      message_probe: Arc<Mutex<Option<oneshot::Sender<String>>>>,
-    ) -> Self {
-      Self {
-        init_probe,
-        message_probe,
-      }
-    }
-  }
-
-  #[async_trait]
-  impl VirtualActor for TestVirtualActor {
-    async fn activate(&mut self, ctx: &VirtualActorContext) -> Result<(), ActorError> {
-      let mut guard = self.init_probe.lock().await;
-      if let Some(sender) = guard.take() {
-        let _ = sender.send(ctx.identity().id().to_string());
-      }
-      Ok(())
-    }
-
-    async fn handle(&mut self, message: MessageHandle, _runtime: VirtualActorRuntime<'_>) -> Result<(), ActorError> {
-      if let Some(ping) = message.as_typed::<Ping>() {
-        let mut guard = self.message_probe.lock().await;
-        if let Some(sender) = guard.take() {
-          let _ = sender.send(ping.0.clone());
-        }
-      }
-      Ok(())
-    }
-  }
-
-  #[tokio::test]
-  async fn spawn_virtual_actor_once() {
-    let system = Arc::new(ActorSystem::new().await.expect("actor system"));
-    let cluster = Cluster::new(system.clone(), ClusterConfig::new("test"));
-    let (tx, rx) = oneshot::channel();
-    let init_probe = Arc::new(Mutex::new(Some(tx)));
-    let message_probe = Arc::new(Mutex::new(None));
-
-    cluster.register_kind(ClusterKind::virtual_actor("echo", move |identity| {
-      let _ = identity; // identity is available for factory consumers
-      let init_probe = init_probe.clone();
-      let message_probe = message_probe.clone();
-      async move { TestVirtualActor::new(init_probe, message_probe) }
-    }));
-
-    let identity = ClusterIdentity::new("echo", "a");
-    let pid1 = cluster.get(identity.clone()).await.expect("pid1");
-    let pid2 = cluster.get(identity.clone()).await.expect("pid2");
-
-    assert_eq!(pid1, pid2);
-    let received = rx.await.expect("cluster init");
-    assert_eq!(received, "a");
-  }
-
-  #[tokio::test]
-  async fn request_delivers_message() {
-    let system = Arc::new(ActorSystem::new().await.expect("actor system"));
-    let cluster = Cluster::new(system.clone(), ClusterConfig::new("test"));
-    let init_probe = Arc::new(Mutex::new(None));
-    let (tx, rx) = oneshot::channel();
-    let message_probe = Arc::new(Mutex::new(Some(tx)));
-
-    cluster.register_kind(ClusterKind::virtual_actor("req", move |identity| {
-      let _ = identity;
-      let init_probe = init_probe.clone();
-      let message_probe = message_probe.clone();
-      async move { TestVirtualActor::new(init_probe, message_probe) }
-    }));
-
-    let identity = ClusterIdentity::new("req", "actor");
-    cluster
-      .request(identity.clone(), Ping("hello".into()))
-      .await
-      .expect("request");
-
-    let received = rx.await.expect("ping");
-    assert_eq!(received, "hello");
-  }
-
-  #[tokio::test]
-  async fn request_message_returns_response() {
-    let system = Arc::new(ActorSystem::new().await.expect("actor system"));
-    let cluster = Cluster::new(system.clone(), ClusterConfig::new("test"));
-    cluster.register_kind(ClusterKind::virtual_actor(
-      "ask",
-      move |_identity| async move { AskActor },
-    ));
-
-    let identity = ClusterIdentity::new("ask", "two");
-    let response = cluster
-      .request_message(identity, Ask("hello".into()))
-      .await
-      .expect("response");
-    let answer = response.to_typed::<Answer>().expect("Answer");
-    assert_eq!(answer.0, "reply:hello");
-  }
-
-  #[tokio::test]
-  async fn start_member_updates_partition_topology() {
-    let system = Arc::new(ActorSystem::new().await.expect("actor system"));
-    let cluster = Cluster::new(system.clone(), ClusterConfig::new("test"));
-    cluster.register_kind(ClusterKind::virtual_actor(
-      "echo",
-      move |_identity| async move { AskActor },
-    ));
-
-    cluster.start_member().await.expect("start member");
-
-    let owner = cluster.partition_manager().owner_for("echo", "alice").expect("owner");
-    let address = system.get_address().await;
-    assert_eq!(owner, address);
-  }
-
-  #[tokio::test]
-  async fn request_future_waits_for_response() {
-    let system = Arc::new(ActorSystem::new().await.expect("actor system"));
-    let cluster = Cluster::new(system.clone(), ClusterConfig::new("test"));
-    cluster.register_kind(ClusterKind::virtual_actor(
-      "ask",
-      move |_identity| async move { AskActor },
-    ));
-
-    let identity = ClusterIdentity::new("ask", "one");
-    let fut: ActorFuture = cluster
-      .request_future(identity, Ask("hi".into()), std::time::Duration::from_secs(1))
-      .await
-      .expect("future");
-
-    let response = fut.result().await.expect("actor future");
-    let answer = response.to_typed::<Answer>().expect("Answer");
-    assert_eq!(answer.0, "reply:hi");
-  }
-
-  #[derive(Debug)]
-  struct SilentActor;
-
-  #[async_trait]
-  impl VirtualActor for SilentActor {
-    async fn activate(&mut self, _ctx: &VirtualActorContext) -> Result<(), ActorError> {
-      Ok(())
-    }
-
-    async fn handle(&mut self, _message: MessageHandle, _runtime: VirtualActorRuntime<'_>) -> Result<(), ActorError> {
-      Ok(())
-    }
-  }
-
-  #[tokio::test]
-  async fn request_message_times_out() {
-    let system = Arc::new(ActorSystem::new().await.expect("actor system"));
-    let cluster = Cluster::new(
-      system.clone(),
-      ClusterConfig::new("test").with_request_timeout(Duration::from_secs(1)),
-    );
-    cluster.register_kind(ClusterKind::virtual_actor("silent", move |_identity| async move {
-      SilentActor
-    }));
-
-    let identity = ClusterIdentity::new("silent", "one");
-    let err = cluster
-      .request_message_with_timeout(identity, Ask("ping".into()), Duration::from_millis(50))
-      .await
-      .expect_err("timeout");
-
-    match err {
-      ClusterError::RequestTimeout(d) => assert_eq!(d, Duration::from_millis(50)),
-      other => panic!("expected timeout, got {other:?}"),
-    }
-  }
-
-  #[tokio::test]
-  async fn start_member_registers_in_provider() {
-    let provider = Arc::new(InMemoryClusterProvider::new());
-    let system = Arc::new(ActorSystem::new().await.expect("actor system"));
-    let config = ClusterConfig::new("test-cluster").with_provider(provider.clone());
-    let cluster = Cluster::new(system.clone(), config);
-
-    cluster.start_member().await.expect("start member");
-    let members = provider.members_snapshot().await;
-    let address = system.get_address().await;
-    assert_eq!(members, vec![address.clone()]);
-
-    cluster.start_client().await.expect("start client");
-    let clients = provider.clients_snapshot().await;
-    assert_eq!(clients, vec!["test-cluster".to_string()]);
-
-    cluster.shutdown(true).await.expect("shutdown");
-  }
-
-  #[tokio::test]
-  async fn partition_topology_shared_across_clusters() {
-    let provider = Arc::new(InMemoryClusterProvider::new());
-
-    let system_a = ActorSystem::new().await.expect("system a");
-    let system_b = ActorSystem::new().await.expect("system b");
-    let system_a_arc = Arc::new(system_a.clone());
-    let system_b_arc = Arc::new(system_b.clone());
-
-    let cluster_a = Cluster::new(
-      system_a_arc.clone(),
-      ClusterConfig::new("cluster-a").with_provider(provider.clone()),
-    );
-    let cluster_b = Cluster::new(
-      system_b_arc.clone(),
-      ClusterConfig::new("cluster-b").with_provider(provider.clone()),
-    );
-
-    cluster_a.register_kind(ClusterKind::virtual_actor(
-      "echo",
-      move |_identity| async move { AskActor },
-    ));
-    cluster_b.register_kind(ClusterKind::virtual_actor(
-      "echo",
-      move |_identity| async move { AskActor },
-    ));
-
-    cluster_a.start_member().await.expect("start member a");
-    cluster_b.start_member().await.expect("start member b");
-
-    let addr_a = system_a.get_address().await;
-    let addr_b = system_b.get_address().await;
-
-    let topology = provider.topology_snapshot().await;
-    let addresses: HashSet<_> = topology.iter().map(|member| member.address.clone()).collect();
-    assert!(addresses.contains(&addr_a));
-    assert!(addresses.contains(&addr_b));
-
-    let pm_a = cluster_a.partition_manager();
-    let pm_b = cluster_b.partition_manager();
-
-    let mut owners_a = HashSet::new();
-    let mut owners_b = HashSet::new();
-    for idx in 0..64 {
-      let identity = format!("id-{idx}");
-      if let Some(owner) = pm_a.owner_for("echo", &identity) {
-        owners_a.insert(owner);
-      }
-      if let Some(owner) = pm_b.owner_for("echo", &identity) {
-        owners_b.insert(owner);
-      }
-    }
-
-    assert!(owners_a.contains(&addr_a));
-    assert!(owners_a.contains(&addr_b));
-    assert!(owners_b.contains(&addr_a));
-    assert!(owners_b.contains(&addr_b));
-
-    cluster_a.shutdown(true).await.expect("shutdown a");
-    cluster_b.shutdown(true).await.expect("shutdown b");
-  }
-
-  #[tokio::test]
-  async fn request_spawns_on_remote_owner() {
-    let provider = Arc::new(InMemoryClusterProvider::new());
-
-    let system_a = ActorSystem::new().await.expect("system a");
-    let system_b = ActorSystem::new().await.expect("system b");
-    let system_a_arc = Arc::new(system_a.clone());
-    let system_b_arc = Arc::new(system_b.clone());
-
-    let cluster_a = Cluster::new(
-      system_a_arc.clone(),
-      ClusterConfig::new("cluster-a")
-        .with_provider(provider.clone())
-        .with_remote_options(RemoteOptions::new("127.0.0.1", 20081).with_advertised_address("127.0.0.1:20081")),
-    );
-    let cluster_b = Cluster::new(
-      system_b_arc.clone(),
-      ClusterConfig::new("cluster-b")
-        .with_provider(provider.clone())
-        .with_remote_options(RemoteOptions::new("127.0.0.1", 20082).with_advertised_address("127.0.0.1:20082")),
-    );
-
-    cluster_a.register_kind(ClusterKind::virtual_actor(
-      "echo",
-      move |_identity| async move { AskActor },
-    ));
-    cluster_b.register_kind(ClusterKind::virtual_actor(
-      "echo",
-      move |_identity| async move { AskActor },
-    ));
-
-    cluster_a.start_member().await.expect("start member a");
-    cluster_b.start_member().await.expect("start member b");
-
-    let addr_b = system_b.get_address().await;
-    let pm_a = cluster_a.partition_manager();
-
-    let identity_key = (0..1000)
-      .map(|idx| format!("id-{idx}"))
-      .find(|id| pm_a.owner_for("echo", id.as_str()) == Some(addr_b.clone()))
-      .expect("identity for remote owner");
-
-    let identity = ClusterIdentity::new("echo", identity_key.clone());
-    let pid = cluster_a
-      .partition_manager()
-      .activate(identity.clone())
-      .await
-      .expect("activate remote")
-      .expect("remote pid");
-    assert_eq!(pid.address(), addr_b);
-
-    cluster_a.shutdown(true).await.expect("shutdown a");
-    cluster_b.shutdown(true).await.expect("shutdown b");
-  }
-}
+mod tests;

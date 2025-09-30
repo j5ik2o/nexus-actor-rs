@@ -16,10 +16,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - name: Install protoc
+      - name: Install protoc and jq
         run: |
           sudo apt-get update
-          sudo apt-get install -y protobuf-compiler
+          sudo apt-get install -y protobuf-compiler jq
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -34,13 +34,13 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - name: Run reentrancy bench
         env:
-          THRESHOLD_NS: ${{ vars.REENTRANCY_THRESHOLD_NS != '' && vars.REENTRANCY_THRESHOLD_NS || 90000000 }}
+          TIME_FACTOR: ${{ vars.BENCH_TIME_FACTOR != '' && vars.BENCH_TIME_FACTOR || 3.0 }}
         run: |
           chmod +x scripts/check_reentrancy_bench.sh
           scripts/check_reentrancy_bench.sh
       - name: Check context borrow bench
         env:
-          THRESHOLD_MS: ${{ vars.CONTEXT_BORROW_THRESHOLD_MS != '' && vars.CONTEXT_BORROW_THRESHOLD_MS || 35.0 }}
+          TIME_FACTOR: ${{ vars.BENCH_TIME_FACTOR != '' && vars.BENCH_TIME_FACTOR || 3.0 }}
           RUN_BENCH: 0
         run: |
           chmod +x scripts/check_context_borrow_bench.sh

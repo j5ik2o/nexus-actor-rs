@@ -1,38 +1,21 @@
-# Mailbox ベンチマーク比較手順 (2025-09-28)
+# Mailbox ベンチマーク比較手順 (2025-09-29 時点)
+
+## 区分基準
+- **目的**: 手動ベースラインを取得する状況。
+- **手順**: コミット間比較を行う具体的ステップ。
+- **補足**: 日次ジョブとの整合や注意事項。
 
 ## 目的
-`DefaultMailbox` 同期化前後の性能差を定量的に把握するため、同一ベンチ (`mailbox_throughput`) を使った比較手順をまとめる。
-
-## 前提
-- 同期化前のコミット (`<BASE_COMMIT>`) が参照可能であること。
-- 同期化後は `bench/benches/mailbox_throughput.rs` と `bench/Cargo.toml` のエントリが存在する。
+- Nightly ベンチ (`.github/workflows/mailbox-sync-nightly.yml`) で異常を検知した際のローカル再現手順として利用する。
+- 同期化前 (`0ae465fc312eceb863297ed5efd549909648fa89`) と同期化後の性能差を再確認したい場合に実施する。
 
 ## 手順
-1. **同期化前コミットをチェックアウト**
-   - 推奨基準: `0ae465fc312eceb863297ed5efd549909648fa89`（同期キュー導入前の状態）
-   ```bash
-   git checkout 0ae465fc312eceb863297ed5efd549909648fa89
-   ```
-2. **ベンチファイルを配置**（同期化前コミットには存在しないため）
-   - 現在のブランチから以下をコピーする:
-     - `bench/benches/mailbox_throughput.rs`
-     - `bench/Cargo.toml` 内の `mailbox_throughput` エントリ
-   - 作業後に `git status` で追加ファイルのみ反映されていることを確認（コミット不要）。
-3. **依存ビルド & ベンチ実行**
-   ```bash
-   cargo bench --bench mailbox_throughput
-   ```
-   - 出力された `mailbox_process/unbounded_mpsc_100` と `..._1000` の time/thrpt を記録。
-4. **現行コミット（同期化後）に戻る**
-   ```bash
-   git checkout refactor-0925
-   cargo bench --bench mailbox_throughput
-   ```
-5. **比較・記録**
-   - `docs/mailbox_sync_transition_plan.md` のベンチ結果節に前後比較を追記。
-   - 測定条件（CPU/負荷/ビルド設定）を同一に保つ。
-   - 必要に応じて raw 出力 (`target/criterion/.../new/benchmark.csv`) を保存する。
+1. `git checkout 0ae465fc312eceb863297ed5efd549909648fa89`（同期化前）を取得し、`bench/benches/mailbox_throughput.rs` と `bench/Cargo.toml` のエントリを現行ブランチからコピー。
+2. `cargo bench --bench mailbox_throughput -- --samples 100` などで計測し、`target/criterion/mailbox_throughput/.../new/benchmark.csv` を保存。
+3. 現行コミットへ戻り再度 `cargo bench --bench mailbox_throughput` を実行し、`criterion diff` または CSV 比較で差分を確認。
+4. 結果は `docs/mailbox_sync_transition_plan.md` の「Nightly ベンチ」節へ追記し、今後の基準に反映する。
 
-## 備考
-- ベンチは `criterion` を利用しているため、実行毎に若干のブレが生じる。必要に応じて `--samples` `--measurement-time` などで安定化する。
-- 長期的には CI ジョブに測定を組み込み、レポートを自動生成することも検討する。
+## 補足
+- `cargo bench -- --baseline sync` で Nightly が保存したベースラインと同条件比較が可能。
+- 測定環境の揺らぎを抑えるため、CPU スケーリングを固定し `RUSTFLAGS="-C target-cpu=native"` を揃える。
+

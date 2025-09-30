@@ -1,5 +1,6 @@
 mod cluster;
 mod config;
+mod generated;
 mod identity;
 mod identity_lookup;
 mod kind;
@@ -23,6 +24,9 @@ pub use crate::partition::{
   messages::{ActivationRequest, ActivationResponse},
   placement_actor::PlacementActor,
 };
-pub use crate::provider::{ClusterProvider, ClusterProviderContext, ClusterProviderError, InMemoryClusterProvider};
+pub use crate::provider::{
+  ClusterProvider, ClusterProviderContext, ClusterProviderError, GrpcRegistryClusterProvider, InMemoryClusterProvider,
+  RegistryClient, RegistryError, RegistryMember, RegistryWatch,
+};
 pub use crate::rendezvous::{ClusterMember, Rendezvous};
 pub use crate::virtual_actor::{VirtualActor, VirtualActorContext, VirtualActorRuntime};
