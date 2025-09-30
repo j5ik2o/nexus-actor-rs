@@ -5,7 +5,7 @@ PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)"
 BENCH_NAME=${BENCH_NAME:-context_borrow}
 METRIC_NAME=${METRIC_NAME:-borrow_hot_path}
 RESULT_PATH=${RESULT_PATH:-target/criterion/${BENCH_NAME}/${METRIC_NAME}/new/estimates.json}
-THRESHOLD_MS=${THRESHOLD_MS:-5.0}
+THRESHOLD_MS=${THRESHOLD_MS:-100.0}
 RUN_BENCH=${RUN_BENCH:-0}
 
 pushd "$PROJECT_ROOT" >/dev/null

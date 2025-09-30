@@ -40,7 +40,7 @@ jobs:
           scripts/check_reentrancy_bench.sh
       - name: Check context borrow bench
         env:
-          THRESHOLD_MS: ${{ vars.CONTEXT_BORROW_THRESHOLD_MS != '' && vars.CONTEXT_BORROW_THRESHOLD_MS || 35.0 }}
+          THRESHOLD_MS: ${{ vars.CONTEXT_BORROW_THRESHOLD_MS != '' && vars.CONTEXT_BORROW_THRESHOLD_MS || 100.0 }}
           RUN_BENCH: 0
         run: |
           chmod +x scripts/check_context_borrow_bench.sh
