@@ -16,7 +16,7 @@
 | プロバイダー | ステータス | 主要機能 | 依存先 | 想定ユースケース |
 |--------------|------------|----------|--------|--------------------|
 | InMemory | 実装済み（開発・テスト用） | ノード・クライアントのインメモリ登録、`PartitionManager` 参照、トポロジブロードキャスト | `tokio::sync::RwLock` のみ | ローカルテスト、単体ノード検証 |
-| gRPC Registry | 設計着手 | ノード登録を gRPC 経由で共有、`PartitionManager` のリモート解決、イベント通知 | 外部レジストリ（例: grpc-discovery サービス） | 複数ノードを安易に接続するスタンドアロン構成 |
+| gRPC Registry | 実装中 | ノード登録を gRPC 経由で共有、`PartitionManager` のリモート解決、イベント通知、Heartbeat/TTL 監視 | gRPC Registry サービス（同梱実装） | 複数ノードを安易に接続するスタンドアロン構成 |
 | Kubernetes | 設計着手 | `EndpointSlice`/`Lease` 監視、`PartitionManager` の再付与、ゾーンアフィニティ管理 | Kubernetes API、`kube` クライアント | マネージド Kubernetes 上でのクラスタ展開 |
 
 **InMemory**
@@ -24,10 +24,10 @@
 - `partition_managers` を `Weak<PartitionManager>` としてキャッシュし、`broadcast_topology` で存命なマネージャへ `ClusterTopology` を伝搬。
 - `members_snapshot` / `clients_snapshot` / `topology_snapshot` などのデバッグ API を提供し、結合テストで活用。
 
-**gRPC Registry プロバイダー（新規）**
-- Registry サービスに対し `Join`/`Leave`/`UpdateKinds` を gRPC で送出し、他ノードからの `PartitionManager` 参照は registry 経由で ``(cluster_name, node_address)`` をキーに解決。
+**gRPC Registry プロバイダー**
+- Registry サービスに対し `Join`/`Leave`/`Heartbeat` を gRPC で送出し、他ノードからの `PartitionManager` 参照は registry 経由で ``(cluster_name, node_address)`` をキーに解決。
 - トポロジ変更時は registry が Pub/Sub で通知し、ローカル `PartitionManager` が `ClusterTopology` を再計算。
-- フェイルオーバ時は registry 側のヘルスチェック（KeepAlive）でノード欠落を検知し、通知先で再アクティベーションを実行。
+- 連続 Heartbeat を監視し、TTL 超過時はサーバー側でノードを自動除外してフェイルオーバをトリガー。KeepAlive 設定は gRPC チャネル／サーバー双方に適用。
 - `TopologyEvent`（`registered` / `snapshot` / `deregistered`）を `EventStream` に流し、`Cluster::ensure_remote` 側で監視ログを出力する。
 
 **Kubernetes プロバイダー（新規）**
@@ -56,8 +56,7 @@
 ## TODO（優先度付き）
 
 1. **MUST / Sprint**
-   - gRPC Registry プロバイダーの骨格実装: `register_node` / `deregister_node` / `watch_topology` API を定義し、InMemory と同等の結合テスト（クラスタ2台）を作成。
-   - Provider 共通モジュールに `TopologyEvent` を定義し、`Cluster::ensure_remote` と連携した監視ログを整備。
+   - なし（2025-09-30 時点）。
 
 2. **SHOULD / 次スプリント**
    - Kubernetes プロバイダーの PoC: `EndpointSlice` 監視で `ClusterTopology` を再構築し、`kubectl rollout` と連動した再バランスを確認。

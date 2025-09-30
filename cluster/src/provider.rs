@@ -4,6 +4,7 @@ use std::any::Any;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::sync::{Arc, Weak};
+use std::time::Duration;
 use thiserror::Error;
 use tokio::sync::{broadcast, RwLock};
 use tokio::task::JoinHandle;
@@ -11,7 +12,7 @@ use tokio_stream::wrappers::BroadcastStream;
 
 use crate::generated::registry::cluster_registry_client::ClusterRegistryClient;
 use crate::generated::registry::{
-  JoinRequest, LeaveRequest, Member as ProtoMember, RegisterClientRequest, WatchUpdate,
+  HeartbeatRequest, JoinRequest, LeaveRequest, Member as ProtoMember, RegisterClientRequest, WatchUpdate,
 };
 use crate::kind::ClusterKind;
 use crate::partition::manager::{ClusterTopology, PartitionManager};
@@ -145,6 +146,10 @@ pub trait RegistryClient: Send + Sync + fmt::Debug + 'static {
   async fn leave_member(&self, cluster_name: &str, node_address: &str) -> Result<(), RegistryError>;
 
   async fn register_client(&self, _cluster_name: &str, _client_id: &str) -> Result<(), RegistryError> {
+    Ok(())
+  }
+
+  async fn heartbeat(&self, _cluster_name: &str, _node_address: &str) -> Result<(), RegistryError> {
     Ok(())
   }
 }
@@ -296,11 +301,28 @@ struct RegisteredMember {
   event_stream: Arc<EventStream>,
 }
 
+#[derive(Debug, Clone)]
+pub struct GrpcRegistrySettings {
+  pub heartbeat_interval: Duration,
+  pub heartbeat_timeout: Duration,
+}
+
+impl Default for GrpcRegistrySettings {
+  fn default() -> Self {
+    Self {
+      heartbeat_interval: Duration::from_secs(5),
+      heartbeat_timeout: Duration::from_secs(15),
+    }
+  }
+}
+
 pub struct GrpcRegistryClusterProvider<R: RegistryClient> {
   registry: Arc<R>,
   partition_managers: RwLock<HashMap<String, Weak<PartitionManager>>>,
   members: RwLock<HashMap<String, RegisteredMember>>,
   watch_tasks: RwLock<HashMap<String, JoinHandle<()>>>,
+  heartbeat_tasks: RwLock<HashMap<String, JoinHandle<()>>>,
+  settings: GrpcRegistrySettings,
 }
 
 impl<R: RegistryClient> fmt::Debug for GrpcRegistryClusterProvider<R> {
@@ -311,11 +333,17 @@ impl<R: RegistryClient> fmt::Debug for GrpcRegistryClusterProvider<R> {
 
 impl<R: RegistryClient> GrpcRegistryClusterProvider<R> {
   pub fn new(registry: Arc<R>) -> Self {
+    Self::with_settings(registry, GrpcRegistrySettings::default())
+  }
+
+  pub fn with_settings(registry: Arc<R>, settings: GrpcRegistrySettings) -> Self {
     Self {
       registry,
       partition_managers: RwLock::new(HashMap::new()),
       members: RwLock::new(HashMap::new()),
       watch_tasks: RwLock::new(HashMap::new()),
+      heartbeat_tasks: RwLock::new(HashMap::new()),
+      settings,
     }
   }
 
@@ -351,6 +379,37 @@ impl<R: RegistryClient> GrpcRegistryClusterProvider<R> {
     if let Some(existing) = tasks.insert(node_address, handle) {
       existing.abort();
     }
+  }
+
+  async fn start_heartbeat(&self, cluster_name: String, node_address: String) {
+    let interval = self.settings.heartbeat_interval;
+    let registry = self.registry.clone();
+    let cluster_clone = cluster_name.clone();
+    let node_clone = node_address.clone();
+    let handle = tokio::spawn(async move {
+      let mut ticker = tokio::time::interval(interval);
+      loop {
+        ticker.tick().await;
+        if let Err(err) = registry.heartbeat(&cluster_clone, &node_clone).await {
+          warn!(?err, cluster = %cluster_clone, node = %node_clone, "failed to send heartbeat");
+        }
+      }
+    });
+
+    if let Some(existing) = self.heartbeat_tasks.write().await.insert(node_address, handle) {
+      existing.abort();
+    }
+  }
+
+  async fn stop_heartbeat(&self, node_address: &str) {
+    if let Some(handle) = self.heartbeat_tasks.write().await.remove(node_address) {
+      handle.abort();
+    }
+  }
+
+  #[cfg(test)]
+  async fn stop_heartbeat_for_test(&self, node_address: &str) {
+    self.stop_heartbeat(node_address).await;
   }
 
   async fn register_node(&self, ctx: &ClusterProviderContext) -> Result<RegistryWatch, ClusterProviderError> {
@@ -396,6 +455,7 @@ impl<R: RegistryClient> GrpcRegistryClusterProvider<R> {
         )))
         .await;
     }
+    self.stop_heartbeat(node_address).await;
     Ok(())
   }
 }
@@ -413,7 +473,14 @@ impl GrpcRegistryClient {
   }
 
   fn endpoint(&self) -> Result<Endpoint, RegistryError> {
-    Endpoint::from_shared(self.uri.clone()).map_err(|err| RegistryError::OperationFailed(err.to_string()))
+    Endpoint::from_shared(self.uri.clone())
+      .map(|endpoint| {
+        endpoint
+          .tcp_keepalive(Some(Duration::from_secs(5)))
+          .http2_keep_alive_interval(Duration::from_secs(5))
+          .keep_alive_timeout(Duration::from_secs(2))
+      })
+      .map_err(|err| RegistryError::OperationFailed(err.to_string()))
   }
 
   async fn client(&self) -> Result<ClusterRegistryClient<Channel>, RegistryError> {
@@ -510,6 +577,16 @@ impl RegistryClient for GrpcRegistryClient {
     client.register_client(request).await?;
     Ok(())
   }
+
+  async fn heartbeat(&self, cluster_name: &str, node_address: &str) -> Result<(), RegistryError> {
+    let mut client = self.client().await?;
+    let request = HeartbeatRequest {
+      cluster_name: cluster_name.to_string(),
+      node_address: node_address.to_string(),
+    };
+    client.heartbeat(request).await?;
+    Ok(())
+  }
 }
 
 #[async_trait]
@@ -534,6 +611,10 @@ impl<R: RegistryClient> ClusterProvider for GrpcRegistryClusterProvider<R> {
     let node_address = ctx.node_address.clone();
     self
       .register_watch(ctx.cluster_name.clone(), node_address, pm, ctx.event_stream(), stream)
+      .await;
+
+    self
+      .start_heartbeat(ctx.cluster_name.clone(), ctx.node_address.clone())
       .await;
 
     Ok(())
@@ -564,6 +645,7 @@ impl<R: RegistryClient> ClusterProvider for GrpcRegistryClusterProvider<R> {
       } else {
         let mut members = self.members.write().await;
         members.remove(&address);
+        self.stop_heartbeat(&address).await;
       }
 
       if let Some(handle) = {
@@ -626,9 +708,11 @@ mod tests {
   use nexus_actor_core_rs::actor::core::ActorError;
   use nexus_actor_core_rs::actor::message::MessageHandle;
   use std::collections::{HashMap, HashSet};
+  use std::net::SocketAddr;
   use std::sync::Arc;
   use tokio::sync::Mutex as TokioMutex;
   use tokio::time::{sleep, timeout, Duration};
+  use super::registry_server::{spawn_registry_server, GrpcRegistryServerConfig};
 
   #[derive(Debug)]
   struct RegistryClusterState {
@@ -818,6 +902,7 @@ mod tests {
     assert_eq!(registry.list_members("grpc-registry").await.len(), 2);
 
     cluster_a.shutdown(true).await.expect("shutdown a");
+    cluster_a.shutdown(false).await.expect("shutdown a");
     cluster_b.shutdown(true).await.expect("shutdown b");
 
     assert!(registry.list_members("grpc-registry").await.is_empty());
@@ -913,4 +998,381 @@ mod tests {
 
     system_a.get_event_stream().await.unsubscribe(subscription).await;
   }
+
+  #[tokio::test]
+  async fn grpc_registry_provider_real_server_handles_heartbeat_timeout() {
+    let addr = SocketAddr::new("127.0.0.1".parse().unwrap(), MockRegistryClient::allocate_port());
+    let server_config = GrpcRegistryServerConfig {
+      heartbeat_timeout: Duration::from_millis(600),
+      cleanup_interval: Duration::from_millis(200),
+      http2_keepalive_interval: Duration::from_millis(200),
+      http2_keepalive_timeout: Duration::from_millis(100),
+    };
+    let (_service, server_handle) = spawn_registry_server(addr, server_config.clone());
+
+    let client = Arc::new(GrpcRegistryClient::new(format!("http://{}", addr)));
+    let grpc_provider = Arc::new(GrpcRegistryClusterProvider::with_settings(
+      client.clone(),
+      GrpcRegistrySettings {
+        heartbeat_interval: Duration::from_millis(150),
+        heartbeat_timeout: server_config.heartbeat_timeout,
+      },
+    ));
+    let provider = grpc_provider.clone() as Arc<dyn ClusterProvider>;
+
+    let system_a = Arc::new(ActorSystem::new().await.expect("system a"));
+    let system_b = Arc::new(ActorSystem::new().await.expect("system b"));
+
+    let cluster_a = Cluster::new(
+      system_a.clone(),
+      ClusterConfig::new("grpc-registry-e2e")
+        .with_provider(provider.clone())
+        .with_remote_options(RemoteOptions::new("127.0.0.1", MockRegistryClient::allocate_port())),
+    );
+    let cluster_b = Cluster::new(
+      system_b.clone(),
+      ClusterConfig::new("grpc-registry-e2e")
+        .with_provider(provider.clone())
+        .with_remote_options(RemoteOptions::new("127.0.0.1", MockRegistryClient::allocate_port())),
+    );
+
+    cluster_a.register_kind(ClusterKind::virtual_actor("dummy", move |_identity| async {
+      DummyActor
+    }));
+    cluster_b.register_kind(ClusterKind::virtual_actor("dummy", move |_identity| async {
+      DummyActor
+    }));
+
+    cluster_a.start_member().await.expect("start member a");
+    cluster_b.start_member().await.expect("start member b");
+
+    let remote_addr = system_b.get_address().await;
+
+    // Wait until the remote node is observed.
+    let events = Arc::new(TokioMutex::new(Vec::<TopologyEvent>::new()));
+    let event_stream = system_a.get_event_stream().await;
+    let events_clone = events.clone();
+    let subscription = event_stream
+      .subscribe(move |message| {
+        let events_clone = events_clone.clone();
+        async move {
+          if let Some(event) = message.to_typed::<TopologyEvent>() {
+            events_clone.lock().await.push(event);
+          }
+        }
+      })
+      .await;
+
+    assert!(
+      wait_for_event(&events, Duration::from_secs(3), |items| {
+        items
+          .iter()
+          .filter(|event| event.event_type == "snapshot")
+          .any(|event| event.members.iter().any(|member| member.address == remote_addr))
+      })
+      .await,
+      "snapshot should include remote node",
+    );
+
+    // Simulate node failure by stopping heartbeat without deregistration.
+    let addr_a = system_a.get_address().await;
+    grpc_provider.stop_heartbeat_for_test(&addr_a).await;
+
+    assert!(
+      wait_for_event(&events, Duration::from_secs(5), |items| {
+        items
+          .iter()
+          .filter(|event| event.event_type == "snapshot")
+          .any(|event| event.members.iter().all(|member| member.address != addr_a))
+      })
+      .await,
+      "snapshot should drop failed node",
+    );
+
+    cluster_b.shutdown(true).await.expect("shutdown b");
+    system_a.get_event_stream().await.unsubscribe(subscription).await;
+    server_handle.abort();
+  }
 }
+
+#[allow(dead_code)]
+pub mod registry_server {
+  use super::*;
+
+  use std::net::SocketAddr;
+  use std::time::{Duration, Instant};
+
+  use tokio::sync::{broadcast, RwLock};
+  use tokio::task::JoinHandle;
+  use tokio_stream::wrappers::UnboundedReceiverStream;
+  use tonic::transport::Server;
+  use tonic::{async_trait, Response, Status};
+
+  use crate::generated::registry::cluster_registry_server::{ClusterRegistry, ClusterRegistryServer};
+  use crate::generated::registry::{
+    HeartbeatRequest, JoinRequest, LeaveRequest, Member, RegisterClientRequest, WatchUpdate,
+  };
+
+  #[allow(dead_code)]
+  #[derive(Debug, Clone)]
+  pub struct GrpcRegistryServerConfig {
+    pub heartbeat_timeout: Duration,
+    pub cleanup_interval: Duration,
+    pub http2_keepalive_interval: Duration,
+    pub http2_keepalive_timeout: Duration,
+  }
+
+  impl Default for GrpcRegistryServerConfig {
+    fn default() -> Self {
+      Self {
+        heartbeat_timeout: Duration::from_secs(15),
+        cleanup_interval: Duration::from_secs(5),
+        http2_keepalive_interval: Duration::from_secs(5),
+        http2_keepalive_timeout: Duration::from_secs(2),
+      }
+    }
+  }
+
+  #[allow(dead_code)]
+  #[derive(Debug)]
+  struct NodeEntry {
+    member: Member,
+    last_seen: Instant,
+  }
+
+  #[allow(dead_code)]
+  #[derive(Debug)]
+  struct ClusterState {
+    members: HashMap<String, NodeEntry>,
+    clients: HashSet<String>,
+    broadcaster: broadcast::Sender<WatchUpdate>,
+  }
+
+  impl ClusterState {
+    fn new() -> Self {
+      let (sender, _) = broadcast::channel(32);
+      Self {
+        members: HashMap::new(),
+        clients: HashSet::new(),
+        broadcaster: sender,
+      }
+    }
+
+    fn snapshot(&self) -> WatchUpdate {
+      let members = self
+        .members
+        .values()
+        .map(|entry| entry.member.clone())
+        .collect::<Vec<_>>();
+      WatchUpdate { members }
+    }
+  }
+
+  #[allow(dead_code)]
+  #[derive(Debug)]
+  struct RegistryState {
+    clusters: RwLock<HashMap<String, ClusterState>>,
+    heartbeat_timeout: Duration,
+    cleanup_interval: Duration,
+  }
+
+  #[allow(dead_code)]
+  #[derive(Clone, Debug)]
+  pub struct GrpcRegistryService {
+    state: Arc<RegistryState>,
+  }
+
+  impl GrpcRegistryService {
+    pub fn new(config: &GrpcRegistryServerConfig) -> Self {
+      let state = Arc::new(RegistryState {
+        clusters: RwLock::new(HashMap::new()),
+        heartbeat_timeout: config.heartbeat_timeout,
+        cleanup_interval: config.cleanup_interval,
+      });
+      let service = Self { state };
+      service.spawn_cleanup_task();
+      service
+    }
+
+    fn spawn_cleanup_task(&self) {
+      let state = self.state.clone();
+      tokio::spawn(async move {
+        let mut ticker = tokio::time::interval(state.cleanup_interval);
+        loop {
+          ticker.tick().await;
+          let now = Instant::now();
+          let mut clusters = state.clusters.write().await;
+          for (_, cluster_state) in clusters.iter_mut() {
+            let mut expired = Vec::new();
+            for (address, entry) in cluster_state.members.iter() {
+              if now.duration_since(entry.last_seen) > state.heartbeat_timeout {
+                expired.push(address.clone());
+              }
+            }
+            for address in expired {
+              cluster_state.members.remove(&address);
+            }
+            let update = cluster_state.snapshot();
+            let _ = cluster_state.broadcaster.send(update);
+          }
+        }
+      });
+    }
+
+    async fn upsert_member(&self, member: Member) -> WatchUpdate {
+      let mut clusters = self.state.clusters.write().await;
+      let cluster_state = clusters.entry(member.cluster_name.clone()).or_insert_with(ClusterState::new);
+      cluster_state.members.insert(
+        member.node_address.clone(),
+        NodeEntry {
+          member: member.clone(),
+          last_seen: Instant::now(),
+        },
+      );
+      let update = cluster_state.snapshot();
+      let _ = cluster_state.broadcaster.send(update.clone());
+      update
+    }
+
+    async fn update_heartbeat(&self, cluster_name: &str, node_address: &str) -> Result<(), Status> {
+      let mut clusters = self.state.clusters.write().await;
+      let Some(cluster_state) = clusters.get_mut(cluster_name) else {
+        return Err(Status::not_found("cluster not registered"));
+      };
+      let Some(entry) = cluster_state.members.get_mut(node_address) else {
+        return Err(Status::not_found("node not registered"));
+      };
+      entry.last_seen = Instant::now();
+      Ok(())
+    }
+
+    async fn remove_member(&self, cluster_name: &str, node_address: &str) {
+      let mut clusters = self.state.clusters.write().await;
+      if let Some(cluster_state) = clusters.get_mut(cluster_name) {
+        cluster_state.members.remove(node_address);
+        let update = cluster_state.snapshot();
+        let _ = cluster_state.broadcaster.send(update);
+        if cluster_state.members.is_empty() && cluster_state.clients.is_empty() {
+          clusters.remove(cluster_name);
+        }
+      }
+    }
+
+    async fn add_client(&self, cluster_name: &str, client_id: &str) {
+      let mut clusters = self.state.clusters.write().await;
+      let cluster_state = clusters.entry(cluster_name.to_string()).or_insert_with(ClusterState::new);
+      cluster_state.clients.insert(client_id.to_string());
+    }
+
+    async fn subscribe(&self, cluster_name: &str) -> broadcast::Receiver<WatchUpdate> {
+      let clusters = self.state.clusters.read().await;
+      let cluster_state = clusters
+        .get(cluster_name)
+        .expect("cluster state must exist when subscribing");
+      cluster_state.broadcaster.subscribe()
+    }
+
+    pub fn into_service(self) -> ClusterRegistryServer<Self> {
+      ClusterRegistryServer::new(self)
+    }
+
+    pub async fn serve(
+      self,
+      addr: SocketAddr,
+      config: &GrpcRegistryServerConfig,
+    ) -> Result<(), tonic::transport::Error> {
+      Server::builder()
+        .tcp_keepalive(Some(config.http2_keepalive_interval))
+        .http2_keepalive_interval(Some(config.http2_keepalive_interval))
+        .http2_keepalive_timeout(Some(config.http2_keepalive_timeout))
+        .add_service(self.clone().into_service())
+        .serve(addr)
+        .await
+    }
+  }
+
+  #[async_trait]
+  impl ClusterRegistry for GrpcRegistryService {
+    type JoinStream = UnboundedReceiverStream<Result<WatchUpdate, Status>>;
+
+    async fn join(
+      &self,
+      request: tonic::Request<JoinRequest>,
+    ) -> Result<Response<Self::JoinStream>, Status> {
+      let member = request
+        .into_inner()
+        .member
+        .ok_or_else(|| Status::invalid_argument("member is required"))?;
+
+      let snapshot = self.upsert_member(member.clone()).await;
+
+      let mut receiver = self.subscribe(&member.cluster_name).await;
+      let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+      if tx.send(Ok(snapshot.clone())).is_err() {
+        return Err(Status::internal("failed to deliver snapshot"));
+      }
+
+      let service = self.clone();
+      tokio::spawn(async move {
+        loop {
+          match receiver.recv().await {
+            Ok(update) => {
+              if tx.send(Ok(update.clone())).is_err() {
+                service.remove_member(&member.cluster_name, &member.node_address).await;
+                break;
+              }
+            }
+            Err(broadcast::error::RecvError::Lagged(_)) => continue,
+            Err(broadcast::error::RecvError::Closed) => {
+              let _ = tx.send(Ok(WatchUpdate { members: Vec::new() }));
+              break;
+            }
+          }
+        }
+      });
+
+      Ok(Response::new(UnboundedReceiverStream::new(rx)))
+    }
+
+    async fn leave(
+      &self,
+      request: tonic::Request<LeaveRequest>,
+    ) -> Result<Response<()>, Status> {
+      let req = request.into_inner();
+      self.remove_member(&req.cluster_name, &req.node_address).await;
+      Ok(Response::new(()))
+    }
+
+    async fn register_client(
+      &self,
+      request: tonic::Request<RegisterClientRequest>,
+    ) -> Result<Response<()>, Status> {
+      let req = request.into_inner();
+      self.add_client(&req.cluster_name, &req.client_id).await;
+      Ok(Response::new(()))
+    }
+
+    async fn heartbeat(
+      &self,
+      request: tonic::Request<HeartbeatRequest>,
+    ) -> Result<Response<()>, Status> {
+      let req = request.into_inner();
+      self.update_heartbeat(&req.cluster_name, &req.node_address).await?;
+      Ok(Response::new(()))
+    }
+  }
+
+  #[allow(dead_code)]
+  pub fn spawn_registry_server(
+    addr: SocketAddr,
+    config: GrpcRegistryServerConfig,
+  ) -> (GrpcRegistryService, JoinHandle<Result<(), tonic::transport::Error>>) {
+    let service = GrpcRegistryService::new(&config);
+    let cloned_service = service.clone();
+    let handle = tokio::spawn(async move { cloned_service.serve(addr, &config).await });
+    (service, handle)
+  }
+}
+
+#[allow(unused_imports)]
+pub use registry_server::{GrpcRegistryServerConfig, GrpcRegistryService, spawn_registry_server};

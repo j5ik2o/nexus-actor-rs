@@ -12,6 +12,7 @@
 - ClusterProvider の実装ラインナップを整理し、InMemory 以外（例: gRPC/k8s バッキング）へ拡張できる設計指針と TODO を `docs/cluster_provider_overview.md` (2025-09-30 更新) に集約。
 - PartitionManager のリバランス挙動を拡張し、トポロジ変化時に新オーナー側で再アクティベーションと `DistributedIdentityLookup` キャッシュ同期を自動化 (2025-09-30)。
 - Remote 経由の Activation/Request を検証する統合テストを追加し、ネットワーク越しの PID 解決とメッセージ往復を継続的に確認できる統合テストを整備 (2025-09-30)。
+- gRPC Registry サーバー実装と KeepAlive/Heartbeat/TTL 監視を整備し、CI 連携の E2E テストを追加 (2025-09-30)。
 
 
 ## 未完了事項 (MUST 優先)
