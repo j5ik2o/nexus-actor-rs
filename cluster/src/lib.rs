@@ -23,6 +23,9 @@ pub use crate::partition::{
   messages::{ActivationRequest, ActivationResponse},
   placement_actor::PlacementActor,
 };
-pub use crate::provider::{ClusterProvider, ClusterProviderContext, ClusterProviderError, InMemoryClusterProvider};
+pub use crate::provider::{
+  ClusterProvider, ClusterProviderContext, ClusterProviderError, GrpcRegistryClusterProvider, InMemoryClusterProvider,
+  RegistryClient, RegistryError, RegistryMember, RegistryWatch,
+};
 pub use crate::rendezvous::{ClusterMember, Rendezvous};
 pub use crate::virtual_actor::{VirtualActor, VirtualActorContext, VirtualActorRuntime};
