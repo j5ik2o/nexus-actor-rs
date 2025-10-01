@@ -12,4 +12,4 @@
 ## 検証タスク
 - Virtual Actor 経路（`cluster/src/virtual_actor/runtime.rs`）で `ContextHandle` の同期 API を多用する箇所を洗い出し、`ContextBorrow` へ置換できるか確認する。
 - `loom` ベースの並行検証を導入し、`InstrumentedRwLock` をまたいだデッドロック検知を自動化するか検討する。
-- `ContextExtensions` 経由で `ContextHandle::with_typed_borrow` を呼ぶホットパスのベンチ（`modules/bench/benches/reentrancy.rs`）を継続監視し、競合が再発しないか計測する。
+- `ContextExtensions` 経由で `ContextHandle::with_typed_borrow` を呼ぶホットパスのベンチ（`modules/actor/bench/benches/reentrancy.rs`）を継続監視し、競合が再発しないか計測する。

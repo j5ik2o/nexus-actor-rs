@@ -33,7 +33,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "modules/actor/Cargo.toml",
         "modules/remote/Cargo.toml",
         "modules/cluster/Cargo.toml",
-        "modules/bench/Cargo.toml",
+        "modules/actor/bench/Cargo.toml",
     ];
 
     for path in cargo_toml_paths.iter() {

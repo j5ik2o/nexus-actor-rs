@@ -19,4 +19,4 @@
 - Workflow: `.github/workflows/bench-weekly.yml`
 - 変換スクリプト: `scripts/export_bench_metrics.py`
 - ダッシュボード: `docs/bench_dashboard.html`
-- ベンチ本体: `modules/bench/benches/reentrancy.rs`
+- ベンチ本体: `modules/actor/bench/benches/reentrancy.rs`

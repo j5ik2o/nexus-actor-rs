@@ -72,4 +72,4 @@
 ## 参考
 - `modules/actor/src/actor/context/actor_context.rs` `ContextBorrow` 実装
 - `modules/actor/src/actor/context/context_handle.rs` `ContextHandle` スナップショット API
-- `modules/bench/benches/reentrancy.rs` `BorrowingActor` のサンプル
+- `modules/actor/bench/benches/reentrancy.rs` `BorrowingActor` のサンプル
