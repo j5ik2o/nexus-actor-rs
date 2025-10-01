@@ -115,6 +115,20 @@ impl ExtendedPid {
     self.inner_pid.clone()
   }
 
+  pub fn from_core(core_pid: CorePid) -> Self {
+    let (address, id, request_id) = core_pid.clone().into_parts();
+    let proto_pid = Pid {
+      address,
+      id,
+      request_id,
+    };
+    Self {
+      core_pid,
+      inner_pid: proto_pid,
+      process_handle: Arc::new(Mutex::new(None)),
+    }
+  }
+
   pub(crate) async fn ref_process(&self, actor_system: ActorSystem) -> ProcessHandle {
     if let Some(handle) = self.take_live_cached_handle().await {
       return handle;
