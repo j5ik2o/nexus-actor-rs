@@ -1,6 +1,6 @@
 use crate::collections::element::Element;
-use crate::collections::queue_traits::{QueueBase, QueueReader, QueueWriter};
 use crate::collections::{MpscBoundedChannelQueue, QueueError, QueueSize};
+use crate::collections::{QueueBase, QueueReader, QueueWriter};
 
 #[derive(Debug, Clone, PartialEq)]
 struct TestElement(i32);

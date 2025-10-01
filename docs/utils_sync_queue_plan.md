@@ -6,7 +6,7 @@
 - **留意事項**: 設計原則ごとに網羅（排他）となるよう分類。
 
 ## 完了済みフェーズ（フェーズ番号順）
-- フェーズ1: `utils/src/collections/queue_traits.rs` に `QueueBase` / `QueueWriter` / `QueueReader` を定義し、`RingQueue`・`MpscBounded`・`MpscUnbounded`・`PriorityQueue` が実装済み。
+- フェーズ1: `utils/src/collections/queue.rs` に `QueueBase` / `QueueWriter` / `QueueReader` を定義し、`RingQueue`・`MpscBounded`・`MpscUnbounded`・`PriorityQueue` が実装済み。
 - フェーズ2: 既存の async トレイト（旧 `QueueBase` / `QueueWriter` / `QueueReader`） が同期版へ委譲する default impl を提供（`utils/src/collections/queue.rs`）。既存呼び出しは `await` 付きでも動作。
 - フェーズ3: Core / Remote のホットパスは同期ハンドル経由で利用。`DefaultMailbox` や `EndpointWriterMailbox` が `Queue` API を直接使用。
 - フェーズ4: `modules/utils-std/src/collections/queue.rs` を削除し同期 API に一本化。テストおよび `actor` ベンチから async ラッパーを排除済み。
