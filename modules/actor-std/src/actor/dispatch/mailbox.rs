@@ -6,6 +6,8 @@ use async_trait::async_trait;
 use crate::actor::dispatch::dispatcher::DispatcherHandle;
 use crate::actor::dispatch::message_invoker::MessageInvokerHandle;
 use crate::actor::message::MessageHandle;
+use nexus_actor_core_rs::actor::core_types::mailbox::CoreMailboxQueue;
+use nexus_utils_std_rs::collections::QueueError;
 
 pub use self::default_mailbox::{MailboxQueueLatencyMetrics, MailboxSuspensionMetrics};
 
@@ -50,6 +52,15 @@ impl MailboxSyncHandle {
   pub fn is_suspended(&self) -> bool {
     self.0.is_suspended()
   }
+
+  pub fn core_queue_handles(
+    &self,
+  ) -> Option<(
+    Arc<dyn CoreMailboxQueue<Error = QueueError<MessageHandle>> + Send + Sync>,
+    Arc<dyn CoreMailboxQueue<Error = QueueError<MessageHandle>> + Send + Sync>,
+  )> {
+    self.0.core_queue_handles()
+  }
 }
 
 pub trait MailboxSync: Debug + Send + Sync {
@@ -58,6 +69,15 @@ pub trait MailboxSync: Debug + Send + Sync {
   fn suspension_metrics(&self) -> MailboxSuspensionMetrics;
   fn queue_latency_metrics(&self) -> MailboxQueueLatencyMetrics;
   fn is_suspended(&self) -> bool;
+
+  fn core_queue_handles(
+    &self,
+  ) -> Option<(
+    Arc<dyn CoreMailboxQueue<Error = QueueError<MessageHandle>> + Send + Sync>,
+    Arc<dyn CoreMailboxQueue<Error = QueueError<MessageHandle>> + Send + Sync>,
+  )> {
+    None
+  }
 }
 
 impl MailboxSync for MailboxSyncHandle {
@@ -79,6 +99,15 @@ impl MailboxSync for MailboxSyncHandle {
 
   fn is_suspended(&self) -> bool {
     self.is_suspended()
+  }
+
+  fn core_queue_handles(
+    &self,
+  ) -> Option<(
+    Arc<dyn CoreMailboxQueue<Error = QueueError<MessageHandle>> + Send + Sync>,
+    Arc<dyn CoreMailboxQueue<Error = QueueError<MessageHandle>> + Send + Sync>,
+  )> {
+    self.core_queue_handles()
   }
 }
 

@@ -17,6 +17,7 @@ use crate::actor::dispatch::message_invoker::{MessageInvoker, MessageInvokerHand
 use crate::actor::message::MessageHandle;
 use arc_swap::ArcSwapOption;
 use async_trait::async_trait;
+use nexus_actor_core_rs::actor::core_types::mailbox::CoreMailboxQueue;
 use nexus_utils_std_rs::collections::QueueError;
 use parking_lot::Mutex;
 
@@ -889,6 +890,20 @@ where
 
   fn is_suspended(&self) -> bool {
     self.is_suspended()
+  }
+
+  fn core_queue_handles(
+    &self,
+  ) -> Option<(
+    Arc<dyn CoreMailboxQueue<Error = QueueError<MessageHandle>> + Send + Sync>,
+    Arc<dyn CoreMailboxQueue<Error = QueueError<MessageHandle>> + Send + Sync>,
+  )> {
+    Some((
+      Arc::new(self.core_user_queue.clone())
+        as Arc<dyn CoreMailboxQueue<Error = QueueError<MessageHandle>> + Send + Sync>,
+      Arc::new(self.core_system_queue.clone())
+        as Arc<dyn CoreMailboxQueue<Error = QueueError<MessageHandle>> + Send + Sync>,
+    ))
   }
 }
 impl<UQ, SQ> DefaultMailbox<UQ, SQ>
