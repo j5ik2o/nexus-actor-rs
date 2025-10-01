@@ -1,3 +1,4 @@
+use crate::endpoint_manager::EndpointManager;
 use crate::messages::{RemoteUnwatch, RemoteWatch};
 use crate::remote::Remote;
 use crate::serializer::SerializerId;
@@ -39,6 +40,26 @@ impl RemoteProcess {
   pub fn get_remote_mut(&mut self) -> &mut Remote {
     &mut self.remote
   }
+
+  async fn should_forward_watch(manager: &EndpointManager, watcher: &Pid, watchee: &Pid) -> bool {
+    if let Some(registry) = manager.watch_registry(watchee.address.as_str()) {
+      if let Some(pid_set) = registry.get_pid_set(watcher.id.as_str()) {
+        return !pid_set.contains(watchee).await;
+      }
+      return true;
+    }
+    true
+  }
+
+  async fn should_forward_unwatch(manager: &EndpointManager, watcher: &Pid, watchee: &Pid) -> bool {
+    if let Some(registry) = manager.watch_registry(watchee.address.as_str()) {
+      if let Some(pid_set) = registry.get_pid_set(watcher.id.as_str()) {
+        return pid_set.contains(watchee).await;
+      }
+      return false;
+    }
+    true
+  }
 }
 
 #[async_trait]
@@ -62,20 +83,30 @@ impl Process for RemoteProcess {
       match system_message {
         SystemMessage::Watch(watch) => {
           let watcher = Pid::from_core(watch.watcher().clone());
-          let rd = RemoteWatch {
-            watcher,
-            watchee: pid.inner_pid.clone(),
-          };
-          self.remote.get_endpoint_manager().await.remote_watch(rd).await;
+          let watchee = pid.inner_pid.clone();
+          let manager = self.remote.get_endpoint_manager().await;
+          if Self::should_forward_watch(&manager, &watcher, &watchee).await {
+            manager
+              .remote_watch(RemoteWatch {
+                watcher: watcher.clone(),
+                watchee: watchee.clone(),
+              })
+              .await;
+          }
           return;
         }
         SystemMessage::Unwatch(unwatch) => {
           let watcher = Pid::from_core(unwatch.watcher().clone());
-          let ruw = RemoteUnwatch {
-            watcher,
-            watchee: pid.inner_pid.clone(),
-          };
-          self.remote.get_endpoint_manager().await.remote_unwatch(ruw).await;
+          let watchee = pid.inner_pid.clone();
+          let manager = self.remote.get_endpoint_manager().await;
+          if Self::should_forward_unwatch(&manager, &watcher, &watchee).await {
+            manager
+              .remote_unwatch(RemoteUnwatch {
+                watcher: watcher.clone(),
+                watchee: watchee.clone(),
+              })
+              .await;
+          }
           return;
         }
         _ => {}

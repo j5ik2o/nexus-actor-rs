@@ -819,6 +819,7 @@ impl EndpointManager {
       return;
     }
     let address = message.watchee.address.clone();
+    let mut should_forward = true;
     if let Some(registry) = self.watch_registry(&address) {
       let stat = registry.watch(&message.watcher.id, message.watchee.clone()).await;
       if stat.changed {
@@ -831,17 +832,21 @@ impl EndpointManager {
             stat.watchers,
           )
           .await;
+      } else {
+        should_forward = false;
       }
     }
-    let endpoint = self.ensure_connected(&address).await;
-    let pid = ExtendedPid::new(endpoint.get_watcher().clone());
-    self
-      .get_actor_system()
-      .await
-      .get_root_context()
-      .await
-      .send(pid, MessageHandle::new(message))
-      .await;
+    if should_forward {
+      let endpoint = self.ensure_connected(&address).await;
+      let pid = ExtendedPid::new(endpoint.get_watcher().clone());
+      self
+        .get_actor_system()
+        .await
+        .get_root_context()
+        .await
+        .send(pid, MessageHandle::new(message))
+        .await;
+    }
   }
 
   pub(crate) async fn remote_unwatch(&self, message: RemoteUnwatch) {
@@ -849,6 +854,7 @@ impl EndpointManager {
       return;
     }
     let address = message.watchee.address.clone();
+    let mut should_forward = true;
     if let Some(registry) = self.watch_registry(&address) {
       if let Some(stat) = registry.unwatch(&message.watcher.id, &message.watchee).await {
         if stat.changed {
@@ -861,18 +867,24 @@ impl EndpointManager {
               stat.watchers,
             )
             .await;
+        } else {
+          should_forward = false;
         }
+      } else {
+        should_forward = false;
       }
     }
-    let endpoint = self.ensure_connected(&address).await;
-    let pid = ExtendedPid::new(endpoint.get_watcher().clone());
-    self
-      .get_actor_system()
-      .await
-      .get_root_context()
-      .await
-      .send(pid, MessageHandle::new(message))
-      .await;
+    if should_forward {
+      let endpoint = self.ensure_connected(&address).await;
+      let pid = ExtendedPid::new(endpoint.get_watcher().clone());
+      self
+        .get_actor_system()
+        .await
+        .get_root_context()
+        .await
+        .send(pid, MessageHandle::new(message))
+        .await;
+    }
   }
 
   pub(crate) async fn remote_deliver(&self, message: RemoteDeliver) {
@@ -1330,7 +1342,16 @@ mod tests {
     let pid_set = registry
       .get_pid_set(&watcher_pid_struct.id)
       .expect("watch registry should exist");
+    assert_eq!(pid_set.len().await, 1);
     assert!(pid_set.contains(&watchee_pid).await);
+
+    manager
+      .remote_watch(RemoteWatch {
+        watcher: watcher_pid_struct.clone(),
+        watchee: watchee_pid.clone(),
+      })
+      .await;
+    assert_eq!(pid_set.len().await, 1);
 
     manager
       .remote_unwatch(RemoteUnwatch {

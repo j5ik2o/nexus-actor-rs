@@ -10,6 +10,7 @@
 - `nexus-actor-core-rs` が `#![no_std] + alloc` 前提の核として、`CorePid`・`CoreMessageEnvelope`・`CoreProcessHandle` など純粋データ抽象を提供。
 - `nexus-actor-std-rs` は Tokio 依存機能・ProtoBuf 変換・ベンチ類を集約し、core 抽象を再エクスポートする構成に統一。
 - WatchRegistry／Endpoint 系監視機能と Mailbox 抽象の Tokio 実装が `actor-std` へ集約され、コア層からの実装漏れが解消。
+- EndpointSupervisor と RemoteProcess が WatchRegistry を共有し、重複 watch/unwatch の送信を抑制しつつイベント／メトリクスとメッセージ送信を同期。
 
 ## 移行手順
 - 依存プロジェクトは `nexus-actor-std-rs` から `Core*` 型を参照する場合、`nexus-actor-core-rs` を明示依存に追加し no_std 経路でも利用可能にする。

@@ -85,8 +85,20 @@ impl EndpointSupervisor {
     address: String,
     mut ctx: ContextHandle,
   ) -> ExtendedPid {
-    let registry = Arc::new(WatchRegistry::new());
-    if let Some(remote_instance) = self.remote.upgrade() {
+    let mut registry = None;
+    if let Some(remote_instance) = remote.upgrade() {
+      if let Some(manager) = remote_instance.get_endpoint_manager_opt().await {
+        if let Some(existing) = manager.watch_registry(&address) {
+          registry = Some(existing);
+        } else {
+          let created = Arc::new(WatchRegistry::new());
+          manager.register_watch_registry(&address, created.clone());
+          registry = Some(created);
+        }
+      }
+    }
+    let registry = registry.unwrap_or_else(|| Arc::new(WatchRegistry::new()));
+    if let Some(remote_instance) = remote.upgrade() {
       if let Some(manager) = remote_instance.get_endpoint_manager_opt().await {
         manager.register_watch_registry(&address, registry.clone());
       }
