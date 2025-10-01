@@ -40,9 +40,9 @@
    - `.github/workflows/ci.yml` に no_std ビルドを追加（`cargo check -p nexus-utils-core-rs --no-default-features --features alloc`）。
 
 ## 現状整理（区分: 状態 / 影響 / 残課題）
-- **状態**: `modules/utils-core` を新設し `#![no_std]` かつ `alloc` 前提で `Element`/`QueueError`/`QueueSize`/`PriorityMessage`/`Queue*` を移設済み。
-- **影響**: `nexus-utils-std-rs` が core を再エクスポートする構成に更新され、`actor` と `remote` は `nexus_utils_std_rs` 依存へ切り替え。
-- **残課題**: なし（2025-10-01 に CI へ no_std チェックを追加し、同日に `cargo test --workspace` を完了）。
+- **状態**: `modules/utils-core` に `RingBuffer` を実装し、`RingQueue` は std 層で `Mutex<RingBuffer>` をラップする構造へ移行済み。
+- **影響**: キュー操作ロジックは core に集約され、`nexus-utils-std-rs` は同期プリミティブ（`Mutex`/`Arc`）と Tokio 依存コードのみを保持。
+- **残課題**: MPSC ベースのキュー（Tokio channel）を core 抽象へ揃えるためのアダプタ設計、および `CoreMailboxQueue` 実装のさらなる共通化。
 
 ## チェックリスト
 - [x] `nexus-utils-core-rs` が `#![no_std]` でコンパイルできる。

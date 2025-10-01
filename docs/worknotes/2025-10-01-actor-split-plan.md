@@ -29,6 +29,7 @@
 - Mailbox の最小操作を `CoreMailbox` トレイトとして切り出し、actor-std の `MailboxHandle` が core 抽象を実装するように整備。
 - Mailbox queue ハンドルを `CoreMailboxQueueHandle` でラップし、`SyncMailboxQueueHandles` から core 抽象を取得できるアダプタを追加。
 - メトリクス側で `core_queue_handles()` を利用し、キュー長を CoreMailboxQueue 経由で観測するように更新。
+- RingQueue を `RingBuffer` ベースへ移行し、std 層は `Mutex` 包装のみを担当する構造に整理。
 - DefaultMailbox 内のキュー長取得も CoreMailboxQueue ベースに切り替え、dispatch ループでの統計取得を core 抽象へ統一。
 
 ## 継続タスク（優先度：高→低）
