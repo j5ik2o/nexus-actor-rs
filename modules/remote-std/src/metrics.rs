@@ -26,7 +26,7 @@ pub async fn record_sender_snapshot(context: &ContextHandle) -> Option<ExtendedP
   }
 
   SENDER_SNAPSHOT_COUNTERS.misses.fetch_add(1, Ordering::Relaxed);
-  let core_snapshot = context.core_snapshot().await.into_core();
+  let core_snapshot = context.core_snapshot().await;
   core_snapshot.sender_pid_core().map(ExtendedPid::from_core)
 }
 

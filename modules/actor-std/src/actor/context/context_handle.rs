@@ -158,7 +158,8 @@ impl ContextCell {
 
   pub fn capture_from<C>(&self, ctx: &C)
   where
-    C: Context + Any + Clone, {
+    C: Context + Any + Clone,
+  {
     if let Some(actor_ctx) = (ctx as &dyn Any).downcast_ref::<ActorContext>() {
       self.replace_actor_context(actor_ctx.clone());
     }
@@ -202,7 +203,8 @@ impl ContextHandle {
 
   pub fn new<C>(c: C) -> Self
   where
-    C: Context + Clone + Any + 'static, {
+    C: Context + Clone + Any + 'static,
+  {
     let cell = Arc::new(ContextCell::default());
     cell.capture_from(&c);
     let context_arc: Arc<RwLock<Box<dyn Context>>> = Arc::new(RwLock::new(Box::new(c) as Box<dyn Context>));
@@ -232,13 +234,15 @@ impl ContextHandle {
 
   pub fn with_actor_context<R, F>(&self, f: F) -> Option<R>
   where
-    F: FnOnce(&ActorContext) -> R, {
+    F: FnOnce(&ActorContext) -> R,
+  {
     self.actor_context_arc().map(|ctx| f(ctx.as_ref()))
   }
 
   pub fn with_actor_borrow<R, F>(&self, f: F) -> Option<R>
   where
-    F: for<'a> FnOnce(ContextBorrow<'a>) -> R, {
+    F: for<'a> FnOnce(ContextBorrow<'a>) -> R,
+  {
     self.actor_context_arc().map(|ctx| {
       let borrow = ctx.borrow();
       f(borrow)
@@ -261,8 +265,8 @@ impl ContextHandle {
     ContextSnapshot::from_context_handle(self)
   }
 
-  pub async fn core_snapshot(&self) -> StdActorContextSnapshot {
-    StdActorContextSnapshot::capture(self).await
+  pub async fn core_snapshot(&self) -> nexus_actor_core_rs::context::CoreActorContextSnapshot {
+    StdActorContextSnapshot::capture(self).await.into_core()
   }
 
   pub fn snapshot_with_borrow(&self) -> ContextSnapshot {
@@ -490,7 +494,8 @@ impl ContextHandle {
   pub fn with_typed_borrow<M, R, F>(&self, f: F) -> Option<R>
   where
     M: crate::actor::message::Message,
-    F: for<'a> FnOnce(crate::actor::context::TypedContextBorrow<'a, M>) -> R, {
+    F: for<'a> FnOnce(crate::actor::context::TypedContextBorrow<'a, M>) -> R,
+  {
     let actor_ctx = self.actor_context_arc()?;
     let borrow = actor_ctx.borrow();
     let view = crate::actor::context::TypedContextBorrow::new(actor_ctx.as_ref(), self.clone(), borrow);
