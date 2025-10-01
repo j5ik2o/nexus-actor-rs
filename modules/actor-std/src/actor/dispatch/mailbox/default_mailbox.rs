@@ -479,8 +479,8 @@ where
 
   fn queue_length(&self, queue: MailboxQueueKind) -> u64 {
     match queue {
-      MailboxQueueKind::User => self.user_messages_count.load(Ordering::SeqCst).max(0) as u64,
-      MailboxQueueKind::System => self.system_messages_count.load(Ordering::SeqCst).max(0) as u64,
+      MailboxQueueKind::User => self.core_user_queue.len() as u64,
+      MailboxQueueKind::System => self.core_system_queue.len() as u64,
     }
   }
 
