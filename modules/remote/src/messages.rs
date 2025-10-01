@@ -56,6 +56,22 @@ impl EndpointEvent {
   }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Message)]
+pub enum WatchAction {
+  Watch,
+  Unwatch,
+  Terminate,
+}
+
+#[derive(Debug, Clone, PartialEq, Message)]
+pub struct EndpointWatchEvent {
+  pub address: String,
+  pub watcher: String,
+  pub watchee: Option<Pid>,
+  pub action: WatchAction,
+  pub watchers: u32,
+}
+
 #[derive(Debug, Clone, PartialEq, Message)]
 pub struct RemoteWatch {
   pub watcher: Pid,

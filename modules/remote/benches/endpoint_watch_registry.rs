@@ -50,11 +50,11 @@ fn bench_endpoint_watch_registry(c: &mut Criterion) {
         let mut pids = Vec::with_capacity(load);
         for idx in 0..load {
           let pid = make_pid(idx);
-          registry.watch(watcher_id, pid.clone()).await;
+          let _ = registry.watch(watcher_id, pid.clone()).await;
           pids.push(pid);
         }
         for pid in &pids {
-          registry.unwatch(watcher_id, pid).await;
+          let _ = registry.unwatch(watcher_id, pid).await;
         }
         registry.prune_if_empty(watcher_id).await;
       });

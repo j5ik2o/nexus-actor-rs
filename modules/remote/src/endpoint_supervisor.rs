@@ -5,6 +5,7 @@ use crate::endpoint_writer::EndpointWriter;
 use crate::endpoint_writer_mailbox::EndpointWriterMailbox;
 use crate::metrics::record_sender_snapshot;
 use crate::remote::Remote;
+use crate::watch_registry::WatchRegistry;
 use async_trait::async_trait;
 use nexus_actor_std_rs::actor::actor_system::ActorSystem;
 use nexus_actor_std_rs::actor::context::{BasePart, ContextHandle, MessagePart, SpawnerPart};
@@ -16,7 +17,7 @@ use nexus_actor_std_rs::actor::supervisor::{
   Supervisor, SupervisorHandle, SupervisorStrategy, SupervisorStrategyHandle,
 };
 use std::any::Any;
-use std::sync::Weak;
+use std::sync::{Arc, Weak};
 
 #[derive(Debug, Clone)]
 pub struct EndpointSupervisor {
@@ -84,11 +85,18 @@ impl EndpointSupervisor {
     address: String,
     mut ctx: ContextHandle,
   ) -> ExtendedPid {
+    let registry = Arc::new(WatchRegistry::new());
+    if let Some(remote_instance) = self.remote.upgrade() {
+      if let Some(manager) = remote_instance.get_endpoint_manager_opt().await {
+        manager.register_watch_registry(&address, registry.clone());
+      }
+    }
     let props = Props::from_async_actor_producer_with_opts(
       move |_| {
         let cloned_remote = remote.clone();
         let cloned_address = address.clone();
-        async move { EndpointWatcher::new(cloned_remote, cloned_address) }
+        let registry = registry.clone();
+        async move { EndpointWatcher::with_registry(cloned_remote, cloned_address, registry) }
       },
       [],
     )

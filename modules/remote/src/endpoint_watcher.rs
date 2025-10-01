@@ -83,7 +83,12 @@ impl EndpointWatcher {
 
   /// 当該ウォッチャーから Watchee を削除し、空になればクリーンアップする。
   pub async fn remove_watch_pid(&self, watcher_id: &str, watchee: &Pid) -> bool {
-    self.registry.unwatch(watcher_id, watchee).await
+    self
+      .registry
+      .unwatch(watcher_id, watchee)
+      .await
+      .map(|stat| stat.changed)
+      .unwrap_or(false)
   }
 
   pub fn registry(&self) -> Arc<WatchRegistry> {

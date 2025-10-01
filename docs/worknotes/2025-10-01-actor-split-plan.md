@@ -26,6 +26,7 @@
 ## 継続タスク（優先度：高→低）
 - 【高：監視拡張】EndpointSupervisor や RemoteProcess を含む監視経路で `WatchRegistry` を活用し、テレメトリや監視イベント発火との整合性を取る（例：EndpointSupervisor 経由の登録、RemoteProcess の最適化）。
 - 【中：抽象再設計】ロック／タイマー／チャネル等の Tokio 依存箇所を抽象化し、actor-core では trait のみに集約、actor-std が Tokio 実装を提供する構造へ段階的に移行する（対象：mailbox, process, supervisor など）。
+- 【中：再起動統計】`RestartStatistics` 抽象化ドラフト（docs/worknotes/2025-10-01-restart-statistics-plan.md）に沿って、FailureClock トレイト導入とコア移植を進める。
 - 【中：コア移植】`alloc` だけで動くコンポーネント（PID, middleware, Serialized message handles など）を actor-core に移し、必要に応じて `alloc::` 系型や `hashbrown` への置き換えを実施する。
 
 ## 検証・ドキュメント（優先度順）

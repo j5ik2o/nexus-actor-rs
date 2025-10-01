@@ -6,7 +6,8 @@ use crate::endpoint_supervisor::EndpointSupervisor;
 use crate::generated::remote::RemoteMessage;
 use crate::messages::{
   BackpressureLevel, EndpointConnectedEvent, EndpointEvent, EndpointReconnectEvent, EndpointTerminatedEvent,
-  EndpointThrottledEvent, Ping, Pong, RemoteDeliver, RemoteTerminate, RemoteUnwatch, RemoteWatch,
+  EndpointThrottledEvent, EndpointWatchEvent, Ping, Pong, RemoteDeliver, RemoteTerminate, RemoteUnwatch, RemoteWatch,
+  WatchAction,
 };
 use crate::remote::Remote;
 use crate::watch_registry::WatchRegistry;
@@ -785,9 +786,21 @@ impl EndpointManager {
       return;
     }
     let address = message.watchee.as_ref().expect("Not Found").address.clone();
-    if let (Some(watcher), Some(watchee)) = (message.watcher.as_ref(), message.watchee.as_ref()) {
+    if let Some(watcher) = message.watcher.as_ref() {
       if let Some(registry) = self.watch_registry(&address) {
-        registry.remove_watchee(&watcher.id, Some(watchee)).await;
+        if let Some(stat) = registry.remove_watchee(&watcher.id, message.watchee.as_ref()).await {
+          if stat.changed {
+            self
+              .publish_watch_event(
+                &address,
+                &watcher.id,
+                message.watchee.clone(),
+                WatchAction::Terminate,
+                stat.watchers,
+              )
+              .await;
+          }
+        }
       }
     }
     let endpoint = self.ensure_connected(&address).await;
@@ -807,7 +820,18 @@ impl EndpointManager {
     }
     let address = message.watchee.address.clone();
     if let Some(registry) = self.watch_registry(&address) {
-      registry.watch(&message.watcher.id, message.watchee.clone()).await;
+      let stat = registry.watch(&message.watcher.id, message.watchee.clone()).await;
+      if stat.changed {
+        self
+          .publish_watch_event(
+            &address,
+            &message.watcher.id,
+            Some(message.watchee.clone()),
+            WatchAction::Watch,
+            stat.watchers,
+          )
+          .await;
+      }
     }
     let endpoint = self.ensure_connected(&address).await;
     let pid = ExtendedPid::new(endpoint.get_watcher().clone());
@@ -826,7 +850,19 @@ impl EndpointManager {
     }
     let address = message.watchee.address.clone();
     if let Some(registry) = self.watch_registry(&address) {
-      registry.unwatch(&message.watcher.id, &message.watchee).await;
+      if let Some(stat) = registry.unwatch(&message.watcher.id, &message.watchee).await {
+        if stat.changed {
+          self
+            .publish_watch_event(
+              &address,
+              &message.watcher.id,
+              Some(message.watchee.clone()),
+              WatchAction::Unwatch,
+              stat.watchers,
+            )
+            .await;
+        }
+      }
     }
     let endpoint = self.ensure_connected(&address).await;
     let pid = ExtendedPid::new(endpoint.get_watcher().clone());
@@ -891,6 +927,27 @@ impl EndpointManager {
     }
 
     endpoint
+  }
+
+  async fn publish_watch_event(
+    &self,
+    address: &str,
+    watcher: &str,
+    watchee: Option<Pid>,
+    action: WatchAction,
+    watchers: usize,
+  ) {
+    let event_stream = self.get_actor_system().await.get_event_stream().await;
+    let watchers_u32 = u32::try_from(watchers).unwrap_or(u32::MAX);
+    event_stream
+      .publish(MessageHandle::new(EndpointWatchEvent {
+        address: address.to_string(),
+        watcher: watcher.to_string(),
+        watchee,
+        action,
+        watchers: watchers_u32,
+      }))
+      .await;
   }
 
   async fn remove_endpoint(&self, message: &EndpointTerminatedEvent) {
@@ -1187,6 +1244,23 @@ mod tests {
     let address = "endpoint-watch-registry".to_string();
     let remote_weak = Arc::downgrade(&remote);
 
+    let watch_events = Arc::new(Mutex::new(Vec::new()));
+    let watch_subscription = actor_system
+      .get_event_stream()
+      .await
+      .subscribe({
+        let events = watch_events.clone();
+        move |message: MessageHandle| {
+          let events = events.clone();
+          async move {
+            if let Some(event) = message.to_typed::<EndpointWatchEvent>() {
+              events.lock().await.push(event);
+            }
+          }
+        }
+      })
+      .await;
+
     let watcher_props = Props::from_async_actor_producer({
       let registry = registry.clone();
       let address = address.clone();
@@ -1267,6 +1341,22 @@ mod tests {
       .await;
 
     assert!(registry.get_pid_set(&watcher_pid_struct.id).is_none());
+
+    tokio::time::sleep(Duration::from_millis(10)).await;
+
+    let events = watch_events.lock().await;
+    assert_eq!(events.len(), 4);
+    assert!(matches!(events[0].action, WatchAction::Watch));
+    assert_eq!(events[0].watchers, 1);
+    assert!(matches!(events[1].action, WatchAction::Unwatch));
+    assert_eq!(events[1].watchers, 0);
+    assert!(matches!(events[2].action, WatchAction::Watch));
+    assert_eq!(events[2].watchers, 1);
+    assert!(matches!(events[3].action, WatchAction::Terminate));
+    assert_eq!(events[3].watchers, 0);
+    drop(events);
+
+    actor_system.get_event_stream().await.unsubscribe(watch_subscription).await;
   }
 
   #[tokio::test]
