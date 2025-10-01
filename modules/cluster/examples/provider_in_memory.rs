@@ -5,7 +5,7 @@ use nexus_cluster_core_rs::{Cluster, ClusterConfig, InMemoryClusterProvider};
 #[tokio::main]
 async fn main() {
   let system = Arc::new(
-    nexus_actor_core_rs::actor::actor_system::ActorSystem::new()
+    nexus_actor_std_rs::actor::actor_system::ActorSystem::new()
       .await
       .expect("actor system"),
   );

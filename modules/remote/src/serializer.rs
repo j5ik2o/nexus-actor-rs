@@ -1,5 +1,5 @@
 use dashmap::DashMap;
-use nexus_actor_core_rs::actor::message::Message;
+use nexus_actor_std_rs::actor::message::Message;
 use once_cell::sync::Lazy;
 use prost::Message as ProstMessage;
 use serde::{Deserialize, Serialize};

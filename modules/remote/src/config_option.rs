@@ -1,5 +1,5 @@
 use crate::config::Config;
-use nexus_actor_core_rs::actor::core::Props;
+use nexus_actor_std_rs::actor::core::Props;
 use std::time::Duration;
 
 #[derive(Debug, Clone)]

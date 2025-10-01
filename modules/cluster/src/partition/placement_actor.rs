@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
 use dashmap::DashMap;
-use nexus_actor_core_rs::actor::context::{BasePart, ContextHandle, MessagePart, SenderPart, SpawnerPart, StopperPart};
-use nexus_actor_core_rs::actor::core::{Actor, ActorError, ExtendedPid};
-use nexus_actor_core_rs::actor::message::{MessageHandle, ResponseHandle};
-use nexus_actor_core_rs::generated::actor::Terminated;
+use nexus_actor_std_rs::actor::context::{BasePart, ContextHandle, MessagePart, SenderPart, SpawnerPart, StopperPart};
+use nexus_actor_std_rs::actor::core::{Actor, ActorError, ExtendedPid};
+use nexus_actor_std_rs::actor::message::{MessageHandle, ResponseHandle};
+use nexus_actor_std_rs::generated::actor::Terminated;
 
 use crate::cluster::Cluster;
 use crate::identity::ClusterIdentity;

@@ -5,9 +5,9 @@
 - **残フォローアップ**: 今後も継続確認が必要な監視ポイント。
 
 ## 完了済み
-- `modules/actor/src/actor/context/base_spawner.rs` では `ActorSpawnerExt` へ一本化済みで、旧 `BaseSpawnerExt` は `since = "1.2.0"` の `#[deprecated]` ブリッジのみ残存。互換レイヤーが実装上の入口になっていないことを確認。
-- `modules/actor/examples/legacy/*` に旧サンプルを隔離し、`core/examples` 直下は Actor トレイト準拠の構成のみ。（`rg "BaseActor" core/examples` で呼び出しが legacy のみであることを確認）
-- テスト群は `modules/actor/src/actor/context/base_spawner.rs` の `test_spawn_actor` 系が Actor トレイトベースで成功することを保証し、BaseActor 固有テストは削除済み。
+- `modules/actor-core/src/actor/context/base_spawner.rs` では `ActorSpawnerExt` へ一本化済みで、旧 `BaseSpawnerExt` は `since = "1.2.0"` の `#[deprecated]` ブリッジのみ残存。互換レイヤーが実装上の入口になっていないことを確認。
+- `modules/actor-core/examples/legacy/*` に旧サンプルを隔離し、`core/examples` 直下は Actor トレイト準拠の構成のみ。（`rg "BaseActor" core/examples` で呼び出しが legacy のみであることを確認）
+- テスト群は `modules/actor-core/src/actor/context/base_spawner.rs` の `test_spawn_actor` 系が Actor トレイトベースで成功することを保証し、BaseActor 固有テストは削除済み。
 - ドキュメント類（`CLAUDE.md`, `PROJECT_STATUS.md`, `docs/legacy_examples.md`）は Actor トレイト統一方針へ書き換え済み。`rg "BaseActor" docs` で残存参照はリリースノート／履歴説明のみであることを確認。
 
 ## 残フォローアップ

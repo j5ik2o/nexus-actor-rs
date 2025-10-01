@@ -1,7 +1,7 @@
 use super::*;
 use crate::generated::cluster::PubSubEnvelope;
 use crate::serializer::initialize_proto_serializers;
-use nexus_actor_core_rs::generated::actor::{Pid, Terminated, TerminatedReason, Watch};
+use nexus_actor_std_rs::generated::actor::{Pid, Terminated, TerminatedReason, Watch};
 use prost::Message as ProstMessage;
 
 #[derive(Clone, PartialEq, ::prost::Message, nexus_message_derive_rs::Message)]

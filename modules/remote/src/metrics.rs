@@ -1,5 +1,5 @@
-use nexus_actor_core_rs::actor::context::ContextHandle;
-use nexus_actor_core_rs::actor::core::ExtendedPid;
+use nexus_actor_std_rs::actor::context::ContextHandle;
+use nexus_actor_std_rs::actor::core::ExtendedPid;
 use once_cell::sync::Lazy;
 use std::sync::atomic::{AtomicU64, Ordering};
 

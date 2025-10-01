@@ -60,4 +60,4 @@ Note: As versions may be updated regularly, it's recommended to check for the la
 - [ActorContext ロック計測レポート](docs/benchmarks/tracing_actor_context.md): tokio-console/tracing を用いた ActorContext 周辺のロック待ち分析とホットスポットのまとめです。
 - [ReceiveTimeout DelayQueue PoC](docs/benchmarks/receive_timeout_delayqueue.md): DelayQueue を用いた receive timeout の再アーム性能ベースラインと PoC コードの解説です。
 - [Actor トレイト統一リリースノート](docs/releases/2025-09-26-actor-trait-unification.md): BaseActor 廃止と `ActorSpawnerExt` 追加に関する移行ガイドです。
-- [レガシーサンプル一覧](docs/legacy_examples.md): 互換性維持のため `modules/actor/examples/legacy/` に隔離した旧サンプルの一覧です。
+- [レガシーサンプル一覧](docs/legacy_examples.md): 互換性維持のため `modules/actor-core/examples/legacy/` に隔離した旧サンプルの一覧です。

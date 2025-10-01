@@ -2,12 +2,12 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use dashmap::DashMap;
-use nexus_actor_core_rs::actor::actor_system::ActorSystem;
-use nexus_actor_core_rs::actor::context::{SenderPart, StopperPart};
-use nexus_actor_core_rs::actor::core::ExtendedPid;
-use nexus_actor_core_rs::actor::message::{Message, MessageHandle};
-use nexus_actor_core_rs::actor::process::future::ActorFutureError;
-use nexus_actor_core_rs::generated::actor::Pid;
+use nexus_actor_std_rs::actor::actor_system::ActorSystem;
+use nexus_actor_std_rs::actor::context::{SenderPart, StopperPart};
+use nexus_actor_std_rs::actor::core::ExtendedPid;
+use nexus_actor_std_rs::actor::message::{Message, MessageHandle};
+use nexus_actor_std_rs::actor::process::future::ActorFutureError;
+use nexus_actor_std_rs::generated::actor::Pid;
 use nexus_remote_core_rs::{
   ActivationHandler, ActivationHandlerError, Config as RemoteConfig, ConfigOption as RemoteConfigOption, Remote,
   ResponseStatusCode,
@@ -26,7 +26,7 @@ use crate::provider::{
   provider_context_from_kinds, ClusterProvider, ClusterProviderContext, ClusterProviderError, TopologyEvent,
 };
 use crate::rendezvous::ClusterMember;
-use nexus_actor_core_rs::event_stream::Subscription;
+use nexus_actor_std_rs::event_stream::Subscription;
 use tokio::runtime::Handle;
 use tokio::sync::{oneshot, Mutex};
 use tokio::task::JoinHandle;
@@ -459,7 +459,7 @@ impl Cluster {
     identity: ClusterIdentity,
     message: M,
     timeout: std::time::Duration,
-  ) -> Result<nexus_actor_core_rs::actor::process::actor_future::ActorFuture, ClusterError>
+  ) -> Result<nexus_actor_std_rs::actor::process::actor_future::ActorFuture, ClusterError>
   where
     M: Message + Send + Sync + 'static, {
     let pid = self.get(identity).await?;

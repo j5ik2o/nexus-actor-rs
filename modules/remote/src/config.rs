@@ -1,7 +1,7 @@
 use crate::config::server_config::ServerConfig;
 use crate::config_option::ConfigOption;
 use dashmap::DashMap;
-use nexus_actor_core_rs::actor::core::Props;
+use nexus_actor_std_rs::actor::core::Props;
 use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 use std::sync::Arc;
@@ -295,7 +295,7 @@ impl Config {
 mod tests {
   use super::*;
   use crate::config::server_config::ServerConfig;
-  use nexus_actor_core_rs::actor::core::Props;
+  use nexus_actor_std_rs::actor::core::Props;
 
   #[tokio::test]
   async fn config_accessors_cover_writer_and_manager_fields() {

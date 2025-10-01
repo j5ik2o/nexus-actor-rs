@@ -2,10 +2,10 @@
 
 use super::*;
 use async_trait::async_trait;
-use nexus_actor_core_rs::actor::core::{ActorError, ErrorReason};
-use nexus_actor_core_rs::actor::message::MessageHandle;
-use nexus_actor_core_rs::actor::process::actor_future::ActorFuture;
-use nexus_actor_core_rs::actor::process::future::ActorFutureError;
+use nexus_actor_std_rs::actor::core::{ActorError, ErrorReason};
+use nexus_actor_std_rs::actor::message::MessageHandle;
+use nexus_actor_std_rs::actor::process::actor_future::ActorFuture;
+use nexus_actor_std_rs::actor::process::future::ActorFutureError;
 use nexus_message_derive_rs::Message as MessageDerive;
 use nexus_remote_core_rs::{initialize_json_serializers, initialize_proto_serializers};
 use serde::{Deserialize, Serialize};

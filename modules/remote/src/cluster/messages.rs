@@ -4,7 +4,7 @@ use crate::generated::cluster::{
 use crate::serializer::{
   deserialize_message, serialize_any, RootSerializable, RootSerialized, SerializerError, SerializerId,
 };
-use nexus_actor_core_rs::actor::message::Message;
+use nexus_actor_std_rs::actor::message::Message;
 use nexus_message_derive_rs::Message;
 use std::collections::HashMap;
 use std::sync::Arc;

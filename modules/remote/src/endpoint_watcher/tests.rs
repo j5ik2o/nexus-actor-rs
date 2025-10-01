@@ -2,9 +2,9 @@ use super::*;
 use crate::config::Config;
 use crate::config_option::ConfigOption;
 use crate::remote::Remote;
-use nexus_actor_core_rs::actor::actor_system::ActorSystem;
-use nexus_actor_core_rs::actor::core::PidSet;
-use nexus_actor_core_rs::generated::actor::Pid;
+use nexus_actor_std_rs::actor::actor_system::ActorSystem;
+use nexus_actor_std_rs::actor::core::PidSet;
+use nexus_actor_std_rs::generated::actor::Pid;
 use std::sync::Arc;
 use tokio::sync::OnceCell;
 

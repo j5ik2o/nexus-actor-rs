@@ -6,8 +6,8 @@
 - **リスク**: 現状の懸念事項。
 
 ## 完了事項
-- `PidSet` は `parking_lot::RwLock` ベースの同期実装へ移行し、すべての API (`add` / `remove` / `contains` / `len` / `to_vec`) が同期メソッドになった（`modules/actor/src/actor/core/pid_set.rs`）。
-- `PidSet::new_with_pids` を追加し、初期値付き生成が容易になった。テストは同期 API へ書き換え済み（`modules/actor/src/actor/core/pid_set/tests.rs`）。
+- `PidSet` は `parking_lot::RwLock` ベースの同期実装へ移行し、すべての API (`add` / `remove` / `contains` / `len` / `to_vec`) が同期メソッドになった（`modules/actor-core/src/actor/core/pid_set.rs`）。
+- `PidSet::new_with_pids` を追加し、初期値付き生成が容易になった。テストは同期 API へ書き換え済み（`modules/actor-core/src/actor/core/pid_set/tests.rs`）。
 - `ActorContextExtras` / `EndpointWatcher` など `PidSet` 利用箇所は同期 API 前提で同期ロック構造に統一。
 
 ## フォローアップ

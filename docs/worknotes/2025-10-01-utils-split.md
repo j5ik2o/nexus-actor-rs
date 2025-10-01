@@ -34,7 +34,7 @@
    - `modules/utils-std`（仮）で tokio / std 依存コードを re-export。
    - `nexus-utils-std-rs` が `nexus-utils-core-rs` を feature 付きで利用できるようにする。
 6. **依存元の調整**
-   - `modules/actor/Cargo.toml` 等を更新し、core と std の両方を適切に参照。
+   - `modules/actor-core/Cargo.toml` 等を更新し、core と std の両方を適切に参照。
    - `cargo test --workspace` & `cargo test --no-default-features --features alloc -p nexus-utils-core-rs` を実行。
 7. **CI への追加**
    - `.github/workflows/ci.yml` に no_std ビルドを追加（`cargo check -p nexus-utils-core-rs --no-default-features --features alloc`）。

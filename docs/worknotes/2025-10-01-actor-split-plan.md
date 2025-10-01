@@ -1,28 +1,20 @@
 # actor モジュール分割タスク (2025-10-01 時点)
 
 ## 区分基準
-- **準備**: 着手前に依存と影響を把握するための調査タスク。
-- **実装タスク**: actor-core / actor-std への再編そのもの。優先度の高い順に記載。
-- **検証・ドキュメント**: 実装完了後に実施する確認・周知。優先度の高い順に記載。
+- **ステータス別**: `完了済み` は既に実施済みのタスク、`継続タスク` は今後着手すべきもの、`検証・ドキュメント` は実装完了後に行う確認作業。
 
-## 準備（依存と影響調査）
-1. `rg "tokio" modules/actor -n` / `rg "std::" modules/actor -n` で std / tokio 依存箇所を棚卸しし、core に残せない部分を洗い出す。
-2. `cargo tree -p nexus-actor-core-rs` を実行し、現在の依存が `tokio`, `parking_lot`, `tonic` 等にどう繋がっているかを整理する。
-3. actor モジュール内のテスト／ベンチ（`modules/actor/{benches,tests}`）で tokio ランタイム前提のものをリストアップし、後に actor-std へ移す対象を明確化する。
+## 完了済み（2025-10-01）
+- `modules/actor-core` → `modules/actor-core` へのリネームを実施し、`nexus-actor-core-rs` のパスを更新。
+- `modules/actor-std` クレートを新設し、現状は `nexus-actor-core-rs` の公開 API を再エクスポートする構成に仮置き。
+- ルート `Cargo.toml` に `modules/actor-core` / `modules/actor-std` を追加し、`remote` / `cluster` を `nexus-actor-std-rs` へ付け替え。
+- 依存洗い出しのために `rg "tokio" modules/actor-core -n` / `rg "std::" modules/actor-core -n` と `cargo tree -p nexus-actor-core-rs` を実行し、std 依存を棚卸し。
 
-## 実装タスク（優先度順）
-1. **クレート構成の再編**
-   - `modules/actor` を `modules/actor-core` へリネームし、Cargo.toml の `package.name` を `nexus-actor-core-rs` に維持したまま `path` を更新する。
-   - 新規に `modules/actor-std` を追加し、既存の `tokio` / `std` 依存ロジックをこちらへ移す土台となる `Cargo.toml` と `lib.rs` を作成する。
-2. **機能分割**
-   - `tokio`・`parking_lot`・`std::net` 等に依存するコードを特定し、 actor-std 側へ移設。
-   - `no_std` で動作させたいコア部分（アクタートレイト、メッセージ、PID、スーパーバイザ、同期キュー経由のディスパッチャ等）を actor-core に残し、必要であれば `cfg(feature = "std")` を外す。
-   - actor-core と actor-std 間の共有インターフェース（例: Mailbox/Dispatcher trait）の抽象化ポイントを整理し、`nexus-actor-std-rs` が `nexus-actor-core-rs` を拡張する構造にする。
-3. **ワークスペース更新**
-   - ルート `Cargo.toml` の `[workspace]` へ `modules/actor-core`, `modules/actor-std` を追加し、既存の依存先が新しいパスを指すよう調整する。
-   - `modules/remote`, `modules/cluster` 等で `nexus-actor-core-rs` に依存していた箇所を再確認し、必要であれば `nexus-actor-std-rs` を追加。
-4. **テスト／ベンチ移行**
-   - `tokio::test` ベースのテストと Criterion ベンチを actor-std に移し、actor-core 側は `no_std` でコンパイル可能な最小限のテストに絞る。
+## 継続タスク（実装）
+1. **機能分割**
+   - `tokio`・`parking_lot`・`std::net` 等へ依存する実装を actor-std 側へ移設し、actor-core を `alloc` ベースへ縮減。
+   - actor-core と actor-std の境界を整理し、Mailbox/Dispatcher などの抽象インターフェースを共有化。
+2. **テスト／ベンチ移行**
+   - `tokio::test` や Criterion ベンチマーク群を actor-std に移動し、actor-core 側は no_std で動作確認できる最小構成へ絞り込む。
 
 ## 検証・ドキュメント（優先度順）
 1. `cargo check -p nexus-actor-core-rs --no-default-features --features alloc` を実行し、actor-core 単体で no_std ビルドが通るか確認する。

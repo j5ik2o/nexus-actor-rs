@@ -2,12 +2,10 @@ use crate::messages::{RemoteUnwatch, RemoteWatch};
 use crate::remote::Remote;
 use crate::serializer::SerializerId;
 use async_trait::async_trait;
-use nexus_actor_core_rs::actor::core::ExtendedPid;
-use nexus_actor_core_rs::actor::message::{
-  unwrap_envelope, MessageHandle, ReadonlyMessageHeadersHandle, SystemMessage,
-};
-use nexus_actor_core_rs::actor::process::Process;
-use nexus_actor_core_rs::generated::actor::{Pid, Unwatch, Watch};
+use nexus_actor_std_rs::actor::core::ExtendedPid;
+use nexus_actor_std_rs::actor::message::{unwrap_envelope, MessageHandle, ReadonlyMessageHeadersHandle, SystemMessage};
+use nexus_actor_std_rs::actor::process::Process;
+use nexus_actor_std_rs::generated::actor::{Pid, Unwatch, Watch};
 use std::any::Any;
 
 #[derive(Debug, Clone)]
@@ -103,7 +101,7 @@ impl Process for RemoteProcess {
 mod tests {
   use super::*;
   use crate::config::Config;
-  use nexus_actor_core_rs::actor::actor_system::ActorSystem;
+  use nexus_actor_std_rs::actor::actor_system::ActorSystem;
 
   #[tokio::test]
   async fn remote_process_getters_expose_internal_state() {

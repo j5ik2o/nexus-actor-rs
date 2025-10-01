@@ -1,8 +1,8 @@
-use nexus_actor_core_rs::actor::actor_system::ActorSystem;
-use nexus_actor_core_rs::actor::context::{BasePart, ContextHandle, MessagePart, SenderPart, SpawnerPart};
-use nexus_actor_core_rs::actor::core::{Actor, ActorError, ExtendedPid, Props};
-use nexus_actor_core_rs::actor::message::Message;
-use nexus_actor_core_rs::actor::message::{MessageHandle, ResponseHandle};
+use nexus_actor_std_rs::actor::actor_system::ActorSystem;
+use nexus_actor_std_rs::actor::context::{BasePart, ContextHandle, MessagePart, SenderPart, SpawnerPart};
+use nexus_actor_std_rs::actor::core::{Actor, ActorError, ExtendedPid, Props};
+use nexus_actor_std_rs::actor::message::Message;
+use nexus_actor_std_rs::actor::message::{MessageHandle, ResponseHandle};
 
 use crate::config::Config;
 use crate::config_option::ConfigOption;
@@ -217,7 +217,7 @@ async fn test_register() {
 
 #[tokio::test]
 async fn test_remote_communication() {
-  env::set_var("RUST_LOG", "nexus_actor_core_rs=info");
+  env::set_var("RUST_LOG", "nexus_actor_std_rs=info");
   let _ = tracing_subscriber::fmt()
     .with_env_filter(EnvFilter::from_default_env())
     .try_init();

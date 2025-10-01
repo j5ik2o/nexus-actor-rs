@@ -1,6 +1,6 @@
-use nexus_actor_core_rs::actor::message::Message;
-use nexus_actor_core_rs::generated::actor::Pid;
-use nexus_actor_core_rs::Message;
+use nexus_actor_std_rs::actor::message::Message;
+use nexus_actor_std_rs::generated::actor::Pid;
+use nexus_actor_std_rs::Message;
 
 #[derive(Debug, Clone, PartialEq, Message)]
 pub struct Endpoint {

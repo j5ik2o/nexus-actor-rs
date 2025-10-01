@@ -1,14 +1,14 @@
 use arc_swap::ArcSwapOption;
 use async_trait::async_trait;
-use nexus_actor_core_rs::actor::context::SenderPart;
-use nexus_actor_core_rs::actor::core::ExtendedPid;
-use nexus_actor_core_rs::actor::core_types::Message;
-use nexus_actor_core_rs::actor::dispatch::{
+use nexus_actor_std_rs::actor::context::SenderPart;
+use nexus_actor_std_rs::actor::core::ExtendedPid;
+use nexus_actor_std_rs::actor::core_types::Message;
+use nexus_actor_std_rs::actor::dispatch::{
   DeadLetterEvent, Dispatcher, DispatcherHandle, Mailbox, MailboxHandle, MailboxMessage, MailboxQueueLatencyMetrics,
   MailboxSuspensionMetrics, MailboxSync, MailboxSyncHandle, MessageInvoker, MessageInvokerHandle, Runnable,
 };
-use nexus_actor_core_rs::actor::message::MessageHandle;
-use nexus_actor_core_rs::generated::actor::DeadLetterResponse;
+use nexus_actor_std_rs::actor::message::MessageHandle;
+use nexus_actor_std_rs::generated::actor::DeadLetterResponse;
 use nexus_utils_std_rs::collections::{
   MpscUnboundedChannelQueue, QueueBase, QueueError, QueueReader, QueueWriter, RingQueue,
 };

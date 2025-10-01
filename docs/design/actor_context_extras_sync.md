@@ -6,7 +6,7 @@
 - **リスク**: 同期化に伴う懸念事項。
 
 ## 現状構成
-- `ActorContextExtras` は `InstrumentedRwLock<ActorContextExtrasMutable>` を保持し、可変領域（receive timeout timer / restart stats / stash）のみ `RwLock` 経由で操作（`modules/actor/src/actor/context/actor_context_extras.rs`）。
+- `ActorContextExtras` は `InstrumentedRwLock<ActorContextExtrasMutable>` を保持し、可変領域（receive timeout timer / restart stats / stash）のみ `RwLock` 経由で操作（`modules/actor-core/src/actor/context/actor_context_extras.rs`）。
 - `children` / `watchers` は同期化した `PidSet` を保持し、`get_children` / `get_watchers` が即時クローンを返す。
 - `context` 参照は `ArcSwapOption<WeakContextHandle>` で管理され、Borrow/Snapshot API から同期的に取得可能。
 - ReceiveTimeoutTimer は `RwLock` 包みの DelayQueue を維持するが、初期化／リセットはロックを最小化するよう分割済み。

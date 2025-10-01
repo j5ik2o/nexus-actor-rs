@@ -6,7 +6,7 @@
 - **フォローアップ**: 次回更新で実施する作業。
 
 ## 計測状況
-- 2025-09-29 時点で `modules/actor/benches/actor_context_lock.rs` の最新ベンチ結果は未計測。mailbox/dispatcher 関連ベンチにリソースを集中していたため。
+- 2025-09-29 時点で `modules/actor-core/benches/actor_context_lock.rs` の最新ベンチ結果は未計測。mailbox/dispatcher 関連ベンチにリソースを集中していたため。
 - 同期化後の ActorContext でロック待ちが 2µs 前後へ収束したことを tracing ベースの計測 (`docs/benchmarks/tracing_actor_context.md`) で確認済み。
 
 ## 実行手順

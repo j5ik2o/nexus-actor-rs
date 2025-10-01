@@ -1,5 +1,5 @@
 use super::*;
-use nexus_actor_core_rs::actor::message::Message;
+use nexus_actor_std_rs::actor::message::Message;
 use nexus_message_derive_rs::Message;
 use std::env;
 use tracing_subscriber::EnvFilter;
@@ -26,7 +26,7 @@ fn test_proto_serialization() {
 
 #[test]
 fn test_proto_serialization_any() {
-  env::set_var("RUST_LOG", "nexus_actor_core_rs=info");
+  env::set_var("RUST_LOG", "nexus_actor_std_rs=info");
   let _ = tracing_subscriber::fmt()
     .with_env_filter(EnvFilter::from_default_env())
     .try_init();

@@ -30,7 +30,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "Cargo.toml",
         "modules/utils/Cargo.toml",
         "modules/message-derive/Cargo.toml",
-        "modules/actor/Cargo.toml",
+        "modules/actor-core/Cargo.toml",
+        "modules/actor-std/Cargo.toml",
         "modules/remote/Cargo.toml",
         "modules/cluster/Cargo.toml",
     ];

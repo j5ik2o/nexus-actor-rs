@@ -1,5 +1,5 @@
-use nexus_actor_core_rs::actor::message::Message;
-use nexus_actor_core_rs::generated::actor::Pid;
+use nexus_actor_std_rs::actor::message::Message;
+use nexus_actor_std_rs::generated::actor::Pid;
 use nexus_message_derive_rs::Message as MessageDerive;
 use serde::{Deserialize, Serialize};
 
@@ -13,7 +13,7 @@ pub struct ActivationRequest {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, MessageDerive)]
 pub struct ActivationResponse {
   #[serde(with = "extended_pid_option_serde")]
-  pub pid: Option<nexus_actor_core_rs::actor::core::ExtendedPid>,
+  pub pid: Option<nexus_actor_std_rs::actor::core::ExtendedPid>,
 }
 
 mod extended_pid_option_serde {
@@ -28,7 +28,7 @@ mod extended_pid_option_serde {
   }
 
   pub fn serialize<S>(
-    value: &Option<nexus_actor_core_rs::actor::core::ExtendedPid>,
+    value: &Option<nexus_actor_std_rs::actor::core::ExtendedPid>,
     serializer: S,
   ) -> Result<S::Ok, S::Error>
   where
@@ -43,7 +43,7 @@ mod extended_pid_option_serde {
 
   pub fn deserialize<'de, D>(
     deserializer: D,
-  ) -> Result<Option<nexus_actor_core_rs::actor::core::ExtendedPid>, D::Error>
+  ) -> Result<Option<nexus_actor_std_rs::actor::core::ExtendedPid>, D::Error>
   where
     D: Deserializer<'de>, {
     let opt = Option::<ExtendedPidSerde>::deserialize(deserializer)?;
@@ -53,7 +53,7 @@ mod extended_pid_option_serde {
         id: data.id,
         request_id: data.request_id,
       };
-      nexus_actor_core_rs::actor::core::ExtendedPid::new(pid)
+      nexus_actor_std_rs::actor::core::ExtendedPid::new(pid)
     }))
   }
 }

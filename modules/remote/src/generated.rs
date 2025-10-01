@@ -1,5 +1,5 @@
 mod actor {
-  pub use nexus_actor_core_rs::generated::actor::*;
+  pub use nexus_actor_std_rs::generated::actor::*;
 }
 pub mod remote {
   #![allow(clippy::enum_variant_names, dead_code)]

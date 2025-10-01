@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use futures::future::BoxFuture;
 use futures::FutureExt;
-use nexus_actor_core_rs::actor::core::Props;
+use nexus_actor_std_rs::actor::core::Props;
 
 use crate::identity::ClusterIdentity;
 use crate::virtual_actor::{make_virtual_actor_props, VirtualActor};

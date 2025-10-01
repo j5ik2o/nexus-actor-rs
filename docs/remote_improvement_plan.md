@@ -88,6 +88,6 @@
 
 ## 関連する Core 側の優先課題
 
-- **ActorContext ロック構造の改善** (`modules/actor/src/actor/context/actor_context.rs:112-160`, `:204-237`): `Arc<Mutex<...>>` を保持したまま非同期処理やコールバックを実行しており、メトリクスやユーザーコードから同じコンテキスト API を呼ぶと自己デッドロックを誘発する。ロック解放タイミングの見直しと責務分割が必須。
-- **ExtendedPid の ProcessHandle キャッシュ再設計** (`modules/actor/src/actor/core/pid.rs:96-114`): `process_handle.lock().await` を保持したまま ProcessRegistry を再帰的に呼び出すため、同一 PID を辿ると再入で固まる。キャッシュ更新フェーズと ProcessRegistry 参照を分離する設計変更が必要。
-- **グローバル Extension 登録の同期整理** (`modules/actor/src/extensions.rs:32-58`): `Arc<Mutex<dyn Extension>>` と `Synchronized` の多段ロックで Extension 取得→ロック→downcast を行っており、取得中に Extension 側で Context API を呼ぶと競合しやすい。再入を避けるための読み取り専用構造（例: once_cell + RwLock）へ置き換える。
+- **ActorContext ロック構造の改善** (`modules/actor-core/src/actor/context/actor_context.rs:112-160`, `:204-237`): `Arc<Mutex<...>>` を保持したまま非同期処理やコールバックを実行しており、メトリクスやユーザーコードから同じコンテキスト API を呼ぶと自己デッドロックを誘発する。ロック解放タイミングの見直しと責務分割が必須。
+- **ExtendedPid の ProcessHandle キャッシュ再設計** (`modules/actor-core/src/actor/core/pid.rs:96-114`): `process_handle.lock().await` を保持したまま ProcessRegistry を再帰的に呼び出すため、同一 PID を辿ると再入で固まる。キャッシュ更新フェーズと ProcessRegistry 参照を分離する設計変更が必要。
+- **グローバル Extension 登録の同期整理** (`modules/actor-core/src/extensions.rs:32-58`): `Arc<Mutex<dyn Extension>>` と `Synchronized` の多段ロックで Extension 取得→ロック→downcast を行っており、取得中に Extension 側で Context API を呼ぶと競合しやすい。再入を避けるための読み取り専用構造（例: once_cell + RwLock）へ置き換える。

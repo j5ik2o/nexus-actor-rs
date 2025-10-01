@@ -1,0 +1,13 @@
+[package]
+name = "nexus-actor-std-rs"
+version = "3.0.1"
+edition = "2021"
+description = "Standard library integration for Nexus Actor"
+license = "MIT OR Apache-2.0"
+keywords = ["actors", "actor-model", "async", "tokio"]
+categories = ["concurrency", "asynchronous", "network-programming"]
+readme = "../../README.md"
+repository = "https://github.com/j5ik2o/nexus-actor-rs"
+
+[dependencies]
+nexus-actor-core-rs = { version = "3.*", path = "../actor-core" }

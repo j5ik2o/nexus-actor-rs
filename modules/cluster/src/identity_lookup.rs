@@ -7,7 +7,7 @@ use dashmap::DashMap;
 use thiserror::Error;
 use tracing::warn;
 
-use nexus_actor_core_rs::actor::core::ExtendedPid;
+use nexus_actor_std_rs::actor::core::ExtendedPid;
 
 use crate::identity::ClusterIdentity;
 use crate::kind::ClusterKind;

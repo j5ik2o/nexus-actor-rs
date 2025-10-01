@@ -1,10 +1,10 @@
 use std::sync::{Arc, RwLock as StdRwLock};
 use std::time::Duration;
 
-use nexus_actor_core_rs::actor::context::{SenderPart, SpawnerPart, StopperPart};
-use nexus_actor_core_rs::actor::core::{ExtendedPid, Props, SpawnError};
-use nexus_actor_core_rs::actor::message::{Message, MessageHandle};
-use nexus_actor_core_rs::actor::process::future::ActorFutureError;
+use nexus_actor_std_rs::actor::context::{SenderPart, SpawnerPart, StopperPart};
+use nexus_actor_std_rs::actor::core::{ExtendedPid, Props, SpawnError};
+use nexus_actor_std_rs::actor::message::{Message, MessageHandle};
+use nexus_actor_std_rs::actor::process::future::ActorFutureError;
 use nexus_message_derive_rs::Message as MessageDerive;
 use thiserror::Error;
 use tokio::sync::RwLock;
@@ -15,7 +15,7 @@ use crate::identity_lookup::DistributedIdentityLookup;
 use crate::partition::messages::{ActivationRequest, ActivationResponse};
 use crate::partition::placement_actor::PlacementActor;
 use crate::rendezvous::{ClusterMember, Rendezvous};
-use nexus_actor_core_rs::generated::actor::Pid;
+use nexus_actor_std_rs::generated::actor::Pid;
 use tracing::warn;
 
 const PARTITION_ACTIVATOR_NAME: &str = "partition-activator";

@@ -1,11 +1,11 @@
 use async_trait::async_trait;
 use futures::future::BoxFuture;
 use futures::FutureExt;
-use nexus_actor_core_rs::actor::actor_system::ActorSystem;
-use nexus_actor_core_rs::actor::context::{BasePart, ContextHandle, MessagePart, SenderPart, SpawnerPart};
-use nexus_actor_core_rs::actor::core::{Actor, ActorError, Continuer, ErrorReason, ExtendedPid, Props, SpawnError};
-use nexus_actor_core_rs::actor::message::{Message, MessageHandle, ResponseHandle, SystemMessage};
-use nexus_actor_core_rs::actor::process::actor_future::ActorFuture;
+use nexus_actor_std_rs::actor::actor_system::ActorSystem;
+use nexus_actor_std_rs::actor::context::{BasePart, ContextHandle, MessagePart, SenderPart, SpawnerPart};
+use nexus_actor_std_rs::actor::core::{Actor, ActorError, Continuer, ErrorReason, ExtendedPid, Props, SpawnError};
+use nexus_actor_std_rs::actor::message::{Message, MessageHandle, ResponseHandle, SystemMessage};
+use nexus_actor_std_rs::actor::process::actor_future::ActorFuture;
 use std::fmt;
 use std::sync::Arc;
 use std::time::Duration;

@@ -6,12 +6,12 @@ use crate::endpoint_writer_mailbox::EndpointWriterMailbox;
 use crate::metrics::record_sender_snapshot;
 use crate::remote::Remote;
 use async_trait::async_trait;
-use nexus_actor_core_rs::actor::actor_system::ActorSystem;
-use nexus_actor_core_rs::actor::context::{BasePart, ContextHandle, MessagePart, SpawnerPart};
-use nexus_actor_core_rs::actor::core::{Actor, ActorError, ErrorReason, ExtendedPid, Props, RestartStatistics};
-use nexus_actor_core_rs::actor::dispatch::{MailboxHandle, MailboxProducer, MailboxSyncHandle};
-use nexus_actor_core_rs::actor::message::{MessageHandle, ResponseHandle};
-use nexus_actor_core_rs::actor::supervisor::{
+use nexus_actor_std_rs::actor::actor_system::ActorSystem;
+use nexus_actor_std_rs::actor::context::{BasePart, ContextHandle, MessagePart, SpawnerPart};
+use nexus_actor_std_rs::actor::core::{Actor, ActorError, ErrorReason, ExtendedPid, Props, RestartStatistics};
+use nexus_actor_std_rs::actor::dispatch::{MailboxHandle, MailboxProducer, MailboxSyncHandle};
+use nexus_actor_std_rs::actor::message::{MessageHandle, ResponseHandle};
+use nexus_actor_std_rs::actor::supervisor::{
   Supervisor, SupervisorHandle, SupervisorStrategy, SupervisorStrategyHandle,
 };
 use std::any::Any;

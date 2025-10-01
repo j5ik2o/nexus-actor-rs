@@ -1,4 +1,4 @@
-use nexus_actor_core_rs::actor::message::Message;
+use nexus_actor_std_rs::actor::message::Message;
 use nexus_message_derive_rs::Message as MessageDerive;
 
 use crate::virtual_actor::VirtualActorContext;

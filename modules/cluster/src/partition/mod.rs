@@ -8,7 +8,7 @@ mod tests {
   use crate::cluster::Cluster;
   use crate::config::ClusterConfig;
   use crate::rendezvous::ClusterMember;
-  use nexus_actor_core_rs::actor::actor_system::ActorSystem;
+  use nexus_actor_std_rs::actor::actor_system::ActorSystem;
   use std::sync::Arc;
 
   #[tokio::test]

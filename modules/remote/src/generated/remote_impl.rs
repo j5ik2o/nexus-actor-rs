@@ -1,5 +1,5 @@
 use crate::generated::remote::{ActorPidRequest, ActorPidResponse};
-use nexus_actor_core_rs::actor::message::Message;
+use nexus_actor_std_rs::actor::message::Message;
 use std::any::Any;
 
 impl Message for ActorPidRequest {

@@ -5,8 +5,8 @@ use crate::generated::cluster::{DeliverBatchRequestTransport, PubSubAutoRespondB
 use crate::serializer::{
   deserialize_any, deserialize_message, AnyDowncastExt, RootSerializable, RootSerialized, SerializerError, SerializerId,
 };
-use nexus_actor_core_rs::actor::message::{Message, SystemMessage};
-use nexus_actor_core_rs::generated::actor::{Stop, Terminated, Unwatch, Watch};
+use nexus_actor_std_rs::actor::message::{Message, SystemMessage};
+use nexus_actor_std_rs::generated::actor::{Stop, Terminated, Unwatch, Watch};
 use prost::Message as ProstMessage;
 
 #[cfg(test)]

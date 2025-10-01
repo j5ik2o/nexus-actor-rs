@@ -1,10 +1,10 @@
-use nexus_actor_core_rs::actor::actor_system::ActorSystem;
-use nexus_actor_core_rs::actor::context::SenderPart;
-use nexus_actor_core_rs::actor::core::{ActorProcess, ExtendedPid};
-use nexus_actor_core_rs::actor::message::{MessageEnvelope, MessageHandle, MessageHeaders};
-use nexus_actor_core_rs::actor::metrics::metrics_impl::MetricsSink;
-use nexus_actor_core_rs::actor::process::Process;
-use nexus_actor_core_rs::generated::actor::Pid;
+use nexus_actor_std_rs::actor::actor_system::ActorSystem;
+use nexus_actor_std_rs::actor::context::SenderPart;
+use nexus_actor_std_rs::actor::core::{ActorProcess, ExtendedPid};
+use nexus_actor_std_rs::actor::message::{MessageEnvelope, MessageHandle, MessageHeaders};
+use nexus_actor_std_rs::actor::metrics::metrics_impl::MetricsSink;
+use nexus_actor_std_rs::actor::process::Process;
+use nexus_actor_std_rs::generated::actor::Pid;
 
 use crate::endpoint_manager::{EndpointManager, RequestKeyWrapper};
 use crate::generated::remote;

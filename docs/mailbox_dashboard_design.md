@@ -8,7 +8,7 @@
 ## メトリクス仕様
 | メトリクス | 種別 | 主ラベル | 備考 |
 |------------|------|-----------|------|
-| `nexus_actor_mailbox_queue_dwell_duration_seconds` | Histogram | `queue_kind`, `actor_type`, `address` | `modules/actor/src/metrics/actor_metrics.rs:70-88` で定義。 |
+| `nexus_actor_mailbox_queue_dwell_duration_seconds` | Histogram | `queue_kind`, `actor_type`, `address` | `modules/actor-core/src/metrics/actor_metrics.rs:70-88` で定義。 |
 | `nexus_actor_mailbox_queue_dwell_percentile_seconds` | Gauge | `queue_kind`, `percentile`, `actor_type`, `address` | Snapshot を `DefaultMailbox::queue_latency_metrics()` から記録。 |
 | `nexus_actor_mailbox_queue_length` | Gauge | `queue_kind`, `actor_type`, `address` | `record_mailbox_queue_length` でキュー長を即時記録。 |
 | `nexus_actor_mailbox_suspension_state` | Gauge | `actor_type`, `address` | Suspend(1)/Active(0)。 |

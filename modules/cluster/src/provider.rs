@@ -17,8 +17,8 @@ use crate::generated::registry::{
 use crate::kind::ClusterKind;
 use crate::partition::manager::{ClusterTopology, PartitionManager};
 use crate::rendezvous::ClusterMember;
-use nexus_actor_core_rs::actor::message::{Message, MessageHandle};
-use nexus_actor_core_rs::event_stream::EventStream;
+use nexus_actor_std_rs::actor::message::{Message, MessageHandle};
+use nexus_actor_std_rs::event_stream::EventStream;
 use tonic::transport::{Channel, Endpoint};
 use tonic::Status;
 use tracing::{debug, info, warn};
@@ -705,9 +705,9 @@ mod tests {
   use crate::config::{ClusterConfig, RemoteOptions};
   use crate::kind::ClusterKind;
   use crate::virtual_actor::{VirtualActor, VirtualActorContext, VirtualActorRuntime};
-  use nexus_actor_core_rs::actor::actor_system::ActorSystem;
-  use nexus_actor_core_rs::actor::core::ActorError;
-  use nexus_actor_core_rs::actor::message::MessageHandle;
+  use nexus_actor_std_rs::actor::actor_system::ActorSystem;
+  use nexus_actor_std_rs::actor::core::ActorError;
+  use nexus_actor_std_rs::actor::message::MessageHandle;
   use std::collections::{HashMap, HashSet};
   use std::env;
   use std::net::SocketAddr;

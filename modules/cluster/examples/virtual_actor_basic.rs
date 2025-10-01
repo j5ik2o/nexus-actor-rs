@@ -2,8 +2,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use nexus_actor_core_rs::actor::core::{ActorError, ErrorReason};
-use nexus_actor_core_rs::actor::message::{Message, MessageHandle};
+use nexus_actor_std_rs::actor::core::{ActorError, ErrorReason};
+use nexus_actor_std_rs::actor::message::{Message, MessageHandle};
 use nexus_message_derive_rs::Message as MessageDerive;
 use tokio::time::timeout;
 
@@ -47,7 +47,7 @@ impl VirtualActor for GreeterActor {
 #[tokio::main]
 async fn main() {
   let system = Arc::new(
-    nexus_actor_core_rs::actor::actor_system::ActorSystem::new()
+    nexus_actor_std_rs::actor::actor_system::ActorSystem::new()
       .await
       .expect("actor system"),
   );
