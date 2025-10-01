@@ -9,11 +9,15 @@ BASE_THRESHOLD_NS=25000000
 pushd "$PROJECT_ROOT" >/dev/null
 
 if [ "${SKIP_BENCH:-0}" != "1" ]; then
-  cargo bench -p nexus-actor-bench --bench reentrancy >/dev/null
+  cargo bench -p nexus-actor-core-rs --bench reentrancy >/dev/null
 fi
 
 if [ ! -f "$BENCH_TARGET" ]; then
-  echo "Bench results not found at $BENCH_TARGET" >&2
+  BENCH_TARGET=$(find target/criterion/reentrancy -name estimates.json 2>/dev/null | head -n 1 || true)
+fi
+
+if [ -z "$BENCH_TARGET" ] || [ ! -f "$BENCH_TARGET" ]; then
+  echo "Bench results not found under target/criterion/reentrancy" >&2
   exit 1
 fi
 

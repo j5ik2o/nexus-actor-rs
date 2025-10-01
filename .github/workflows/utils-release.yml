@@ -2,7 +2,7 @@ name: utils-release
 on:
   push:
     tags:
-      - 'nexus-actor-utils-rs-v[0-9]+.[0-9]+.[0-9]+'
+      - 'nexus-utils-core-rs-v[0-9]+.[0-9]+.[0-9]+'
 env:
   CARGO_TERM_COLOR: always
 jobs:
@@ -22,4 +22,4 @@ jobs:
           override: true
       - name: release the crate
         run: |
-          cargo publish --token ${{ secrets.CARGO_TOKEN }} -p nexus-actor-utils-rs --no-verify
+          cargo publish --token ${{ secrets.CARGO_TOKEN }} -p nexus-utils-core-rs --no-verify

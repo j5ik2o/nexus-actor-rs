@@ -9,7 +9,7 @@ use nexus_actor_core_rs::actor::dispatch::{
 };
 use nexus_actor_core_rs::actor::message::MessageHandle;
 use nexus_actor_core_rs::generated::actor::DeadLetterResponse;
-use nexus_actor_utils_rs::collections::{
+use nexus_utils_core_rs::collections::{
   MpscUnboundedChannelQueue, QueueError, RingQueue, SyncQueueBase, SyncQueueReader, SyncQueueWriter,
 };
 use parking_lot::Mutex;

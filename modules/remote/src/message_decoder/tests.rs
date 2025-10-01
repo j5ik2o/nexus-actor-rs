@@ -4,7 +4,7 @@ use crate::serializer::initialize_proto_serializers;
 use nexus_actor_core_rs::generated::actor::{Pid, Terminated, TerminatedReason, Watch};
 use prost::Message as ProstMessage;
 
-#[derive(Clone, PartialEq, ::prost::Message, nexus_actor_message_derive_rs::Message)]
+#[derive(Clone, PartialEq, ::prost::Message, nexus_message_derive_rs::Message)]
 struct PlainMessage {
   #[prost(string, tag = "1")]
   payload: String,

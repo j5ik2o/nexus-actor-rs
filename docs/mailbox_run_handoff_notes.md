@@ -5,7 +5,7 @@
 - **残課題**: 今後検討すべき改善アイデア。
 
 ## 現状
-- `should_yield` は Dispatcher からのヒントと backlog 感度を考慮し、`core/src/actor/dispatch/mailbox/default_mailbox.rs:620-660` で `dispatcher_hint` を受け取る実装へ更新済み。
+- `should_yield` は Dispatcher からのヒントと backlog 感度を考慮し、`modules/actor/src/actor/dispatch/mailbox/default_mailbox.rs:620-660` で `dispatcher_hint` を受け取る実装へ更新済み。
 - System/User キュー処理は `try_handle_system_message` / `try_handle_user_message` に分離され、queue latency メトリクス更新→Deque→Middleware 呼び出しの順を統一（`同ファイル:660-760`）。
 - Suspend/Resume は `AtomicBool` とメトリクス (`MailboxSuspensionMetrics`) で記録され、Resume 時に `record_mailbox_suspension_metrics` を発火する。
 - Queue latency / length はサンプリング間引き (`queue_latency_snapshot_interval`) に基づき `MessageInvoker` へ送信。バックログゼロ時はキュー長を即時ゼロ化する。

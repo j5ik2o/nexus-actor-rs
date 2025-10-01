@@ -8,7 +8,7 @@ use nexus_actor_core_rs::actor::core::ExtendedPid;
 use nexus_actor_core_rs::actor::message::{Message, MessageHandle};
 use nexus_actor_core_rs::actor::process::future::ActorFutureError;
 use nexus_actor_core_rs::generated::actor::Pid;
-use nexus_actor_remote_rs::{
+use nexus_remote_core_rs::{
   ActivationHandler, ActivationHandlerError, Config as RemoteConfig, ConfigOption as RemoteConfigOption, Remote,
   ResponseStatusCode,
 };

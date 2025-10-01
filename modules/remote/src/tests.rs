@@ -121,7 +121,7 @@ async fn client_connection_registers_and_receives_disconnect() -> TestResult<()>
   Ok(())
 }
 
-#[derive(Debug, Clone, PartialEq, nexus_actor_message_derive_rs::Message)]
+#[derive(Debug, Clone, PartialEq, nexus_message_derive_rs::Message)]
 struct DummyPayload {
   value: &'static str,
 }

@@ -20,15 +20,15 @@
 
 | ファイル | 関数 | 主な役割 | 非同期依存 | 備考 |
 | --- | --- | --- | --- | --- |
-| `core/src/actor/context/actor_context.rs:300` | `incarnate_actor` | Spawn 時のカウンタ加算 | `metrics_foreach` → `extension_arc.lock().await` | コンテキスト生成直後。 |
-| `core/src/actor/context/actor_context.rs:543` | `handle_restart` | 再起動カウンタ加算 | 同上 | 状態遷移中で await が多重に並ぶ。 |
-| `core/src/actor/context/actor_context.rs:993` | `StopperPart::stop` | Stop 発生カウンタ | 同上 | 子プロセス停止処理と並列。 |
-| `core/src/actor/context/actor_context.rs:1126` | `invoke_user_message` | メッセージ受信時間の記録 | 同上 | メッセージ処理ホットパス。 |
-| `core/src/actor/context/actor_context.rs:1160` | `escalate_failure` | Failure カウント更新 | 同上 | Suspend → 親通知の中間で await。 |
-| `core/src/actor/context/actor_context.rs:1230` | `Supervisor::escalate_failure` 実装 | Failure カウント + ラベル生成 | 同上 | `Metrics::common_labels` も async。 |
-| `core/src/actor/process/dead_letter_process.rs:144` | `Process::send_user_message` | Dead letter カウント | 同上 | Dead letter 監視。 |
-| `core/src/actor/process/future.rs:71/194` | Future 完了時 | Future 成功/失敗の統計 | 同上 | `ActorFutureProcess` でも利用。 |
-| `core/src/actor/process/actor_future.rs:148` | Future 生成/完了 | 同上 | |
+| `modules/actor/src/actor/context/actor_context.rs:300` | `incarnate_actor` | Spawn 時のカウンタ加算 | `metrics_foreach` → `extension_arc.lock().await` | コンテキスト生成直後。 |
+| `modules/actor/src/actor/context/actor_context.rs:543` | `handle_restart` | 再起動カウンタ加算 | 同上 | 状態遷移中で await が多重に並ぶ。 |
+| `modules/actor/src/actor/context/actor_context.rs:993` | `StopperPart::stop` | Stop 発生カウンタ | 同上 | 子プロセス停止処理と並列。 |
+| `modules/actor/src/actor/context/actor_context.rs:1126` | `invoke_user_message` | メッセージ受信時間の記録 | 同上 | メッセージ処理ホットパス。 |
+| `modules/actor/src/actor/context/actor_context.rs:1160` | `escalate_failure` | Failure カウント更新 | 同上 | Suspend → 親通知の中間で await。 |
+| `modules/actor/src/actor/context/actor_context.rs:1230` | `Supervisor::escalate_failure` 実装 | Failure カウント + ラベル生成 | 同上 | `Metrics::common_labels` も async。 |
+| `modules/actor/src/actor/process/dead_letter_process.rs:144` | `Process::send_user_message` | Dead letter カウント | 同上 | Dead letter 監視。 |
+| `modules/actor/src/actor/process/future.rs:71/194` | Future 完了時 | Future 成功/失敗の統計 | 同上 | `ActorFutureProcess` でも利用。 |
+| `modules/actor/src/actor/process/actor_future.rs:148` | Future 生成/完了 | 同上 | |
 
 - すべての呼び出しが `metrics_foreach` → `Metrics::foreach` と連鎖し、`Arc<Mutex<Extension>>` を `lock().await` してから async クロージャを実行している。
 - 監視経路 (`handle_child_failure`, supervisor 戦略) において、`ActorContext` は非同期ロック中に `SupervisorHandle` を生成し直し、さらにメトリクスでも await するため、`tokio::sync::RwLock` 上に待ちが発生する。

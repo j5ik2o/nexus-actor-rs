@@ -11,7 +11,7 @@ use crate::endpoint_state::ConnectionState;
 use crate::remote::{Remote, RemoteError, RemoteSpawnError};
 use crate::response_status_code::ResponseStatusCode;
 use crate::serializer::initialize_proto_serializers;
-use nexus_actor_message_derive_rs::Message;
+use nexus_message_derive_rs::Message;
 use std::env;
 use std::net::{SocketAddr, TcpListener};
 use std::sync::Arc;
@@ -21,7 +21,7 @@ use tokio::sync::OnceCell;
 use tokio::task::JoinHandle;
 use tokio::time::timeout;
 
-use nexus_actor_utils_rs::concurrent::WaitGroup;
+use nexus_utils_core_rs::concurrent::WaitGroup;
 use tracing_subscriber::EnvFilter;
 
 type TestResult<T> = Result<T, Box<dyn std::error::Error>>;

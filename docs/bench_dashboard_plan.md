@@ -6,7 +6,7 @@
 - **参照リソース**: 実装や設定ファイルの所在。
 
 ## 運用フロー
-- `.github/workflows/bench-weekly.yml` で毎週月曜 03:00 (UTC) に `cargo bench -p nexus-actor-bench --bench reentrancy` を実行し、Criterion 出力を取得。
+- `.github/workflows/bench-weekly.yml` で毎週月曜 03:00 (UTC) に `cargo bench -p nexus-actor-core-rs --bench reentrancy` を実行し、Criterion 出力を取得。
 - `scripts/export_bench_metrics.py` が `criterion` データを単一の `benchmarks/history/bench_history.csv` へ集約し、workflow 内で `peaceiris/actions-gh-pages@v3` により `gh-pages` ブランチへ公開。
 - `docs/bench_dashboard.html` は Chart.js で CSV をロードし、平均応答時間とサンプル数を折れ線グラフ化。GitHub Pages から閲覧可能。
 
@@ -19,4 +19,4 @@
 - Workflow: `.github/workflows/bench-weekly.yml`
 - 変換スクリプト: `scripts/export_bench_metrics.py`
 - ダッシュボード: `docs/bench_dashboard.html`
-- ベンチ本体: `modules/bench/benches/reentrancy.rs`
+- ベンチ本体: `modules/actor/benches/reentrancy.rs`

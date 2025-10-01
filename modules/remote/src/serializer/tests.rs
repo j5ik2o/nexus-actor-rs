@@ -1,6 +1,6 @@
 use super::*;
 use nexus_actor_core_rs::actor::message::Message;
-use nexus_actor_message_derive_rs::Message;
+use nexus_message_derive_rs::Message;
 use std::env;
 use tracing_subscriber::EnvFilter;
 

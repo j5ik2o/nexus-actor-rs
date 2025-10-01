@@ -2,6 +2,8 @@
 set -euo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)"
+# Criterion changed its output layout between versions, so allow override
+# and fall back to the first estimates.json under the expected directory.
 RESULT_PATH=${RESULT_PATH:-target/criterion/context_borrow/borrow_hot_path/new/estimates.json}
 TIME_FACTOR=${TIME_FACTOR:-1.0}
 BASE_THRESHOLD_MS=100.0
@@ -10,11 +12,15 @@ RUN_BENCH=${RUN_BENCH:-0}
 pushd "$PROJECT_ROOT" >/dev/null
 
 if [[ "${RUN_BENCH}" == "1" || ! -f "$RESULT_PATH" ]]; then
-  cargo bench -p nexus-actor-bench --bench reentrancy >/dev/null
+  cargo bench -p nexus-actor-core-rs --bench reentrancy >/dev/null
 fi
 
 if [[ ! -f "$RESULT_PATH" ]]; then
-  echo "Benchmark result file not found: $RESULT_PATH" >&2
+  RESULT_PATH=$(find target/criterion/context_borrow -name estimates.json 2>/dev/null | head -n 1 || true)
+fi
+
+if [[ -z "$RESULT_PATH" || ! -f "$RESULT_PATH" ]]; then
+  echo "Benchmark result file not found under target/criterion/context_borrow" >&2
   exit 2
 fi
 

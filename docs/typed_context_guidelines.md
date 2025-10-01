@@ -55,21 +55,21 @@
 - `ActorSystem` を構造体に強参照として保持し、循環参照を招く設計。
 
 ## 移行チェックリスト
-- [ ] `ContextHandle` 経由の `ActorContext` 取得が `try_into_actor_context` ベースに統一されているか（例: `core/src/actor/core/child/tests.rs` では `to_actor_context` 依存が残存）。
-- [x] `ActorContext` を保持する構造体が `WeakActorSystem` を使っているか（`core/src/actor/context/actor_context.rs`・`root_context.rs` で確認済み）。
-- [ ] `TypedExtendedPid` / `TypedActorContext` を利用するコードで冗長な clone / Arc 共有をしていないか（`core/src/actor/context/typed_actor_context.rs` の send/request 系で再確認が必要）。
+- [ ] `ContextHandle` 経由の `ActorContext` 取得が `try_into_actor_context` ベースに統一されているか（例: `modules/actor/src/actor/core/child/tests.rs` では `to_actor_context` 依存が残存）。
+- [x] `ActorContext` を保持する構造体が `WeakActorSystem` を使っているか（`modules/actor/src/actor/context/actor_context.rs`・`root_context.rs` で確認済み）。
+- [ ] `TypedExtendedPid` / `TypedActorContext` を利用するコードで冗長な clone / Arc 共有をしていないか（`modules/actor/src/actor/context/typed_actor_context.rs` の send/request 系で再確認が必要）。
 
 ## `Arc<Mutex<_>>` 棚卸しと優先順位
 - `scripts/list_arc_mutex_usage.sh` を実行することで、リポジトリ全体の `Arc<Mutex<_>>` 使用箇所を一覧化できる。
 - 2025-09-25 時点で高優先度と判断した箇所:
-  - ~~`core/src/ctxext/extensions.rs` : Extension 管理ベクタを `Arc<Mutex<Vec<Option<ContextExtensionHandle>>>>` で保持。読み取り主体のため `RwLock` + 借用に移行予定。~~ ✅ `borrow_extension` / `borrow_extension_mut` API で参照取得可
-  - `core/src/metrics/actor_metrics.rs` : メトリクス更新でロック粒度が大きく、`ContextBorrow` 経由で必要データを渡す設計へ移行検討。
-  - `core/src/actor/supervisor/supervisor_strategy.rs` : `SupervisorHandle` を `Arc<RwLock<dyn Supervisor>>` 化し、再入ロックを削減済み。今後は `ContextBorrow` ベースの API 拡張を検討する。
+  - ~~`modules/actor/src/ctxext/extensions.rs` : Extension 管理ベクタを `Arc<Mutex<Vec<Option<ContextExtensionHandle>>>>` で保持。読み取り主体のため `RwLock` + 借用に移行予定。~~ ✅ `borrow_extension` / `borrow_extension_mut` API で参照取得可
+  - `modules/actor/src/metrics/actor_metrics.rs` : メトリクス更新でロック粒度が大きく、`ContextBorrow` 経由で必要データを渡す設計へ移行検討。
+  - `modules/actor/src/actor/supervisor/supervisor_strategy.rs` : `SupervisorHandle` を `Arc<RwLock<dyn Supervisor>>` 化し、再入ロックを削減済み。今後は `ContextBorrow` ベースの API 拡張を検討する。
 - `remote/src/endpoint_manager.rs` / `remote/src/remote.rs` : リモート起動経路で `Arc<Mutex<Option<_>>>` が多用され、タイムアウト処理と競合。ライフタイム移行後は `OnceCell` + 借用で行ロックを排除する計画。
 
 棚卸し結果は `docs/core_improvement_plan.md` のロードマップと同期し、移行作業の進捗に合わせて定期的に更新すること。
 
 ## 参考
-- `core/src/actor/context/actor_context.rs` `ContextBorrow` 実装
-- `core/src/actor/context/context_handle.rs` `ContextHandle` スナップショット API
-- `modules/bench/benches/reentrancy.rs` `BorrowingActor` のサンプル
+- `modules/actor/src/actor/context/actor_context.rs` `ContextBorrow` 実装
+- `modules/actor/src/actor/context/context_handle.rs` `ContextHandle` スナップショット API
+- `modules/actor/benches/reentrancy.rs` `BorrowingActor` のサンプル

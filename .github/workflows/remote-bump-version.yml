@@ -13,7 +13,9 @@ jobs:
   bump-version:
     runs-on: ubuntu-latest
     env:
-      TARGET_DIR: remote
+      TARGET_DIR: modules/remote
+      PACKAGE_ID: nexus-remote-core-rs
+      TAG_PREFIX: nexus-remote-core-rs
     steps:
       - uses: actions/checkout@v5
         with:
@@ -29,11 +31,11 @@ jobs:
       - run: pip install semver
       - id: defines
         run: |
-          LATEST_TAG=$(git tag -l --sort=-taggerdate | grep $TARGET_DIR | head -n 1)
-          LATEST_TAG=${LATEST_TAG:-nexus-actor-$TARGET_DIR-rs-v0.0.0}
+          LATEST_TAG=$(git tag -l --sort=-taggerdate | grep $TAG_PREFIX | head -n 1)
+          LATEST_TAG=${LATEST_TAG:-$TAG_PREFIX-v0.0.0}
           echo "LATEST_TAG=$LATEST_TAG"
           echo "target_dir=$TARGET_DIR" >> $GITHUB_OUTPUT
-          echo "package_id=nexus-actor-$TARGET_DIR-rs" >> $GITHUB_OUTPUT
+          echo "package_id=$PACKAGE_ID" >> $GITHUB_OUTPUT
           echo "prev_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
       - name: Calculate changes or force bump
         id: changes
@@ -68,7 +70,7 @@ jobs:
           NEXT_VERSION=$(echo ${{ steps.defines.outputs.prev_tag }} | python3 "${GITHUB_WORKSPACE}"/.github/next-semver.py ${{ steps.semver_level.outputs.value }})
           echo "NEXT_VERSION=$NEXT_VERSION"
           echo "next_version=$NEXT_VERSION" >> $GITHUB_OUTPUT
-          echo "next_tag=nexus-actor-${{ steps.defines.outputs.target_dir }}-rs-v$NEXT_VERSION" >> $GITHUB_OUTPUT
+          echo "next_tag=$TAG_PREFIX-v$NEXT_VERSION" >> $GITHUB_OUTPUT
       - name: bump version
         if: steps.changes.outputs.count > 0
         run: |
