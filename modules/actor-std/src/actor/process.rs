@@ -110,4 +110,12 @@ impl CoreProcessHandle for ProcessHandle {
       Process::stop(&process, &extended).await;
     })
   }
+
+  fn set_dead(&self) {
+    Process::set_dead(self);
+  }
+
+  fn as_any(&self) -> &dyn std::any::Any {
+    Process::as_any(self)
+  }
 }

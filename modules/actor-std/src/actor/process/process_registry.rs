@@ -1,6 +1,4 @@
-use std::fmt::{Debug, Formatter};
-use std::future::Future;
-use std::hash::{Hash, Hasher};
+use std::fmt::Debug;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, RwLock};
 
@@ -10,8 +8,11 @@ use crate::actor::core::ExtendedPid;
 use crate::actor::process::{Process, ProcessHandle, ProcessMaps};
 use crate::generated::actor::Pid;
 use dashmap::mapref::entry::Entry;
-use futures::future::BoxFuture;
 use nexus_actor_core_rs::actor::core_types::pid::CorePid;
+use nexus_actor_core_rs::actor::core_types::process_registry::{
+  CoreAddressResolver, CoreProcessRegistry, CoreProcessRegistryFuture,
+};
+use std::string::String as StdString;
 
 #[cfg(test)]
 mod tests;
@@ -27,42 +28,7 @@ pub struct ProcessRegistry {
   remote_handlers: Arc<RwLock<Vec<AddressResolver>>>,
 }
 
-#[allow(clippy::type_complexity)]
-#[derive(Clone)]
-pub struct AddressResolver(Arc<dyn Fn(&CorePid) -> BoxFuture<'static, Option<ProcessHandle>> + Send + Sync + 'static>);
-
-impl Debug for AddressResolver {
-  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "AddressResolver")
-  }
-}
-
-impl PartialEq for AddressResolver {
-  fn eq(&self, other: &Self) -> bool {
-    Arc::ptr_eq(&self.0, &other.0)
-  }
-}
-
-impl Eq for AddressResolver {}
-
-impl Hash for AddressResolver {
-  fn hash<H: Hasher>(&self, state: &mut H) {
-    (self.0.as_ref() as *const dyn Fn(&CorePid) -> BoxFuture<'static, Option<ProcessHandle>>).hash(state);
-  }
-}
-
-impl AddressResolver {
-  pub fn new<F, Fut>(f: F) -> Self
-  where
-    F: Fn(&CorePid) -> Fut + Send + Sync + 'static,
-    Fut: Future<Output = Option<ProcessHandle>> + Send + 'static, {
-    AddressResolver(Arc::new(move |p| Box::pin(f(p))))
-  }
-
-  pub async fn run(&self, pid: &CorePid) -> Option<ProcessHandle> {
-    (self.0)(pid).await
-  }
-}
+pub type AddressResolver = CoreAddressResolver<ProcessHandle>;
 
 impl ProcessRegistry {
   pub fn new(actor_system: ActorSystem) -> Self {
@@ -166,6 +132,78 @@ impl ProcessRegistry {
       Some(r) => Some(r.clone()),
       None => Some(self.actor_system().get_dead_letter().await),
     }
+  }
+}
+
+impl CoreProcessRegistry for ProcessRegistry {
+  type Handle = ProcessHandle;
+
+  fn register_address_resolver(&self, resolver: AddressResolver) {
+    ProcessRegistry::register_address_resolver(self, resolver);
+  }
+
+  fn set_address(&self, address: StdString) {
+    ProcessRegistry::set_address(self, address);
+  }
+
+  fn get_address(&self) -> StdString {
+    ProcessRegistry::get_address(self)
+  }
+
+  fn next_id(&self) -> StdString {
+    ProcessRegistry::next_id(self)
+  }
+
+  fn list_local_pids<'a>(&'a self) -> CoreProcessRegistryFuture<'a, Vec<CorePid>> {
+    let registry = self.clone();
+    Box::pin(async move {
+      let address = registry.get_address();
+      registry
+        .local_pids
+        .keys()
+        .into_iter()
+        .map(|id| CorePid::new(address.clone(), id).with_request_id(0))
+        .collect()
+    })
+  }
+
+  fn find_local_process_handle<'a>(&'a self, id: &'a str) -> CoreProcessRegistryFuture<'a, Option<Self::Handle>> {
+    let registry = self.clone();
+    let id = id.to_string();
+    Box::pin(async move { ProcessRegistry::find_local_process_handle(&registry, &id).await })
+  }
+
+  fn add_process<'a>(&'a self, process: Self::Handle, id: &'a str) -> CoreProcessRegistryFuture<'a, (CorePid, bool)> {
+    let registry = self.clone();
+    let id = id.to_string();
+    Box::pin(async move {
+      let (extended, inserted) = ProcessRegistry::add_process(&registry, process, &id).await;
+      (extended.to_core(), inserted)
+    })
+  }
+
+  fn remove_process<'a>(&'a self, pid: &'a CorePid) -> CoreProcessRegistryFuture<'a, ()> {
+    let registry = self.clone();
+    let pid = pid.clone();
+    Box::pin(async move {
+      let extended = ExtendedPid::from_core(pid);
+      ProcessRegistry::remove_process(&registry, &extended).await;
+    })
+  }
+
+  fn get_process<'a>(&'a self, pid: &'a CorePid) -> CoreProcessRegistryFuture<'a, Option<Self::Handle>> {
+    let registry = self.clone();
+    let pid = pid.clone();
+    Box::pin(async move {
+      let extended = ExtendedPid::from_core(pid);
+      ProcessRegistry::get_process(&registry, &extended).await
+    })
+  }
+
+  fn get_local_process<'a>(&'a self, id: &'a str) -> CoreProcessRegistryFuture<'a, Option<Self::Handle>> {
+    let registry = self.clone();
+    let id = id.to_string();
+    Box::pin(async move { ProcessRegistry::get_local_process(&registry, &id).await })
   }
 }
 

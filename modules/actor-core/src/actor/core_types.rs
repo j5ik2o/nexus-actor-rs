@@ -12,6 +12,8 @@ pub mod pid;
 #[cfg(feature = "alloc")]
 pub mod process;
 #[cfg(feature = "alloc")]
+pub mod process_registry;
+#[cfg(feature = "alloc")]
 pub mod response;
 #[cfg(feature = "alloc")]
 pub mod restart;

@@ -19,6 +19,8 @@ pub use actor::core_types::pid::{CorePid, CorePidRef};
 #[cfg(feature = "alloc")]
 pub use actor::core_types::process::{CoreProcessHandle, ProcessFuture};
 #[cfg(feature = "alloc")]
+pub use actor::core_types::process_registry::{CoreAddressResolver, CoreProcessRegistry, CoreProcessRegistryFuture};
+#[cfg(feature = "alloc")]
 pub use actor::core_types::response::{Response, ResponseHandle};
 #[cfg(feature = "alloc")]
 pub use actor::core_types::restart::{CoreRestartTracker, FailureClock};
