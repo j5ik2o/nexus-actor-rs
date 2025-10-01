@@ -43,7 +43,7 @@ jobs:
         env:
           RUSTFLAGS: "-Copt-level=3"
           THRESHOLD_NS: ${{ vars.REENTRANCY_THRESHOLD_NS != '' && vars.REENTRANCY_THRESHOLD_NS || 90000000 }}
-        run: cargo bench -p nexus-actor-bench --bench reentrancy
+        run: cargo bench -p nexus-actor-bench-rs --bench reentrancy
 
       - name: Export benchmark metrics
         run: |

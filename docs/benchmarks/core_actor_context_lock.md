@@ -11,7 +11,7 @@
 
 ## 実行手順
 ```bash
-cargo bench -p nexus-actor-bench --bench actor_context_lock -- --sample-size 100
+cargo bench -p nexus-actor-bench-rs --bench actor_context_lock -- --sample-size 100
 ```
 - 実行後、`target/criterion/actor_context_lock/*/new/benchmark.csv` を `docs/benchmarks/` に反映する。
 - `RUSTFLAGS="-C target-cpu=native"` を設定し、CPU スケーリングを固定すると再現性が向上。

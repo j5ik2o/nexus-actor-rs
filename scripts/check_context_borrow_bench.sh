@@ -10,7 +10,7 @@ RUN_BENCH=${RUN_BENCH:-0}
 pushd "$PROJECT_ROOT" >/dev/null
 
 if [[ "${RUN_BENCH}" == "1" || ! -f "$RESULT_PATH" ]]; then
-  cargo bench -p nexus-actor-bench --bench reentrancy >/dev/null
+  cargo bench -p nexus-actor-bench-rs --bench reentrancy >/dev/null
 fi
 
 if [[ ! -f "$RESULT_PATH" ]]; then

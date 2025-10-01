@@ -1,5 +1,5 @@
 [package]
-name = "nexus-actor-bench"
+name = "nexus-actor-bench-rs"
 version = "0.1.0"
 edition = "2021"
 
