@@ -39,3 +39,6 @@ pub mod supervisor;
 
 #[cfg(feature = "alloc")]
 pub mod error;
+
+#[cfg(feature = "alloc")]
+pub mod context;

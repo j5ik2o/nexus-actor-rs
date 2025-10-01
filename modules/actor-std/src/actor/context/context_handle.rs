@@ -10,6 +10,7 @@ use tokio::sync::RwLock;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::actor_context::{ActorContext, ContextBorrow};
 use crate::actor::context::context_snapshot::ContextSnapshot;
+use crate::actor::context::StdActorContextSnapshot;
 use crate::actor::context::{
   BasePart, Context, ExtensionContext, ExtensionPart, InfoPart, MessagePart, ReceiverContext, ReceiverPart,
   SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart,
@@ -258,6 +259,10 @@ impl ContextHandle {
 
   pub fn snapshot(&self) -> ContextSnapshot {
     ContextSnapshot::from_context_handle(self)
+  }
+
+  pub async fn core_snapshot(&self) -> StdActorContextSnapshot {
+    StdActorContextSnapshot::capture(self).await
   }
 
   pub fn snapshot_with_borrow(&self) -> ContextSnapshot {
