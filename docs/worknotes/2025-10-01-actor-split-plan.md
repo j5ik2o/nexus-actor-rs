@@ -8,6 +8,7 @@
 - `modules/actor-core` を `#![no_std]` + `alloc` ベースの最小スケルトンに再構築し、コア API を再編する準備を完了。
 - `actor-std` の Cargo 設定を整理し、従来の依存関係（Tokio, opentelemetry など）を引き継ぎつつ `nexus-actor-core-rs` に依存させる形へ更新。
 - `actor-core` に `actor::core_types::message` モジュールを追加し、`Message`/`ReceiveTimeout`/`TerminateReason` などの no_std 対応な基盤型を定義。`actor-std` は同モジュールを再エクスポートし、標準実装向けヘッダー拡張などを追加する構成に変更。
+- ランタイム抽象（AsyncMutex/RwLock/Notify/Timer）を actor-core に追加し、actor-std で Tokio 実装を提供。スタッシュ操作など `tokio::sync` 直参照部分をアダプタ越しに置換。
 - `cargo test --workspace` が新構成でも成功することを確認。
 
 ## 継続タスク（実装）
