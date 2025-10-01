@@ -5,6 +5,8 @@ extern crate alloc;
 
 pub mod actor;
 
+#[cfg(feature = "alloc")]
+pub use actor::core_types::auto_receive::{AutoReceiveMessage, TerminatedMessage};
 pub use actor::core_types::message::{Message, NotInfluenceReceiveTimeout, ReceiveTimeout, TerminateReason};
 #[cfg(feature = "alloc")]
 pub use actor::core_types::message_envelope::CoreMessageEnvelope;

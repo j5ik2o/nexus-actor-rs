@@ -28,7 +28,6 @@ use crate::actor::core_types::message_types::Message as _;
 use crate::actor::dispatch::{
   MailboxMessage, MailboxQueueKind, MailboxQueueLatencyMetrics, MailboxSuspensionMetrics, MessageInvoker,
 };
-use crate::actor::message::AutoReceiveMessage;
 use crate::actor::message::Continuation;
 use crate::actor::message::Failure;
 use crate::actor::message::MessageHandle;
@@ -39,6 +38,7 @@ use crate::actor::message::ResponseHandle;
 use crate::actor::message::SystemMessage;
 use crate::actor::message::TerminateReason;
 use crate::actor::message::{wrap_envelope, MessageEnvelope};
+use crate::actor::message::{AutoReceiveMessage, TerminatedMessage};
 use crate::actor::message::{AutoRespond, AutoResponsive};
 use crate::actor::metrics::metrics_impl::{MetricsRuntime, MetricsSink};
 use crate::actor::process::future::ActorFutureProcess;
@@ -725,12 +725,15 @@ impl ActorContext {
   }
 
   async fn handle_terminated(&mut self, terminated: &Terminated) -> Result<(), ActorError> {
+    let terminated_message: TerminatedMessage = terminated.clone().into();
     if let Some(mut extras) = self.get_extras().await {
-      let pid = ExtendedPid::new(terminated.clone().who.unwrap());
-      extras.remove_child(&pid).await;
+      if let Some(core_pid) = terminated_message.who.as_ref() {
+        let pid = ExtendedPid::from_core(core_pid.clone());
+        extras.remove_child(&pid).await;
+      }
     }
 
-    let msg = MessageHandle::new(AutoReceiveMessage::Terminated(terminated.clone()));
+    let msg = MessageHandle::new(AutoReceiveMessage::Terminated(terminated_message.clone()));
     let result = self.invoke_user_message(msg.clone()).await;
     if result.is_err() {
       tracing::error!("Failed to handle Terminated message");

@@ -1,9 +1,8 @@
 use crate::actor::context::TypedContextHandle;
 use crate::actor::core::typed_actor::TypedActor;
 use crate::actor::core::{Actor, ActorError, ActorHandle};
-use crate::actor::message::Message;
+use crate::actor::message::{Message, TerminatedMessage};
 use crate::actor::supervisor::SupervisorStrategyHandle;
-use crate::generated::actor::Terminated;
 use async_trait::async_trait;
 use std::marker::PhantomData;
 use std::sync::{Arc, Weak};
@@ -155,7 +154,7 @@ impl<M: Message + Clone> TypedActor<M> for TypeWrapperActorHandle<M> {
   async fn post_child_terminate(
     &mut self,
     context_handle: TypedContextHandle<M>,
-    terminated: &Terminated,
+    terminated: &TerminatedMessage,
   ) -> Result<(), ActorError> {
     self
       .underlying

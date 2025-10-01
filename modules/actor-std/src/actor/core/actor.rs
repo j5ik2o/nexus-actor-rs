@@ -1,10 +1,9 @@
 use crate::actor::context::ContextHandle;
 use crate::actor::context::MessagePart;
 use crate::actor::core::actor_error::ActorError;
-use crate::actor::message::AutoReceiveMessage;
+use crate::actor::message::{AutoReceiveMessage, TerminatedMessage};
 use crate::actor::supervisor::SupervisorStrategyHandle;
 use crate::actor::Config;
-use crate::generated::actor::Terminated;
 use async_trait::async_trait;
 use std::fmt::Debug;
 use std::sync::Arc;
@@ -81,7 +80,7 @@ pub trait Actor: Debug + Send + Sync + 'static {
   }
 
   //#[instrument]
-  async fn post_child_terminate(&mut self, _: ContextHandle, _: &Terminated) -> Result<(), ActorError> {
+  async fn post_child_terminate(&mut self, _: ContextHandle, _: &TerminatedMessage) -> Result<(), ActorError> {
     tracing::debug!("Actor::post_child_terminate");
     Ok(())
   }

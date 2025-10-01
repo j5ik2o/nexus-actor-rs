@@ -1,9 +1,8 @@
 use crate::actor::context::{ContextHandle, TypedContextHandle};
 use crate::actor::core::{Actor, ActorError};
-use crate::actor::message::{AutoReceiveMessage, Message};
+use crate::actor::message::{AutoReceiveMessage, Message, TerminatedMessage};
 use crate::actor::supervisor::SupervisorStrategyHandle;
 use crate::actor::typed_context::TypedMessagePart;
-use crate::generated::actor::Terminated;
 use async_trait::async_trait;
 use std::fmt::Debug;
 use std::marker::PhantomData;
@@ -79,7 +78,7 @@ pub trait TypedActor<M: Message + Clone>: Debug + Send + Sync + 'static {
   }
 
   //#[instrument]
-  async fn post_child_terminate(&mut self, _: TypedContextHandle<M>, _: &Terminated) -> Result<(), ActorError> {
+  async fn post_child_terminate(&mut self, _: TypedContextHandle<M>, _: &TerminatedMessage) -> Result<(), ActorError> {
     tracing::debug!("Actor::post_child_terminate");
     Ok(())
   }
@@ -150,7 +149,7 @@ impl<A: TypedActor<M>, M: Message + Clone> Actor for TypedActorWrapper<A, M> {
   async fn post_child_terminate(
     &mut self,
     context_handle: ContextHandle,
-    terminated: &Terminated,
+    terminated: &TerminatedMessage,
   ) -> Result<(), ActorError> {
     let typed_context_handle = TypedContextHandle::new(context_handle);
     self.actor.post_child_terminate(typed_context_handle, terminated).await

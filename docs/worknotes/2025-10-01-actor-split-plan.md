@@ -14,6 +14,7 @@
 - EndpointWatcher の監視操作ヘルパーを共通化し、Criterion ベンチ `endpoint_watch_registry` を追加して PidSet 操作のレイテンシ計測を開始。
 - EndpointManager が `WatchRegistry` を共有し、`remote_watch`/`remote_unwatch`/`remote_terminate` でもヘルパーを介した更新になるよう統一。
 - EndpointWatchEvent をメトリクス基盤へ連動し、watch/unwatch/terminate イベントと監視数をエンドポイント × ウォッチャ単位で観測可能にした。
+- AutoReceiveMessage と Terminated 情報を core に移し、std 層では ProtoBuf との変換のみを担当する構成へ整理。
 - `Response` / `ResponseHandle` を actor-core へ移行し、std 層は再エクスポートのみとした。
 - `MessageHandle` を actor-core に移し、メッセージ抽象の大半が no_std + alloc で完結する構成に整理。
 - `ReadonlyMessageHeaders` と `ReadonlyMessageHeadersHandle` を actor-core に移設し、std 側では DashMap ベース実装で trait を満たす形へ整理。

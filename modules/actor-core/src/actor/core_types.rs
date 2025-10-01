@@ -1,3 +1,5 @@
+#[cfg(feature = "alloc")]
+pub mod auto_receive;
 pub mod message;
 #[cfg(feature = "alloc")]
 pub mod message_envelope;

@@ -11,6 +11,7 @@ use crate::actor::message::Message;
 use crate::actor::message::MessageHandle;
 use crate::actor::message::ResponseHandle;
 use crate::actor::process::future::ActorFutureProcess;
+use crate::generated::actor::Pid;
 use async_trait::async_trait;
 use nexus_message_derive_rs::Message;
 use nexus_utils_std_rs::concurrent::AsyncBarrier;
@@ -230,10 +231,11 @@ async fn test_actor_receives_terminated_from_watched() {
           }
           if let Some(AutoReceiveMessage::Terminated(ti)) = msg.to_typed::<AutoReceiveMessage>() {
             let mut ac = ctx.to_actor_context().await.unwrap();
-            if ti.who.unwrap() == cloned_child.inner_pid
-              && ac.ensure_extras().await.get_watchers().await.is_empty().await
-            {
-              ctx.send(cloned_future.get_pid().await, MessageHandle::new(true)).await;
+            if let Some(core_pid) = ti.who.as_ref() {
+              let pid = Pid::from_core(core_pid.clone());
+              if pid == cloned_child.inner_pid && ac.ensure_extras().await.get_watchers().await.is_empty().await {
+                ctx.send(cloned_future.get_pid().await, MessageHandle::new(true)).await;
+              }
             }
           }
           Ok(())

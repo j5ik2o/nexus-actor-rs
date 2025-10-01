@@ -3,8 +3,7 @@ use std::sync::Arc;
 use dashmap::DashMap;
 use nexus_actor_std_rs::actor::context::{BasePart, ContextHandle, MessagePart, SenderPart, SpawnerPart, StopperPart};
 use nexus_actor_std_rs::actor::core::{Actor, ActorError, ExtendedPid};
-use nexus_actor_std_rs::actor::message::{MessageHandle, ResponseHandle};
-use nexus_actor_std_rs::generated::actor::Terminated;
+use nexus_actor_std_rs::actor::message::{MessageHandle, ResponseHandle, TerminatedMessage};
 
 use crate::cluster::Cluster;
 use crate::identity::ClusterIdentity;
@@ -201,9 +200,9 @@ impl Actor for PlacementActor {
     Ok(())
   }
 
-  async fn post_child_terminate(&mut self, _: ContextHandle, terminated: &Terminated) -> Result<(), ActorError> {
-    if let Some(pid) = &terminated.who {
-      let terminated_pid = ExtendedPid::new(pid.clone());
+  async fn post_child_terminate(&mut self, _: ContextHandle, terminated: &TerminatedMessage) -> Result<(), ActorError> {
+    if let Some(core_pid) = &terminated.who {
+      let terminated_pid = ExtendedPid::from_core(core_pid.clone());
       let key = self.activations.iter().find_map(|entry| {
         if entry.value().pid == terminated_pid {
           Some(entry.key().clone())
