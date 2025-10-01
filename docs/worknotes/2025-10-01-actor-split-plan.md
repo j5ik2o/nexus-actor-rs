@@ -19,6 +19,7 @@
 - `CorePid` と `CoreMessageEnvelope` を導入し、PID／メッセージ封筒の純データ表現を actor-core に集約。std 側では ProtoBuf との相互変換と Tokio 依存処理のみを担うよう再編。
 - `ProcessHandle` を `CoreProcessHandle` トレイトでラップし、CorePid ベースでの送受信 API を用意して Tokio 依存を std 実装に閉じ込めた。
 - ProcessRegistry の AddressResolver を CorePid 入力へ切り替え、remote ハンドラ登録もコア抽象経由で行うよう更新。
+- ActorContext のメッセージ API を `MessageEnvelope` ラッパ経由に整理し、CoreMessageEnvelope と整合する変換経路を確立。
 
 ## 継続タスク（優先度：高→低）
 - 【高：監視拡張】EndpointSupervisor や RemoteProcess を含む監視経路で `WatchRegistry` を活用し、テレメトリや監視イベント発火との整合性を取る（例：EndpointSupervisor 経由の登録、RemoteProcess の最適化）。

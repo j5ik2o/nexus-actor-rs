@@ -38,9 +38,7 @@ use crate::actor::message::ReceiveTimeout;
 use crate::actor::message::ResponseHandle;
 use crate::actor::message::SystemMessage;
 use crate::actor::message::TerminateReason;
-use crate::actor::message::{
-  unwrap_envelope_header, unwrap_envelope_message, unwrap_envelope_sender, wrap_envelope, MessageEnvelope,
-};
+use crate::actor::message::{wrap_envelope, MessageEnvelope};
 use crate::actor::message::{AutoRespond, AutoResponsive};
 use crate::actor::metrics::metrics_impl::{MetricsRuntime, MetricsSink};
 use crate::actor::process::future::ActorFutureProcess;
@@ -190,19 +188,35 @@ impl ActorContext {
   pub fn try_message_handle(&self) -> Option<MessageHandle> {
     self
       .load_message_arc()
-      .map(|handle| unwrap_envelope_message(handle.as_ref().clone()))
+      .map(|handle| handle.as_ref().clone())
+      .map(|handle| {
+        if let Some(env) = handle.to_typed::<MessageEnvelope>() {
+          env.get_message_handle()
+        } else {
+          handle
+        }
+      })
   }
 
   pub fn try_sender(&self) -> Option<ExtendedPid> {
-    self
-      .load_message_arc()
-      .and_then(|handle| unwrap_envelope_sender(handle.as_ref().clone()))
+    self.load_message_arc().and_then(|handle| {
+      if let Some(env) = handle.as_ref().to_typed::<MessageEnvelope>() {
+        env.get_sender()
+      } else {
+        None
+      }
+    })
   }
 
   pub fn try_message_header(&self) -> Option<ReadonlyMessageHeadersHandle> {
     self
       .load_message_arc()
-      .and_then(|handle| unwrap_envelope_header(handle.as_ref().clone()))
+      .and_then(|handle| {
+        handle
+          .as_ref()
+          .to_typed::<MessageEnvelope>()
+          .and_then(|env| env.get_header())
+      })
       .map(ReadonlyMessageHeadersHandle::new)
   }
 
@@ -981,31 +995,22 @@ impl BasePart for ActorContext {
 #[async_trait]
 impl MessagePart for ActorContext {
   async fn get_message_envelope_opt(&self) -> Option<MessageEnvelope> {
-    self
-      .load_message_arc()
-      .and_then(|handle| handle.as_ref().to_typed::<MessageEnvelope>())
+    self.try_message_envelope()
   }
 
   async fn get_message_handle_opt(&self) -> Option<MessageHandle> {
-    self
-      .load_message_arc()
-      .map(|handle| unwrap_envelope_message(handle.as_ref().clone()))
+    self.try_message_handle()
   }
 
   async fn get_message_header_handle(&self) -> Option<ReadonlyMessageHeadersHandle> {
-    self
-      .load_message_arc()
-      .and_then(|handle| unwrap_envelope_header(handle.as_ref().clone()))
-      .map(ReadonlyMessageHeadersHandle::new)
+    self.try_message_header()
   }
 }
 
 #[async_trait]
 impl SenderPart for ActorContext {
   async fn get_sender(&self) -> Option<ExtendedPid> {
-    self
-      .load_message_arc()
-      .and_then(|handle| unwrap_envelope_sender(handle.as_ref().clone()))
+    self.try_sender()
   }
 
   async fn send(&mut self, pid: ExtendedPid, message_handle: MessageHandle) {
