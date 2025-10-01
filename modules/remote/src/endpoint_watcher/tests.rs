@@ -3,7 +3,6 @@ use crate::config::Config;
 use crate::config_option::ConfigOption;
 use crate::remote::Remote;
 use nexus_actor_std_rs::actor::actor_system::ActorSystem;
-use nexus_actor_std_rs::actor::core::PidSet;
 use nexus_actor_std_rs::generated::actor::Pid;
 use std::sync::Arc;
 use tokio::sync::OnceCell;
@@ -46,15 +45,12 @@ async fn get_watched_exposes_live_pid_set_map() -> TestResult<()> {
   let remote = setup_remote_for_tests().await?;
   let watcher = EndpointWatcher::new(Arc::downgrade(&remote), "endpoint-test".to_string());
 
-  let watched_map = watcher.get_watched();
-  let pid_set = PidSet::new();
   let target_pid = Pid {
     address: "remote-address".to_string(),
     id: "watched".to_string(),
     request_id: 0,
   };
-  pid_set.add(target_pid.clone()).await;
-  watched_map.insert("watcher".to_string(), pid_set);
+  watcher.add_watch_pid("watcher", target_pid.clone()).await;
 
   let stored_map = watcher.get_watched();
   let entry = stored_map.get("watcher").expect("watcher entry missing");

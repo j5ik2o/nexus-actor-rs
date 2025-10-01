@@ -4,7 +4,7 @@ use std::time::Duration;
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use nexus_actor_std_rs::actor::core::PidSet;
 use nexus_actor_std_rs::generated::actor::Pid;
-use nexus_remote_core_rs::EndpointWatcher;
+use nexus_remote_core_rs::{EndpointWatcher, WatchRegistry};
 use tokio::runtime::Runtime;
 
 fn make_pid(seq: usize) -> Pid {
@@ -40,6 +40,23 @@ fn bench_endpoint_watch_registry(c: &mut Criterion) {
           watcher.remove_watch_pid(watcher_id, pid).await;
         }
         watcher.prune_if_empty(watcher_id).await;
+      });
+    });
+
+    group.bench_function(BenchmarkId::new("registry_add_remove", load), |b| {
+      b.to_async(&runtime).iter(|| async move {
+        let registry = WatchRegistry::new();
+        let watcher_id = "bench-watcher";
+        let mut pids = Vec::with_capacity(load);
+        for idx in 0..load {
+          let pid = make_pid(idx);
+          registry.watch(watcher_id, pid.clone()).await;
+          pids.push(pid);
+        }
+        for pid in &pids {
+          registry.unwatch(watcher_id, pid).await;
+        }
+        registry.prune_if_empty(watcher_id).await;
       });
     });
 

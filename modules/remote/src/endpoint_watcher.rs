@@ -2,6 +2,7 @@ use crate::messages::{EndpointEvent, RemoteTerminate, RemoteUnwatch, RemoteWatch
 use crate::metrics::record_sender_snapshot;
 use crate::remote::Remote;
 use crate::serializer::SerializerId;
+use crate::watch_registry::WatchRegistry;
 use async_trait::async_trait;
 use dashmap::DashMap;
 use nexus_actor_std_rs::actor::actor_system::ActorSystem;
@@ -17,7 +18,7 @@ use tokio::sync::RwLock;
 pub struct EndpointWatcher {
   remote: Weak<Remote>,
   address: String,
-  watched: Arc<DashMap<String, PidSet>>,
+  registry: Arc<WatchRegistry>,
   state: Arc<RwLock<State>>,
 }
 
@@ -29,10 +30,14 @@ enum State {
 
 impl EndpointWatcher {
   pub fn new(remote: Weak<Remote>, address: String) -> Self {
+    Self::with_registry(remote, address, Arc::new(WatchRegistry::new()))
+  }
+
+  pub fn with_registry(remote: Weak<Remote>, address: String, registry: Arc<WatchRegistry>) -> Self {
     EndpointWatcher {
       remote,
       address,
-      watched: Arc::new(DashMap::new()),
+      registry,
       state: Arc::new(RwLock::new(State::Connected)),
     }
   }
@@ -53,68 +58,36 @@ impl EndpointWatcher {
 
   #[cfg_attr(not(test), allow(dead_code))]
   pub fn get_watched(&self) -> Arc<DashMap<String, PidSet>> {
-    self.watched.clone()
+    self.registry.inner()
   }
 
   /// 監視ピッド集合を取得する。ベンチマーク／テスト用途向けに公開。
   pub fn get_pid_set(&self, watcher_id: &str) -> Option<PidSet> {
-    self.watched.get(watcher_id).map(|entry| entry.value().clone())
-  }
-
-  fn ensure_pid_set(&self, watcher_id: &str) -> PidSet {
-    if let Some(existing) = self.get_pid_set(watcher_id) {
-      existing
-    } else {
-      let pid_set = PidSet::new();
-      self.watched.insert(watcher_id.to_string(), pid_set.clone());
-      pid_set
-    }
+    self.registry.get_pid_set(watcher_id)
   }
 
   /// 監視状態のスナップショットを取得する。ベンチマーク／テスト用途向けに公開。
   pub fn watched_snapshot(&self) -> Vec<(String, PidSet)> {
-    self
-      .watched
-      .iter()
-      .map(|entry| (entry.key().clone(), entry.value().clone()))
-      .collect()
-  }
-
-  async fn prune_pid_set_if_empty(&self, watcher_id: &str, pid_set: &PidSet) -> bool {
-    if pid_set.is_empty().await {
-      self.watched.remove(watcher_id);
-      true
-    } else {
-      false
-    }
+    self.registry.snapshot()
   }
 
   /// 指定ウォッチャーが空であればマップから削除する。
   pub async fn prune_if_empty(&self, watcher_id: &str) -> bool {
-    if let Some(pid_set) = self.get_pid_set(watcher_id) {
-      self.prune_pid_set_if_empty(watcher_id, &pid_set).await
-    } else {
-      false
-    }
+    self.registry.prune_if_empty(watcher_id).await
   }
 
   /// 当該ウォッチャーに Watchee を追加する。既に存在する場合はノップ。
   pub async fn add_watch_pid(&self, watcher_id: &str, watchee: Pid) {
-    let pid_set = self.ensure_pid_set(watcher_id);
-    pid_set.add(watchee).await;
+    let _ = self.registry.watch(watcher_id, watchee).await;
   }
 
   /// 当該ウォッチャーから Watchee を削除し、空になればクリーンアップする。
   pub async fn remove_watch_pid(&self, watcher_id: &str, watchee: &Pid) -> bool {
-    if let Some(pid_set) = self.get_pid_set(watcher_id) {
-      let removed = pid_set.remove(watchee).await;
-      if removed {
-        self.prune_pid_set_if_empty(watcher_id, &pid_set).await;
-      }
-      removed
-    } else {
-      false
-    }
+    self.registry.unwatch(watcher_id, watchee).await
+  }
+
+  pub fn registry(&self) -> Arc<WatchRegistry> {
+    self.registry.clone()
   }
 
   async fn initialize(&mut self) -> Result<(), ActorError> {
@@ -137,11 +110,8 @@ impl EndpointWatcher {
       let watcher_id = watcher_pid.id.clone();
       let watchee_opt = remote_terminate.watchee.clone();
 
-      if let Some(watchee) = &watchee_opt {
-        self.remove_watch_pid(&watcher_id, watchee).await;
-      } else {
-        self.prune_if_empty(&watcher_id).await;
-      }
+      let watchee_ref = watchee_opt.as_ref();
+      let _ = self.registry.remove_watchee(&watcher_id, watchee_ref).await;
 
       let why = TerminatedReason::Stopped as i32;
       let msg = Terminated { who: watchee_opt, why };
@@ -156,7 +126,7 @@ impl EndpointWatcher {
       if endpoint_event.is_terminated() {
         tracing::debug!(
           address = %self.address,
-          watched_entries = self.watched.len(),
+          watched_entries = self.registry.len(),
           "EndpointWatcher handling terminated"
         );
         for (id, pid_set) in self.watched_snapshot() {
@@ -174,10 +144,15 @@ impl EndpointWatcher {
             }
           }
         }
-        self.watched.clear();
+        self.registry.clear().await;
         {
           let mut state = self.state.write().await;
           *state = State::Terminated;
+        }
+        if let Some(remote) = self.remote.upgrade() {
+          if let Some(manager) = remote.get_endpoint_manager_opt().await {
+            manager.unregister_watch_registry(&self.address);
+          }
         }
         ctx.stop(&ctx.get_self().await).await;
       }
@@ -242,6 +217,11 @@ impl EndpointWatcher {
           let mut state = self.state.write().await;
           *state = State::Connected;
         }
+        if let Some(remote) = self.remote.upgrade() {
+          if let Some(manager) = remote.get_endpoint_manager_opt().await {
+            manager.register_watch_registry(&self.address, self.registry());
+          }
+        }
       }
     }
 
@@ -263,6 +243,11 @@ impl Actor for EndpointWatcher {
   }
 
   async fn post_start(&mut self, _: ContextHandle) -> Result<(), ActorError> {
+    if let Some(remote) = self.remote.upgrade() {
+      if let Some(manager) = remote.get_endpoint_manager_opt().await {
+        manager.register_watch_registry(&self.address, self.registry());
+      }
+    }
     self.initialize().await
   }
 }

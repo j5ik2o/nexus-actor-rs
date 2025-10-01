@@ -23,6 +23,7 @@ mod response_status_code;
 mod serializer;
 #[cfg(test)]
 mod tests;
+mod watch_registry;
 
 pub use config::Config;
 pub use config_option::ConfigOption;
@@ -30,3 +31,4 @@ pub use endpoint_watcher::EndpointWatcher;
 pub use remote::{ActivationHandler, ActivationHandlerError, Remote};
 pub use response_status_code::ResponseStatusCode;
 pub use serializer::{initialize_json_serializers, initialize_proto_serializers, SerializerId};
+pub use watch_registry::WatchRegistry;

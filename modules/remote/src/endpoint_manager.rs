@@ -9,6 +9,7 @@ use crate::messages::{
   EndpointThrottledEvent, Ping, Pong, RemoteDeliver, RemoteTerminate, RemoteUnwatch, RemoteWatch,
 };
 use crate::remote::Remote;
+use crate::watch_registry::WatchRegistry;
 use dashmap::mapref::entry::Entry;
 use dashmap::DashMap;
 use nexus_actor_std_rs::actor::actor_system::ActorSystem;
@@ -139,6 +140,7 @@ pub(crate) struct EndpointManager {
   endpoint_stats: Arc<DashMap<String, Arc<EndpointStatistics>>>,
   endpoint_states: Arc<DashMap<String, EndpointStateHandle>>,
   heartbeat_tasks: Arc<DashMap<String, JoinHandle<()>>>,
+  watch_registries: Arc<DashMap<String, Arc<WatchRegistry>>>,
 }
 
 impl EndpointManager {
@@ -156,6 +158,7 @@ impl EndpointManager {
       endpoint_stats: Arc::new(DashMap::new()),
       endpoint_states: Arc::new(DashMap::new()),
       heartbeat_tasks: Arc::new(DashMap::new()),
+      watch_registries: Arc::new(DashMap::new()),
     }
   }
 
@@ -165,6 +168,18 @@ impl EndpointManager {
       .entry(address.to_string())
       .or_insert_with(|| Arc::new(EndpointStatistics::new()))
       .clone()
+  }
+
+  pub(crate) fn register_watch_registry(&self, address: &str, registry: Arc<WatchRegistry>) {
+    self.watch_registries.insert(address.to_string(), registry);
+  }
+
+  pub(crate) fn unregister_watch_registry(&self, address: &str) {
+    self.watch_registries.remove(address);
+  }
+
+  pub(crate) fn watch_registry(&self, address: &str) -> Option<Arc<WatchRegistry>> {
+    self.watch_registries.get(address).map(|entry| entry.value().clone())
   }
 
   async fn metrics_sink(&self) -> Option<Arc<MetricsSink>> {
@@ -770,6 +785,11 @@ impl EndpointManager {
       return;
     }
     let address = message.watchee.as_ref().expect("Not Found").address.clone();
+    if let (Some(watcher), Some(watchee)) = (message.watcher.as_ref(), message.watchee.as_ref()) {
+      if let Some(registry) = self.watch_registry(&address) {
+        registry.remove_watchee(&watcher.id, Some(watchee)).await;
+      }
+    }
     let endpoint = self.ensure_connected(&address).await;
     let pid = ExtendedPid::new(endpoint.get_watcher().clone());
     self
@@ -786,6 +806,9 @@ impl EndpointManager {
       return;
     }
     let address = message.watchee.address.clone();
+    if let Some(registry) = self.watch_registry(&address) {
+      registry.watch(&message.watcher.id, message.watchee.clone()).await;
+    }
     let endpoint = self.ensure_connected(&address).await;
     let pid = ExtendedPid::new(endpoint.get_watcher().clone());
     self
@@ -802,6 +825,9 @@ impl EndpointManager {
       return;
     }
     let address = message.watchee.address.clone();
+    if let Some(registry) = self.watch_registry(&address) {
+      registry.unwatch(&message.watcher.id, &message.watchee).await;
+    }
     let endpoint = self.ensure_connected(&address).await;
     let pid = ExtendedPid::new(endpoint.get_watcher().clone());
     self
@@ -869,6 +895,7 @@ impl EndpointManager {
 
   async fn remove_endpoint(&self, message: &EndpointTerminatedEvent) {
     self.stop_heartbeat_task(&message.address);
+    self.watch_registries.remove(&message.address);
     if let Some(v) = self.connections.get(&message.address) {
       let le = v.value();
       if le
@@ -964,8 +991,10 @@ mod tests {
   use crate::config::Config;
   use crate::config_option::ConfigOption;
   use crate::endpoint::Endpoint;
+  use crate::endpoint_watcher::EndpointWatcher;
   use crate::messages::EndpointReconnectEvent;
   use crate::remote::Remote;
+  use crate::watch_registry::WatchRegistry;
   use async_trait::async_trait;
   use nexus_actor_std_rs::actor::actor_system::ActorSystem;
   use nexus_actor_std_rs::actor::context::{BasePart, ContextHandle, MessagePart};
@@ -1145,6 +1174,99 @@ mod tests {
       .statistics_snapshot("endpoint-C")
       .expect("snapshot should exist");
     assert_eq!(snapshot.backpressure_level, BackpressureLevel::Critical);
+  }
+
+  #[tokio::test]
+  async fn remote_watch_updates_shared_registry() {
+    let actor_system = ActorSystem::new().await.expect("actor system");
+    let remote = Arc::new(Remote::new(actor_system.clone(), Config::default()).await);
+    let manager = EndpointManager::new(Arc::downgrade(&remote));
+    remote.set_endpoint_manager_for_test(manager.clone()).await;
+
+    let registry = Arc::new(WatchRegistry::new());
+    let address = "endpoint-watch-registry".to_string();
+    let remote_weak = Arc::downgrade(&remote);
+
+    let watcher_props = Props::from_async_actor_producer({
+      let registry = registry.clone();
+      let address = address.clone();
+      move |_| {
+        let registry = registry.clone();
+        let address = address.clone();
+        let remote = remote_weak.clone();
+        async move { EndpointWatcher::with_registry(remote, address, registry) }
+      }
+    })
+    .await;
+    let noop_props = Props::from_async_actor_producer(|_| async { NoopActor }).await;
+
+    let watcher_pid = actor_system.get_root_context().await.spawn(watcher_props).await;
+    let writer_pid = actor_system.get_root_context().await.spawn(noop_props.clone()).await;
+
+    let endpoint = Endpoint::new(writer_pid.inner_pid.clone(), watcher_pid.inner_pid.clone());
+    let supervisor_props = Props::from_async_actor_producer({
+      let endpoint = endpoint.clone();
+      move |_| {
+        let endpoint = endpoint.clone();
+        async move {
+          SupervisorStub {
+            endpoint: endpoint.clone(),
+          }
+        }
+      }
+    })
+    .await;
+    let supervisor_pid: ExtendedPid = actor_system.get_root_context().await.spawn(supervisor_props).await;
+
+    manager.set_endpoint_supervisor(supervisor_pid.inner_pid.clone()).await;
+    manager.register_watch_registry(&address, registry.clone());
+
+    let watcher_pid_struct = Pid {
+      address: "local-system".into(),
+      id: "watcher-pid".into(),
+      request_id: 0,
+    };
+    let watchee_pid = Pid {
+      address: address.clone(),
+      id: "watchee-pid".into(),
+      request_id: 1,
+    };
+
+    manager
+      .remote_watch(RemoteWatch {
+        watcher: watcher_pid_struct.clone(),
+        watchee: watchee_pid.clone(),
+      })
+      .await;
+
+    let pid_set = registry
+      .get_pid_set(&watcher_pid_struct.id)
+      .expect("watch registry should exist");
+    assert!(pid_set.contains(&watchee_pid).await);
+
+    manager
+      .remote_unwatch(RemoteUnwatch {
+        watcher: watcher_pid_struct.clone(),
+        watchee: watchee_pid.clone(),
+      })
+      .await;
+    let remaining = registry.get_pid_set(&watcher_pid_struct.id);
+    assert!(remaining.is_none() || remaining.unwrap().is_empty().await);
+
+    manager
+      .remote_watch(RemoteWatch {
+        watcher: watcher_pid_struct.clone(),
+        watchee: watchee_pid.clone(),
+      })
+      .await;
+    manager
+      .remote_terminate(&RemoteTerminate {
+        watcher: Some(watcher_pid_struct.clone()),
+        watchee: Some(watchee_pid.clone()),
+      })
+      .await;
+
+    assert!(registry.get_pid_set(&watcher_pid_struct.id).is_none());
   }
 
   #[tokio::test]

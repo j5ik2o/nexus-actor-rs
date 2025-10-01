@@ -12,9 +12,10 @@
 - EndpointWatcher／PidSet の非同期化を反映し、DashMap ガードと Future の衝突を解消済み。
 - `cargo test --workspace` が新構成でも成功することを確認。
 - EndpointWatcher の監視操作ヘルパーを共通化し、Criterion ベンチ `endpoint_watch_registry` を追加して PidSet 操作のレイテンシ計測を開始。
+- EndpointManager が `WatchRegistry` を共有し、`remote_watch`/`remote_unwatch`/`remote_terminate` でもヘルパーを介した更新になるよう統一。
 
 ## 継続タスク（優先度：高→低）
-- 【高：監視拡張】EndpointManager / EndpointSupervisor など監視イベントを仲介する層でヘルパー API を適用し、watch/unwatch/terminate の分岐を一本化する。必要に応じて `WatchedRegistry` 抽象を導入する。
+- 【高：監視拡張】EndpointSupervisor や RemoteProcess を含む監視経路で `WatchRegistry` を活用し、テレメトリや監視イベント発火との整合性を取る（例：EndpointSupervisor 経由の登録、RemoteProcess の最適化）。
 - 【中：抽象再設計】ロック／タイマー／チャネル等の Tokio 依存箇所を抽象化し、actor-core では trait のみに集約、actor-std が Tokio 実装を提供する構造へ段階的に移行する（対象：mailbox, process, supervisor など）。
 - 【中：コア移植】`alloc` だけで動くコンポーネント（PID, middleware, Serialized message handles など）を actor-core に移し、必要に応じて `alloc::` 系型や `hashbrown` への置き換えを実施する。
 
