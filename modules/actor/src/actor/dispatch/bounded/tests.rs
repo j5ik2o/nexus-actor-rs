@@ -3,7 +3,7 @@ use tokio::time::sleep;
 
 use crate::actor::dispatch::bounded::BoundedMailboxQueue;
 use crate::actor::message::MessageHandle;
-use nexus_utils_std_rs::collections::{RingQueue, SyncQueueReader, SyncQueueWriter};
+use nexus_utils_std_rs::collections::{QueueReader, QueueWriter, RingQueue};
 
 fn setup_test_environment() -> BoundedMailboxQueue {
   BoundedMailboxQueue::new(RingQueue::new(3).with_dynamic(false), 3, false)

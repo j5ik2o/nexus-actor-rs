@@ -40,7 +40,7 @@
    - `.github/workflows/ci.yml` に no_std ビルドを追加（`cargo check -p nexus-utils-core-rs --no-default-features --features alloc`）。
 
 ## 現状整理（区分: 状態 / 影響 / 残課題）
-- **状態**: `modules/utils-core` を新設し `#![no_std]` かつ `alloc` 前提で `Element`/`QueueError`/`QueueSize`/`PriorityMessage`/`SyncQueue*` を移設済み。
+- **状態**: `modules/utils-core` を新設し `#![no_std]` かつ `alloc` 前提で `Element`/`QueueError`/`QueueSize`/`PriorityMessage`/`Queue*` を移設済み。
 - **影響**: `nexus-utils-std-rs` が core を再エクスポートする構成に更新され、`actor` と `remote` は `nexus_utils_std_rs` 依存へ切り替え。
 - **残課題**: なし（2025-10-01 に CI へ no_std チェックを追加し、同日に `cargo test --workspace` を完了）。
 

@@ -41,7 +41,7 @@
 
 ## 未決事項
 - DelayQueue 置換との整合: `ReceiveTimeoutTimer` で DelayQueue を採用した場合、タイマーイベントにも同じメトリクスを適用するか要検討。
-- `SyncQueueWriter` へ統一したため、計測ロジックは同期 API 前提で挿入する。旧 async 実装との差分を整理し、回帰テスト方針を更新する。
+- `QueueWriter` へ統一したため、計測ロジックは同期 API 前提で挿入する。旧 async 実装との差分を整理し、回帰テスト方針を更新する。
 - 運用メトリクスとベンチ用途を切り分けるため、`metrics::actor_dispatch_latency_ms` には export 先ごとのバケット設計を決める必要がある。
 
 ## 次のアクション

@@ -8,8 +8,7 @@ use crate::actor::dispatch::mailbox_producer::MailboxProducer;
 use crate::actor::dispatch::unbounded::UnboundedMailboxQueue;
 use crate::actor::message::MessageHandle;
 use nexus_utils_std_rs::collections::{
-  MpscUnboundedChannelQueue, QueueError, QueueSize, RingQueue, SyncQueueBase, SyncQueueReader, SyncQueueSupport,
-  SyncQueueWriter,
+  MpscUnboundedChannelQueue, QueueBase, QueueError, QueueReader, QueueSize, QueueSupport, QueueWriter, RingQueue,
 };
 use std::fmt::Debug;
 
@@ -30,7 +29,7 @@ impl BoundedMailboxQueue {
   }
 }
 
-impl SyncQueueBase<MessageHandle> for BoundedMailboxQueue {
+impl QueueBase<MessageHandle> for BoundedMailboxQueue {
   fn len(&self) -> QueueSize {
     self.user_mailbox.len()
   }
@@ -40,7 +39,7 @@ impl SyncQueueBase<MessageHandle> for BoundedMailboxQueue {
   }
 }
 
-impl SyncQueueWriter<MessageHandle> for BoundedMailboxQueue {
+impl QueueWriter<MessageHandle> for BoundedMailboxQueue {
   fn offer(&mut self, element: MessageHandle) -> Result<(), QueueError<MessageHandle>> {
     let len = self.user_mailbox.len();
     if self.dropping && len == QueueSize::Limited(self.initial_capacity) {
@@ -50,7 +49,7 @@ impl SyncQueueWriter<MessageHandle> for BoundedMailboxQueue {
   }
 }
 
-impl SyncQueueReader<MessageHandle> for BoundedMailboxQueue {
+impl QueueReader<MessageHandle> for BoundedMailboxQueue {
   fn poll(&mut self) -> Result<Option<MessageHandle>, QueueError<MessageHandle>> {
     self.user_mailbox.poll()
   }
@@ -60,7 +59,7 @@ impl SyncQueueReader<MessageHandle> for BoundedMailboxQueue {
   }
 }
 
-impl SyncQueueSupport for BoundedMailboxQueue {}
+impl QueueSupport for BoundedMailboxQueue {}
 
 pub fn bounded_mailbox_creator_with_opts(
   size: usize,

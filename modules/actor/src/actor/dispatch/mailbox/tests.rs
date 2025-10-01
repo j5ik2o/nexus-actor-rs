@@ -9,7 +9,7 @@ use crate::actor::dispatch::unbounded::{unbounded_mpsc_mailbox_creator, Unbounde
 use crate::actor::dispatch::{Mailbox, MailboxQueueKind};
 use crate::actor::message::MessageHandle;
 use async_trait::async_trait;
-use nexus_utils_std_rs::collections::{MpscUnboundedChannelQueue, RingQueue, SyncQueueReader, SyncQueueWriter};
+use nexus_utils_std_rs::collections::{MpscUnboundedChannelQueue, QueueReader, QueueWriter, RingQueue};
 use parking_lot::Mutex;
 use rand::prelude::*;
 use rand::rngs::SmallRng;

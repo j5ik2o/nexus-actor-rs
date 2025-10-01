@@ -3,9 +3,9 @@ use core::fmt::Debug;
 use super::Element;
 use super::{QueueError, QueueSize};
 
-pub trait SyncQueueSupport {}
+pub trait QueueSupport {}
 
-pub trait SyncQueueBase<E: Element>: Debug + Send + Sync {
+pub trait QueueBase<E: Element>: Debug + Send + Sync {
   fn len(&self) -> QueueSize;
   fn capacity(&self) -> QueueSize;
 
@@ -26,7 +26,7 @@ pub trait SyncQueueBase<E: Element>: Debug + Send + Sync {
   }
 }
 
-pub trait SyncQueueWriter<E: Element>: SyncQueueBase<E> {
+pub trait QueueWriter<E: Element>: QueueBase<E> {
   fn offer(&mut self, element: E) -> Result<(), QueueError<E>>;
 
   fn offer_all<I>(&mut self, elements: I) -> Result<(), QueueError<E>>
@@ -39,7 +39,7 @@ pub trait SyncQueueWriter<E: Element>: SyncQueueBase<E> {
   }
 }
 
-pub trait SyncQueueReader<E: Element>: SyncQueueBase<E> {
+pub trait QueueReader<E: Element>: QueueBase<E> {
   fn poll(&mut self) -> Result<Option<E>, QueueError<E>>;
   fn clean_up(&mut self);
 }
