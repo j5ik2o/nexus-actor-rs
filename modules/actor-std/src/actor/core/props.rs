@@ -61,6 +61,7 @@ pub struct Props {
   context_decorator: Vec<ContextDecorator>,
   context_decorator_chain: Option<ContextDecoratorChain>,
   on_init: Vec<ContextHandler>,
+  actor_type_hint: Option<Arc<str>>,
 }
 
 static_assertions::assert_impl_all!(Props: Send, Sync);
@@ -180,7 +181,7 @@ impl Props {
     };
 
     CoreProps {
-      actor_type: None,
+      actor_type: self.actor_type_hint.clone(),
       mailbox_factory: Some(mailbox_factory),
     }
   }
@@ -242,6 +243,13 @@ impl Props {
   pub fn with_guardian(guardian: SupervisorStrategyHandle) -> PropsOption {
     PropsOption::new(move |props: &mut Props| {
       props.guardian_strategy = Some(guardian.clone());
+    })
+  }
+
+  pub fn with_actor_type_hint(hint: &'static str) -> PropsOption {
+    let hint_arc: Arc<str> = Arc::from(hint);
+    PropsOption::new(move |props: &mut Props| {
+      props.actor_type_hint = Some(hint_arc.clone());
     })
   }
 
@@ -385,6 +393,7 @@ impl Props {
       sender_middleware_chain: None,
       spawn_middleware_chain: None,
       context_decorator_chain: None,
+      actor_type_hint: None,
     };
     props.configure(&opts).await;
     props

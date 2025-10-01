@@ -23,7 +23,7 @@ pub type CoreMailboxFactory =
 
 #[derive(Clone, Default)]
 pub struct CoreProps {
-  pub actor_type: Option<&'static str>,
+  pub actor_type: Option<alloc::sync::Arc<str>>,
   pub mailbox_factory: Option<CoreMailboxFactory>,
   // TODO(#core-context): extend with minimal actor factory / supervisor hooks required by core Actors.
 }

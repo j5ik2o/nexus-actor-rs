@@ -107,7 +107,7 @@ impl Activator {
 #[async_trait]
 impl Actor for Activator {
   async fn receive(&mut self, context_handle: ContextHandle) -> Result<(), ActorError> {
-    let _ = record_sender_snapshot(&context_handle);
+    let _ = record_sender_snapshot(&context_handle).await;
     let message_handle = if let Some(handle) = context_handle.try_get_message_handle_opt() {
       handle
     } else {

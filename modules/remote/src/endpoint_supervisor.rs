@@ -13,9 +13,7 @@ use nexus_actor_std_rs::actor::core::{Actor, ActorError, ErrorReason, ExtendedPi
 use nexus_actor_std_rs::actor::core_types::pid_types::CorePid;
 use nexus_actor_std_rs::actor::dispatch::{MailboxHandle, MailboxProducer, MailboxSyncHandle};
 use nexus_actor_std_rs::actor::message::{MessageHandle, ResponseHandle};
-use nexus_actor_std_rs::actor::supervisor::{
-  Supervisor, SupervisorHandle, SupervisorStrategy, SupervisorStrategyHandle,
-};
+use nexus_actor_std_rs::actor::supervisor::{SupervisorHandle, SupervisorStrategy, SupervisorStrategyHandle};
 use std::any::Any;
 use std::sync::{Arc, Weak};
 
@@ -121,7 +119,7 @@ impl EndpointSupervisor {
 impl Actor for EndpointSupervisor {
   async fn receive(&mut self, context_handle: ContextHandle) -> Result<(), ActorError> {
     tracing::debug!("EndpointSupervisor::receive");
-    let _ = record_sender_snapshot(&context_handle);
+    let _ = record_sender_snapshot(&context_handle).await;
     let message_handle = if let Some(handle) = context_handle.try_get_message_handle_opt() {
       handle
     } else {
@@ -137,6 +135,14 @@ impl Actor for EndpointSupervisor {
     tracing::debug!("address: {:?}", address_opt);
     let address = address_opt.unwrap();
     tracing::debug!("address: {:?}", address);
+    let core_snapshot = context_handle.core_snapshot().await;
+    let self_pid_core = core_snapshot.self_pid_core();
+    let sender_pid_core = core_snapshot.sender_pid_core();
+    tracing::debug!(
+      "EndpointSupervisor::receive core snapshot self={:?} sender={:?}",
+      self_pid_core,
+      sender_pid_core
+    );
     tracing::debug!("Starting endpoint writer");
     let endpoint_writer_pid = self
       .spawn_endpoint_writer(self.remote.clone(), address.clone(), context_handle.clone())
@@ -172,8 +178,9 @@ impl SupervisorStrategy for EndpointSupervisor {
     _message_handle: MessageHandle,
   ) {
     tracing::debug!("EndpointSupervisor::handle_child_failure");
-    let children = [child.clone()];
-    supervisor.stop_children(&children).await;
+    let core_supervisor = supervisor.core_adapter();
+    let core_children = [child];
+    core_supervisor.stop_children_core(&core_children).await;
   }
 
   fn as_any(&self) -> &dyn Any {

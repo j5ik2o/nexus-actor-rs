@@ -587,7 +587,7 @@ fn add_to_sender_lookup(m: &mut DashMap<String, i32>, pid: Option<&Pid>, arr: &m
 impl Actor for EndpointWriter {
   async fn receive(&mut self, mut context_handle: ContextHandle) -> Result<(), ActorError> {
     tracing::debug!("EndpointWriter received message");
-    let _ = record_sender_snapshot(&context_handle);
+    let _ = record_sender_snapshot(&context_handle).await;
     let msg = if let Some(handle) = context_handle.try_get_message_handle_opt() {
       handle
     } else {

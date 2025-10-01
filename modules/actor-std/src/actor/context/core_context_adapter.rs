@@ -16,6 +16,14 @@ pub struct StdActorContextSnapshot {
 }
 
 impl StdActorContextSnapshot {
+  pub fn self_pid_core(&self) -> CorePid {
+    self.self_pid.clone()
+  }
+
+  pub fn sender_pid_core(&self) -> Option<CorePid> {
+    self.sender.clone()
+  }
+
   pub async fn capture(handle: &ContextHandle) -> Self {
     let self_pid = handle.get_self().await.to_core();
     let sender = handle.get_sender().await.map(|pid| pid.to_core());

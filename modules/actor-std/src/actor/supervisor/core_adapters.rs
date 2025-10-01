@@ -54,6 +54,11 @@ impl StdSupervisorAdapter {
   pub fn handle(&self) -> SupervisorHandle {
     self.handle.clone()
   }
+
+  pub async fn stop_children_core(&self, targets: &[CorePid]) {
+    let supervisor = self.handle.get_supervisor();
+    supervisor.stop_children(targets).await;
+  }
 }
 
 impl CoreSupervisor for StdSupervisorAdapter {

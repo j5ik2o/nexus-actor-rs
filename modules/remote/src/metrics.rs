@@ -18,15 +18,16 @@ pub struct SenderSnapshotReport {
   pub misses: u64,
 }
 
-/// Try to retrieve the sender PID synchronously and record hit/miss metrics.
-pub fn record_sender_snapshot(context: &ContextHandle) -> Option<ExtendedPid> {
+/// Try to retrieve the sender PID synchronously, and fall back to the core snapshot when necessary.
+pub async fn record_sender_snapshot(context: &ContextHandle) -> Option<ExtendedPid> {
   if let Some(pid) = context.try_get_sender_opt() {
     SENDER_SNAPSHOT_COUNTERS.hits.fetch_add(1, Ordering::Relaxed);
-    Some(pid)
-  } else {
-    SENDER_SNAPSHOT_COUNTERS.misses.fetch_add(1, Ordering::Relaxed);
-    None
+    return Some(pid);
   }
+
+  SENDER_SNAPSHOT_COUNTERS.misses.fetch_add(1, Ordering::Relaxed);
+  let core_snapshot = context.core_snapshot().await;
+  core_snapshot.sender_pid_core().map(ExtendedPid::from_core)
 }
 
 #[allow(dead_code)]

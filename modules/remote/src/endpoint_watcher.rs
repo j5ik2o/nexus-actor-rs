@@ -101,7 +101,7 @@ impl EndpointWatcher {
 
   async fn connected(&mut self, mut ctx: ContextHandle) -> Result<(), ActorError> {
     let system = self.get_actor_system();
-    let _ = record_sender_snapshot(&ctx);
+    let _ = record_sender_snapshot(&ctx).await;
     let msg = if let Some(handle) = ctx.try_get_message_handle_opt() {
       handle
     } else {
@@ -190,7 +190,7 @@ impl EndpointWatcher {
 
   async fn terminated(&mut self, ctx: ContextHandle) -> Result<(), ActorError> {
     let system = self.get_actor_system();
-    let _ = record_sender_snapshot(&ctx);
+    let _ = record_sender_snapshot(&ctx).await;
     let msg = if let Some(handle) = ctx.try_get_message_handle_opt() {
       handle
     } else {
