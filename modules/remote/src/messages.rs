@@ -63,6 +63,16 @@ pub enum WatchAction {
   Terminate,
 }
 
+impl WatchAction {
+  pub const fn as_str(self) -> &'static str {
+    match self {
+      WatchAction::Watch => "watch",
+      WatchAction::Unwatch => "unwatch",
+      WatchAction::Terminate => "terminate",
+    }
+  }
+}
+
 #[derive(Debug, Clone, PartialEq, Message)]
 pub struct EndpointWatchEvent {
   pub address: String,

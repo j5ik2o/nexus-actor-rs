@@ -33,6 +33,8 @@ struct ActorMetricsInner {
   remote_delivery_failure_count: Counter<u64>,
   remote_receive_success_count: Counter<u64>,
   remote_receive_failure_count: Counter<u64>,
+  remote_watch_event_count: Counter<u64>,
+  remote_watchers_gauge: Gauge<f64>,
 }
 
 #[derive(Debug, Clone)]
@@ -165,6 +167,16 @@ impl ActorMetrics {
         remote_receive_failure_count: meter
           .u64_counter("nexus_actor_remote_receive_failure_count")
           .with_description("Number of remote receive failures")
+          .with_unit("1")
+          .build(),
+        remote_watch_event_count: meter
+          .u64_counter("nexus_actor_remote_watch_event_count")
+          .with_description("Number of remote watch state change events")
+          .with_unit("1")
+          .build(),
+        remote_watchers_gauge: meter
+          .f64_gauge("nexus_actor_remote_watchers")
+          .with_description("Current number of watched endpoints per watcher")
           .with_unit("1")
           .build(),
         // mailbox_length,
@@ -382,6 +394,24 @@ impl ActorMetrics {
 
   pub fn increment_remote_receive_failure(&self) {
     self.increment_remote_receive_failure_with_opts(&[]);
+  }
+
+  pub fn increment_remote_watch_event(&self) {
+    self.increment_remote_watch_event_with_opts(&[]);
+  }
+
+  pub fn increment_remote_watch_event_with_opts(&self, attributes: &[KeyValue]) {
+    let inner_mg = self.inner.read();
+    inner_mg.remote_watch_event_count.add(1, attributes);
+  }
+
+  pub fn record_remote_watchers(&self, watchers: u32) {
+    self.record_remote_watchers_with_opts(watchers, &[]);
+  }
+
+  pub fn record_remote_watchers_with_opts(&self, watchers: u32, attributes: &[KeyValue]) {
+    let inner_mg = self.inner.read();
+    inner_mg.remote_watchers_gauge.record(watchers as f64, attributes);
   }
 }
 

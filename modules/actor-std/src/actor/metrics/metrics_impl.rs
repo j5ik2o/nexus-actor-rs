@@ -469,6 +469,24 @@ impl MetricsSink {
     self.increment_remote_receive_failure_with_labels(&[]);
   }
 
+  pub fn increment_remote_watch_event_with_labels(&self, additional: &[KeyValue]) {
+    let merged = self.merge_labels(additional);
+    self.actor_metrics.increment_remote_watch_event_with_opts(&merged);
+  }
+
+  pub fn increment_remote_watch_event(&self) {
+    self.increment_remote_watch_event_with_labels(&[]);
+  }
+
+  pub fn record_remote_watchers_with_labels(&self, watchers: u32, additional: &[KeyValue]) {
+    let merged = self.merge_labels(additional);
+    self.actor_metrics.record_remote_watchers_with_opts(watchers, &merged);
+  }
+
+  pub fn record_remote_watchers(&self, watchers: u32) {
+    self.record_remote_watchers_with_labels(watchers, &[]);
+  }
+
   pub fn actor_metrics(&self) -> &ActorMetrics {
     &self.actor_metrics
   }
@@ -659,6 +677,96 @@ mod tests {
     assert!(resume_found, "resume counter should be exported");
     assert!(duration_found, "duration histogram should be exported");
     assert!(state_found, "state gauge should be exported");
+  }
+
+  #[test]
+  fn test_remote_watch_metrics_are_exported() {
+    let exporter = InMemoryMetricExporter::default();
+    let reader = PeriodicReader::builder(exporter.clone()).build();
+    let provider = SdkMeterProvider::builder().with_reader(reader).build();
+    let metrics_provider = Arc::new(MetricsProvider::Sdk(provider.clone()));
+    let proto_metrics = ProtoMetrics::new(metrics_provider).expect("metrics init");
+    let runtime = MetricsRuntime::new("test-system".to_string(), proto_metrics);
+    let sink = runtime.sink_without_actor();
+
+    let event_labels = [
+      KeyValue::new("remote.endpoint", "endpoint-1".to_string()),
+      KeyValue::new("remote.watcher", "watcher-1".to_string()),
+      KeyValue::new("remote.watch_action", "watch".to_string()),
+    ];
+    sink.increment_remote_watch_event_with_labels(&event_labels);
+
+    let gauge_labels = [
+      KeyValue::new("remote.endpoint", "endpoint-1".to_string()),
+      KeyValue::new("remote.watcher", "watcher-1".to_string()),
+    ];
+    sink.record_remote_watchers_with_labels(5, &gauge_labels);
+
+    provider.force_flush().expect("force flush");
+    let exported = exporter.get_finished_metrics().expect("exported metrics");
+
+    use opentelemetry::Value;
+    use opentelemetry_sdk::metrics::data::{AggregatedMetrics, MetricData};
+    let mut event_found = false;
+    let mut gauge_found = false;
+
+    for resource in exported {
+      for scope in resource.scope_metrics() {
+        for metric in scope.metrics() {
+          match metric.name() {
+            "nexus_actor_remote_watch_event_count" => {
+              if let AggregatedMetrics::U64(MetricData::Sum(sum)) = metric.data() {
+                for data_point in sum.data_points() {
+                  if data_point.value() == 1 {
+                    let mut endpoint = None;
+                    let mut watcher = None;
+                    let mut action = None;
+                    for kv in data_point.attributes() {
+                      match kv.key.as_str() {
+                        "remote.endpoint" => endpoint = Some(&kv.value),
+                        "remote.watcher" => watcher = Some(&kv.value),
+                        "remote.watch_action" => action = Some(&kv.value),
+                        _ => {}
+                      }
+                    }
+                    let endpoint_ok = matches!(endpoint, Some(Value::String(ref s)) if s.as_ref() == "endpoint-1");
+                    let watcher_ok = matches!(watcher, Some(Value::String(ref s)) if s.as_ref() == "watcher-1");
+                    let action_ok = matches!(action, Some(Value::String(ref s)) if s.as_ref() == "watch");
+                    if endpoint_ok && watcher_ok && action_ok {
+                      event_found = true;
+                    }
+                  }
+                }
+              }
+            }
+            "nexus_actor_remote_watchers" => {
+              if let AggregatedMetrics::F64(MetricData::Gauge(gauge)) = metric.data() {
+                for data_point in gauge.data_points() {
+                  let mut endpoint = None;
+                  let mut watcher = None;
+                  for kv in data_point.attributes() {
+                    match kv.key.as_str() {
+                      "remote.endpoint" => endpoint = Some(&kv.value),
+                      "remote.watcher" => watcher = Some(&kv.value),
+                      _ => {}
+                    }
+                  }
+                  let endpoint_ok = matches!(endpoint, Some(Value::String(ref s)) if s.as_ref() == "endpoint-1");
+                  let watcher_ok = matches!(watcher, Some(Value::String(ref s)) if s.as_ref() == "watcher-1");
+                  if endpoint_ok && watcher_ok && (data_point.value() - 5.0).abs() < f64::EPSILON {
+                    gauge_found = true;
+                  }
+                }
+              }
+            }
+            _ => {}
+          }
+        }
+      }
+    }
+
+    assert!(event_found, "remote watch event counter should be exported");
+    assert!(gauge_found, "remote watchers gauge should be exported");
   }
 
   #[tokio::test]

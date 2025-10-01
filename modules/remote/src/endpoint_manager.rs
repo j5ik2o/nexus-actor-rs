@@ -943,11 +943,25 @@ impl EndpointManager {
       .publish(MessageHandle::new(EndpointWatchEvent {
         address: address.to_string(),
         watcher: watcher.to_string(),
-        watchee,
+        watchee: watchee.clone(),
         action,
         watchers: watchers_u32,
       }))
       .await;
+
+    if let Some(sink) = self.metrics_sink().await {
+      let event_labels = [
+        KeyValue::new("remote.endpoint", address.to_string()),
+        KeyValue::new("remote.watcher", watcher.to_string()),
+        KeyValue::new("remote.watch_action", action.as_str().to_string()),
+      ];
+      let gauge_labels = [
+        KeyValue::new("remote.endpoint", address.to_string()),
+        KeyValue::new("remote.watcher", watcher.to_string()),
+      ];
+      sink.increment_remote_watch_event_with_labels(&event_labels);
+      sink.record_remote_watchers_with_labels(watchers_u32, &gauge_labels);
+    }
   }
 
   async fn remove_endpoint(&self, message: &EndpointTerminatedEvent) {
@@ -1356,7 +1370,11 @@ mod tests {
     assert_eq!(events[3].watchers, 0);
     drop(events);
 
-    actor_system.get_event_stream().await.unsubscribe(watch_subscription).await;
+    actor_system
+      .get_event_stream()
+      .await
+      .unsubscribe(watch_subscription)
+      .await;
   }
 
   #[tokio::test]
