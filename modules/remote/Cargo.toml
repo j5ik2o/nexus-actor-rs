@@ -1,6 +1,6 @@
 [package]
 name = "nexus-actor-remote-rs"
-version = "0.5.0"
+version = "0.5.1"
 edition = "2021"
 description = "Remote library for Nexus Actor"
 license = "MIT OR Apache-2.0"
