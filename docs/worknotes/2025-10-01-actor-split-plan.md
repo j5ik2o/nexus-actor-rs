@@ -4,6 +4,9 @@
 - **ステータス別**: `完了済み` は既に実施済みのタスク、`継続タスク` は今後着手すべきもの、`検証・ドキュメント` は実装完了後に行う確認作業。
 
 ## 完了済み（2025-10-01）
+- Criterion ベンチマークとサンプル（`modules/actor-core/{benches,examples}`）を `modules/actor-std` へ移動し、actor-core の開発用アセットを標準実装側に集約。
+- actor-std の Cargo 設定を更新し、ベンチ／サンプルで必要な `tokio`・`criterion`・`clap` などを dev-dependencies として追加。
+- actor-core からベンチ定義と関連 dev-dependencies (`clap`, `governor`, `humantime`, `criterion`) を削除し、テスト用依存を `rstest` / `loom` のみに整理。
 - `modules/actor-core` → `modules/actor-core` へのリネームを実施し、`nexus-actor-core-rs` のパスを更新。
 - `modules/actor-std` クレートを新設し、現状は `nexus-actor-core-rs` の公開 API を再エクスポートする構成に仮置き。
 - ルート `Cargo.toml` に `modules/actor-core` / `modules/actor-std` を追加し、`remote` / `cluster` を `nexus-actor-std-rs` へ付け替え。

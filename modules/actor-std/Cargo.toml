@@ -9,5 +9,47 @@ categories = ["concurrency", "asynchronous", "network-programming"]
 readme = "../../README.md"
 repository = "https://github.com/j5ik2o/nexus-actor-rs"
 
+[features]
+default = []
+lock-metrics = ["nexus-actor-core-rs/lock-metrics"]
+tokio-console = ["nexus-actor-core-rs/tokio-console"]
+
 [dependencies]
 nexus-actor-core-rs = { version = "3.*", path = "../actor-core" }
+
+[dev-dependencies]
+async-trait = { workspace = true }
+tokio = { workspace = true }
+tokio-util = { version = "0.7", features = ["time"] }
+futures = { workspace = true }
+criterion = { version = "0.7", default-features = false, features = ["html_reports", "async_tokio"] }
+opentelemetry = { version = "0.31.0", features = ["metrics"] }
+opentelemetry-stdout = { version = "0.31.0", features = ["metrics"] }
+opentelemetry_sdk = { version = "0.31.0", features = ["metrics", "rt-tokio", "testing"] }
+rand = "0.9"
+governor = "0.10.0"
+clap = { version = "4.5.9", features = ["derive"] }
+tracing = { workspace = true }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+nexus-message-derive-rs = { version = "0.*", path = "../message-derive" }
+nexus-utils-std-rs = { version = "0.*", path = "../utils-std" }
+
+[[bench]]
+name = "actor_context_lock"
+harness = false
+
+[[bench]]
+name = "dispatcher_queue_latency"
+harness = false
+
+[[bench]]
+name = "mailbox_throughput"
+harness = false
+
+[[bench]]
+name = "queue_throughput"
+harness = false
+
+[[bench]]
+name = "reentrancy"
+harness = false

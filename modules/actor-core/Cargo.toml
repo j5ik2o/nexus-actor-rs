@@ -59,32 +59,9 @@ parking_lot = "0.12"
 console-subscriber = { version = "0.4", optional = true }
 
 [dev-dependencies]
-clap = { version = "4.5.9", features = ["derive"] }
-governor = "0.10.0"
-humantime = "2.1"
 rstest = "0.26.0"
 loom = "0.7"
-criterion = { version = "0.7", default-features = false, features = ["html_reports", "async_tokio"] }
-opentelemetry = { version = "0.31.0", features = ["metrics"] }
-opentelemetry-stdout = { version = "0.31.0", features = ["metrics"] }
-opentelemetry_sdk = { version = "0.31.0", features = ["metrics", "rt-tokio", "testing"] }
-rand = "0.9"
 
-[[bench]]
-name = "reentrancy"
-harness = false
-
-[[bench]]
-name = "actor_context_lock"
-harness = false
-
-[[bench]]
-name = "queue_throughput"
-harness = false
-
-[[bench]]
-name = "mailbox_throughput"
-harness = false
 
 [build-dependencies]
 tonic-build = { version = "0.13.0" }
