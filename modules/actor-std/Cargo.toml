@@ -12,10 +12,11 @@ repository = "https://github.com/j5ik2o/nexus-actor-rs"
 
 [features]
 default = []
-lock-metrics = []
+lock-metrics = ["nexus-actor-core-rs/alloc"]
 tokio-console = ["console-subscriber"]
 
 [dependencies]
+nexus-actor-core-rs = { version = "3.*", path = "../actor-core" }
 async-trait = "0.1.80"
 backtrace = "0.3"
 base64-string-rs = "0.0.1"

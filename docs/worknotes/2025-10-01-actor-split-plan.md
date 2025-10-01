@@ -4,23 +4,22 @@
 - **ステータス別**: `完了済み` は既に実施済みのタスク、`継続タスク` は今後着手すべきもの、`検証・ドキュメント` は実装完了後に行う確認作業。
 
 ## 完了済み（2025-10-01）
-- Criterion ベンチマークとサンプル（`modules/actor-core/{benches,examples}`）を `modules/actor-std` へ移動し、actor-core の開発用アセットを標準実装側に集約。
-- actor-std の Cargo 設定を更新し、ベンチ／サンプルで必要な `tokio`・`criterion`・`clap` などを dev-dependencies として追加。
-- actor-core からベンチ定義と関連 dev-dependencies (`clap`, `governor`, `humantime`, `criterion`) を削除し、テスト用依存を `rstest` / `loom` のみに整理。
-- `modules/actor-core` → `modules/actor-core` へのリネームを実施し、`nexus-actor-core-rs` のパスを更新。
-- `modules/actor-std` クレートを新設し、現状は `nexus-actor-core-rs` の公開 API を再エクスポートする構成に仮置き。
-- ルート `Cargo.toml` に `modules/actor-core` / `modules/actor-std` を追加し、`remote` / `cluster` を `nexus-actor-std-rs` へ付け替え。
-- 依存洗い出しのために `rg "tokio" modules/actor-core -n` / `rg "std::" modules/actor-core -n` と `cargo tree -p nexus-actor-core-rs` を実行し、std 依存を棚卸し。
+- 既存 `modules/actor-core` を `modules/actor-std` へ移設し、Tokio/std 依存の本体・ベンチ・サンプルを `nexus-actor-std-rs` に集約。
+- `modules/actor-core` を `#![no_std]` + `alloc` ベースの最小スケルトンに再構築し、コア API を再編する準備を完了。
+- `actor-std` の Cargo 設定を整理し、従来の依存関係（Tokio, opentelemetry など）を引き継ぎつつ `nexus-actor-core-rs` に依存させる形へ更新。
+- `actor-core` に `actor::core_types::message` モジュールを追加し、`Message`/`ReceiveTimeout`/`TerminateReason` などの no_std 対応な基盤型を定義。`actor-std` は同モジュールを再エクスポートし、標準実装向けヘッダー拡張などを追加する構成に変更。
+- `cargo test --workspace` が新構成でも成功することを確認。
 
 ## 継続タスク（実装）
-1. **機能分割**
-   - `tokio`・`parking_lot`・`std::net` 等へ依存する実装を actor-std 側へ移設し、actor-core を `alloc` ベースへ縮減。
-   - actor-core と actor-std の境界を整理し、Mailbox/Dispatcher などの抽象インターフェースを共有化。
-2. **テスト／ベンチ移行**
-   - `tokio::test` や Criterion ベンチマーク群を actor-std に移動し、actor-core 側は no_std で動作確認できる最小構成へ絞り込む。
+1. **抽象レイヤ設計**
+   - ロック／タイマー／チャネル等の Tokio 依存箇所を抽象化し、actor-core では trait のみ保持、actor-std が Tokio 実装を提供する構造へ段階的に移行する。
+   - 抽出候補モジュール（例: mailbox, process, supervisor）の依存を洗い出し、優先度順に分割プランを立案。
+2. **依存モジュールの移植**
+   - `alloc` だけで動くコンポーネント（PID, middleware, Serialized message handles など）を actor-core に移し、必要に応じて `alloc::` 系型や `hashbrown` への置き換えを行う。
+   - 移植後は actor-std 側で `pub use` を通じて互換性を維持しつつ、Tokio 依存のエクステンションのみを残す。
 
 ## 検証・ドキュメント（優先度順）
-1. `cargo check -p nexus-actor-core-rs --no-default-features --features alloc` を実行し、actor-core 単体で no_std ビルドが通るか確認する。
-2. `cargo test --workspace` と `cargo bench -p nexus-actor-std-rs` を実行し、統合後も既存の挙動と性能測定が成立するか検証する。
-3. `docs/` 配下の関連ドキュメント（例: `core_improvement_plan.md`, `mailbox_*` 系）を actor-core / actor-std の役割に合わせて更新し、変更点を MECE に整理する。
-4. 変更内容をまとめたリリースノート草案（CHANGELOG もしくは docs/worknotes）を作成し、依存プロジェクトへの影響を明記する。
+1. `cargo check -p nexus-actor-core-rs --no-default-features --features alloc` を追加し、actor-core 単体の no_std ビルドが通るタイミングを随時確認。
+2. `cargo test --workspace` と `cargo bench -p nexus-actor-std-rs` を継続実行し、分離作業による回帰を監視。
+3. `docs/` 配下（`core_improvement_plan.md` など）を actor-core / actor-std の役割に合わせて更新し、作業完了段階で MECE に整理。
+4. 変更内容を整理したリリースノート草案を作成し、依存プロジェクトへの影響範囲（新たな `nexus-actor-core-rs` の位置付け）を明記する。
