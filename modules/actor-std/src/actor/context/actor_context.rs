@@ -43,7 +43,10 @@ use crate::actor::message::{AutoRespond, AutoResponsive};
 use crate::actor::metrics::metrics_impl::{MetricsRuntime, MetricsSink};
 use crate::actor::process::future::ActorFutureProcess;
 use crate::actor::process::Process;
-use crate::actor::supervisor::{Supervisor, SupervisorHandle, SupervisorStrategy, DEFAULT_SUPERVISION_STRATEGY};
+use crate::actor::supervisor::{
+  StdSupervisorAdapter, StdSupervisorStrategyAdapter, Supervisor, SupervisorHandle, SupervisorStrategy,
+  DEFAULT_SUPERVISION_STRATEGY,
+};
 use crate::ctxext::extensions::{ContextExtensionHandle, ContextExtensionId};
 use crate::generated::actor::PoisonPill;
 use arc_swap::ArcSwapOption;
@@ -334,6 +337,14 @@ impl ActorContext {
     let handle = SupervisorHandle::new_arc_with_metrics(supervisor_arc.clone(), self.metrics_runtime.clone());
     handle.inject_snapshot(supervisor_arc);
     handle
+  }
+
+  pub fn core_supervisor_adapter(&self) -> StdSupervisorAdapter {
+    self.supervisor_handle_with_snapshot().core_adapter()
+  }
+
+  pub fn core_supervisor_strategy(&self) -> StdSupervisorStrategyAdapter {
+    self.props_ref().get_supervisor_strategy().core_strategy()
   }
 
   pub async fn receive_timeout_handler(&mut self) {

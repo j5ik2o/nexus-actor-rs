@@ -7,6 +7,7 @@ use crate::actor::actor_system::ActorSystem;
 use crate::actor::core::ErrorReason;
 use crate::actor::core::RestartStatistics;
 use crate::actor::message::MessageHandle;
+use crate::actor::supervisor::core_adapters::StdSupervisorStrategyAdapter;
 use crate::actor::supervisor::supervisor_strategy::{SupervisorHandle, SupervisorStrategy};
 use nexus_actor_core_rs::actor::core_types::pid::CorePid;
 
@@ -40,6 +41,10 @@ impl SupervisorStrategyHandle {
       panic!("SupervisorStrategyHandle can't be used as a strategy, {:?}", s)
     }
     Self(Arc::new(s))
+  }
+
+  pub fn core_strategy(&self) -> StdSupervisorStrategyAdapter {
+    StdSupervisorStrategyAdapter::with_arc(self.0.clone())
   }
 }
 

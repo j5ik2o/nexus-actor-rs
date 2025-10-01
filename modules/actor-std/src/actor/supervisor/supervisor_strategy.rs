@@ -15,6 +15,7 @@ use crate::actor::core::ExtendedPid;
 use crate::actor::core::RestartStatistics;
 use crate::actor::message::MessageHandle;
 use crate::actor::metrics::metrics_impl::MetricsRuntime;
+use crate::actor::supervisor::core_adapters::StdSupervisorAdapter;
 use crate::actor::supervisor::directive::Directive;
 use crate::actor::supervisor::strategy_one_for_one::OneForOneStrategy;
 use crate::actor::supervisor::strategy_restarting::RestartingStrategy;
@@ -213,6 +214,10 @@ impl SupervisorHandle {
 
   pub fn metrics_runtime(&self) -> Option<Arc<MetricsRuntime>> {
     self.cell.metrics_runtime.load_full()
+  }
+
+  pub fn core_adapter(&self) -> StdSupervisorAdapter {
+    StdSupervisorAdapter::new(self.clone())
   }
 
   pub fn new_arc_with_metrics(

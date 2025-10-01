@@ -4,10 +4,10 @@ use alloc::boxed::Box;
 use alloc::sync::Arc;
 use core::any::Any;
 
+use crate::actor::core_types::mailbox::{CoreMailbox, CoreMailboxFuture};
 use crate::actor::core_types::message_handle::MessageHandle;
 use crate::actor::core_types::message_headers::ReadonlyMessageHeadersHandle;
 use crate::actor::core_types::pid::CorePid;
-use crate::actor::core_types::process::ProcessFuture;
 
 pub trait CoreActorContext: Any + Send + Sync {
   fn self_pid(&self) -> CorePid;
@@ -18,7 +18,8 @@ pub trait CoreActorContext: Any + Send + Sync {
 }
 
 pub type CorePropsFactory = Box<dyn Fn() -> CoreProps + Send + Sync>;
-pub type CoreMailboxFactory = Arc<dyn Fn() -> ProcessFuture<'static> + Send + Sync>;
+pub type CoreMailboxFactory =
+  Arc<dyn Fn() -> CoreMailboxFuture<'static, Arc<dyn CoreMailbox + Send + Sync>> + Send + Sync>;
 
 #[derive(Clone, Default)]
 pub struct CoreProps {

@@ -6,6 +6,8 @@ use async_trait::async_trait;
 use once_cell::sync::Lazy;
 use tokio::sync::{Mutex, RwLock};
 
+use nexus_actor_core_rs::context::{CoreMailboxFactory, CoreProps};
+
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::ActorContext;
 use crate::actor::context::ContextHandle;
@@ -161,6 +163,28 @@ impl PropsOption {
 }
 
 impl Props {
+  pub fn core_props(&self) -> CoreProps {
+    let mailbox_producer = self
+      .mailbox_producer
+      .clone()
+      .unwrap_or_else(|| DEFAULT_MAILBOX_PRODUCER.clone());
+    let mailbox_factory: CoreMailboxFactory = {
+      let producer = mailbox_producer.clone();
+      Arc::new(move || {
+        let producer = producer.clone();
+        Box::pin(async move {
+          let handle = producer.run().await;
+          Arc::new(handle) as Arc<dyn nexus_actor_core_rs::actor::core_types::mailbox::CoreMailbox + Send + Sync>
+        })
+      })
+    };
+
+    CoreProps {
+      actor_type: None,
+      mailbox_factory: Some(mailbox_factory),
+    }
+  }
+
   pub fn with_on_init(mut init: Vec<ContextHandler>) -> PropsOption {
     PropsOption::new(move |props: &mut Props| {
       props.on_init.append(&mut init);
