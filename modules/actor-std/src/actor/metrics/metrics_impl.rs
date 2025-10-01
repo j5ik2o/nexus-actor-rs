@@ -191,12 +191,19 @@ fn record_queue_lengths(
   pid_label: &KeyValue,
   sync: &MailboxSyncHandle,
 ) {
+  let core_handles = sync.core_queue_handles();
   for queue in [MailboxQueueKind::User, MailboxQueueKind::System] {
-    let length = match queue {
-      MailboxQueueKind::User => sync.user_messages_count(),
-      MailboxQueueKind::System => sync.system_messages_count(),
-    }
-    .max(0) as u64;
+    let length = if let Some((ref user_core, ref system_core)) = core_handles {
+      match queue {
+        MailboxQueueKind::User => user_core.len() as u64,
+        MailboxQueueKind::System => system_core.len() as u64,
+      }
+    } else {
+      match queue {
+        MailboxQueueKind::User => sync.user_messages_count().max(0) as u64,
+        MailboxQueueKind::System => sync.system_messages_count().max(0) as u64,
+      }
+    };
 
     let mut labels = Vec::with_capacity(base_labels.len() + 2);
     labels.extend_from_slice(base_labels);

@@ -28,6 +28,7 @@
 - ProcessRegistry を `CoreProcessRegistry` として trait 化し、core 層がインターフェース、actor-std が tokio/DashMap 実装を提供する構造に更新。
 - Mailbox の最小操作を `CoreMailbox` トレイトとして切り出し、actor-std の `MailboxHandle` が core 抽象を実装するように整備。
 - Mailbox queue ハンドルを `CoreMailboxQueueHandle` でラップし、`SyncMailboxQueueHandles` から core 抽象を取得できるアダプタを追加。
+- メトリクス側で `core_queue_handles()` を利用し、キュー長を CoreMailboxQueue 経由で観測するように更新。
 
 ## 継続タスク（優先度：高→低）
 - 【高：監視拡張】EndpointSupervisor や RemoteProcess を含む監視経路で `WatchRegistry` を活用し、テレメトリや監視イベント発火との整合性を取る（例：EndpointSupervisor 経由の登録、RemoteProcess の最適化）。
