@@ -56,7 +56,8 @@ impl EndpointWatcher {
     self.watched.clone()
   }
 
-  fn get_pid_set(&self, watcher_id: &str) -> Option<PidSet> {
+  /// 監視ピッド集合を取得する。ベンチマーク／テスト用途向けに公開。
+  pub fn get_pid_set(&self, watcher_id: &str) -> Option<PidSet> {
     self.watched.get(watcher_id).map(|entry| entry.value().clone())
   }
 
@@ -70,7 +71,8 @@ impl EndpointWatcher {
     }
   }
 
-  fn watched_snapshot(&self) -> Vec<(String, PidSet)> {
+  /// 監視状態のスナップショットを取得する。ベンチマーク／テスト用途向けに公開。
+  pub fn watched_snapshot(&self) -> Vec<(String, PidSet)> {
     self
       .watched
       .iter()
@@ -87,7 +89,8 @@ impl EndpointWatcher {
     }
   }
 
-  async fn prune_if_empty(&self, watcher_id: &str) -> bool {
+  /// 指定ウォッチャーが空であればマップから削除する。
+  pub async fn prune_if_empty(&self, watcher_id: &str) -> bool {
     if let Some(pid_set) = self.get_pid_set(watcher_id) {
       self.prune_pid_set_if_empty(watcher_id, &pid_set).await
     } else {
@@ -95,12 +98,14 @@ impl EndpointWatcher {
     }
   }
 
-  async fn add_watch_pid(&self, watcher_id: &str, watchee: Pid) {
+  /// 当該ウォッチャーに Watchee を追加する。既に存在する場合はノップ。
+  pub async fn add_watch_pid(&self, watcher_id: &str, watchee: Pid) {
     let pid_set = self.ensure_pid_set(watcher_id);
     pid_set.add(watchee).await;
   }
 
-  async fn remove_watch_pid(&self, watcher_id: &str, watchee: &Pid) -> bool {
+  /// 当該ウォッチャーから Watchee を削除し、空になればクリーンアップする。
+  pub async fn remove_watch_pid(&self, watcher_id: &str, watchee: &Pid) -> bool {
     if let Some(pid_set) = self.get_pid_set(watcher_id) {
       let removed = pid_set.remove(watchee).await;
       if removed {
