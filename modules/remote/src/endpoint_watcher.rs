@@ -9,7 +9,7 @@ use nexus_actor_std_rs::actor::context::{ContextHandle, InfoPart, MessagePart, S
 use nexus_actor_std_rs::actor::core::{Actor, ActorError, ExtendedPid, PidSet};
 use nexus_actor_std_rs::actor::message::{MessageHandle, SystemMessage};
 use nexus_actor_std_rs::actor::process::Process;
-use nexus_actor_std_rs::generated::actor::{Terminated, TerminatedReason, Unwatch, Watch};
+use nexus_actor_std_rs::generated::actor::{Pid, Terminated, TerminatedReason, Unwatch, Watch};
 use std::sync::{Arc, Weak};
 use tokio::sync::RwLock;
 
@@ -56,6 +56,62 @@ impl EndpointWatcher {
     self.watched.clone()
   }
 
+  fn get_pid_set(&self, watcher_id: &str) -> Option<PidSet> {
+    self.watched.get(watcher_id).map(|entry| entry.value().clone())
+  }
+
+  fn ensure_pid_set(&self, watcher_id: &str) -> PidSet {
+    if let Some(existing) = self.get_pid_set(watcher_id) {
+      existing
+    } else {
+      let pid_set = PidSet::new();
+      self.watched.insert(watcher_id.to_string(), pid_set.clone());
+      pid_set
+    }
+  }
+
+  fn watched_snapshot(&self) -> Vec<(String, PidSet)> {
+    self
+      .watched
+      .iter()
+      .map(|entry| (entry.key().clone(), entry.value().clone()))
+      .collect()
+  }
+
+  async fn prune_pid_set_if_empty(&self, watcher_id: &str, pid_set: &PidSet) -> bool {
+    if pid_set.is_empty().await {
+      self.watched.remove(watcher_id);
+      true
+    } else {
+      false
+    }
+  }
+
+  async fn prune_if_empty(&self, watcher_id: &str) -> bool {
+    if let Some(pid_set) = self.get_pid_set(watcher_id) {
+      self.prune_pid_set_if_empty(watcher_id, &pid_set).await
+    } else {
+      false
+    }
+  }
+
+  async fn add_watch_pid(&self, watcher_id: &str, watchee: Pid) {
+    let pid_set = self.ensure_pid_set(watcher_id);
+    pid_set.add(watchee).await;
+  }
+
+  async fn remove_watch_pid(&self, watcher_id: &str, watchee: &Pid) -> bool {
+    if let Some(pid_set) = self.get_pid_set(watcher_id) {
+      let removed = pid_set.remove(watchee).await;
+      if removed {
+        self.prune_pid_set_if_empty(watcher_id, &pid_set).await;
+      }
+      removed
+    } else {
+      false
+    }
+  }
+
   async fn initialize(&mut self) -> Result<(), ActorError> {
     Ok(())
   }
@@ -69,24 +125,26 @@ impl EndpointWatcher {
       ctx.get_message_handle_opt().await.expect("message not found")
     };
     if let Some(remote_terminate) = msg.to_typed::<RemoteTerminate>() {
-      let watcher_id = remote_terminate.watcher.clone().unwrap().id.clone();
-      let watchee_opt = remote_terminate.watchee;
-      if let Some(entry) = self.watched.get_mut(&watcher_id) {
-        if let Some(watchee) = &watchee_opt {
-          entry.remove(watchee);
-        }
-        if entry.is_empty() {
-          self.watched.remove(&watcher_id);
-        }
-        let why = TerminatedReason::Stopped as i32;
-        let msg = Terminated { who: watchee_opt, why };
-        if let Some(ref_process) = system.get_process_registry().await.get_local_process(&watcher_id).await {
-          let pid = remote_terminate.watcher.unwrap();
-          let pid = ExtendedPid::new(pid);
-          ref_process
-            .send_system_message(&pid, MessageHandle::new(SystemMessage::Terminate(msg)))
-            .await;
-        }
+      let watcher_pid = remote_terminate
+        .watcher
+        .clone()
+        .expect("RemoteTerminate missing watcher pid");
+      let watcher_id = watcher_pid.id.clone();
+      let watchee_opt = remote_terminate.watchee.clone();
+
+      if let Some(watchee) = &watchee_opt {
+        self.remove_watch_pid(&watcher_id, watchee).await;
+      } else {
+        self.prune_if_empty(&watcher_id).await;
+      }
+
+      let why = TerminatedReason::Stopped as i32;
+      let msg = Terminated { who: watchee_opt, why };
+      if let Some(ref_process) = system.get_process_registry().await.get_local_process(&watcher_id).await {
+        let pid = ExtendedPid::new(watcher_pid);
+        ref_process
+          .send_system_message(&pid, MessageHandle::new(SystemMessage::Terminate(msg)))
+          .await;
       }
     }
     if let Some(endpoint_event) = msg.to_typed::<EndpointEvent>() {
@@ -96,10 +154,9 @@ impl EndpointWatcher {
           watched_entries = self.watched.len(),
           "EndpointWatcher handling terminated"
         );
-        for entry in self.watched.iter() {
-          let (id, pid_set) = entry.pair();
-          if let Some(ref_process) = system.get_process_registry().await.get_local_process(id).await {
-            for pid in pid_set.to_vec().iter() {
+        for (id, pid_set) in self.watched_snapshot() {
+          if let Some(ref_process) = system.get_process_registry().await.get_local_process(&id).await {
+            for pid in pid_set.to_vec().await.iter() {
               let why = TerminatedReason::AddressTerminated as i32;
               let msg = Terminated {
                 who: Some(pid.clone()),
@@ -123,13 +180,7 @@ impl EndpointWatcher {
     if let Some(remote_watch) = msg.to_typed::<RemoteWatch>() {
       let watcher_id = remote_watch.watcher.clone().id.clone();
       let watchee = remote_watch.watchee.clone();
-      if let Some(entry) = self.watched.get_mut(&watcher_id) {
-        entry.add(watchee.clone());
-      } else {
-        let pid_set = PidSet::new();
-        pid_set.add(watchee.clone());
-        self.watched.insert(watcher_id.clone(), pid_set);
-      }
+      self.add_watch_pid(&watcher_id, watchee.clone()).await;
       let u = SystemMessage::Watch(Watch {
         watcher: Some(remote_watch.watcher),
       });
@@ -143,12 +194,7 @@ impl EndpointWatcher {
     if let Some(remote_un_watch) = msg.to_typed::<RemoteUnwatch>() {
       let watcher_id = remote_un_watch.watcher.clone().id.clone();
       let watchee = remote_un_watch.watchee.clone();
-      if let Some(entry) = self.watched.get_mut(&watcher_id) {
-        entry.remove(&watchee);
-        if entry.is_empty() {
-          self.watched.remove(&watcher_id);
-        }
-      }
+      self.remove_watch_pid(&watcher_id, &watchee).await;
       let w = SystemMessage::Unwatch(Unwatch {
         watcher: Some(remote_un_watch.watcher),
       });
