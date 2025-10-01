@@ -7,6 +7,8 @@ pub mod actor;
 
 #[cfg(feature = "alloc")]
 pub use actor::core_types::auto_receive::{AutoReceiveMessage, TerminatedMessage};
+#[cfg(feature = "alloc")]
+pub use actor::core_types::mailbox::{CoreMailbox, CoreMailboxFuture};
 pub use actor::core_types::message::{Message, NotInfluenceReceiveTimeout, ReceiveTimeout, TerminateReason};
 #[cfg(feature = "alloc")]
 pub use actor::core_types::message_envelope::CoreMessageEnvelope;

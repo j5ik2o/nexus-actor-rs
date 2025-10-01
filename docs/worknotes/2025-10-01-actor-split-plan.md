@@ -26,6 +26,7 @@
 - ExtendedPid ↔ CorePid 変換の共通ヘルパー（`From` 実装・スライス変換ユーティリティ）を追加し、監視経路・コンテキストからの PID 変換処理を一元化。
 - SystemMessage（Restart/Start/Stop/Watch/Unwatch/Terminate）を actor-core の `core_types::system_message` に集約し、std 層では ProtoBuf 変換ヘルパーと runtime 実装のみを保持する構成へ移行。
 - ProcessRegistry を `CoreProcessRegistry` として trait 化し、core 層がインターフェース、actor-std が tokio/DashMap 実装を提供する構造に更新。
+- Mailbox の最小操作を `CoreMailbox` トレイトとして切り出し、actor-std の `MailboxHandle` が core 抽象を実装するように整備。
 
 ## 継続タスク（優先度：高→低）
 - 【高：監視拡張】EndpointSupervisor や RemoteProcess を含む監視経路で `WatchRegistry` を活用し、テレメトリや監視イベント発火との整合性を取る（例：EndpointSupervisor 経由の登録、RemoteProcess の最適化）。

@@ -7,6 +7,7 @@ use crate::actor::dispatch::dispatcher::DispatcherHandle;
 use crate::actor::dispatch::mailbox::{Mailbox, MailboxSyncHandle};
 use crate::actor::dispatch::message_invoker::MessageInvokerHandle;
 use crate::actor::message::MessageHandle;
+use nexus_actor_core_rs::actor::core_types::mailbox::{CoreMailbox, CoreMailboxFuture};
 
 #[derive(Debug, Clone)]
 pub struct MailboxHandle {
@@ -101,5 +102,31 @@ impl Mailbox for MailboxHandle {
   async fn to_handle(&self) -> MailboxHandle {
     let mg = self.inner.read().await;
     mg.to_handle().await
+  }
+}
+
+impl CoreMailbox for MailboxHandle {
+  fn post_user_message<'a>(&'a self, message: MessageHandle) -> CoreMailboxFuture<'a, ()> {
+    Box::pin(async move { Mailbox::post_user_message(self, message).await })
+  }
+
+  fn post_system_message<'a>(&'a self, message: MessageHandle) -> CoreMailboxFuture<'a, ()> {
+    Box::pin(async move { Mailbox::post_system_message(self, message).await })
+  }
+
+  fn process_messages<'a>(&'a self) -> CoreMailboxFuture<'a, ()> {
+    Box::pin(async move { Mailbox::process_messages(self).await })
+  }
+
+  fn start<'a>(&'a self) -> CoreMailboxFuture<'a, ()> {
+    Box::pin(async move { Mailbox::start(self).await })
+  }
+
+  fn user_messages_count<'a>(&'a self) -> CoreMailboxFuture<'a, i32> {
+    Box::pin(async move { Mailbox::get_user_messages_count(self).await })
+  }
+
+  fn system_messages_count<'a>(&'a self) -> CoreMailboxFuture<'a, i32> {
+    Box::pin(async move { Mailbox::get_system_messages_count(self).await })
   }
 }

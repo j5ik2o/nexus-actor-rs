@@ -1,0 +1,21 @@
+#![cfg(feature = "alloc")]
+
+use alloc::boxed::Box;
+use core::future::Future;
+use core::pin::Pin;
+
+use super::message_handle::MessageHandle;
+
+/// 汎用 Mailbox 操作用の Future 型。
+pub type CoreMailboxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
+
+/// Mailbox に対する最小限の操作集合。no_std + alloc 環境でも扱えるよう、
+/// 実装側に `async_trait` などの依存を課さず `Future` を返すインターフェースとする。
+pub trait CoreMailbox: Send + Sync {
+  fn post_user_message<'a>(&'a self, message: MessageHandle) -> CoreMailboxFuture<'a, ()>;
+  fn post_system_message<'a>(&'a self, message: MessageHandle) -> CoreMailboxFuture<'a, ()>;
+  fn process_messages<'a>(&'a self) -> CoreMailboxFuture<'a, ()>;
+  fn start<'a>(&'a self) -> CoreMailboxFuture<'a, ()>;
+  fn user_messages_count<'a>(&'a self) -> CoreMailboxFuture<'a, i32>;
+  fn system_messages_count<'a>(&'a self) -> CoreMailboxFuture<'a, i32>;
+}
