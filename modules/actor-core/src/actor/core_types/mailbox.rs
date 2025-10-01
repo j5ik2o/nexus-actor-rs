@@ -9,6 +9,16 @@ use super::message_handle::MessageHandle;
 /// 汎用 Mailbox 操作用の Future 型。
 pub type CoreMailboxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
+/// メールボックスの裏側にあるキュー構造に求める最小限の操作集合。
+pub trait CoreMailboxQueue {
+  type Error;
+
+  fn offer(&mut self, message: MessageHandle) -> Result<(), Self::Error>;
+  fn poll(&mut self) -> Result<Option<MessageHandle>, Self::Error>;
+  fn len(&self) -> usize;
+  fn clean_up(&mut self);
+}
+
 /// Mailbox に対する最小限の操作集合。no_std + alloc 環境でも扱えるよう、
 /// 実装側に `async_trait` などの依存を課さず `Future` を返すインターフェースとする。
 pub trait CoreMailbox: Send + Sync {
