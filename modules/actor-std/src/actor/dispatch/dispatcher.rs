@@ -152,7 +152,7 @@ impl Dispatcher for TokioRuntimeDispatcher {
 /// policy described in `docs/dispatcher_runtime_policy.md`.
 ///
 /// ```rust
-/// use nexus_actor_core_rs::actor::dispatch::{Dispatcher, SingleWorkerDispatcher, Runnable};
+/// use nexus_actor_std_rs::actor::dispatch::{Dispatcher, SingleWorkerDispatcher, Runnable};
 ///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// let dispatcher = SingleWorkerDispatcher::new()?;

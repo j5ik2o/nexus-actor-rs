@@ -1,5 +1,12 @@
-//! Tokio/std 実装を含むアクターランタイム。
-//! 現段階では `nexus-actor-core-rs` の公開APIをそのまま再エクスポートし、
-//! 今後の分離作業に備える。
+#![allow(dead_code)]
+extern crate nexus_message_derive_rs;
 
-pub use nexus_actor_core_rs::*;
+pub mod actor;
+pub mod ctxext;
+pub mod event_stream;
+pub mod extensions;
+pub mod generated;
+pub mod metrics;
+pub mod telemetry;
+
+pub use nexus_message_derive_rs::Message;

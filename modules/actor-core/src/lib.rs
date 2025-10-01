@@ -1,12 +1,8 @@
-#![allow(dead_code)]
-extern crate nexus_message_derive_rs;
+#![no_std]
 
-pub mod actor;
-pub mod ctxext;
-pub mod event_stream;
-pub mod extensions;
-pub mod generated;
-pub mod metrics;
-pub mod telemetry;
+#[cfg(feature = "alloc")]
+extern crate alloc;
 
-pub use nexus_message_derive_rs::Message;
+pub mod prelude {
+  // 暫定: 今後コアAPIを追加予定。
+}
