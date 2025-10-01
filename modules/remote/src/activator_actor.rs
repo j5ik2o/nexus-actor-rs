@@ -212,7 +212,7 @@ impl Actor for Activator {
               SpawnError::ErrPreStart(actor_error) => {
                 let status_code = actor_error
                   .reason()
-                  .and_then(|reason| ResponseStatusCode::from_i32(reason.code))
+                  .and_then(|reason| ResponseStatusCode::from_i32(reason.code()))
                   .unwrap_or(ResponseStatusCode::Error)
                   .to_i32();
                 context_handle

@@ -1,14 +1,14 @@
-use std::any::Any;
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
-use std::sync::Arc;
 
 use backtrace::Backtrace;
+use nexus_actor_core_rs::error::{ErrorReasonCore, TakeErrorCore};
+
+pub type TakeError = TakeErrorCore;
 
 #[derive(Clone)]
 pub struct ErrorReason {
-  reason: Option<Arc<dyn Any + Send + Sync>>,
-  pub code: i32,
+  inner: ErrorReasonCore,
   backtrace: Backtrace,
 }
 
@@ -17,8 +17,7 @@ impl ErrorReason {
   where
     T: Send + Sync + 'static, {
     Self {
-      reason: Some(Arc::new(reason)),
-      code,
+      inner: ErrorReasonCore::new(reason, code),
       backtrace: Backtrace::new(),
     }
   }
@@ -28,68 +27,65 @@ impl ErrorReason {
   }
 
   pub fn is_type<T: Send + Sync + 'static>(&self) -> bool {
-    match self.reason.as_ref() {
-      Some(m) => m.is::<T>(),
-      None => false,
-    }
+    self.inner.is_type::<T>()
   }
 
   pub fn take<T>(&mut self) -> Result<T, TakeError>
   where
     T: Send + Sync + 'static, {
-    match self.reason.take() {
-      Some(v) => match v.downcast::<T>() {
-        Ok(arc_v) => match Arc::try_unwrap(arc_v) {
-          Ok(v) => Ok(v),
-          Err(arc_v) => {
-            self.reason = Some(arc_v);
-            Err(TakeError::StillShared)
-          }
-        },
-        Err(original) => {
-          self.reason = Some(original.clone());
-          Err(TakeError::TypeMismatch {
-            expected: std::any::type_name::<T>(),
-            found: original.type_id(),
-          })
-        }
-      },
-      None => Err(TakeError::AlreadyTaken),
-    }
+    self.inner.take()
   }
 
   pub fn take_or_panic<T>(&mut self) -> T
   where
-    T: Error + Send + Sync + 'static, {
-    self.take().unwrap_or_else(|e| panic!("Failed to take error: {:?}", e))
+    T: Send + Sync + 'static, {
+    self.inner.take_or_panic()
+  }
+
+  pub fn code(&self) -> i32 {
+    self.inner.code
+  }
+
+  pub fn as_core(&self) -> &ErrorReasonCore {
+    &self.inner
+  }
+
+  pub fn from_core(inner: ErrorReasonCore) -> Self {
+    Self {
+      inner,
+      backtrace: Backtrace::new(),
+    }
   }
 }
 
-static_assertions::assert_impl_all!(ErrorReason: Send, Sync);
+impl From<std::io::Error> for ErrorReason {
+  fn from(error: std::io::Error) -> Self {
+    Self::from_core(ErrorReasonCore::new(error, 0))
+  }
+}
 
-#[derive(Debug)]
-pub enum TakeError {
-  TypeMismatch {
-    expected: &'static str,
-    found: std::any::TypeId,
-  },
-  StillShared,
-  AlreadyTaken,
+impl From<String> for ErrorReason {
+  fn from(value: String) -> Self {
+    Self::from_core(ErrorReasonCore::from(value))
+  }
+}
+
+impl From<&str> for ErrorReason {
+  fn from(value: &str) -> Self {
+    Self::from_core(ErrorReasonCore::from(value))
+  }
 }
 
 impl Display for ErrorReason {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    match &self.reason {
-      Some(error) => write!(f, "ActorInnerError: {:?}", error),
-      None => write!(f, "ActorInnerError: Error has been taken"),
-    }
+    Display::fmt(&self.inner, f)
   }
 }
 
 impl Debug for ErrorReason {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    f.debug_struct("ActorInnerError")
-      .field("inner_error", &self.reason)
+    f.debug_struct("ErrorReason")
+      .field("inner", &self.inner)
       .field("backtrace", &self.backtrace)
       .finish()
   }
@@ -99,11 +95,7 @@ impl Error for ErrorReason {}
 
 impl PartialEq for ErrorReason {
   fn eq(&self, other: &Self) -> bool {
-    match (&self.reason, &other.reason) {
-      (Some(a), Some(b)) => Arc::ptr_eq(a, b),
-      (None, None) => true,
-      _ => false,
-    }
+    self.inner == other.inner
   }
 }
 
@@ -111,33 +103,9 @@ impl Eq for ErrorReason {}
 
 impl std::hash::Hash for ErrorReason {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    self.reason.is_some().hash(state);
-    if let Some(error) = &self.reason {
-      error.type_id().hash(state);
-    }
+    self.inner.hash(state);
     std::ptr::addr_of!(self.backtrace).hash(state);
   }
 }
 
-impl From<std::io::Error> for ErrorReason {
-  fn from(error: std::io::Error) -> Self {
-    let error_arc = Arc::new(error);
-    ErrorReason {
-      reason: Some(error_arc.clone()),
-      code: 0,
-      backtrace: Backtrace::new(),
-    }
-  }
-}
-
-impl From<String> for ErrorReason {
-  fn from(s: String) -> Self {
-    Self::new(s, 0)
-  }
-}
-
-impl From<&str> for ErrorReason {
-  fn from(s: &str) -> Self {
-    Self::new(s.to_string(), 0)
-  }
-}
+static_assertions::assert_impl_all!(ErrorReason: Send, Sync);

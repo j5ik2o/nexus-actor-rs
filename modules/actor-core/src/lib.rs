@@ -33,3 +33,9 @@ pub use actor::core_types::system_message::{SystemMessage, UnwatchMessage, Watch
 
 #[cfg(feature = "alloc")]
 pub mod runtime;
+
+#[cfg(feature = "alloc")]
+pub mod supervisor;
+
+#[cfg(feature = "alloc")]
+pub mod error;
