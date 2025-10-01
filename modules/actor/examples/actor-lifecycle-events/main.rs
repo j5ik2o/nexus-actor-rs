@@ -4,7 +4,7 @@ use nexus_actor_core_rs::actor::context::{ContextHandle, MessagePart, SenderPart
 use nexus_actor_core_rs::actor::core::{Actor, ActorError, ErrorReason, Props};
 use nexus_actor_core_rs::actor::message::{Message, MessageHandle};
 use nexus_message_derive_rs::Message;
-use nexus_utils_core_rs::concurrent::WaitGroup;
+use nexus_utils_std_rs::concurrent::WaitGroup;
 use std::env;
 use tokio::time::sleep;
 use tracing_subscriber::EnvFilter;

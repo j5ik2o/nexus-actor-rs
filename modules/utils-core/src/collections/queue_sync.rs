@@ -1,7 +1,7 @@
-use std::fmt::Debug;
+use core::fmt::Debug;
 
-use crate::collections::queue::{QueueError, QueueSize};
-use crate::collections::Element;
+use super::Element;
+use super::{QueueError, QueueSize};
 
 pub trait SyncQueueSupport {}
 

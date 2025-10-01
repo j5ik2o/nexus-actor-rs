@@ -1,9 +1,8 @@
-use std::cmp::Ordering;
 use std::fmt::Debug;
-use std::ops::Add;
 
 use async_trait::async_trait;
-use thiserror::Error;
+
+use nexus_utils_core_rs::collections::{QueueError, QueueSize};
 
 mod mpsc_bounded_channel_queue;
 mod mpsc_unbounded_channel_queue;
@@ -14,106 +13,6 @@ pub use self::{mpsc_bounded_channel_queue::*, mpsc_unbounded_channel_queue::*, p
 
 use crate::collections::element::Element;
 use crate::collections::queue_sync::{SyncQueueBase, SyncQueueReader, SyncQueueSupport, SyncQueueWriter};
-
-/// An error that occurs when a queue operation fails.<br/>
-/// キューの操作に失敗した場合に発生するエラー。
-#[derive(Error, Debug, PartialEq)]
-pub enum QueueError<E> {
-  #[error("Failed to offer an element: {0:?}")]
-  OfferError(E),
-  #[error("Failed to pool an element")]
-  PoolError,
-  #[error("Failed to peek an element")]
-  PeekError,
-  #[error("Failed to contains an element")]
-  ContainsError,
-  #[error("Failed to interrupt")]
-  InterruptedError,
-  #[error("Failed to timeout")]
-  TimeoutError,
-}
-
-/// The size of the queue.<br/>
-/// キューのサイズ。
-#[derive(Debug, Clone)]
-pub enum QueueSize {
-  /// The queue has no capacity limit.<br/>
-  /// キューに容量制限がない。
-  Limitless,
-  /// The queue has a capacity limit.<br/>
-  /// キューに容量制限がある。
-  Limited(usize),
-}
-
-impl QueueSize {
-  /// Returns whether the queue has no capacity limit.<br/>
-  /// キューに容量制限がないかどうかを返します。
-  ///
-  /// # Return Value / 戻り値
-  /// - `true` - If the queue has no capacity limit. / キューに容量制限がない場合。
-  /// - `false` - If the queue has a capacity limit. / キューに容量制限がある場合。
-  pub fn is_limitless(&self) -> bool {
-    matches!(self, QueueSize::Limitless)
-  }
-
-  /// Converts to an option type.<br/>
-  /// オプション型に変換します。
-  ///
-  /// # Return Value / 戻り値
-  /// - `None` - If the queue has no capacity limit. / キューに容量制限がない場合。
-  /// - `Some(num)` - If the queue has a capacity limit. / キューに容量制限がある場合。
-  pub fn to_option(&self) -> Option<usize> {
-    match self {
-      QueueSize::Limitless => None,
-      QueueSize::Limited(c) => Some(*c),
-    }
-  }
-
-  /// Converts to a usize type.<br/>
-  /// usize型に変換します。
-  ///
-  /// # Return Value / 戻り値
-  /// - `usize::MAX` - If the queue has no capacity limit. / キューに容量制限がない場合。
-  /// - `num` - If the queue has a capacity limit. / キューに容量制限がある場合。
-  pub fn to_usize(&self) -> usize {
-    match self {
-      QueueSize::Limitless => usize::MAX,
-      QueueSize::Limited(c) => *c,
-    }
-  }
-}
-
-impl Add for QueueSize {
-  type Output = QueueSize;
-
-  fn add(self, other: QueueSize) -> QueueSize {
-    match (self, other) {
-      (QueueSize::Limitless, _) | (_, QueueSize::Limitless) => QueueSize::Limitless,
-      (QueueSize::Limited(a), QueueSize::Limited(b)) => QueueSize::Limited(a + b),
-    }
-  }
-}
-
-impl PartialEq<Self> for QueueSize {
-  fn eq(&self, other: &Self) -> bool {
-    match (self, other) {
-      (QueueSize::Limitless, QueueSize::Limitless) => true,
-      (QueueSize::Limited(l), QueueSize::Limited(r)) => l == r,
-      _ => false,
-    }
-  }
-}
-
-impl PartialOrd<Self> for QueueSize {
-  fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-    match (self, other) {
-      (QueueSize::Limitless, QueueSize::Limitless) => Some(Ordering::Equal),
-      (QueueSize::Limitless, _) => Some(Ordering::Greater),
-      (_, QueueSize::Limitless) => Some(Ordering::Less),
-      (QueueSize::Limited(l), QueueSize::Limited(r)) => l.partial_cmp(r),
-    }
-  }
-}
 
 /// A trait that defines the behavior of a queue.<br/>
 /// キューの振る舞いを定義するトレイト。

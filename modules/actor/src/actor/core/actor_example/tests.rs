@@ -9,7 +9,7 @@ use crate::actor::message::Message;
 use crate::actor::message::MessageHandle;
 use crate::actor::message::ResponseHandle;
 use nexus_message_derive_rs::Message;
-use nexus_utils_core_rs::concurrent::AsyncBarrier;
+use nexus_utils_std_rs::concurrent::AsyncBarrier;
 use tokio::time::sleep;
 use tracing_subscriber::EnvFilter;
 

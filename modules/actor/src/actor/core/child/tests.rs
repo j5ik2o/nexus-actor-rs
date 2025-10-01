@@ -13,7 +13,7 @@ use crate::actor::message::ResponseHandle;
 use crate::actor::process::future::ActorFutureProcess;
 use async_trait::async_trait;
 use nexus_message_derive_rs::Message;
-use nexus_utils_core_rs::concurrent::AsyncBarrier;
+use nexus_utils_std_rs::concurrent::AsyncBarrier;
 use std::any::Any;
 use std::time::Duration;
 use tokio::time::sleep;

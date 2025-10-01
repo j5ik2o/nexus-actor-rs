@@ -2,7 +2,7 @@ use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::{MessagePart, SenderPart, SpawnerPart};
 use crate::actor::core::Props;
 use crate::actor::message::{MessageBatch, MessageHandle};
-use nexus_utils_core_rs::concurrent::WaitGroup;
+use nexus_utils_std_rs::concurrent::WaitGroup;
 use std::env;
 use tracing_subscriber::EnvFilter;
 

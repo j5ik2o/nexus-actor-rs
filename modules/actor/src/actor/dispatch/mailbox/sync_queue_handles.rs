@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 use std::sync::Arc;
 
-use nexus_utils_core_rs::collections::{
+use nexus_utils_std_rs::collections::{
   QueueError, QueueSize, SyncQueueBase, SyncQueueReader, SyncQueueSupport, SyncQueueWriter,
 };
 use parking_lot::Mutex;

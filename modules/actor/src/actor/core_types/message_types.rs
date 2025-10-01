@@ -1,4 +1,4 @@
-use nexus_utils_core_rs::collections::DEFAULT_PRIORITY;
+use nexus_utils_std_rs::collections::DEFAULT_PRIORITY;
 use std::any::Any;
 use std::collections::HashMap;
 use std::fmt::Debug;

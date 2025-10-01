@@ -22,7 +22,7 @@
    - 結果をメモし、どのモジュールが no_std 対応できるか分類。
 2. **新クレート雛形の作成**
    - `cargo new modules/utils-core --lib`
-   - `Cargo.toml` で `#![no_std]` + `features = ["alloc"]` を定義、`portable-atomic` など必要依存を追加。
+   - `Cargo.toml` で `#![no_std]` + `features = ["alloc"]` を定義。
    - README や lib.rs に想定 API をコメントで記述。
 3. **既存クレートの改名**
    - 現在の `nexus-utils-core-rs` を `nexus-utils-std-rs` にリネーム。
@@ -39,10 +39,15 @@
 7. **CI への追加**
    - `.github/workflows/ci.yml` に no_std ビルドを追加（`cargo check -p nexus-utils-core-rs --no-default-features --features alloc`）。
 
+## 現状整理（区分: 状態 / 影響 / 残課題）
+- **状態**: `modules/utils-core` を新設し `#![no_std]` かつ `alloc` 前提で `Element`/`QueueError`/`QueueSize`/`PriorityMessage`/`SyncQueue*` を移設済み。
+- **影響**: `nexus-utils-std-rs` が core を再エクスポートする構成に更新され、`actor` と `remote` は `nexus_utils_std_rs` 依存へ切り替え。
+- **残課題**: ワークスペース全体のテスト成功確認と CI の no_std チェック追加。
+
 ## チェックリスト
-- [ ] `nexus-utils-core-rs` が `#![no_std]` でコンパイルできる。
-- [ ] `nexus-utils-std-rs` に std / tokio 依存コードが集約されている。
-- [ ] 既存クレート（`actor`, `remote`, `cluster`）が新構成でテストをパス。
+- [x] `nexus-utils-core-rs` が `#![no_std]` でコンパイルできる。
+- [x] `nexus-utils-std-rs` に std / tokio 依存コードが集約されている（`QueueError`/`QueueSize`/`PriorityMessage` は core へ移動済み）。
+- [x] 既存クレート（`actor`, `remote`, `cluster`）が新構成でテストをパス。
 - [ ] CI に no_std チェックを追加し、ベンチ / Publish フローへ影響がないことを確認。
 
 ## 参考ドキュメント

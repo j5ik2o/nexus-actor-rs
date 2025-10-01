@@ -12,7 +12,7 @@ use crate::actor::typed_context::{TypedSenderPart, TypedSpawnerPart};
 use crate::actor::{Config, ConfigOption, MetricsProvider};
 use async_trait::async_trait;
 use nexus_message_derive_rs::Message;
-use nexus_utils_core_rs::concurrent::AsyncBarrier;
+use nexus_utils_std_rs::concurrent::AsyncBarrier;
 use opentelemetry_sdk::metrics::SdkMeterProvider;
 use tokio::time::sleep;
 use tracing_subscriber::EnvFilter;

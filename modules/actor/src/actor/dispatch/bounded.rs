@@ -7,7 +7,7 @@ use crate::actor::dispatch::mailbox_middleware::MailboxMiddlewareHandle;
 use crate::actor::dispatch::mailbox_producer::MailboxProducer;
 use crate::actor::dispatch::unbounded::UnboundedMailboxQueue;
 use crate::actor::message::MessageHandle;
-use nexus_utils_core_rs::collections::{
+use nexus_utils_std_rs::collections::{
   MpscUnboundedChannelQueue, QueueError, QueueSize, RingQueue, SyncQueueBase, SyncQueueReader, SyncQueueSupport,
   SyncQueueWriter,
 };

@@ -6,7 +6,7 @@ use crate::actor::core::actor_error::ActorError;
 use crate::actor::core::props::Props;
 use crate::actor::message::ReceiveTimeout;
 use async_trait::async_trait;
-use nexus_utils_core_rs::concurrent::AsyncBarrier;
+use nexus_utils_std_rs::concurrent::AsyncBarrier;
 use std::env;
 use std::time::Duration;
 use tracing_subscriber::EnvFilter;

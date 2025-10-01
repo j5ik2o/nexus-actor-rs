@@ -9,7 +9,7 @@ use crate::actor::message::MessageHandle;
 use crate::actor::process::future::{ActorFutureError, ActorFutureProcess};
 use crate::actor::process::{Process, ProcessHandle};
 use async_trait::async_trait;
-use nexus_utils_core_rs::concurrent::AsyncBarrier;
+use nexus_utils_std_rs::concurrent::AsyncBarrier;
 use tokio::sync::Notify;
 use tokio::time::{sleep, Duration};
 

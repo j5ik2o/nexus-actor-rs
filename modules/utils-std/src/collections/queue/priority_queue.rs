@@ -1,17 +1,9 @@
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-use crate::collections::element::Element;
 use crate::collections::queue_sync::{SyncQueueBase, SyncQueueReader, SyncQueueSupport, SyncQueueWriter};
-use crate::collections::{QueueError, QueueSize};
+use crate::collections::{PriorityMessage, QueueError, QueueSize, DEFAULT_PRIORITY, PRIORITY_LEVELS};
 use parking_lot::RwLock;
-
-pub const PRIORITY_LEVELS: usize = 8;
-pub const DEFAULT_PRIORITY: i8 = (PRIORITY_LEVELS / 2) as i8;
-
-pub trait PriorityMessage: Element {
-  fn get_priority(&self) -> Option<i8>;
-}
 
 #[derive(Debug, Clone)]
 pub struct PriorityQueue<E, Q> {

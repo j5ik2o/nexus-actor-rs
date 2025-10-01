@@ -1,0 +1,15 @@
+[package]
+name = "nexus-utils-core-rs"
+version = "0.5.0"
+edition = "2021"
+description = "no_std friendly utilities for Nexus Actor"
+license = "MIT OR Apache-2.0"
+keywords = ["nexus", "actor", "utils", "no_std"]
+categories = ["concurrency", "embedded", "no-std"]
+repository = "https://github.com/j5ik2o/nexus-actor-rs"
+readme = "../../README.md"
+
+[features]
+default = ["alloc"]
+alloc = []
+std = ["alloc"]

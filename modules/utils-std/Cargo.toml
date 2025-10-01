@@ -1,5 +1,5 @@
 [package]
-name = "nexus-utils-core-rs"
+name = "nexus-utils-std-rs"
 version = "0.4.1"
 edition = "2021"
 description = "Utility library for Nexus Actor"
@@ -18,3 +18,4 @@ tokio = { workspace = true }
 tokio-condvar = "0.3.0"
 tracing = { workspace = true }
 parking_lot = { workspace = true }
+nexus-utils-core-rs = { version = "0.*", path = "../utils-core" }

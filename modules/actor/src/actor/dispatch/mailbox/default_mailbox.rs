@@ -17,7 +17,7 @@ use crate::actor::dispatch::message_invoker::{MessageInvoker, MessageInvokerHand
 use crate::actor::message::MessageHandle;
 use arc_swap::ArcSwapOption;
 use async_trait::async_trait;
-use nexus_utils_core_rs::collections::QueueError;
+use nexus_utils_std_rs::collections::QueueError;
 use parking_lot::Mutex;
 
 #[derive(Debug, Clone)]
