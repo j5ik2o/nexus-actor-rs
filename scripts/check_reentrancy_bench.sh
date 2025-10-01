@@ -13,7 +13,11 @@ if [ "${SKIP_BENCH:-0}" != "1" ]; then
 fi
 
 if [ ! -f "$BENCH_TARGET" ]; then
-  echo "Bench results not found at $BENCH_TARGET" >&2
+  BENCH_TARGET=$(find target/criterion/reentrancy -name estimates.json 2>/dev/null | head -n 1 || true)
+fi
+
+if [ -z "$BENCH_TARGET" ] || [ ! -f "$BENCH_TARGET" ]; then
+  echo "Bench results not found under target/criterion/reentrancy" >&2
   exit 1
 fi
 

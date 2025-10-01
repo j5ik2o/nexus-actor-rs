@@ -70,5 +70,21 @@ opentelemetry-stdout = { version = "0.31.0", features = ["metrics"] }
 opentelemetry_sdk = { version = "0.31.0", features = ["metrics", "rt-tokio", "testing"] }
 rand = "0.9"
 
+[[bench]]
+name = "reentrancy"
+harness = false
+
+[[bench]]
+name = "actor_context_lock"
+harness = false
+
+[[bench]]
+name = "queue_throughput"
+harness = false
+
+[[bench]]
+name = "mailbox_throughput"
+harness = false
+
 [build-dependencies]
 tonic-build = { version = "0.13.0" }
