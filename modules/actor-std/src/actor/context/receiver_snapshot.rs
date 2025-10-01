@@ -1,5 +1,6 @@
 use crate::actor::context::context_snapshot::ContextSnapshot;
 use crate::actor::message::MessageEnvelope;
+use nexus_actor_core_rs::context::CoreActorContextSnapshot;
 
 #[derive(Debug, Clone)]
 pub struct ReceiverSnapshot {
@@ -20,9 +21,14 @@ impl ReceiverSnapshot {
     &self.message
   }
 
+  pub fn core_snapshot(&self) -> Option<&CoreActorContextSnapshot> {
+    self.context.core_snapshot()
+  }
+
   pub fn map_message<F>(mut self, f: F) -> Self
   where
-    F: FnOnce(MessageEnvelope) -> MessageEnvelope, {
+    F: FnOnce(MessageEnvelope) -> MessageEnvelope,
+  {
     self.message = f(self.message);
     self
   }

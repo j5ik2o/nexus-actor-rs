@@ -284,6 +284,11 @@ impl ContextHandle {
     }
   }
 
+  pub async fn snapshot_with_core(&self) -> ContextSnapshot {
+    let core_snapshot = self.core_snapshot().await;
+    self.snapshot_with_borrow().with_core_snapshot(core_snapshot)
+  }
+
   pub async fn try_into_actor_context(&self) -> Option<ActorContext> {
     if let Some(actor_ctx) = self.actor_context_arc() {
       return Some(actor_ctx.as_ref().clone());

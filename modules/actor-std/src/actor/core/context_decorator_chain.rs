@@ -20,7 +20,8 @@ impl ContextDecoratorChain {
   pub fn new<F, Fut>(tail: F) -> Self
   where
     F: Fn(ContextSnapshot) -> Fut + Send + Sync + 'static,
-    Fut: Future<Output = ContextHandle> + Send + 'static, {
+    Fut: Future<Output = ContextHandle> + Send + 'static,
+  {
     let tail_arc: Arc<dyn Fn(ContextSnapshot) -> BoxFuture<'static, ContextHandle> + Send + Sync> =
       Arc::new(move |snapshot| Box::pin(tail(snapshot)) as BoxFuture<'static, ContextHandle>);
 
@@ -50,7 +51,7 @@ impl ContextDecoratorChain {
   }
 
   pub async fn run(&self, context: ContextHandle) -> ContextHandle {
-    let snapshot = context.snapshot_with_borrow();
+    let snapshot = context.snapshot_with_core().await;
     let transformed_snapshot = (self.sync_chain)(snapshot);
     (self.tail)(transformed_snapshot).await
   }

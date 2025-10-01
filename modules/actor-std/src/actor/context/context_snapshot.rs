@@ -4,6 +4,7 @@ use crate::actor::context::context_handle::ContextHandle;
 use crate::actor::context::ContextBorrow;
 use crate::actor::core::{ActorHandle, ExtendedPid};
 use crate::actor::message::{MessageEnvelope, MessageHandle, ReadonlyMessageHeadersHandle};
+use nexus_actor_core_rs::context::CoreActorContextSnapshot;
 
 #[derive(Debug, Clone, Default)]
 pub struct ContextSnapshot {
@@ -16,6 +17,7 @@ pub struct ContextSnapshot {
   message_handle: Option<MessageHandle>,
   message_header: Option<ReadonlyMessageHeadersHandle>,
   context_handle: Option<ContextHandle>,
+  core_snapshot: Option<CoreActorContextSnapshot>,
 }
 
 impl ContextSnapshot {
@@ -87,6 +89,10 @@ impl ContextSnapshot {
     self.message_header.as_ref()
   }
 
+  pub fn core_snapshot(&self) -> Option<&CoreActorContextSnapshot> {
+    self.core_snapshot.as_ref()
+  }
+
   pub fn with_actor_system_opt(mut self, actor_system: Option<ActorSystem>) -> Self {
     self.actor_system = actor_system;
     self
@@ -132,6 +138,16 @@ impl ContextSnapshot {
     self
   }
 
+  pub fn with_core_snapshot(mut self, snapshot: CoreActorContextSnapshot) -> Self {
+    self.core_snapshot = Some(snapshot);
+    self
+  }
+
+  pub fn with_core_snapshot_opt(mut self, snapshot: Option<CoreActorContextSnapshot>) -> Self {
+    self.core_snapshot = snapshot;
+    self
+  }
+
   pub fn context_handle(&self) -> Option<&ContextHandle> {
     self.context_handle.as_ref()
   }
@@ -146,5 +162,9 @@ impl ContextSnapshot {
 
   pub fn into_message_handle(self) -> Option<MessageHandle> {
     self.message_handle
+  }
+
+  pub fn into_core_snapshot(self) -> Option<CoreActorContextSnapshot> {
+    self.core_snapshot
   }
 }
