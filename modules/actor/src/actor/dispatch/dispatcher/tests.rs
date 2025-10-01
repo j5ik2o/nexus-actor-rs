@@ -11,7 +11,7 @@ use crate::actor::dispatch::{
 use crate::actor::message::{Message, MessageHandle};
 use async_trait::async_trait;
 use nexus_message_derive_rs::Message;
-use nexus_utils_core_rs::collections::MpscUnboundedChannelQueue;
+use nexus_utils_std_rs::collections::MpscUnboundedChannelQueue;
 use tokio::sync::{Mutex, RwLock};
 
 // TestMessageInvoker implementation

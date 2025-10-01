@@ -12,7 +12,7 @@ use nexus_actor_core_rs::actor::supervisor::Directive;
 use nexus_actor_core_rs::actor::supervisor::OneForOneStrategy;
 use nexus_actor_core_rs::actor::supervisor::SupervisorStrategyHandle;
 use nexus_actor_core_rs::Message;
-use nexus_utils_core_rs::concurrent::AsyncBarrier;
+use nexus_utils_std_rs::concurrent::AsyncBarrier;
 use std::env;
 use std::time::Duration;
 use tokio::time::sleep;

@@ -3,7 +3,7 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use nexus_utils_core_rs::concurrent::SynchronizedRw;
+use nexus_utils_std_rs::concurrent::SynchronizedRw;
 
 #[derive(Debug, Clone)]
 pub struct RestartStatistics {

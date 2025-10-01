@@ -2,9 +2,9 @@ use std::fmt::Debug;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 
-use crate::collections::queue::{QueueError, QueueSize};
-use crate::collections::queue_sync::{SyncQueueBase, SyncQueueReader, SyncQueueSupport, SyncQueueWriter};
 use crate::collections::Element;
+use crate::collections::{QueueBase, QueueReader, QueueSupport, QueueWriter};
+use crate::collections::{QueueError, QueueSize};
 use parking_lot::Mutex;
 
 #[derive(Debug, Clone)]
@@ -74,7 +74,7 @@ impl<E> RingQueue<E> {
   }
 }
 
-impl<E: Element> SyncQueueBase<E> for RingQueue<E> {
+impl<E: Element> QueueBase<E> for RingQueue<E> {
   fn len(&self) -> QueueSize {
     let head = self.inner.head.load(Ordering::SeqCst);
     let tail = self.inner.tail.load(Ordering::SeqCst);
@@ -92,7 +92,7 @@ impl<E: Element> SyncQueueBase<E> for RingQueue<E> {
   }
 }
 
-impl<E: Element> SyncQueueReader<E> for RingQueue<E> {
+impl<E: Element> QueueReader<E> for RingQueue<E> {
   fn poll(&mut self) -> Result<Option<E>, QueueError<E>> {
     let mut buffer = self.inner.buffer.lock();
     let head = self.inner.head.load(Ordering::SeqCst);
@@ -115,7 +115,7 @@ impl<E: Element> SyncQueueReader<E> for RingQueue<E> {
   }
 }
 
-impl<E: Element> SyncQueueWriter<E> for RingQueue<E> {
+impl<E: Element> QueueWriter<E> for RingQueue<E> {
   fn offer(&mut self, element: E) -> Result<(), QueueError<E>> {
     if self.is_full() {
       if self.inner.dynamic.load(Ordering::SeqCst) {
@@ -133,7 +133,7 @@ impl<E: Element> SyncQueueWriter<E> for RingQueue<E> {
   }
 }
 
-impl<E: Element> SyncQueueSupport for RingQueue<E> {}
+impl<E: Element> QueueSupport for RingQueue<E> {}
 
 #[cfg(test)]
 mod tests;

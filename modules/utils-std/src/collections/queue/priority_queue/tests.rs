@@ -1,7 +1,6 @@
 use crate::collections::element::Element;
-use crate::collections::{
-  MpscUnboundedChannelQueue, PriorityMessage, PriorityQueue, QueueBase, QueueReader, QueueSize, QueueWriter,
-};
+use crate::collections::{MpscUnboundedChannelQueue, PriorityMessage, PriorityQueue, QueueSize};
+use crate::collections::{QueueBase, QueueReader, QueueWriter};
 use std::fmt::Debug;
 use std::sync::Arc;
 
@@ -12,8 +11,11 @@ struct TestPriorityMessage {
 }
 
 impl TestPriorityMessage {
-  fn new(message: String, priority: i8) -> Self {
-    Self { message, priority }
+  fn new(message: impl Into<String>, priority: i8) -> Self {
+    Self {
+      message: message.into(),
+      priority,
+    }
   }
 }
 
@@ -37,8 +39,10 @@ struct TestMessage {
 }
 
 impl TestMessage {
-  fn new(message: String) -> Self {
-    Self { message }
+  fn new(message: impl Into<String>) -> Self {
+    Self {
+      message: message.into(),
+    }
   }
 }
 
@@ -83,76 +87,76 @@ impl TestMessageBase for TestMessageBaseHandle {
   }
 }
 
-async fn new_priority_ring_queue<M>() -> PriorityQueue<M, MpscUnboundedChannelQueue<M>>
+fn new_priority_queue<M>() -> PriorityQueue<M, MpscUnboundedChannelQueue<M>>
 where
   M: TestMessageBase + Clone, {
   let queue = PriorityQueue::new(|| MpscUnboundedChannelQueue::new());
-  assert_eq!(queue.len().await, QueueSize::Limited(0));
-  assert_eq!(queue.capacity().await, QueueSize::Limitless);
+  assert_eq!(queue.len(), QueueSize::Limited(0));
+  assert_eq!(queue.capacity(), QueueSize::Limitless);
   queue
 }
 
-#[tokio::test]
-async fn test_push_pop_ring() {
-  let mut q = new_priority_ring_queue().await;
-  let msg = TestPriorityMessage::new("hello".to_string(), 0);
-  q.offer(msg.clone()).await.unwrap();
-  let result = q.poll().await.unwrap();
+#[test]
+fn test_push_pop_ring() {
+  let mut q = new_priority_queue::<TestPriorityMessage>();
+  let msg = TestPriorityMessage::new("hello", 0);
+  q.offer(msg.clone()).unwrap();
+  let result = q.poll().unwrap();
   assert_eq!(result, Some(msg));
 }
 
-#[tokio::test]
-async fn test_push_pop_ring_2() {
+#[test]
+fn test_push_pop_ring_2() {
   let mut q: PriorityQueue<TestMessageBaseHandle, MpscUnboundedChannelQueue<TestMessageBaseHandle>> =
-    new_priority_ring_queue().await;
+    new_priority_queue();
 
   for _ in 0..2 {
-    let msg = TestMessageBaseHandle::new(TestPriorityMessage::new("7 hello".to_string(), 7));
-    q.offer(msg.clone()).await.unwrap();
+    let msg = TestMessageBaseHandle::new(TestPriorityMessage::new("7 hello", 7));
+    q.offer(msg.clone()).unwrap();
   }
 
   for _ in 0..2 {
-    let msg = TestMessageBaseHandle::new(TestPriorityMessage::new("5 hello".to_string(), 5));
-    q.offer(msg.clone()).await.unwrap();
+    let msg = TestMessageBaseHandle::new(TestPriorityMessage::new("5 hello", 5));
+    q.offer(msg.clone()).unwrap();
   }
 
   for _ in 0..2 {
-    let msg = TestMessageBaseHandle::new(TestPriorityMessage::new("0 hello".to_string(), 0));
-    q.offer(msg.clone()).await.unwrap();
+    let msg = TestMessageBaseHandle::new(TestPriorityMessage::new("0 hello", 0));
+    q.offer(msg.clone()).unwrap();
   }
 
   for _ in 0..2 {
-    let msg = TestMessageBaseHandle::new(TestPriorityMessage::new("6 hello".to_string(), 6));
-    q.offer(msg.clone()).await.unwrap();
+    let msg = TestMessageBaseHandle::new(TestPriorityMessage::new("6 hello", 6));
+    q.offer(msg.clone()).unwrap();
   }
 
   for _ in 0..2 {
-    let msg = TestMessageBaseHandle::new(TestMessage::new("hello".to_string()));
-    q.offer(msg.clone()).await.unwrap();
+    let msg = TestMessageBaseHandle::new(TestMessage::new("hello"));
+    q.offer(msg.clone()).unwrap();
   }
 
   for _ in 0..2 {
-    let result = q.poll().await.unwrap();
+    let result = q.poll().unwrap();
     assert_eq!(result.unwrap().get_message(), "7 hello");
   }
 
   for _ in 0..2 {
-    let result = q.poll().await.unwrap();
+    let result = q.poll().unwrap();
     assert_eq!(result.unwrap().get_message(), "6 hello");
   }
 
   for _ in 0..2 {
-    let result = q.poll().await.unwrap();
+    let result = q.poll().unwrap();
     assert_eq!(result.unwrap().get_message(), "5 hello");
   }
 
   for _ in 0..2 {
-    let result = q.poll().await.unwrap();
+    let result = q.poll().unwrap();
     assert_eq!(result.unwrap().get_message(), "hello");
   }
 
   for _ in 0..2 {
-    let result = q.poll().await.unwrap();
+    let result = q.poll().unwrap();
     assert_eq!(result.unwrap().get_message(), "0 hello");
   }
 }

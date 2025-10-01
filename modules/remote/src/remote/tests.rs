@@ -21,7 +21,7 @@ use tokio::sync::OnceCell;
 use tokio::task::JoinHandle;
 use tokio::time::timeout;
 
-use nexus_utils_core_rs::concurrent::WaitGroup;
+use nexus_utils_std_rs::concurrent::WaitGroup;
 use tracing_subscriber::EnvFilter;
 
 type TestResult<T> = Result<T, Box<dyn std::error::Error>>;

@@ -51,3 +51,10 @@
 ## 利用できるツール
 
 - ghコマンドはセットアップ済みです
+
+## Rust コーディングルール補足
+- モジュール構成は Rust 2018 スタイルを徹底すること。`mod.rs` は使用せず、`foo.rs` と `foo/` ディレクトリを組み合わせる。
+- `std` 依存を導入する際は、最小限に抑え `#[cfg(feature = "std")]` でガードする。no_std + alloc 対応が前提。
+- `async` を利用する場合は executor 依存を避け、必要ならコンパクトな Future を返す。Tokio など具体ランタイムは std 層に委譲する。
+- 共有リソースは `Arc` ではなく `Arc` 互換の抽象（`SyncArc` など）経由で扱い、no_std でも置換できるようにする。
+- コードを書いたら該当クレートで `cargo test` と `cargo fmt` を必ず実行し、`cargo clippy --all-targets --all-features` で警告が無いことを確認。

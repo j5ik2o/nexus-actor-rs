@@ -5,7 +5,7 @@ use crate::actor::context::{MessagePart, SpawnerPart};
 use crate::actor::core::props::Props;
 use crate::actor::message::AutoReceiveMessage;
 use crate::actor::message::Message;
-use nexus_utils_core_rs::concurrent::AsyncBarrier;
+use nexus_utils_std_rs::concurrent::AsyncBarrier;
 use tracing_subscriber::EnvFilter;
 
 #[tokio::test]

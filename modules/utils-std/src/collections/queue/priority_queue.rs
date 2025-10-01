@@ -1,17 +1,9 @@
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-use crate::collections::element::Element;
-use crate::collections::queue_sync::{SyncQueueBase, SyncQueueReader, SyncQueueSupport, SyncQueueWriter};
-use crate::collections::{QueueError, QueueSize};
+use crate::collections::{PriorityMessage, QueueError, QueueSize, DEFAULT_PRIORITY, PRIORITY_LEVELS};
+use crate::collections::{QueueBase, QueueReader, QueueSupport, QueueWriter};
 use parking_lot::RwLock;
-
-pub const PRIORITY_LEVELS: usize = 8;
-pub const DEFAULT_PRIORITY: i8 = (PRIORITY_LEVELS / 2) as i8;
-
-pub trait PriorityMessage: Element {
-  fn get_priority(&self) -> Option<i8>;
-}
 
 #[derive(Debug, Clone)]
 pub struct PriorityQueue<E, Q> {
@@ -22,7 +14,7 @@ pub struct PriorityQueue<E, Q> {
 impl<E, Q> PriorityQueue<E, Q>
 where
   E: PriorityMessage,
-  Q: Clone + SyncQueueReader<E> + SyncQueueWriter<E> + SyncQueueSupport,
+  Q: Clone + QueueReader<E> + QueueWriter<E> + QueueSupport,
 {
   pub fn new(queue_producer: impl Fn() -> Q + 'static) -> Self {
     let mut queues = Vec::with_capacity(PRIORITY_LEVELS);
@@ -37,10 +29,10 @@ where
   }
 }
 
-impl<E, Q> SyncQueueBase<E> for PriorityQueue<E, Q>
+impl<E, Q> QueueBase<E> for PriorityQueue<E, Q>
 where
   E: PriorityMessage,
-  Q: SyncQueueReader<E> + SyncQueueWriter<E> + SyncQueueSupport,
+  Q: QueueReader<E> + QueueWriter<E> + QueueSupport,
 {
   fn len(&self) -> QueueSize {
     let queues_guard = self.priority_queues.read();
@@ -61,10 +53,10 @@ where
   }
 }
 
-impl<E, Q> SyncQueueReader<E> for PriorityQueue<E, Q>
+impl<E, Q> QueueReader<E> for PriorityQueue<E, Q>
 where
   E: PriorityMessage,
-  Q: SyncQueueReader<E> + SyncQueueWriter<E> + SyncQueueSupport,
+  Q: QueueReader<E> + QueueWriter<E> + QueueSupport,
 {
   fn poll(&mut self) -> Result<Option<E>, QueueError<E>> {
     let mut guard = self.priority_queues.write();
@@ -84,10 +76,10 @@ where
   }
 }
 
-impl<E, Q> SyncQueueWriter<E> for PriorityQueue<E, Q>
+impl<E, Q> QueueWriter<E> for PriorityQueue<E, Q>
 where
   E: PriorityMessage,
-  Q: SyncQueueReader<E> + SyncQueueWriter<E> + SyncQueueSupport,
+  Q: QueueReader<E> + QueueWriter<E> + QueueSupport,
 {
   fn offer(&mut self, element: E) -> Result<(), QueueError<E>> {
     let mut item_priority = DEFAULT_PRIORITY;
@@ -105,10 +97,10 @@ where
   }
 }
 
-impl<E, Q> SyncQueueSupport for PriorityQueue<E, Q>
+impl<E, Q> QueueSupport for PriorityQueue<E, Q>
 where
   E: PriorityMessage,
-  Q: SyncQueueReader<E> + SyncQueueWriter<E> + SyncQueueSupport,
+  Q: QueueReader<E> + QueueWriter<E> + QueueSupport,
 {
 }
 

@@ -2,8 +2,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use criterion::{criterion_group, criterion_main, Criterion, Throughput};
-use nexus_utils_core_rs::collections::{
-  MpscBoundedChannelQueue, MpscUnboundedChannelQueue, RingQueue, SyncQueueReader, SyncQueueWriter,
+use nexus_utils_std_rs::collections::{
+  MpscBoundedChannelQueue, MpscUnboundedChannelQueue, QueueReader, QueueWriter, RingQueue,
 };
 use tokio::runtime::Runtime;
 use tokio::sync::mpsc;

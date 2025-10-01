@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use nexus_utils_core_rs::concurrent::Synchronized;
+use nexus_utils_std_rs::concurrent::Synchronized;
 
 use crate::actor::actor_system::{ActorSystem, WeakActorSystem};
 use crate::actor::core::ErrorReason;

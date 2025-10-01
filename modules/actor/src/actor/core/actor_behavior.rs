@@ -4,7 +4,7 @@ mod tests;
 use crate::actor::context::{ContextHandle, InfoPart};
 use crate::actor::core::{Actor, ActorError, ActorReceiver};
 use async_trait::async_trait;
-use nexus_utils_core_rs::collections::Stack;
+use nexus_utils_std_rs::collections::Stack;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 

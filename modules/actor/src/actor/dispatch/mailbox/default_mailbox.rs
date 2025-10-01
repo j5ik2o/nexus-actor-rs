@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 use crate::actor::dispatch::dispatcher::{Dispatcher, DispatcherHandle, Runnable};
 use crate::actor::dispatch::mailbox::mailbox_handle::MailboxHandle;
 use crate::actor::dispatch::mailbox::sync_queue_handles::{
-  SyncMailboxQueue, SyncMailboxQueueHandles, SyncQueueReaderHandle, SyncQueueWriterHandle,
+  QueueReaderHandle, QueueWriterHandle, SyncMailboxQueue, SyncMailboxQueueHandles,
 };
 use crate::actor::dispatch::mailbox::{Mailbox, MailboxQueueKind, MailboxSync, MailboxSyncHandle};
 use crate::actor::dispatch::mailbox_message::MailboxMessage;
@@ -17,7 +17,7 @@ use crate::actor::dispatch::message_invoker::{MessageInvoker, MessageInvokerHand
 use crate::actor::message::MessageHandle;
 use arc_swap::ArcSwapOption;
 use async_trait::async_trait;
-use nexus_utils_core_rs::collections::QueueError;
+use nexus_utils_std_rs::collections::QueueError;
 use parking_lot::Mutex;
 
 #[derive(Debug, Clone)]
@@ -313,10 +313,10 @@ pub(crate) struct DefaultMailboxInner<UQ, SQ>
 where
   UQ: SyncMailboxQueue,
   SQ: SyncMailboxQueue, {
-  user_mailbox_writer: SyncQueueWriterHandle<UQ>,
-  user_mailbox_reader: SyncQueueReaderHandle<UQ>,
-  system_mailbox_writer: SyncQueueWriterHandle<SQ>,
-  system_mailbox_reader: SyncQueueReaderHandle<SQ>,
+  user_mailbox_writer: QueueWriterHandle<UQ>,
+  user_mailbox_reader: QueueReaderHandle<UQ>,
+  system_mailbox_writer: QueueWriterHandle<SQ>,
+  system_mailbox_reader: QueueReaderHandle<SQ>,
   middlewares: Vec<MailboxMiddlewareHandle>,
 }
 

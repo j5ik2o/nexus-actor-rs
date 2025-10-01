@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 
 use crate::collections::element::Element;
-use crate::collections::queue_sync::{SyncQueueBase, SyncQueueReader, SyncQueueSupport, SyncQueueWriter};
+use crate::collections::{QueueBase, QueueReader, QueueSupport, QueueWriter};
 use crate::collections::{QueueError, QueueSize};
 use parking_lot::Mutex;
 use tokio::sync::mpsc;
@@ -70,7 +70,7 @@ impl<T> MpscUnboundedChannelQueue<T> {
   }
 }
 
-impl<E: Element> SyncQueueBase<E> for MpscUnboundedChannelQueue<E> {
+impl<E: Element> QueueBase<E> for MpscUnboundedChannelQueue<E> {
   fn len(&self) -> QueueSize {
     QueueSize::Limited(self.count.load(Ordering::SeqCst))
   }
@@ -80,7 +80,7 @@ impl<E: Element> SyncQueueBase<E> for MpscUnboundedChannelQueue<E> {
   }
 }
 
-impl<E: Element> SyncQueueWriter<E> for MpscUnboundedChannelQueue<E> {
+impl<E: Element> QueueWriter<E> for MpscUnboundedChannelQueue<E> {
   fn offer(&mut self, element: E) -> Result<(), QueueError<E>> {
     match self.send(element) {
       Ok(_) => {
@@ -92,7 +92,7 @@ impl<E: Element> SyncQueueWriter<E> for MpscUnboundedChannelQueue<E> {
   }
 }
 
-impl<E: Element> SyncQueueReader<E> for MpscUnboundedChannelQueue<E> {
+impl<E: Element> QueueReader<E> for MpscUnboundedChannelQueue<E> {
   fn poll(&mut self) -> Result<Option<E>, QueueError<E>> {
     match self.try_recv() {
       Ok(element) => {
@@ -118,6 +118,6 @@ impl Default for MpscUnboundedChannelQueue<i32> {
   }
 }
 
-impl<E: Element> SyncQueueSupport for MpscUnboundedChannelQueue<E> {}
+impl<E: Element> QueueSupport for MpscUnboundedChannelQueue<E> {}
 #[cfg(test)]
 mod tests;

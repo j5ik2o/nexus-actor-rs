@@ -1,4 +1,4 @@
-use nexus_utils_core_rs::concurrent::Synchronized;
+use nexus_utils_std_rs::concurrent::Synchronized;
 use std::fmt::Debug;
 use std::sync::atomic::{AtomicI32, Ordering};
 use std::sync::Arc;

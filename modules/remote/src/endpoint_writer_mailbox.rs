@@ -9,8 +9,8 @@ use nexus_actor_core_rs::actor::dispatch::{
 };
 use nexus_actor_core_rs::actor::message::MessageHandle;
 use nexus_actor_core_rs::generated::actor::DeadLetterResponse;
-use nexus_utils_core_rs::collections::{
-  MpscUnboundedChannelQueue, QueueError, RingQueue, SyncQueueBase, SyncQueueReader, SyncQueueWriter,
+use nexus_utils_std_rs::collections::{
+  MpscUnboundedChannelQueue, QueueBase, QueueError, QueueReader, QueueWriter, RingQueue,
 };
 use parking_lot::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU64, AtomicUsize, Ordering};
@@ -90,7 +90,7 @@ impl EndpointWriterMailbox {
   async fn poll_system_mailbox(&self) -> Result<Option<MessageHandle>, QueueError<MessageHandle>> {
     let result = {
       let mut mailbox = self.system_mailbox.lock();
-      SyncQueueReader::poll(&mut *mailbox)
+      QueueReader::poll(&mut *mailbox)
     };
     if let Ok(Some(_)) = &result {
       self.system_messages_count.fetch_sub(1, Ordering::SeqCst);
@@ -104,7 +104,7 @@ impl EndpointWriterMailbox {
       let mut mailbox = self.user_mailbox.lock();
       let mut messages = Vec::with_capacity(batch_size);
       for _ in 0..batch_size {
-        match SyncQueueReader::poll(&mut *mailbox)? {
+        match QueueReader::poll(&mut *mailbox)? {
           Some(message) => messages.push(message),
           None => break,
         }
@@ -289,7 +289,7 @@ impl EndpointWriterMailbox {
   async fn record_queue_state_for_address_internal(&self, address: &str, force: bool) {
     let queue_len = {
       let mailbox = self.user_mailbox.lock();
-      let len = SyncQueueBase::len(&*mailbox).to_usize();
+      let len = QueueBase::len(&*mailbox).to_usize();
       drop(mailbox);
       len
     };
@@ -426,11 +426,11 @@ impl Mailbox for EndpointWriterMailbox {
     let address_hint = Self::extract_endpoint_address(&message_handle);
     let enqueue_result = {
       let mut mailbox = self.user_mailbox.lock();
-      let len = SyncQueueBase::len(&*mailbox).to_usize();
+      let len = QueueBase::len(&*mailbox).to_usize();
       if len >= self.queue_capacity {
         Err(QueueError::OfferError(message_handle.clone()))
       } else {
-        SyncQueueWriter::offer(&mut *mailbox, message_handle.clone())
+        QueueWriter::offer(&mut *mailbox, message_handle.clone())
       }
     };
 
@@ -458,7 +458,7 @@ impl Mailbox for EndpointWriterMailbox {
     tracing::trace!(message = %message_handle.get_type_name(), "EndpointWriterMailbox::post_system_message");
     if let Err(err) = {
       let mut mailbox = self.system_mailbox.lock();
-      SyncQueueWriter::offer(&mut *mailbox, message_handle)
+      QueueWriter::offer(&mut *mailbox, message_handle)
     } {
       tracing::error!(error = ?err, "EndpointWriterMailbox failed to enqueue system message");
       return;

@@ -1,5 +1,5 @@
 use crate::actor::message::message_base::Message;
-use nexus_utils_core_rs::collections::{Element, PriorityMessage};
+use nexus_utils_std_rs::collections::{Element, PriorityMessage};
 use std::any::Any;
 use std::fmt::{Debug, Display, Formatter};
 use std::sync::Arc;

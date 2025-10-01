@@ -4,9 +4,9 @@ use crate::actor::dispatch::mailbox::MailboxHandle;
 use crate::actor::dispatch::mailbox_middleware::MailboxMiddlewareHandle;
 use crate::actor::dispatch::mailbox_producer::MailboxProducer;
 use crate::actor::message::MessageHandle;
-use nexus_utils_core_rs::collections::{
-  MpscUnboundedChannelQueue, PriorityQueue, QueueError, QueueSize, RingQueue, SyncQueueBase, SyncQueueReader,
-  SyncQueueSupport, SyncQueueWriter,
+use nexus_utils_std_rs::collections::{
+  MpscUnboundedChannelQueue, PriorityQueue, QueueBase, QueueError, QueueReader, QueueSize, QueueSupport, QueueWriter,
+  RingQueue,
 };
 
 #[derive(Debug, Clone)]
@@ -20,7 +20,7 @@ impl<Q: SyncMailboxQueue> UnboundedMailboxQueue<Q> {
   }
 }
 
-impl<Q: SyncMailboxQueue> SyncQueueBase<MessageHandle> for UnboundedMailboxQueue<Q> {
+impl<Q: SyncMailboxQueue> QueueBase<MessageHandle> for UnboundedMailboxQueue<Q> {
   fn len(&self) -> QueueSize {
     self.user_mailbox.len()
   }
@@ -30,13 +30,13 @@ impl<Q: SyncMailboxQueue> SyncQueueBase<MessageHandle> for UnboundedMailboxQueue
   }
 }
 
-impl<Q: SyncMailboxQueue> SyncQueueWriter<MessageHandle> for UnboundedMailboxQueue<Q> {
+impl<Q: SyncMailboxQueue> QueueWriter<MessageHandle> for UnboundedMailboxQueue<Q> {
   fn offer(&mut self, element: MessageHandle) -> Result<(), QueueError<MessageHandle>> {
     self.user_mailbox.offer(element)
   }
 }
 
-impl<Q: SyncMailboxQueue> SyncQueueReader<MessageHandle> for UnboundedMailboxQueue<Q> {
+impl<Q: SyncMailboxQueue> QueueReader<MessageHandle> for UnboundedMailboxQueue<Q> {
   fn poll(&mut self) -> Result<Option<MessageHandle>, QueueError<MessageHandle>> {
     self.user_mailbox.poll()
   }
@@ -46,7 +46,7 @@ impl<Q: SyncMailboxQueue> SyncQueueReader<MessageHandle> for UnboundedMailboxQue
   }
 }
 
-impl<Q: SyncMailboxQueue> SyncQueueSupport for UnboundedMailboxQueue<Q> {}
+impl<Q: SyncMailboxQueue> QueueSupport for UnboundedMailboxQueue<Q> {}
 
 // ---
 

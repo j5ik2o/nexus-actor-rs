@@ -15,7 +15,7 @@ dashmap = { workspace = true }
 futures = { workspace = true }
 nexus-actor-core-rs = { version = "3.*", path = "../actor" }
 nexus-message-derive-rs = { version = "0.*", path = "../message-derive" }
-nexus-utils-core-rs = { version = "0.*", path = "../utils" }
+nexus-utils-std-rs = { version = "0.*", path = "../utils-std" }
 num_enum = { workspace = true }
 once_cell = { workspace = true }
 parking_lot = { workspace = true }

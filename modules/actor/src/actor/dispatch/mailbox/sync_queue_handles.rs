@@ -1,18 +1,16 @@
 use std::fmt::Debug;
 use std::sync::Arc;
 
-use nexus_utils_core_rs::collections::{
-  QueueError, QueueSize, SyncQueueBase, SyncQueueReader, SyncQueueSupport, SyncQueueWriter,
-};
+use nexus_utils_std_rs::collections::{QueueBase, QueueError, QueueReader, QueueSize, QueueSupport, QueueWriter};
 use parking_lot::Mutex;
 
 use crate::actor::message::MessageHandle;
 
 pub(crate) trait SyncMailboxQueue:
-  SyncQueueWriter<MessageHandle>
-  + SyncQueueReader<MessageHandle>
-  + SyncQueueBase<MessageHandle>
-  + SyncQueueSupport
+  QueueWriter<MessageHandle>
+  + QueueReader<MessageHandle>
+  + QueueBase<MessageHandle>
+  + QueueSupport
   + Send
   + Sync
   + Clone
@@ -20,10 +18,10 @@ pub(crate) trait SyncMailboxQueue:
 }
 
 impl<T> SyncMailboxQueue for T where
-  T: SyncQueueWriter<MessageHandle>
-    + SyncQueueReader<MessageHandle>
-    + SyncQueueBase<MessageHandle>
-    + SyncQueueSupport
+  T: QueueWriter<MessageHandle>
+    + QueueReader<MessageHandle>
+    + QueueBase<MessageHandle>
+    + QueueSupport
     + Send
     + Sync
     + Clone
@@ -32,13 +30,13 @@ impl<T> SyncMailboxQueue for T where
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct SyncQueueWriterHandle<Q>
+pub(crate) struct QueueWriterHandle<Q>
 where
   Q: SyncMailboxQueue, {
   inner: Arc<Mutex<Q>>,
 }
 
-impl<Q> SyncQueueWriterHandle<Q>
+impl<Q> QueueWriterHandle<Q>
 where
   Q: SyncMailboxQueue,
 {
@@ -57,13 +55,13 @@ where
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct SyncQueueReaderHandle<Q>
+pub(crate) struct QueueReaderHandle<Q>
 where
   Q: SyncMailboxQueue, {
   inner: Arc<Mutex<Q>>,
 }
 
-impl<Q> SyncQueueReaderHandle<Q>
+impl<Q> QueueReaderHandle<Q>
 where
   Q: SyncMailboxQueue,
 {
@@ -116,11 +114,11 @@ where
     }
   }
 
-  pub fn writer_handle(&self) -> SyncQueueWriterHandle<Q> {
-    SyncQueueWriterHandle::new(self.shared.clone())
+  pub fn writer_handle(&self) -> QueueWriterHandle<Q> {
+    QueueWriterHandle::new(self.shared.clone())
   }
 
-  pub fn reader_handle(&self) -> SyncQueueReaderHandle<Q> {
-    SyncQueueReaderHandle::new(self.shared.clone())
+  pub fn reader_handle(&self) -> QueueReaderHandle<Q> {
+    QueueReaderHandle::new(self.shared.clone())
   }
 }
