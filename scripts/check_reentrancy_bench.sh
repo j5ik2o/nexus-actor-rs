@@ -9,7 +9,7 @@ BASE_THRESHOLD_NS=25000000
 pushd "$PROJECT_ROOT" >/dev/null
 
 if [ "${SKIP_BENCH:-0}" != "1" ]; then
-  cargo bench -p nexus-actor-bench-rs --bench reentrancy >/dev/null
+  cargo bench -p nexus-actor-core-rs --bench reentrancy >/dev/null
 fi
 
 if [ ! -f "$BENCH_TARGET" ]; then

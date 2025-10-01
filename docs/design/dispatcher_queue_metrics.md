@@ -34,7 +34,7 @@
 - 測定値は `ActorContext` 内にある `MetricsSink` を利用し、Provider 未設定時は no-op。
 
 ## ベンチ計測
-- `modules/actor/bench/benches/actor_context_lock.rs` を拡張し、以下を計測する Criterion ベンチを追加：
+- `modules/actor/benches/actor_context_lock.rs` を拡張し、以下を計測する Criterion ベンチを追加：
   - 高負荷時の `actor_dispatch_latency_ms` の分布
   - キュー長（メールボックスバッファ）が一定値を超えるまでの時間
 - ベンチ結果は `docs/benchmarks/core_actor_context_lock.md` に追記し、リグレッション検出に活用。

@@ -6,7 +6,6 @@ members = [
   ,"modules/message-derive"
   ,"modules/remote"
   ,"modules/cluster"
-  ,"modules/actor/bench"
 ]
 
 [workspace.dependencies]

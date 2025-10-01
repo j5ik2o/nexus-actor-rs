@@ -64,6 +64,11 @@ governor = "0.10.0"
 humantime = "2.1"
 rstest = "0.26.0"
 loom = "0.7"
+criterion = { version = "0.7", default-features = false, features = ["html_reports", "async_tokio"] }
+opentelemetry = { version = "0.31.0", features = ["metrics"] }
+opentelemetry-stdout = { version = "0.31.0", features = ["metrics"] }
+opentelemetry_sdk = { version = "0.31.0", features = ["metrics", "rt-tokio", "testing"] }
+rand = "0.9"
 
 [build-dependencies]
 tonic-build = { version = "0.13.0" }
