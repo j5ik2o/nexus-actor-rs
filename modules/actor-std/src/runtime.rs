@@ -6,6 +6,7 @@ use std::boxed::Box;
 use nexus_actor_core_rs::runtime::{AsyncMutex, AsyncNotify, AsyncRwLock, Timer};
 use tokio::sync::{Mutex, MutexGuard, Notify, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
+#[derive(Debug)]
 pub struct TokioMutex<T>(Mutex<T>);
 
 impl<T> TokioMutex<T> {
@@ -30,6 +31,7 @@ impl<T: Send + 'static> AsyncMutex<T> for TokioMutex<T> {
   }
 }
 
+#[derive(Debug)]
 pub struct TokioRwLock<T>(RwLock<T>);
 
 impl<T> TokioRwLock<T> {
@@ -59,6 +61,7 @@ impl<T: Send + Sync + 'static> AsyncRwLock<T> for TokioRwLock<T> {
   }
 }
 
+#[derive(Debug)]
 pub struct TokioNotify(Notify);
 
 impl TokioNotify {

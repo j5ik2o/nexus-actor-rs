@@ -855,13 +855,16 @@ impl BasePart for ActorContext {
   async fn stash(&mut self) {
     let extra = self.ensure_extras().await;
     let stash = extra.get_stash().await;
-    stash.push(self.get_message_handle_opt().await.expect("message not found"));
+    stash
+      .push(self.get_message_handle_opt().await.expect("message not found"))
+      .await;
   }
 
   async fn un_stash_all(&mut self) -> Result<(), ActorError> {
     if let Some(extras) = self.get_extras().await {
-      while !extras.get_stash().await.is_empty() {
-        let msg = extras.get_stash().await.pop().unwrap();
+      let stash = extras.get_stash().await;
+      while !stash.is_empty().await {
+        let msg = stash.pop().await.unwrap();
         let result = self.invoke_user_message(msg).await;
         if result.is_err() {
           tracing::error!("Failed to handle stashed message");
