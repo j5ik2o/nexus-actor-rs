@@ -8,6 +8,7 @@
 - `modules/actor-core/src/actor/context/actor_context.rs` と `context_handle.rs` は `ContextBorrow` / `ContextSnapshot` を提供し、ミドルウェアが同期参照で完結するパスを確保済み。
 - Supervisor・メトリクス周りは `ArcSwap` に統一され、`ContextExtensions` も `ArcSwapOption<WeakContextHandle>` ベースで共有（`modules/actor-core/src/actor/context/actor_context_extras.rs`）。
 - `scripts/list_arc_mutex_usage.sh` で棚卸しした `Arc<Mutex<_>>` の主要箇所は `PidSet`・`ActorContextExtras` へ移行し、同期ロックによる再入リスクを低減済み。
+- actor-core は `CorePid`／`CoreMessageEnvelope`／`CoreProcessHandle` を束ねた no_std + alloc の最小核として安定化し、actor-std は Tokio 実装と ProtoBuf 変換を担う実装ハブに一本化済み。
 
 ## 検証タスク
 - Virtual Actor 経路（`cluster/src/virtual_actor/runtime.rs`）で `ContextHandle` の同期 API を多用する箇所を洗い出し、`ContextBorrow` へ置換できるか確認する。

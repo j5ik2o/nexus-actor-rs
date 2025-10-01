@@ -32,6 +32,7 @@
 - RingQueue を `RingBuffer` ベースへ移行し、std 層は `Mutex` 包装のみを担当する構造に整理。
 - DefaultMailbox 内のキュー長取得も CoreMailboxQueue ベースに切り替え、dispatch ループでの統計取得を core 抽象へ統一。
 - CoreMailboxQueueAsyncExt を追加し、キュー操作を Future 化できるインターフェースを core レイヤで提供。
+- 2025-10-01 に `cargo check -p nexus-actor-core-rs --no-default-features --features alloc`、`cargo test --workspace`、`cargo bench -p nexus-actor-std-rs` を実行し、actor-core/no_std 経路と actor-std ベンチの回帰が無いことを確認。併せて docs 配下の役割整理とリリースノート草案を更新。
 
 ## 継続タスク（優先度：高→低）
 - 【高：監視拡張】EndpointSupervisor や RemoteProcess を含む監視経路で `WatchRegistry` を活用し、テレメトリや監視イベント発火との整合性を取る（例：EndpointSupervisor 経由の登録、RemoteProcess の最適化）。
@@ -41,7 +42,4 @@
 - 【中：コア移植】`alloc` だけで動くコンポーネント（PID, middleware, Serialized message handles など）を actor-core に移し、必要に応じて `alloc::` 系型や `hashbrown` への置き換えを実施する。
 
 ## 検証・ドキュメント（優先度順）
-1. `cargo check -p nexus-actor-core-rs --no-default-features --features alloc` を追加し、actor-core 単体の no_std ビルドが通るタイミングを随時確認。
-2. `cargo test --workspace` と `cargo bench -p nexus-actor-std-rs` を継続実行し、分離作業による回帰を監視。
-3. `docs/` 配下（`core_improvement_plan.md` など）を actor-core / actor-std の役割に合わせて更新し、作業完了段階で MECE に整理。
-4. 変更内容を整理したリリースノート草案を作成し、依存プロジェクトへの影響範囲（新たな `nexus-actor-core-rs` の位置付け）を明記する。
+- 現状タスクなし（2025-10-01 時点）。CI 定期実行とリリースノート仕上げフェーズへの移行待ち。
