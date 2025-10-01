@@ -2,6 +2,8 @@ use crate::actor::core::ActorError;
 use crate::actor::core::ErrorReason;
 use crate::actor::dispatch::bounded::BoundedMailboxQueue;
 use crate::actor::dispatch::dispatcher::{Dispatcher, DispatcherHandle, TokioRuntimeContextDispatcher};
+use crate::actor::dispatch::mailbox::mpsc_core_queue::UnboundedMpscCoreMailboxQueue;
+use crate::actor::dispatch::mailbox::sync_queue_handles::SyncMailboxQueueHandles;
 use crate::actor::dispatch::mailbox::DefaultMailbox;
 use crate::actor::dispatch::mailbox_message::MailboxMessage;
 use crate::actor::dispatch::message_invoker::{MessageInvoker, MessageInvokerHandle};
@@ -598,4 +600,58 @@ fn test_bounded_dropping_mailbox() {
   let result = m.poll().unwrap();
   let value = result.unwrap().to_typed::<String>().unwrap();
   assert_eq!(value, "2".to_string());
+}
+
+#[test]
+fn test_core_queue_handles_reflect_bounded_drop() {
+  let size = 3;
+  let user_handles = SyncMailboxQueueHandles::new(BoundedMailboxQueue::new(RingQueue::new(size), size, true));
+  let writer = user_handles.writer_handle();
+  writer.offer_sync(MessageHandle::new("1".to_string())).unwrap();
+  writer.offer_sync(MessageHandle::new("2".to_string())).unwrap();
+  writer.offer_sync(MessageHandle::new("3".to_string())).unwrap();
+  writer.offer_sync(MessageHandle::new("4".to_string())).unwrap();
+
+  let core_user_queue = user_handles.core_queue();
+  assert_eq!(core_user_queue.len(), size);
+
+  let reader = user_handles.reader_handle();
+  let next = reader.poll_sync().unwrap().unwrap();
+  assert_eq!(next.to_typed::<String>().unwrap(), "2".to_string());
+}
+
+#[tokio::test]
+async fn test_bounded_mailbox_metrics_remain_consistent_after_drop() {
+  let size = 3;
+  let user_handles = SyncMailboxQueueHandles::new(BoundedMailboxQueue::new(RingQueue::new(size), size, true));
+
+  let system_queue = MpscUnboundedChannelQueue::new();
+  let system_core = Arc::new(UnboundedMpscCoreMailboxQueue::new(system_queue.clone()));
+  let system_handles =
+    SyncMailboxQueueHandles::new_with_core(UnboundedMailboxQueue::new(system_queue), Some(system_core));
+
+  let mailbox = DefaultMailbox::from_handles(user_handles.clone(), system_handles);
+
+  let writer = user_handles.writer_handle();
+  writer.offer_sync(MessageHandle::new("1".to_string())).unwrap();
+  writer.offer_sync(MessageHandle::new("2".to_string())).unwrap();
+  writer.offer_sync(MessageHandle::new("3".to_string())).unwrap();
+  writer.offer_sync(MessageHandle::new("4".to_string())).unwrap();
+
+  let (core_user, core_system) = mailbox.core_queue_handles();
+  assert_eq!(core_user.len(), size);
+  assert_eq!(core_system.len(), 0);
+
+  mailbox.test_record_queue_latency(MailboxQueueKind::User, Duration::from_millis(5));
+  let latency_metrics = mailbox.queue_latency_metrics();
+  assert_eq!(latency_metrics.total_samples(MailboxQueueKind::User), 1);
+
+  let suspension = mailbox.suspension_metrics();
+  assert_eq!(suspension.resume_events, 0);
+  assert_eq!(suspension.total_duration, Duration::from_nanos(0));
+
+  let sync_handle = mailbox.to_sync_handle();
+  let (user_core_handle, system_core_handle) = sync_handle.core_queue_handles().expect("core handles");
+  assert_eq!(user_core_handle.len(), size);
+  assert_eq!(system_core_handle.len(), 0);
 }
