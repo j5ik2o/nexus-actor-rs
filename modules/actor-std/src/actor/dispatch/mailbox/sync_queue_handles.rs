@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 use std::sync::Arc;
 
+use nexus_actor_core_rs::actor::core_types::mailbox::CoreMailboxQueue;
 use nexus_utils_std_rs::collections::{QueueBase, QueueError, QueueReader, QueueSize, QueueSupport, QueueWriter};
 use parking_lot::Mutex;
 
@@ -120,5 +121,57 @@ where
 
   pub fn reader_handle(&self) -> QueueReaderHandle<Q> {
     QueueReaderHandle::new(self.shared.clone())
+  }
+
+  pub fn core_queue_handle(&self) -> CoreMailboxQueueHandle<Q> {
+    CoreMailboxQueueHandle::new(self.shared.clone())
+  }
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct CoreMailboxQueueHandle<Q>
+where
+  Q: SyncMailboxQueue, {
+  shared: Arc<Mutex<Q>>,
+}
+
+impl<Q> CoreMailboxQueueHandle<Q>
+where
+  Q: SyncMailboxQueue,
+{
+  fn new(shared: Arc<Mutex<Q>>) -> Self {
+    Self { shared }
+  }
+
+  fn with_lock<F, R>(&self, f: F) -> R
+  where
+    F: FnOnce(&mut Q) -> R, {
+    let mut guard = self.shared.lock();
+    f(&mut guard)
+  }
+}
+
+impl<Q> CoreMailboxQueue for CoreMailboxQueueHandle<Q>
+where
+  Q: SyncMailboxQueue,
+{
+  type Error = QueueError<MessageHandle>;
+
+  fn offer(&self, message: MessageHandle) -> Result<(), Self::Error> {
+    self.with_lock(|queue| queue.offer(message))
+  }
+
+  fn poll(&self) -> Result<Option<MessageHandle>, Self::Error> {
+    self.with_lock(|queue| queue.poll())
+  }
+
+  fn len(&self) -> usize {
+    self.with_lock(|queue| queue.len()).to_usize()
+  }
+
+  fn clean_up(&self) {
+    self.with_lock(|queue| {
+      queue.clean_up();
+    });
   }
 }

@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 use crate::actor::dispatch::dispatcher::{Dispatcher, DispatcherHandle, Runnable};
 use crate::actor::dispatch::mailbox::mailbox_handle::MailboxHandle;
 use crate::actor::dispatch::mailbox::sync_queue_handles::{
-  QueueReaderHandle, QueueWriterHandle, SyncMailboxQueue, SyncMailboxQueueHandles,
+  CoreMailboxQueueHandle, QueueReaderHandle, QueueWriterHandle, SyncMailboxQueue, SyncMailboxQueueHandles,
 };
 use crate::actor::dispatch::mailbox::{Mailbox, MailboxQueueKind, MailboxSync, MailboxSyncHandle};
 use crate::actor::dispatch::mailbox_message::MailboxMessage;
@@ -340,6 +340,8 @@ where
   metrics_enabled: Arc<AtomicBool>,
   user_snapshot_counter: Arc<AtomicU64>,
   system_snapshot_counter: Arc<AtomicU64>,
+  core_user_queue: CoreMailboxQueueHandle<UQ>,
+  core_system_queue: CoreMailboxQueueHandle<SQ>,
 }
 
 impl<UQ, SQ> DefaultMailbox<UQ, SQ>
@@ -386,6 +388,8 @@ where
       metrics_enabled: Arc::new(AtomicBool::new(false)),
       user_snapshot_counter: Arc::new(AtomicU64::new(0)),
       system_snapshot_counter: Arc::new(AtomicU64::new(0)),
+      core_user_queue: user_handles.core_queue_handle(),
+      core_system_queue: system_handles.core_queue_handle(),
     }
   }
 
@@ -413,6 +417,10 @@ where
 
   pub(crate) fn to_sync_handle(&self) -> MailboxSyncHandle {
     MailboxSyncHandle::new(self.clone())
+  }
+
+  pub(crate) fn core_queue_handles(&self) -> (CoreMailboxQueueHandle<UQ>, CoreMailboxQueueHandle<SQ>) {
+    (self.core_user_queue.clone(), self.core_system_queue.clone())
   }
 
   pub(crate) fn queue_latency_metrics(&self) -> MailboxQueueLatencyMetrics {
