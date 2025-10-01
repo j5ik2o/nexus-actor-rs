@@ -72,7 +72,12 @@ static DEFAULT_MAILBOX_PRODUCER: Lazy<MailboxProducer> = Lazy::new(|| unbounded_
 static DEFAULT_SPAWNER: Lazy<Spawner> = Lazy::new(|| {
   Spawner::new(
     |actor_system: ActorSystem, name: String, props: Props, parent_context: SpawnerContextHandle| async move {
-      tracing::debug!("Spawn actor: {}", name);
+      let actor_type_label = props
+        .actor_type_hint_str()
+        .map(|s| s.to_owned())
+        .unwrap_or_else(|| "unknown".to_string());
+      let actor_type_label_ref = actor_type_label.as_str();
+      tracing::debug!(actor_type = actor_type_label_ref, "Spawn actor: {}", name);
       let mut ctx = ActorContext::new(actor_system.clone(), props.clone(), parent_context.get_self_opt().await).await;
       let mut mb = props.produce_mailbox().await;
 
@@ -98,7 +103,11 @@ static DEFAULT_SPAWNER: Lazy<Spawner> = Lazy::new(|| {
       let mut mi = MessageInvokerHandle::new_with_metrics(Arc::new(RwLock::new(ctx.clone())), wants_metrics);
 
       mb.register_handlers(Some(mi.clone()), Some(dp.clone())).await;
-      tracing::debug!("mailbox handlers registered: {}", name);
+      tracing::debug!(
+        actor_type = actor_type_label_ref,
+        "mailbox handlers registered: {}",
+        name
+      );
 
       let result = mi
         .invoke_user_message(MessageHandle::new(AutoReceiveMessage::PreStart))
@@ -109,9 +118,13 @@ static DEFAULT_SPAWNER: Lazy<Spawner> = Lazy::new(|| {
       }
 
       mb.post_system_message(MessageHandle::new(SystemMessage::Start)).await;
-      tracing::debug!("post_system_message: started: {}", name);
+      tracing::debug!(
+        actor_type = actor_type_label_ref,
+        "post_system_message: started: {}",
+        name
+      );
       mb.start().await;
-      tracing::debug!("mailbox started: {}", name);
+      tracing::debug!(actor_type = actor_type_label_ref, "mailbox started: {}", name);
 
       Ok(pid)
     },
@@ -165,6 +178,14 @@ impl PropsOption {
 }
 
 impl Props {
+  pub fn actor_type_hint_str(&self) -> Option<&str> {
+    self.actor_type_hint.as_deref()
+  }
+
+  pub fn actor_type_hint(&self) -> Option<Arc<str>> {
+    self.actor_type_hint.clone()
+  }
+
   pub fn core_props(&self) -> CoreProps {
     let mailbox_producer = self
       .mailbox_producer

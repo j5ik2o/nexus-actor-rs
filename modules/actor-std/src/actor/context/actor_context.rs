@@ -167,6 +167,10 @@ impl ActorContext {
       base_context_handle: Arc::new(OnceCell::new()),
       mailbox_metrics_state: Arc::new(RwLock::new(MailboxMetricsState::default())),
     };
+    if let Some(hint) = ctx.props.actor_type_hint() {
+      let _ = ctx.actor_type.set(hint.clone());
+      let _ = ctx.init_metrics_sink_with_type(Some(hint.as_ref()));
+    }
     ctx.incarnate_actor().await;
     ctx
   }
@@ -445,10 +449,17 @@ impl ActorContext {
     let ch = self.base_context_handle();
     let actor = self.props_ref().get_producer().run(ch).await;
     let actor_type = actor.type_name_arc();
-    let _ = self.actor_type.set(actor_type.clone());
+    if self.actor_type.get().is_none() {
+      let _ = self.actor_type.set(actor_type.clone());
+    }
     self.set_actor(actor);
 
-    if let Some(sink) = self.init_metrics_sink_with_type(Some(actor_type.as_ref())) {
+    let sink = if let Some(existing) = self.metrics_sink.get() {
+      Some(existing.clone())
+    } else {
+      self.init_metrics_sink_with_type(Some(actor_type.as_ref()))
+    };
+    if let Some(sink) = sink {
       sink.increment_actor_spawn();
     }
   }
