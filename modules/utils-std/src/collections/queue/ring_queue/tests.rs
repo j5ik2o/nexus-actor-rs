@@ -1,4 +1,4 @@
-use crate::collections::queue_sync::{QueueBase, QueueReader, QueueWriter};
+use crate::collections::queue_traits::{QueueBase, QueueReader, QueueWriter};
 use crate::collections::{QueueError, RingQueue};
 
 #[test]

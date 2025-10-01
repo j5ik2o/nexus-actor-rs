@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-use crate::collections::queue_sync::{QueueBase, QueueReader, QueueSupport, QueueWriter};
+use crate::collections::queue_traits::{QueueBase, QueueReader, QueueSupport, QueueWriter};
 use crate::collections::{PriorityMessage, QueueError, QueueSize, DEFAULT_PRIORITY, PRIORITY_LEVELS};
 use parking_lot::RwLock;
 

@@ -28,7 +28,7 @@
    - 現在の `nexus-utils-core-rs` を `nexus-utils-std-rs` にリネーム。
    - 依存しているクレートの `Cargo.toml` を更新（`nexus-utils-std-rs` + `nexus-utils-core-rs`）。
 4. **std 非依存コードを utils-core へ移植**
-   - 例: `queue_sync`, `ring_queue` などを `modules/utils-core` に移動。
+   - 例: `queue_traits`, `ring_queue` などを `modules/utils-core` に移動。
    - `std` に依存する部分（`Arc`, `Mutex`）は `cfg(feature = "std")` または `utils-std` 側に保持。
 5. **std 向け補助クレートの整備**
    - `modules/utils-std`（仮）で tokio / std 依存コードを re-export。

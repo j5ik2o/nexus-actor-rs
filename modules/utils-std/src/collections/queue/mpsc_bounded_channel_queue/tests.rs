@@ -1,5 +1,5 @@
 use crate::collections::element::Element;
-use crate::collections::queue_sync::{QueueBase, QueueReader, QueueWriter};
+use crate::collections::queue_traits::{QueueBase, QueueReader, QueueWriter};
 use crate::collections::{MpscBoundedChannelQueue, QueueError, QueueSize};
 
 #[derive(Debug, Clone, PartialEq)]

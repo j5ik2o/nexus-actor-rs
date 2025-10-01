@@ -1,5 +1,5 @@
 use crate::collections::element::Element;
-use crate::collections::queue_sync::{QueueBase, QueueReader, QueueWriter};
+use crate::collections::queue_traits::{QueueBase, QueueReader, QueueWriter};
 use crate::collections::{MpscUnboundedChannelQueue, PriorityMessage, PriorityQueue, QueueSize};
 use std::fmt::Debug;
 use std::sync::Arc;
