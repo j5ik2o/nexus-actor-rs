@@ -9,7 +9,7 @@ use crate::actor::message::SystemMessage;
 use crate::actor::message::TerminateReason;
 use crate::actor::metrics::metrics_impl::{MetricsRuntime, MetricsSink};
 use crate::actor::process::{Process, ProcessHandle};
-use crate::generated::actor::{DeadLetterResponse, Terminated};
+use crate::generated::actor::DeadLetterResponse;
 
 use crate::actor::dispatch::throttler::{Throttle, Valve};
 use arc_swap::ArcSwapOption;
@@ -125,15 +125,15 @@ impl DeadLetterProcess {
           if let Some(dle) = cloned_msg.to_typed::<DeadLetterEvent>() {
             if let Some(SystemMessage::Watch(watch)) = dle.message_handle.to_typed::<SystemMessage>() {
               let actor_system = cloned_self.actor_system();
-              let pid = watch.watcher.clone().unwrap();
-              let e_pid = ExtendedPid::new(pid.clone());
+              let watcher_core = watch.watcher().clone();
+              let e_pid = ExtendedPid::from_core(watcher_core.clone());
               e_pid
                 .send_system_message(
                   actor_system,
-                  MessageHandle::new(SystemMessage::Terminate(Terminated {
-                    who: Some(pid),
-                    why: TerminateReason::NotFound as i32,
-                  })),
+                  MessageHandle::new(SystemMessage::terminate(
+                    Some(watcher_core.clone()),
+                    TerminateReason::NotFound,
+                  )),
                 )
                 .await;
 

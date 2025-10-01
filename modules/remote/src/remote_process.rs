@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use nexus_actor_std_rs::actor::core::ExtendedPid;
 use nexus_actor_std_rs::actor::message::{unwrap_envelope, MessageHandle, ReadonlyMessageHeadersHandle, SystemMessage};
 use nexus_actor_std_rs::actor::process::Process;
-use nexus_actor_std_rs::generated::actor::{Pid, Unwatch, Watch};
+use nexus_actor_std_rs::generated::actor::Pid;
 use std::any::Any;
 
 #[derive(Debug, Clone)]
@@ -58,30 +58,33 @@ impl Process for RemoteProcess {
 
   async fn send_system_message(&self, pid: &ExtendedPid, message_handle: MessageHandle) {
     tracing::debug!("Sending system message to remote process");
-    let watch_opt = message_handle.to_typed::<Watch>();
-    let unwatch_opt = message_handle.to_typed::<Unwatch>();
-    match (watch_opt, unwatch_opt) {
-      (Some(watch), None) => {
-        let rd = RemoteWatch {
-          watcher: watch.watcher.unwrap(),
-          watchee: pid.inner_pid.clone(),
-        };
-        self.remote.get_endpoint_manager().await.remote_watch(rd).await;
-      }
-      (None, Some(unwatch)) => {
-        let ruw = RemoteUnwatch {
-          watcher: unwatch.watcher.unwrap(),
-          watchee: pid.inner_pid.clone(),
-        };
-        self.remote.get_endpoint_manager().await.remote_unwatch(ruw).await;
-      }
-      (_, _) => {
-        self
-          .remote
-          .send_message(pid.inner_pid.clone(), None, message_handle, None, SerializerId::None)
-          .await;
+    if let Some(system_message) = message_handle.to_typed::<SystemMessage>() {
+      match system_message {
+        SystemMessage::Watch(watch) => {
+          let watcher = Pid::from_core(watch.watcher().clone());
+          let rd = RemoteWatch {
+            watcher,
+            watchee: pid.inner_pid.clone(),
+          };
+          self.remote.get_endpoint_manager().await.remote_watch(rd).await;
+          return;
+        }
+        SystemMessage::Unwatch(unwatch) => {
+          let watcher = Pid::from_core(unwatch.watcher().clone());
+          let ruw = RemoteUnwatch {
+            watcher,
+            watchee: pid.inner_pid.clone(),
+          };
+          self.remote.get_endpoint_manager().await.remote_unwatch(ruw).await;
+          return;
+        }
+        _ => {}
       }
     }
+    self
+      .remote
+      .send_message(pid.inner_pid.clone(), None, message_handle, None, SerializerId::None)
+      .await;
   }
 
   async fn stop(&self, pid: &ExtendedPid) {

@@ -24,10 +24,12 @@
 - ActorContext のメッセージ API を `MessageEnvelope` ラッパ経由に整理し、CoreMessageEnvelope と整合する変換経路を確立。
 - Supervisor／SupervisorStrategy トレイトを CorePid ベースへ移行し、`CorePidRef` 抽象と `ExtendedPid` 実装を整備して、監視系メトリクス・イベントの橋渡しを簡潔化。
 - ExtendedPid ↔ CorePid 変換の共通ヘルパー（`From` 実装・スライス変換ユーティリティ）を追加し、監視経路・コンテキストからの PID 変換処理を一元化。
+- SystemMessage（Restart/Start/Stop/Watch/Unwatch/Terminate）を actor-core の `core_types::system_message` に集約し、std 層では ProtoBuf 変換ヘルパーと runtime 実装のみを保持する構成へ移行。
 
 ## 継続タスク（優先度：高→低）
 - 【高：監視拡張】EndpointSupervisor や RemoteProcess を含む監視経路で `WatchRegistry` を活用し、テレメトリや監視イベント発火との整合性を取る（例：EndpointSupervisor 経由の登録、RemoteProcess の最適化）。
-- 【中：抽象再設計】ロック／タイマー／チャネル等の Tokio 依存箇所を抽象化し、actor-core では trait のみに集約、actor-std が Tokio 実装を提供する構造へ段階的に移行する（対象：mailbox, process, supervisor など）。
+- 【高：抽象再設計】Mailbox／ProcessRegistry／Supervisor 系の Tokio 依存を trait 化し、actor-core がインターフェース、actor-std が Tokio 実装という責務分割に仕上げる（チャネル実装の差し替え方針も併せて整理）。
+- 【高：ActorContext／Props 最小核】ActorContext・Props のうち同期／no_std で必要な API を actor-core に定義し、std 層はメールボックス・メトリクス拡張へ専念できる構造へ段階的に移行する。
 - 【中：再起動統計】`RestartStatistics` 抽象化ドラフト（docs/worknotes/2025-10-01-restart-statistics-plan.md）に沿って、FailureClock トレイト導入とコア移植を進める。
 - 【中：コア移植】`alloc` だけで動くコンポーネント（PID, middleware, Serialized message handles など）を actor-core に移し、必要に応じて `alloc::` 系型や `hashbrown` への置き換えを実施する。
 

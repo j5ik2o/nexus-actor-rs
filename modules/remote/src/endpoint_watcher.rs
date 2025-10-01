@@ -8,9 +8,9 @@ use dashmap::DashMap;
 use nexus_actor_std_rs::actor::actor_system::ActorSystem;
 use nexus_actor_std_rs::actor::context::{ContextHandle, InfoPart, MessagePart, StopperPart};
 use nexus_actor_std_rs::actor::core::{Actor, ActorError, ExtendedPid, PidSet};
-use nexus_actor_std_rs::actor::message::{MessageHandle, SystemMessage};
+use nexus_actor_std_rs::actor::message::{MessageHandle, SystemMessage, TerminateReason};
 use nexus_actor_std_rs::actor::process::Process;
-use nexus_actor_std_rs::generated::actor::{Pid, Terminated, TerminatedReason, Unwatch, Watch};
+use nexus_actor_std_rs::generated::actor::Pid;
 use std::sync::{Arc, Weak};
 use tokio::sync::RwLock;
 
@@ -118,12 +118,12 @@ impl EndpointWatcher {
       let watchee_ref = watchee_opt.as_ref();
       let _ = self.registry.remove_watchee(&watcher_id, watchee_ref).await;
 
-      let why = TerminatedReason::Stopped as i32;
-      let msg = Terminated { who: watchee_opt, why };
+      let terminated_message =
+        SystemMessage::terminate(watchee_opt.as_ref().map(Pid::to_core), TerminateReason::Stopped);
       if let Some(ref_process) = system.get_process_registry().await.get_local_process(&watcher_id).await {
         let pid = ExtendedPid::new(watcher_pid);
         ref_process
-          .send_system_message(&pid, MessageHandle::new(SystemMessage::Terminate(msg)))
+          .send_system_message(&pid, MessageHandle::new(terminated_message))
           .await;
       }
     }
@@ -137,14 +137,11 @@ impl EndpointWatcher {
         for (id, pid_set) in self.watched_snapshot() {
           if let Some(ref_process) = system.get_process_registry().await.get_local_process(&id).await {
             for pid in pid_set.to_vec().await.iter() {
-              let why = TerminatedReason::AddressTerminated as i32;
-              let msg = Terminated {
-                who: Some(pid.clone()),
-                why,
-              };
+              let terminated_message =
+                SystemMessage::terminate(Some(pid.to_core()), TerminateReason::AddressTerminated);
               let pid = ExtendedPid::new(pid.clone());
               ref_process
-                .send_system_message(&pid, MessageHandle::new(SystemMessage::Terminate(msg)))
+                .send_system_message(&pid, MessageHandle::new(terminated_message))
                 .await;
             }
           }
@@ -163,31 +160,29 @@ impl EndpointWatcher {
       }
     }
     if let Some(remote_watch) = msg.to_typed::<RemoteWatch>() {
-      let watcher_id = remote_watch.watcher.clone().id.clone();
+      let watcher = remote_watch.watcher.clone();
+      let watcher_id = watcher.id.clone();
       let watchee = remote_watch.watchee.clone();
       self.add_watch_pid(&watcher_id, watchee.clone()).await;
-      let u = SystemMessage::Watch(Watch {
-        watcher: Some(remote_watch.watcher),
-      });
+      let message = SystemMessage::watch(watcher.to_core());
       self
         .remote
         .upgrade()
         .unwrap()
-        .send_message(watchee, None, MessageHandle::new(u), None, SerializerId::None)
+        .send_message(watchee, None, MessageHandle::new(message), None, SerializerId::None)
         .await;
     }
     if let Some(remote_un_watch) = msg.to_typed::<RemoteUnwatch>() {
-      let watcher_id = remote_un_watch.watcher.clone().id.clone();
+      let watcher = remote_un_watch.watcher.clone();
+      let watcher_id = watcher.id.clone();
       let watchee = remote_un_watch.watchee.clone();
       self.remove_watch_pid(&watcher_id, &watchee).await;
-      let w = SystemMessage::Unwatch(Unwatch {
-        watcher: Some(remote_un_watch.watcher),
-      });
+      let message = SystemMessage::unwatch(watcher.to_core());
       self
         .remote
         .upgrade()
         .unwrap()
-        .send_message(watchee, None, MessageHandle::new(w), None, SerializerId::None)
+        .send_message(watchee, None, MessageHandle::new(message), None, SerializerId::None)
         .await;
     }
     Ok(())
@@ -205,14 +200,11 @@ impl EndpointWatcher {
       let watcher_id = remote_watch.watcher.clone().id.clone();
       let watchee = remote_watch.watchee.clone();
       if let Some(ref_process) = system.get_process_registry().await.get_local_process(&watcher_id).await {
-        let why = TerminatedReason::AddressTerminated as i32;
-        let msg = Terminated {
-          who: Some(watchee.clone()),
-          why,
-        };
+        let terminated_message =
+          SystemMessage::terminate(Some(watchee.clone().to_core()), TerminateReason::AddressTerminated);
         let pid = ExtendedPid::new(watchee.clone());
         ref_process
-          .send_system_message(&pid, MessageHandle::new(SystemMessage::Terminate(msg)))
+          .send_system_message(&pid, MessageHandle::new(terminated_message))
           .await;
       }
     }

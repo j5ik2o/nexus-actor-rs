@@ -1,6 +1,7 @@
 use super::*;
 use crate::generated::cluster::PubSubEnvelope;
 use crate::serializer::initialize_proto_serializers;
+use nexus_actor_std_rs::actor::message::WatchMessage;
 use nexus_actor_std_rs::generated::actor::{Pid, Terminated, TerminatedReason, Watch};
 use prost::Message as ProstMessage;
 
@@ -47,7 +48,8 @@ fn decode_watch_to_system_message() {
 
   match decoded {
     DecodedMessage::System(SystemMessage::Watch(actual)) => {
-      assert!(actual.watcher.is_some());
+      let expected = WatchMessage::new(Pid::default().to_core());
+      assert_eq!(actual, expected);
     }
     other => panic!("expected system message, got {other:?}"),
   }

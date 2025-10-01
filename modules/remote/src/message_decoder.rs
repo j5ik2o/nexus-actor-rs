@@ -5,7 +5,7 @@ use crate::generated::cluster::{DeliverBatchRequestTransport, PubSubAutoRespondB
 use crate::serializer::{
   deserialize_any, deserialize_message, AnyDowncastExt, RootSerializable, RootSerialized, SerializerError, SerializerId,
 };
-use nexus_actor_std_rs::actor::message::{Message, SystemMessage};
+use nexus_actor_std_rs::actor::message::{Message, SystemMessage, SystemMessageFromProtoExt};
 use nexus_actor_std_rs::generated::actor::{Stop, Terminated, Unwatch, Watch};
 use prost::Message as ProstMessage;
 
@@ -82,17 +82,23 @@ pub fn decode_wire_message(
   }
 
   if type_name == std::any::type_name::<Stop>() {
-    return Ok(DecodedMessage::System(SystemMessage::of_stop()));
+    return Ok(DecodedMessage::System(SystemMessage::stop()));
   }
 
   if type_name == std::any::type_name::<Watch>() {
     let watch = Watch::decode(payload).map_err(|e| SerializerError::DeserializationError(e.to_string()))?;
-    return Ok(DecodedMessage::System(SystemMessage::of_watch(watch)));
+    let system_message = watch
+      .to_system_message()
+      .ok_or_else(|| SerializerError::DeserializationError("Watch message missing watcher".into()))?;
+    return Ok(DecodedMessage::System(system_message));
   }
 
   if type_name == std::any::type_name::<Unwatch>() {
     let unwatch = Unwatch::decode(payload).map_err(|e| SerializerError::DeserializationError(e.to_string()))?;
-    return Ok(DecodedMessage::System(SystemMessage::of_unwatch(unwatch)));
+    let system_message = unwatch
+      .to_system_message()
+      .ok_or_else(|| SerializerError::DeserializationError("Unwatch message missing watcher".into()))?;
+    return Ok(DecodedMessage::System(system_message));
   }
 
   let message_arc = deserialize_message(payload, serializer_id, type_name)?;

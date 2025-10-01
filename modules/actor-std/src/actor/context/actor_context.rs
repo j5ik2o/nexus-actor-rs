@@ -38,14 +38,14 @@ use crate::actor::message::ResponseHandle;
 use crate::actor::message::SystemMessage;
 use crate::actor::message::TerminateReason;
 use crate::actor::message::{wrap_envelope, MessageEnvelope};
-use crate::actor::message::{AutoReceiveMessage, TerminatedMessage};
+use crate::actor::message::{AutoReceiveMessage, TerminatedMessage, UnwatchMessage, WatchMessage};
 use crate::actor::message::{AutoRespond, AutoResponsive};
 use crate::actor::metrics::metrics_impl::{MetricsRuntime, MetricsSink};
 use crate::actor::process::future::ActorFutureProcess;
 use crate::actor::process::Process;
 use crate::actor::supervisor::{Supervisor, SupervisorHandle, SupervisorStrategy, DEFAULT_SUPERVISION_STRATEGY};
 use crate::ctxext::extensions::{ContextExtensionHandle, ContextExtensionId};
-use crate::generated::actor::{PoisonPill, Terminated, Unwatch, Watch};
+use crate::generated::actor::PoisonPill;
 use arc_swap::ArcSwapOption;
 use nexus_actor_core_rs::actor::core_types::pid::CorePid;
 
@@ -563,10 +563,9 @@ impl ActorContext {
       tracing::error!("Failed to handle Stopped message");
       return result;
     }
-    let other_stopped = MessageHandle::new(SystemMessage::Terminate(Terminated {
-      who: self.get_self_opt().await.map(|x| x.inner_pid),
-      why: TerminateReason::Stopped as i32,
-    }));
+    let self_pid = self.get_self_opt().await;
+    let message = SystemMessage::terminate(self_pid.as_ref().map(ExtendedPid::to_core), TerminateReason::Stopped);
+    let other_stopped = MessageHandle::new(message);
     if let Some(extras) = self.get_extras().await {
       let watchers = extras.get_watchers().await;
       let actor_system = self.actor_system();
@@ -679,16 +678,16 @@ impl ActorContext {
     Ok(())
   }
 
-  async fn handle_watch(&mut self, watch: &Watch) {
+  async fn handle_watch(&mut self, watch: &WatchMessage) {
     let extras = self.ensure_extras().await;
-    let pid = ExtendedPid::new(watch.clone().watcher.unwrap());
+    let pid = ExtendedPid::from_core(watch.watcher().clone());
     let watchers = extras.get_watchers().await;
     watchers.add(pid.inner_pid).await;
   }
 
-  async fn handle_unwatch(&mut self, unwatch: &Unwatch) {
+  async fn handle_unwatch(&mut self, unwatch: &UnwatchMessage) {
     let extras = self.ensure_extras().await;
-    let pid = ExtendedPid::new(unwatch.clone().watcher.unwrap());
+    let pid = ExtendedPid::from_core(unwatch.watcher().clone());
     let watchers = extras.get_watchers().await;
     watchers.remove(&pid.inner_pid).await;
   }
@@ -724,8 +723,7 @@ impl ActorContext {
       .await;
   }
 
-  async fn handle_terminated(&mut self, terminated: &Terminated) -> Result<(), ActorError> {
-    let terminated_message: TerminatedMessage = terminated.clone().into();
+  async fn handle_terminated(&mut self, terminated_message: &TerminatedMessage) -> Result<(), ActorError> {
     if let Some(mut extras) = self.get_extras().await {
       if let Some(core_pid) = terminated_message.who.as_ref() {
         let pid = ExtendedPid::from_core(core_pid.clone());
@@ -898,22 +896,18 @@ impl BasePart for ActorContext {
   }
 
   async fn watch(&mut self, pid: &ExtendedPid) {
-    let id = self.get_self_opt().await.unwrap().inner_pid;
+    let watcher = self.get_self_opt().await.unwrap();
+    let message = SystemMessage::watch(watcher.to_core());
     pid
-      .send_system_message(
-        self.actor_system(),
-        MessageHandle::new(SystemMessage::Watch(Watch { watcher: Some(id) })),
-      )
+      .send_system_message(self.actor_system(), MessageHandle::new(message))
       .await;
   }
 
   async fn unwatch(&mut self, pid: &ExtendedPid) {
-    let id = self.get_self_opt().await.unwrap().inner_pid;
+    let watcher = self.get_self_opt().await.unwrap();
+    let message = SystemMessage::unwatch(watcher.to_core());
     pid
-      .send_system_message(
-        self.actor_system(),
-        MessageHandle::new(SystemMessage::Unwatch(Unwatch { watcher: Some(id) })),
-      )
+      .send_system_message(self.actor_system(), MessageHandle::new(message))
       .await;
   }
 
@@ -1118,14 +1112,9 @@ impl StopperPart for ActorContext {
   async fn stop_future_with_timeout(&mut self, pid: &ExtendedPid, timeout: Duration) -> ActorFuture {
     let actor_system = self.actor_system();
     let future_process = ActorFutureProcess::new(actor_system.clone(), timeout).await;
-    pid
-      .send_system_message(
-        actor_system,
-        MessageHandle::new(SystemMessage::Watch(Watch {
-          watcher: Some(future_process.get_pid().await.inner_pid),
-        })),
-      )
-      .await;
+    let future_pid = future_process.get_pid().await.clone();
+    let message = SystemMessage::watch(future_pid.to_core());
+    pid.send_system_message(actor_system, MessageHandle::new(message)).await;
     self.stop(pid).await;
     future_process.get_future().await
   }
@@ -1141,14 +1130,9 @@ impl StopperPart for ActorContext {
     let actor_system = self.actor_system();
     let future_process = ActorFutureProcess::new(actor_system.clone(), timeout).await;
 
-    pid
-      .send_system_message(
-        actor_system,
-        MessageHandle::new(SystemMessage::Watch(Watch {
-          watcher: Some(future_process.get_pid().await.inner_pid),
-        })),
-      )
-      .await;
+    let future_pid = future_process.get_pid().await.clone();
+    let message = SystemMessage::watch(future_pid.to_core());
+    pid.send_system_message(actor_system, MessageHandle::new(message)).await;
     self.poison(pid).await;
 
     future_process.get_future().await

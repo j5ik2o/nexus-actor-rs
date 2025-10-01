@@ -7,7 +7,6 @@ mod test {
   use crate::actor::message::SystemMessage;
   use crate::actor::process::dead_letter_process::DeadLetterEvent;
   use crate::actor::process::future::ActorFutureProcess;
-  use crate::generated::actor::Watch;
   use async_trait::async_trait;
   use std::env;
   use std::sync::Arc;
@@ -83,12 +82,11 @@ mod test {
     let _ = root_context.stop_future(&pid).await.result().await.unwrap();
     let f = ActorFutureProcess::new(system.clone(), Duration::from_secs(5)).await;
 
+    let watcher = f.get_pid().await.clone();
     pid
       .send_system_message(
         system.clone(),
-        MessageHandle::new(SystemMessage::Watch(Watch {
-          watcher: Some(f.get_pid().await.inner_pid.clone()),
-        })),
+        MessageHandle::new(SystemMessage::watch(watcher.to_core())),
       )
       .await;
 

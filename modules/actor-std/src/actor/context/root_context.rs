@@ -30,7 +30,7 @@ use crate::actor::process::actor_future::ActorFuture;
 use crate::actor::process::future::ActorFutureProcess;
 use crate::actor::process::Process;
 use crate::actor::supervisor::SupervisorStrategyHandle;
-use crate::generated::actor::{PoisonPill, Watch};
+use crate::generated::actor::PoisonPill;
 
 fn ensure_envelope(message_handle: MessageHandle) -> MessageEnvelope {
   if let Some(envelope) = message_handle.to_typed::<MessageEnvelope>() {
@@ -444,9 +444,7 @@ impl StopperPart for RootContext {
     pid
       .send_system_message(
         actor_system,
-        MessageHandle::new(SystemMessage::Watch(Watch {
-          watcher: Some(future_pid.inner_pid),
-        })),
+        MessageHandle::new(SystemMessage::watch(future_pid.to_core())),
       )
       .await;
     self.stop(pid).await;
@@ -469,9 +467,7 @@ impl StopperPart for RootContext {
     pid
       .send_system_message(
         actor_system,
-        MessageHandle::new(SystemMessage::Watch(Watch {
-          watcher: Some(future_pid.inner_pid),
-        })),
+        MessageHandle::new(SystemMessage::watch(future_pid.to_core())),
       )
       .await;
     self.poison(pid).await;
