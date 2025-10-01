@@ -42,13 +42,13 @@
 ## 現状整理（区分: 状態 / 影響 / 残課題）
 - **状態**: `modules/utils-core` を新設し `#![no_std]` かつ `alloc` 前提で `Element`/`QueueError`/`QueueSize`/`PriorityMessage`/`SyncQueue*` を移設済み。
 - **影響**: `nexus-utils-std-rs` が core を再エクスポートする構成に更新され、`actor` と `remote` は `nexus_utils_std_rs` 依存へ切り替え。
-- **残課題**: ワークスペース全体のテスト成功確認と CI の no_std チェック追加。
+- **残課題**: なし（2025-10-01 に CI へ no_std チェックを追加し、同日に `cargo test --workspace` を完了）。
 
 ## チェックリスト
 - [x] `nexus-utils-core-rs` が `#![no_std]` でコンパイルできる。
 - [x] `nexus-utils-std-rs` に std / tokio 依存コードが集約されている（`QueueError`/`QueueSize`/`PriorityMessage` は core へ移動済み）。
 - [x] 既存クレート（`actor`, `remote`, `cluster`）が新構成でテストをパス。
-- [ ] CI に no_std チェックを追加し、ベンチ / Publish フローへ影響がないことを確認。
+- [x] CI に no_std チェックを追加し、bench / publish ワークフローへ追従変更が不要であることを確認（2025-10-01）。
 
 ## 参考ドキュメント
 - `docs/design/2025-09-30-migration-plan.md`
