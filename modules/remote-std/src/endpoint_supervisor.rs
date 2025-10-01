@@ -135,7 +135,7 @@ impl Actor for EndpointSupervisor {
     tracing::debug!("address: {:?}", address_opt);
     let address = address_opt.unwrap();
     tracing::debug!("address: {:?}", address);
-    let core_snapshot = context_handle.core_snapshot().await;
+    let core_snapshot = context_handle.core_snapshot().await.into_core();
     let self_pid_core = core_snapshot.self_pid_core();
     let sender_pid_core = core_snapshot.sender_pid_core();
     tracing::debug!(

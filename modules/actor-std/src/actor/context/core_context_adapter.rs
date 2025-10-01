@@ -1,7 +1,7 @@
 use nexus_actor_core_rs::actor::core_types::message_handle::MessageHandle;
 use nexus_actor_core_rs::actor::core_types::message_headers::ReadonlyMessageHeadersHandle;
 use nexus_actor_core_rs::actor::core_types::pid::CorePid;
-use nexus_actor_core_rs::context::CoreActorContext;
+use nexus_actor_core_rs::context::{CoreActorContext, CoreActorContextSnapshot};
 
 use futures::FutureExt;
 
@@ -9,19 +9,24 @@ use crate::actor::context::{ContextHandle, InfoPart, MessagePart, SenderPart};
 
 #[derive(Clone)]
 pub struct StdActorContextSnapshot {
-  self_pid: CorePid,
-  sender: Option<CorePid>,
-  message: Option<MessageHandle>,
-  headers: Option<ReadonlyMessageHeadersHandle>,
+  core: CoreActorContextSnapshot,
 }
 
 impl StdActorContextSnapshot {
   pub fn self_pid_core(&self) -> CorePid {
-    self.self_pid.clone()
+    self.core.self_pid_core()
   }
 
   pub fn sender_pid_core(&self) -> Option<CorePid> {
-    self.sender.clone()
+    self.core.sender_pid_core()
+  }
+
+  pub fn into_core(self) -> CoreActorContextSnapshot {
+    self.core
+  }
+
+  pub fn as_core(&self) -> &CoreActorContextSnapshot {
+    &self.core
   }
 
   pub async fn capture(handle: &ContextHandle) -> Self {
@@ -35,37 +40,33 @@ impl StdActorContextSnapshot {
       .as_ref()
       .and_then(|m| m.to_typed::<ReadonlyMessageHeadersHandle>());
     Self {
-      self_pid,
-      sender,
-      message,
-      headers,
+      core: CoreActorContextSnapshot::new(self_pid, sender, message, headers),
     }
   }
 }
 
 impl CoreActorContext for StdActorContextSnapshot {
   fn self_pid(&self) -> CorePid {
-    self.self_pid.clone()
+    self.core.self_pid()
   }
 
   fn sender_pid(&self) -> Option<CorePid> {
-    self.sender.clone()
+    self.core.sender_pid()
   }
 
   fn message(&self) -> Option<MessageHandle> {
-    self.message.clone()
+    self.core.message()
   }
 
   fn headers(&self) -> Option<ReadonlyMessageHeadersHandle> {
-    self.headers.clone()
+    self.core.headers()
   }
 }
 
 impl std::fmt::Debug for StdActorContextSnapshot {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     f.debug_struct("StdActorContextSnapshot")
-      .field("self_pid", &self.self_pid)
-      .field("sender", &self.sender)
+      .field("core", &self.core)
       .finish()
   }
 }
