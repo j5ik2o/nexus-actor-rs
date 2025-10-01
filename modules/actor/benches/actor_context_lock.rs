@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use criterion::{criterion_group, criterion_main, Criterion, Throughput};
 use nexus_actor_core_rs::actor::message::MessageHandle;
-use nexus_utils_std_rs::collections::{MpscUnboundedChannelQueue, QueueReader, QueueWriter};
+use nexus_utils_std_rs::collections::{MpscUnboundedChannelQueue, SyncQueueReader, SyncQueueWriter};
 use tokio::runtime::Runtime;
 use tokio::task::yield_now;
 use tokio::time::Instant;
@@ -44,7 +44,7 @@ async fn run_enq_deq_cycle(load: usize, process_delay: Duration) -> f64 {
     let mut latencies = Vec::with_capacity(load);
     let mut processed = 0usize;
     while processed < load {
-      match reader.poll().await {
+      match reader.poll() {
         Ok(Some(message)) => {
           if let Some(ts) = message.to_typed::<TimestampedMessage>() {
             let waited = ts.created_at.elapsed();
@@ -67,7 +67,7 @@ async fn run_enq_deq_cycle(load: usize, process_delay: Duration) -> f64 {
       created_at: Instant::now(),
       seq: seq as u64,
     });
-    writer.offer(message).await.expect("offer should succeed");
+    writer.offer(message).expect("offer should succeed");
   }
 
   let latencies = consumer.await.expect("consumer task panicked");

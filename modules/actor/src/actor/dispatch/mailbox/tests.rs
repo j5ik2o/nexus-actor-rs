@@ -9,7 +9,7 @@ use crate::actor::dispatch::unbounded::{unbounded_mpsc_mailbox_creator, Unbounde
 use crate::actor::dispatch::{Mailbox, MailboxQueueKind};
 use crate::actor::message::MessageHandle;
 use async_trait::async_trait;
-use nexus_utils_std_rs::collections::{MpscUnboundedChannelQueue, QueueReader, QueueWriter, RingQueue};
+use nexus_utils_std_rs::collections::{MpscUnboundedChannelQueue, RingQueue, SyncQueueReader, SyncQueueWriter};
 use parking_lot::Mutex;
 use rand::prelude::*;
 use rand::rngs::SmallRng;
@@ -396,14 +396,14 @@ async fn test_mailbox_progress_with_dispatcher_yield_hint() {
   dispatcher.set_hint(false);
 }
 
-#[tokio::test]
-async fn test_bounded_mailbox() {
+#[test]
+fn test_bounded_mailbox() {
   let size = 3;
   let mut m = BoundedMailboxQueue::new(RingQueue::new(size), size, false);
-  m.offer(MessageHandle::new("1".to_string())).await.unwrap();
-  m.offer(MessageHandle::new("2".to_string())).await.unwrap();
-  m.offer(MessageHandle::new("3".to_string())).await.unwrap();
-  let result = m.poll().await.unwrap();
+  m.offer(MessageHandle::new("1".to_string())).unwrap();
+  m.offer(MessageHandle::new("2".to_string())).unwrap();
+  m.offer(MessageHandle::new("3".to_string())).unwrap();
+  let result = m.poll().unwrap();
   let value = result.unwrap().to_typed::<String>().unwrap();
   assert_eq!(value, "1".to_string());
 }
@@ -587,15 +587,15 @@ async fn test_mailbox_handle_exposes_sync_handle() {
   assert!(!sync_handle.is_suspended());
 }
 
-#[tokio::test]
-async fn test_bounded_dropping_mailbox() {
+#[test]
+fn test_bounded_dropping_mailbox() {
   let size = 3;
   let mut m = BoundedMailboxQueue::new(RingQueue::new(size), size, true);
-  m.offer(MessageHandle::new("1".to_string())).await.unwrap();
-  m.offer(MessageHandle::new("2".to_string())).await.unwrap();
-  m.offer(MessageHandle::new("3".to_string())).await.unwrap();
-  m.offer(MessageHandle::new("4".to_string())).await.unwrap();
-  let result = m.poll().await.unwrap();
+  m.offer(MessageHandle::new("1".to_string())).unwrap();
+  m.offer(MessageHandle::new("2".to_string())).unwrap();
+  m.offer(MessageHandle::new("3".to_string())).unwrap();
+  m.offer(MessageHandle::new("4".to_string())).unwrap();
+  let result = m.poll().unwrap();
   let value = result.unwrap().to_typed::<String>().unwrap();
   assert_eq!(value, "2".to_string());
 }

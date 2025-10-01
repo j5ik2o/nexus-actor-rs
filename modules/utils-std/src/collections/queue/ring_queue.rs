@@ -2,9 +2,9 @@ use std::fmt::Debug;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 
-use crate::collections::queue::{QueueError, QueueSize};
 use crate::collections::queue_sync::{SyncQueueBase, SyncQueueReader, SyncQueueSupport, SyncQueueWriter};
 use crate::collections::Element;
+use crate::collections::{QueueError, QueueSize};
 use parking_lot::Mutex;
 
 #[derive(Debug, Clone)]
