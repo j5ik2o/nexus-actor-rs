@@ -43,6 +43,19 @@ impl<T> MpscUnboundedChannelQueue<T> {
     guard.try_recv()
   }
 
+  pub fn poll_shared(&self) -> Result<Option<T>, QueueError<T>>
+  where
+    T: Element, {
+    match self.try_recv() {
+      Ok(element) => {
+        self.decrement_count();
+        Ok(Some(element))
+      }
+      Err(TryRecvError::Empty) => Ok(None),
+      Err(TryRecvError::Disconnected) => Err(QueueError::<T>::PoolError),
+    }
+  }
+
   fn send(&self, element: T) -> Result<(), SendError<T>> {
     if self.inner.is_closed.load(Ordering::SeqCst) {
       return Err(SendError(element));
@@ -68,6 +81,29 @@ impl<T> MpscUnboundedChannelQueue<T> {
       })
       .ok();
   }
+
+  pub fn offer_shared(&self, element: T) -> Result<(), QueueError<T>>
+  where
+    T: Element, {
+    match self.send(element) {
+      Ok(_) => {
+        self.increment_count();
+        Ok(())
+      }
+      Err(SendError(err)) => Err(QueueError::OfferError(err)),
+    }
+  }
+
+  pub fn clean_up_shared(&self) {
+    self.count.store(0, Ordering::SeqCst);
+    self.inner.is_closed.store(true, Ordering::SeqCst);
+    let mut guard = self.inner.receiver.lock();
+    guard.close();
+  }
+
+  pub fn len_shared(&self) -> usize {
+    self.count.load(Ordering::SeqCst)
+  }
 }
 
 impl<E: Element> QueueBase<E> for MpscUnboundedChannelQueue<E> {
@@ -82,33 +118,17 @@ impl<E: Element> QueueBase<E> for MpscUnboundedChannelQueue<E> {
 
 impl<E: Element> QueueWriter<E> for MpscUnboundedChannelQueue<E> {
   fn offer(&mut self, element: E) -> Result<(), QueueError<E>> {
-    match self.send(element) {
-      Ok(_) => {
-        self.increment_count();
-        Ok(())
-      }
-      Err(SendError(err)) => Err(QueueError::OfferError(err)),
-    }
+    self.offer_shared(element)
   }
 }
 
 impl<E: Element> QueueReader<E> for MpscUnboundedChannelQueue<E> {
   fn poll(&mut self) -> Result<Option<E>, QueueError<E>> {
-    match self.try_recv() {
-      Ok(element) => {
-        self.decrement_count();
-        Ok(Some(element))
-      }
-      Err(TryRecvError::Empty) => Ok(None),
-      Err(TryRecvError::Disconnected) => Err(QueueError::<E>::PoolError),
-    }
+    self.poll_shared()
   }
 
   fn clean_up(&mut self) {
-    self.count.store(0, Ordering::SeqCst);
-    self.inner.is_closed.store(true, Ordering::SeqCst);
-    let mut guard = self.inner.receiver.lock();
-    guard.close();
+    self.clean_up_shared();
   }
 }
 

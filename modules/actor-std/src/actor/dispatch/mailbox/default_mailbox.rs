@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
 use std::convert::TryFrom;
 use std::env;
+use std::fmt::{self, Debug, Formatter};
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -8,7 +9,7 @@ use std::time::{Duration, Instant};
 use crate::actor::dispatch::dispatcher::{Dispatcher, DispatcherHandle, Runnable};
 use crate::actor::dispatch::mailbox::mailbox_handle::MailboxHandle;
 use crate::actor::dispatch::mailbox::sync_queue_handles::{
-  CoreMailboxQueueHandle, QueueReaderHandle, QueueWriterHandle, SyncMailboxQueue, SyncMailboxQueueHandles,
+  QueueReaderHandle, QueueWriterHandle, SyncMailboxQueue, SyncMailboxQueueHandles,
 };
 use crate::actor::dispatch::mailbox::{Mailbox, MailboxQueueKind, MailboxSync, MailboxSyncHandle};
 use crate::actor::dispatch::mailbox_message::MailboxMessage;
@@ -322,7 +323,7 @@ where
 }
 
 // DefaultMailbox implementation
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub(crate) struct DefaultMailbox<UQ, SQ>
 where
   UQ: SyncMailboxQueue,
@@ -341,8 +342,18 @@ where
   metrics_enabled: Arc<AtomicBool>,
   user_snapshot_counter: Arc<AtomicU64>,
   system_snapshot_counter: Arc<AtomicU64>,
-  core_user_queue: CoreMailboxQueueHandle<UQ>,
-  core_system_queue: CoreMailboxQueueHandle<SQ>,
+  core_user_queue: Arc<dyn CoreMailboxQueue<Error = QueueError<MessageHandle>> + Send + Sync>,
+  core_system_queue: Arc<dyn CoreMailboxQueue<Error = QueueError<MessageHandle>> + Send + Sync>,
+}
+
+impl<UQ, SQ> Debug for DefaultMailbox<UQ, SQ>
+where
+  UQ: SyncMailboxQueue,
+  SQ: SyncMailboxQueue,
+{
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+    f.debug_struct("DefaultMailbox").finish_non_exhaustive()
+  }
 }
 
 impl<UQ, SQ> DefaultMailbox<UQ, SQ>
@@ -353,6 +364,13 @@ where
   pub(crate) fn new(user_mailbox: UQ, system_mailbox: SQ) -> Self {
     let user_handles = SyncMailboxQueueHandles::new(user_mailbox);
     let system_handles = SyncMailboxQueueHandles::new(system_mailbox);
+    Self::from_handles(user_handles, system_handles)
+  }
+
+  pub(crate) fn from_handles(
+    user_handles: SyncMailboxQueueHandles<UQ>,
+    system_handles: SyncMailboxQueueHandles<SQ>,
+  ) -> Self {
     let scheduler_status = Arc::new(AtomicBool::new(false));
     let user_messages_count = Arc::new(AtomicI32::new(0));
     let system_messages_count = Arc::new(AtomicI32::new(0));
@@ -389,8 +407,8 @@ where
       metrics_enabled: Arc::new(AtomicBool::new(false)),
       user_snapshot_counter: Arc::new(AtomicU64::new(0)),
       system_snapshot_counter: Arc::new(AtomicU64::new(0)),
-      core_user_queue: user_handles.core_queue_handle(),
-      core_system_queue: system_handles.core_queue_handle(),
+      core_user_queue: user_handles.core_queue(),
+      core_system_queue: system_handles.core_queue(),
     }
   }
 
@@ -420,7 +438,12 @@ where
     MailboxSyncHandle::new(self.clone())
   }
 
-  pub(crate) fn core_queue_handles(&self) -> (CoreMailboxQueueHandle<UQ>, CoreMailboxQueueHandle<SQ>) {
+  pub(crate) fn core_queue_handles(
+    &self,
+  ) -> (
+    Arc<dyn CoreMailboxQueue<Error = QueueError<MessageHandle>> + Send + Sync>,
+    Arc<dyn CoreMailboxQueue<Error = QueueError<MessageHandle>> + Send + Sync>,
+  ) {
     (self.core_user_queue.clone(), self.core_system_queue.clone())
   }
 
@@ -898,12 +921,7 @@ where
     Arc<dyn CoreMailboxQueue<Error = QueueError<MessageHandle>> + Send + Sync>,
     Arc<dyn CoreMailboxQueue<Error = QueueError<MessageHandle>> + Send + Sync>,
   )> {
-    Some((
-      Arc::new(self.core_user_queue.clone())
-        as Arc<dyn CoreMailboxQueue<Error = QueueError<MessageHandle>> + Send + Sync>,
-      Arc::new(self.core_system_queue.clone())
-        as Arc<dyn CoreMailboxQueue<Error = QueueError<MessageHandle>> + Send + Sync>,
-    ))
+    Some((self.core_user_queue.clone(), self.core_system_queue.clone()))
   }
 }
 impl<UQ, SQ> DefaultMailbox<UQ, SQ>

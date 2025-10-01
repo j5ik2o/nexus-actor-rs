@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::fmt::{self, Debug, Formatter};
 use std::sync::Arc;
 
 use nexus_actor_core_rs::actor::core_types::mailbox::CoreMailboxQueue;
@@ -98,11 +98,21 @@ where
   }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub(crate) struct SyncMailboxQueueHandles<Q>
 where
   Q: SyncMailboxQueue, {
   shared: Arc<Mutex<Q>>,
+  core_queue: Arc<dyn CoreMailboxQueue<Error = QueueError<MessageHandle>> + Send + Sync>,
+}
+
+impl<Q> Debug for SyncMailboxQueueHandles<Q>
+where
+  Q: SyncMailboxQueue,
+{
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+    f.debug_struct("SyncMailboxQueueHandles").finish_non_exhaustive()
+  }
 }
 
 impl<Q> SyncMailboxQueueHandles<Q>
@@ -110,9 +120,20 @@ where
   Q: SyncMailboxQueue,
 {
   pub fn new(queue: Q) -> Self {
-    Self {
-      shared: Arc::new(Mutex::new(queue)),
-    }
+    Self::new_with_core(queue, None)
+  }
+
+  pub fn new_with_core(
+    queue: Q,
+    core_queue: Option<Arc<dyn CoreMailboxQueue<Error = QueueError<MessageHandle>> + Send + Sync>>,
+  ) -> Self {
+    let shared = Arc::new(Mutex::new(queue));
+    let core_queue = core_queue.unwrap_or_else(|| {
+      let adapter: Arc<dyn CoreMailboxQueue<Error = QueueError<MessageHandle>> + Send + Sync> =
+        Arc::new(CoreMailboxQueueHandle::new(shared.clone()));
+      adapter
+    });
+    Self { shared, core_queue }
   }
 
   pub fn writer_handle(&self) -> QueueWriterHandle<Q> {
@@ -125,6 +146,10 @@ where
 
   pub fn core_queue_handle(&self) -> CoreMailboxQueueHandle<Q> {
     CoreMailboxQueueHandle::new(self.shared.clone())
+  }
+
+  pub fn core_queue(&self) -> Arc<dyn CoreMailboxQueue<Error = QueueError<MessageHandle>> + Send + Sync> {
+    self.core_queue.clone()
   }
 }
 

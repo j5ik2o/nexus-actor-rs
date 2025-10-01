@@ -1,4 +1,5 @@
-use crate::actor::dispatch::mailbox::sync_queue_handles::SyncMailboxQueue;
+use crate::actor::dispatch::mailbox::mpsc_core_queue::UnboundedMpscCoreMailboxQueue;
+use crate::actor::dispatch::mailbox::sync_queue_handles::{SyncMailboxQueue, SyncMailboxQueueHandles};
 use crate::actor::dispatch::mailbox::DefaultMailbox;
 use crate::actor::dispatch::mailbox::MailboxHandle;
 use crate::actor::dispatch::mailbox_middleware::MailboxMiddlewareHandle;
@@ -8,6 +9,7 @@ use nexus_utils_std_rs::collections::{
   MpscUnboundedChannelQueue, PriorityQueue, QueueBase, QueueError, QueueReader, QueueSize, QueueSupport, QueueWriter,
   RingQueue,
 };
+use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub(crate) struct UnboundedMailboxQueue<Q: SyncMailboxQueue> {
@@ -57,9 +59,14 @@ pub fn unbounded_mailbox_creator_with_opts(
   MailboxProducer::new(move || {
     let cloned_mailbox_stats = cloned_mailbox_stats.clone();
     async move {
-      let user_queue = UnboundedMailboxQueue::new(RingQueue::new(10));
-      let system_queue = UnboundedMailboxQueue::new(MpscUnboundedChannelQueue::new());
-      let mailbox = DefaultMailbox::new(user_queue, system_queue)
+      let user_handles = SyncMailboxQueueHandles::new(UnboundedMailboxQueue::new(RingQueue::new(10)));
+
+      let system_mpsc = MpscUnboundedChannelQueue::new();
+      let system_core = Arc::new(UnboundedMpscCoreMailboxQueue::new(system_mpsc.clone()));
+      let system_queue = UnboundedMailboxQueue::new(system_mpsc);
+      let system_handles = SyncMailboxQueueHandles::new_with_core(system_queue, Some(system_core));
+
+      let mailbox = DefaultMailbox::from_handles(user_handles, system_handles)
         .with_middlewares(cloned_mailbox_stats.clone())
         .await;
       let sync = mailbox.to_sync_handle();
@@ -79,9 +86,15 @@ pub fn unbounded_priority_mailbox_creator_with_opts(
   MailboxProducer::new(move || {
     let cloned_mailbox_stats = cloned_mailbox_stats.clone();
     async move {
-      let user_queue = UnboundedMailboxQueue::new(PriorityQueue::new(|| RingQueue::new(10)));
-      let system_queue = UnboundedMailboxQueue::new(MpscUnboundedChannelQueue::new());
-      let mailbox = DefaultMailbox::new(user_queue, system_queue)
+      let user_handles =
+        SyncMailboxQueueHandles::new(UnboundedMailboxQueue::new(PriorityQueue::new(|| RingQueue::new(10))));
+
+      let system_mpsc = MpscUnboundedChannelQueue::new();
+      let system_core = Arc::new(UnboundedMpscCoreMailboxQueue::new(system_mpsc.clone()));
+      let system_queue = UnboundedMailboxQueue::new(system_mpsc);
+      let system_handles = SyncMailboxQueueHandles::new_with_core(system_queue, Some(system_core));
+
+      let mailbox = DefaultMailbox::from_handles(user_handles, system_handles)
         .with_middlewares(cloned_mailbox_stats.clone())
         .await;
       let sync = mailbox.to_sync_handle();
@@ -101,9 +114,17 @@ pub fn unbounded_mpsc_mailbox_creator_with_opts(
   MailboxProducer::new(move || {
     let cloned_mailbox_stats = cloned_mailbox_stats.clone();
     async move {
-      let user_queue = UnboundedMailboxQueue::new(MpscUnboundedChannelQueue::new());
-      let system_queue = UnboundedMailboxQueue::new(MpscUnboundedChannelQueue::new());
-      let mailbox = DefaultMailbox::new(user_queue, system_queue)
+      let user_mpsc = MpscUnboundedChannelQueue::new();
+      let user_core = Arc::new(UnboundedMpscCoreMailboxQueue::new(user_mpsc.clone()));
+      let user_queue = UnboundedMailboxQueue::new(user_mpsc);
+      let user_handles = SyncMailboxQueueHandles::new_with_core(user_queue, Some(user_core));
+
+      let system_mpsc = MpscUnboundedChannelQueue::new();
+      let system_core = Arc::new(UnboundedMpscCoreMailboxQueue::new(system_mpsc.clone()));
+      let system_queue = UnboundedMailboxQueue::new(system_mpsc);
+      let system_handles = SyncMailboxQueueHandles::new_with_core(system_queue, Some(system_core));
+
+      let mailbox = DefaultMailbox::from_handles(user_handles, system_handles)
         .with_middlewares(cloned_mailbox_stats.clone())
         .await;
       let sync = mailbox.to_sync_handle();

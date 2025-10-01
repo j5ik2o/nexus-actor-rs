@@ -1,6 +1,8 @@
 #[cfg(test)]
 mod tests;
 
+use crate::actor::dispatch::mailbox::mpsc_core_queue::UnboundedMpscCoreMailboxQueue;
+use crate::actor::dispatch::mailbox::sync_queue_handles::SyncMailboxQueueHandles;
 use crate::actor::dispatch::mailbox::DefaultMailbox;
 use crate::actor::dispatch::mailbox::MailboxHandle;
 use crate::actor::dispatch::mailbox_middleware::MailboxMiddlewareHandle;
@@ -11,6 +13,7 @@ use nexus_utils_std_rs::collections::{
   MpscUnboundedChannelQueue, QueueBase, QueueError, QueueReader, QueueSize, QueueSupport, QueueWriter, RingQueue,
 };
 use std::fmt::Debug;
+use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct BoundedMailboxQueue {
@@ -70,9 +73,14 @@ pub fn bounded_mailbox_creator_with_opts(
   MailboxProducer::new(move || {
     let cloned_mailbox_stats = cloned_mailbox_stats.clone();
     async move {
-      let user_queue = BoundedMailboxQueue::new(RingQueue::new(size), size, dropping);
-      let system_queue = UnboundedMailboxQueue::new(MpscUnboundedChannelQueue::new());
-      let mailbox = DefaultMailbox::new(user_queue, system_queue)
+      let user_handles = SyncMailboxQueueHandles::new(BoundedMailboxQueue::new(RingQueue::new(size), size, dropping));
+
+      let system_mpsc = MpscUnboundedChannelQueue::new();
+      let system_core = Arc::new(UnboundedMpscCoreMailboxQueue::new(system_mpsc.clone()));
+      let system_queue = UnboundedMailboxQueue::new(system_mpsc);
+      let system_handles = SyncMailboxQueueHandles::new_with_core(system_queue, Some(system_core));
+
+      let mailbox = DefaultMailbox::from_handles(user_handles, system_handles)
         .with_middlewares(cloned_mailbox_stats.clone())
         .await;
       let sync = mailbox.to_sync_handle();
