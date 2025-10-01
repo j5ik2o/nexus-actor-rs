@@ -8,13 +8,8 @@ use crate::actor::message::MessageHandle;
 use crate::actor::process::{Process, ProcessHandle};
 use crate::generated::actor::Pid;
 
-use regex::Regex;
+use nexus_actor_core_rs::actor::core_types::pid::CorePid;
 use tokio::sync::Mutex;
-
-fn is_valid_address(input: &str) -> bool {
-  let re = Regex::new(r"^((\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})|([a-zA-Z0-9\-\.]+)):\d+$").unwrap();
-  re.is_match(input)
-}
 
 impl Pid {
   pub fn new(address: &str, id: &str) -> Self {
@@ -28,6 +23,19 @@ impl Pid {
   pub(crate) fn with_request_id(mut self, request_id: u32) -> Self {
     self.request_id = request_id;
     self
+  }
+
+  pub fn to_core(&self) -> CorePid {
+    CorePid::new(self.address.clone(), self.id.clone()).with_request_id(self.request_id)
+  }
+
+  pub fn from_core(core: CorePid) -> Self {
+    let (address, id, request_id) = core.into_parts();
+    Pid {
+      address,
+      id,
+      request_id,
+    }
   }
 }
 
@@ -48,6 +56,7 @@ impl Hash for Pid {
 #[derive(Debug, Clone)]
 pub struct ExtendedPid {
   pub inner_pid: Pid,
+  core_pid: CorePid,
   process_handle: Arc<Mutex<Option<ProcessHandle>>>,
 }
 
@@ -76,21 +85,34 @@ static_assertions::assert_impl_all!(ExtendedPid: Send, Sync);
 impl ExtendedPid {
   pub fn new(pid: Pid) -> Self {
     Self {
+      core_pid: pid.to_core(),
       inner_pid: pid,
       process_handle: Arc::new(Mutex::new(None)),
     }
   }
 
   pub fn address(&self) -> &str {
-    &self.inner_pid.address
+    self.core_pid.address()
   }
 
   pub fn id(&self) -> &str {
-    &self.inner_pid.id
+    self.core_pid.id()
   }
 
   pub fn request_id(&self) -> u32 {
-    self.inner_pid.request_id
+    self.core_pid.request_id()
+  }
+
+  pub fn core_pid(&self) -> &CorePid {
+    &self.core_pid
+  }
+
+  pub fn to_core(&self) -> CorePid {
+    self.core_pid.clone()
+  }
+
+  pub fn to_pid(&self) -> Pid {
+    self.inner_pid.clone()
   }
 
   pub(crate) async fn ref_process(&self, actor_system: ActorSystem) -> ProcessHandle {

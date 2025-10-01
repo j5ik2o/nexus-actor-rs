@@ -1,14 +1,25 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use parking_lot::RwLock;
+use crate::runtime::TokioRwLock;
+use nexus_actor_core_rs::actor::core_types::pid::CorePid;
+use nexus_actor_core_rs::runtime::AsyncRwLock;
 
 use crate::generated::actor::Pid;
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 struct PidSetInner {
-  pids: RwLock<Vec<Pid>>,
-  lookup: RwLock<HashMap<String, Pid>>,
+  pids: TokioRwLock<Vec<CorePid>>,
+  lookup: TokioRwLock<HashMap<String, CorePid>>,
+}
+
+impl Default for PidSetInner {
+  fn default() -> Self {
+    Self {
+      pids: TokioRwLock::new(Vec::new()),
+      lookup: TokioRwLock::new(HashMap::new()),
+    }
+  }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -22,88 +33,92 @@ impl PidSet {
   }
 
   pub fn new_with_pids(pids: &[Pid]) -> Self {
-    let set = Self::new();
-    for pid in pids {
-      set.add(pid.clone());
+    let core_pids: Vec<CorePid> = pids.iter().map(Self::to_core_pid).collect();
+    let lookup_map = core_pids
+      .iter()
+      .map(|pid| (Self::key(pid), pid.clone()))
+      .collect::<HashMap<_, _>>();
+    Self {
+      inner: Arc::new(PidSetInner {
+        pids: TokioRwLock::new(core_pids),
+        lookup: TokioRwLock::new(lookup_map),
+      }),
     }
-    set
   }
 
-  fn key(pid: &Pid) -> String {
-    format!("{}::{}", pid.address, pid.id)
+  fn key(pid: &CorePid) -> String {
+    format!("{}::{}", pid.address(), pid.id())
   }
 
-  pub fn contains(&self, pid: &Pid) -> bool {
-    let lookup = self.inner.lookup.read();
-    lookup.contains_key(&Self::key(pid))
+  pub async fn contains(&self, pid: &Pid) -> bool {
+    let core_pid = Self::to_core_pid(pid);
+    let lookup = self.inner.lookup.read().await;
+    lookup.contains_key(&Self::key(&core_pid))
   }
 
-  pub fn add(&self, pid: Pid) {
-    if self.contains(&pid) {
+  pub async fn add(&self, pid: Pid) {
+    let core_pid = Self::to_core_pid(&pid);
+    if self.contains(&pid).await {
       return;
     }
-    let key = Self::key(&pid);
-    {
-      let mut lookup = self.inner.lookup.write();
-      lookup.insert(key, pid.clone());
-    }
-    {
-      let mut pids = self.inner.pids.write();
-      pids.push(pid);
-    }
+    let key = Self::key(&core_pid);
+    self.inner.lookup.write().await.insert(key, core_pid.clone());
+    self.inner.pids.write().await.push(core_pid);
   }
 
-  pub fn remove(&self, pid: &Pid) -> bool {
-    if let Some(index) = self.index_of(pid) {
-      {
-        let mut lookup = self.inner.lookup.write();
-        lookup.remove(&Self::key(pid));
-      }
-      {
-        let mut pids = self.inner.pids.write();
-        pids.remove(index);
-      }
+  pub async fn remove(&self, pid: &Pid) -> bool {
+    let core_pid = Self::to_core_pid(pid);
+    if let Some(index) = self.index_of(&core_pid).await {
+      self.inner.lookup.write().await.remove(&Self::key(&core_pid));
+      self.inner.pids.write().await.remove(index);
       true
     } else {
       false
     }
   }
 
-  pub fn len(&self) -> usize {
-    let pids = self.inner.pids.read();
-    pids.len()
+  pub async fn len(&self) -> usize {
+    self.inner.pids.read().await.len()
   }
 
-  pub fn is_empty(&self) -> bool {
-    self.len() == 0
+  pub async fn is_empty(&self) -> bool {
+    self.len().await == 0
   }
 
-  pub fn clear(&self) {
-    self.inner.lookup.write().clear();
-    self.inner.pids.write().clear();
+  pub async fn clear(&self) {
+    self.inner.lookup.write().await.clear();
+    self.inner.pids.write().await.clear();
   }
 
-  pub fn to_vec(&self) -> Vec<Pid> {
-    self.inner.pids.read().clone()
+  pub async fn to_vec(&self) -> Vec<Pid> {
+    self.inner.pids.read().await.iter().map(Self::to_proto_pid).collect()
   }
 
-  pub fn for_each<F>(&self, mut f: F)
+  pub async fn for_each<F, Fut>(&self, mut f: F)
   where
-    F: FnMut(usize, &Pid), {
-    let pids = self.inner.pids.read();
-    for (idx, pid) in pids.iter().enumerate() {
-      f(idx, pid);
+    F: FnMut(usize, Pid) -> Fut,
+    Fut: core::future::Future<Output = ()> + Send, {
+    let snapshot = self.inner.pids.read().await.clone();
+    for (idx, pid) in snapshot.into_iter().enumerate() {
+      f(idx, Self::to_proto_pid(&pid)).await;
     }
   }
 
-  pub fn get(&self, index: usize) -> Option<Pid> {
-    let pids = self.inner.pids.read();
-    pids.get(index).cloned()
+  pub async fn get(&self, index: usize) -> Option<Pid> {
+    self.inner.pids.read().await.get(index).map(Self::to_proto_pid)
   }
 
-  fn index_of(&self, pid: &Pid) -> Option<usize> {
-    let pids = self.inner.pids.read();
+  async fn index_of(&self, pid: &CorePid) -> Option<usize> {
+    let pids = self.inner.pids.read().await;
     pids.iter().position(|candidate| candidate == pid)
+  }
+
+  fn to_core_pid(pid: &Pid) -> CorePid {
+    pid.to_core()
+  }
+
+  fn to_proto_pid(pid: &CorePid) -> Pid {
+    Pid::from_core(pid.clone())
   }
 }
 

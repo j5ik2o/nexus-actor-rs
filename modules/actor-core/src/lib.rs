@@ -11,6 +11,8 @@ pub use actor::core_types::message_handle::MessageHandle;
 #[cfg(feature = "alloc")]
 pub use actor::core_types::message_headers::{HeaderMap, ReadonlyMessageHeaders, ReadonlyMessageHeadersHandle};
 #[cfg(feature = "alloc")]
+pub use actor::core_types::pid::CorePid;
+#[cfg(feature = "alloc")]
 pub use actor::core_types::response::{Response, ResponseHandle};
 
 #[cfg(feature = "alloc")]
