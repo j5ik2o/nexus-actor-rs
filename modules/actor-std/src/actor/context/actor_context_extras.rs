@@ -180,10 +180,10 @@ impl ActorContextExtras {
   }
 
   pub async fn add_child(&mut self, pid: ExtendedPid) {
-    self.children.add(pid.inner_pid);
+    self.children.add(pid.inner_pid).await;
   }
 
   pub async fn remove_child(&mut self, pid: &ExtendedPid) {
-    self.children.remove(&pid.inner_pid);
+    self.children.remove(&pid.inner_pid).await;
   }
 }

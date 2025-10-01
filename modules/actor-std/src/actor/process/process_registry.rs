@@ -11,6 +11,7 @@ use crate::actor::process::{Process, ProcessHandle, ProcessMaps};
 use crate::generated::actor::Pid;
 use dashmap::mapref::entry::Entry;
 use futures::future::BoxFuture;
+use nexus_actor_core_rs::actor::core_types::pid::CorePid;
 
 #[cfg(test)]
 mod tests;
@@ -28,9 +29,7 @@ pub struct ProcessRegistry {
 
 #[allow(clippy::type_complexity)]
 #[derive(Clone)]
-pub struct AddressResolver(
-  Arc<dyn Fn(&ExtendedPid) -> BoxFuture<'static, Option<ProcessHandle>> + Send + Sync + 'static>,
-);
+pub struct AddressResolver(Arc<dyn Fn(&CorePid) -> BoxFuture<'static, Option<ProcessHandle>> + Send + Sync + 'static>);
 
 impl Debug for AddressResolver {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -48,19 +47,19 @@ impl Eq for AddressResolver {}
 
 impl Hash for AddressResolver {
   fn hash<H: Hasher>(&self, state: &mut H) {
-    (self.0.as_ref() as *const dyn Fn(&ExtendedPid) -> BoxFuture<'static, Option<ProcessHandle>>).hash(state);
+    (self.0.as_ref() as *const dyn Fn(&CorePid) -> BoxFuture<'static, Option<ProcessHandle>>).hash(state);
   }
 }
 
 impl AddressResolver {
   pub fn new<F, Fut>(f: F) -> Self
   where
-    F: Fn(&ExtendedPid) -> Fut + Send + Sync + 'static,
+    F: Fn(&CorePid) -> Fut + Send + Sync + 'static,
     Fut: Future<Output = Option<ProcessHandle>> + Send + 'static, {
     AddressResolver(Arc::new(move |p| Box::pin(f(p))))
   }
 
-  pub async fn run(&self, pid: &ExtendedPid) -> Option<ProcessHandle> {
+  pub async fn run(&self, pid: &CorePid) -> Option<ProcessHandle> {
     (self.0)(pid).await
   }
 }
@@ -152,7 +151,7 @@ impl ProcessRegistry {
     if is_remote {
       let handlers = { self.remote_handlers.read().unwrap().clone() };
       for handler in handlers {
-        if let Some(process) = handler.run(pid).await {
+        if let Some(process) = handler.run(pid.core_pid()).await {
           return Some(process);
         }
       }

@@ -347,11 +347,16 @@ impl Remote {
     );
 
     let process_registry = self.inner.actor_system.get_process_registry().await;
-    process_registry.register_address_resolver(AddressResolver::new(move |pid| {
+    process_registry.register_address_resolver(AddressResolver::new(move |core_pid| {
       let cloned_self = cloned_self.clone();
-      let pid = pid.clone();
+      let (address, id, request_id) = core_pid.clone().into_parts();
+      let pid = Pid {
+        address,
+        id,
+        request_id,
+      };
       async move {
-        let (ph, _) = cloned_self.remote_handler(&pid.inner_pid).await;
+        let (ph, _) = cloned_self.remote_handler(&pid).await;
         Some(ph)
       }
     }));

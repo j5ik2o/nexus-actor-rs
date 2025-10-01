@@ -4,6 +4,7 @@ use std::time::Duration as StdDuration;
 
 use criterion::{criterion_group, criterion_main, Criterion};
 use futures::stream::{self, StreamExt};
+use nexus_actor_core_rs::actor::core_types::pid::CorePid;
 use nexus_actor_std_rs::actor::actor_system::ActorSystem;
 use nexus_actor_std_rs::actor::context::{BasePart, ContextHandle, InfoPart, MessagePart, SenderPart, SpawnerPart};
 use nexus_actor_std_rs::actor::core::{Actor, ActorError, ExtendedPid, Props};
@@ -147,7 +148,7 @@ async fn run_scenario(total_requests: usize, concurrency: usize, failure_ratio: 
 
   registry.register_address_resolver(AddressResolver::new({
     let system = system.clone();
-    move |_pid: &ExtendedPid| {
+    move |_pid: &CorePid| {
       let system = system.clone();
       async move {
         if random::<f64>() < failure_ratio {

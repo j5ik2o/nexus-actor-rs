@@ -65,7 +65,6 @@ mod test {
     let mut root_context = system.get_root_context().await;
 
     let cloned_observer = observer.clone();
-    let cloned_observer = observer.clone();
     let middles = ReceiverMiddleware::from_async(move |snapshot, next| {
       let cloned_observer = cloned_observer.clone();
       Box::pin(async move {

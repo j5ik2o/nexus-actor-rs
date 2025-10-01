@@ -230,7 +230,9 @@ async fn test_actor_receives_terminated_from_watched() {
           }
           if let Some(AutoReceiveMessage::Terminated(ti)) = msg.to_typed::<AutoReceiveMessage>() {
             let mut ac = ctx.to_actor_context().await.unwrap();
-            if ti.who.unwrap() == cloned_child.inner_pid && ac.ensure_extras().await.get_watchers().await.is_empty() {
+            if ti.who.unwrap() == cloned_child.inner_pid
+              && ac.ensure_extras().await.get_watchers().await.is_empty().await
+            {
               ctx.send(cloned_future.get_pid().await, MessageHandle::new(true)).await;
             }
           }

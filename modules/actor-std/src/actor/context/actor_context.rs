@@ -555,7 +555,7 @@ impl ActorContext {
     if let Some(extras) = self.get_extras().await {
       let watchers = extras.get_watchers().await;
       let actor_system = self.actor_system();
-      for watcher in watchers.to_vec() {
+      for watcher in watchers.to_vec().await {
         ExtendedPid::new(watcher)
           .send_system_message(actor_system.clone(), other_stopped.clone())
           .await;
@@ -570,15 +570,16 @@ impl ActorContext {
   async fn stop_all_children(&mut self) {
     let extras = self.ensure_extras().await;
     let children = extras.get_children().await;
-    for child in children.to_vec() {
+    for child in children.to_vec().await {
       let child = ExtendedPid::new(child);
       self.stop(&child).await;
     }
   }
 
   async fn try_restart_or_terminate(&mut self) -> Result<(), ActorError> {
-    match self.get_extras().await {
-      Some(extras) if extras.get_children().await.is_empty() => {
+    if let Some(extras) = self.get_extras().await {
+      let children = extras.get_children().await;
+      if children.is_empty().await {
         let state = State::try_from(self.state.load(Ordering::SeqCst)).unwrap();
         match state {
           State::Restarting => {
@@ -600,7 +601,6 @@ impl ActorContext {
           _ => {}
         }
       }
-      _ => {}
     }
     Ok(())
   }
@@ -667,13 +667,15 @@ impl ActorContext {
   async fn handle_watch(&mut self, watch: &Watch) {
     let extras = self.ensure_extras().await;
     let pid = ExtendedPid::new(watch.clone().watcher.unwrap());
-    extras.get_watchers().await.add(pid.inner_pid);
+    let watchers = extras.get_watchers().await;
+    watchers.add(pid.inner_pid).await;
   }
 
   async fn handle_unwatch(&mut self, unwatch: &Unwatch) {
     let extras = self.ensure_extras().await;
     let pid = ExtendedPid::new(unwatch.clone().watcher.unwrap());
-    extras.get_watchers().await.remove(&pid.inner_pid);
+    let watchers = extras.get_watchers().await;
+    watchers.remove(&pid.inner_pid).await;
   }
 
   async fn handle_child_failure(&mut self, f: &Failure) {
@@ -830,6 +832,7 @@ impl BasePart for ActorContext {
       .get_children()
       .await
       .to_vec()
+      .await
       .into_iter()
       .map(ExtendedPid::new)
       .collect()
@@ -1084,7 +1087,7 @@ impl SpawnerPart for ActorContext {
       Ok(pid) => {
         let extras = self.ensure_extras().await;
         let children = extras.get_children().await;
-        children.add(pid.inner_pid.clone());
+        children.add(pid.inner_pid.clone()).await;
         Ok(pid)
       }
       Err(e) => Err(e),
@@ -1361,6 +1364,7 @@ impl Supervisor for ActorContext {
       .get_children()
       .await
       .to_vec()
+      .await
       .into_iter()
       .map(ExtendedPid::new)
       .collect()

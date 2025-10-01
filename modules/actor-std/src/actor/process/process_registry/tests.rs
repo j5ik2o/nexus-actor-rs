@@ -83,7 +83,7 @@ async fn test_get_process_remote_handler_reentrancy() {
   let registry_for_registration = registry.clone();
   let registry_for_handler = registry.clone();
 
-  registry_for_registration.register_address_resolver(AddressResolver::new(move |_pid| {
+  registry_for_registration.register_address_resolver(AddressResolver::new(move |_core_pid| {
     let registry_for_handler = registry_for_handler.clone();
     async move {
       let registry_to_modify = registry_for_handler.clone();
