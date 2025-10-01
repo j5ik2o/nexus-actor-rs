@@ -1,6 +1,6 @@
 [package]
 name = "nexus-actor-core-rs"
-version = "3.0.0"
+version = "3.0.1"
 edition = "2021"
 build = "build.rs"
 description = "Core library for Nexus Actor"
