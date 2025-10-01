@@ -18,6 +18,8 @@ pub use actor::core_types::pid::{CorePid, CorePidRef};
 pub use actor::core_types::process::{CoreProcessHandle, ProcessFuture};
 #[cfg(feature = "alloc")]
 pub use actor::core_types::response::{Response, ResponseHandle};
+#[cfg(feature = "alloc")]
+pub use actor::core_types::restart::{CoreRestartTracker, FailureClock};
 
 #[cfg(feature = "alloc")]
 pub mod runtime;

@@ -40,5 +40,9 @@
 - **テスト戦略**
   - コア層ではダミー `FailureClock`（固定 tick／モック）を用いた determinisitc テストを作成。
   - std 層では既存 async テストを `TokioFailureClock` + `CoreRestartWindow` 組み合わせで回帰確認。
-  - ベンチマーク (`strategy_one_for_one` 等) を clock 差し替え後も継続し、パフォーマンス退行を検知。
+ - ベンチマーク (`strategy_one_for_one` 等) を clock 差し替え後も継続し、パフォーマンス退行を検知。
 
+## 進捗メモ（2025-10-01）
+- `CoreRestartTracker` と `FailureClock` 抽象を `actor-core` に導入し、`RestartStatistics` がコア実装を利用するよう更新済み。
+- `TokioFailureClock` でアンカー更新を行い、既存の `Instant` ベース API（`push`/`with_values`）を維持したまま no_std 互換化。
+- 旧 `Instant` ベース実装は撤去済み。残タスクは window 最適化と embedded 向けクロック実装。
