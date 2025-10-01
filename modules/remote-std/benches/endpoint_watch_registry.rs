@@ -4,7 +4,7 @@ use std::time::Duration;
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use nexus_actor_std_rs::actor::core::PidSet;
 use nexus_actor_std_rs::generated::actor::Pid;
-use nexus_remote_core_rs::{EndpointWatcher, WatchRegistry};
+use nexus_remote_std_rs::{EndpointWatcher, WatchRegistry};
 use tokio::runtime::Runtime;
 
 fn make_pid(seq: usize) -> Pid {

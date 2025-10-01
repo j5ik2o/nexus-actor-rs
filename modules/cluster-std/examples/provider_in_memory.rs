@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use nexus_cluster_core_rs::{Cluster, ClusterConfig, InMemoryClusterProvider};
+use nexus_cluster_std_rs::{Cluster, ClusterConfig, InMemoryClusterProvider};
 
 #[tokio::main]
 async fn main() {

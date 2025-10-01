@@ -7,7 +7,7 @@ use nexus_actor_std_rs::actor::message::{Message, MessageHandle};
 use nexus_message_derive_rs::Message as MessageDerive;
 use tokio::time::timeout;
 
-use nexus_cluster_core_rs::{
+use nexus_cluster_std_rs::{
   Cluster, ClusterConfig, ClusterIdentity, ClusterKind, InMemoryClusterProvider, VirtualActor, VirtualActorContext,
   VirtualActorRuntime,
 };

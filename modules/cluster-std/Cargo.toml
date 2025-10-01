@@ -1,8 +1,8 @@
 [package]
-name = "nexus-cluster-core-rs"
+name = "nexus-cluster-std-rs"
 version = "0.0.1"
 edition = "2021"
-description = "Cluster library for Nexus Actor"
+description = "Cluster library for Nexus Actor (std layer)"
 license = "MIT OR Apache-2.0"
 keywords = [ "nexus", "actor", "cluster", "grpc", "tonic" ]
 categories = [ "concurrency", "asynchronous", "network-programming" ]
@@ -14,8 +14,8 @@ async-trait = { workspace = true }
 dashmap = { workspace = true }
 futures = { workspace = true }
 nexus-actor-std-rs = { version = "3.*", path = "../actor-std" }
-nexus-message-derive-rs = { version = "0.*", path = "../message-derive" }
-nexus-remote-core-rs = { path = "../remote" }
+nexus-message-derive-std-rs = { path = "../message-derive-std" }
+nexus-remote-core-rs = { path = "../remote-core" }
 fnv = "1.0"
 num_enum = "0.7.2"
 once_cell = "1.19.0"

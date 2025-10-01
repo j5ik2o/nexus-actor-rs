@@ -1,8 +1,8 @@
 [package]
-name = "nexus-remote-core-rs"
+name = "nexus-remote-std-rs"
 version = "0.5.1"
 edition = "2021"
-description = "Remote library for Nexus Actor"
+description = "Remote messaging library for Nexus Actor (std layer)"
 license = "MIT OR Apache-2.0"
 keywords = [ "nexus", "actor", "remote", "grpc", "tonic" ]
 categories = [ "concurrency", "asynchronous", "network-programming" ]
@@ -14,7 +14,7 @@ async-trait = { workspace = true }
 dashmap = { workspace = true }
 futures = { workspace = true }
 nexus-actor-std-rs = { version = "3.*", path = "../actor-std" }
-nexus-message-derive-rs = { version = "0.*", path = "../message-derive" }
+nexus-message-derive-std-rs = { path = "../message-derive-std" }
 nexus-utils-std-rs = { version = "0.*", path = "../utils-std" }
 num_enum = { workspace = true }
 once_cell = { workspace = true }
@@ -22,7 +22,7 @@ parking_lot = { workspace = true }
 prost = { workspace = true }
 prost-types = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
-serde_json ={ workspace = true }
+serde_json = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tonic = { workspace = true }
