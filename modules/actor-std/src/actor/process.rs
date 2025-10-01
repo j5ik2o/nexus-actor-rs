@@ -6,6 +6,9 @@ use async_trait::async_trait;
 use crate::actor::core::ExtendedPid;
 use crate::actor::message::MessageHandle;
 
+use nexus_actor_core_rs::actor::core_types::pid::CorePid;
+use nexus_actor_core_rs::actor::core_types::process::{CoreProcessHandle, ProcessFuture};
+
 pub mod actor_future;
 mod dead_letter;
 pub(crate) mod dead_letter_process;
@@ -77,5 +80,34 @@ impl Process for ProcessHandle {
 
   fn as_any(&self) -> &dyn std::any::Any {
     self.0.as_any()
+  }
+}
+
+impl CoreProcessHandle for ProcessHandle {
+  fn send_user_message<'a>(&'a self, pid: Option<&'a CorePid>, message: MessageHandle) -> ProcessFuture<'a> {
+    let process = self.clone();
+    let core_pid_opt = pid.cloned();
+    Box::pin(async move {
+      let extended_pid = core_pid_opt.as_ref().map(|p| ExtendedPid::from_core(p.clone()));
+      Process::send_user_message(&process, extended_pid.as_ref(), message).await;
+    })
+  }
+
+  fn send_system_message<'a>(&'a self, pid: &'a CorePid, message: MessageHandle) -> ProcessFuture<'a> {
+    let process = self.clone();
+    let core_pid = pid.clone();
+    Box::pin(async move {
+      let extended = ExtendedPid::from_core(core_pid);
+      Process::send_system_message(&process, &extended, message).await;
+    })
+  }
+
+  fn stop<'a>(&'a self, pid: &'a CorePid) -> ProcessFuture<'a> {
+    let process = self.clone();
+    let core_pid = pid.clone();
+    Box::pin(async move {
+      let extended = ExtendedPid::from_core(core_pid);
+      Process::stop(&process, &extended).await;
+    })
   }
 }

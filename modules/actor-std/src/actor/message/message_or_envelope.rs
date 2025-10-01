@@ -42,7 +42,8 @@ impl MessageEnvelope {
   }
 
   pub fn get_header(&self) -> Option<MessageHeaders> {
-    self.inner
+    self
+      .inner
       .header()
       .cloned()
       .map(|map| MessageHeaders::with_values(map.into_iter()))
