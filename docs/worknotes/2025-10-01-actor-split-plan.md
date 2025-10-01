@@ -31,6 +31,7 @@
 - メトリクス側で `core_queue_handles()` を利用し、キュー長を CoreMailboxQueue 経由で観測するように更新。
 - RingQueue を `RingBuffer` ベースへ移行し、std 層は `Mutex` 包装のみを担当する構造に整理。
 - DefaultMailbox 内のキュー長取得も CoreMailboxQueue ベースに切り替え、dispatch ループでの統計取得を core 抽象へ統一。
+- CoreMailboxQueueAsyncExt を追加し、キュー操作を Future 化できるインターフェースを core レイヤで提供。
 
 ## 継続タスク（優先度：高→低）
 - 【高：監視拡張】EndpointSupervisor や RemoteProcess を含む監視経路で `WatchRegistry` を活用し、テレメトリや監視イベント発火との整合性を取る（例：EndpointSupervisor 経由の登録、RemoteProcess の最適化）。
