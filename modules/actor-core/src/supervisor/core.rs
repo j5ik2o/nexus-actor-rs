@@ -2,6 +2,7 @@
 
 use alloc::boxed::Box;
 use alloc::vec::Vec;
+use core::any::Any;
 use core::future::Future;
 use core::pin::Pin;
 
@@ -21,11 +22,11 @@ pub enum CoreSupervisorDirective {
   Escalate,
 }
 
-pub trait CoreSupervisorContext: Send + Sync {
+pub trait CoreSupervisorContext: Any + Send + Sync {
   fn now(&self) -> u64;
 }
 
-pub trait CoreSupervisorStrategy: Send + Sync {
+pub trait CoreSupervisorStrategy: Any + Send + Sync {
   fn handle_child_failure<'a>(
     &'a self,
     ctx: &'a dyn CoreSupervisorContext,
@@ -37,7 +38,7 @@ pub trait CoreSupervisorStrategy: Send + Sync {
   ) -> CoreSupervisorStrategyFuture<'a>;
 }
 
-pub trait CoreSupervisor: Send + Sync {
+pub trait CoreSupervisor: Any + Send + Sync {
   fn children<'a>(&'a self) -> CoreSupervisorFuture<'a, Vec<CorePid>>;
   fn apply_directive<'a>(
     &'a self,

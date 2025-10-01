@@ -20,6 +20,13 @@ impl RestartStatistics {
     }
   }
 
+  pub fn from_core_tracker(tracker: CoreRestartTracker) -> Self {
+    Self {
+      tracker: Arc::new(SynchronizedRw::new(tracker)),
+      clock: TokioFailureClock::new(),
+    }
+  }
+
   pub fn with_values(failure_times: impl IntoIterator<Item = Instant>) -> Self {
     let instants: Vec<Instant> = failure_times.into_iter().collect();
     let anchor = instants.iter().min().copied().unwrap_or_else(Instant::now);
@@ -62,6 +69,17 @@ impl RestartStatistics {
       })
       .await;
     count.min(u32::MAX as usize) as u32
+  }
+}
+
+impl RestartStatistics {
+  pub async fn snapshot_durations(&self) -> Vec<Duration> {
+    self.tracker.read(|tracker| tracker.samples().to_vec()).await
+  }
+
+  pub async fn into_core_tracker(self) -> CoreRestartTracker {
+    let tracker = self.tracker;
+    tracker.read(|guard| (*guard).clone()).await
   }
 }
 
