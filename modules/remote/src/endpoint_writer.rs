@@ -18,10 +18,11 @@ use nexus_actor_std_rs::actor::actor_system::ActorSystem;
 use nexus_actor_std_rs::actor::context::{BasePart, ContextHandle, InfoPart, MessagePart, SenderPart, StopperPart};
 use nexus_actor_std_rs::actor::core::{Actor, ActorError, ErrorReason, ExtendedPid};
 use nexus_actor_std_rs::actor::dispatch::DeadLetterEvent;
-use nexus_actor_std_rs::actor::message::{Message, MessageHandle, ReadonlyMessageHeaders};
+use nexus_actor_std_rs::actor::message::{Message, MessageHandle};
 use nexus_actor_std_rs::actor::metrics::metrics_impl::MetricsSink;
 use nexus_actor_std_rs::generated::actor::{DeadLetterResponse, Pid};
 use opentelemetry::KeyValue;
+use std::collections::HashMap;
 use std::sync::{Arc, Weak};
 use std::time::Instant;
 use thiserror::Error;
@@ -373,8 +374,9 @@ impl EndpointWriter {
       let header = if rd.header.as_ref().map_or(true, |h| h.length() == 0) {
         None
       } else {
+        let header_map: HashMap<String, String> = rd.header.unwrap().to_map().into_iter().collect();
         Some(MessageHeader {
-          header_data: rd.header.unwrap().to_map(),
+          header_data: header_map,
         })
       };
 

@@ -15,6 +15,7 @@
 - EndpointManager が `WatchRegistry` を共有し、`remote_watch`/`remote_unwatch`/`remote_terminate` でもヘルパーを介した更新になるよう統一。
 - `Response` / `ResponseHandle` を actor-core へ移行し、std 層は再エクスポートのみとした。
 - `MessageHandle` を actor-core に移し、メッセージ抽象の大半が no_std + alloc で完結する構成に整理。
+- `ReadonlyMessageHeaders` と `ReadonlyMessageHeadersHandle` を actor-core に移設し、std 側では DashMap ベース実装で trait を満たす形へ整理。
 
 ## 継続タスク（優先度：高→低）
 - 【高：監視拡張】EndpointSupervisor や RemoteProcess を含む監視経路で `WatchRegistry` を活用し、テレメトリや監視イベント発火との整合性を取る（例：EndpointSupervisor 経由の登録、RemoteProcess の最適化）。
