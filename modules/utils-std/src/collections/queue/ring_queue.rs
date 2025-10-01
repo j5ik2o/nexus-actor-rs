@@ -37,6 +37,26 @@ impl<E: Element> RingQueue<E> {
     self
   }
 
+  pub fn offer_shared(&self, element: E) -> Result<(), QueueError<E>> {
+    let dynamic = self.inner.dynamic.load(Ordering::SeqCst);
+    self.with_lock(|buffer| {
+      buffer.set_dynamic(dynamic);
+      buffer.offer(element)
+    })
+  }
+
+  pub fn poll_shared(&self) -> Result<Option<E>, QueueError<E>> {
+    self.with_lock(|buffer| buffer.poll())
+  }
+
+  pub fn clean_up_shared(&self) {
+    self.with_lock(|buffer| buffer.clean_up());
+  }
+
+  pub fn len_shared(&self) -> usize {
+    self.with_lock(|buffer| buffer.len().to_usize())
+  }
+
   fn with_lock<F, R>(&self, f: F) -> R
   where
     F: FnOnce(&mut RingBuffer<E>) -> R, {

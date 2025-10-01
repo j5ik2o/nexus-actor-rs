@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests;
 
-use crate::actor::dispatch::mailbox::mpsc_core_queue::UnboundedMpscCoreMailboxQueue;
+use crate::actor::dispatch::mailbox::core_queue_adapters::{RingCoreMailboxQueue, UnboundedMpscCoreMailboxQueue};
 use crate::actor::dispatch::mailbox::sync_queue_handles::SyncMailboxQueueHandles;
 use crate::actor::dispatch::mailbox::DefaultMailbox;
 use crate::actor::dispatch::mailbox::MailboxHandle;
@@ -73,7 +73,10 @@ pub fn bounded_mailbox_creator_with_opts(
   MailboxProducer::new(move || {
     let cloned_mailbox_stats = cloned_mailbox_stats.clone();
     async move {
-      let user_handles = SyncMailboxQueueHandles::new(BoundedMailboxQueue::new(RingQueue::new(size), size, dropping));
+      let ring_queue = RingQueue::new(size);
+      let user_core = Arc::new(RingCoreMailboxQueue::new(ring_queue.clone()));
+      let user_handles =
+        SyncMailboxQueueHandles::new_with_core(BoundedMailboxQueue::new(ring_queue, size, dropping), Some(user_core));
 
       let system_mpsc = MpscUnboundedChannelQueue::new();
       let system_core = Arc::new(UnboundedMpscCoreMailboxQueue::new(system_mpsc.clone()));

@@ -111,9 +111,9 @@ impl MailboxSync for MailboxSyncHandle {
   }
 }
 
+pub(crate) mod core_queue_adapters;
 mod default_mailbox;
 mod mailbox_handle;
-pub(crate) mod mpsc_core_queue;
 pub(crate) mod sync_queue_handles;
 #[cfg(test)]
 mod tests;

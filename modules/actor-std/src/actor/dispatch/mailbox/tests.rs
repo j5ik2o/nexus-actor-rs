@@ -2,7 +2,9 @@ use crate::actor::core::ActorError;
 use crate::actor::core::ErrorReason;
 use crate::actor::dispatch::bounded::BoundedMailboxQueue;
 use crate::actor::dispatch::dispatcher::{Dispatcher, DispatcherHandle, TokioRuntimeContextDispatcher};
-use crate::actor::dispatch::mailbox::mpsc_core_queue::UnboundedMpscCoreMailboxQueue;
+use crate::actor::dispatch::mailbox::core_queue_adapters::{
+  PriorityCoreMailboxQueue, RingCoreMailboxQueue, UnboundedMpscCoreMailboxQueue,
+};
 use crate::actor::dispatch::mailbox::sync_queue_handles::SyncMailboxQueueHandles;
 use crate::actor::dispatch::mailbox::DefaultMailbox;
 use crate::actor::dispatch::mailbox_message::MailboxMessage;
@@ -11,7 +13,7 @@ use crate::actor::dispatch::unbounded::{unbounded_mpsc_mailbox_creator, Unbounde
 use crate::actor::dispatch::{Mailbox, MailboxQueueKind};
 use crate::actor::message::MessageHandle;
 use async_trait::async_trait;
-use nexus_utils_std_rs::collections::{MpscUnboundedChannelQueue, QueueReader, QueueWriter, RingQueue};
+use nexus_utils_std_rs::collections::{MpscUnboundedChannelQueue, PriorityQueue, QueueReader, QueueWriter, RingQueue};
 use parking_lot::Mutex;
 use rand::prelude::*;
 use rand::rngs::SmallRng;
@@ -623,7 +625,12 @@ fn test_core_queue_handles_reflect_bounded_drop() {
 #[tokio::test]
 async fn test_bounded_mailbox_metrics_remain_consistent_after_drop() {
   let size = 3;
-  let user_handles = SyncMailboxQueueHandles::new(BoundedMailboxQueue::new(RingQueue::new(size), size, true));
+  let ring_queue = RingQueue::new(size);
+  let user_core = Arc::new(RingCoreMailboxQueue::new(ring_queue.clone()));
+  let user_handles = SyncMailboxQueueHandles::new_with_core(
+    BoundedMailboxQueue::new(ring_queue, size, true),
+    Some(user_core.clone()),
+  );
 
   let system_queue = MpscUnboundedChannelQueue::new();
   let system_core = Arc::new(UnboundedMpscCoreMailboxQueue::new(system_queue.clone()));
@@ -653,5 +660,33 @@ async fn test_bounded_mailbox_metrics_remain_consistent_after_drop() {
   let sync_handle = mailbox.to_sync_handle();
   let (user_core_handle, system_core_handle) = sync_handle.core_queue_handles().expect("core handles");
   assert_eq!(user_core_handle.len(), size);
+  assert_eq!(system_core_handle.len(), 0);
+}
+
+#[tokio::test]
+async fn test_priority_mailbox_core_queue_len_consistency() {
+  let priority_queue = PriorityQueue::new(|| RingQueue::new(10));
+  let user_core = Arc::new(PriorityCoreMailboxQueue::new(priority_queue.clone()));
+  let user_handles =
+    SyncMailboxQueueHandles::new_with_core(UnboundedMailboxQueue::new(priority_queue), Some(user_core.clone()));
+
+  let system_mpsc = MpscUnboundedChannelQueue::new();
+  let system_core = Arc::new(UnboundedMpscCoreMailboxQueue::new(system_mpsc.clone()));
+  let system_handles =
+    SyncMailboxQueueHandles::new_with_core(UnboundedMailboxQueue::new(system_mpsc), Some(system_core));
+
+  let mailbox = DefaultMailbox::from_handles(user_handles.clone(), system_handles);
+
+  let writer = user_handles.writer_handle();
+  writer.offer_sync(MessageHandle::new("low".to_string())).unwrap();
+  writer.offer_sync(MessageHandle::new("high".to_string())).unwrap();
+
+  let (core_user, core_system) = mailbox.core_queue_handles();
+  assert_eq!(core_user.len(), 2);
+  assert_eq!(core_system.len(), 0);
+
+  let sync_handle = mailbox.to_sync_handle();
+  let (user_core_handle, system_core_handle) = sync_handle.core_queue_handles().expect("core handles");
+  assert_eq!(user_core_handle.len(), 2);
   assert_eq!(system_core_handle.len(), 0);
 }

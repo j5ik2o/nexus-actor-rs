@@ -34,7 +34,7 @@
 - CoreMailboxQueueAsyncExt を追加し、キュー操作を Future 化できるインターフェースを core レイヤで提供。
 - 2025-10-01 に `cargo check -p nexus-actor-core-rs --no-default-features --features alloc`、`cargo test --workspace`、`cargo bench -p nexus-actor-std-rs` を実行し、actor-core/no_std 経路と actor-std ベンチの回帰が無いことを確認。併せて docs 配下の役割整理とリリースノート草案を更新。
 - EndpointSupervisor で EndpointManager の既存 `WatchRegistry` を再利用し、再起動時も監視スナップショットを維持するよう更新。`RemoteProcess` / `EndpointManager` 間で `WatchRegistry` を参照して重複 watch/unwatch を抑制し、イベント／テレメトリとワーカーメッセージ送信を整合。
-- CoreMailboxQueue を trait object 化し、MPSC ベースキューを `CoreMailboxQueue` に直結するアダプタ（`UnboundedMpscCoreMailboxQueue` など）を導入して、SyncMailboxQueueHandles から共通取得できるよう統一。
+- CoreMailboxQueue を trait object 化し、MPSC／Ring／Priority ベースキューを `CoreMailboxQueue` に直結するアダプタを導入して、SyncMailboxQueueHandles から共通取得できるよう統一。
 
 ## 継続タスク（優先度：高→低）
 - 【高：抽象再設計】Mailbox／Supervisor 系の Tokio 依存を trait 化し、actor-core がインターフェース、actor-std が Tokio 実装という責務分割に仕上げる（チャネル実装の差し替え方針も併せて整理）。

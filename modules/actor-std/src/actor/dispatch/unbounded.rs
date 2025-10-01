@@ -1,4 +1,6 @@
-use crate::actor::dispatch::mailbox::mpsc_core_queue::UnboundedMpscCoreMailboxQueue;
+use crate::actor::dispatch::mailbox::core_queue_adapters::{
+  PriorityCoreMailboxQueue, RingCoreMailboxQueue, UnboundedMpscCoreMailboxQueue,
+};
 use crate::actor::dispatch::mailbox::sync_queue_handles::{SyncMailboxQueue, SyncMailboxQueueHandles};
 use crate::actor::dispatch::mailbox::DefaultMailbox;
 use crate::actor::dispatch::mailbox::MailboxHandle;
@@ -59,7 +61,10 @@ pub fn unbounded_mailbox_creator_with_opts(
   MailboxProducer::new(move || {
     let cloned_mailbox_stats = cloned_mailbox_stats.clone();
     async move {
-      let user_handles = SyncMailboxQueueHandles::new(UnboundedMailboxQueue::new(RingQueue::new(10)));
+      let ring_queue = RingQueue::new(10);
+      let user_core = Arc::new(RingCoreMailboxQueue::new(ring_queue.clone()));
+      let user_handles =
+        SyncMailboxQueueHandles::new_with_core(UnboundedMailboxQueue::new(ring_queue), Some(user_core));
 
       let system_mpsc = MpscUnboundedChannelQueue::new();
       let system_core = Arc::new(UnboundedMpscCoreMailboxQueue::new(system_mpsc.clone()));
@@ -86,8 +91,10 @@ pub fn unbounded_priority_mailbox_creator_with_opts(
   MailboxProducer::new(move || {
     let cloned_mailbox_stats = cloned_mailbox_stats.clone();
     async move {
+      let priority_queue = PriorityQueue::new(|| RingQueue::new(10));
+      let user_core = Arc::new(PriorityCoreMailboxQueue::new(priority_queue.clone()));
       let user_handles =
-        SyncMailboxQueueHandles::new(UnboundedMailboxQueue::new(PriorityQueue::new(|| RingQueue::new(10))));
+        SyncMailboxQueueHandles::new_with_core(UnboundedMailboxQueue::new(priority_queue), Some(user_core));
 
       let system_mpsc = MpscUnboundedChannelQueue::new();
       let system_core = Arc::new(UnboundedMpscCoreMailboxQueue::new(system_mpsc.clone()));
