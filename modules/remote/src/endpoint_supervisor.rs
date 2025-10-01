@@ -9,6 +9,7 @@ use async_trait::async_trait;
 use nexus_actor_std_rs::actor::actor_system::ActorSystem;
 use nexus_actor_std_rs::actor::context::{BasePart, ContextHandle, MessagePart, SpawnerPart};
 use nexus_actor_std_rs::actor::core::{Actor, ActorError, ErrorReason, ExtendedPid, Props, RestartStatistics};
+use nexus_actor_std_rs::actor::core_types::pid_types::CorePid;
 use nexus_actor_std_rs::actor::dispatch::{MailboxHandle, MailboxProducer, MailboxSyncHandle};
 use nexus_actor_std_rs::actor::message::{MessageHandle, ResponseHandle};
 use nexus_actor_std_rs::actor::supervisor::{
@@ -145,13 +146,14 @@ impl SupervisorStrategy for EndpointSupervisor {
     &self,
     _actor_system: ActorSystem,
     supervisor: SupervisorHandle,
-    child: ExtendedPid,
+    child: CorePid,
     _rs: RestartStatistics,
     _reason: ErrorReason,
     _message_handle: MessageHandle,
   ) {
     tracing::debug!("EndpointSupervisor::handle_child_failure");
-    supervisor.stop_children(&[child]).await;
+    let children = [child.clone()];
+    supervisor.stop_children(&children).await;
   }
 
   fn as_any(&self) -> &dyn Any {

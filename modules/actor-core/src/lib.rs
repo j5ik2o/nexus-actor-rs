@@ -13,7 +13,7 @@ pub use actor::core_types::message_handle::MessageHandle;
 #[cfg(feature = "alloc")]
 pub use actor::core_types::message_headers::{HeaderMap, ReadonlyMessageHeaders, ReadonlyMessageHeadersHandle};
 #[cfg(feature = "alloc")]
-pub use actor::core_types::pid::CorePid;
+pub use actor::core_types::pid::{CorePid, CorePidRef};
 #[cfg(feature = "alloc")]
 pub use actor::core_types::process::{CoreProcessHandle, ProcessFuture};
 #[cfg(feature = "alloc")]

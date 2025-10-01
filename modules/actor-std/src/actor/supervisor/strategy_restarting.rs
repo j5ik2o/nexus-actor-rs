@@ -4,13 +4,13 @@ use async_trait::async_trait;
 
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::core::ErrorReason;
-use crate::actor::core::ExtendedPid;
 use crate::actor::core::RestartStatistics;
 use crate::actor::message::MessageHandle;
 use crate::actor::supervisor::directive::Directive;
 use crate::actor::supervisor::supervisor_strategy::{
   log_failure, record_supervisor_metrics, Supervisor, SupervisorHandle, SupervisorStrategy,
 };
+use nexus_actor_core_rs::actor::core_types::pid::CorePid;
 
 #[derive(Debug, Clone)]
 pub struct RestartingStrategy;
@@ -47,16 +47,16 @@ impl SupervisorStrategy for RestartingStrategy {
     &self,
     actor_system: ActorSystem,
     supervisor: SupervisorHandle,
-    child: ExtendedPid,
+    child: CorePid,
     _: RestartStatistics,
     reason: ErrorReason,
     _: MessageHandle,
   ) {
-    let child_pid = child.id().to_string();
-    record_supervisor_metrics(&supervisor, "restarting", "restart", &child_pid, Vec::new());
+    record_supervisor_metrics(&supervisor, "restarting", "restart", &child, Vec::new());
     // always restart
     log_failure(actor_system, &child, reason, Directive::Restart).await;
-    supervisor.restart_children(&[child]).await
+    let children = [child.clone()];
+    supervisor.restart_children(&children).await
   }
 
   fn as_any(&self) -> &dyn Any {

@@ -15,7 +15,7 @@
 - CLAUDE.mdも参照すること。
 - serena mcpを有効活用すること
 - 当該ディレクトリ以外を読まないこと
-- 作業の最後に cargo test を行うこと
+- 作業の最後に cargo build && cargo test を行うこと
 - 作業途中に適宜git commitすること(@.claude/commands/git-commit.md)
 - 作業の前にdocs/以下の関連するドキュメントを読むこと
 - 残タスクを確認する際はdocs/以下の関連するドキュメントを調べて優先順位でソートして表示すること

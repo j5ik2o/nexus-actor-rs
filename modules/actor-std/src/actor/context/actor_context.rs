@@ -47,6 +47,7 @@ use crate::actor::supervisor::{Supervisor, SupervisorHandle, SupervisorStrategy,
 use crate::ctxext::extensions::{ContextExtensionHandle, ContextExtensionId};
 use crate::generated::actor::{PoisonPill, Terminated, Unwatch, Watch};
 use arc_swap::ArcSwapOption;
+use nexus_actor_core_rs::actor::core_types::pid::CorePid;
 
 use crate::actor::process::actor_future::ActorFuture;
 use async_trait::async_trait;
@@ -696,11 +697,12 @@ impl ActorContext {
     let mut actor = self.get_actor().await.unwrap();
     let actor_system = self.actor_system();
     let supervisor_handle = self.supervisor_handle_with_snapshot();
+    let child_core = f.who.to_core();
     if let Some(s) = actor.get_supervisor_strategy().await {
       s.handle_child_failure(
         actor_system.clone(),
         supervisor_handle.clone(),
-        f.who.clone(),
+        child_core.clone(),
         f.restart_stats.clone(),
         f.reason.clone(),
         f.message_handle.clone(),
@@ -714,7 +716,7 @@ impl ActorContext {
       .handle_child_failure(
         actor_system,
         supervisor_handle,
-        f.who.clone(),
+        child_core,
         f.restart_stats.clone(),
         f.reason.clone(),
         f.message_handle.clone(),
@@ -749,7 +751,7 @@ impl ActorContext {
       .handle_child_failure(
         actor_system,
         supervisor_handle,
-        self.get_self_opt().await.unwrap(),
+        self.get_self_opt().await.unwrap().to_core(),
         failure.restart_stats.clone(),
         failure.reason.clone(),
         failure.message_handle.clone(),
@@ -1358,7 +1360,7 @@ impl Supervisor for ActorContext {
     self
   }
 
-  async fn get_children(&self) -> Vec<ExtendedPid> {
+  async fn get_children(&self) -> Vec<CorePid> {
     if self.get_extras().await.is_none() {
       return vec![];
     }
@@ -1371,7 +1373,7 @@ impl Supervisor for ActorContext {
       .to_vec()
       .await
       .into_iter()
-      .map(ExtendedPid::new)
+      .map(|pid| pid.to_core())
       .collect()
   }
 
@@ -1419,27 +1421,27 @@ impl Supervisor for ActorContext {
     }
   }
 
-  async fn restart_children(&self, pids: &[ExtendedPid]) {
+  async fn restart_children(&self, pids: &[CorePid]) {
     let actor_system = self.actor_system();
-    for pid in pids {
+    for pid in ExtendedPid::from_core_slice(pids) {
       pid
         .send_system_message(actor_system.clone(), MessageHandle::new(SystemMessage::Restart))
         .await;
     }
   }
 
-  async fn stop_children(&self, pids: &[ExtendedPid]) {
+  async fn stop_children(&self, pids: &[CorePid]) {
     let actor_system = self.actor_system();
-    for pid in pids {
+    for pid in ExtendedPid::from_core_slice(pids) {
       pid
         .send_system_message(actor_system.clone(), MessageHandle::new(SystemMessage::Stop))
         .await;
     }
   }
 
-  async fn resume_children(&self, pids: &[ExtendedPid]) {
+  async fn resume_children(&self, pids: &[CorePid]) {
     let actor_system = self.actor_system();
-    for pid in pids {
+    for pid in ExtendedPid::from_core_slice(pids) {
       pid
         .send_system_message(actor_system.clone(), MessageHandle::new(MailboxMessage::ResumeMailbox))
         .await;

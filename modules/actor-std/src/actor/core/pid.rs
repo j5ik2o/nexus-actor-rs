@@ -8,7 +8,7 @@ use crate::actor::message::MessageHandle;
 use crate::actor::process::{Process, ProcessHandle};
 use crate::generated::actor::Pid;
 
-use nexus_actor_core_rs::actor::core_types::pid::CorePid;
+use nexus_actor_core_rs::actor::core_types::pid::{CorePid, CorePidRef};
 use tokio::sync::Mutex;
 
 impl Pid {
@@ -89,6 +89,23 @@ impl ExtendedPid {
       inner_pid: pid,
       process_handle: Arc::new(Mutex::new(None)),
     }
+  }
+
+  /// `CorePid` のスライスから `ExtendedPid` のベクタへ変換するヘルパー。
+  pub fn from_core_slice(pids: &[CorePid]) -> Vec<Self> {
+    pids.iter().map(Self::from).collect()
+  }
+
+  /// `CorePid` のイテレータから `ExtendedPid` のベクタへ変換するヘルパー。
+  pub fn from_core_iter<I>(pids: I) -> Vec<Self>
+  where
+    I: IntoIterator<Item = CorePid>, {
+    pids.into_iter().map(Self::from).collect()
+  }
+
+  /// `ExtendedPid` のスライスから `CorePid` のベクタへ変換するヘルパー。
+  pub fn to_core_vec(pids: &[Self]) -> Vec<CorePid> {
+    pids.iter().map(CorePid::from).collect()
   }
 
   pub fn address(&self) -> &str {
@@ -192,5 +209,35 @@ impl ExtendedPid {
       .downcast_ref::<ActorProcess>()
       .map(|actor_process| actor_process.is_dead())
       .unwrap_or(false)
+  }
+}
+
+impl From<CorePid> for ExtendedPid {
+  fn from(core_pid: CorePid) -> Self {
+    Self::from_core(core_pid)
+  }
+}
+
+impl From<&CorePid> for ExtendedPid {
+  fn from(core_pid: &CorePid) -> Self {
+    Self::from_core(core_pid.clone())
+  }
+}
+
+impl From<ExtendedPid> for CorePid {
+  fn from(pid: ExtendedPid) -> Self {
+    pid.core_pid
+  }
+}
+
+impl From<&ExtendedPid> for CorePid {
+  fn from(pid: &ExtendedPid) -> Self {
+    pid.core_pid.clone()
+  }
+}
+
+impl CorePidRef for ExtendedPid {
+  fn as_core_pid(&self) -> &CorePid {
+    &self.core_pid
   }
 }

@@ -9,12 +9,12 @@ mod test {
   use tracing_subscriber::EnvFilter;
 
   use crate::actor::actor_system::ActorSystem;
-  use crate::actor::core::{ErrorReason, ExtendedPid, RestartStatistics};
+  use crate::actor::core::{ErrorReason, RestartStatistics};
   use crate::actor::message::MessageHandle;
   use crate::actor::supervisor::directive::Directive;
   use crate::actor::supervisor::strategy_one_for_one::OneForOneStrategy;
   use crate::actor::supervisor::supervisor_strategy::{Supervisor, SupervisorHandle, SupervisorStrategy};
-  use crate::generated::actor::Pid;
+  use nexus_actor_core_rs::actor::core_types::pid::CorePid;
 
   #[tokio::test]
   async fn test_one_for_one_strategy_request_restart_permission() {
@@ -89,7 +89,7 @@ mod test {
   #[derive(Debug, Clone)]
   struct MockSupervisor {
     last_action: Arc<Mutex<String>>,
-    children: Arc<Mutex<Vec<ExtendedPid>>>,
+    children: Arc<Mutex<Vec<CorePid>>>,
   }
 
   impl MockSupervisor {
@@ -107,21 +107,21 @@ mod test {
       self
     }
 
-    async fn get_children(&self) -> Vec<ExtendedPid> {
+    async fn get_children(&self) -> Vec<CorePid> {
       self.children.lock().unwrap().clone()
     }
 
-    async fn resume_children(&self, children: &[ExtendedPid]) {
+    async fn resume_children(&self, children: &[CorePid]) {
       *self.last_action.lock().unwrap() = "resume".to_string();
       *self.children.lock().unwrap() = children.to_vec();
     }
 
-    async fn restart_children(&self, children: &[ExtendedPid]) {
+    async fn restart_children(&self, children: &[CorePid]) {
       *self.last_action.lock().unwrap() = "restart".to_string();
       *self.children.lock().unwrap() = children.to_vec();
     }
 
-    async fn stop_children(&self, children: &[ExtendedPid]) {
+    async fn stop_children(&self, children: &[CorePid]) {
       *self.last_action.lock().unwrap() = "stop".to_string();
       *self.children.lock().unwrap() = children.to_vec();
     }
@@ -136,14 +136,14 @@ mod test {
     ActorSystem,
     SupervisorHandle,
     Arc<MockSupervisor>,
-    ExtendedPid,
+    CorePid,
     RestartStatistics,
   ) {
     let actor_system = ActorSystem::new().await.unwrap();
     let supervisor_instance = Arc::new(MockSupervisor::new());
     let supervisor_arc: Arc<dyn Supervisor> = supervisor_instance.clone();
     let supervisor = SupervisorHandle::new_arc(supervisor_arc);
-    let child = ExtendedPid::new(Pid::new("test", "1"));
+    let child = CorePid::new("test", "1");
     let rs = RestartStatistics::new();
     (actor_system, supervisor, supervisor_instance, child, rs)
   }

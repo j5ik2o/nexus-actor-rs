@@ -20,6 +20,8 @@
 - `ProcessHandle` を `CoreProcessHandle` トレイトでラップし、CorePid ベースでの送受信 API を用意して Tokio 依存を std 実装に閉じ込めた。
 - ProcessRegistry の AddressResolver を CorePid 入力へ切り替え、remote ハンドラ登録もコア抽象経由で行うよう更新。
 - ActorContext のメッセージ API を `MessageEnvelope` ラッパ経由に整理し、CoreMessageEnvelope と整合する変換経路を確立。
+- Supervisor／SupervisorStrategy トレイトを CorePid ベースへ移行し、`CorePidRef` 抽象と `ExtendedPid` 実装を整備して、監視系メトリクス・イベントの橋渡しを簡潔化。
+- ExtendedPid ↔ CorePid 変換の共通ヘルパー（`From` 実装・スライス変換ユーティリティ）を追加し、監視経路・コンテキストからの PID 変換処理を一元化。
 
 ## 継続タスク（優先度：高→低）
 - 【高：監視拡張】EndpointSupervisor や RemoteProcess を含む監視経路で `WatchRegistry` を活用し、テレメトリや監視イベント発火との整合性を取る（例：EndpointSupervisor 経由の登録、RemoteProcess の最適化）。

@@ -5,10 +5,10 @@ use async_trait::async_trait;
 
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::core::ErrorReason;
-use crate::actor::core::ExtendedPid;
 use crate::actor::core::RestartStatistics;
 use crate::actor::message::MessageHandle;
 use crate::actor::supervisor::supervisor_strategy::{SupervisorHandle, SupervisorStrategy};
+use nexus_actor_core_rs::actor::core_types::pid::CorePid;
 
 #[derive(Debug, Clone)]
 pub struct SupervisorStrategyHandle(Arc<dyn SupervisorStrategy>);
@@ -49,7 +49,7 @@ impl SupervisorStrategy for SupervisorStrategyHandle {
     &self,
     actor_system: ActorSystem,
     supervisor: SupervisorHandle,
-    child: ExtendedPid,
+    child: CorePid,
     rs: RestartStatistics,
     reason: ErrorReason,
     message_handle: MessageHandle,

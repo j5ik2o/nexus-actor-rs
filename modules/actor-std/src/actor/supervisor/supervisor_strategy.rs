@@ -20,6 +20,7 @@ use crate::actor::supervisor::strategy_one_for_one::OneForOneStrategy;
 use crate::actor::supervisor::strategy_restarting::RestartingStrategy;
 use crate::actor::supervisor::supervision_event::SupervisorEvent;
 use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
+use nexus_actor_core_rs::actor::core_types::pid::CorePid;
 use opentelemetry::KeyValue;
 
 #[derive(Clone)]
@@ -74,7 +75,7 @@ pub(crate) fn record_supervisor_metrics(
   supervisor: &SupervisorHandle,
   strategy: &'static str,
   decision: &str,
-  child_pid: &str,
+  child: &CorePid,
   mut extra_labels: Vec<KeyValue>,
 ) {
   if let Some(runtime) = supervisor.metrics_runtime() {
@@ -82,7 +83,7 @@ pub(crate) fn record_supervisor_metrics(
     let mut labels = vec![
       KeyValue::new("supervisor.strategy", strategy),
       KeyValue::new("supervisor.decision", decision.to_string()),
-      KeyValue::new("supervisor.child_pid", child_pid.to_string()),
+      KeyValue::new("supervisor.child_pid", child.to_string()),
     ];
     labels.append(&mut extra_labels);
     let sink = runtime.sink_for_actor(actor_type.as_deref());
@@ -96,7 +97,7 @@ pub trait SupervisorStrategy: Debug + Send + Sync {
     &self,
     actor_system: ActorSystem,
     supervisor: SupervisorHandle,
-    child: ExtendedPid,
+    child: CorePid,
     rs: RestartStatistics,
     reason: ErrorReason,
     message_handle: MessageHandle,
@@ -108,11 +109,11 @@ pub trait SupervisorStrategy: Debug + Send + Sync {
 #[async_trait]
 pub trait Supervisor: Debug + Send + Sync + 'static {
   fn as_any(&self) -> &dyn std::any::Any;
-  async fn get_children(&self) -> Vec<ExtendedPid>;
+  async fn get_children(&self) -> Vec<CorePid>;
   async fn escalate_failure(&self, reason: ErrorReason, message_handle: MessageHandle);
-  async fn restart_children(&self, pids: &[ExtendedPid]);
-  async fn stop_children(&self, pids: &[ExtendedPid]);
-  async fn resume_children(&self, pids: &[ExtendedPid]);
+  async fn restart_children(&self, pids: &[CorePid]);
+  async fn stop_children(&self, pids: &[CorePid]);
+  async fn resume_children(&self, pids: &[CorePid]);
 }
 
 #[derive(Debug)]
@@ -260,7 +261,7 @@ impl Supervisor for SupervisorHandle {
     self
   }
 
-  async fn get_children(&self) -> Vec<ExtendedPid> {
+  async fn get_children(&self) -> Vec<CorePid> {
     self
       .supervisor_arc()
       .expect("Supervisor snapshot is not initialized")
@@ -276,7 +277,7 @@ impl Supervisor for SupervisorHandle {
       .await;
   }
 
-  async fn restart_children(&self, pids: &[ExtendedPid]) {
+  async fn restart_children(&self, pids: &[CorePid]) {
     self
       .supervisor_arc()
       .expect("Supervisor snapshot is not initialized")
@@ -284,7 +285,7 @@ impl Supervisor for SupervisorHandle {
       .await;
   }
 
-  async fn stop_children(&self, pids: &[ExtendedPid]) {
+  async fn stop_children(&self, pids: &[CorePid]) {
     self
       .supervisor_arc()
       .expect("Supervisor snapshot is not initialized")
@@ -292,7 +293,7 @@ impl Supervisor for SupervisorHandle {
       .await;
   }
 
-  async fn resume_children(&self, pids: &[ExtendedPid]) {
+  async fn resume_children(&self, pids: &[CorePid]) {
     self
       .supervisor_arc()
       .expect("Supervisor snapshot is not initialized")
@@ -301,12 +302,13 @@ impl Supervisor for SupervisorHandle {
   }
 }
 
-pub async fn log_failure(actor_system: ActorSystem, child: &ExtendedPid, reason: ErrorReason, directive: Directive) {
+pub async fn log_failure(actor_system: ActorSystem, child: &CorePid, reason: ErrorReason, directive: Directive) {
+  let child_pid = ExtendedPid::from_core(child.clone());
   actor_system
     .get_event_stream()
     .await
     .publish(MessageHandle::new(SupervisorEvent {
-      child: child.clone(),
+      child: child_pid,
       reason,
       directive,
     }))
@@ -336,17 +338,17 @@ mod tests {
       self
     }
 
-    async fn get_children(&self) -> Vec<ExtendedPid> {
+    async fn get_children(&self) -> Vec<CorePid> {
       Vec::new()
     }
 
     async fn escalate_failure(&self, _: ErrorReason, _: MessageHandle) {}
 
-    async fn restart_children(&self, _: &[ExtendedPid]) {}
+    async fn restart_children(&self, _: &[CorePid]) {}
 
-    async fn stop_children(&self, _: &[ExtendedPid]) {}
+    async fn stop_children(&self, _: &[CorePid]) {}
 
-    async fn resume_children(&self, _: &[ExtendedPid]) {}
+    async fn resume_children(&self, _: &[CorePid]) {}
   }
 
   fn make_runtime() -> Arc<MetricsRuntime> {

@@ -6,7 +6,6 @@ use std::time::Duration;
 
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::core::ErrorReason;
-use crate::actor::core::ExtendedPid;
 use crate::actor::core::RestartStatistics;
 use crate::actor::message::MessageHandle;
 use crate::actor::supervisor::directive::Directive;
@@ -14,6 +13,7 @@ use crate::actor::supervisor::strategy_one_for_one::default_decider;
 use crate::actor::supervisor::supervisor_strategy::{
   log_failure, record_supervisor_metrics, Decider, Supervisor, SupervisorHandle, SupervisorStrategy,
 };
+use nexus_actor_core_rs::actor::core_types::pid::CorePid;
 
 #[derive(Debug, Clone)]
 pub struct AllForOneStrategy {
@@ -60,18 +60,17 @@ impl SupervisorStrategy for AllForOneStrategy {
     &self,
     actor_system: ActorSystem,
     supervisor: SupervisorHandle,
-    child: ExtendedPid,
+    child: CorePid,
     mut rs: RestartStatistics,
     reason: ErrorReason,
     message_handle: MessageHandle,
   ) {
-    let child_pid = child.id().to_string();
     let record_decision = |decision: &str, affected_children: usize| {
       record_supervisor_metrics(
         &supervisor,
         "all_for_one",
         decision,
-        &child_pid,
+        &child,
         vec![KeyValue::new("supervisor.affected_children", affected_children as i64)],
       );
     };
@@ -81,7 +80,8 @@ impl SupervisorStrategy for AllForOneStrategy {
       Directive::Resume => {
         record_decision("resume", 1);
         log_failure(actor_system, &child, reason, directive).await;
-        supervisor.resume_children(&[child]).await;
+        let children = [child.clone()];
+        supervisor.resume_children(&children).await;
       }
       Directive::Restart => {
         let children = supervisor.get_children().await;

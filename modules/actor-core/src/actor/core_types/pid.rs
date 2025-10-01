@@ -11,6 +11,26 @@ pub struct CorePid {
   request_id: u32,
 }
 
+/// `CorePid` を参照する型が共通で実装すべきインターフェース。
+///
+/// `ExtendedPid` など std 層で定義される PID ラッパーから、no_std 側の
+/// `CorePid` を再利用するための抽象境界として利用する。
+pub trait CorePidRef {
+  /// `CorePid` への参照を返す。
+  fn as_core_pid(&self) -> &CorePid;
+
+  /// 参照先の `CorePid` を複製して返す。デフォルト実装では `Clone` を活用する。
+  fn to_core_pid(&self) -> CorePid {
+    self.as_core_pid().clone()
+  }
+}
+
+impl CorePidRef for CorePid {
+  fn as_core_pid(&self) -> &CorePid {
+    self
+  }
+}
+
 impl CorePid {
   #[must_use]
   pub fn new(address: impl Into<String>, id: impl Into<String>) -> Self {

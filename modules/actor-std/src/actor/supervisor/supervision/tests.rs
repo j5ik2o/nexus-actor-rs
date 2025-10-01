@@ -7,7 +7,6 @@ mod test {
   use crate::actor::core::Actor;
   use crate::actor::core::ActorError;
   use crate::actor::core::ErrorReason;
-  use crate::actor::core::ExtendedPid;
   use crate::actor::core::Props;
   use crate::actor::core::ReceiverMiddleware;
   use crate::actor::core::RestartStatistics;
@@ -18,6 +17,7 @@ mod test {
   use crate::actor::supervisor::supervisor_strategy::{SupervisorHandle, SupervisorStrategy};
   use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
   use async_trait::async_trait;
+  use nexus_actor_core_rs::actor::core_types::pid::CorePid;
   use nexus_message_derive_rs::Message;
   use std::any::Any;
   use std::collections::VecDeque;
@@ -168,7 +168,7 @@ mod test {
       &self,
       _: ActorSystem,
       _: SupervisorHandle,
-      child: ExtendedPid,
+      child: CorePid,
       rs: RestartStatistics,
       _: ErrorReason,
       message_handle: MessageHandle,

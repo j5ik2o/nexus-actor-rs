@@ -15,6 +15,7 @@ use crate::actor::message::SystemMessage;
 use crate::actor::process::{Process, ProcessHandle};
 use crate::actor::supervisor::SupervisorStrategyHandle;
 use crate::actor::supervisor::{Supervisor, SupervisorHandle, SupervisorStrategy};
+use nexus_actor_core_rs::actor::core_types::pid::CorePid;
 
 #[derive(Debug, Clone)]
 pub struct GuardiansValue {
@@ -119,7 +120,7 @@ impl Process for GuardianProcess {
         .handle_child_failure(
           actor_system,
           supervisor_handle,
-          failure.who.clone(),
+          failure.who.to_core(),
           failure.restart_stats.clone(),
           failure.reason.clone(),
           failure.message_handle.clone(),
@@ -147,7 +148,7 @@ impl Supervisor for GuardianProcess {
     self
   }
 
-  async fn get_children(&self) -> Vec<ExtendedPid> {
+  async fn get_children(&self) -> Vec<CorePid> {
     panic!("guardian does not hold its children PIDs");
   }
 
@@ -155,28 +156,27 @@ impl Supervisor for GuardianProcess {
     panic!("guardian cannot escalate failure");
   }
 
-  async fn restart_children(&self, pids: &[ExtendedPid]) {
+  async fn restart_children(&self, pids: &[CorePid]) {
     let actor_system = self.guardians.actor_system();
-    for pid in pids {
-      // Implement send_system_message for PID
+    for pid in ExtendedPid::from_core_slice(pids) {
       pid
         .send_system_message(actor_system.clone(), MessageHandle::new(SystemMessage::Restart))
         .await;
     }
   }
 
-  async fn stop_children(&self, pids: &[ExtendedPid]) {
+  async fn stop_children(&self, pids: &[CorePid]) {
     let actor_system = self.guardians.actor_system();
-    for pid in pids {
+    for pid in ExtendedPid::from_core_slice(pids) {
       pid
         .send_system_message(actor_system.clone(), MessageHandle::new(SystemMessage::Stop))
         .await;
     }
   }
 
-  async fn resume_children(&self, pids: &[ExtendedPid]) {
+  async fn resume_children(&self, pids: &[CorePid]) {
     let actor_system = self.guardians.actor_system();
-    for pid in pids {
+    for pid in ExtendedPid::from_core_slice(pids) {
       pid
         .send_system_message(actor_system.clone(), MessageHandle::new(MailboxMessage::ResumeMailbox))
         .await;
