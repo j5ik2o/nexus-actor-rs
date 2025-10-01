@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use dashmap::DashMap;
 use nexus_actor_std_rs::actor::actor_system::ActorSystem;
 use nexus_actor_std_rs::actor::context::{ContextHandle, InfoPart, MessagePart, StopperPart};
-use nexus_actor_std_rs::actor::core::{Actor, ActorError, ExtendedPid, PidSet};
+use nexus_actor_std_rs::actor::core::{Actor, ActorError, ErrorReason, ExtendedPid, PidSet};
 use nexus_actor_std_rs::actor::message::{MessageHandle, SystemMessage, TerminateReason};
 use nexus_actor_std_rs::actor::process::Process;
 use nexus_actor_std_rs::generated::actor::Pid;
@@ -101,7 +101,7 @@ impl EndpointWatcher {
 
   async fn connected(&mut self, mut ctx: ContextHandle) -> Result<(), ActorError> {
     let system = self.get_actor_system();
-    let _ = record_sender_snapshot(&ctx).await;
+    let sender_snapshot = record_sender_snapshot(&ctx).await;
     let msg = if let Some(handle) = ctx.try_get_message_handle_opt() {
       handle
     } else {
@@ -111,7 +111,8 @@ impl EndpointWatcher {
       let watcher_pid = remote_terminate
         .watcher
         .clone()
-        .expect("RemoteTerminate missing watcher pid");
+        .or_else(|| sender_snapshot.as_ref().map(|pid| pid.to_pid()))
+        .ok_or_else(|| ActorError::ReceiveError(ErrorReason::new("watcher pid missing", 0)))?;
       let watcher_id = watcher_pid.id.clone();
       let watchee_opt = remote_terminate.watchee.clone();
 
