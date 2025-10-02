@@ -14,7 +14,7 @@ use crate::actor::message::MessageHandle;
 use crate::actor::message::SystemMessage;
 use crate::actor::process::{Process, ProcessHandle};
 use crate::actor::supervisor::SupervisorStrategyHandle;
-use crate::actor::supervisor::{Supervisor, SupervisorHandle, SupervisorStrategy};
+use crate::actor::supervisor::{StdSupervisorContext, Supervisor, SupervisorHandle};
 use nexus_actor_core_rs::actor::core_types::pid::CorePid;
 
 #[derive(Debug, Clone)]
@@ -115,17 +115,26 @@ impl Process for GuardianProcess {
       let supervisor_handle =
         SupervisorHandle::new_arc_with_metrics(supervisor_arc.clone(), actor_system.metrics_runtime_slot());
       supervisor_handle.inject_snapshot(supervisor_arc);
+      let core_context = StdSupervisorContext::new(actor_system.clone());
+      let core_supervisor = supervisor_handle.core_adapter();
+      let mut tracker = failure.restart_stats.to_core_tracker().await;
+      let reason_core = failure.reason.as_core().clone();
+      let message_handle = failure.message_handle.clone();
+
       self
         .strategy
+        .core_strategy()
         .handle_child_failure(
-          actor_system,
-          supervisor_handle,
+          &core_context,
+          &core_supervisor,
           failure.who.to_core(),
-          failure.restart_stats.clone(),
-          failure.reason.clone(),
-          failure.message_handle.clone(),
+          &mut tracker,
+          reason_core,
+          message_handle,
         )
         .await;
+
+      failure.restart_stats.overwrite_with(tracker).await;
     }
   }
 

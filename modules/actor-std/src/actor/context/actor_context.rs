@@ -44,7 +44,7 @@ use crate::actor::metrics::metrics_impl::{MetricsRuntime, MetricsSink};
 use crate::actor::process::future::ActorFutureProcess;
 use crate::actor::process::Process;
 use crate::actor::supervisor::{
-  StdSupervisorAdapter, Supervisor, SupervisorHandle, SupervisorStrategy, DEFAULT_SUPERVISION_STRATEGY,
+  StdSupervisorAdapter, StdSupervisorContext, Supervisor, SupervisorHandle, DEFAULT_SUPERVISION_STRATEGY,
 };
 use crate::ctxext::extensions::{ContextExtensionHandle, ContextExtensionId};
 use crate::generated::actor::PoisonPill;
@@ -725,31 +725,42 @@ impl ActorContext {
     let mut actor = self.get_actor().await.unwrap();
     let actor_system = self.actor_system();
     let supervisor_handle = self.supervisor_handle_with_snapshot();
+    let core_context = StdSupervisorContext::new(actor_system.clone());
+    let core_supervisor = supervisor_handle.core_adapter();
     let child_core = f.who.to_core();
-    if let Some(s) = actor.get_supervisor_strategy().await {
-      s.handle_child_failure(
-        actor_system.clone(),
-        supervisor_handle.clone(),
-        child_core.clone(),
-        f.restart_stats.clone(),
-        f.reason.clone(),
-        f.message_handle.clone(),
-      )
-      .await;
-      return;
+    let mut tracker = f.restart_stats.to_core_tracker().await;
+    let reason_core = f.reason.as_core().clone();
+    let message_handle = f.message_handle.clone();
+
+    if let Some(strategy) = actor.get_supervisor_strategy().await {
+      strategy
+        .core_strategy()
+        .handle_child_failure(
+          &core_context,
+          &core_supervisor,
+          child_core.clone(),
+          &mut tracker,
+          reason_core.clone(),
+          message_handle.clone(),
+        )
+        .await;
+    } else {
+      self
+        .props_ref()
+        .get_supervisor_strategy()
+        .core_strategy()
+        .handle_child_failure(
+          &core_context,
+          &core_supervisor,
+          child_core.clone(),
+          &mut tracker,
+          reason_core.clone(),
+          message_handle.clone(),
+        )
+        .await;
     }
-    self
-      .props_ref()
-      .get_supervisor_strategy()
-      .handle_child_failure(
-        actor_system,
-        supervisor_handle,
-        child_core,
-        f.restart_stats.clone(),
-        f.reason.clone(),
-        f.message_handle.clone(),
-      )
-      .await;
+
+    f.restart_stats.overwrite_with(tracker).await;
   }
 
   async fn handle_terminated(&mut self, terminated_message: &TerminatedMessage) -> Result<(), ActorError> {
@@ -777,16 +788,25 @@ impl ActorContext {
   async fn handle_root_failure(&mut self, failure: &Failure) {
     let actor_system = self.actor_system();
     let supervisor_handle = self.supervisor_handle_with_snapshot();
+    let core_context = StdSupervisorContext::new(actor_system.clone());
+    let core_supervisor = supervisor_handle.core_adapter();
+    let mut tracker = failure.restart_stats.to_core_tracker().await;
+    let reason_core = failure.reason.as_core().clone();
+    let message_handle = failure.message_handle.clone();
+
     DEFAULT_SUPERVISION_STRATEGY
+      .core_strategy()
       .handle_child_failure(
-        actor_system,
-        supervisor_handle,
+        &core_context,
+        &core_supervisor,
         self.get_self_opt().await.unwrap().to_core(),
-        failure.restart_stats.clone(),
-        failure.reason.clone(),
-        failure.message_handle.clone(),
+        &mut tracker,
+        reason_core,
+        message_handle,
       )
       .await;
+
+    failure.restart_stats.overwrite_with(tracker).await;
   }
 }
 

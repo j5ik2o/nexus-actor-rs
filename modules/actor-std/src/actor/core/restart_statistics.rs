@@ -1,36 +1,64 @@
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use nexus_actor_core_rs::actor::core_types::restart::{CoreRestartTracker, FailureClock};
+use nexus_actor_core_rs::runtime::CoreRuntime;
 use nexus_utils_std_rs::concurrent::SynchronizedRw;
+use nexus_utils_std_rs::runtime::sync::InstantFailureClock;
 
 #[derive(Debug, Clone)]
 pub struct RestartStatistics {
   tracker: Arc<SynchronizedRw<CoreRestartTracker>>,
-  clock: TokioFailureClock,
+  clock: InstantFailureClock,
 }
 
 impl RestartStatistics {
   pub fn new() -> Self {
     Self {
       tracker: Arc::new(SynchronizedRw::new(CoreRestartTracker::new())),
-      clock: TokioFailureClock::new(),
+      clock: InstantFailureClock::new(),
     }
+  }
+
+  pub fn with_runtime(runtime: &CoreRuntime) -> Self {
+    let mut stats = Self::new();
+    if let Some(clock) = runtime.failure_clock() {
+      if let Some(inst_clock) = clock.as_any().downcast_ref::<InstantFailureClock>() {
+        stats.clock = inst_clock.clone();
+      }
+    }
+    stats
   }
 
   pub fn from_core_tracker(tracker: CoreRestartTracker) -> Self {
     Self {
       tracker: Arc::new(SynchronizedRw::new(tracker)),
-      clock: TokioFailureClock::new(),
+      clock: InstantFailureClock::new(),
+    }
+  }
+
+  pub fn from_core_tracker_with_anchor(tracker: CoreRestartTracker, anchor: Duration) -> Self {
+    let now = Instant::now();
+    let anchor_instant = now.checked_sub(anchor).unwrap_or(now);
+    Self {
+      tracker: Arc::new(SynchronizedRw::new(tracker)),
+      clock: InstantFailureClock::with_anchor(anchor_instant),
+    }
+  }
+
+  pub fn from_core_tracker_with_clock(tracker: CoreRestartTracker, clock: InstantFailureClock) -> Self {
+    Self {
+      tracker: Arc::new(SynchronizedRw::new(tracker)),
+      clock,
     }
   }
 
   pub fn with_values(failure_times: impl IntoIterator<Item = Instant>) -> Self {
     let instants: Vec<Instant> = failure_times.into_iter().collect();
     let anchor = instants.iter().min().copied().unwrap_or_else(Instant::now);
-    let clock = TokioFailureClock::with_anchor(anchor);
+    let clock = InstantFailureClock::with_anchor(anchor);
     let durations = instants
       .into_iter()
       .map(|instant| clock.duration_since_anchor(instant))
@@ -70,11 +98,22 @@ impl RestartStatistics {
       .await;
     count.min(u32::MAX as usize) as u32
   }
-}
 
-impl RestartStatistics {
   pub async fn snapshot_durations(&self) -> Vec<Duration> {
     self.tracker.read(|tracker| tracker.samples().to_vec()).await
+  }
+
+  pub async fn to_core_tracker(&self) -> CoreRestartTracker {
+    self.tracker.read(|tracker| (*tracker).clone()).await
+  }
+
+  pub async fn overwrite_with(&self, tracker: CoreRestartTracker) {
+    self
+      .tracker
+      .write(|inner| {
+        **inner = tracker.clone();
+      })
+      .await;
   }
 
   pub async fn into_core_tracker(self) -> CoreRestartTracker {
@@ -111,46 +150,13 @@ impl Default for RestartStatistics {
 
 static_assertions::assert_impl_all!(RestartStatistics: Send, Sync);
 
-#[derive(Debug, Clone)]
-struct TokioFailureClock {
-  anchor: Arc<Mutex<Instant>>,
-}
-
-impl TokioFailureClock {
-  fn new() -> Self {
-    Self::with_anchor(Instant::now())
-  }
-
-  fn with_anchor(anchor: Instant) -> Self {
-    Self {
-      anchor: Arc::new(Mutex::new(anchor)),
-    }
-  }
-
-  fn duration_since_anchor(&self, instant: Instant) -> Duration {
-    let mut guard = self.anchor.lock().unwrap();
-    if instant < *guard {
-      *guard = instant;
-      Duration::from_secs(0)
-    } else {
-      instant.duration_since(*guard)
-    }
-  }
-}
-
-impl FailureClock for TokioFailureClock {
-  fn now(&self) -> Duration {
-    let guard = self.anchor.lock().unwrap();
-    Instant::now()
-      .checked_duration_since(*guard)
-      .unwrap_or_else(|| Duration::from_secs(0))
-  }
-}
-
 #[cfg(test)]
 mod tests {
   use super::RestartStatistics;
+  use nexus_actor_core_rs::actor::core_types::restart::CoreRestartTracker;
+  use nexus_utils_std_rs::runtime::sync::{tokio_core_runtime, InstantFailureClock};
   use std::time::{Duration, Instant};
+  use tokio::time::sleep;
 
   #[tokio::test]
   async fn tracker_records_failures() {
@@ -175,5 +181,32 @@ mod tests {
     stats.fail().await;
     stats.reset().await;
     assert_eq!(stats.failure_count().await, 0);
+  }
+
+  #[tokio::test]
+  async fn with_runtime_uses_injected_failure_clock() {
+    let runtime = tokio_core_runtime();
+    let mut stats = RestartStatistics::with_runtime(&runtime);
+
+    stats.fail().await;
+    sleep(Duration::from_millis(25)).await;
+    stats.fail().await;
+
+    let samples = stats.snapshot_durations().await;
+    assert_eq!(samples.len(), 2);
+    assert!(samples[1] > samples[0]);
+    assert!(samples[1] >= Duration::from_millis(25));
+  }
+
+  #[tokio::test]
+  async fn from_core_tracker_with_clock_preserves_samples() {
+    let durations = vec![Duration::from_millis(5), Duration::from_millis(20)];
+    let tracker = CoreRestartTracker::with_values(durations.clone());
+    let clock = InstantFailureClock::with_anchor(Instant::now());
+
+    let stats = RestartStatistics::from_core_tracker_with_clock(tracker, clock);
+
+    let snapshot = stats.snapshot_durations().await;
+    assert_eq!(snapshot, durations);
   }
 }

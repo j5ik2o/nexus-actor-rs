@@ -107,8 +107,25 @@ impl ActorContextExtras {
   }
 
   pub async fn restart_stats(&mut self) -> RestartStatistics {
+    let runtime = self
+      .context
+      .load_full()
+      .and_then(|weak| weak.upgrade())
+      .and_then(|ctx| ctx.with_actor_context(|actor_ctx| actor_ctx.actor_system().core_runtime()));
+
     let guard = self.mutable.write("restart_stats").await;
-    guard.restart_stats.get_or_init(RestartStatistics::new).clone()
+    if guard.restart_stats.get().is_none() {
+      let stats = runtime
+        .as_ref()
+        .map(RestartStatistics::with_runtime)
+        .unwrap_or_else(RestartStatistics::new);
+      let _ = guard.restart_stats.set(stats);
+    }
+    guard
+      .restart_stats
+      .get()
+      .expect("restart stats must be initialized")
+      .clone()
   }
 
   pub async fn init_or_reset_receive_timeout_timer(&self, duration: Duration, context: Arc<RwLock<ActorContext>>) {

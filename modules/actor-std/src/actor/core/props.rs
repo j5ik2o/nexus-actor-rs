@@ -10,7 +10,8 @@ use async_trait::async_trait;
 use once_cell::sync::Lazy;
 use tokio::sync::{Mutex, RwLock};
 
-use nexus_actor_core_rs::context::{CoreMailboxFactory, CoreProps, CoreSupervisorStrategyHandle};
+use nexus_actor_core_rs::context::{CoreMailboxFactory, CoreProps};
+use nexus_actor_core_rs::runtime::CoreRuntime;
 
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::ActorContext;
@@ -66,6 +67,7 @@ pub struct Props {
   context_decorator_chain: Option<ContextDecoratorChain>,
   on_init: Vec<ContextHandler>,
   actor_type_hint: Option<Arc<str>>,
+  core_props: CoreProps,
 }
 
 static_assertions::assert_impl_all!(Props: Send, Sync);
@@ -82,7 +84,8 @@ static DEFAULT_SPAWNER: Lazy<Spawner> = Lazy::new(|| {
       let actor_type_label_ref = actor_type_label.as_str();
       tracing::debug!(actor_type = actor_type_label_ref, "Spawn actor: {}", name);
       let mut ctx = ActorContext::new(actor_system.clone(), props.clone(), parent_context.get_self_opt().await).await;
-      let mut mb = props.produce_mailbox().await;
+      let core_runtime = actor_system.core_runtime();
+      let mut mb = props.produce_mailbox(&core_runtime).await;
 
       let dp = if let Some(dispatcher) = props.get_dispatcher() {
         dispatcher
@@ -190,27 +193,7 @@ impl Props {
   }
 
   pub fn core_props(&self) -> CoreProps {
-    let mailbox_producer = self
-      .mailbox_producer
-      .clone()
-      .unwrap_or_else(|| DEFAULT_MAILBOX_PRODUCER.clone());
-    let mailbox_factory: CoreMailboxFactory = {
-      let producer = mailbox_producer.clone();
-      Arc::new(move || {
-        let producer = producer.clone();
-        Box::pin(async move {
-          let handle = producer.run().await;
-          Arc::new(handle) as Arc<dyn nexus_actor_core_rs::actor::core_types::mailbox::CoreMailbox + Send + Sync>
-        })
-      })
-    };
-
-    let supervisor_strategy: CoreSupervisorStrategyHandle = Arc::new(self.get_supervisor_strategy().core_strategy());
-
-    CoreProps::new()
-      .with_actor_type(self.actor_type_hint.clone())
-      .with_mailbox_factory(mailbox_factory)
-      .with_supervisor_strategy(supervisor_strategy)
+    self.core_props.clone()
   }
 
   pub fn with_on_init(mut init: Vec<ContextHandler>) -> PropsOption {
@@ -241,6 +224,7 @@ impl Props {
   pub fn with_mailbox_producer(mailbox_producer: MailboxProducer) -> PropsOption {
     PropsOption::new(move |props: &mut Props| {
       props.mailbox_producer = Some(mailbox_producer.clone());
+      props.rebuild_core_props();
     })
   }
 
@@ -277,12 +261,14 @@ impl Props {
     let hint_arc: Arc<str> = Arc::from(hint);
     PropsOption::new(move |props: &mut Props| {
       props.actor_type_hint = Some(hint_arc.clone());
+      props.rebuild_core_props();
     })
   }
 
   pub fn with_supervisor_strategy(supervisor: SupervisorStrategyHandle) -> PropsOption {
     PropsOption::new(move |props: &mut Props| {
       props.supervisor_strategy = Some(supervisor.clone());
+      props.rebuild_core_props();
     })
   }
 
@@ -378,12 +364,15 @@ impl Props {
     self.context_decorator_chain.clone()
   }
 
-  async fn produce_mailbox(&self) -> MailboxHandle {
-    if let Some(mailbox_producer) = &self.mailbox_producer {
+  async fn produce_mailbox(&self, core_runtime: &CoreRuntime) -> MailboxHandle {
+    let mut mailbox = if let Some(mailbox_producer) = &self.mailbox_producer {
       mailbox_producer.run().await
     } else {
       DEFAULT_MAILBOX_PRODUCER.run().await
-    }
+    };
+
+    mailbox.install_async_yielder(core_runtime.yielder()).await;
+    mailbox
   }
 
   pub async fn from_async_actor_producer<A, F, Fut>(f: F) -> Props
@@ -422,6 +411,7 @@ impl Props {
       spawn_middleware_chain: None,
       context_decorator_chain: None,
       actor_type_hint: None,
+      core_props: CoreProps::new(),
     };
     props.configure(&opts).await;
     props
@@ -512,6 +502,31 @@ impl Props {
     for opt in opts {
       opt.run(self).await;
     }
+    self.rebuild_core_props();
     self
+  }
+
+  fn rebuild_core_props(&mut self) {
+    let mailbox_producer = self
+      .mailbox_producer
+      .clone()
+      .unwrap_or_else(|| DEFAULT_MAILBOX_PRODUCER.clone());
+    let mailbox_factory: CoreMailboxFactory = {
+      let producer = mailbox_producer.clone();
+      Arc::new(move || {
+        let producer = producer.clone();
+        Box::pin(async move {
+          let handle = producer.run().await;
+          Arc::new(handle) as Arc<dyn nexus_actor_core_rs::actor::core_types::mailbox::CoreMailbox + Send + Sync>
+        })
+      })
+    };
+
+    let supervisor_strategy = self.get_supervisor_strategy().core_strategy();
+
+    self.core_props = CoreProps::new()
+      .with_actor_type(self.actor_type_hint.clone())
+      .with_mailbox_factory(mailbox_factory)
+      .with_supervisor_strategy(supervisor_strategy);
   }
 }
