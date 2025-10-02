@@ -9,15 +9,20 @@ mod test {
   use crate::actor::core::ErrorReason;
   use crate::actor::core::Props;
   use crate::actor::core::ReceiverMiddleware;
-  use crate::actor::core::RestartStatistics;
   use crate::actor::message::AutoReceiveMessage;
   use crate::actor::message::Message;
   use crate::actor::message::MessageHandle;
+  use crate::actor::supervisor::core_adapters::StdSupervisorAdapter;
   use crate::actor::supervisor::strategy_one_for_one::OneForOneStrategy;
-  use crate::actor::supervisor::supervisor_strategy::{SupervisorHandle, SupervisorStrategy};
+  use crate::actor::supervisor::supervisor_strategy::Supervisor;
   use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
   use async_trait::async_trait;
   use nexus_actor_core_rs::actor::core_types::pid::CorePid;
+  use nexus_actor_core_rs::actor::core_types::restart::CoreRestartTracker;
+  use nexus_actor_core_rs::error::ErrorReasonCore;
+  use nexus_actor_core_rs::supervisor::{
+    CoreSupervisor, CoreSupervisorContext, CoreSupervisorStrategy, CoreSupervisorStrategyFuture,
+  };
   use nexus_message_derive_rs::Message;
   use std::any::Any;
   use std::collections::VecDeque;
@@ -140,6 +145,36 @@ mod test {
   #[derive(Debug, Clone, PartialEq, Eq, Message)]
   struct StringMessage(String);
 
+  #[derive(Debug, Clone)]
+  struct NotifyStrategy {
+    notify: Arc<Notify>,
+  }
+
+  impl CoreSupervisorStrategy for NotifyStrategy {
+    fn handle_child_failure<'a>(
+      &'a self,
+      _ctx: &'a dyn CoreSupervisorContext,
+      supervisor: &'a dyn CoreSupervisor,
+      child: CorePid,
+      tracker: &'a mut CoreRestartTracker,
+      _reason: ErrorReasonCore,
+      _message_handle: MessageHandle,
+    ) -> CoreSupervisorStrategyFuture<'a> {
+      let notify = self.notify.clone();
+      let std_supervisor = (supervisor as &dyn Any)
+        .downcast_ref::<StdSupervisorAdapter>()
+        .expect("StdSupervisorAdapter expected");
+      let supervisor_handle = std_supervisor.handle();
+      Box::pin(async move {
+        let children = [child.clone()];
+        supervisor_handle.restart_children(&children).await;
+        notify.notify_one();
+        let cloned = tracker.clone();
+        *tracker = cloned;
+      })
+    }
+  }
+
   #[async_trait]
   impl Actor for ActorWithSupervisor {
     async fn post_start(&mut self, mut ctx: ContextHandle) -> Result<(), ActorError> {
@@ -158,32 +193,9 @@ mod test {
     }
 
     async fn get_supervisor_strategy(&mut self) -> Option<SupervisorStrategyHandle> {
-      Some(SupervisorStrategyHandle::new(self.clone()))
-    }
-  }
-
-  #[async_trait]
-  impl SupervisorStrategy for ActorWithSupervisor {
-    async fn handle_child_failure(
-      &self,
-      _: ActorSystem,
-      _: SupervisorHandle,
-      child: CorePid,
-      rs: RestartStatistics,
-      _: ErrorReason,
-      message_handle: MessageHandle,
-    ) {
-      tracing::debug!(
-        "ActorWithSupervisor::handle_failure: child = {}, rs = {}, message = {:?}",
-        child,
-        rs,
-        message_handle
-      );
-      self.notify.notify_one();
-    }
-
-    fn as_any(&self) -> &dyn Any {
-      self
+      Some(SupervisorStrategyHandle::new(NotifyStrategy {
+        notify: self.notify.clone(),
+      }))
     }
   }
 
