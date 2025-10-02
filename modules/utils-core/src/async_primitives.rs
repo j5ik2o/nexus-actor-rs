@@ -115,6 +115,10 @@ pub trait Timer: Send + Sync {
   fn sleep(&self, duration: Duration) -> Pin<Box<dyn Future<Output = ()> + Send + '_>>;
 }
 
+pub trait AsyncYield: Send + Sync {
+  fn yield_now(&self) -> Pin<Box<dyn Future<Output = ()> + Send + '_>>;
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;

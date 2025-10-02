@@ -2,23 +2,25 @@ use core::future::Future;
 use core::pin::Pin;
 use core::time::Duration;
 use std::boxed::Box;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
+use nexus_actor_core_rs::actor::core_types::restart::FailureClock;
 use nexus_actor_core_rs::runtime::{
-  AsyncMutex, AsyncNotify, AsyncRwLock, CoreRuntime, CoreRuntimeConfig, CoreScheduledHandle, CoreScheduledHandleRef,
-  CoreScheduledTask, CoreScheduler, CoreTaskFuture, Timer,
+  AsyncMutex, AsyncNotify, AsyncRwLock, AsyncYield, CoreRuntime, CoreRuntimeConfig, CoreScheduledHandle,
+  CoreScheduledHandleRef, CoreScheduledTask, CoreScheduler, CoreTaskFuture, Timer,
 };
-use tokio::sync::{Mutex, MutexGuard, Notify, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use tokio::sync::{Mutex as TokioMutexRaw, MutexGuard, Notify, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 #[derive(Debug)]
-pub struct TokioMutex<T>(Mutex<T>);
+pub struct TokioMutex<T>(TokioMutexRaw<T>);
 
 impl<T> TokioMutex<T> {
   pub fn new(value: T) -> Self {
-    Self(Mutex::new(value))
+    Self(TokioMutexRaw::new(value))
   }
 
-  pub fn into_inner(self) -> Mutex<T> {
+  pub fn into_inner(self) -> TokioMutexRaw<T> {
     self.0
   }
 }
@@ -98,6 +100,46 @@ pub struct TokioTimer;
 impl Timer for TokioTimer {
   fn sleep(&self, duration: Duration) -> Pin<Box<dyn Future<Output = ()> + Send + '_>> {
     Box::pin(tokio::time::sleep(duration))
+  }
+}
+
+#[derive(Debug, Clone)]
+pub struct InstantFailureClock {
+  anchor: Arc<Mutex<Instant>>,
+}
+
+impl InstantFailureClock {
+  pub fn new() -> Self {
+    Self::with_anchor(Instant::now())
+  }
+
+  pub fn with_anchor(anchor: Instant) -> Self {
+    Self {
+      anchor: Arc::new(Mutex::new(anchor)),
+    }
+  }
+
+  pub fn duration_since_anchor(&self, instant: Instant) -> Duration {
+    let mut guard = self.anchor.lock().expect("anchor mutex poisoned");
+    if instant < *guard {
+      *guard = instant;
+      Duration::from_secs(0)
+    } else {
+      instant.duration_since(*guard)
+    }
+  }
+}
+
+impl FailureClock for InstantFailureClock {
+  fn now(&self) -> Duration {
+    let guard = self.anchor.lock().expect("anchor mutex poisoned");
+    Instant::now()
+      .checked_duration_since(*guard)
+      .unwrap_or_else(|| Duration::from_secs(0))
+  }
+
+  fn as_any(&self) -> &dyn core::any::Any {
+    self
   }
 }
 
@@ -183,10 +225,21 @@ impl CoreScheduler for TokioScheduler {
   }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Default)]
+pub struct TokioYield;
+
+impl AsyncYield for TokioYield {
+  fn yield_now(&self) -> Pin<Box<dyn Future<Output = ()> + Send + '_>> {
+    Box::pin(tokio::task::yield_now())
+  }
+}
+
+#[derive(Debug, Clone)]
 pub struct TokioRuntime {
   scheduler: Arc<TokioScheduler>,
   timer: Arc<TokioTimer>,
+  yielder: Arc<TokioYield>,
+  failure_clock: Arc<InstantFailureClock>,
 }
 
 impl TokioRuntime {
@@ -205,7 +258,22 @@ impl TokioRuntime {
   pub fn core_runtime(&self) -> CoreRuntime {
     let timer: Arc<dyn Timer> = self.timer.clone();
     let scheduler: Arc<dyn CoreScheduler> = self.scheduler.clone();
-    CoreRuntime::from(CoreRuntimeConfig::new(timer, scheduler))
+    let failure_clock: Arc<dyn FailureClock> = self.failure_clock.clone();
+    let config = CoreRuntimeConfig::new(timer, scheduler)
+      .with_yielder(self.yielder.clone() as Arc<dyn AsyncYield>)
+      .with_failure_clock(failure_clock);
+    CoreRuntime::from(config)
+  }
+}
+
+impl Default for TokioRuntime {
+  fn default() -> Self {
+    Self {
+      scheduler: Arc::new(TokioScheduler::default()),
+      timer: Arc::new(TokioTimer::default()),
+      yielder: Arc::new(TokioYield::default()),
+      failure_clock: Arc::new(InstantFailureClock::new()),
+    }
   }
 }
 

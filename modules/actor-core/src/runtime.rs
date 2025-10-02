@@ -7,7 +7,8 @@ use core::future::Future;
 use core::pin::Pin;
 use core::time::Duration;
 
-pub use nexus_utils_core_rs::async_primitives::{AsyncMutex, AsyncNotify, AsyncRwLock, Timer};
+use crate::actor::core_types::restart::FailureClock;
+pub use nexus_utils_core_rs::async_primitives::{AsyncMutex, AsyncNotify, AsyncRwLock, AsyncYield, Timer};
 
 /// Future 型の共通表現。スケジューラが実行する非同期タスクはこの型を返す必要があります。
 pub type CoreTaskFuture = Pin<Box<dyn Future<Output = ()> + Send + 'static>>;
@@ -50,13 +51,31 @@ pub trait CoreScheduler: Send + Sync + 'static {
 pub struct CoreRuntimeConfig {
   timer: Arc<dyn Timer>,
   scheduler: Arc<dyn CoreScheduler>,
+  yielder: Option<Arc<dyn AsyncYield>>,
+  failure_clock: Option<Arc<dyn FailureClock>>,
 }
 
 impl fmt::Debug for CoreRuntimeConfig {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    let timer_ptr = Arc::as_ptr(&self.timer) as *const ();
+    let scheduler_ptr = Arc::as_ptr(&self.scheduler) as *const ();
+    let yielder_ptr = self
+      .yielder
+      .as_ref()
+      .map(|arc| Arc::as_ptr(arc) as *const ())
+      .unwrap_or(core::ptr::null());
     f.debug_struct("CoreRuntimeConfig")
-      .field("timer", &format_args!("{:p}", Arc::as_ptr(&self.timer)))
-      .field("scheduler", &format_args!("{:p}", Arc::as_ptr(&self.scheduler)))
+      .field("timer", &timer_ptr)
+      .field("scheduler", &scheduler_ptr)
+      .field("yielder", &yielder_ptr)
+      .field(
+        "failure_clock",
+        &self
+          .failure_clock
+          .as_ref()
+          .map(|arc| Arc::as_ptr(arc) as *const ())
+          .unwrap_or(core::ptr::null()),
+      )
       .finish()
   }
 }
@@ -64,7 +83,22 @@ impl fmt::Debug for CoreRuntimeConfig {
 impl CoreRuntimeConfig {
   /// 新しい構成を生成します。
   pub fn new(timer: Arc<dyn Timer>, scheduler: Arc<dyn CoreScheduler>) -> Self {
-    Self { timer, scheduler }
+    Self {
+      timer,
+      scheduler,
+      yielder: None,
+      failure_clock: None,
+    }
+  }
+
+  pub fn with_yielder(mut self, yielder: Arc<dyn AsyncYield>) -> Self {
+    self.yielder = Some(yielder);
+    self
+  }
+
+  pub fn with_failure_clock(mut self, failure_clock: Arc<dyn FailureClock>) -> Self {
+    self.failure_clock = Some(failure_clock);
+    self
   }
 
   /// タイマープリミティブへの参照を返します。
@@ -75,6 +109,14 @@ impl CoreRuntimeConfig {
   /// スケジューラへの参照を返します。
   pub fn scheduler(&self) -> Arc<dyn CoreScheduler> {
     self.scheduler.clone()
+  }
+
+  pub fn yielder(&self) -> Option<Arc<dyn AsyncYield>> {
+    self.yielder.clone()
+  }
+
+  pub fn failure_clock(&self) -> Option<Arc<dyn FailureClock>> {
+    self.failure_clock.clone()
   }
 }
 
@@ -90,13 +132,31 @@ impl From<CoreRuntimeConfig> for CoreRuntime {
 pub struct CoreRuntime {
   timer: Arc<dyn Timer>,
   scheduler: Arc<dyn CoreScheduler>,
+  yielder: Option<Arc<dyn AsyncYield>>,
+  failure_clock: Option<Arc<dyn FailureClock>>,
 }
 
 impl fmt::Debug for CoreRuntime {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    let timer_ptr = Arc::as_ptr(&self.timer) as *const ();
+    let scheduler_ptr = Arc::as_ptr(&self.scheduler) as *const ();
+    let yielder_ptr = self
+      .yielder
+      .as_ref()
+      .map(|arc| Arc::as_ptr(arc) as *const ())
+      .unwrap_or(core::ptr::null());
     f.debug_struct("CoreRuntime")
-      .field("timer", &format_args!("{:p}", Arc::as_ptr(&self.timer)))
-      .field("scheduler", &format_args!("{:p}", Arc::as_ptr(&self.scheduler)))
+      .field("timer", &timer_ptr)
+      .field("scheduler", &scheduler_ptr)
+      .field("yielder", &yielder_ptr)
+      .field(
+        "failure_clock",
+        &self
+          .failure_clock
+          .as_ref()
+          .map(|arc| Arc::as_ptr(arc) as *const ())
+          .unwrap_or(core::ptr::null()),
+      )
       .finish()
   }
 }
@@ -107,6 +167,8 @@ impl CoreRuntime {
     Self {
       timer: config.timer(),
       scheduler: config.scheduler(),
+      yielder: config.yielder(),
+      failure_clock: config.failure_clock(),
     }
   }
 
@@ -118,5 +180,13 @@ impl CoreRuntime {
   /// スケジューラへアクセスします。
   pub fn scheduler(&self) -> Arc<dyn CoreScheduler> {
     self.scheduler.clone()
+  }
+
+  pub fn yielder(&self) -> Option<Arc<dyn AsyncYield>> {
+    self.yielder.clone()
+  }
+
+  pub fn failure_clock(&self) -> Option<Arc<dyn FailureClock>> {
+    self.failure_clock.clone()
   }
 }
