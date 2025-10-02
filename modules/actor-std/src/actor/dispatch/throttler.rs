@@ -1,9 +1,10 @@
 use std::future::Future;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::time::Duration;
 
-use crate::actor::dispatch::{Dispatcher, Runnable};
-use tokio::time::{interval, Duration};
+use nexus_actor_core_rs::runtime::{CoreScheduledHandleRef, CoreScheduledTask, CoreScheduler};
+use tokio::sync::Mutex as TokioMutex;
 
 #[cfg(test)]
 mod tests;
@@ -15,44 +16,40 @@ pub enum Valve {
   Closed,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Throttle {
   current_events: Arc<AtomicUsize>,
   max_events_in_period: usize,
+  _worker_handle: CoreScheduledHandleRef,
+}
+
+impl std::fmt::Debug for Throttle {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    f.debug_struct("Throttle")
+      .field("max_events_in_period", &self.max_events_in_period)
+      .finish()
+  }
 }
 
 impl Throttle {
   pub async fn new<F, Fut>(
-    dispatcher: Arc<dyn Dispatcher>,
+    scheduler: Arc<dyn CoreScheduler>,
     max_events_in_period: usize,
     period: Duration,
-    mut throttled_callback: F,
+    throttled_callback: F,
   ) -> Arc<Self>
   where
-    F: FnMut(usize) -> Fut + Send + 'static,
-    Fut: Future<Output = ()> + Send + 'static,
-  {
-    let throttle = Arc::new(Self {
-      current_events: Arc::new(AtomicUsize::new(0)),
+    F: Fn(usize) -> Fut + Send + Sync + 'static,
+    Fut: Future<Output = ()> + Send + 'static, {
+    let events = Arc::new(AtomicUsize::new(0));
+    let callback = make_task(events.clone(), max_events_in_period, throttled_callback);
+    let handle = scheduler.schedule_repeated(Duration::ZERO, period, callback);
+
+    Arc::new(Self {
+      current_events: events,
       max_events_in_period,
-    });
-
-    let throttle_clone = Arc::clone(&throttle);
-
-    dispatcher
-      .schedule(Runnable::new(move || async move {
-        let mut interval = interval(period);
-        loop {
-          interval.tick().await;
-          let times_called = throttle_clone.current_events.swap(0, Ordering::SeqCst);
-          if times_called > max_events_in_period {
-            throttled_callback(times_called - max_events_in_period).await;
-          }
-        }
-      }))
-      .await;
-
-    throttle
+      _worker_handle: handle,
+    })
   }
 
   pub fn should_throttle(&self) -> Valve {
@@ -63,4 +60,28 @@ impl Throttle {
       std::cmp::Ordering::Greater => Valve::Closed,
     }
   }
+}
+
+fn make_task<F, Fut>(
+  events: Arc<AtomicUsize>,
+  max_events_in_period: usize,
+  throttled_callback: F,
+) -> CoreScheduledTask
+where
+  F: Fn(usize) -> Fut + Send + Sync + 'static,
+  Fut: Future<Output = ()> + Send + 'static, {
+  let callback = Arc::new(TokioMutex::new(throttled_callback));
+
+  Arc::new(move || {
+    let events = events.clone();
+    let callback = callback.clone();
+    Box::pin(async move {
+      let times_called = events.swap(0, Ordering::SeqCst);
+      if times_called > max_events_in_period {
+        let excess = times_called - max_events_in_period;
+        let cb = &mut *callback.lock().await;
+        cb(excess).await;
+      }
+    })
+  })
 }

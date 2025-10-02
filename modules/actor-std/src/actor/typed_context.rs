@@ -17,18 +17,15 @@ pub trait TypedContext<M: Message>:
   + Debug
   + Send
   + Sync
-  + 'static
-{
+  + 'static {
 }
 
 pub trait TypedSenderContext<M: Message>:
-  TypedInfoPart<M> + TypedSenderPart<M> + TypedMessagePart<M> + Send + Sync + 'static
-{
+  TypedInfoPart<M> + TypedSenderPart<M> + TypedMessagePart<M> + Send + Sync + 'static {
 }
 
 pub trait TypedReceiverContext<M: Message>:
-  TypedInfoPart<M> + TypedReceiverPart<M> + TypedMessagePart<M> + ExtensionPart + Send + Sync + 'static
-{
+  TypedInfoPart<M> + TypedReceiverPart<M> + TypedMessagePart<M> + ExtensionPart + Send + Sync + 'static {
 }
 pub trait TypedSpawnerContext<M: Message>: TypedInfoPart<M> + TypedSpawnerPart + Send + Sync + 'static {}
 
@@ -63,8 +60,7 @@ pub trait TypedContextSyncView<M: Message>: Send + Sync {
   /// メッセージの同期スナップショット。
   fn message_snapshot(&self) -> Option<M>
   where
-    M: Clone,
-  {
+    M: Clone, {
     None
   }
 

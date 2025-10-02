@@ -22,8 +22,7 @@ impl ActorSpawnerExt for RootContext {
   async fn spawn_actor<F, A>(&mut self, factory: F) -> ExtendedPid
   where
     F: Fn() -> A + Send + Sync + 'static,
-    A: Actor + 'static,
-  {
+    A: Actor + 'static, {
     let factory = Arc::new(factory);
     let props = Props::from_async_actor_producer(move |_| {
       let factory = factory.clone();
@@ -36,8 +35,7 @@ impl ActorSpawnerExt for RootContext {
   async fn spawn_actor_named<F, A>(&mut self, factory: F, name: &str) -> Result<ExtendedPid, SpawnError>
   where
     F: Fn() -> A + Send + Sync + 'static,
-    A: Actor + 'static,
-  {
+    A: Actor + 'static, {
     let factory = Arc::new(factory);
     let props = Props::from_async_actor_producer(move |_| {
       let factory = factory.clone();
@@ -72,16 +70,14 @@ impl BaseSpawnerExt for RootContext {
   async fn spawn_base_actor<F, A>(&mut self, factory: F) -> ExtendedPid
   where
     F: Fn() -> A + Send + Sync + 'static,
-    A: Actor + 'static,
-  {
+    A: Actor + 'static, {
     self.spawn_actor(factory).await
   }
 
   async fn spawn_base_actor_named<F, A>(&mut self, factory: F, name: &str) -> Result<ExtendedPid, SpawnError>
   where
     F: Fn() -> A + Send + Sync + 'static,
-    A: Actor + 'static,
-  {
+    A: Actor + 'static, {
     self.spawn_actor_named(factory, name).await
   }
 }

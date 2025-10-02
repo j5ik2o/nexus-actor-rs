@@ -1,7 +1,7 @@
 use crate::actor::core::ActorError;
 use crate::actor::core::ErrorReason;
 use crate::actor::dispatch::bounded::BoundedMailboxQueue;
-use crate::actor::dispatch::dispatcher::{Dispatcher, DispatcherHandle, TokioRuntimeContextDispatcher};
+use crate::actor::dispatch::dispatcher::{CoreSchedulerDispatcher, Dispatcher, DispatcherHandle};
 use crate::actor::dispatch::mailbox::core_queue_adapters::{
   PriorityCoreMailboxQueue, RingCoreMailboxQueue, UnboundedMpscCoreMailboxQueue,
 };
@@ -12,6 +12,7 @@ use crate::actor::dispatch::message_invoker::{MessageInvoker, MessageInvokerHand
 use crate::actor::dispatch::unbounded::{unbounded_mpsc_mailbox_creator, UnboundedMailboxQueue};
 use crate::actor::dispatch::{Mailbox, MailboxQueueKind};
 use crate::actor::message::MessageHandle;
+use crate::runtime::tokio_core_runtime;
 use async_trait::async_trait;
 use nexus_utils_std_rs::collections::{MpscUnboundedChannelQueue, PriorityQueue, QueueReader, QueueWriter, RingQueue};
 use parking_lot::Mutex;
@@ -265,7 +266,7 @@ async fn test_unbounded_mpsc_mailbox_user_message_consistency() {
   let message_invoker = Arc::new(RwLock::new(TestMessageInvoker::new(max)));
   let mut mailbox = mbox_producer.run().await;
 
-  let dispatcher = TokioRuntimeContextDispatcher::new().unwrap();
+  let dispatcher = CoreSchedulerDispatcher::from_runtime(tokio_core_runtime());
 
   mailbox
     .register_handlers(
@@ -323,7 +324,7 @@ async fn test_unbounded_mpsc_mailbox_system_message_consistency() {
   let message_invoker = Arc::new(RwLock::new(TestMessageInvoker::new(max)));
   let mut mailbox = mbox_producer.run().await;
 
-  let dispatcher = TokioRuntimeContextDispatcher::new().unwrap();
+  let dispatcher = CoreSchedulerDispatcher::from_runtime(tokio_core_runtime());
 
   mailbox
     .register_handlers(
@@ -419,7 +420,7 @@ async fn test_mailbox_suspension_metrics_accumulates_duration() {
   let mut mailbox = DefaultMailbox::new(user_queue, system_queue);
 
   let message_invoker = Arc::new(RwLock::new(TestMessageInvoker::new(usize::MAX)));
-  let dispatcher = TokioRuntimeContextDispatcher::new().unwrap();
+  let dispatcher = CoreSchedulerDispatcher::from_runtime(tokio_core_runtime());
 
   mailbox
     .register_handlers(
@@ -456,7 +457,7 @@ async fn test_mailbox_suspension_metrics_accumulates_duration() {
 async fn test_default_mailbox_skips_latency_metrics_without_interest() {
   let producer = unbounded_mpsc_mailbox_creator();
   let mut mailbox = producer.run().await;
-  let dispatcher = TokioRuntimeContextDispatcher::new().unwrap();
+  let dispatcher = CoreSchedulerDispatcher::from_runtime(tokio_core_runtime());
 
   let notify = Arc::new(Notify::new());
   let latency_calls = Arc::new(AtomicUsize::new(0));
@@ -487,7 +488,7 @@ async fn test_default_mailbox_emits_latency_metrics_with_interest() {
   let _interval_guard = EnvVarGuard::set("MAILBOX_QUEUE_SNAPSHOT_INTERVAL", "1");
   let producer = unbounded_mpsc_mailbox_creator();
   let mut mailbox = producer.run().await;
-  let dispatcher = TokioRuntimeContextDispatcher::new().unwrap();
+  let dispatcher = CoreSchedulerDispatcher::from_runtime(tokio_core_runtime());
 
   let notify = Arc::new(Notify::new());
   let latency_calls = Arc::new(AtomicUsize::new(0));
@@ -518,7 +519,7 @@ async fn test_default_mailbox_emits_queue_length_samples() {
   let _interval_guard = EnvVarGuard::set("MAILBOX_QUEUE_SNAPSHOT_INTERVAL", "2");
   let producer = unbounded_mpsc_mailbox_creator();
   let mut mailbox = producer.run().await;
-  let dispatcher = TokioRuntimeContextDispatcher::new().unwrap();
+  let dispatcher = CoreSchedulerDispatcher::from_runtime(tokio_core_runtime());
 
   let notify = Arc::new(Notify::new());
   let samples = Arc::new(Mutex::new(Vec::new()));

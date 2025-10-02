@@ -103,8 +103,7 @@ impl CoreMailboxQueue for RingCoreMailboxQueue {
 #[derive(Debug, Clone)]
 pub(crate) struct PriorityCoreMailboxQueue<Q>
 where
-  Q: Clone + QueueReader<MessageHandle> + QueueWriter<MessageHandle> + QueueSupport + Send + Sync + 'static,
-{
+  Q: Clone + QueueReader<MessageHandle> + QueueWriter<MessageHandle> + QueueSupport + Send + Sync + 'static, {
   queue: PriorityQueue<MessageHandle, Q>,
 }
 

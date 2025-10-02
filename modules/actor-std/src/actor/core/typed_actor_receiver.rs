@@ -15,8 +15,7 @@ impl<M: Message> TypedActorReceiver<M> {
   pub fn new<F, Fut>(f: F) -> Self
   where
     F: Fn(TypedContextHandle<M>) -> Fut + Send + Sync + 'static,
-    Fut: Future<Output = Result<(), ActorError>> + Send + 'static,
-  {
+    Fut: Future<Output = Result<(), ActorError>> + Send + 'static, {
     let underlying = ActorReceiver::new(move |ch| {
       let r = f(TypedContextHandle::new(ch));
       Box::pin(r) as BoxFuture<'static, Result<(), ActorError>>

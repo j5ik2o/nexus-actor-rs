@@ -5,10 +5,14 @@
 use std::fmt::Debug;
 use std::future::Future;
 use std::sync::Arc;
+use std::time::Duration;
 
 use async_trait::async_trait;
 use futures::future::BoxFuture;
 use tokio::runtime::{Builder, Runtime};
+
+use nexus_actor_core_rs::runtime::{CoreRuntime, CoreScheduledTask, CoreScheduler};
+use tokio::sync::Mutex as TokioMutex;
 
 #[cfg(test)]
 mod tests;
@@ -19,8 +23,7 @@ impl Runnable {
   pub fn new<F, Fut>(f: F) -> Self
   where
     F: FnOnce() -> Fut + Send + 'static,
-    Fut: Future<Output = ()> + Send + 'static,
-  {
+    Fut: Future<Output = ()> + Send + 'static, {
     Self(Box::new(move || Box::pin(f()) as BoxFuture<'static, ()>))
   }
 
@@ -37,6 +40,61 @@ pub trait Dispatcher: Debug + Send + Sync + 'static {
 
   fn yield_hint(&self) -> bool {
     false
+  }
+}
+
+// --- CoreSchedulerDispatcher implementation
+
+#[derive(Clone)]
+pub struct CoreSchedulerDispatcher {
+  scheduler: Arc<dyn CoreScheduler>,
+  throughput: i32,
+}
+
+impl std::fmt::Debug for CoreSchedulerDispatcher {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    f.debug_struct("CoreSchedulerDispatcher")
+      .field("throughput", &self.throughput)
+      .finish()
+  }
+}
+
+impl CoreSchedulerDispatcher {
+  pub fn from_runtime(runtime: CoreRuntime) -> Self {
+    Self::from_scheduler(runtime.scheduler())
+  }
+
+  pub fn from_scheduler(scheduler: Arc<dyn CoreScheduler>) -> Self {
+    Self {
+      scheduler,
+      throughput: 300,
+    }
+  }
+
+  pub fn with_throughput(mut self, throughput: i32) -> Self {
+    self.throughput = throughput;
+    self
+  }
+}
+
+#[async_trait]
+impl Dispatcher for CoreSchedulerDispatcher {
+  async fn schedule(&self, runner: Runnable) {
+    let runner_cell = Arc::new(TokioMutex::new(Some(runner)));
+    let task: CoreScheduledTask = Arc::new(move || {
+      let runner_cell = runner_cell.clone();
+      Box::pin(async move {
+        if let Some(runner) = runner_cell.lock().await.take() {
+          runner.run().await;
+        }
+      })
+    });
+
+    let _ = self.scheduler.schedule_once(Duration::ZERO, task);
+  }
+
+  async fn throughput(&self) -> i32 {
+    self.throughput
   }
 }
 
@@ -65,80 +123,6 @@ impl Dispatcher for DispatcherHandle {
 
   fn yield_hint(&self) -> bool {
     self.0.yield_hint()
-  }
-}
-
-// --- TokioRuntimeContextDispatcher implementation
-
-#[derive(Debug, Clone)]
-pub struct TokioRuntimeContextDispatcher {
-  throughput: i32,
-}
-
-impl TokioRuntimeContextDispatcher {
-  pub fn new() -> Result<Self, std::io::Error> {
-    Ok(Self { throughput: 300 })
-  }
-
-  pub fn with_throughput(mut self, throughput: i32) -> Self {
-    self.throughput = throughput;
-    self
-  }
-}
-
-#[async_trait]
-impl Dispatcher for TokioRuntimeContextDispatcher {
-  async fn schedule(&self, runner: Runnable) {
-    tokio::spawn(runner.run());
-  }
-
-  async fn throughput(&self) -> i32 {
-    self.throughput
-  }
-}
-
-// --- TokioRuntimeDispatcher implementation
-
-#[derive(Debug, Clone)]
-pub struct TokioRuntimeDispatcher {
-  runtime: Arc<Runtime>,
-  throughput: i32,
-}
-
-impl TokioRuntimeDispatcher {
-  pub fn new() -> Result<Self, std::io::Error> {
-    match Runtime::new() {
-      Ok(runtime) => Ok(Self {
-        runtime: Arc::new(runtime),
-        throughput: 300,
-      }),
-      Err(e) => Err(e),
-    }
-  }
-
-  pub fn with_runtime(mut self, runtime: Runtime) -> Self {
-    self.runtime = Arc::new(runtime);
-    self
-  }
-
-  pub fn with_throughput(mut self, throughput: i32) -> Self {
-    self.throughput = throughput;
-    self
-  }
-}
-
-#[async_trait]
-impl Dispatcher for TokioRuntimeDispatcher {
-  async fn schedule(&self, runner: Runnable) {
-    self.runtime.spawn(runner.run());
-  }
-
-  async fn throughput(&self) -> i32 {
-    self.throughput
-  }
-
-  fn yield_hint(&self) -> bool {
-    false
   }
 }
 

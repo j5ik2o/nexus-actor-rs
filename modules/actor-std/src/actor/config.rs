@@ -1,5 +1,7 @@
-use crate::actor::dispatch::{Dispatcher, TokioRuntimeContextDispatcher};
+use crate::actor::dispatch::{CoreSchedulerDispatcher, Dispatcher};
 use crate::actor::ConfigOption;
+use crate::runtime::tokio_core_runtime;
+use nexus_actor_core_rs::runtime::CoreRuntime;
 use opentelemetry::metrics::{Meter, MeterProvider};
 use opentelemetry::{global, InstrumentationScope};
 use opentelemetry_sdk::metrics::SdkMeterProvider;
@@ -52,6 +54,7 @@ pub struct Config {
   pub dead_letter_request_logging: bool,
   pub developer_supervision_logging: bool,
   pub mailbox_metrics_poll_interval: Duration,
+  pub core_runtime: CoreRuntime,
   // Other fields...
 }
 
@@ -60,13 +63,14 @@ impl Default for Config {
     Config {
       metrics_provider: None,
       log_prefix: "".to_string(),
-      system_dispatcher: Arc::new(TokioRuntimeContextDispatcher::new().unwrap()),
+      system_dispatcher: Arc::new(CoreSchedulerDispatcher::from_runtime(tokio_core_runtime())),
       dispatcher_throughput: 300,
       dead_letter_throttle_interval: Duration::from_secs(1),
       dead_letter_throttle_count: 10,
       dead_letter_request_logging: false,
       developer_supervision_logging: false,
       mailbox_metrics_poll_interval: Duration::from_millis(250),
+      core_runtime: tokio_core_runtime(),
       // Set other default values...
     }
   }

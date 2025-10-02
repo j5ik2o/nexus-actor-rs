@@ -1,76 +1,81 @@
-#[cfg(test)]
-mod tests;
-
-use std::pin::Pin;
+use nexus_actor_core_rs::runtime::CoreScheduledHandleRef;
 use std::sync::Arc;
-use std::time::Duration;
-use tokio::sync::RwLock;
 
-#[derive(Debug, Clone)]
-pub struct SleepContainer(Arc<RwLock<Pin<Box<tokio::time::Sleep>>>>);
-impl SleepContainer {
-  pub fn from_sleep(sleep: tokio::time::Sleep) -> Self {
-    SleepContainer(Arc::new(RwLock::new(Box::pin(sleep))))
-  }
+#[derive(Clone)]
+pub struct ReceiveTimeoutTimer {
+  handle: CoreScheduledHandleRef,
+}
 
-  pub fn new(duration: Duration) -> Self {
-    Self::from_sleep(tokio::time::sleep(duration))
-  }
-
-  pub fn from_underlying(underlying: Arc<RwLock<Pin<Box<tokio::time::Sleep>>>>) -> Self {
-    Self(underlying)
-  }
-
-  pub async fn init(&mut self, instant: tokio::time::Instant) {
-    let mut timer = self.0.write().await;
-    *timer = Box::pin(tokio::time::sleep_until(instant));
-  }
-
-  pub async fn reset(&mut self, instant: tokio::time::Instant) {
-    let mut sleep = self.0.write().await;
-    sleep.as_mut().reset(instant);
-  }
-
-  pub async fn stop(&mut self) {
-    let mut sleep = self.0.write().await;
-    sleep.as_mut().reset(tokio::time::Instant::now());
-  }
-
-  pub async fn wait(&self) {
-    let mut sleep = self.0.write().await;
-    sleep.as_mut().await;
+impl core::fmt::Debug for ReceiveTimeoutTimer {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    f.debug_struct("ReceiveTimeoutTimer")
+      .field("handle", &format_args!("{:p}", Arc::as_ptr(&self.handle)))
+      .finish()
   }
 }
 
-#[derive(Debug, Clone)]
-pub struct ReceiveTimeoutTimer(SleepContainer);
-
 impl ReceiveTimeoutTimer {
-  pub fn new(duration: Duration) -> Self {
-    ReceiveTimeoutTimer(SleepContainer::new(duration))
+  pub fn new(handle: CoreScheduledHandleRef) -> Self {
+    Self { handle }
   }
 
-  pub fn from_sleep(sleep: tokio::time::Sleep) -> Self {
-    ReceiveTimeoutTimer(SleepContainer::from_sleep(sleep))
+  pub fn cancel(&self) {
+    self.handle.cancel();
   }
 
-  pub fn from_underlying(underlying: Arc<RwLock<Pin<Box<tokio::time::Sleep>>>>) -> Self {
-    ReceiveTimeoutTimer(SleepContainer::from_underlying(underlying))
+  pub fn is_cancelled(&self) -> bool {
+    self.handle.is_cancelled()
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use nexus_actor_core_rs::runtime::CoreScheduledTask;
+  use std::sync::atomic::{AtomicBool, Ordering};
+  use std::sync::Arc;
+  use std::time::Duration;
+
+  #[tokio::test]
+  async fn cancel_prevents_execution() {
+    let runtime = crate::runtime::tokio_core_runtime();
+    let scheduler = runtime.scheduler();
+    let fired = Arc::new(AtomicBool::new(false));
+    let fired_clone = fired.clone();
+
+    let task: CoreScheduledTask = Arc::new(move || {
+      let fired = fired_clone.clone();
+      Box::pin(async move {
+        fired.store(true, Ordering::SeqCst);
+      })
+    });
+
+    let handle = scheduler.schedule_once(Duration::from_millis(50), task);
+    let timer = ReceiveTimeoutTimer::new(handle);
+    timer.cancel();
+
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    assert!(!fired.load(Ordering::SeqCst));
   }
 
-  pub async fn reset(&mut self, instant: tokio::time::Instant) {
-    self.0.reset(instant).await;
-  }
+  #[tokio::test]
+  async fn handle_fires_when_not_cancelled() {
+    let runtime = crate::runtime::tokio_core_runtime();
+    let scheduler = runtime.scheduler();
+    let fired = Arc::new(AtomicBool::new(false));
+    let fired_clone = fired.clone();
 
-  pub async fn init(&mut self, instant: tokio::time::Instant) {
-    self.0.init(instant).await;
-  }
+    let task: CoreScheduledTask = Arc::new(move || {
+      let fired = fired_clone.clone();
+      Box::pin(async move {
+        fired.store(true, Ordering::SeqCst);
+      })
+    });
 
-  pub async fn stop(&mut self) {
-    self.0.stop().await;
-  }
+    let handle = scheduler.schedule_once(Duration::from_millis(50), task);
+    let _timer = ReceiveTimeoutTimer::new(handle);
 
-  pub async fn wait(&self) {
-    self.0.wait().await;
+    tokio::time::sleep(Duration::from_millis(80)).await;
+    assert!(fired.load(Ordering::SeqCst));
   }
 }

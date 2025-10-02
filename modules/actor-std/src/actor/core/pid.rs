@@ -99,8 +99,7 @@ impl ExtendedPid {
   /// `CorePid` のイテレータから `ExtendedPid` のベクタへ変換するヘルパー。
   pub fn from_core_iter<I>(pids: I) -> Vec<Self>
   where
-    I: IntoIterator<Item = CorePid>,
-  {
+    I: IntoIterator<Item = CorePid>, {
     pids.into_iter().map(Self::from).collect()
   }
 

@@ -42,9 +42,9 @@ impl DeadLetterProcess {
     let dead_letter_throttle_interval = config.dead_letter_throttle_interval;
     let func =
       move |i: usize| async move { tracing::info!("DeadLetterProcess: Throttling dead letters, count: {}", i) };
-    let dispatcher = myself.actor_system().get_config().system_dispatcher.clone();
+    let scheduler = myself.actor_system().core_runtime().scheduler();
     let throttle = Throttle::new(
-      dispatcher,
+      scheduler,
       dead_letter_throttle_count,
       dead_letter_throttle_interval,
       func,

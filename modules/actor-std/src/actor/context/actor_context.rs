@@ -44,13 +44,13 @@ use crate::actor::metrics::metrics_impl::{MetricsRuntime, MetricsSink};
 use crate::actor::process::future::ActorFutureProcess;
 use crate::actor::process::Process;
 use crate::actor::supervisor::{
-  StdSupervisorAdapter, StdSupervisorStrategyAdapter, Supervisor, SupervisorHandle, SupervisorStrategy,
-  DEFAULT_SUPERVISION_STRATEGY,
+  StdSupervisorAdapter, Supervisor, SupervisorHandle, SupervisorStrategy, DEFAULT_SUPERVISION_STRATEGY,
 };
 use crate::ctxext::extensions::{ContextExtensionHandle, ContextExtensionId};
 use crate::generated::actor::PoisonPill;
 use arc_swap::ArcSwapOption;
 use nexus_actor_core_rs::actor::core_types::pid::CorePid;
+use nexus_actor_core_rs::context::{CoreProps as CoreContextProps, CoreSupervisorStrategyHandle};
 
 use crate::actor::process::actor_future::ActorFuture;
 use async_trait::async_trait;
@@ -96,6 +96,7 @@ pub struct ActorContext {
   state: Arc<AtomicU8>,
   receive_timeout: Arc<RwLock<Option<Duration>>>,
   props: Props,
+  core_props: CoreContextProps,
   actor_system: WeakActorSystem,
   parent: Option<ExtendedPid>,
   self_pid: Arc<OnceCell<Arc<ArcSwapOption<ExtendedPid>>>>,
@@ -151,6 +152,7 @@ impl ActorContext {
     let metrics_runtime = actor_system.metrics_runtime_slot();
     let metrics_sink = Arc::new(OnceCell::new());
     let actor_type = Arc::new(OnceCell::new());
+    let core_props = props.core_props();
     let mut ctx = ActorContext {
       shared: Arc::new(ActorContextShared::default()),
       extras,
@@ -158,6 +160,7 @@ impl ActorContext {
       state,
       receive_timeout,
       props,
+      core_props,
       actor_system: actor_system.downgrade(),
       parent,
       self_pid: Arc::new(self_pid_cell),
@@ -228,7 +231,7 @@ impl ActorContext {
       .map(ReadonlyMessageHeadersHandle::new)
   }
 
-  fn actor_system(&self) -> ActorSystem {
+  pub(crate) fn actor_system(&self) -> ActorSystem {
     self
       .actor_system
       .upgrade()
@@ -250,6 +253,10 @@ impl ActorContext {
 
   pub fn props_ref(&self) -> &Props {
     &self.props
+  }
+
+  pub fn core_props(&self) -> &CoreContextProps {
+    &self.core_props
   }
 
   pub fn parent_ref(&self) -> Option<&ExtendedPid> {
@@ -275,8 +282,7 @@ impl ActorContext {
   pub fn with_typed_borrow<M, R, F>(&self, f: F) -> R
   where
     M: crate::actor::message::Message,
-    F: for<'a> FnOnce(crate::actor::context::TypedContextBorrow<'a, M>) -> R,
-  {
+    F: for<'a> FnOnce(crate::actor::context::TypedContextBorrow<'a, M>) -> R, {
     let borrow = self.borrow();
     let context_handle = self.context_handle();
     let view = crate::actor::context::TypedContextBorrow::new(self, context_handle, borrow);
@@ -348,8 +354,8 @@ impl ActorContext {
     self.supervisor_handle_with_snapshot().core_adapter()
   }
 
-  pub fn core_supervisor_strategy(&self) -> StdSupervisorStrategyAdapter {
-    self.props_ref().get_supervisor_strategy().core_strategy()
+  pub fn core_supervisor_strategy(&self) -> CoreSupervisorStrategyHandle {
+    self.core_props().supervisor_strategy_handle()
   }
 
   pub async fn receive_timeout_handler(&mut self) {
@@ -954,7 +960,7 @@ impl BasePart for ActorContext {
       return;
     }
 
-    let mut extra = self.ensure_extras().await;
+    let extra = self.ensure_extras().await;
     let context = Arc::new(RwLock::new(self.clone()));
     extra.init_or_reset_receive_timeout_timer(normalized, context).await;
   }

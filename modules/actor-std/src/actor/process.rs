@@ -54,8 +54,7 @@ impl ProcessHandle {
 
   pub fn new<P>(process: P) -> Self
   where
-    P: Process + 'static,
-  {
+    P: Process + 'static, {
     ProcessHandle(Arc::new(process))
   }
 }

@@ -2,6 +2,7 @@ use crate::actor::actor_system::{ActorSystem, WeakActorSystem};
 use crate::actor::core::ExtendedPid;
 use crate::actor::message::MessageHandle;
 use crate::actor::process::future::ActorFutureError;
+use nexus_actor_core_rs::runtime::CoreScheduledHandleRef;
 use std::sync::Arc;
 use tokio::sync::{Notify, RwLock};
 
@@ -9,7 +10,6 @@ mod completion;
 
 use completion::*;
 
-#[derive(Debug)]
 pub(crate) struct ActorFutureInner {
   pub(crate) actor_system: WeakActorSystem,
   pub(crate) pid: Option<ExtendedPid>,
@@ -18,9 +18,23 @@ pub(crate) struct ActorFutureInner {
   pub(crate) error: Option<ActorFutureError>,
   pub(crate) pipes: Vec<ExtendedPid>,
   pub(crate) completions: Vec<Completion>,
+  pub(crate) timeout_handle: Option<CoreScheduledHandleRef>,
 }
 
 static_assertions::assert_impl_all!(ActorFutureInner: Send, Sync);
+
+impl std::fmt::Debug for ActorFutureInner {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    f.debug_struct("ActorFutureInner")
+      .field("pid", &self.pid)
+      .field("done", &self.done)
+      .field("result", &self.result)
+      .field("error", &self.error)
+      .field("pipes_len", &self.pipes.len())
+      .field("completions_len", &self.completions.len())
+      .finish()
+  }
+}
 
 impl ActorFutureInner {
   pub(crate) fn actor_system(&self) -> ActorSystem {
@@ -78,6 +92,21 @@ impl ActorFuture {
     }
   }
 
+  pub async fn clear_timeout_handle(&self) {
+    let mut inner = self.inner.write().await;
+    inner.timeout_handle = None;
+  }
+
+  pub async fn set_timeout_handle(&self, handle: CoreScheduledHandleRef) {
+    let mut inner = self.inner.write().await;
+    inner.timeout_handle = Some(handle);
+  }
+
+  pub async fn take_timeout_handle(&self) -> Option<CoreScheduledHandleRef> {
+    let mut inner = self.inner.write().await;
+    inner.timeout_handle.take()
+  }
+
   async fn send_to_pipes(&self, inner: &mut ActorFutureInner) {
     let actor_system = inner.actor_system();
     let message = if let Some(error) = &inner.error {
@@ -96,6 +125,9 @@ impl ActorFuture {
   pub async fn complete(&self, result: MessageHandle) {
     let mut inner = self.inner.write().await;
     if !inner.done {
+      if let Some(handle) = inner.timeout_handle.take() {
+        handle.cancel();
+      }
       inner.result = Some(result);
       inner.done = true;
       self.send_to_pipes(&mut inner).await;
@@ -107,6 +139,9 @@ impl ActorFuture {
   pub async fn fail(&self, error: ActorFutureError) {
     let mut inner = self.inner.write().await;
     if !inner.done {
+      if let Some(handle) = inner.timeout_handle.take() {
+        handle.cancel();
+      }
       inner.error = Some(error);
       inner.done = true;
       self.send_to_pipes(&mut inner).await;
@@ -118,8 +153,7 @@ impl ActorFuture {
   pub async fn continue_with<F, Fut>(&self, continuation: F)
   where
     F: Fn(Option<MessageHandle>, Option<ActorFutureError>) -> Fut + Send + Sync + 'static,
-    Fut: core::future::Future<Output = ()> + Send + 'static,
-  {
+    Fut: core::future::Future<Output = ()> + Send + 'static, {
     let mut inner = self.inner.write().await;
     if inner.done {
       continuation(inner.result.clone(), inner.error.clone()).await;

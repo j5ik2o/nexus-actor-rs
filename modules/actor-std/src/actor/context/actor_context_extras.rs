@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
 use std::time::Duration;
 use tokio::sync::RwLock;
 
@@ -8,19 +8,19 @@ use crate::actor::context::lock_timing::InstrumentedRwLock;
 use crate::actor::context::receive_timeout_timer::ReceiveTimeoutTimer;
 use crate::actor::context::receiver_context_handle::ReceiverContextHandle;
 use crate::actor::context::sender_context_handle::SenderContextHandle;
-use crate::actor::context::InfoPart;
 use crate::actor::core::ExtendedPid;
 use crate::actor::core::PidSet;
 use crate::actor::core::RestartStatistics;
-use crate::actor::dispatch::Runnable;
 use crate::actor::message::MessageHandles;
 use crate::ctxext::extensions::ContextExtensions;
 use arc_swap::ArcSwapOption;
+use nexus_actor_core_rs::runtime::CoreScheduledTask;
 use once_cell::sync::OnceCell;
 
 #[derive(Debug, Clone)]
 struct ActorContextExtrasMutable {
   receive_timeout_timer: Option<ReceiveTimeoutTimer>,
+  receive_timeout_context: Option<Weak<RwLock<ActorContext>>>,
   restart_stats: OnceCell<RestartStatistics>,
   stash: MessageHandles,
 }
@@ -29,6 +29,7 @@ impl ActorContextExtrasMutable {
   fn new() -> Self {
     Self {
       receive_timeout_timer: None,
+      receive_timeout_context: None,
       restart_stats: OnceCell::new(),
       stash: MessageHandles::new(vec![]),
     }
@@ -110,73 +111,70 @@ impl ActorContextExtras {
     guard.restart_stats.get_or_init(RestartStatistics::new).clone()
   }
 
-  pub async fn init_receive_timeout_timer(&self, duration: Duration) {
-    let mut guard = self.mutable.write("init_receive_timeout_timer").await;
-    if guard.receive_timeout_timer.is_none() {
-      guard.receive_timeout_timer = Some(ReceiveTimeoutTimer::new(duration));
-    }
-  }
-
-  pub async fn init_or_reset_receive_timeout_timer(&mut self, d: Duration, context: Arc<RwLock<ActorContext>>) {
-    self.stop_receive_timeout_timer().await;
-
-    let timer = Arc::new(RwLock::new(Box::pin(tokio::time::sleep(d))));
-    {
+  pub async fn init_or_reset_receive_timeout_timer(&self, duration: Duration, context: Arc<RwLock<ActorContext>>) {
+    // cancel existing timer if present
+    let previous = {
       let mut guard = self
         .mutable
-        .write("init_or_reset_receive_timeout_timer:set_timer")
+        .write("init_or_reset_receive_timeout_timer:take_existing")
         .await;
-      guard.receive_timeout_timer = Some(ReceiveTimeoutTimer::from_underlying(timer.clone()));
+      guard.receive_timeout_timer.take()
+    };
+    if let Some(timer) = previous {
+      timer.cancel();
     }
 
-    let dispatcher = {
-      let mg = context.read().await;
-      mg.get_actor_system().await.get_config().system_dispatcher.clone()
+    let runtime = {
+      let ctx_guard = context.read().await;
+      ctx_guard.actor_system().core_runtime()
     };
+    let scheduler = runtime.scheduler();
+    let task_context = context.clone();
+    let task: CoreScheduledTask = Arc::new(move || {
+      let context = task_context.clone();
+      Box::pin(async move {
+        let mut ctx = context.write().await;
+        ctx.receive_timeout_handler().await;
+      })
+    });
 
-    dispatcher
-      .schedule(Runnable::new(move || async move {
-        let mut mg = timer.write().await;
-        mg.as_mut().await;
-        let mut locked_context = context.write().await;
-        locked_context.receive_timeout_handler().await;
-      }))
+    let handle = scheduler.schedule_once(duration, task);
+
+    let mut guard = self
+      .mutable
+      .write("init_or_reset_receive_timeout_timer:set_timer")
       .await;
+    guard.receive_timeout_context = Some(Arc::downgrade(&context));
+    guard.receive_timeout_timer = Some(ReceiveTimeoutTimer::new(handle));
   }
 
   pub async fn reset_receive_timeout_timer(&self, duration: Duration) {
-    let mut timer = {
+    let context = {
       let guard = self.mutable.read("reset_receive_timeout_timer").await;
-      guard.receive_timeout_timer.clone()
+      guard.receive_timeout_context.as_ref().and_then(|weak| weak.upgrade())
     };
-    if let Some(ref mut t) = timer {
-      t.reset(tokio::time::Instant::now() + duration).await;
+
+    if let Some(context) = context {
+      self.init_or_reset_receive_timeout_timer(duration, context).await;
     }
   }
 
   pub async fn stop_receive_timeout_timer(&self) {
     let timer = {
-      let guard = self.mutable.read("stop_receive_timeout_timer").await;
-      guard.receive_timeout_timer.clone()
+      let mut guard = self.mutable.write("stop_receive_timeout_timer").await;
+      guard.receive_timeout_timer.take()
     };
-    if let Some(mut t) = timer {
-      t.stop().await;
+    if let Some(timer) = timer {
+      timer.cancel();
     }
   }
 
   pub async fn kill_receive_timeout_timer(&self) {
     let mut guard = self.mutable.write("kill_receive_timeout_timer").await;
-    guard.receive_timeout_timer = None;
-  }
-
-  pub async fn wait_for_timeout(&self) {
-    let timer = {
-      let guard = self.mutable.read("wait_for_timeout").await;
-      guard.receive_timeout_timer.clone()
-    };
-    if let Some(t) = timer {
-      t.wait().await;
+    if let Some(timer) = guard.receive_timeout_timer.take() {
+      timer.cancel();
     }
+    guard.receive_timeout_context = None;
   }
 
   pub async fn add_child(&mut self, pid: ExtendedPid) {

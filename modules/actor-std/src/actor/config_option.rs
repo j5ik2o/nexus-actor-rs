@@ -1,6 +1,7 @@
 use crate::actor::config::Config;
 use crate::actor::dispatch::Dispatcher;
 use crate::actor::MetricsProvider;
+use nexus_actor_core_rs::runtime::CoreRuntime;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -13,6 +14,7 @@ pub enum ConfigOption {
   SetDeadLetterThrottleCount(usize),
   SetDeadLetterRequestLogging(bool),
   SetMailboxMetricsPollInterval(Duration),
+  SetCoreRuntime(CoreRuntime),
   // Other options...
 }
 
@@ -42,6 +44,9 @@ impl ConfigOption {
       }
       ConfigOption::SetMailboxMetricsPollInterval(interval) => {
         config.mailbox_metrics_poll_interval = *interval;
+      }
+      ConfigOption::SetCoreRuntime(runtime) => {
+        config.core_runtime = runtime.clone();
       } // Handle other options...
     }
   }
@@ -60,5 +65,9 @@ impl ConfigOption {
 
   pub fn with_mailbox_metrics_poll_interval(duration: Duration) -> ConfigOption {
     ConfigOption::SetMailboxMetricsPollInterval(duration)
+  }
+
+  pub fn with_core_runtime(runtime: CoreRuntime) -> ConfigOption {
+    ConfigOption::SetCoreRuntime(runtime)
   }
 }

@@ -35,8 +35,7 @@ impl ReceiverContextHandle {
 
   pub fn with_actor_borrow<R, F>(&self, f: F) -> Option<R>
   where
-    F: for<'a> FnOnce(ContextBorrow<'a>) -> R,
-  {
+    F: for<'a> FnOnce(ContextBorrow<'a>) -> R, {
     self.context.with_actor_borrow(f)
   }
 

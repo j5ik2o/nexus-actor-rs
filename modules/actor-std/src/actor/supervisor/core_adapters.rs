@@ -94,6 +94,7 @@ impl CoreSupervisor for StdSupervisorAdapter {
   }
 }
 
+#[derive(Clone)]
 pub struct StdSupervisorStrategyAdapter {
   inner: Arc<dyn SupervisorStrategy>,
 }
@@ -109,6 +110,8 @@ impl StdSupervisorStrategyAdapter {
     Self { inner }
   }
 }
+
+static_assertions::assert_impl_all!(StdSupervisorStrategyAdapter: Send, Sync);
 
 #[async_trait]
 impl CoreSupervisorStrategy for StdSupervisorStrategyAdapter {

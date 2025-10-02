@@ -1,4 +1,5 @@
 use std::any::Any;
+use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -7,7 +8,6 @@ use rand::Rng;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::core::ErrorReason;
 use crate::actor::core::RestartStatistics;
-use crate::actor::dispatch::Runnable;
 use crate::actor::message::MessageHandle;
 use crate::actor::supervisor::directive::Directive;
 use crate::actor::supervisor::supervisor_strategy::{log_failure, Supervisor, SupervisorHandle, SupervisorStrategy};
@@ -53,28 +53,31 @@ impl SupervisorStrategy for ExponentialBackoffStrategy {
   ) {
     self.set_failure_count(&mut rs).await;
 
-    let backoff = rs.failure_count().await as u64 * self.initial_backoff.map(|v| v.as_nanos()).unwrap_or(0) as u64;
+    let failure_count = rs.failure_count().await as u64;
+    let base = self.initial_backoff.map(|v| v.as_nanos()).unwrap_or_default();
+    let backoff = failure_count.saturating_mul(base as u64);
     let noise = rand::rng().random_range(0..500);
     let dur = Duration::from_nanos(backoff + noise);
 
+    let scheduler = actor_system.core_runtime().scheduler();
+    let actor_system_clone = actor_system.clone();
+    let supervisor_clone = supervisor.clone();
     let child_clone = child.clone();
     let reason_clone = reason.clone();
-    actor_system
-      .get_config()
-      .system_dispatcher
-      .schedule(Runnable::new(move || async move {
-        tokio::time::sleep(dur).await;
-        log_failure(
-          actor_system.clone(),
-          &child_clone,
-          reason_clone.clone(),
-          Directive::Restart,
-        )
-        .await;
-        let children = [child_clone.clone()];
-        supervisor.restart_children(&children).await;
-      }))
-      .await;
+
+    scheduler.schedule_once(
+      dur,
+      Arc::new(move || {
+        let actor_system = actor_system_clone.clone();
+        let supervisor = supervisor_clone.clone();
+        let child = child_clone.clone();
+        let reason = reason_clone.clone();
+        Box::pin(async move {
+          log_failure(actor_system.clone(), &child, reason.clone(), Directive::Restart).await;
+          supervisor.restart_children(&[child]).await;
+        })
+      }),
+    );
   }
 
   fn as_any(&self) -> &dyn Any {

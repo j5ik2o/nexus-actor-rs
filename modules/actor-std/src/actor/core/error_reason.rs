@@ -15,8 +15,7 @@ pub struct ErrorReason {
 impl ErrorReason {
   pub fn new<T>(reason: T, code: i32) -> Self
   where
-    T: Send + Sync + 'static,
-  {
+    T: Send + Sync + 'static, {
     Self {
       inner: ErrorReasonCore::new(reason, code),
       backtrace: Backtrace::new(),
@@ -33,15 +32,13 @@ impl ErrorReason {
 
   pub fn take<T>(&mut self) -> Result<T, TakeError>
   where
-    T: Send + Sync + 'static,
-  {
+    T: Send + Sync + 'static, {
     self.inner.take()
   }
 
   pub fn take_or_panic<T>(&mut self) -> T
   where
-    T: Send + Sync + 'static,
-  {
+    T: Send + Sync + 'static, {
     self.inner.take_or_panic()
   }
 

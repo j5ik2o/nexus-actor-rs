@@ -1,4 +1,5 @@
 use arc_swap::{ArcSwap, ArcSwapOption};
+use nexus_actor_core_rs::runtime::CoreRuntime;
 use std::sync::{Arc, Weak};
 use tokio::sync::{Mutex, RwLock};
 use uuid::Uuid;
@@ -56,6 +57,7 @@ pub struct ActorSystem {
   config: Arc<ArcSwap<Config>>,
   metrics_runtime: Arc<ArcSwapOption<MetricsRuntime>>,
   guardians: Arc<ArcSwapOption<GuardiansValue>>,
+  core_runtime: CoreRuntime,
 }
 
 #[derive(Debug, Clone)]
@@ -64,6 +66,7 @@ pub struct WeakActorSystem {
   config: Weak<ArcSwap<Config>>,
   metrics_runtime: Weak<ArcSwapOption<MetricsRuntime>>,
   guardians: Weak<ArcSwapOption<GuardiansValue>>,
+  core_runtime: CoreRuntime,
 }
 
 impl ActorSystem {
@@ -81,6 +84,7 @@ impl ActorSystem {
     let config_swap = Arc::new(ArcSwap::from_pointee(config.clone()));
     let metrics_runtime_swap = Arc::new(ArcSwapOption::from(None::<Arc<MetricsRuntime>>));
     let guardians_swap = Arc::new(ArcSwapOption::from(None::<Arc<GuardiansValue>>));
+    let core_runtime = config.core_runtime.clone();
 
     let system = Self {
       inner: Arc::new(RwLock::new(
@@ -89,6 +93,7 @@ impl ActorSystem {
       config: config_swap.clone(),
       metrics_runtime: metrics_runtime_swap.clone(),
       guardians: guardians_swap.clone(),
+      core_runtime,
     };
     system
       .set_root_context(RootContext::new(system.clone(), EMPTY_MESSAGE_HEADER.clone(), &[]))
@@ -126,6 +131,7 @@ impl ActorSystem {
       config: Arc::downgrade(&self.config),
       metrics_runtime: Arc::downgrade(&self.metrics_runtime),
       guardians: Arc::downgrade(&self.guardians),
+      core_runtime: self.core_runtime.clone(),
     }
   }
 
@@ -174,10 +180,13 @@ impl ActorSystem {
 
   pub fn metrics_foreach<R, F>(&self, f: F) -> Option<R>
   where
-    F: FnOnce(&Arc<MetricsRuntime>) -> R,
-  {
+    F: FnOnce(&Arc<MetricsRuntime>) -> R, {
     let runtime = self.metrics_runtime()?;
     Some(f(&runtime))
+  }
+
+  pub fn core_runtime(&self) -> CoreRuntime {
+    self.core_runtime.clone()
   }
 
   pub async fn get_root_context(&self) -> RootContext {
@@ -247,6 +256,7 @@ impl WeakActorSystem {
       config,
       metrics_runtime,
       guardians,
+      core_runtime: self.core_runtime.clone(),
     })
   }
 }

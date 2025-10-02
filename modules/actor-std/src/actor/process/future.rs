@@ -5,7 +5,6 @@ use std::time::Duration;
 
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::core::ExtendedPid;
-use crate::actor::dispatch::Runnable;
 use crate::actor::message::Message;
 use crate::actor::message::MessageHandle;
 use crate::actor::metrics::metrics_impl::{MetricsRuntime, MetricsSink};
@@ -14,6 +13,7 @@ use crate::actor::process::{Process, ProcessHandle};
 use crate::generated::actor::DeadLetterResponse;
 use arc_swap::ArcSwapOption;
 use async_trait::async_trait;
+use nexus_actor_core_rs::runtime::CoreScheduledHandleRef;
 use nexus_message_derive_rs::Message;
 use opentelemetry::KeyValue;
 use thiserror::Error;
@@ -52,6 +52,7 @@ impl ActorFutureProcess {
       error: None,
       pipes: Vec::new(),
       completions: Vec::new(),
+      timeout_handle: None,
     }));
     let notify = Arc::new(Notify::new());
 
@@ -89,25 +90,21 @@ impl ActorFutureProcess {
     }
 
     if duration > Duration::from_secs(0) {
+      let scheduler = system.core_runtime().scheduler();
       let future_process_clone = Arc::clone(&future_process);
-
-      system
-        .get_config()
-        .system_dispatcher
-        .schedule(Runnable::new(move || async move {
-          let future = future_process_clone.get_future().await;
-
-          tokio::select! {
-              _ = future.notify.notified() => {
-                tracing::debug!("Future completed");
-              }
-              _ = tokio::time::sleep(duration) => {
-                  tracing::debug!("Future timed out");
-                  future_process_clone.handle_timeout().await;
-              }
-          }
-        }))
-        .await;
+      let handle = scheduler.schedule_once(
+        duration,
+        Arc::new(move || {
+          let future_process_clone = Arc::clone(&future_process_clone);
+          Box::pin(async move {
+            let future = future_process_clone.get_future().await;
+            future.clear_timeout_handle().await;
+            tracing::debug!("Future timed out");
+            future_process_clone.handle_timeout().await;
+          })
+        }),
+      );
+      future_process.set_timeout_handle(handle).await;
     }
 
     future_process
@@ -171,6 +168,8 @@ impl ActorFutureProcess {
   }
 
   async fn handle_timeout(&self) {
+    let future = self.get_future().await;
+    future.clear_timeout_handle().await;
     let error = ActorFutureError::TimeoutError;
     self.fail(error.clone()).await;
 
@@ -214,48 +213,64 @@ impl ActorFutureProcess {
   }
 }
 
+impl ActorFutureProcess {
+  async fn set_timeout_handle(&self, handle: CoreScheduledHandleRef) {
+    let future = {
+      let guard = self.future.read().await;
+      guard.clone()
+    };
+    future.set_timeout_handle(handle).await;
+  }
+}
+
 #[async_trait]
 impl Process for ActorFutureProcess {
   async fn send_user_message(&self, _: Option<&ExtendedPid>, message_handle: MessageHandle) {
     let cloned_self = self.clone();
     let future = self.future.read().await.clone();
-    let dispatcher = {
+    let scheduler = {
       let mg = future.inner.read().await;
-      mg.actor_system().get_config().system_dispatcher.clone()
+      mg.actor_system().core_runtime().scheduler()
     };
-    dispatcher
-      .schedule(Runnable::new(move || {
+    let message_clone = message_handle.clone();
+    scheduler.schedule_once(
+      Duration::ZERO,
+      Arc::new(move || {
         let future = future.clone();
         let cloned_self = cloned_self.clone();
-        async move {
+        let message_handle = message_clone.clone();
+        Box::pin(async move {
           if message_handle.to_typed::<DeadLetterResponse>().is_some() {
             future.fail(ActorFutureError::DeadLetterError).await;
           } else {
-            future.complete(message_handle.clone()).await;
+            future.complete(message_handle).await;
           }
           cloned_self.instrument(future).await;
-        }
-      }))
-      .await;
+        })
+      }),
+    );
   }
 
   async fn send_system_message(&self, _: &ExtendedPid, message_handle: MessageHandle) {
     let cloned_self = self.clone();
     let future = self.future.read().await.clone();
-    let dispatcher = {
+    let scheduler = {
       let mg = future.inner.read().await;
-      mg.actor_system().get_config().system_dispatcher.clone()
+      mg.actor_system().core_runtime().scheduler()
     };
-    dispatcher
-      .schedule(Runnable::new(move || {
+    let message_clone = message_handle.clone();
+    scheduler.schedule_once(
+      Duration::ZERO,
+      Arc::new(move || {
         let future = future.clone();
         let cloned_self = cloned_self.clone();
-        async move {
-          future.complete(message_handle.clone()).await;
+        let message_handle = message_clone.clone();
+        Box::pin(async move {
+          future.complete(message_handle).await;
           cloned_self.instrument(future).await;
-        }
-      }))
-      .await;
+        })
+      }),
+    );
   }
 
   async fn stop(&self, _pid: &ExtendedPid) {}
