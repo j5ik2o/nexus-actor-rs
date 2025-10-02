@@ -1,20 +1,24 @@
 #![cfg(feature = "alloc")]
 
 use alloc::vec::Vec;
+use core::any::Any;
 use core::time::Duration;
 
 /// 単調増加する時刻を提供するクロック抽象。
 ///
 /// `now()` は任意の基準からの経過時間を `Duration` で返す必要がある。
-pub trait FailureClock: Send + Sync {
+pub trait FailureClock: Send + Sync + 'static {
   /// 現在時刻を基準からの経過時間として返す。
   fn now(&self) -> Duration;
+
+  /// Downcast 用に Any 参照を返す。
+  fn as_any(&self) -> &dyn Any;
 }
 
 /// no_std + alloc 環境で利用可能な単純な再起動統計。
 ///
 /// 時刻を `Duration` として保持し、呼び出し側が提供するクロックに依存する。
-#[derive(Debug, Clone, Default)]
+#[derive(Clone, Default)]
 pub struct CoreRestartTracker {
   failure_times: Vec<Duration>,
   history_limit: Option<usize>,
@@ -122,6 +126,7 @@ impl CoreRestartTracker {
 #[cfg(test)]
 mod tests {
   use super::{CoreRestartTracker, FailureClock};
+  use core::any::Any;
   use core::sync::atomic::{AtomicU64, Ordering};
   use core::time::Duration;
 
@@ -140,6 +145,10 @@ mod tests {
   impl FailureClock for MockClock {
     fn now(&self) -> Duration {
       Duration::from_nanos(self.nanos.load(Ordering::SeqCst))
+    }
+
+    fn as_any(&self) -> &dyn Any {
+      self
     }
   }
 
@@ -182,5 +191,14 @@ mod tests {
     tracker.push(Duration::from_secs(3));
 
     assert_eq!(tracker.samples(), &[Duration::from_secs(2), Duration::from_secs(3)]);
+  }
+}
+
+impl core::fmt::Debug for CoreRestartTracker {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    f.debug_struct("CoreRestartTracker")
+      .field("samples", &self.failure_times)
+      .field("history_limit", &self.history_limit)
+      .finish()
   }
 }

@@ -8,9 +8,13 @@ pub mod message_envelope;
 #[cfg(feature = "alloc")]
 pub mod message_handle;
 #[cfg(feature = "alloc")]
+pub mod message_handles;
+#[cfg(feature = "alloc")]
 pub mod message_headers;
 #[cfg(feature = "alloc")]
 pub mod pid;
+#[cfg(feature = "alloc")]
+pub mod pid_set;
 #[cfg(feature = "alloc")]
 pub mod process;
 #[cfg(feature = "alloc")]
