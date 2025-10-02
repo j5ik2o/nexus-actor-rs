@@ -6,13 +6,15 @@ use crate::actor::process::Process;
 use crate::extensions::{next_extension_id, Extension, ExtensionId};
 use crate::metrics::{ActorMetrics, MetricsError, ProtoMetrics};
 use arc_swap::ArcSwapOption;
+use nexus_actor_core_rs::runtime::{CoreRuntime, CoreScheduledHandleRef, CoreScheduledTask};
 use once_cell::sync::Lazy;
 use opentelemetry::KeyValue;
+use parking_lot::Mutex;
 use std::any::Any;
+use std::fmt;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::task::JoinHandle;
-use tokio::time::{interval as tokio_interval, MissedTickBehavior};
 
 pub static EXTENSION_ID: Lazy<ExtensionId> = Lazy::new(next_extension_id);
 
@@ -55,9 +57,10 @@ impl Metrics {
 
     runtime_slot.store(runtime.clone());
 
+    let core_runtime = system.core_runtime();
     let mailbox_collector = runtime
       .as_ref()
-      .map(|runtime| MailboxMetricsCollector::spawn(&system, runtime.clone(), poll_interval));
+      .map(|runtime| MailboxMetricsCollector::spawn(&system, runtime.clone(), poll_interval, core_runtime.clone()));
 
     Ok(Metrics {
       runtime: runtime_slot,
@@ -118,38 +121,80 @@ impl MetricsRuntime {
   }
 }
 
-#[derive(Debug)]
 struct MailboxMetricsCollector {
-  handle: JoinHandle<()>,
+  handle: CoreScheduledHandleRef,
+  stop: Arc<AtomicBool>,
 }
 
 impl MailboxMetricsCollector {
-  fn spawn(system: &ActorSystem, runtime: Arc<MetricsRuntime>, poll_interval: Duration) -> Arc<Self> {
+  fn spawn(
+    system: &ActorSystem,
+    runtime: Arc<MetricsRuntime>,
+    poll_interval: Duration,
+    core_runtime: CoreRuntime,
+  ) -> Arc<Self> {
     let weak_system = system.downgrade();
     let interval = if poll_interval.is_zero() {
       Duration::from_millis(1)
     } else {
       poll_interval
     };
+    let scheduler = core_runtime.scheduler();
+    let stop = Arc::new(AtomicBool::new(false));
+    let handle_slot: Arc<Mutex<Option<CoreScheduledHandleRef>>> = Arc::new(Mutex::new(None));
     let task_runtime = runtime.clone();
-    let handle = tokio::spawn(async move {
-      let mut ticker = tokio_interval(interval);
-      ticker.set_missed_tick_behavior(MissedTickBehavior::Delay);
-      loop {
-        ticker.tick().await;
-        let Some(system) = weak_system.upgrade() else {
-          break;
-        };
-        collect_mailbox_metrics(task_runtime.clone(), system).await;
-      }
-    });
-    Arc::new(Self { handle })
+
+    let poll_task: CoreScheduledTask = {
+      let weak_system = weak_system.clone();
+      let stop_flag = stop.clone();
+      let handle_slot = handle_slot.clone();
+      let task_runtime = task_runtime.clone();
+      Arc::new(move || {
+        let weak_system = weak_system.clone();
+        let stop_flag = stop_flag.clone();
+        let handle_slot = handle_slot.clone();
+        let task_runtime = task_runtime.clone();
+        Box::pin(async move {
+          if stop_flag.load(Ordering::Relaxed) {
+            if let Some(handle) = handle_slot.lock().clone() {
+              handle.cancel();
+            }
+            return;
+          }
+
+          let Some(system) = weak_system.upgrade() else {
+            stop_flag.store(true, Ordering::Relaxed);
+            if let Some(handle) = handle_slot.lock().clone() {
+              handle.cancel();
+            }
+            return;
+          };
+
+          collect_mailbox_metrics(task_runtime.clone(), system).await;
+        })
+      })
+    };
+
+    let handle = scheduler.schedule_repeated(Duration::ZERO, interval, poll_task);
+    *handle_slot.lock() = Some(handle.clone());
+
+    Arc::new(Self { handle, stop })
+  }
+}
+
+impl fmt::Debug for MailboxMetricsCollector {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    f.debug_struct("MailboxMetricsCollector")
+      .field("handle", &format_args!("{:p}", Arc::as_ptr(&self.handle)))
+      .field("stopped", &self.stop.load(Ordering::Relaxed))
+      .finish()
   }
 }
 
 impl Drop for MailboxMetricsCollector {
   fn drop(&mut self) {
-    self.handle.abort();
+    self.stop.store(true, Ordering::Relaxed);
+    self.handle.cancel();
   }
 }
 
@@ -513,8 +558,16 @@ fn build_common_labels(address: &str, actor_type: Option<&str>) -> Arc<[KeyValue
 }
 
 #[cfg(test)]
+impl MailboxMetricsCollector {
+  fn handle_ref(&self) -> CoreScheduledHandleRef {
+    self.handle.clone()
+  }
+}
+
+#[cfg(test)]
 mod tests {
   use super::*;
+  use crate::actor::actor_system::ActorSystem;
   use crate::actor::config::MetricsProvider;
   use crate::actor::context::SpawnerPart;
   use crate::actor::core::Props;
@@ -523,6 +576,37 @@ mod tests {
   use opentelemetry_sdk::metrics::{InMemoryMetricExporter, PeriodicReader, SdkMeterProvider};
   use std::sync::Arc;
   use std::time::Duration;
+  use tokio::time::sleep;
+
+  #[tokio::test(flavor = "current_thread")]
+  async fn mailbox_metrics_collector_cancels_handle_on_drop() {
+    let system = ActorSystem::new_config_options([
+      ConfigOption::SetMetricsProvider(Arc::new(MetricsProvider::Global)),
+      ConfigOption::with_mailbox_metrics_poll_interval(Duration::from_millis(5)),
+    ])
+    .await
+    .expect("actor system");
+
+    let address = system.get_address().await;
+    let provider = Arc::new(MetricsProvider::Global);
+    let proto_metrics = ProtoMetrics::new(provider).expect("proto metrics");
+    let metrics_runtime = Arc::new(MetricsRuntime::new(address, proto_metrics));
+
+    let collector = MailboxMetricsCollector::spawn(
+      &system,
+      metrics_runtime,
+      Duration::from_millis(5),
+      system.core_runtime(),
+    );
+
+    let handle = collector.handle_ref();
+    assert!(!handle.is_cancelled());
+
+    drop(collector);
+
+    sleep(Duration::from_millis(20)).await;
+    assert!(handle.is_cancelled());
+  }
 
   #[test]
   fn test_mailbox_queue_dwell_percentile_is_exported() {
