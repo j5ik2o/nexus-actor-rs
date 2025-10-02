@@ -1,17 +1,19 @@
-use async_trait::async_trait;
 use std::any::Any;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::actor::actor_system::ActorSystem;
 use crate::actor::core::ErrorReason;
 use crate::actor::core::RestartStatistics;
 use crate::actor::message::MessageHandle;
+use crate::actor::supervisor::core_adapters::{stats_from_tracker, StdSupervisorAdapter, StdSupervisorContext};
 use crate::actor::supervisor::directive::Directive;
-use crate::actor::supervisor::supervisor_strategy::{
-  log_failure, record_supervisor_metrics, Decider, Supervisor, SupervisorHandle, SupervisorStrategy,
-};
+use crate::actor::supervisor::supervisor_strategy::{log_failure, record_supervisor_metrics, Decider, Supervisor};
 use nexus_actor_core_rs::actor::core_types::pid::CorePid;
+use nexus_actor_core_rs::actor::core_types::restart::CoreRestartTracker;
+use nexus_actor_core_rs::error::ErrorReasonCore;
+use nexus_actor_core_rs::supervisor::{
+  CoreSupervisor, CoreSupervisorContext, CoreSupervisorStrategy, CoreSupervisorStrategyFuture,
+};
 
 pub async fn default_decider(_: ErrorReason) -> Directive {
   Directive::Restart
@@ -82,93 +84,128 @@ impl std::hash::Hash for OneForOneStrategy {
   }
 }
 
-#[async_trait]
-impl SupervisorStrategy for OneForOneStrategy {
-  async fn handle_child_failure(
-    &self,
-    actor_system: ActorSystem,
-    supervisor: SupervisorHandle,
+impl CoreSupervisorStrategy for OneForOneStrategy {
+  fn handle_child_failure<'a>(
+    &'a self,
+    ctx: &'a dyn CoreSupervisorContext,
+    supervisor: &'a dyn CoreSupervisor,
     child: CorePid,
-    mut rs: RestartStatistics,
-    reason: ErrorReason,
+    tracker: &'a mut CoreRestartTracker,
+    reason: ErrorReasonCore,
     message_handle: MessageHandle,
-  ) {
-    tracing::debug!(
-      "OneForOneStrategy::handle_child_failure: child = {:?}, rs = {:?}, message = {:?}",
-      child.id(),
-      rs,
-      message_handle
-    );
-    let record_decision = |decision: &str| {
-      record_supervisor_metrics(&supervisor, "one_for_one", decision, &child, Vec::new());
-    };
+  ) -> CoreSupervisorStrategyFuture<'a> {
+    let std_ctx = (ctx as &dyn Any)
+      .downcast_ref::<StdSupervisorContext>()
+      .expect("StdSupervisorContext expected");
+    let std_supervisor = (supervisor as &dyn Any)
+      .downcast_ref::<StdSupervisorAdapter>()
+      .expect("StdSupervisorAdapter expected");
 
-    let directive = self.decider.run(reason.clone()).await;
-    match directive {
-      Directive::Resume => {
-        record_decision("resume");
-        // resume the failing child
-        tracing::debug!(
-          "OneForOneStrategy::handle_child_failure: Resume: child = {:?}, rs = {:?}, message = {:?}",
-          child.id(),
-          rs,
-          message_handle
-        );
-        log_failure(actor_system, &child, reason, directive).await;
-        let children = [child.clone()];
-        supervisor.resume_children(&children).await
-      }
-      Directive::Restart => {
-        tracing::debug!(
-          "OneForOneStrategy::handle_child_failure: Restart: child = {:?}, rs = {:?}, message = {:?}",
-          child.id(),
-          rs,
-          message_handle
-        );
-        // try restart the failing child
-        if self.should_stop(&mut rs).await {
-          record_decision("stop_after_restart_attempt");
-          log_failure(actor_system, &child, reason, Directive::Stop).await;
-          let children = [child.clone()];
-          supervisor.stop_children(&children).await;
-        } else {
-          record_decision("restart");
-          log_failure(actor_system, &child, reason, Directive::Restart).await;
-          let children = [child.clone()];
-          supervisor.restart_children(&children).await;
+    let actor_system = std_ctx.actor_system();
+    let failure_clock = std_ctx.failure_clock();
+    let supervisor_handle = std_supervisor.handle();
+    let decider = self.decider.clone();
+    let within_duration = self.within_duration;
+    let max_nr_of_retries = self.max_nr_of_retries;
+    let tracker_ref = tracker;
+    let child_clone = child.clone();
+    let message_clone = message_handle.clone();
+    let reason_std = ErrorReason::from_core(reason);
+
+    Box::pin(async move {
+      let mut stats = stats_from_tracker(tracker_ref, failure_clock);
+      tracing::debug!(
+        "OneForOneStrategy::handle_child_failure: child = {:?}, rs = {:?}, message = {:?}",
+        child_clone.id(),
+        stats,
+        message_clone
+      );
+
+      let record_decision = |decision: &str| {
+        record_supervisor_metrics(&supervisor_handle, "one_for_one", decision, &child_clone, Vec::new());
+      };
+
+      let directive = decider.run(reason_std.clone()).await;
+      match directive {
+        Directive::Resume => {
+          record_decision("resume");
+          tracing::debug!(
+            "OneForOneStrategy::handle_child_failure: Resume: child = {:?}, rs = {:?}, message = {:?}",
+            child_clone.id(),
+            stats,
+            message_clone
+          );
+          log_failure(actor_system.clone(), &child_clone, reason_std.clone(), directive).await;
+          let children = [child_clone.clone()];
+          supervisor_handle.resume_children(&children).await;
+        }
+        Directive::Restart => {
+          tracing::debug!(
+            "OneForOneStrategy::handle_child_failure: Restart: child = {:?}, rs = {:?}, message = {:?}",
+            child_clone.id(),
+            stats,
+            message_clone
+          );
+          let mut rs = stats.clone();
+          if max_nr_of_retries == 0 {
+            record_decision("stop_after_restart_attempt");
+            log_failure(actor_system.clone(), &child_clone, reason_std.clone(), Directive::Stop).await;
+            let children = [child_clone.clone()];
+            supervisor_handle.stop_children(&children).await;
+            rs.reset().await;
+            stats = rs;
+          } else {
+            rs.fail().await;
+            if rs.number_of_failures(within_duration).await > max_nr_of_retries {
+              record_decision("stop_after_restart_attempt");
+              log_failure(actor_system.clone(), &child_clone, reason_std.clone(), Directive::Stop).await;
+              let children = [child_clone.clone()];
+              supervisor_handle.stop_children(&children).await;
+              rs.reset().await;
+            } else {
+              record_decision("restart");
+              log_failure(
+                actor_system.clone(),
+                &child_clone,
+                reason_std.clone(),
+                Directive::Restart,
+              )
+              .await;
+              let children = [child_clone.clone()];
+              supervisor_handle.restart_children(&children).await;
+            }
+            stats = rs;
+          }
+        }
+        Directive::Stop => {
+          record_decision("stop");
+          tracing::debug!(
+            "OneForOneStrategy::handle_child_failure: Stop: child = {:?}, rs = {:?}, message = {:?}",
+            child_clone.id(),
+            stats,
+            message_clone
+          );
+          log_failure(actor_system.clone(), &child_clone, reason_std.clone(), directive).await;
+          let children = [child_clone.clone()];
+          supervisor_handle.stop_children(&children).await;
+        }
+        Directive::Escalate => {
+          record_decision("escalate");
+          tracing::debug!(
+            "OneForOneStrategy::handle_child_failure: Escalate: child = {:?}, rs = {:?}, message = {:?}",
+            child_clone.id(),
+            stats,
+            message_clone
+          );
+          supervisor_handle
+            .escalate_failure(reason_std.clone(), message_clone.clone())
+            .await;
         }
       }
-      Directive::Stop => {
-        record_decision("stop");
-        tracing::debug!(
-          "OneForOneStrategy::handle_child_failure: Stop: child = {:?}, rs = {:?}, message = {:?}",
-          child.id(),
-          rs,
-          message_handle
-        );
-        // stop the failing child, no need to involve the crs
-        log_failure(actor_system, &child, reason, directive).await;
-        let children = [child.clone()];
-        supervisor.stop_children(&children).await
-      }
-      Directive::Escalate => {
-        record_decision("escalate");
-        tracing::debug!(
-          "OneForOneStrategy::handle_child_failure: Escalate: child = {:?}, rs = {:?}, message = {:?}",
-          child.id(),
-          rs,
-          message_handle
-        );
-        // send failure to parent
-        // supervisor mailbox
-        // do not log here, log in the parent handling the error
-        supervisor.escalate_failure(reason, message_handle).await
-      }
-    }
-  }
 
-  fn as_any(&self) -> &dyn Any {
-    self
+      let updated = stats.into_core_tracker().await;
+      *tracker_ref = updated;
+    })
   }
 }
 
