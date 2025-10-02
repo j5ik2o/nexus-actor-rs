@@ -10,10 +10,12 @@ mod test {
   use crate::actor::actor_system::ActorSystem;
   use crate::actor::core::{ErrorReason, RestartStatistics};
   use crate::actor::message::MessageHandle;
+  use crate::actor::supervisor::core_adapters::StdSupervisorContext;
   use crate::actor::supervisor::strategy_all_for_one::AllForOneStrategy;
   use crate::actor::supervisor::supervisor_strategy::{Supervisor, SupervisorHandle};
-  use crate::actor::supervisor::SupervisorStrategy;
+  use crate::actor::supervisor::SupervisorStrategyHandle;
   use nexus_actor_core_rs::actor::core_types::pid::CorePid;
+  use nexus_actor_core_rs::actor::core_types::restart::CoreRestartTracker;
 
   #[derive(Debug, Clone)]
   struct MockSupervisor {
@@ -73,8 +75,55 @@ mod test {
     let supervisor_arc: Arc<dyn Supervisor> = supervisor_instance.clone();
     let supervisor = SupervisorHandle::new_arc(supervisor_arc);
     let child = CorePid::new("test", "1");
-    let rs = RestartStatistics::new();
+    let rs = RestartStatistics::with_runtime(&actor_system.core_runtime());
     (actor_system, supervisor, supervisor_instance, child, rs)
+  }
+
+  fn invoke_strategy<'a>(
+    strategy: AllForOneStrategy,
+    actor_system: ActorSystem,
+    supervisor: SupervisorHandle,
+    child: CorePid,
+    mut tracker: CoreRestartTracker,
+    reason: ErrorReason,
+    message_handle: MessageHandle,
+  ) -> impl std::future::Future<Output = CoreRestartTracker> {
+    async move {
+      let handle = SupervisorStrategyHandle::new(strategy);
+      let core_context = StdSupervisorContext::new(actor_system.clone());
+      let core_supervisor = supervisor.core_adapter();
+      handle
+        .core_strategy()
+        .handle_child_failure(
+          &core_context,
+          &core_supervisor,
+          child,
+          &mut tracker,
+          reason.as_core().clone(),
+          message_handle,
+        )
+        .await;
+      tracker
+    }
+  }
+
+  #[tokio::test]
+  async fn should_stop_respects_core_runtime_clock() {
+    let strategy = AllForOneStrategy::new(1, Duration::from_millis(40));
+    let mut stats = RestartStatistics::with_runtime(&crate::runtime::tokio_core_runtime());
+
+    let first = strategy.should_stop(&mut stats).await;
+    assert!(!first, "初回の失敗は再起動許容範囲内");
+
+    tokio::time::sleep(Duration::from_millis(10)).await;
+
+    let second = strategy.should_stop(&mut stats).await;
+    assert!(second, "時間窓内の連続失敗で停止に遷移する");
+
+    tokio::time::sleep(Duration::from_millis(60)).await;
+
+    let third = strategy.should_stop(&mut stats).await;
+    assert!(!third, "時間窓が経過すると再起動予算がリセットされる");
   }
 
   #[tokio::test]
@@ -95,16 +144,16 @@ mod test {
       *mock_supervisor.children.lock().unwrap() = vec![child.clone(), child2.clone(), child3.clone()];
     }
 
-    strategy
-      .handle_child_failure(
-        actor_system,
-        supervisor.clone(),
-        child.clone(),
-        rs,
-        ErrorReason::new("test", 1),
-        MessageHandle::new(String::from("test")),
-      )
-      .await;
+    invoke_strategy(
+      strategy,
+      actor_system,
+      supervisor.clone(),
+      child.clone(),
+      rs.to_core_tracker().await,
+      ErrorReason::new("test", 1),
+      MessageHandle::new(String::from("test")),
+    )
+    .await;
 
     tokio::time::sleep(Duration::from_millis(100)).await;
     let last_action = mock_supervisor.last_action.lock().unwrap().clone();
@@ -136,16 +185,16 @@ mod test {
       *mock_supervisor.children.lock().unwrap() = vec![child.clone(), child2.clone(), child3.clone()];
     }
 
-    strategy
-      .handle_child_failure(
-        actor_system,
-        supervisor.clone(),
-        child.clone(),
-        rs,
-        ErrorReason::new("test", 1),
-        MessageHandle::new(String::from("test")),
-      )
-      .await;
+    invoke_strategy(
+      strategy,
+      actor_system,
+      supervisor.clone(),
+      child.clone(),
+      rs.to_core_tracker().await,
+      ErrorReason::new("test", 1),
+      MessageHandle::new(String::from("test")),
+    )
+    .await;
 
     tokio::time::sleep(Duration::from_millis(100)).await;
     let last_action = mock_supervisor.last_action.lock().unwrap().clone();
@@ -177,16 +226,16 @@ mod test {
       *mock_supervisor.children.lock().unwrap() = vec![child.clone(), child2.clone(), child3.clone()];
     }
 
-    strategy
-      .handle_child_failure(
-        actor_system,
-        supervisor.clone(),
-        child,
-        rs,
-        ErrorReason::new("test", 1),
-        MessageHandle::new(String::from("test")),
-      )
-      .await;
+    invoke_strategy(
+      strategy,
+      actor_system,
+      supervisor.clone(),
+      child,
+      rs.to_core_tracker().await,
+      ErrorReason::new("test", 1),
+      MessageHandle::new(String::from("test")),
+    )
+    .await;
 
     tokio::time::sleep(Duration::from_millis(100)).await;
     let last_action = mock_supervisor.last_action.lock().unwrap().clone();
@@ -215,16 +264,16 @@ mod test {
       *mock_supervisor.children.lock().unwrap() = vec![child.clone(), child2.clone(), child3.clone()];
     }
 
-    strategy
-      .handle_child_failure(
-        actor_system,
-        supervisor.clone(),
-        child.clone(),
-        rs,
-        ErrorReason::new("test", 1),
-        MessageHandle::new(String::from("test")),
-      )
-      .await;
+    invoke_strategy(
+      strategy,
+      actor_system,
+      supervisor.clone(),
+      child.clone(),
+      rs.to_core_tracker().await,
+      ErrorReason::new("test", 1),
+      MessageHandle::new(String::from("test")),
+    )
+    .await;
 
     tokio::time::sleep(Duration::from_millis(100)).await;
     let last_action = mock_supervisor.last_action.lock().unwrap().clone();

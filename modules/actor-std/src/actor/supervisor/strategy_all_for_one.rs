@@ -1,19 +1,21 @@
-use async_trait::async_trait;
 use opentelemetry::KeyValue;
 use std::any::Any;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::actor::actor_system::ActorSystem;
 use crate::actor::core::ErrorReason;
 use crate::actor::core::RestartStatistics;
 use crate::actor::message::MessageHandle;
+use crate::actor::supervisor::core_adapters::{stats_from_tracker, StdSupervisorAdapter, StdSupervisorContext};
 use crate::actor::supervisor::directive::Directive;
 use crate::actor::supervisor::strategy_one_for_one::default_decider;
-use crate::actor::supervisor::supervisor_strategy::{
-  log_failure, record_supervisor_metrics, Decider, Supervisor, SupervisorHandle, SupervisorStrategy,
-};
+use crate::actor::supervisor::supervisor_strategy::{log_failure, record_supervisor_metrics, Decider, Supervisor};
 use nexus_actor_core_rs::actor::core_types::pid::CorePid;
+use nexus_actor_core_rs::actor::core_types::restart::CoreRestartTracker;
+use nexus_actor_core_rs::error::ErrorReasonCore;
+use nexus_actor_core_rs::supervisor::{
+  CoreSupervisor, CoreSupervisorContext, CoreSupervisorStrategy, CoreSupervisorStrategyFuture,
+};
 
 #[derive(Debug, Clone)]
 pub struct AllForOneStrategy {
@@ -54,62 +56,100 @@ impl AllForOneStrategy {
   }
 }
 
-#[async_trait]
-impl SupervisorStrategy for AllForOneStrategy {
-  async fn handle_child_failure(
-    &self,
-    actor_system: ActorSystem,
-    supervisor: SupervisorHandle,
+impl CoreSupervisorStrategy for AllForOneStrategy {
+  fn handle_child_failure<'a>(
+    &'a self,
+    ctx: &'a dyn CoreSupervisorContext,
+    supervisor: &'a dyn CoreSupervisor,
     child: CorePid,
-    mut rs: RestartStatistics,
-    reason: ErrorReason,
+    tracker: &'a mut CoreRestartTracker,
+    reason: ErrorReasonCore,
     message_handle: MessageHandle,
-  ) {
-    let record_decision = |decision: &str, affected_children: usize| {
-      record_supervisor_metrics(
-        &supervisor,
-        "all_for_one",
-        decision,
-        &child,
-        vec![KeyValue::new("supervisor.affected_children", affected_children as i64)],
-      );
-    };
+  ) -> CoreSupervisorStrategyFuture<'a> {
+    let std_ctx = (ctx as &dyn Any)
+      .downcast_ref::<StdSupervisorContext>()
+      .expect("StdSupervisorContext expected");
+    let std_supervisor = (supervisor as &dyn Any)
+      .downcast_ref::<StdSupervisorAdapter>()
+      .expect("StdSupervisorAdapter expected");
 
-    let directive = self.decider.run(reason.clone()).await;
-    match directive {
-      Directive::Resume => {
-        record_decision("resume", 1);
-        log_failure(actor_system, &child, reason, directive).await;
-        let children = [child.clone()];
-        supervisor.resume_children(&children).await;
-      }
-      Directive::Restart => {
-        let children = supervisor.get_children().await;
-        if self.should_stop(&mut rs).await {
-          record_decision("stop_all", children.len());
-          log_failure(actor_system, &child, reason, Directive::Stop).await;
-          supervisor.stop_children(&children).await;
-        } else {
-          record_decision("restart_all", children.len());
-          log_failure(actor_system, &child, reason, Directive::Restart).await;
-          supervisor.restart_children(&children).await;
+    let actor_system = std_ctx.actor_system();
+    let failure_clock = std_ctx.failure_clock();
+    let supervisor_handle = std_supervisor.handle();
+    let decider = self.decider.clone();
+    let within_duration = self.within_duration;
+    let max_nr_of_retries = self.max_nr_of_retries;
+    let tracker_ref = tracker;
+    let child_clone = child.clone();
+    let message_clone = message_handle.clone();
+    let reason_std = ErrorReason::from_core(reason);
+
+    Box::pin(async move {
+      let mut stats = stats_from_tracker(tracker_ref, failure_clock);
+      let record_decision = |decision: &str, affected_children: usize| {
+        record_supervisor_metrics(
+          &supervisor_handle,
+          "all_for_one",
+          decision,
+          &child_clone,
+          vec![KeyValue::new("supervisor.affected_children", affected_children as i64)],
+        );
+      };
+
+      let directive = decider.run(reason_std.clone()).await;
+      match directive {
+        Directive::Resume => {
+          record_decision("resume", 1);
+          log_failure(actor_system.clone(), &child_clone, reason_std.clone(), directive).await;
+          let children = [child_clone.clone()];
+          supervisor_handle.resume_children(&children).await;
+        }
+        Directive::Restart => {
+          let children = supervisor_handle.get_children().await;
+          let mut rs = stats.clone();
+          if max_nr_of_retries == 0 {
+            record_decision("stop_all", children.len());
+            log_failure(actor_system.clone(), &child_clone, reason_std.clone(), Directive::Stop).await;
+            supervisor_handle.stop_children(&children).await;
+            rs.reset().await;
+          } else {
+            rs.fail().await;
+            if rs.number_of_failures(within_duration).await > max_nr_of_retries {
+              record_decision("stop_all", children.len());
+              log_failure(actor_system.clone(), &child_clone, reason_std.clone(), Directive::Stop).await;
+              supervisor_handle.stop_children(&children).await;
+              rs.reset().await;
+            } else {
+              record_decision("restart_all", children.len());
+              log_failure(
+                actor_system.clone(),
+                &child_clone,
+                reason_std.clone(),
+                Directive::Restart,
+              )
+              .await;
+              supervisor_handle.restart_children(&children).await;
+            }
+          }
+          stats = rs;
+        }
+        Directive::Stop => {
+          let children = supervisor_handle.get_children().await;
+          record_decision("stop_all_explicit", children.len());
+          log_failure(actor_system.clone(), &child_clone, reason_std.clone(), directive).await;
+          supervisor_handle.stop_children(&children).await;
+        }
+        Directive::Escalate => {
+          record_decision("escalate", 0);
+          supervisor_handle
+            .escalate_failure(reason_std.clone(), message_clone.clone())
+            .await;
         }
       }
-      Directive::Stop => {
-        let children = supervisor.get_children().await;
-        record_decision("stop_all_explicit", children.len());
-        log_failure(actor_system, &child, reason, directive).await;
-        supervisor.stop_children(&children).await;
-      }
-      Directive::Escalate => {
-        record_decision("escalate", 0);
-        supervisor.escalate_failure(reason, message_handle).await;
-      }
-    }
-  }
 
-  fn as_any(&self) -> &dyn Any {
-    self
+      let updated = stats.into_core_tracker().await;
+      *tracker_ref = updated;
+    })
   }
 }
 
