@@ -59,7 +59,8 @@ impl Spawner {
   pub fn new<F, Fut>(f: F) -> Self
   where
     F: Fn(ActorSystem, String, Props, SpawnerContextHandle) -> Fut + Send + Sync + 'static,
-    Fut: Future<Output = Result<ExtendedPid, SpawnError>> + Send + 'static, {
+    Fut: Future<Output = Result<ExtendedPid, SpawnError>> + Send + 'static,
+  {
     Self(Arc::new(move |s, name, p, sch| {
       Box::pin(f(s, name, p, sch)) as BoxFuture<'static, Result<ExtendedPid, SpawnError>>
     }))

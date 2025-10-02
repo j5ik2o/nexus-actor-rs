@@ -15,7 +15,8 @@ pub(crate) trait SyncMailboxQueue:
   + Send
   + Sync
   + Clone
-  + 'static {
+  + 'static
+{
 }
 
 impl<T> SyncMailboxQueue for T where
@@ -33,7 +34,8 @@ impl<T> SyncMailboxQueue for T where
 #[derive(Debug, Clone)]
 pub(crate) struct QueueWriterHandle<Q>
 where
-  Q: SyncMailboxQueue, {
+  Q: SyncMailboxQueue,
+{
   inner: Arc<Mutex<Q>>,
 }
 
@@ -58,7 +60,8 @@ where
 #[derive(Debug, Clone)]
 pub(crate) struct QueueReaderHandle<Q>
 where
-  Q: SyncMailboxQueue, {
+  Q: SyncMailboxQueue,
+{
   inner: Arc<Mutex<Q>>,
 }
 
@@ -101,7 +104,8 @@ where
 #[derive(Clone)]
 pub(crate) struct SyncMailboxQueueHandles<Q>
 where
-  Q: SyncMailboxQueue, {
+  Q: SyncMailboxQueue,
+{
   shared: Arc<Mutex<Q>>,
   core_queue: Arc<dyn CoreMailboxQueue<Error = QueueError<MessageHandle>> + Send + Sync>,
 }
@@ -156,7 +160,8 @@ where
 #[derive(Debug, Clone)]
 pub(crate) struct CoreMailboxQueueHandle<Q>
 where
-  Q: SyncMailboxQueue, {
+  Q: SyncMailboxQueue,
+{
   shared: Arc<Mutex<Q>>,
 }
 
@@ -170,7 +175,8 @@ where
 
   fn with_lock<F, R>(&self, f: F) -> R
   where
-    F: FnOnce(&mut Q) -> R, {
+    F: FnOnce(&mut Q) -> R,
+  {
     let mut guard = self.shared.lock();
     f(&mut guard)
   }

@@ -843,7 +843,8 @@ mod tests {
     condition: F,
   ) -> bool
   where
-    F: Fn(&[TopologyEvent]) -> bool, {
+    F: Fn(&[TopologyEvent]) -> bool,
+  {
     timeout(timeout_duration, async {
       loop {
         let snapshot = events.lock().await.clone();

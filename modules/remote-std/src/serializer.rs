@@ -380,7 +380,8 @@ pub fn deserialize_message(
 #[cfg_attr(not(test), allow(dead_code))]
 pub fn initialize_serializers<T>() -> Result<(), SerializerError>
 where
-  T: Message + Default + ProstMessage + Serialize + for<'de> Deserialize<'de> + Send + Sync + 'static, {
+  T: Message + Default + ProstMessage + Serialize + for<'de> Deserialize<'de> + Send + Sync + 'static,
+{
   initialize_proto_serializers::<T>()?;
   initialize_json_serializers::<T>()?;
   Ok(())

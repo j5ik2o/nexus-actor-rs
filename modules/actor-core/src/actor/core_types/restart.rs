@@ -43,7 +43,8 @@ impl CoreRestartTracker {
   #[must_use]
   pub fn with_values<I>(values: I) -> Self
   where
-    I: IntoIterator<Item = Duration>, {
+    I: IntoIterator<Item = Duration>,
+  {
     let mut tracker = Self::new();
     tracker.failure_times.extend(values);
     tracker

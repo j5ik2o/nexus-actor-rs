@@ -27,7 +27,8 @@ impl MessageHeaders {
 
   pub fn with_values<I>(values: I) -> Self
   where
-    I: IntoIterator<Item = (String, String)>, {
+    I: IntoIterator<Item = (String, String)>,
+  {
     let map = DashMap::new();
     for (k, v) in values.into_iter() {
       map.insert(k, v);

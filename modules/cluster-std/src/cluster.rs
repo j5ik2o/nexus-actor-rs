@@ -424,7 +424,8 @@ impl Cluster {
 
   pub async fn request<M>(&self, identity: ClusterIdentity, message: M) -> Result<(), ClusterError>
   where
-    M: Message + Send + Sync + 'static, {
+    M: Message + Send + Sync + 'static,
+  {
     let pid = self.get(identity).await?;
     let mut root = self.actor_system.get_root_context().await;
     root.send(pid, MessageHandle::new(message)).await;
@@ -433,7 +434,8 @@ impl Cluster {
 
   pub async fn request_message<M>(&self, identity: ClusterIdentity, message: M) -> Result<MessageHandle, ClusterError>
   where
-    M: Message + Send + Sync + 'static, {
+    M: Message + Send + Sync + 'static,
+  {
     let timeout = self.request_timeout();
     self.request_message_with_timeout(identity, message, timeout).await
   }
@@ -445,7 +447,8 @@ impl Cluster {
     timeout: Duration,
   ) -> Result<MessageHandle, ClusterError>
   where
-    M: Message + Send + Sync + 'static, {
+    M: Message + Send + Sync + 'static,
+  {
     let future = self.request_future(identity, message, timeout).await?;
     let response = future
       .result()
@@ -461,7 +464,8 @@ impl Cluster {
     timeout: std::time::Duration,
   ) -> Result<nexus_actor_std_rs::actor::process::actor_future::ActorFuture, ClusterError>
   where
-    M: Message + Send + Sync + 'static, {
+    M: Message + Send + Sync + 'static,
+  {
     let pid = self.get(identity).await?;
     let root = self.actor_system.get_root_context().await;
     Ok(root.request_future(pid, MessageHandle::new(message), timeout).await)

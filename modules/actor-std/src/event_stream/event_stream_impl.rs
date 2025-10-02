@@ -34,7 +34,8 @@ impl EventStream {
   pub async fn subscribe<F, Fut>(&self, f: F) -> Subscription
   where
     F: Fn(MessageHandle) -> Fut + Send + Sync + 'static,
-    Fut: Future<Output = ()> + Send + 'static, {
+    Fut: Future<Output = ()> + Send + 'static,
+  {
     self.subscribe_handler(EventHandler::new(f)).await
   }
 

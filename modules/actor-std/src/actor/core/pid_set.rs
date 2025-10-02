@@ -97,7 +97,8 @@ impl PidSet {
   pub async fn for_each<F, Fut>(&self, mut f: F)
   where
     F: FnMut(usize, Pid) -> Fut,
-    Fut: core::future::Future<Output = ()> + Send, {
+    Fut: core::future::Future<Output = ()> + Send,
+  {
     let snapshot = self.inner.pids.read().await.clone();
     for (idx, pid) in snapshot.into_iter().enumerate() {
       f(idx, Self::to_proto_pid(&pid)).await;

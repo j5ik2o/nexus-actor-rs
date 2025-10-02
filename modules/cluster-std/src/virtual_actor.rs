@@ -83,7 +83,8 @@ where
 #[derive(Debug)]
 struct VirtualActorState<V>
 where
-  V: VirtualActor, {
+  V: VirtualActor,
+{
   runner: VirtualActorRunner<V>,
   context: Option<VirtualActorContext>,
   actor: Option<V>,
@@ -172,7 +173,8 @@ pub(crate) fn make_virtual_actor_props<V, F, Fut>(identity: ClusterIdentity, fac
 where
   V: VirtualActor,
   F: Fn(ClusterIdentity) -> Fut + Send + Sync + 'static,
-  Fut: std::future::Future<Output = V> + Send + 'static, {
+  Fut: std::future::Future<Output = V> + Send + 'static,
+{
   let factory: VirtualActorFactory<V> = Arc::new(move |identity: ClusterIdentity| factory(identity).boxed());
   async move {
     Props::from_async_actor_producer(move |_| {
@@ -205,7 +207,8 @@ impl<'a> VirtualActorRuntime<'a> {
 
   pub async fn respond<M>(&self, response: M)
   where
-    M: Message + Send + Sync + 'static, {
+    M: Message + Send + Sync + 'static,
+  {
     self.actor_ctx.respond(ResponseHandle::new(response)).await;
   }
 
@@ -215,21 +218,24 @@ impl<'a> VirtualActorRuntime<'a> {
 
   pub async fn tell<M>(&self, pid: ExtendedPid, message: M)
   where
-    M: Message + Send + Sync + 'static, {
+    M: Message + Send + Sync + 'static,
+  {
     let mut ctx = self.actor_ctx.clone();
     ctx.send(pid, MessageHandle::new(message)).await;
   }
 
   pub async fn request<M>(&self, pid: ExtendedPid, message: M)
   where
-    M: Message + Send + Sync + 'static, {
+    M: Message + Send + Sync + 'static,
+  {
     let mut ctx = self.actor_ctx.clone();
     ctx.request(pid, MessageHandle::new(message)).await;
   }
 
   pub async fn request_future<M>(&self, pid: ExtendedPid, message: M, timeout: Duration) -> ActorFuture
   where
-    M: Message + Send + Sync + 'static, {
+    M: Message + Send + Sync + 'static,
+  {
     self
       .actor_ctx
       .request_future(pid, MessageHandle::new(message), timeout)

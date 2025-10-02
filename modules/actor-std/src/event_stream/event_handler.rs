@@ -15,7 +15,8 @@ impl EventHandler {
   pub fn new<F, Fut>(f: F) -> Self
   where
     F: Fn(MessageHandle) -> Fut + Send + Sync + 'static,
-    Fut: Future<Output = ()> + Send + 'static, {
+    Fut: Future<Output = ()> + Send + 'static,
+  {
     Self(Arc::new(move |mh| Box::pin(f(mh)) as BoxFuture<'static, ()>))
   }
 
