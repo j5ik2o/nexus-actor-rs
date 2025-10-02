@@ -1,3 +1,4 @@
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -6,13 +7,15 @@ use crate::actor::core::ErrorReason;
 use crate::actor::core::Task;
 use crate::actor::dispatch::message_invoker::MessageInvoker;
 use crate::actor::dispatch::{
-  CurrentThreadDispatcher, DefaultMailbox, DispatcherHandle, Mailbox, MailboxQueueKind, MessageInvokerHandle,
+  CoreSchedulerDispatcher, CurrentThreadDispatcher, DefaultMailbox, Dispatcher, DispatcherHandle, Mailbox,
+  MailboxQueueKind, MessageInvokerHandle,
 };
 use crate::actor::message::{Message, MessageHandle};
+use crate::runtime::tokio_core_runtime;
 use async_trait::async_trait;
 use nexus_message_derive_rs::Message;
 use nexus_utils_std_rs::collections::MpscUnboundedChannelQueue;
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::{Mutex, Notify, RwLock};
 
 // TestMessageInvoker implementation
 #[derive(Debug, Clone, PartialEq)]
@@ -82,6 +85,32 @@ struct TestTask;
 
 impl Task for TestTask {
   fn run(&self) {}
+}
+
+#[tokio::test]
+async fn test_core_scheduler_dispatcher_runs_task() {
+  let dispatcher = CoreSchedulerDispatcher::from_runtime(tokio_core_runtime());
+  let flag = Arc::new(AtomicBool::new(false));
+  let notify = Arc::new(Notify::new());
+
+  dispatcher
+    .schedule(super::Runnable::new({
+      let flag = flag.clone();
+      let notify = notify.clone();
+      move || {
+        let flag = flag.clone();
+        let notify = notify.clone();
+        async move {
+          flag.store(true, Ordering::SeqCst);
+          notify.notify_waiters();
+        }
+      }
+    }))
+    .await;
+
+  let result = tokio::time::timeout(Duration::from_millis(100), notify.notified()).await;
+  assert!(result.is_ok(), "scheduled task did not complete in time");
+  assert!(flag.load(Ordering::SeqCst));
 }
 
 #[tokio::test]

@@ -2,10 +2,11 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use criterion::{criterion_group, criterion_main, Criterion, Throughput};
-use nexus_actor_std_rs::actor::dispatch::dispatcher::{DispatcherHandle, TokioRuntimeContextDispatcher};
+use nexus_actor_std_rs::actor::dispatch::dispatcher::{CoreSchedulerDispatcher, DispatcherHandle};
 use nexus_actor_std_rs::actor::dispatch::message_invoker::{MessageInvoker, MessageInvokerHandle};
 use nexus_actor_std_rs::actor::dispatch::{self, Mailbox, MailboxQueueKind};
 use nexus_actor_std_rs::actor::message::MessageHandle;
+use nexus_actor_std_rs::runtime::tokio_core_runtime;
 use std::env;
 use tokio::runtime::Runtime;
 use tokio::sync::RwLock;
@@ -47,9 +48,8 @@ fn bench_mailbox_process(c: &mut Criterion) {
           let producer = dispatch::unbounded_mpsc_mailbox_creator();
           let mut mailbox = producer.run().await;
 
-          let dispatcher = TokioRuntimeContextDispatcher::new().expect("dispatcher");
           let invoker_handle = MessageInvokerHandle::new(Arc::new(RwLock::new(CountingInvoker)));
-          let dispatcher_handle = DispatcherHandle::new(dispatcher.clone());
+          let dispatcher_handle = DispatcherHandle::new(CoreSchedulerDispatcher::from_runtime(tokio_core_runtime()));
 
           mailbox
             .register_handlers(Some(invoker_handle.clone()), Some(dispatcher_handle.clone()))

@@ -3,7 +3,7 @@
 ## 区分基準
 - **ステータス別**: `完了済み` は既に実施済みのタスク、`継続タスク` は今後着手すべきもの、`検証・ドキュメント` は実装完了後に行う確認作業。
 
-## 完了済み（2025-10-01）
+## 完了済み（2025-10-02 更新）
 - 既存 `modules/actor-core` を `modules/actor-std` へ移設し、Tokio/std 依存の本体・ベンチ・サンプルを `nexus-actor-std-rs` に集約。
 - `modules/actor-core` を `#![no_std]` + `alloc` ベースの最小スケルトンに再構築し、コア API を再編する準備を完了。
 - `actor-std` の Cargo 設定を整理し、従来の依存関係（Tokio, opentelemetry など）を引き継ぎつつ `nexus-actor-core-rs` に依存させる形へ更新。
@@ -36,6 +36,7 @@
 - EndpointSupervisor で EndpointManager の既存 `WatchRegistry` を再利用し、再起動時も監視スナップショットを維持するよう更新。`RemoteProcess` / `EndpointManager` 間で `WatchRegistry` を参照して重複 watch/unwatch を抑制し、イベント／テレメトリとワーカーメッセージ送信を整合。
 - CoreMailboxQueue を trait object 化し、MPSC／Ring／Priority ベースキューを `CoreMailboxQueue` に直結するアダプタを導入して、SyncMailboxQueueHandles から共通取得できるよう統一。
 - Supervisor 向けに `ErrorReasonCore`・`CoreSupervisor*` トレイト族を actor-core へ追加し、tokio 依存を std 層アダプタへ閉じ込める準備（設計メモ `docs/design/2025-10-01-supervisor-trait-refactor.md` 作成）。
+- dispatch ベンチマークを CoreSchedulerDispatcher ベースへ更新し、TokioRuntimeContextDispatcher の残存依存を除去。Props → CoreMailbox 経路の CoreMailboxFactory 利用をユニットテストで検証し、CoreMailbox 契約を破綻なく再確認。
 
 ## 継続タスク（優先度：高→低）
 - 【高：抽象再設計】Mailbox／Supervisor 系の Tokio 依存を trait 化し、actor-core がインターフェース、actor-std が Tokio 実装という責務分割に仕上げる（チャネル実装の差し替え方針も併せて整理）。

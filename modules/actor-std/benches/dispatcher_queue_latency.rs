@@ -6,10 +6,11 @@ use std::time::Duration;
 
 use criterion::{criterion_group, criterion_main, Criterion, Throughput};
 use nexus_actor_std_rs::actor::core::{ActorError, ErrorReason};
-use nexus_actor_std_rs::actor::dispatch::dispatcher::{DispatcherHandle, TokioRuntimeContextDispatcher};
+use nexus_actor_std_rs::actor::dispatch::dispatcher::{CoreSchedulerDispatcher, DispatcherHandle};
 use nexus_actor_std_rs::actor::dispatch::message_invoker::{MessageInvoker, MessageInvokerHandle};
 use nexus_actor_std_rs::actor::dispatch::{unbounded_mpsc_mailbox_creator, Mailbox, MailboxHandle, MailboxQueueKind};
 use nexus_actor_std_rs::actor::message::{Message, MessageHandle};
+use nexus_actor_std_rs::runtime::tokio_core_runtime;
 use std::hint::black_box;
 use tokio::runtime::Runtime;
 use tokio::sync::{Mutex, RwLock};
@@ -71,7 +72,7 @@ async fn run_dispatch_cycle(load: usize, process_delay: Duration) -> f64 {
     latencies_ms.clone(),
   )));
 
-  let dispatcher = Arc::new(TokioRuntimeContextDispatcher::new().expect("dispatcher"));
+  let dispatcher = Arc::new(CoreSchedulerDispatcher::from_runtime(tokio_core_runtime()));
   let producer = unbounded_mpsc_mailbox_creator();
   let mut mailbox: MailboxHandle = producer.run().await;
   mailbox

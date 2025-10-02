@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod tests;
+
 use std::any::type_name;
 use std::fmt::Debug;
 use std::future::Future;
@@ -7,7 +10,7 @@ use async_trait::async_trait;
 use once_cell::sync::Lazy;
 use tokio::sync::{Mutex, RwLock};
 
-use nexus_actor_core_rs::context::{CoreMailboxFactory, CoreProps};
+use nexus_actor_core_rs::context::{CoreMailboxFactory, CoreProps, CoreSupervisorStrategyHandle};
 
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::ActorContext;
@@ -202,10 +205,12 @@ impl Props {
       })
     };
 
-    CoreProps {
-      actor_type: self.actor_type_hint.clone(),
-      mailbox_factory: Some(mailbox_factory),
-    }
+    let supervisor_strategy: CoreSupervisorStrategyHandle = Arc::new(self.get_supervisor_strategy().core_strategy());
+
+    CoreProps::new()
+      .with_actor_type(self.actor_type_hint.clone())
+      .with_mailbox_factory(mailbox_factory)
+      .with_supervisor_strategy(supervisor_strategy)
   }
 
   pub fn with_on_init(mut init: Vec<ContextHandler>) -> PropsOption {
@@ -385,8 +390,7 @@ impl Props {
   where
     A: Actor,
     F: Fn(ContextHandle) -> Fut + Clone + Send + Sync + 'static,
-    Fut: Future<Output = A> + Send + 'static,
-  {
+    Fut: Future<Output = A> + Send + 'static, {
     Props::from_async_actor_producer_with_opts(f, [Props::with_actor_type_hint(type_name::<A>())]).await
   }
 
@@ -397,8 +401,7 @@ impl Props {
   where
     A: Actor,
     F: Fn(ContextHandle) -> Fut + Clone + Send + Sync + 'static,
-    Fut: Future<Output = A> + Send + 'static,
-  {
+    Fut: Future<Output = A> + Send + 'static, {
     let producer = ActorProducer::new(f);
     let mut opts = opts.into_iter().collect::<Vec<_>>();
     opts.push(Props::with_actor_type_hint(type_name::<A>()));
@@ -427,8 +430,7 @@ impl Props {
   pub async fn from_async_actor_receiver_with_opts<F, Fut>(f: F, opts: impl IntoIterator<Item = PropsOption>) -> Props
   where
     F: Fn(ContextHandle) -> Fut + Send + Sync + 'static,
-    Fut: Future<Output = Result<(), ActorError>> + Send + 'static,
-  {
+    Fut: Future<Output = Result<(), ActorError>> + Send + 'static, {
     let actor_receiver = ActorReceiver::new(f);
     let mut opts = opts.into_iter().collect::<Vec<_>>();
     opts.push(Props::with_actor_type_hint(type_name::<ActorReceiverActor>()));
@@ -445,16 +447,14 @@ impl Props {
   pub async fn from_async_actor_receiver<F, Fut>(f: F) -> Props
   where
     F: Fn(ContextHandle) -> Fut + Send + Sync + 'static,
-    Fut: Future<Output = Result<(), ActorError>> + Send + 'static,
-  {
+    Fut: Future<Output = Result<(), ActorError>> + Send + 'static, {
     Self::from_async_actor_receiver_with_opts(f, [Props::with_actor_type_hint(type_name::<ActorReceiverActor>())]).await
   }
 
   pub async fn from_sync_actor_producer_with_opts<A, F>(f: F, opts: impl IntoIterator<Item = PropsOption>) -> Props
   where
     A: Actor,
-    F: Fn(ContextHandle) -> A + Clone + Send + Sync + 'static,
-  {
+    F: Fn(ContextHandle) -> A + Clone + Send + Sync + 'static, {
     let f_arc = Arc::new(f);
     Self::from_async_actor_producer_with_opts(
       move |ctx| {
@@ -472,15 +472,13 @@ impl Props {
   pub async fn from_sync_actor_producer<A, F>(f: F) -> Props
   where
     A: Actor,
-    F: Fn(ContextHandle) -> A + Clone + Send + Sync + 'static,
-  {
+    F: Fn(ContextHandle) -> A + Clone + Send + Sync + 'static, {
     Self::from_sync_actor_producer_with_opts(f, [Props::with_actor_type_hint(type_name::<A>())]).await
   }
 
   pub async fn from_sync_actor_receiver_with_opts<F>(f: F, opts: impl IntoIterator<Item = PropsOption>) -> Props
   where
-    F: Fn(ContextHandle) -> Result<(), ActorError> + Send + Sync + 'static,
-  {
+    F: Fn(ContextHandle) -> Result<(), ActorError> + Send + Sync + 'static, {
     let f_arc = Arc::new(f);
     Self::from_async_actor_receiver_with_opts(
       move |ctx| {
@@ -497,8 +495,7 @@ impl Props {
 
   pub async fn from_sync_actor_receiver<F>(f: F) -> Props
   where
-    F: Fn(ContextHandle) -> Result<(), ActorError> + Send + Sync + 'static,
-  {
+    F: Fn(ContextHandle) -> Result<(), ActorError> + Send + Sync + 'static, {
     Self::from_sync_actor_receiver_with_opts(f, [Props::with_actor_type_hint(type_name::<ActorReceiverActor>())]).await
   }
 
