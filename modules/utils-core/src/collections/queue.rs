@@ -113,8 +113,7 @@ pub trait QueueWriter<E: Element>: QueueBase<E> {
 
   fn offer_all<I>(&mut self, elements: I) -> Result<(), QueueError<E>>
   where
-    I: IntoIterator<Item = E>,
-  {
+    I: IntoIterator<Item = E>, {
     for element in elements {
       self.offer(element)?;
     }

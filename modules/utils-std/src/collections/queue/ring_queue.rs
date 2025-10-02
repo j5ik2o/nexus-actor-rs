@@ -59,8 +59,7 @@ impl<E: Element> RingQueue<E> {
 
   fn with_lock<F, R>(&self, f: F) -> R
   where
-    F: FnOnce(&mut RingBuffer<E>) -> R,
-  {
+    F: FnOnce(&mut RingBuffer<E>) -> R, {
     let mut guard = self.inner.buffer.lock();
     f(&mut guard)
   }

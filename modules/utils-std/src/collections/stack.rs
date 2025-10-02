@@ -18,8 +18,7 @@ impl<T> Stack<T> {
 
   pub fn peek(&self) -> Option<T>
   where
-    T: Clone,
-  {
+    T: Clone, {
     self.items.last().cloned()
   }
 

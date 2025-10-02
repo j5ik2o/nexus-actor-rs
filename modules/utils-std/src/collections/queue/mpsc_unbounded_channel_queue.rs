@@ -45,8 +45,7 @@ impl<T> MpscUnboundedChannelQueue<T> {
 
   pub fn poll_shared(&self) -> Result<Option<T>, QueueError<T>>
   where
-    T: Element,
-  {
+    T: Element, {
     match self.try_recv() {
       Ok(element) => {
         self.decrement_count();
@@ -85,8 +84,7 @@ impl<T> MpscUnboundedChannelQueue<T> {
 
   pub fn offer_shared(&self, element: T) -> Result<(), QueueError<T>>
   where
-    T: Element,
-  {
+    T: Element, {
     match self.send(element) {
       Ok(_) => {
         self.increment_count();
