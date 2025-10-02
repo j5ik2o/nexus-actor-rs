@@ -16,9 +16,11 @@ use crate::actor::dispatch::mailbox_message::MailboxMessage;
 use crate::actor::dispatch::mailbox_middleware::{MailboxMiddleware, MailboxMiddlewareHandle};
 use crate::actor::dispatch::message_invoker::{MessageInvoker, MessageInvokerHandle};
 use crate::actor::message::MessageHandle;
+use crate::runtime::runtime_yield_now;
 use arc_swap::ArcSwapOption;
 use async_trait::async_trait;
 use nexus_actor_core_rs::actor::core_types::mailbox::CoreMailboxQueue;
+use nexus_actor_core_rs::runtime::AsyncYield;
 use nexus_utils_std_rs::collections::QueueError;
 use parking_lot::Mutex;
 
@@ -336,6 +338,7 @@ where
   last_backlog: Arc<AtomicI32>,
   invoker_opt: Arc<ArcSwapOption<MessageInvokerHandle>>,
   dispatcher_opt: Arc<ArcSwapOption<DispatcherHandle>>,
+  async_yielder: Arc<Mutex<Option<Arc<dyn AsyncYield>>>>,
   config: MailboxYieldConfig,
   user_queue_latency: QueueLatencyTracker,
   system_queue_latency: QueueLatencyTracker,
@@ -401,6 +404,7 @@ where
       last_backlog,
       invoker_opt: Arc::new(ArcSwapOption::from(None)),
       dispatcher_opt: Arc::new(ArcSwapOption::from(None)),
+      async_yielder: Arc::new(Mutex::new(None)),
       config,
       user_queue_latency,
       system_queue_latency,
@@ -484,6 +488,20 @@ where
 
   fn set_dispatcher_opt(&self, dispatcher_opt: Option<DispatcherHandle>) {
     self.dispatcher_opt.store(dispatcher_opt.map(|handle| Arc::new(handle)));
+  }
+
+  fn set_async_yielder(&self, yielder: Option<Arc<dyn AsyncYield>>) {
+    let mut guard = self.async_yielder.lock();
+    *guard = yielder;
+  }
+
+  pub(crate) async fn cooperative_yield(&self) {
+    let yielder = { self.async_yielder.lock().clone() };
+    if let Some(yielder) = yielder {
+      yielder.yield_now().await;
+    } else {
+      runtime_yield_now().await;
+    }
   }
 
   fn initialize_scheduler_status(&self) {
@@ -841,7 +859,7 @@ where
       if self.should_yield(iteration, throughput, system_pending, user_pending, dispatcher_hint) {
         iteration = 0;
         system_burst = 0;
-        tokio::task::yield_now().await;
+        self.cooperative_yield().await;
         continue;
       }
 
@@ -1054,6 +1072,10 @@ where
 
   async fn user_message_count(&self) -> i32 {
     self.get_user_messages_count().await
+  }
+
+  async fn install_async_yielder(&mut self, yielder: Option<Arc<dyn AsyncYield>>) {
+    self.set_async_yielder(yielder);
   }
 
   async fn to_handle(&self) -> MailboxHandle {

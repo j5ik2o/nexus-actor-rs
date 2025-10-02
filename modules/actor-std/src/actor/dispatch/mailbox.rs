@@ -7,6 +7,7 @@ use crate::actor::dispatch::dispatcher::DispatcherHandle;
 use crate::actor::dispatch::message_invoker::MessageInvokerHandle;
 use crate::actor::message::MessageHandle;
 use nexus_actor_core_rs::actor::core_types::mailbox::CoreMailboxQueue;
+use nexus_actor_core_rs::runtime::AsyncYield;
 use nexus_utils_std_rs::collections::QueueError;
 
 pub use self::default_mailbox::{MailboxQueueLatencyMetrics, MailboxSuspensionMetrics};
@@ -152,6 +153,8 @@ pub trait Mailbox: Debug + Send + Sync {
   );
   async fn start(&self);
   async fn user_message_count(&self) -> i32;
+
+  async fn install_async_yielder(&mut self, _yielder: Option<Arc<dyn AsyncYield>>) {}
 
   async fn to_handle(&self) -> MailboxHandle;
 }

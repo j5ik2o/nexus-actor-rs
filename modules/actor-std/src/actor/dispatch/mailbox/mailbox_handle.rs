@@ -1,17 +1,19 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use tokio::sync::RwLock;
+
+use crate::runtime::StdAsyncRwLock;
 
 use crate::actor::dispatch::dispatcher::DispatcherHandle;
 use crate::actor::dispatch::mailbox::{Mailbox, MailboxSyncHandle};
 use crate::actor::dispatch::message_invoker::MessageInvokerHandle;
 use crate::actor::message::MessageHandle;
 use nexus_actor_core_rs::actor::core_types::mailbox::{CoreMailbox, CoreMailboxFuture};
+use nexus_actor_core_rs::runtime::{AsyncRwLock, AsyncYield};
 
 #[derive(Debug, Clone)]
 pub struct MailboxHandle {
-  inner: Arc<RwLock<dyn Mailbox>>,
+  inner: Arc<StdAsyncRwLock<Box<dyn Mailbox>>>,
   sync: Option<MailboxSyncHandle>,
 }
 
@@ -25,12 +27,12 @@ impl Eq for MailboxHandle {}
 
 impl std::hash::Hash for MailboxHandle {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    (self.inner.as_ref() as *const RwLock<dyn Mailbox>).hash(state);
+    (self.inner.as_ref() as *const StdAsyncRwLock<Box<dyn Mailbox>>).hash(state);
   }
 }
 
 impl MailboxHandle {
-  pub fn new_arc(mailbox: Arc<RwLock<dyn Mailbox>>) -> Self {
+  pub fn new_arc(mailbox: Arc<StdAsyncRwLock<Box<dyn Mailbox>>>) -> Self {
     MailboxHandle {
       inner: mailbox,
       sync: None,
@@ -43,7 +45,7 @@ impl MailboxHandle {
 
   pub fn new_with_sync(mailbox: impl Mailbox + 'static, sync: Option<MailboxSyncHandle>) -> Self {
     MailboxHandle {
-      inner: Arc::new(RwLock::new(mailbox)),
+      inner: Arc::new(StdAsyncRwLock::new(Box::new(mailbox) as Box<dyn Mailbox>)),
       sync,
     }
   }
@@ -102,6 +104,11 @@ impl Mailbox for MailboxHandle {
   async fn to_handle(&self) -> MailboxHandle {
     let mg = self.inner.read().await;
     mg.to_handle().await
+  }
+
+  async fn install_async_yielder(&mut self, yielder: Option<Arc<dyn AsyncYield>>) {
+    let mut mg = self.inner.write().await;
+    mg.install_async_yielder(yielder).await;
   }
 }
 

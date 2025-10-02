@@ -6,7 +6,7 @@ use crate::actor::dispatch::mailbox::core_queue_adapters::{
   PriorityCoreMailboxQueue, RingCoreMailboxQueue, UnboundedMpscCoreMailboxQueue,
 };
 use crate::actor::dispatch::mailbox::sync_queue_handles::SyncMailboxQueueHandles;
-use crate::actor::dispatch::mailbox::DefaultMailbox;
+use crate::actor::dispatch::mailbox::{DefaultMailbox, MailboxHandle};
 use crate::actor::dispatch::mailbox_message::MailboxMessage;
 use crate::actor::dispatch::message_invoker::{MessageInvoker, MessageInvokerHandle};
 use crate::actor::dispatch::unbounded::{unbounded_mpsc_mailbox_creator, UnboundedMailboxQueue};
@@ -14,11 +14,14 @@ use crate::actor::dispatch::{Mailbox, MailboxQueueKind};
 use crate::actor::message::MessageHandle;
 use crate::runtime::tokio_core_runtime;
 use async_trait::async_trait;
+use nexus_actor_core_rs::runtime::AsyncYield;
 use nexus_utils_std_rs::collections::{MpscUnboundedChannelQueue, PriorityQueue, QueueReader, QueueWriter, RingQueue};
 use parking_lot::Mutex;
 use rand::prelude::*;
 use rand::rngs::SmallRng;
 use std::env;
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
@@ -250,6 +253,20 @@ impl MessageInvoker for QueueLengthProbeInvoker {
       self.notify.notify_waiters();
     }
   }
+}
+
+#[tokio::test]
+async fn test_core_queue_handles_bridge_core_mailbox_queue() {
+  let handles = SyncMailboxQueueHandles::new(MpscUnboundedChannelQueue::new());
+  let core_queue = handles.core_queue();
+
+  let payload = MessageHandle::new("payload".to_string());
+  core_queue.offer(payload.clone()).unwrap();
+  assert_eq!(core_queue.len(), 1);
+
+  let polled = core_queue.poll().unwrap().unwrap();
+  assert!(polled.is_typed::<String>());
+  assert_eq!(core_queue.len(), 0);
 }
 
 #[tokio::test]
@@ -690,4 +707,65 @@ async fn test_priority_mailbox_core_queue_len_consistency() {
   let (user_core_handle, system_core_handle) = sync_handle.core_queue_handles().expect("core handles");
   assert_eq!(user_core_handle.len(), 2);
   assert_eq!(system_core_handle.len(), 0);
+}
+
+#[derive(Debug)]
+struct TestYield {
+  hits: Arc<AtomicUsize>,
+}
+
+impl TestYield {
+  fn new(counter: Arc<AtomicUsize>) -> Self {
+    Self { hits: counter }
+  }
+}
+
+impl AsyncYield for TestYield {
+  fn yield_now(&self) -> Pin<Box<dyn Future<Output = ()> + Send + '_>> {
+    self.hits.fetch_add(1, Ordering::SeqCst);
+    Box::pin(async {})
+  }
+}
+
+fn new_default_mailbox() -> DefaultMailbox<
+  UnboundedMailboxQueue<RingQueue<MessageHandle>>,
+  UnboundedMailboxQueue<MpscUnboundedChannelQueue<MessageHandle>>,
+> {
+  let ring_queue = RingQueue::new(4);
+  let user_core = Arc::new(RingCoreMailboxQueue::new(ring_queue.clone()));
+  let user_handles = SyncMailboxQueueHandles::new_with_core(UnboundedMailboxQueue::new(ring_queue), Some(user_core));
+
+  let system_queue = MpscUnboundedChannelQueue::new();
+  let system_core = Arc::new(UnboundedMpscCoreMailboxQueue::new(system_queue.clone()));
+  let system_handles =
+    SyncMailboxQueueHandles::new_with_core(UnboundedMailboxQueue::new(system_queue), Some(system_core));
+
+  DefaultMailbox::from_handles(user_handles, system_handles)
+}
+
+#[tokio::test]
+async fn default_mailbox_cooperative_yield_uses_async_yielder() {
+  let mut mailbox = new_default_mailbox();
+  let counter = Arc::new(AtomicUsize::new(0));
+  let yielder = Arc::new(TestYield::new(counter.clone()));
+  let yielder_dyn: Arc<dyn AsyncYield> = yielder.clone();
+
+  mailbox.install_async_yielder(Some(yielder_dyn)).await;
+  mailbox.cooperative_yield().await;
+
+  assert_eq!(counter.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+async fn mailbox_handle_install_async_yielder_propagates_to_mailbox() {
+  let mailbox = new_default_mailbox();
+  let mut handle = MailboxHandle::new(mailbox.clone());
+  let counter = Arc::new(AtomicUsize::new(0));
+  let yielder = Arc::new(TestYield::new(counter.clone()));
+  let yielder_dyn: Arc<dyn AsyncYield> = yielder.clone();
+
+  handle.install_async_yielder(Some(yielder_dyn)).await;
+  mailbox.cooperative_yield().await;
+
+  assert_eq!(counter.load(Ordering::SeqCst), 1);
 }

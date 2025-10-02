@@ -3,8 +3,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-use nexus_actor_core_rs::runtime::{CoreScheduledHandleRef, CoreScheduledTask, CoreScheduler};
-use tokio::sync::Mutex as TokioMutex;
+use crate::runtime::StdAsyncMutex;
+use nexus_actor_core_rs::runtime::{AsyncMutex, CoreScheduledHandleRef, CoreScheduledTask, CoreScheduler};
 
 #[cfg(test)]
 mod tests;
@@ -70,7 +70,7 @@ fn make_task<F, Fut>(
 where
   F: Fn(usize) -> Fut + Send + Sync + 'static,
   Fut: Future<Output = ()> + Send + 'static, {
-  let callback = Arc::new(TokioMutex::new(throttled_callback));
+  let callback = Arc::new(StdAsyncMutex::new(throttled_callback));
 
   Arc::new(move || {
     let events = events.clone();

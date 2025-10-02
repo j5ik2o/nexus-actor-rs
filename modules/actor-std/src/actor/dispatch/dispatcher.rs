@@ -7,12 +7,13 @@ use std::future::Future;
 use std::sync::Arc;
 use std::time::Duration;
 
+use crate::runtime::build_single_worker_runtime;
 use async_trait::async_trait;
 use futures::future::BoxFuture;
-use tokio::runtime::{Builder, Runtime};
 
+use crate::runtime::StdAsyncMutex;
+use nexus_actor_core_rs::runtime::AsyncMutex;
 use nexus_actor_core_rs::runtime::{CoreRuntime, CoreScheduledTask, CoreScheduler};
-use tokio::sync::Mutex as TokioMutex;
 
 #[cfg(test)]
 mod tests;
@@ -80,7 +81,7 @@ impl CoreSchedulerDispatcher {
 #[async_trait]
 impl Dispatcher for CoreSchedulerDispatcher {
   async fn schedule(&self, runner: Runnable) {
-    let runner_cell = Arc::new(TokioMutex::new(Some(runner)));
+    let runner_cell = Arc::new(StdAsyncMutex::new(Some(runner)));
     let task: CoreScheduledTask = Arc::new(move || {
       let runner_cell = runner_cell.clone();
       Box::pin(async move {
@@ -150,15 +151,15 @@ impl Dispatcher for DispatcherHandle {
 /// ```
 #[derive(Debug, Clone)]
 pub struct SingleWorkerDispatcher {
-  runtime: Option<Arc<Runtime>>,
+  runtime: Option<Arc<tokio::runtime::Runtime>>,
   throughput: i32,
 }
 
 impl SingleWorkerDispatcher {
   pub fn new() -> Result<Self, std::io::Error> {
-    let runtime = Builder::new_multi_thread().worker_threads(1).enable_all().build()?;
+    let runtime = build_single_worker_runtime()?;
     Ok(Self {
-      runtime: Some(Arc::new(runtime)),
+      runtime: Some(runtime),
       throughput: 300,
     })
   }
