@@ -9,6 +9,7 @@ use crate::actor::core_types::mailbox::{CoreMailbox, CoreMailboxFuture};
 use crate::actor::core_types::message_handle::MessageHandle;
 use crate::actor::core_types::message_headers::ReadonlyMessageHeadersHandle;
 use crate::actor::core_types::pid::CorePid;
+use crate::supervisor::{default_core_supervisor_strategy, CoreSupervisorStrategy};
 
 pub trait CoreActorContext: Any + Send + Sync {
   fn self_pid(&self) -> CorePid;
@@ -93,12 +94,62 @@ impl fmt::Debug for CoreActorContextSnapshot {
 pub type CorePropsFactory = Box<dyn Fn() -> CoreProps + Send + Sync>;
 pub type CoreMailboxFactory =
   Arc<dyn Fn() -> CoreMailboxFuture<'static, Arc<dyn CoreMailbox + Send + Sync>> + Send + Sync>;
+pub type CoreSupervisorStrategyHandle = Arc<dyn CoreSupervisorStrategy + Send + Sync>;
 
 #[derive(Clone, Default)]
 pub struct CoreProps {
   pub actor_type: Option<alloc::sync::Arc<str>>,
   pub mailbox_factory: Option<CoreMailboxFactory>,
+  pub supervisor_strategy: Option<CoreSupervisorStrategyHandle>,
   // TODO(#core-context): extend with minimal actor factory / supervisor hooks required by core Actors.
+}
+
+impl fmt::Debug for CoreProps {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    f.debug_struct("CoreProps")
+      .field("actor_type", &self.actor_type)
+      .field("has_mailbox_factory", &self.mailbox_factory.is_some())
+      .field("has_supervisor_strategy", &self.supervisor_strategy.is_some())
+      .finish()
+  }
+}
+
+impl CoreProps {
+  #[must_use]
+  pub fn new() -> Self {
+    Self::default()
+  }
+
+  #[must_use]
+  pub fn with_actor_type(mut self, actor_type: Option<alloc::sync::Arc<str>>) -> Self {
+    self.actor_type = actor_type;
+    self
+  }
+
+  #[must_use]
+  pub fn with_mailbox_factory(mut self, factory: CoreMailboxFactory) -> Self {
+    self.mailbox_factory = Some(factory);
+    self
+  }
+
+  #[must_use]
+  pub fn with_supervisor_strategy(mut self, strategy: CoreSupervisorStrategyHandle) -> Self {
+    self.supervisor_strategy = Some(strategy);
+    self
+  }
+
+  #[must_use]
+  pub fn mailbox_factory(&self) -> Option<&CoreMailboxFactory> {
+    self.mailbox_factory.as_ref()
+  }
+
+  #[must_use]
+  pub fn supervisor_strategy_handle(&self) -> CoreSupervisorStrategyHandle {
+    self
+      .supervisor_strategy
+      .clone()
+      .unwrap_or_else(default_core_supervisor_strategy)
+  }
 }
 
 #[cfg(test)]
@@ -140,5 +191,100 @@ mod tests {
     let core_ctx: &dyn CoreActorContext = &snapshot;
     assert_eq!(core_ctx.self_pid(), self_pid);
     assert!(core_ctx.message().unwrap().is_typed::<TestMessage>());
+  }
+
+  #[test]
+  fn supervisor_strategy_handle_prefers_custom_strategy() {
+    use crate::supervisor::{
+      CoreSupervisor, CoreSupervisorContext, CoreSupervisorDirective, CoreSupervisorFuture, CoreSupervisorStrategy,
+      CoreSupervisorStrategyFuture,
+    };
+    use alloc::sync::Arc;
+    use alloc::vec::Vec;
+
+    #[derive(Clone)]
+    struct DummyStrategy;
+
+    impl CoreSupervisorStrategy for DummyStrategy {
+      fn handle_child_failure<'a>(
+        &'a self,
+        _ctx: &'a dyn CoreSupervisorContext,
+        _supervisor: &'a dyn CoreSupervisor,
+        _child: CorePid,
+        _tracker: &'a mut crate::actor::core_types::restart::CoreRestartTracker,
+        _reason: crate::error::ErrorReasonCore,
+        _message: MessageHandle,
+      ) -> CoreSupervisorStrategyFuture<'a> {
+        Box::pin(async move {})
+      }
+    }
+
+    #[derive(Default)]
+    struct NullSupervisor;
+
+    impl CoreSupervisor for NullSupervisor {
+      fn children<'a>(&'a self) -> CoreSupervisorFuture<'a, Vec<CorePid>> {
+        Box::pin(async { Vec::new() })
+      }
+
+      fn apply_directive<'a>(
+        &'a self,
+        _: CoreSupervisorDirective,
+        _: &'a [CorePid],
+        _: crate::error::ErrorReasonCore,
+        _: MessageHandle,
+      ) -> CoreSupervisorFuture<'a, ()> {
+        Box::pin(async {})
+      }
+
+      fn escalate<'a>(&'a self, _: crate::error::ErrorReasonCore, _: MessageHandle) -> CoreSupervisorFuture<'a, ()> {
+        Box::pin(async {})
+      }
+    }
+
+    #[derive(Default)]
+    struct NullContext;
+
+    impl CoreSupervisorContext for NullContext {
+      fn now(&self) -> u64 {
+        0
+      }
+    }
+
+    let custom: CoreSupervisorStrategyHandle = Arc::new(DummyStrategy);
+    let props = CoreProps::new().with_supervisor_strategy(custom.clone());
+
+    let handle = props.supervisor_strategy_handle();
+    assert!(Arc::ptr_eq(&handle, &custom));
+
+    // Ensure obtained strategy future is executable without panic.
+    let mut tracker = crate::actor::core_types::restart::CoreRestartTracker::new();
+    let context = NullContext::default();
+    let supervisor = NullSupervisor::default();
+    let mut future = handle.handle_child_failure(
+      &context,
+      &supervisor,
+      CorePid::new("node", "child"),
+      &mut tracker,
+      crate::error::ErrorReasonCore::new("test", 0),
+      MessageHandle::new(TestMessage("msg")),
+    );
+
+    fn poll_ready(future: &mut CoreSupervisorStrategyFuture<'_>) {
+      use core::task::{Context, RawWaker, RawWakerVTable, Waker};
+
+      fn noop_clone(_: *const ()) -> RawWaker {
+        RawWaker::new(core::ptr::null(), &VTABLE)
+      }
+      fn noop(_: *const ()) {}
+      static VTABLE: RawWakerVTable = RawWakerVTable::new(noop_clone, noop, noop, noop);
+
+      let raw_waker = RawWaker::new(core::ptr::null(), &VTABLE);
+      let waker = unsafe { Waker::from_raw(raw_waker) };
+      let mut cx = Context::from_waker(&waker);
+      assert!(future.as_mut().poll(&mut cx).is_ready());
+    }
+
+    poll_ready(&mut future);
   }
 }

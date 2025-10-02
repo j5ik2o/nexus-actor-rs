@@ -15,8 +15,7 @@ pub type CoreProcessRegistryFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Sen
 
 pub struct CoreAddressResolver<H>
 where
-  H: CoreProcessHandle + Clone + Send + Sync + 'static,
-{
+  H: CoreProcessHandle + Clone + Send + Sync + 'static, {
   inner: Arc<dyn Fn(&CorePid) -> CoreProcessRegistryFuture<'static, Option<H>> + Send + Sync + 'static>,
 }
 
@@ -38,8 +37,7 @@ where
   pub fn new<F, Fut>(resolver: F) -> Self
   where
     F: Fn(&CorePid) -> Fut + Send + Sync + 'static,
-    Fut: Future<Output = Option<H>> + Send + 'static,
-  {
+    Fut: Future<Output = Option<H>> + Send + 'static, {
     let inner =
       Arc::new(move |pid: &CorePid| -> CoreProcessRegistryFuture<'static, Option<H>> { Box::pin(resolver(pid)) });
     Self { inner }

@@ -3,6 +3,6 @@
 pub mod core;
 
 pub use core::{
-  CoreSupervisor, CoreSupervisorContext, CoreSupervisorDirective, CoreSupervisorFuture, CoreSupervisorStrategy,
-  CoreSupervisorStrategyFuture,
+  default_core_supervisor_strategy, CoreSupervisor, CoreSupervisorContext, CoreSupervisorDirective,
+  CoreSupervisorFuture, CoreSupervisorStrategy, CoreSupervisorStrategyFuture,
 };

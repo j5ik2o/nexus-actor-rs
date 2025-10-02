@@ -1,45 +1,122 @@
 #![cfg(feature = "alloc")]
 
 use alloc::boxed::Box;
+use alloc::sync::Arc;
+use core::fmt;
 use core::future::Future;
-use core::ops::{Deref, DerefMut};
 use core::pin::Pin;
 use core::time::Duration;
 
-/// 非同期 Mutex の抽象化。
-pub trait AsyncMutex<T>: Send + Sync {
-  type Guard<'a>: Deref<Target = T> + DerefMut + Send + 'a
-  where
-    Self: 'a,
-    T: 'a;
+pub use nexus_utils_core_rs::async_primitives::{AsyncMutex, AsyncNotify, AsyncRwLock, Timer};
 
-  fn lock(&self) -> Pin<Box<dyn Future<Output = Self::Guard<'_>> + Send + '_>>;
+/// Future 型の共通表現。スケジューラが実行する非同期タスクはこの型を返す必要があります。
+pub type CoreTaskFuture = Pin<Box<dyn Future<Output = ()> + Send + 'static>>;
+
+/// スケジューラが起動するタスクファクトリ。
+/// 戻り値の Future は必ず `Send + 'static` である必要があります。
+pub type CoreScheduledTask = Arc<dyn Fn() -> CoreTaskFuture + Send + Sync + 'static>;
+
+/// スケジューラが返すハンドルの共通インターフェース。
+pub trait CoreScheduledHandle: Send + Sync {
+  /// タスクをキャンセルします。複数回呼び出しても安全です。
+  fn cancel(&self);
+
+  /// 実装側がキャンセル状態を追跡している場合は `true` を返します。
+  fn is_cancelled(&self) -> bool {
+    false
+  }
 }
 
-/// 非同期 RwLock の抽象化。
-pub trait AsyncRwLock<T>: Send + Sync {
-  type ReadGuard<'a>: Deref<Target = T> + Send + 'a
-  where
-    Self: 'a,
-    T: 'a;
+/// スケジュールドタスクを表す参照型。
+pub type CoreScheduledHandleRef = Arc<dyn CoreScheduledHandle + Send + Sync + 'static>;
 
-  type WriteGuard<'a>: Deref<Target = T> + DerefMut + Send + 'a
-  where
-    Self: 'a,
-    T: 'a;
+/// コアランタイムが要求する最小限のスケジューラ挙動を定義します。
+pub trait CoreScheduler: Send + Sync + 'static {
+  /// `delay` 後に一度だけ `task` を実行します。
+  fn schedule_once(&self, delay: Duration, task: CoreScheduledTask) -> CoreScheduledHandleRef;
 
-  fn read(&self) -> Pin<Box<dyn Future<Output = Self::ReadGuard<'_>> + Send + '_>>;
-  fn write(&self) -> Pin<Box<dyn Future<Output = Self::WriteGuard<'_>> + Send + '_>>;
+  /// `initial_delay` 後に `task` を実行し、その後 `interval` ごとに繰り返します。
+  /// `interval == Duration::ZERO` の場合は一度だけ実行して完了します。
+  fn schedule_repeated(
+    &self,
+    initial_delay: Duration,
+    interval: Duration,
+    task: CoreScheduledTask,
+  ) -> CoreScheduledHandleRef;
 }
 
-/// 通知プリミティブの抽象化。
-pub trait AsyncNotify: Send + Sync {
-  fn notify_one(&self);
-  fn notify_waiters(&self);
-  fn wait(&self) -> Pin<Box<dyn Future<Output = ()> + Send + '_>>;
+/// ランタイムが保持すべき構成要素。
+#[derive(Clone)]
+pub struct CoreRuntimeConfig {
+  timer: Arc<dyn Timer>,
+  scheduler: Arc<dyn CoreScheduler>,
 }
 
-/// スリープ機能の抽象化。
-pub trait Timer: Send + Sync {
-  fn sleep(&self, duration: Duration) -> Pin<Box<dyn Future<Output = ()> + Send + '_>>;
+impl fmt::Debug for CoreRuntimeConfig {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    f.debug_struct("CoreRuntimeConfig")
+      .field("timer", &format_args!("{:p}", Arc::as_ptr(&self.timer)))
+      .field("scheduler", &format_args!("{:p}", Arc::as_ptr(&self.scheduler)))
+      .finish()
+  }
+}
+
+impl CoreRuntimeConfig {
+  /// 新しい構成を生成します。
+  pub fn new(timer: Arc<dyn Timer>, scheduler: Arc<dyn CoreScheduler>) -> Self {
+    Self { timer, scheduler }
+  }
+
+  /// タイマープリミティブへの参照を返します。
+  pub fn timer(&self) -> Arc<dyn Timer> {
+    self.timer.clone()
+  }
+
+  /// スケジューラへの参照を返します。
+  pub fn scheduler(&self) -> Arc<dyn CoreScheduler> {
+    self.scheduler.clone()
+  }
+}
+
+impl From<CoreRuntimeConfig> for CoreRuntime {
+  fn from(value: CoreRuntimeConfig) -> Self {
+    Self::from_config(value)
+  }
+}
+
+/// コアランタイムの実体。依存側からはこの構造体を通じて
+/// タイマーとスケジューラへアクセスします。
+#[derive(Clone)]
+pub struct CoreRuntime {
+  timer: Arc<dyn Timer>,
+  scheduler: Arc<dyn CoreScheduler>,
+}
+
+impl fmt::Debug for CoreRuntime {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    f.debug_struct("CoreRuntime")
+      .field("timer", &format_args!("{:p}", Arc::as_ptr(&self.timer)))
+      .field("scheduler", &format_args!("{:p}", Arc::as_ptr(&self.scheduler)))
+      .finish()
+  }
+}
+
+impl CoreRuntime {
+  /// 構成からランタイムを生成します。
+  pub fn from_config(config: CoreRuntimeConfig) -> Self {
+    Self {
+      timer: config.timer(),
+      scheduler: config.scheduler(),
+    }
+  }
+
+  /// タイマーへアクセスします。
+  pub fn timer(&self) -> Arc<dyn Timer> {
+    self.timer.clone()
+  }
+
+  /// スケジューラへアクセスします。
+  pub fn scheduler(&self) -> Arc<dyn CoreScheduler> {
+    self.scheduler.clone()
+  }
 }

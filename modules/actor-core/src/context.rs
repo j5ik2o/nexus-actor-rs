@@ -2,4 +2,7 @@
 
 pub mod core;
 
-pub use core::{CoreActorContext, CoreActorContextSnapshot, CoreMailboxFactory, CoreProps, CorePropsFactory};
+pub use core::{
+  CoreActorContext, CoreActorContextSnapshot, CoreMailboxFactory, CoreProps, CorePropsFactory,
+  CoreSupervisorStrategyHandle,
+};

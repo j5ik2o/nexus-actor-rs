@@ -35,6 +35,12 @@ pub use actor::core_types::system_message::{SystemMessage, UnwatchMessage, Watch
 pub mod runtime;
 
 #[cfg(feature = "alloc")]
+pub use runtime::{
+  AsyncMutex, AsyncNotify, AsyncRwLock, CoreRuntime, CoreRuntimeConfig, CoreScheduledHandle, CoreScheduledHandleRef,
+  CoreScheduledTask, CoreScheduler, CoreTaskFuture, Timer,
+};
+
+#[cfg(feature = "alloc")]
 pub mod supervisor;
 
 #[cfg(feature = "alloc")]
