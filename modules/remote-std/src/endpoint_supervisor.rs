@@ -7,15 +7,13 @@ use crate::metrics::record_sender_snapshot;
 use crate::remote::Remote;
 use crate::watch_registry::WatchRegistry;
 use async_trait::async_trait;
-use nexus_actor_std_rs::actor::actor_system::ActorSystem;
 use nexus_actor_std_rs::actor::context::{BasePart, ContextHandle, MessagePart, SpawnerPart};
-use nexus_actor_std_rs::actor::core::{Actor, ActorError, ErrorReason, ExtendedPid, Props, RestartStatistics};
-use nexus_actor_std_rs::actor::core_types::pid_types::CorePid;
+use nexus_actor_std_rs::actor::core::{Actor, ActorError, ErrorReason, ExtendedPid, Props};
 use nexus_actor_std_rs::actor::dispatch::{MailboxHandle, MailboxProducer, MailboxSyncHandle};
-use nexus_actor_std_rs::actor::message::{MessageHandle, ResponseHandle};
-use nexus_actor_std_rs::actor::supervisor::{SupervisorHandle, SupervisorStrategy, SupervisorStrategyHandle};
-use std::any::Any;
+use nexus_actor_std_rs::actor::message::ResponseHandle;
+use nexus_actor_std_rs::actor::supervisor::{Directive, OneForOneStrategy, SupervisorStrategyHandle};
 use std::sync::{Arc, Weak};
+use std::time::Duration;
 
 #[derive(Debug, Clone)]
 pub struct EndpointSupervisor {
@@ -162,28 +160,7 @@ impl Actor for EndpointSupervisor {
   }
 
   async fn get_supervisor_strategy(&mut self) -> Option<SupervisorStrategyHandle> {
-    Some(SupervisorStrategyHandle::new(self.clone()))
-  }
-}
-
-#[async_trait]
-impl SupervisorStrategy for EndpointSupervisor {
-  async fn handle_child_failure(
-    &self,
-    _actor_system: ActorSystem,
-    supervisor: SupervisorHandle,
-    child: CorePid,
-    _rs: RestartStatistics,
-    _reason: ErrorReason,
-    _message_handle: MessageHandle,
-  ) {
-    tracing::debug!("EndpointSupervisor::handle_child_failure");
-    let core_supervisor = supervisor.core_adapter();
-    let core_children = [child];
-    core_supervisor.stop_children_core(&core_children).await;
-  }
-
-  fn as_any(&self) -> &dyn Any {
-    self
+    let strategy = OneForOneStrategy::new(0, Duration::ZERO).with_decider(|_| async { Directive::Stop });
+    Some(SupervisorStrategyHandle::new(strategy))
   }
 }
