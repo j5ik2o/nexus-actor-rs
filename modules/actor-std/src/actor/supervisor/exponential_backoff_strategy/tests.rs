@@ -1,87 +1,59 @@
 #[cfg(test)]
 mod test {
   use std::env;
-  use std::time::{Duration, Instant};
+  use std::time::Duration;
 
-  use rstest::*;
   use tracing_subscriber::EnvFilter;
 
   use crate::actor::core::RestartStatistics;
   use crate::actor::supervisor::exponential_backoff_strategy::ExponentialBackoffStrategy;
 
-  #[tokio::test]
-  async fn test_backoff_calculation() {
+  fn init_tracing() {
     env::set_var("RUST_LOG", "debug");
     let _ = tracing_subscriber::fmt()
       .with_env_filter(EnvFilter::from_default_env())
       .try_init();
-
-    let initial_backoff = Duration::from_millis(100);
-
-    let mut rs = RestartStatistics::new();
-
-    // 2回失敗を記録
-    rs.fail().await;
-    rs.fail().await;
-
-    // バックオフ時間の計算をテスト
-    let backoff_nanos = rs.failure_count().await as u64 * initial_backoff.as_nanos() as u64;
-    assert!(backoff_nanos > 0);
-    assert_eq!(backoff_nanos, 2 * initial_backoff.as_nanos() as u64);
   }
 
-  #[rstest(ft, fc, expected)]
-  #[case(11, 10, 1)]
-  #[case(9, 10, 11)]
   #[tokio::test]
-  async fn test_exponential_backoff_strategy_set_failure_count(ft: u64, fc: usize, expected: usize) {
-    env::set_var("RUST_LOG", "debug");
-    let _ = tracing_subscriber::fmt()
-      .with_env_filter(EnvFilter::from_default_env())
-      .try_init();
+  async fn set_failure_count_accumulates_within_window() {
+    init_tracing();
+    let strategy = ExponentialBackoffStrategy::new(Duration::from_millis(50));
+    let mut stats = RestartStatistics::with_runtime(&crate::runtime::tokio_core_runtime());
 
-    let s = ExponentialBackoffStrategy::new(Duration::from_secs(10));
-    let mut rs = RestartStatistics::new();
-    for _ in 0..fc {
-      rs.push(Instant::now() - Duration::from_secs(ft)).await;
+    strategy.set_failure_count(&mut stats).await;
+    tokio::time::sleep(Duration::from_millis(15)).await;
+    strategy.set_failure_count(&mut stats).await;
+
+    assert_eq!(2, stats.failure_count().await);
+  }
+
+  #[tokio::test]
+  async fn set_failure_count_resets_after_window() {
+    init_tracing();
+    let strategy = ExponentialBackoffStrategy::new(Duration::from_millis(30));
+    let mut stats = RestartStatistics::with_runtime(&crate::runtime::tokio_core_runtime());
+
+    strategy.set_failure_count(&mut stats).await;
+    tokio::time::sleep(Duration::from_millis(45)).await;
+    strategy.set_failure_count(&mut stats).await;
+
+    assert_eq!(1, stats.failure_count().await);
+  }
+
+  #[tokio::test]
+  async fn failure_count_scales_backoff_multiplier() {
+    init_tracing();
+    let initial_backoff = Duration::from_millis(25);
+    let strategy = ExponentialBackoffStrategy::new(Duration::from_millis(80)).with_initial_backoff(initial_backoff);
+    let mut stats = RestartStatistics::with_runtime(&crate::runtime::tokio_core_runtime());
+
+    for _ in 0..3 {
+      strategy.set_failure_count(&mut stats).await;
+      tokio::time::sleep(Duration::from_millis(10)).await;
     }
 
-    s.set_failure_count(&mut rs).await;
-    assert_eq!(expected, rs.failure_count().await);
-  }
-
-  #[tokio::test]
-  async fn test_exponential_backoff_strategy_increments_failure_count() {
-    env::set_var("RUST_LOG", "debug");
-    let _ = tracing_subscriber::fmt()
-      .with_env_filter(EnvFilter::from_default_env())
-      .try_init();
-
-    let mut rs = RestartStatistics::new();
-    let s = ExponentialBackoffStrategy::new(Duration::from_secs(10));
-
-    s.set_failure_count(&mut rs).await;
-    s.set_failure_count(&mut rs).await;
-    s.set_failure_count(&mut rs).await;
-
-    assert_eq!(3, rs.failure_count().await);
-  }
-
-  #[tokio::test]
-  async fn test_exponential_backoff_strategy_resets_failure_count() {
-    env::set_var("RUST_LOG", "debug");
-    let _ = tracing_subscriber::fmt()
-      .with_env_filter(EnvFilter::from_default_env())
-      .try_init();
-
-    let mut rs = RestartStatistics::new();
-    for _ in 0..10 {
-      rs.push(Instant::now() - Duration::from_secs(11)).await;
-    }
-    let s = ExponentialBackoffStrategy::new(Duration::from_secs(10));
-
-    s.set_failure_count(&mut rs).await;
-
-    assert_eq!(1, rs.failure_count().await);
+    let failure_count = stats.failure_count().await;
+    assert_eq!(3, failure_count, "failure_count should reflect回数分の連続失敗");
   }
 }

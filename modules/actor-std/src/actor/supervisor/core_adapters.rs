@@ -1,32 +1,42 @@
-use std::any::Any;
-use std::sync::Arc;
 use std::time::Instant;
 
-use async_trait::async_trait;
 use nexus_actor_core_rs::actor::core_types::pid::CorePid;
+use nexus_actor_core_rs::actor::core_types::restart::FailureClock;
 use nexus_actor_core_rs::error::ErrorReasonCore;
+use nexus_actor_core_rs::runtime::CoreRuntime;
 use nexus_actor_core_rs::supervisor::{
-  CoreSupervisor, CoreSupervisorContext, CoreSupervisorDirective, CoreSupervisorFuture, CoreSupervisorStrategy,
-  CoreSupervisorStrategyFuture,
+  CoreSupervisor, CoreSupervisorContext, CoreSupervisorDirective, CoreSupervisorFuture,
 };
 
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::core::{ErrorReason, RestartStatistics};
 use crate::actor::message::MessageHandle;
-use crate::actor::supervisor::supervisor_strategy::{SupervisorHandle, SupervisorStrategy};
-use crate::actor::supervisor::supervisor_strategy_handle::SupervisorStrategyHandle;
+use crate::actor::supervisor::supervisor_strategy::SupervisorHandle;
 
 use nexus_actor_core_rs::actor::core_types::restart::CoreRestartTracker;
+use nexus_utils_std_rs::runtime::sync::InstantFailureClock;
 
 pub struct StdSupervisorContext {
   actor_system: ActorSystem,
+  core_runtime: CoreRuntime,
+  failure_clock: Option<InstantFailureClock>,
   anchor: Instant,
 }
 
 impl StdSupervisorContext {
   pub fn new(actor_system: ActorSystem) -> Self {
+    let core_runtime = actor_system.core_runtime();
+    Self::with_runtime(actor_system, core_runtime)
+  }
+
+  pub fn with_runtime(actor_system: ActorSystem, core_runtime: CoreRuntime) -> Self {
+    let failure_clock = core_runtime
+      .failure_clock()
+      .and_then(|clock| clock.as_any().downcast_ref::<InstantFailureClock>().cloned());
     Self {
       actor_system,
+      core_runtime,
+      failure_clock,
       anchor: Instant::now(),
     }
   }
@@ -34,11 +44,44 @@ impl StdSupervisorContext {
   pub fn actor_system(&self) -> ActorSystem {
     self.actor_system.clone()
   }
+
+  pub fn core_runtime(&self) -> CoreRuntime {
+    self.core_runtime.clone()
+  }
+
+  pub fn failure_clock(&self) -> Option<InstantFailureClock> {
+    self.failure_clock.clone()
+  }
 }
 
 impl CoreSupervisorContext for StdSupervisorContext {
   fn now(&self) -> u64 {
-    self.anchor.elapsed().as_millis() as u64
+    fn saturating_millis(duration: std::time::Duration) -> u64 {
+      let millis = duration.as_millis();
+      if millis > u64::MAX as u128 {
+        u64::MAX
+      } else {
+        millis as u64
+      }
+    }
+
+    if let Some(clock) = &self.failure_clock {
+      saturating_millis(clock.now())
+    } else {
+      saturating_millis(self.anchor.elapsed())
+    }
+  }
+}
+
+pub fn stats_from_tracker(
+  tracker: &CoreRestartTracker,
+  failure_clock: Option<InstantFailureClock>,
+) -> RestartStatistics {
+  if let Some(clock) = failure_clock {
+    RestartStatistics::from_core_tracker_with_clock(tracker.clone(), clock)
+  } else {
+    let anchor = tracker.samples().last().copied().unwrap_or_default();
+    RestartStatistics::from_core_tracker_with_anchor(tracker.clone(), anchor)
   }
 }
 
@@ -94,62 +137,25 @@ impl CoreSupervisor for StdSupervisorAdapter {
   }
 }
 
-#[derive(Clone)]
-pub struct StdSupervisorStrategyAdapter {
-  inner: Arc<dyn SupervisorStrategy>,
-}
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::actor::actor_system::ActorSystem;
+  use nexus_utils_std_rs::runtime::sync::tokio_core_runtime;
+  use std::time::Duration;
 
-impl StdSupervisorStrategyAdapter {
-  pub fn new(inner: SupervisorStrategyHandle) -> Self {
-    Self {
-      inner: Arc::new(inner) as Arc<dyn SupervisorStrategy>,
-    }
-  }
+  #[tokio::test]
+  async fn std_supervisor_context_now_reflects_failure_clock_progress() {
+    let system = ActorSystem::new().await.expect("actor system");
+    let runtime = tokio_core_runtime();
+    let context = StdSupervisorContext::with_runtime(system.clone(), runtime);
 
-  pub fn with_arc(inner: Arc<dyn SupervisorStrategy>) -> Self {
-    Self { inner }
-  }
-}
+    let before = context.now();
+    tokio::time::sleep(Duration::from_millis(20)).await;
+    let after = context.now();
 
-static_assertions::assert_impl_all!(StdSupervisorStrategyAdapter: Send, Sync);
+    assert!(after >= before + 10, "context.now should advance with runtime clock");
 
-#[async_trait]
-impl CoreSupervisorStrategy for StdSupervisorStrategyAdapter {
-  fn handle_child_failure<'a>(
-    &'a self,
-    ctx: &'a dyn CoreSupervisorContext,
-    supervisor: &'a dyn CoreSupervisor,
-    child: CorePid,
-    tracker: &'a mut CoreRestartTracker,
-    reason: ErrorReasonCore,
-    message: MessageHandle,
-  ) -> CoreSupervisorStrategyFuture<'a> {
-    let std_ctx = (ctx as &dyn Any)
-      .downcast_ref::<StdSupervisorContext>()
-      .expect("StdSupervisorContext expected");
-    let std_supervisor = (supervisor as &dyn Any)
-      .downcast_ref::<StdSupervisorAdapter>()
-      .expect("StdSupervisorAdapter expected");
-
-    let actor_system = std_ctx.actor_system();
-    let supervisor_handle = std_supervisor.handle();
-    let strategy = self.inner.clone();
-    let tracker_ref = tracker;
-    Box::pin(async move {
-      let tracker_clone = tracker_ref.clone();
-      let stats = RestartStatistics::from_core_tracker(tracker_clone);
-      strategy
-        .handle_child_failure(
-          actor_system.clone(),
-          supervisor_handle.clone(),
-          child.clone(),
-          stats.clone(),
-          ErrorReason::from_core(reason),
-          message,
-        )
-        .await;
-      let updated = stats.into_core_tracker().await;
-      *tracker_ref = updated;
-    })
+    drop(system);
   }
 }

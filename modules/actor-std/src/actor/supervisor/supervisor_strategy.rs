@@ -12,7 +12,6 @@ use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::ActorContext;
 use crate::actor::core::ErrorReason;
 use crate::actor::core::ExtendedPid;
-use crate::actor::core::RestartStatistics;
 use crate::actor::message::MessageHandle;
 use crate::actor::metrics::metrics_impl::MetricsRuntime;
 use crate::actor::supervisor::core_adapters::StdSupervisorAdapter;
@@ -90,21 +89,6 @@ pub(crate) fn record_supervisor_metrics(
     let sink = runtime.sink_for_actor(actor_type.as_deref());
     sink.increment_actor_failure_with_additional_labels(&labels);
   }
-}
-
-#[async_trait]
-pub trait SupervisorStrategy: Debug + Send + Sync {
-  async fn handle_child_failure(
-    &self,
-    actor_system: ActorSystem,
-    supervisor: SupervisorHandle,
-    child: CorePid,
-    rs: RestartStatistics,
-    reason: ErrorReason,
-    message_handle: MessageHandle,
-  );
-
-  fn as_any(&self) -> &dyn std::any::Any;
 }
 
 #[async_trait]
