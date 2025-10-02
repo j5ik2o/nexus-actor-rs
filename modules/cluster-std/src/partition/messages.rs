@@ -32,8 +32,7 @@ mod extended_pid_option_serde {
     serializer: S,
   ) -> Result<S::Ok, S::Error>
   where
-    S: Serializer,
-  {
+    S: Serializer, {
     let opt = value.as_ref().map(|pid| ExtendedPidSerde {
       address: pid.inner_pid.address.clone(),
       id: pid.inner_pid.id.clone(),
@@ -42,10 +41,11 @@ mod extended_pid_option_serde {
     opt.serialize(serializer)
   }
 
-  pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<nexus_actor_std_rs::actor::core::ExtendedPid>, D::Error>
+  pub fn deserialize<'de, D>(
+    deserializer: D,
+  ) -> Result<Option<nexus_actor_std_rs::actor::core::ExtendedPid>, D::Error>
   where
-    D: Deserializer<'de>,
-  {
+    D: Deserializer<'de>, {
     let opt = Option::<ExtendedPidSerde>::deserialize(deserializer)?;
     Ok(opt.map(|data| {
       let pid = Pid {

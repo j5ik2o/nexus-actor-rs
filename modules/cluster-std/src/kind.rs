@@ -19,8 +19,7 @@ impl ClusterKind {
   pub fn new<F, Fut>(name: impl Into<String>, props_factory: F) -> Self
   where
     F: Fn(&ClusterIdentity) -> Fut + Send + Sync + 'static,
-    Fut: std::future::Future<Output = Props> + Send + 'static,
-  {
+    Fut: std::future::Future<Output = Props> + Send + 'static, {
     Self {
       name: name.into(),
       props_factory: Arc::new(move |identity| props_factory(identity).boxed()),
@@ -31,8 +30,7 @@ impl ClusterKind {
   where
     V: VirtualActor,
     F: Fn(ClusterIdentity) -> Fut + Send + Sync + 'static,
-    Fut: std::future::Future<Output = V> + Send + 'static,
-  {
+    Fut: std::future::Future<Output = V> + Send + 'static, {
     let factory = Arc::new(move |identity: ClusterIdentity| factory(identity).boxed());
     Self::new(name, move |identity: &ClusterIdentity| {
       let identity = identity.clone();
