@@ -209,6 +209,20 @@ pub type CoreReceiverMiddlewareChainHandle =
 
 pub type CoreActorSystemId = u64;
 
+pub type CoreSpawnFuture<'a, T> = crate::context::middleware::CoreFuture<'a, T>;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CoreActorSpawnError {
+  AdapterUnavailable,
+  AdapterFailed,
+}
+
+pub trait CoreSpawnAdapter: Any + Send + Sync {
+  fn spawn<'a>(&'a self, invocation: CoreSpawnInvocation) -> CoreSpawnFuture<'a, Result<CorePid, CoreActorSpawnError>>;
+
+  fn as_any(&self) -> &dyn Any;
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CoreSenderSnapshot {
   context: CoreActorContextSnapshot,
@@ -280,13 +294,101 @@ impl CoreSenderInvocation {
 
 pub type CoreSenderMiddlewareChainHandle = crate::context::middleware::CoreSenderMiddlewareChain<CoreSenderInvocation>;
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
+pub struct CoreSpawnInvocation {
+  parent: CoreSenderSnapshot,
+  child_props: CoreProps,
+  child_pid: CorePid,
+  metadata: Option<alloc::sync::Arc<str>>,
+  adapter: Arc<dyn CoreSpawnAdapter>,
+}
+
+impl CoreSpawnInvocation {
+  #[must_use]
+  pub fn new(
+    parent: CoreSenderSnapshot,
+    child_props: CoreProps,
+    child_pid: CorePid,
+    metadata: Option<alloc::sync::Arc<str>>,
+    adapter: Arc<dyn CoreSpawnAdapter>,
+  ) -> Self {
+    Self {
+      parent,
+      child_props,
+      child_pid,
+      metadata,
+      adapter,
+    }
+  }
+
+  #[must_use]
+  pub fn parent(&self) -> &CoreSenderSnapshot {
+    &self.parent
+  }
+
+  #[must_use]
+  pub fn child_props(&self) -> &CoreProps {
+    &self.child_props
+  }
+
+  #[must_use]
+  pub fn child_pid(&self) -> &CorePid {
+    &self.child_pid
+  }
+
+  #[must_use]
+  pub fn metadata(&self) -> Option<&alloc::sync::Arc<str>> {
+    self.metadata.as_ref()
+  }
+
+  #[must_use]
+  pub fn adapter(&self) -> Arc<dyn CoreSpawnAdapter> {
+    Arc::clone(&self.adapter)
+  }
+
+  #[must_use]
+  pub fn into_parts(
+    self,
+  ) -> (
+    CoreSenderSnapshot,
+    CoreProps,
+    CorePid,
+    Option<alloc::sync::Arc<str>>,
+    Arc<dyn CoreSpawnAdapter>,
+  ) {
+    (
+      self.parent,
+      self.child_props,
+      self.child_pid,
+      self.metadata,
+      self.adapter,
+    )
+  }
+}
+
+impl fmt::Debug for CoreSpawnInvocation {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    f.debug_struct("CoreSpawnInvocation")
+      .field("parent", &self.parent)
+      .field("child_props", &self.child_props)
+      .field("child_pid", &self.child_pid)
+      .field("metadata", &self.metadata)
+      .field("has_adapter", &true)
+      .finish()
+  }
+}
+
+pub type CoreSpawnMiddlewareChainHandle = crate::context::middleware::CoreSpawnMiddlewareChain;
+
+#[derive(Clone)]
 pub struct CoreProps {
   pub actor_type: Option<alloc::sync::Arc<str>>,
   pub mailbox_factory: Option<CoreMailboxFactory>,
   pub supervisor_strategy: Option<CoreSupervisorStrategyHandle>,
   pub receiver_middleware_chain: Option<CoreReceiverMiddlewareChainHandle>,
   pub sender_middleware_chain: Option<CoreSenderMiddlewareChainHandle>,
+  pub spawn_middleware_chain: Option<CoreSpawnMiddlewareChainHandle>,
+  pub spawn_adapter: Option<Arc<dyn CoreSpawnAdapter>>,
   // TODO(#core-context): extend with minimal actor factory / supervisor hooks required by core Actors.
 }
 
@@ -298,6 +400,8 @@ impl fmt::Debug for CoreProps {
       .field("has_supervisor_strategy", &self.supervisor_strategy.is_some())
       .field("has_receiver_middleware", &self.receiver_middleware_chain.is_some())
       .field("has_sender_middleware", &self.sender_middleware_chain.is_some())
+      .field("has_spawn_middleware", &self.spawn_middleware_chain.is_some())
+      .field("has_spawn_adapter", &self.spawn_adapter.is_some())
       .finish()
   }
 }
@@ -339,6 +443,18 @@ impl CoreProps {
   }
 
   #[must_use]
+  pub fn with_spawn_middleware_chain(mut self, chain: CoreSpawnMiddlewareChainHandle) -> Self {
+    self.spawn_middleware_chain = Some(chain);
+    self
+  }
+
+  #[must_use]
+  pub fn with_spawn_adapter(mut self, adapter: Arc<dyn CoreSpawnAdapter>) -> Self {
+    self.spawn_adapter = Some(adapter);
+    self
+  }
+
+  #[must_use]
   pub fn mailbox_factory(&self) -> Option<&CoreMailboxFactory> {
     self.mailbox_factory.as_ref()
   }
@@ -360,12 +476,37 @@ impl CoreProps {
   pub fn sender_middleware_chain(&self) -> Option<&CoreSenderMiddlewareChainHandle> {
     self.sender_middleware_chain.as_ref()
   }
+
+  #[must_use]
+  pub fn spawn_middleware_chain(&self) -> Option<&CoreSpawnMiddlewareChainHandle> {
+    self.spawn_middleware_chain.as_ref()
+  }
+
+  #[must_use]
+  pub fn spawn_adapter(&self) -> Option<Arc<dyn CoreSpawnAdapter>> {
+    self.spawn_adapter.as_ref().map(Arc::clone)
+  }
+}
+
+impl Default for CoreProps {
+  fn default() -> Self {
+    Self {
+      actor_type: None,
+      mailbox_factory: None,
+      supervisor_strategy: None,
+      receiver_middleware_chain: None,
+      sender_middleware_chain: None,
+      spawn_middleware_chain: None,
+      spawn_adapter: None,
+    }
+  }
 }
 
 #[cfg(test)]
 mod tests {
   use super::*;
   use crate::actor::core_types::message::Message;
+  use alloc::sync::Arc;
   use core::any::Any;
   use core::time::Duration;
 
@@ -420,7 +561,6 @@ mod tests {
       CoreSupervisor, CoreSupervisorContext, CoreSupervisorDirective, CoreSupervisorFuture, CoreSupervisorStrategy,
       CoreSupervisorStrategyFuture,
     };
-    use alloc::sync::Arc;
     use alloc::vec::Vec;
 
     #[derive(Clone)]
@@ -525,6 +665,8 @@ mod tests {
     let props = CoreProps::default();
     assert!(props.receiver_middleware_chain().is_none());
     assert!(props.sender_middleware_chain().is_none());
+    assert!(props.spawn_middleware_chain().is_none());
+    assert!(props.spawn_adapter().is_none());
 
     let chain: CoreReceiverMiddlewareChainHandle =
       crate::context::middleware::CoreReceiverMiddlewareChain::new(|_| async { Ok::<_, CoreActorError>(()) });
@@ -537,5 +679,31 @@ mod tests {
     let configured = configured.with_sender_middleware_chain(sender_chain.clone());
     assert!(configured.sender_middleware_chain().is_some());
     assert_eq!(configured.sender_middleware_chain().unwrap(), &sender_chain);
+
+    struct DummyAdapter;
+
+    impl CoreSpawnAdapter for DummyAdapter {
+      fn as_any(&self) -> &dyn Any {
+        self
+      }
+
+      fn spawn<'a>(
+        &'a self,
+        _invocation: CoreSpawnInvocation,
+      ) -> CoreSpawnFuture<'a, Result<CorePid, CoreActorSpawnError>> {
+        Box::pin(async { Err(CoreActorSpawnError::AdapterUnavailable) })
+      }
+    }
+
+    let spawn_chain = crate::context::middleware::CoreSpawnMiddlewareChain::new(|_| {
+      Box::pin(async { Err(CoreActorSpawnError::AdapterUnavailable) })
+    });
+
+    let configured = configured
+      .with_spawn_middleware_chain(spawn_chain)
+      .with_spawn_adapter(Arc::new(DummyAdapter));
+
+    assert!(configured.spawn_middleware_chain().is_some());
+    assert!(configured.spawn_adapter().is_some());
   }
 }

@@ -30,6 +30,8 @@ use crate::ctxext::extensions::{ContextExtensionHandle, ContextExtensionId};
 use nexus_actor_core_rs::context::CoreContextSnapshot;
 use nexus_actor_core_rs::CorePid;
 
+use super::ContextRegistry;
+
 #[derive(Debug, Clone, Copy, Default)]
 pub struct ContextLockMetricsSnapshot {
   pub read_lock_acquisitions: u64,
@@ -284,6 +286,12 @@ impl ContextHandle {
 
   pub async fn snapshot_with_core(&self) -> ContextSnapshot {
     let core_snapshot = self.core_snapshot().await;
+    let actor_system = self.get_actor_system().await;
+    let system_id = actor_system.system_id();
+    let self_pid = core_snapshot.self_pid_core();
+
+    ContextRegistry::register(system_id, self_pid.id(), self);
+
     self
       .snapshot_with_borrow()
       .with_core_snapshot(CoreContextSnapshot::from(core_snapshot))

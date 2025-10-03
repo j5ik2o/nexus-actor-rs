@@ -6,7 +6,7 @@ use crate::actor::core::sender_middleware::SenderMiddleware;
 use crate::actor::core::sender_middleware_chain::SenderMiddlewareChain;
 use crate::actor::core::spawn_middleware::SpawnMiddleware;
 use crate::actor::core::spawner::Spawner;
-use nexus_actor_core_rs::context::{compose_receiver_chain, compose_sender_chain, compose_spawn_chain};
+use nexus_actor_core_rs::context::{compose_receiver_chain, compose_sender_chain};
 
 pub fn make_receiver_middleware_chain(
   receiver_middleware: &[ReceiverMiddleware],
@@ -57,8 +57,10 @@ pub fn make_spawn_middleware_chain(spawn_middleware: &[SpawnMiddleware], last_sp
     return None;
   }
 
-  compose_spawn_chain(
-    spawn_middleware.iter().map(|middleware| middleware.as_core()),
-    last_spawner,
-  )
+  let mut current = last_spawner;
+  for middleware in spawn_middleware.iter().rev() {
+    current = middleware.run(current);
+  }
+
+  Some(current)
 }

@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct TestActor;
 
 #[async_trait]
@@ -21,6 +21,21 @@ impl Actor for TestActor {
   async fn get_supervisor_strategy(&mut self) -> Option<SupervisorStrategyHandle> {
     None
   }
+}
+
+#[tokio::test]
+async fn test_core_props_spawn_adapter_roundtrip() {
+  let props = Props::from_sync_actor_producer(|_| TestActor).await;
+  let core_props = props.core_props();
+
+  assert!(core_props.spawn_adapter().is_some());
+  assert!(core_props.spawn_middleware_chain().is_some());
+
+  let reconstructed = Props::from_core_props(core_props.clone()).expect("reconstruct props");
+  let reconstructed_core = reconstructed.core_props();
+
+  assert!(reconstructed_core.spawn_adapter().is_some());
+  assert!(reconstructed_core.spawn_middleware_chain().is_some());
 }
 
 #[tokio::test]

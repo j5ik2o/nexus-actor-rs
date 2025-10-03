@@ -8,6 +8,9 @@ use core::future::Future;
 use core::hash::{Hash, Hasher};
 use core::pin::Pin;
 
+use crate::actor::core_types::pid::CorePid;
+use crate::context::core::{CoreActorSpawnError, CoreSpawnInvocation};
+
 /// コアレイヤで共有する `Future` 型のエイリアス。
 pub type CoreFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
@@ -316,53 +319,85 @@ where
   }
 }
 
-/// Spawn middleware は同期変換のみを扱う。
+/// Core spawn middleware チェーン。invocation を受け取り PID を生成する。
 #[derive(Clone)]
-pub struct CoreSpawnMiddleware<T>
-where
-  T: Send + 'static, {
-  inner: Arc<dyn Fn(T) -> T + Send + Sync + 'static>,
+pub struct CoreSpawnMiddlewareChain {
+  inner: Arc<
+    dyn Fn(CoreSpawnInvocation) -> CoreFuture<'static, Result<CorePid, CoreActorSpawnError>> + Send + Sync + 'static,
+  >,
 }
 
-impl<T> CoreSpawnMiddleware<T>
-where
-  T: Send + 'static,
-{
-  pub fn new<F>(f: F) -> Self
+impl CoreSpawnMiddlewareChain {
+  pub fn new<F, Fut>(tail: F) -> Self
   where
-    F: Fn(T) -> T + Send + Sync + 'static, {
-    Self { inner: Arc::new(f) }
+    F: Fn(CoreSpawnInvocation) -> Fut + Send + Sync + 'static,
+    Fut: Future<Output = Result<CorePid, CoreActorSpawnError>> + Send + 'static, {
+    Self {
+      inner: Arc::new(move |invocation| {
+        let fut = tail(invocation);
+        Box::pin(fut) as CoreFuture<'static, Result<CorePid, CoreActorSpawnError>>
+      }),
+    }
   }
 
-  pub fn run(&self, next: T) -> T {
-    (self.inner)(next)
+  pub fn call(&self, invocation: CoreSpawnInvocation) -> CoreFuture<'static, Result<CorePid, CoreActorSpawnError>> {
+    (self.inner)(invocation)
   }
 }
 
-impl<T> Debug for CoreSpawnMiddleware<T>
-where
-  T: Send + 'static,
-{
+impl Debug for CoreSpawnMiddlewareChain {
   fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-    write!(f, "CoreSpawnMiddleware")
+    write!(f, "CoreSpawnMiddlewareChain")
   }
 }
 
-impl<T> PartialEq for CoreSpawnMiddleware<T>
-where
-  T: Send + 'static,
-{
+impl PartialEq for CoreSpawnMiddlewareChain {
   fn eq(&self, other: &Self) -> bool {
     Arc::ptr_eq(&self.inner, &other.inner)
   }
 }
 
-impl<T> Eq for CoreSpawnMiddleware<T> where T: Send + 'static {}
+impl Eq for CoreSpawnMiddlewareChain {}
 
-impl<T> Hash for CoreSpawnMiddleware<T>
-where
-  T: Send + 'static,
-{
+impl Hash for CoreSpawnMiddlewareChain {
+  fn hash<H: Hasher>(&self, state: &mut H) {
+    (Arc::as_ptr(&self.inner) as *const ()).hash(state);
+  }
+}
+
+/// Spawn middleware は CoreSpawnMiddlewareChain をラップする。
+#[derive(Clone)]
+pub struct CoreSpawnMiddleware {
+  inner: Arc<dyn Fn(CoreSpawnMiddlewareChain) -> CoreSpawnMiddlewareChain + Send + Sync + 'static>,
+}
+
+impl CoreSpawnMiddleware {
+  pub fn new<F>(f: F) -> Self
+  where
+    F: Fn(CoreSpawnMiddlewareChain) -> CoreSpawnMiddlewareChain + Send + Sync + 'static, {
+    Self { inner: Arc::new(f) }
+  }
+
+  pub fn run(&self, next: CoreSpawnMiddlewareChain) -> CoreSpawnMiddlewareChain {
+    (self.inner)(next)
+  }
+}
+
+impl Debug for CoreSpawnMiddleware {
+  fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+    write!(f, "CoreSpawnMiddleware")
+  }
+}
+
+impl PartialEq for CoreSpawnMiddleware {
+  fn eq(&self, other: &Self) -> bool {
+    Arc::ptr_eq(&self.inner, &other.inner)
+  }
+}
+
+impl Eq for CoreSpawnMiddleware {}
+
+impl Hash for CoreSpawnMiddleware {
   fn hash<H: Hasher>(&self, state: &mut H) {
     (Arc::as_ptr(&self.inner) as *const ()).hash(state);
   }
@@ -372,7 +407,8 @@ static_assertions::assert_impl_all!(
   CoreReceiverMiddlewareChain<u8, ()>: Send, Sync
 );
 static_assertions::assert_impl_all!(CoreSenderMiddlewareChain<u8>: Send, Sync);
-static_assertions::assert_impl_all!(CoreSpawnMiddleware<u8>: Send, Sync);
+static_assertions::assert_impl_all!(CoreSpawnMiddlewareChain: Send, Sync);
+static_assertions::assert_impl_all!(CoreSpawnMiddleware: Send, Sync);
 
 /// 与えられた receiver middleware 群からチェーンを構築する。
 pub fn compose_receiver_chain<'a, S, E, I>(
@@ -417,11 +453,10 @@ where
   Some(chain)
 }
 
-/// 与えられた spawn middleware 群を適用し、最終的な Spawner（あるいは同等の型）を返す。
-pub fn compose_spawn_chain<'a, T, I>(middlewares: I, tail: T) -> Option<T>
+/// 与えられた spawn middleware 群を適用し、CoreSpawnMiddlewareChain を構築する。
+pub fn compose_spawn_chain<'a, I>(middlewares: I, tail: CoreSpawnMiddlewareChain) -> Option<CoreSpawnMiddlewareChain>
 where
-  T: Send + 'static,
-  I: IntoIterator<Item = &'a CoreSpawnMiddleware<T>>, {
+  I: IntoIterator<Item = &'a CoreSpawnMiddleware>, {
   let collected: Vec<_> = middlewares.into_iter().collect();
   if collected.is_empty() {
     return None;

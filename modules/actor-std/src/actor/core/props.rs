@@ -10,6 +10,7 @@ use async_trait::async_trait;
 use once_cell::sync::Lazy;
 use tokio::sync::{Mutex, RwLock};
 
+use nexus_actor_core_rs::context::core::CoreSpawnAdapter;
 use nexus_actor_core_rs::context::{CoreMailboxFactory, CoreProps};
 use nexus_actor_core_rs::runtime::CoreRuntime;
 
@@ -36,6 +37,7 @@ use crate::actor::core::receiver_middleware::ReceiverMiddleware;
 use crate::actor::core::receiver_middleware_chain::ReceiverMiddlewareChain;
 use crate::actor::core::sender_middleware::SenderMiddleware;
 use crate::actor::core::sender_middleware_chain::SenderMiddlewareChain;
+use crate::actor::core::spawn::adapter::StdSpawnAdapter;
 use crate::actor::core::spawn_middleware::SpawnMiddleware;
 use crate::actor::core::spawner::{SpawnError, Spawner};
 use crate::actor::dispatch::unbounded_mailbox_creator_with_opts;
@@ -538,6 +540,30 @@ impl Props {
       core_props = core_props.with_sender_middleware_chain(chain.to_core_invocation_chain());
     }
 
+    let effective_spawner = self
+      .spawn_middleware_chain
+      .clone()
+      .unwrap_or_else(|| self.get_spawner());
+
+    let adapter = Arc::new(StdSpawnAdapter::new(self.clone(), effective_spawner));
+    let spawn_chain = StdSpawnAdapter::to_core_chain(adapter.clone());
+    let adapter_trait: Arc<dyn CoreSpawnAdapter> = adapter;
+
+    core_props = core_props
+      .with_spawn_middleware_chain(spawn_chain)
+      .with_spawn_adapter(adapter_trait);
+
     self.core_props = core_props;
+  }
+
+  pub fn from_core_props(core_props: CoreProps) -> Option<Props> {
+    if let Some(adapter) = core_props.spawn_adapter() {
+      if let Some(std_adapter) = adapter.as_any().downcast_ref::<StdSpawnAdapter>() {
+        let mut props = std_adapter.props();
+        props.core_props = core_props;
+        return Some(props);
+      }
+    }
+    None
   }
 }

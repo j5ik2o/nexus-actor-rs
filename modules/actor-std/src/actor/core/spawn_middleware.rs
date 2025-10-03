@@ -1,30 +1,21 @@
 use std::fmt::{Debug, Formatter};
-
-use nexus_actor_core_rs::context::CoreSpawnMiddleware;
+use std::sync::Arc;
 
 use crate::actor::core::spawner::Spawner;
 
 #[derive(Clone)]
-pub struct SpawnMiddleware(CoreSpawnMiddleware<Spawner>);
+pub struct SpawnMiddleware(Arc<dyn Fn(Spawner) -> Spawner + Send + Sync + 'static>);
 
 unsafe impl Send for SpawnMiddleware {}
 unsafe impl Sync for SpawnMiddleware {}
 
 impl SpawnMiddleware {
   pub fn new(f: impl Fn(Spawner) -> Spawner + Send + Sync + 'static) -> Self {
-    SpawnMiddleware(CoreSpawnMiddleware::new(f))
+    SpawnMiddleware(Arc::new(f))
   }
 
   pub fn run(&self, next: Spawner) -> Spawner {
-    self.0.run(next)
-  }
-
-  pub fn as_core(&self) -> &CoreSpawnMiddleware<Spawner> {
-    &self.0
-  }
-
-  pub fn into_core(self) -> CoreSpawnMiddleware<Spawner> {
-    self.0
+    (self.0)(next)
   }
 }
 
@@ -36,7 +27,7 @@ impl Debug for SpawnMiddleware {
 
 impl PartialEq for SpawnMiddleware {
   fn eq(&self, other: &Self) -> bool {
-    self.0 == other.0
+    Arc::ptr_eq(&self.0, &other.0)
   }
 }
 
@@ -44,7 +35,7 @@ impl Eq for SpawnMiddleware {}
 
 impl std::hash::Hash for SpawnMiddleware {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    self.0.hash(state);
+    (Arc::as_ptr(&self.0) as *const ()).hash(state);
   }
 }
 
