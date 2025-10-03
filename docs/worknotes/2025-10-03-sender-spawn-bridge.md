@@ -108,3 +108,9 @@
 - テスト:
   - spawn middleware を含む Props での end-to-end テスト。
   - ActorSystem drop 時のフォールバック確認。
+
+## ContextRegistry 実装メモ
+- ContextHandle snapshot 時に `(system_id, self_pid)` で登録／解除。
+- 登録は ContextHandle::snapshot_with_core() 内で実行、Scope をぬける際や ActorContext drop 時に解除。
+- 登録する値は `WeakContextHandle` にし、アップグレードできなければ削除。
+- RootContext は ContextRegistry に登録しない（PID や ActorSystem をその場で取得）。
