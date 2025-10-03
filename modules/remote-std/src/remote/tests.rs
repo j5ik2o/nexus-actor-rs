@@ -384,6 +384,29 @@ async fn spawn_remote_unknown_kind_returns_error() -> TestResult<()> {
 }
 
 #[tokio::test]
+async fn remote_block_list_public_api_works() -> TestResult<()> {
+  let system = ActorSystem::new().await.expect("actor system init");
+  let config = Config::from([ConfigOption::with_host("127.0.0.1"), ConfigOption::with_port(0)]).await;
+  let remote = Arc::new(Remote::new(system, config).await);
+
+  // initially empty
+  assert!(remote.list_blocked_systems().await.is_empty());
+
+  remote.block_system("blocked-A").await;
+  remote.block_system("blocked-B").await;
+  let mut listed = remote.list_blocked_systems().await;
+  listed.sort();
+  assert_eq!(listed, vec!["blocked-A".to_string(), "blocked-B".to_string()]);
+
+  // unblock one and verify
+  remote.unblock_system("blocked-A").await;
+  let listed = remote.list_blocked_systems().await;
+  assert_eq!(listed, vec!["blocked-B".to_string()]);
+
+  Ok(())
+}
+
+#[tokio::test]
 async fn remote_reconnect_after_server_restart() -> Result<(), Box<dyn std::error::Error>> {
   static INIT: OnceCell<()> = OnceCell::const_new();
   let _ = INIT

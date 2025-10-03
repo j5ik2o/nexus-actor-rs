@@ -231,6 +231,20 @@ impl Remote {
     &self.inner.block_list
   }
 
+  // BlockList 操作用の公開 API
+  pub async fn block_system(&self, member: impl Into<String>) {
+    self.inner.block_list.block(member.into()).await;
+  }
+
+  pub async fn unblock_system(&self, member: impl Into<String>) {
+    self.inner.block_list.unblock(member.into()).await;
+  }
+
+  pub async fn list_blocked_systems(&self) -> Vec<String> {
+    let set = self.inner.block_list.get_blocked_members().await;
+    set.iter().map(|s| s.clone()).collect()
+  }
+
   pub async fn metrics_sink(&self) -> Option<Arc<MetricsSink>> {
     self.inner.metrics_sink().await
   }
