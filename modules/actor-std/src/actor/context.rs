@@ -15,6 +15,7 @@ use crate::actor::message::MessageHandle;
 use crate::actor::message::ReadonlyMessageHeadersHandle;
 use crate::actor::message::ResponseHandle;
 use crate::ctxext::extensions::{ContextExtensionHandle, ContextExtensionId};
+use nexus_actor_core_rs::CorePid;
 
 mod actor_context;
 mod actor_context_extras;
@@ -62,7 +63,7 @@ pub trait Context:
 
 pub trait ExtensionContext: ExtensionPart + Send + Sync + 'static {}
 
-pub trait SenderContext: InfoPart + SenderPart + MessagePart + Send + Sync + 'static {}
+pub trait SenderContext: InfoPart + SenderPart + CoreSenderPart + MessagePart + Send + Sync + 'static {}
 
 pub trait ReceiverContext: InfoPart + ReceiverPart + MessagePart + ExtensionPart + Send + Sync + 'static {}
 
@@ -185,6 +186,19 @@ pub trait SenderPart: Debug + Send + Sync + 'static {
 
   // RequestFuture sends a message to a given PID and returns a Future
   async fn request_future(&self, pid: ExtendedPid, message_handle: MessageHandle, timeout: Duration) -> ActorFuture;
+}
+
+#[async_trait]
+pub trait CoreSenderPart: Debug + Send + Sync + 'static {
+  async fn get_sender_core(&self) -> Option<CorePid>;
+
+  async fn send_core(&mut self, pid: CorePid, message_handle: MessageHandle);
+
+  async fn request_core(&mut self, pid: CorePid, message_handle: MessageHandle);
+
+  async fn request_with_custom_sender_core(&mut self, pid: CorePid, message_handle: MessageHandle, sender: CorePid);
+
+  async fn request_future_core(&self, pid: CorePid, message_handle: MessageHandle, timeout: Duration) -> ActorFuture;
 }
 
 #[async_trait]

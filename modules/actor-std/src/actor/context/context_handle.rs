@@ -12,8 +12,8 @@ use crate::actor::context::actor_context::{ActorContext, ContextBorrow};
 use crate::actor::context::context_snapshot::ContextSnapshot;
 use crate::actor::context::StdActorContextSnapshot;
 use crate::actor::context::{
-  BasePart, Context, ExtensionContext, ExtensionPart, InfoPart, MessagePart, ReceiverContext, ReceiverPart,
-  SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart,
+  BasePart, Context, CoreSenderPart, ExtensionContext, ExtensionPart, InfoPart, MessagePart, ReceiverContext,
+  ReceiverPart, SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart,
 };
 use crate::actor::core::ActorError;
 use crate::actor::core::ActorHandle;
@@ -28,6 +28,7 @@ use crate::actor::message::ResponseHandle;
 use crate::actor::process::actor_future::ActorFuture;
 use crate::ctxext::extensions::{ContextExtensionHandle, ContextExtensionId};
 use nexus_actor_core_rs::context::CoreContextSnapshot;
+use nexus_actor_core_rs::CorePid;
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct ContextLockMetricsSnapshot {
@@ -435,6 +436,33 @@ impl SenderPart for ContextHandle {
     record_read_lock_acquisition();
     let mg = ctx.read().await;
     mg.request_future(pid, message_handle, timeout).await
+  }
+}
+
+#[async_trait]
+impl CoreSenderPart for ContextHandle {
+  async fn get_sender_core(&self) -> Option<CorePid> {
+    self.get_sender().await.map(|pid| pid.to_core())
+  }
+
+  async fn send_core(&mut self, pid: CorePid, message_handle: MessageHandle) {
+    self.send(ExtendedPid::from(pid), message_handle).await
+  }
+
+  async fn request_core(&mut self, pid: CorePid, message_handle: MessageHandle) {
+    self.request(ExtendedPid::from(pid), message_handle).await
+  }
+
+  async fn request_with_custom_sender_core(&mut self, pid: CorePid, message_handle: MessageHandle, sender: CorePid) {
+    self
+      .request_with_custom_sender(ExtendedPid::from(pid), message_handle, ExtendedPid::from(sender))
+      .await
+  }
+
+  async fn request_future_core(&self, pid: CorePid, message_handle: MessageHandle, timeout: Duration) -> ActorFuture {
+    self
+      .request_future(ExtendedPid::from(pid), message_handle, timeout)
+      .await
   }
 }
 

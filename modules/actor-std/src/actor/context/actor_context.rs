@@ -11,8 +11,8 @@ use crate::actor::context::sender_context_handle::SenderContextHandle;
 use crate::actor::context::spawner_context_handle::SpawnerContextHandle;
 use crate::actor::context::state::State;
 use crate::actor::context::{
-  BasePart, Context, ExtensionContext, ExtensionPart, InfoPart, MessagePart, ReceiverContext, ReceiverPart,
-  SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart,
+  BasePart, Context, CoreSenderPart, ExtensionContext, ExtensionPart, InfoPart, MessagePart, ReceiverContext,
+  ReceiverPart, SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart,
 };
 use crate::actor::core::Actor;
 use crate::actor::core::ActorError;
@@ -1202,6 +1202,32 @@ impl ExtensionPart for ActorContext {
 }
 
 impl SenderContext for ActorContext {}
+#[async_trait]
+impl CoreSenderPart for ActorContext {
+  async fn get_sender_core(&self) -> Option<CorePid> {
+    self.get_sender().await.map(|pid| pid.to_core())
+  }
+
+  async fn send_core(&mut self, pid: CorePid, message_handle: MessageHandle) {
+    self.send(ExtendedPid::from(pid), message_handle).await
+  }
+
+  async fn request_core(&mut self, pid: CorePid, message_handle: MessageHandle) {
+    self.request(ExtendedPid::from(pid), message_handle).await
+  }
+
+  async fn request_with_custom_sender_core(&mut self, pid: CorePid, message_handle: MessageHandle, sender: CorePid) {
+    self
+      .request_with_custom_sender(ExtendedPid::from(pid), message_handle, ExtendedPid::from(sender))
+      .await
+  }
+
+  async fn request_future_core(&self, pid: CorePid, message_handle: MessageHandle, timeout: Duration) -> ActorFuture {
+    self
+      .request_future(ExtendedPid::from(pid), message_handle, timeout)
+      .await
+  }
+}
 impl ReceiverContext for ActorContext {}
 
 impl SpawnerContext for ActorContext {}

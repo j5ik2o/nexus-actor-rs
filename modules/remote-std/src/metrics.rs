@@ -49,10 +49,11 @@ mod tests {
   use super::*;
   use crate::messages::RemoteTerminate;
   use async_trait::async_trait;
+  use nexus_actor_core_rs::CorePid;
   use nexus_actor_std_rs::actor::actor_system::ActorSystem;
   use nexus_actor_std_rs::actor::context::{
-    BasePart, Context, ContextHandle, ExtensionContext, ExtensionPart, InfoPart, MessagePart, ReceiverContext,
-    ReceiverPart, SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart,
+    BasePart, Context, ContextHandle, CoreSenderPart, ExtensionContext, ExtensionPart, InfoPart, MessagePart,
+    ReceiverContext, ReceiverPart, SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart,
   };
   use nexus_actor_std_rs::actor::core::{ActorError, ActorHandle, Continuer, ExtendedPid, Props, SpawnError};
   use nexus_actor_std_rs::actor::message::{
@@ -102,6 +103,33 @@ mod tests {
   }
 
   impl SenderContext for TestContext {}
+
+  #[async_trait]
+  impl CoreSenderPart for TestContext {
+    async fn get_sender_core(&self) -> Option<CorePid> {
+      Some(self.sender_pid.to_core())
+    }
+
+    async fn send_core(&mut self, pid: CorePid, message_handle: MessageHandle) {
+      self.send(ExtendedPid::from(pid), message_handle).await
+    }
+
+    async fn request_core(&mut self, pid: CorePid, message_handle: MessageHandle) {
+      self.request(ExtendedPid::from(pid), message_handle).await
+    }
+
+    async fn request_with_custom_sender_core(&mut self, pid: CorePid, message_handle: MessageHandle, sender: CorePid) {
+      self
+        .request_with_custom_sender(ExtendedPid::from(pid), message_handle, ExtendedPid::from(sender))
+        .await
+    }
+
+    async fn request_future_core(&self, pid: CorePid, message_handle: MessageHandle, timeout: Duration) -> ActorFuture {
+      self
+        .request_future(ExtendedPid::from(pid), message_handle, timeout)
+        .await
+    }
+  }
 
   #[async_trait]
   impl SenderPart for TestContext {

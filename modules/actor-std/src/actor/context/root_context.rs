@@ -10,7 +10,8 @@ use crate::actor::actor_system::{ActorSystem, WeakActorSystem};
 use crate::actor::context::sender_context_handle::SenderContextHandle;
 use crate::actor::context::spawner_context_handle::SpawnerContextHandle;
 use crate::actor::context::{
-  InfoPart, MessagePart, SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart, TypedRootContext,
+  CoreSenderPart, InfoPart, MessagePart, SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart,
+  TypedRootContext,
 };
 use crate::actor::core::make_sender_middleware_chain;
 use crate::actor::core::ActorHandle;
@@ -31,6 +32,7 @@ use crate::actor::process::future::ActorFutureProcess;
 use crate::actor::process::Process;
 use crate::actor::supervisor::SupervisorStrategyHandle;
 use crate::generated::actor::PoisonPill;
+use nexus_actor_core_rs::CorePid;
 
 fn ensure_envelope(message_handle: MessageHandle) -> MessageEnvelope {
   if let Some(envelope) = message_handle.to_typed::<MessageEnvelope>() {
@@ -355,6 +357,33 @@ impl SenderPart for RootContext {
     self
       .prepare_request_future(pid, message_handle, timeout)
       .dispatch()
+      .await
+  }
+}
+
+#[async_trait]
+impl CoreSenderPart for RootContext {
+  async fn get_sender_core(&self) -> Option<CorePid> {
+    None
+  }
+
+  async fn send_core(&mut self, pid: CorePid, message_handle: MessageHandle) {
+    self.send(ExtendedPid::from(pid), message_handle).await
+  }
+
+  async fn request_core(&mut self, pid: CorePid, message_handle: MessageHandle) {
+    self.request(ExtendedPid::from(pid), message_handle).await
+  }
+
+  async fn request_with_custom_sender_core(&mut self, pid: CorePid, message_handle: MessageHandle, sender: CorePid) {
+    self
+      .request_with_custom_sender(ExtendedPid::from(pid), message_handle, ExtendedPid::from(sender))
+      .await
+  }
+
+  async fn request_future_core(&self, pid: CorePid, message_handle: MessageHandle, timeout: Duration) -> ActorFuture {
+    self
+      .request_future(ExtendedPid::from(pid), message_handle, timeout)
       .await
   }
 }

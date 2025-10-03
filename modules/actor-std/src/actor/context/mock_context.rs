@@ -1,7 +1,7 @@
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::{
-  BasePart, Context, ExtensionContext, ExtensionPart, InfoPart, MessagePart, ReceiverContext, ReceiverPart,
-  SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart,
+  BasePart, Context, CoreSenderPart, ExtensionContext, ExtensionPart, InfoPart, MessagePart, ReceiverContext,
+  ReceiverPart, SenderContext, SenderPart, SpawnerContext, SpawnerPart, StopperPart,
 };
 use crate::actor::core::ActorError;
 use crate::actor::core::ActorHandle;
@@ -18,6 +18,7 @@ use crate::actor::process::future::ActorFutureProcess;
 use crate::actor::process::Process;
 use crate::ctxext::extensions::{ContextExtensionHandle, ContextExtensionId};
 use async_trait::async_trait;
+use nexus_actor_core_rs::CorePid;
 use std::any::Any;
 use std::time::Duration;
 
@@ -82,6 +83,33 @@ impl SenderPart for MockContext {
     let process = ActorFutureProcess::new(self.system.clone(), timeout).await;
     process.send_user_message(None, message_handle).await;
     process.get_future().await
+  }
+}
+
+#[async_trait]
+impl CoreSenderPart for MockContext {
+  async fn get_sender_core(&self) -> Option<CorePid> {
+    None
+  }
+
+  async fn send_core(&mut self, pid: CorePid, message_handle: MessageHandle) {
+    self.send(ExtendedPid::from(pid), message_handle).await
+  }
+
+  async fn request_core(&mut self, pid: CorePid, message_handle: MessageHandle) {
+    self.request(ExtendedPid::from(pid), message_handle).await
+  }
+
+  async fn request_with_custom_sender_core(&mut self, pid: CorePid, message_handle: MessageHandle, sender: CorePid) {
+    self
+      .request_with_custom_sender(ExtendedPid::from(pid), message_handle, ExtendedPid::from(sender))
+      .await
+  }
+
+  async fn request_future_core(&self, pid: CorePid, message_handle: MessageHandle, timeout: Duration) -> ActorFuture {
+    self
+      .request_future(ExtendedPid::from(pid), message_handle, timeout)
+      .await
   }
 }
 

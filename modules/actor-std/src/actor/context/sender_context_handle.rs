@@ -4,13 +4,14 @@ use std::time::Duration;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::context_handle::ContextHandle;
 use crate::actor::context::root_context::RootContext;
-use crate::actor::context::{InfoPart, MessagePart, SenderContext, SenderPart};
+use crate::actor::context::{CoreSenderPart, InfoPart, MessagePart, SenderContext, SenderPart};
 use crate::actor::core::ActorHandle;
 use crate::actor::core::ExtendedPid;
 use crate::actor::message::MessageEnvelope;
 use crate::actor::message::MessageHandle;
 use crate::actor::message::ReadonlyMessageHeadersHandle;
 use crate::actor::process::actor_future::ActorFuture;
+use nexus_actor_core_rs::CorePid;
 
 #[derive(Debug, Clone)]
 enum SenderContextRef {
@@ -133,6 +134,33 @@ impl SenderPart for SenderContextHandle {
       SenderContextRef::Context(context) => context.request_future(pid, message_handle, timeout).await,
       SenderContextRef::Root(root) => root.request_future(pid, message_handle, timeout).await,
     }
+  }
+}
+
+#[async_trait]
+impl CoreSenderPart for SenderContextHandle {
+  async fn get_sender_core(&self) -> Option<CorePid> {
+    self.get_sender().await.map(|pid| pid.to_core())
+  }
+
+  async fn send_core(&mut self, pid: CorePid, message_handle: MessageHandle) {
+    self.send(ExtendedPid::from(pid), message_handle).await
+  }
+
+  async fn request_core(&mut self, pid: CorePid, message_handle: MessageHandle) {
+    self.request(ExtendedPid::from(pid), message_handle).await
+  }
+
+  async fn request_with_custom_sender_core(&mut self, pid: CorePid, message_handle: MessageHandle, sender: CorePid) {
+    self
+      .request_with_custom_sender(ExtendedPid::from(pid), message_handle, ExtendedPid::from(sender))
+      .await
+  }
+
+  async fn request_future_core(&self, pid: CorePid, message_handle: MessageHandle, timeout: Duration) -> ActorFuture {
+    self
+      .request_future(ExtendedPid::from(pid), message_handle, timeout)
+      .await
   }
 }
 
