@@ -45,7 +45,7 @@ impl<T: Message + ProstMessage + Default + 'static> SerializerAny for ProtoSeria
   fn serialize_any(&self, msg: &dyn Any) -> Result<Vec<u8>, SerializerError> {
     msg
       .downcast_ref::<T>()
-      .ok_or(SerializerError::SerializationError("Invalid type".to_string()))
+      .ok_or_else(|| SerializerError::serialization("Invalid type"))
       .and_then(|m| self.serialize(m))
   }
 
@@ -53,14 +53,14 @@ impl<T: Message + ProstMessage + Default + 'static> SerializerAny for ProtoSeria
     self
       .deserialize(bytes)
       .map(|m| Arc::new(m) as Arc<dyn Any + Send + Sync>)
-      .map_err(|e| SerializerError::DeserializationError(e.to_string()))
+      .map_err(|e| SerializerError::deserialization(e.to_string()))
   }
 
   fn deserialize_message(&self, bytes: &[u8]) -> Result<Arc<dyn Message>, SerializerError> {
     self
       .deserialize(bytes)
       .map(|m| Arc::new(m) as Arc<dyn Message>)
-      .map_err(|e| SerializerError::DeserializationError(e.to_string()))
+      .map_err(|e| SerializerError::deserialization(e.to_string()))
   }
 
   fn type_name(&self) -> String {
@@ -74,7 +74,7 @@ impl<T: Message + ProstMessage + Default> Serializer<T> for ProtoSerializer<T> {
   }
 
   fn deserialize(&self, bytes: &[u8]) -> Result<T, SerializerError> {
-    T::decode(bytes).map_err(|e| SerializerError::DeserializationError(e.to_string()))
+    T::decode(bytes).map_err(|e| SerializerError::deserialization(e.to_string()))
   }
 
   fn get_type_name(&self) -> String {
@@ -96,7 +96,7 @@ impl<T: Message + Serialize + for<'de> Deserialize<'de> + Send + Sync + 'static>
   fn serialize_any(&self, msg: &dyn Any) -> Result<Vec<u8>, SerializerError> {
     msg
       .downcast_ref::<T>()
-      .ok_or(SerializerError::SerializationError("Invalid type".to_string()))
+      .ok_or_else(|| SerializerError::serialization("Invalid type"))
       .and_then(|m| self.serialize(m))
   }
 
@@ -104,14 +104,14 @@ impl<T: Message + Serialize + for<'de> Deserialize<'de> + Send + Sync + 'static>
     self
       .deserialize(bytes)
       .map(|m| Arc::new(m) as Arc<dyn Any + Send + Sync>)
-      .map_err(|e| SerializerError::DeserializationError(e.to_string()))
+      .map_err(|e| SerializerError::deserialization(e.to_string()))
   }
 
   fn deserialize_message(&self, bytes: &[u8]) -> Result<Arc<dyn Message>, SerializerError> {
     self
       .deserialize(bytes)
       .map(|m| Arc::new(m) as Arc<dyn Message>)
-      .map_err(|e| SerializerError::DeserializationError(e.to_string()))
+      .map_err(|e| SerializerError::deserialization(e.to_string()))
   }
 
   fn type_name(&self) -> String {
@@ -121,11 +121,11 @@ impl<T: Message + Serialize + for<'de> Deserialize<'de> + Send + Sync + 'static>
 
 impl<T: Serialize + for<'de> Deserialize<'de> + Send + Sync> Serializer<T> for JsonSerializer<T> {
   fn serialize(&self, msg: &T) -> Result<Vec<u8>, SerializerError> {
-    serde_json::to_vec(&msg).map_err(|e| SerializerError::SerializationError(e.to_string()))
+    serde_json::to_vec(&msg).map_err(|e| SerializerError::serialization(e.to_string()))
   }
 
   fn deserialize(&self, bytes: &[u8]) -> Result<T, SerializerError> {
-    serde_json::from_slice(bytes).map_err(|e| SerializerError::DeserializationError(e.to_string()))
+    serde_json::from_slice(bytes).map_err(|e| SerializerError::deserialization(e.to_string()))
   }
 
   fn get_type_name(&self) -> String {

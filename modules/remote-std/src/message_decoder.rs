@@ -26,7 +26,7 @@ where
   any
     .downcast_ref::<T>()
     .cloned()
-    .ok_or_else(|| SerializerError::DeserializationError("Failed to downcast RootSerializable".to_string()))
+    .ok_or_else(|| SerializerError::deserialization("Failed to downcast RootSerializable"))
 }
 
 fn deserialize_root_serializable<TTransport, TResult>(
@@ -40,7 +40,7 @@ where
   let transport_arc = deserialize_any(bytes, serializer_id, type_name)?;
   let transport = transport_arc
     .downcast_arc::<TTransport>()
-    .map_err(|_| SerializerError::DeserializationError("Failed to downcast transport".to_string()))?;
+    .map_err(|_| SerializerError::deserialization("Failed to downcast transport"))?;
 
   let result = transport.as_ref().deserialize()?;
   let typed = downcast_root_serializable::<TResult>(result)?;
@@ -77,7 +77,7 @@ pub fn decode_wire_message(
   }
 
   if type_name == std::any::type_name::<Terminated>() {
-    let terminated = Terminated::decode(payload).map_err(|e| SerializerError::DeserializationError(e.to_string()))?;
+    let terminated = Terminated::decode(payload).map_err(|e| SerializerError::deserialization(e.to_string()))?;
     return Ok(DecodedMessage::Terminated(terminated));
   }
 
@@ -86,18 +86,18 @@ pub fn decode_wire_message(
   }
 
   if type_name == std::any::type_name::<Watch>() {
-    let watch = Watch::decode(payload).map_err(|e| SerializerError::DeserializationError(e.to_string()))?;
+    let watch = Watch::decode(payload).map_err(|e| SerializerError::deserialization(e.to_string()))?;
     let system_message = watch
       .to_system_message()
-      .ok_or_else(|| SerializerError::DeserializationError("Watch message missing watcher".into()))?;
+      .ok_or_else(|| SerializerError::deserialization("Watch message missing watcher"))?;
     return Ok(DecodedMessage::System(system_message));
   }
 
   if type_name == std::any::type_name::<Unwatch>() {
-    let unwatch = Unwatch::decode(payload).map_err(|e| SerializerError::DeserializationError(e.to_string()))?;
+    let unwatch = Unwatch::decode(payload).map_err(|e| SerializerError::deserialization(e.to_string()))?;
     let system_message = unwatch
       .to_system_message()
-      .ok_or_else(|| SerializerError::DeserializationError("Unwatch message missing watcher".into()))?;
+      .ok_or_else(|| SerializerError::deserialization("Unwatch message missing watcher"))?;
     return Ok(DecodedMessage::System(system_message));
   }
 

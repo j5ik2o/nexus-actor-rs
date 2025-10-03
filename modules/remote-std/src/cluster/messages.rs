@@ -68,7 +68,7 @@ impl RootSerializable for DeliverBatchRequest {
     let batch_transport = batch_transport
       .as_any()
       .downcast_ref::<PubSubBatchTransport>()
-      .ok_or_else(|| SerializerError::SerializationError("Failed to downcast to PubSubBatchTransport".to_string()))?
+      .ok_or_else(|| SerializerError::serialization("Failed to downcast to PubSubBatchTransport"))?
       .clone();
 
     Ok(Arc::new(DeliverBatchRequestTransport {
@@ -103,7 +103,7 @@ impl RootSerializable for PubSubAutoResponseBatch {
     let batch_transport = batch_transport
       .as_any()
       .downcast_ref::<PubSubBatchTransport>()
-      .ok_or_else(|| SerializerError::SerializationError("Failed to downcast to PubSubBatchTransport".to_string()))?
+      .ok_or_else(|| SerializerError::serialization("Failed to downcast to PubSubBatchTransport"))?
       .clone();
 
     Ok(Arc::new(PubSubAutoRespondBatchTransport {
@@ -123,13 +123,13 @@ impl RootSerialized for PubSubBatchTransport {
       let type_name = self
         .type_names
         .get(envelope.type_id as usize)
-        .ok_or_else(|| SerializerError::DeserializationError("Invalid type id".to_string()))?
+        .ok_or_else(|| SerializerError::deserialization("Invalid type id"))?
         .clone();
 
       let serializer_raw = u32::try_from(envelope.serializer_id)
-        .map_err(|_| SerializerError::DeserializationError("Negative serializer id".to_string()))?;
+        .map_err(|_| SerializerError::deserialization("Negative serializer id"))?;
 
-      let serializer_id = SerializerId::try_from(serializer_raw).map_err(SerializerError::DeserializationError)?;
+      let serializer_id = SerializerId::try_from(serializer_raw).map_err(SerializerError::deserialization)?;
 
       let message = deserialize_message(&envelope.message_data, &serializer_id, &type_name)?;
       batch.envelopes.push(message);
@@ -144,13 +144,13 @@ impl RootSerialized for DeliverBatchRequestTransport {
     let batch = self
       .batch
       .as_ref()
-      .ok_or_else(|| SerializerError::DeserializationError("Batch is missing".to_string()))?
+      .ok_or_else(|| SerializerError::deserialization("Batch is missing"))?
       .deserialize()?;
 
     let pub_sub_batch = batch
       .as_any()
       .downcast_ref::<PubSubBatch>()
-      .ok_or_else(|| SerializerError::DeserializationError("Failed to downcast to PubSubBatch".to_string()))?
+      .ok_or_else(|| SerializerError::deserialization("Failed to downcast to PubSubBatch"))?
       .clone();
 
     Ok(Arc::new(DeliverBatchRequest {
@@ -173,7 +173,7 @@ impl RootSerialized for PubSubAutoRespondBatchTransport {
     let pub_sub_batch = batch
       .as_any()
       .downcast_ref::<PubSubBatch>()
-      .ok_or_else(|| SerializerError::DeserializationError("Failed to downcast to PubSubBatch".to_string()))?
+      .ok_or_else(|| SerializerError::deserialization("Failed to downcast to PubSubBatch"))?
       .clone();
 
     Ok(Arc::new(PubSubAutoResponseBatch {
