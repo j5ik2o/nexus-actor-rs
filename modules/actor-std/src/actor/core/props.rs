@@ -525,9 +525,15 @@ impl Props {
 
     let supervisor_strategy = self.get_supervisor_strategy().core_strategy();
 
-    self.core_props = CoreProps::new()
+    let mut core_props = CoreProps::new()
       .with_actor_type(self.actor_type_hint.clone())
       .with_mailbox_factory(mailbox_factory)
       .with_supervisor_strategy(supervisor_strategy);
+
+    if let Some(chain) = &self.receiver_middleware_chain {
+      core_props = core_props.with_receiver_middleware_chain(chain.to_core_invocation_chain());
+    }
+
+    self.core_props = core_props;
   }
 }

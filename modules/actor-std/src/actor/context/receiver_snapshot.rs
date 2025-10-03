@@ -1,6 +1,8 @@
 use crate::actor::context::context_snapshot::ContextSnapshot;
 use crate::actor::message::MessageEnvelope;
-use nexus_actor_core_rs::context::{CoreActorContextSnapshot, CoreReceiverInvocation, CoreReceiverSnapshot};
+use nexus_actor_core_rs::context::{
+  CoreActorContextSnapshot, CoreContextSnapshot, CoreReceiverInvocation, CoreReceiverSnapshot,
+};
 
 #[derive(Debug, Clone)]
 pub struct ReceiverSnapshot {
@@ -53,6 +55,14 @@ impl ReceiverSnapshot {
 
   pub fn into_core_invocation(self) -> Option<CoreReceiverInvocation> {
     self.into_core_snapshot()?.into_core_invocation()
+  }
+
+  pub fn from_core_invocation(invocation: CoreReceiverInvocation) -> Self {
+    let (context_snapshot, envelope) = invocation.into_parts();
+    let core_context = CoreContextSnapshot::from(context_snapshot);
+    let context = ContextSnapshot::default().with_core_snapshot(core_context);
+    let message = MessageEnvelope::from_core(envelope);
+    Self::new(context, message)
   }
 }
 

@@ -4,7 +4,8 @@ use std::hash::Hash;
 use std::sync::Arc;
 
 use futures::future::BoxFuture;
-use nexus_actor_core_rs::context::CoreReceiverMiddlewareChain;
+use nexus_actor_core_rs::actor::core_types::actor_error::CoreActorError;
+use nexus_actor_core_rs::context::{CoreReceiverInvocation, CoreReceiverMiddlewareChain};
 
 use crate::actor::context::{ReceiverContextHandle, ReceiverSnapshot};
 use crate::actor::core::actor_error::ActorError;
@@ -71,6 +72,18 @@ impl ReceiverMiddlewareChain {
 
   pub fn as_core(&self) -> &CoreReceiverMiddlewareChain<ReceiverSnapshot, ActorError> {
     &self.inner
+  }
+
+  pub fn to_core_invocation_chain(&self) -> CoreReceiverMiddlewareChain<CoreReceiverInvocation, CoreActorError> {
+    let inner = self.inner.clone();
+    CoreReceiverMiddlewareChain::new(move |invocation: CoreReceiverInvocation| {
+      let inner = inner.clone();
+      async move {
+        let snapshot = ReceiverSnapshot::from_core_invocation(invocation);
+        let transformed = inner.apply_sync(snapshot);
+        inner.call_async(transformed).await.map_err(CoreActorError::from)
+      }
+    })
   }
 
   pub async fn run(&self, context: ReceiverContextHandle, envelope: MessageEnvelope) -> Result<(), ActorError> {
