@@ -42,3 +42,19 @@
    - sender/spawn middleware を利用するユニットテストを追加し、CoreProps へ伝播後も従来通り動作することを検証。  
    - Integration テストで CoreProps を経由した監視チェーンが正しく再生されるか確認。
 
+
+## 実装ステップ詳細 (2025-10-03 更新)
+
+- ContextRegistry を追加:
+  - ActorSystemId と CorePid の組をキーに Weak Context を管理。
+  - ContextHandle/RootContext がスコープに入る際に登録、ドロップ時に解除。
+- Sender ブリッジ:
+  - CoreSenderSnapshot に ActorSystemId/self_pid 等を含める。
+  - SenderContextHandle::from_core_snapshot() で ActorSystemRegistry + ContextRegistry 経由で復元。
+  - SenderMiddlewareChain::to_core_invocation_chain() で CoreInvocation -> std 実行を行う。
+- Spawn ブリッジ:
+  - CoreSpawnInvocation (親 snapshot, child CoreProps, child pid, metadata) を定義。
+  - SpawnMiddleware::to_core_invocation_chain() で std props/spawner へ戻す。
+  - Props::from_core_props() で CoreProps -> std Props を復元。
+- Props::rebuild_core_props() を更新し、sender/spawn チェーンも CoreProps に反映。
+- 既存ユニットテストを拡張し、ContextRegistry なしでは動作しないケースも検証。
