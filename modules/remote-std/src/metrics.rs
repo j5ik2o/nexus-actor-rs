@@ -20,9 +20,9 @@ pub struct SenderSnapshotReport {
 
 /// Try to retrieve the sender PID synchronously, and fall back to the core snapshot when necessary.
 pub async fn record_sender_snapshot(context: &ContextHandle) -> Option<ExtendedPid> {
-  if let Some(pid) = context.try_get_sender_opt() {
+  if let Some(pid) = context.try_get_sender_core() {
     SENDER_SNAPSHOT_COUNTERS.hits.fetch_add(1, Ordering::Relaxed);
-    return Some(pid);
+    return Some(ExtendedPid::from(pid));
   }
 
   SENDER_SNAPSHOT_COUNTERS.misses.fetch_add(1, Ordering::Relaxed);

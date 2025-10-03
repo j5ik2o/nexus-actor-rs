@@ -519,6 +519,10 @@ impl ContextHandle {
     self.actor_context_arc().and_then(|ctx| ctx.try_sender())
   }
 
+  pub fn try_get_sender_core(&self) -> Option<CorePid> {
+    self.try_get_sender_opt().map(|pid| pid.to_core())
+  }
+
   pub fn sender_snapshot(&self) -> Option<ExtendedPid> {
     self.try_get_sender_opt()
   }

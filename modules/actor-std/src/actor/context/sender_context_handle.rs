@@ -41,6 +41,10 @@ impl SenderContextHandle {
       SenderContextRef::Root(_) => None,
     }
   }
+
+  pub fn try_sender_core(&self) -> Option<CorePid> {
+    self.try_sender().map(|pid| pid.to_core())
+  }
 }
 
 impl From<ContextHandle> for SenderContextHandle {
