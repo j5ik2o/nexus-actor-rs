@@ -372,3 +372,38 @@ static_assertions::assert_impl_all!(
 );
 static_assertions::assert_impl_all!(CoreSenderMiddlewareChain<u8>: Send, Sync);
 static_assertions::assert_impl_all!(CoreSpawnMiddleware<u8>: Send, Sync);
+
+/// 与えられた sender middleware 群からチェーンを構築する。
+pub fn compose_sender_chain<A>(
+  middlewares: &[CoreSenderMiddleware<A>],
+  tail: CoreSenderMiddlewareChain<A>,
+) -> Option<CoreSenderMiddlewareChain<A>>
+where
+  A: Send + 'static, {
+  if middlewares.is_empty() {
+    return None;
+  }
+
+  let mut chain = tail;
+  for middleware in middlewares.iter().rev() {
+    chain = middleware.run(chain);
+  }
+
+  Some(chain)
+}
+
+/// 与えられた spawn middleware 群を適用し、最終的な Spawner（あるいは同等の型）を返す。
+pub fn compose_spawn_chain<T>(middlewares: &[CoreSpawnMiddleware<T>], tail: T) -> Option<T>
+where
+  T: Send + 'static, {
+  if middlewares.is_empty() {
+    return None;
+  }
+
+  let mut current = tail;
+  for middleware in middlewares.iter().rev() {
+    current = middleware.run(current);
+  }
+
+  Some(current)
+}

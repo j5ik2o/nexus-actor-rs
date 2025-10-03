@@ -6,6 +6,7 @@ use crate::actor::core::sender_middleware::SenderMiddleware;
 use crate::actor::core::sender_middleware_chain::SenderMiddlewareChain;
 use crate::actor::core::spawn_middleware::SpawnMiddleware;
 use crate::actor::core::spawner::Spawner;
+use nexus_actor_core_rs::context::{compose_sender_chain, compose_spawn_chain};
 
 pub fn make_receiver_middleware_chain(
   receiver_middleware: &[ReceiverMiddleware],
@@ -28,11 +29,13 @@ pub fn make_sender_middleware_chain(
   if sender_middleware.is_empty() {
     return None;
   }
-  let mut core_chain = last_sender.into_core();
-  for middleware in sender_middleware.iter().rev() {
-    core_chain = middleware.as_core().run(core_chain);
-  }
-  Some(SenderMiddlewareChain::from_core(core_chain))
+
+  let core_middlewares = sender_middleware
+    .iter()
+    .map(|middleware| middleware.as_core().clone())
+    .collect::<Vec<_>>();
+
+  compose_sender_chain(&core_middlewares, last_sender.into_core()).map(SenderMiddlewareChain::from_core)
 }
 
 pub fn make_context_decorator_chain(
@@ -53,9 +56,11 @@ pub fn make_spawn_middleware_chain(spawn_middleware: &[SpawnMiddleware], last_sp
   if spawn_middleware.is_empty() {
     return None;
   }
-  let mut spawner = last_spawner;
-  for middleware in spawn_middleware.iter().rev() {
-    spawner = middleware.run(spawner);
-  }
-  Some(spawner)
+
+  let core_middlewares = spawn_middleware
+    .iter()
+    .map(|middleware| middleware.as_core().clone())
+    .collect::<Vec<_>>();
+
+  compose_spawn_chain(&core_middlewares, last_spawner)
 }
