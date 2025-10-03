@@ -207,6 +207,46 @@ pub type CoreSupervisorStrategyHandle = Arc<dyn CoreSupervisorStrategy + Send + 
 pub type CoreReceiverMiddlewareChainHandle =
   crate::context::middleware::CoreReceiverMiddlewareChain<CoreReceiverInvocation, CoreActorError>;
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CoreSenderInvocation {
+  context: CoreActorContextSnapshot,
+  target: CorePid,
+  envelope: CoreMessageEnvelope,
+}
+
+impl CoreSenderInvocation {
+  #[must_use]
+  pub fn new(context: CoreActorContextSnapshot, target: CorePid, envelope: CoreMessageEnvelope) -> Self {
+    Self {
+      context,
+      target,
+      envelope,
+    }
+  }
+
+  #[must_use]
+  pub fn context(&self) -> &CoreActorContextSnapshot {
+    &self.context
+  }
+
+  #[must_use]
+  pub fn target(&self) -> &CorePid {
+    &self.target
+  }
+
+  #[must_use]
+  pub fn envelope(&self) -> &CoreMessageEnvelope {
+    &self.envelope
+  }
+
+  #[must_use]
+  pub fn into_parts(self) -> (CoreActorContextSnapshot, CorePid, CoreMessageEnvelope) {
+    (self.context, self.target, self.envelope)
+  }
+}
+
+pub type CoreSenderMiddlewareChainHandle = crate::context::middleware::CoreSenderMiddlewareChain<CoreSenderInvocation>;
+
 #[derive(Clone, Default)]
 pub struct CoreProps {
   pub actor_type: Option<alloc::sync::Arc<str>>,
