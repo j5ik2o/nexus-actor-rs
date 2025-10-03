@@ -24,7 +24,6 @@ mod test {
     CoreSupervisor, CoreSupervisorContext, CoreSupervisorStrategy, CoreSupervisorStrategyFuture,
   };
   use nexus_message_derive_rs::Message;
-  use std::any::Any;
   use std::collections::VecDeque;
   use std::env;
   use std::sync::Arc;
