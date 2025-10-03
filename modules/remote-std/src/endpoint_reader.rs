@@ -1,3 +1,4 @@
+use nexus_actor_core_rs::runtime::CoreTaskFuture;
 use nexus_actor_std_rs::actor::actor_system::ActorSystem;
 use nexus_actor_std_rs::actor::context::SenderPart;
 use nexus_actor_std_rs::actor::core::{ActorProcess, ExtendedPid};
@@ -413,12 +414,15 @@ impl Remoting for EndpointReader {
     let endpoint_reader_connections = self.get_endpoint_manager().await.get_endpoint_reader_connections();
     endpoint_reader_connections.insert(connection_key.clone(), disconnect_tx_arc.clone());
 
-    tokio::spawn({
+    let actor_system = self.get_actor_system().await;
+    let spawner = actor_system.core_runtime().spawner();
+
+    let future_disconnect: CoreTaskFuture = {
       let cloned_self = self.clone();
       let cloned_disconnect_rx = disconnect_rx_arc.clone();
       let cloned_response_tx = response_tx.clone();
       let cloned_connection_key = connection_key.clone();
-      async move {
+      Box::pin(async move {
         let manager = cloned_self.get_endpoint_manager().await;
         let should_disconnect = Self::get_disconnect_flg(cloned_disconnect_rx).await;
         if should_disconnect {
@@ -438,20 +442,27 @@ impl Remoting for EndpointReader {
         }
         manager.get_endpoint_reader_connections().remove(&cloned_connection_key);
         manager.deregister_client_connection(&cloned_connection_key);
-      }
-    });
+      })
+    };
 
-    tokio::spawn({
+    match spawner.clone().spawn(future_disconnect) {
+      Ok(handle) => handle.detach(),
+      Err(err) => tracing::error!(error = ?err, "Failed to spawn disconnect watcher task"),
+    }
+
+    let future_stream: CoreTaskFuture = {
       let cloned_self = self.clone();
       let cloned_request_arc = request_arc.clone();
       let cloned_response_tx = response_tx.clone();
       let cloned_connection_key = connection_key.clone();
-      async move {
+      let suspended_flag = suspended.clone();
+      let disconnect_tx_arc = disconnect_tx_arc.clone();
+      Box::pin(async move {
         let mut request_mg = cloned_request_arc.lock().await;
         while let Some(msg) = request_mg.get_mut().next().await {
           match msg {
             Ok(remote_msg) => {
-              if suspended.load(Ordering::SeqCst) {
+              if suspended_flag.load(Ordering::SeqCst) {
                 continue;
               }
 
@@ -492,8 +503,13 @@ impl Remoting for EndpointReader {
           let _ = tx.send(false).await;
         }
         tracing::debug!("EndpointReader stream closed");
-      }
-    });
+      })
+    };
+
+    match spawner.spawn(future_stream) {
+      Ok(handle) => handle.detach(),
+      Err(err) => tracing::error!(error = ?err, "Failed to spawn stream reader task"),
+    }
 
     let output_stream = ReceiverStream::new(response_rx);
     Ok(Response::new(Box::pin(output_stream) as Self::ReceiveStream))

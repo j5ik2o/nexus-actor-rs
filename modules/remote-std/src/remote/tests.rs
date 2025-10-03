@@ -17,19 +17,33 @@ use std::net::{SocketAddr, TcpListener};
 use std::sync::Arc;
 use std::time::Duration;
 
-use tokio::sync::OnceCell;
-use tokio::task::JoinHandle;
+use nexus_actor_core_rs::runtime::{CoreJoinHandle, CoreTaskFuture};
+use tokio::sync::{oneshot, OnceCell};
 use tokio::time::timeout;
 
-use nexus_utils_std_rs::concurrent::WaitGroup;
 use tracing_subscriber::EnvFilter;
 
 type TestResult<T> = Result<T, Box<dyn std::error::Error>>;
 
+struct RemoteTaskHandle {
+  handle: Arc<dyn CoreJoinHandle>,
+  result: oneshot::Receiver<Result<(), RemoteError>>,
+}
+
+impl RemoteTaskHandle {
+  async fn wait(self) -> Result<(), RemoteError> {
+    let RemoteTaskHandle { handle, result } = self;
+    let join_handle = handle.clone();
+    let outcome = result.await.unwrap_or(Err(RemoteError::ServerError));
+    join_handle.join().await;
+    outcome
+  }
+}
+
 struct RunningRemote {
   system: ActorSystem,
   remote: Arc<Remote>,
-  handle: Option<JoinHandle<Result<(), RemoteError>>>,
+  handle: Option<RemoteTaskHandle>,
   socket_addr: SocketAddr,
 }
 
@@ -54,7 +68,7 @@ impl RunningRemote {
   async fn shutdown(&mut self) -> Result<(), Box<dyn std::error::Error>> {
     self.remote.shutdown(true).await?;
     if let Some(handle) = self.handle.take() {
-      handle.await??;
+      handle.wait().await?;
     }
     Ok(())
   }
@@ -95,31 +109,69 @@ fn client_options(port: u16) -> Vec<ConfigOption> {
   ]
 }
 
-async fn start_remote_instance(
+fn spawn_remote_start(
   remote: Arc<Remote>,
-) -> Result<JoinHandle<Result<(), RemoteError>>, Box<dyn std::error::Error>> {
-  let wait_group = WaitGroup::with_count(1);
-  let cloned_wait = wait_group.clone();
-  let cloned_remote = remote.clone();
+) -> Result<(RemoteTaskHandle, oneshot::Receiver<()>), nexus_actor_core_rs::runtime::CoreSpawnError> {
+  let spawner = remote.get_actor_system().core_runtime().spawner();
+  let (result_tx, result_rx) = oneshot::channel();
+  let (started_tx, started_rx) = oneshot::channel();
+  let started_signal = Arc::new(tokio::sync::Mutex::new(Some(started_tx)));
+  let started_for_callback = started_signal.clone();
+  let started_for_failure = started_signal.clone();
+  let remote_clone = remote.clone();
 
-  let handle = tokio::spawn(async move {
-    cloned_remote
-      .start_with_callback(|| async {
-        cloned_wait.done();
+  let future: CoreTaskFuture = Box::pin(async move {
+    let start_result = remote_clone
+      .start_with_callback(move || {
+        let started_for_callback = started_for_callback.clone();
+        async move {
+          if let Some(tx) = started_for_callback.lock().await.take() {
+            let _ = tx.send(());
+          }
+        }
       })
-      .await
+      .await;
+
+    if start_result.is_err() {
+      if let Some(tx) = started_for_failure.lock().await.take() {
+        let _ = tx.send(());
+      }
+    }
+
+    let _ = result_tx.send(start_result);
   });
 
-  if timeout(Duration::from_secs(5), wait_group.wait()).await.is_err() {
-    let join_result = handle.await;
-    return match join_result {
-      Ok(Ok(())) => Err("remote start timed out".into()),
-      Ok(Err(err)) => Err(Box::new(err)),
-      Err(join_err) => Err(Box::new(join_err)),
-    };
-  }
+  let handle = spawner.spawn(future)?;
+  Ok((
+    RemoteTaskHandle {
+      handle,
+      result: result_rx,
+    },
+    started_rx,
+  ))
+}
 
-  Ok(handle)
+async fn start_remote_instance(remote: Arc<Remote>) -> Result<RemoteTaskHandle, Box<dyn std::error::Error>> {
+  let (handle, started_rx) = match spawn_remote_start(remote) {
+    Ok(pair) => pair,
+    Err(err) => {
+      return Err(Box::new(std::io::Error::new(
+        std::io::ErrorKind::Other,
+        format!("failed to spawn remote task: {:?}", err),
+      )) as Box<dyn std::error::Error>);
+    }
+  };
+
+  match timeout(Duration::from_secs(5), started_rx).await {
+    Ok(Ok(())) => Ok(handle),
+    Ok(Err(_)) | Err(_) => {
+      let result = handle.wait().await;
+      match result {
+        Ok(()) => Err("remote start did not complete successfully".into()),
+        Err(err) => Err(Box::new(err)),
+      }
+    }
+  }
 }
 
 #[tokio::test]
@@ -207,7 +259,7 @@ async fn test_register() {
   .await;
 
   tracing::debug!("config: {:?}", config);
-  let remote = Remote::new(system, config).await;
+  let remote = Arc::new(Remote::new(system, config).await);
   let mut kinds = remote.get_known_kinds();
   assert_eq!(2, kinds.len());
   kinds.sort();
@@ -225,46 +277,27 @@ async fn test_remote_communication() {
   initialize_proto_serializers::<EchoMessage>().expect("Failed to register serializer");
 
   // サーバー側のセットアップ
-  let server_wait_group = WaitGroup::with_count(1);
   let server_system = ActorSystem::new().await.unwrap();
   let server_config = Config::from([ConfigOption::with_host("127.0.0.1"), ConfigOption::with_port(8090)]).await;
-  let server_remote = Remote::new(server_system.clone(), server_config).await;
+  let server_remote = Arc::new(Remote::new(server_system.clone(), server_config).await);
   let echo_props = Props::from_async_actor_producer(|_| async { EchoActor }).await;
   let echo_kind = "echo-kind";
   server_remote.register(echo_kind, echo_props);
 
-  let cloned_server_wait_group = server_wait_group.clone();
-  let server_remote_for_start = server_remote.clone();
+  let (server_runner, server_started) = spawn_remote_start(server_remote.clone()).expect("spawn server remote");
+  timeout(Duration::from_secs(5), server_started)
+    .await
+    .expect("server start wait timed out")
+    .expect("server start signal dropped");
 
-  tokio::spawn(async move {
-    server_remote_for_start
-      .start_with_callback(|| async {
-        cloned_server_wait_group.done();
-      })
-      .await
-      .expect("Failed to start server");
-  });
-
-  server_wait_group.wait().await;
-
-  let client_wait_group = WaitGroup::with_count(1);
   let client_system = ActorSystem::new().await.unwrap();
   let client_config = Config::from([ConfigOption::with_host("127.0.0.1"), ConfigOption::with_port(8091)]).await;
-  let client_remote = Remote::new(client_system.clone(), client_config).await;
-  let cloned_client_wait_group = client_wait_group.clone();
-
-  let client_remote_for_start = client_remote.clone();
-
-  tokio::spawn(async move {
-    client_remote_for_start
-      .start_with_callback(|| async {
-        cloned_client_wait_group.done();
-      })
-      .await
-      .expect("Failed to start client");
-  });
-
-  client_wait_group.wait().await;
+  let client_remote = Arc::new(Remote::new(client_system.clone(), client_config).await);
+  let (client_runner, client_started) = spawn_remote_start(client_remote.clone()).expect("spawn client remote");
+  timeout(Duration::from_secs(5), client_started)
+    .await
+    .expect("client start wait timed out")
+    .expect("client start signal dropped");
 
   let root_context = client_system.get_root_context().await;
 
@@ -290,6 +323,11 @@ async fn test_remote_communication() {
   } else {
     panic!("Unexpected response type");
   }
+
+  client_remote.shutdown(true).await.expect("client shutdown");
+  client_runner.wait().await.expect("client runner");
+  server_remote.shutdown(true).await.expect("server shutdown");
+  server_runner.wait().await.expect("server runner");
 }
 
 #[tokio::test]
@@ -303,19 +341,12 @@ async fn spawn_remote_unknown_kind_returns_error() -> TestResult<()> {
     ConfigOption::with_port(server_port),
   ])
   .await;
-  let server_remote = Remote::new(server_system, server_config).await;
-  let server_wait = WaitGroup::with_count(1);
-  let server_wait_clone = server_wait.clone();
-  let server_remote_start = server_remote.clone();
-  tokio::spawn(async move {
-    server_remote_start
-      .start_with_callback(|| async {
-        server_wait_clone.done();
-      })
-      .await
-      .expect("server start");
-  });
-  server_wait.wait().await;
+  let server_remote = Arc::new(Remote::new(server_system, server_config).await);
+  let (server_runner, server_started) = spawn_remote_start(server_remote.clone()).expect("spawn server");
+  timeout(Duration::from_secs(5), server_started)
+    .await
+    .expect("server start wait timed out")
+    .expect("server start signal dropped");
 
   let client_system = ActorSystem::new().await.expect("client actor system");
   let client_config = Config::from([
@@ -323,19 +354,12 @@ async fn spawn_remote_unknown_kind_returns_error() -> TestResult<()> {
     ConfigOption::with_port(client_port),
   ])
   .await;
-  let client_remote = Remote::new(client_system, client_config).await;
-  let client_wait = WaitGroup::with_count(1);
-  let client_wait_clone = client_wait.clone();
-  let client_remote_start = client_remote.clone();
-  tokio::spawn(async move {
-    client_remote_start
-      .start_with_callback(|| async {
-        client_wait_clone.done();
-      })
-      .await
-      .expect("client start");
-  });
-  client_wait.wait().await;
+  let client_remote = Arc::new(Remote::new(client_system, client_config).await);
+  let (client_runner, client_started) = spawn_remote_start(client_remote.clone()).expect("spawn client");
+  timeout(Duration::from_secs(5), client_started)
+    .await
+    .expect("client start wait timed out")
+    .expect("client start signal dropped");
 
   let result = client_remote
     .spawn_remote(
@@ -350,6 +374,11 @@ async fn spawn_remote_unknown_kind_returns_error() -> TestResult<()> {
     }
     other => panic!("unexpected result: {other:?}"),
   }
+
+  client_remote.shutdown(true).await?;
+  client_runner.wait().await?;
+  server_remote.shutdown(true).await?;
+  server_runner.wait().await?;
 
   Ok(())
 }
@@ -452,23 +481,16 @@ async fn spawn_remote_named_duplicate_returns_conflict() -> TestResult<()> {
     ConfigOption::with_port(server_port),
   ])
   .await;
-  let server_remote = Remote::new(server_system.clone(), server_config).await;
+  let server_remote = Arc::new(Remote::new(server_system.clone(), server_config).await);
   let echo_props = Props::from_async_actor_producer(|_| async { EchoActor }).await;
   let kind = "dup-kind";
   server_remote.register(kind, echo_props);
 
-  let server_wait = WaitGroup::with_count(1);
-  let server_wait_clone = server_wait.clone();
-  let server_remote_start = server_remote.clone();
-  tokio::spawn(async move {
-    server_remote_start
-      .start_with_callback(|| async {
-        server_wait_clone.done();
-      })
-      .await
-      .expect("server start");
-  });
-  server_wait.wait().await;
+  let (server_runner, server_started) = spawn_remote_start(server_remote.clone()).expect("spawn server");
+  timeout(Duration::from_secs(5), server_started)
+    .await
+    .expect("server start wait timed out")
+    .expect("server start signal dropped");
 
   // client setup
   let client_system = ActorSystem::new().await.expect("client actor system");
@@ -477,19 +499,12 @@ async fn spawn_remote_named_duplicate_returns_conflict() -> TestResult<()> {
     ConfigOption::with_port(client_port),
   ])
   .await;
-  let client_remote = Remote::new(client_system.clone(), client_config).await;
-  let client_wait = WaitGroup::with_count(1);
-  let client_wait_clone = client_wait.clone();
-  let client_remote_start = client_remote.clone();
-  tokio::spawn(async move {
-    client_remote_start
-      .start_with_callback(|| async {
-        client_wait_clone.done();
-      })
-      .await
-      .expect("client start");
-  });
-  client_wait.wait().await;
+  let client_remote = Arc::new(Remote::new(client_system.clone(), client_config).await);
+  let (client_runner, client_started) = spawn_remote_start(client_remote.clone()).expect("spawn client");
+  timeout(Duration::from_secs(5), client_started)
+    .await
+    .expect("client start wait timed out")
+    .expect("client start signal dropped");
 
   let server_address = format!("127.0.0.1:{}", server_port);
   let name = "dup-actor";
@@ -512,7 +527,9 @@ async fn spawn_remote_named_duplicate_returns_conflict() -> TestResult<()> {
   }
 
   client_remote.shutdown(true).await?;
+  client_runner.wait().await?;
   server_remote.shutdown(true).await?;
+  server_runner.wait().await?;
 
   Ok(())
 }

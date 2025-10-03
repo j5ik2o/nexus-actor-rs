@@ -14,6 +14,7 @@ use crate::serializer::{serialize_any, SerializerId};
 use async_trait::async_trait;
 use dashmap::DashMap;
 use futures::{StreamExt, TryFutureExt};
+use nexus_actor_core_rs::runtime::CoreTaskFuture;
 use nexus_actor_std_rs::actor::actor_system::ActorSystem;
 use nexus_actor_std_rs::actor::context::{BasePart, ContextHandle, InfoPart, MessagePart, SenderPart, StopperPart};
 use nexus_actor_std_rs::actor::core::{Actor, ActorError, ErrorReason, ExtendedPid};
@@ -216,7 +217,9 @@ impl EndpointWriter {
       connect_response
     );
 
-    tokio::spawn(async move {
+    let actor_system = self.get_actor_system().await;
+    let spawner = actor_system.core_runtime().spawner();
+    let future: CoreTaskFuture = Box::pin(async move {
       let mut cloned_self = cloned_self.clone();
       let mut streaming = streaming_response.into_inner();
 
@@ -235,6 +238,10 @@ impl EndpointWriter {
         }
       }
     });
+
+    if let Err(err) = spawner.spawn(future) {
+      tracing::error!(error = ?err, address = %self.address, "EndpointWriter failed to spawn stream listener");
+    }
 
     let connected = EndpointEvent::EndpointConnected(EndpointConnectedEvent {
       address: self.address.clone(),

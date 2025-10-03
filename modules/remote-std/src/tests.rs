@@ -264,17 +264,19 @@ async fn remote_await_reconnect_returns_connection_state() -> TestResult<()> {
   let (remote_arc, _endpoint_reader) = setup_remote_with_manager().await?;
   let manager = remote_arc.get_endpoint_manager().await;
 
-  let waiter = tokio::spawn({
+  let waiter = {
     let remote = remote_arc.clone();
     async move { remote.await_reconnect("endpoint-remote-await").await }
-  });
+  };
 
-  tokio::time::sleep(Duration::from_millis(10)).await;
-  manager
-    .update_connection_state("endpoint-remote-await", ConnectionState::Connected)
-    .await;
+  let updater = async {
+    tokio::time::sleep(Duration::from_millis(10)).await;
+    manager
+      .update_connection_state("endpoint-remote-await", ConnectionState::Connected)
+      .await;
+  };
 
-  let state = waiter.await.expect("await task failed");
+  let (_, state) = tokio::join!(updater, waiter);
   assert_eq!(state, Some(ConnectionState::Connected));
 
   Ok(())
@@ -432,16 +434,18 @@ async fn remote_await_reconnect_resolves_closed_after_schedule() -> TestResult<(
   .await?;
 
   let manager = remote_arc.get_endpoint_manager().await;
-  let waiter = tokio::spawn({
+  let waiter = {
     let remote = remote_arc.clone();
     async move { remote.await_reconnect("endpoint-remote-await-closed").await }
-  });
+  };
 
-  manager
-    .schedule_reconnect("endpoint-remote-await-closed".to_string())
-    .await;
+  let scheduler = async {
+    manager
+      .schedule_reconnect("endpoint-remote-await-closed".to_string())
+      .await;
+  };
 
-  let state = waiter.await.expect("await task failed");
+  let (_, state) = tokio::join!(scheduler, waiter);
   assert_eq!(state, Some(ConnectionState::Closed));
 
   Ok(())

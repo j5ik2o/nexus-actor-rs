@@ -349,15 +349,17 @@ mod tests {
     let heartbeat = HeartbeatConfig::new(Duration::from_secs(1), Duration::from_secs(3));
     let state = Arc::new(EndpointState::new("node-E", policy, heartbeat));
 
-    let waiting = {
+    let waiter = {
       let state = state.clone();
-      tokio::spawn(async move { state.wait_until_connected_or_closed().await })
+      async move { state.wait_until_connected_or_closed().await }
     };
 
-    sleep(TokioDuration::from_millis(10)).await;
-    state.set_connection_state(ConnectionState::Connected);
+    let setter = async {
+      sleep(TokioDuration::from_millis(10)).await;
+      state.set_connection_state(ConnectionState::Connected);
+    };
 
-    let result = waiting.await.expect("task panicked");
+    let (_, result) = tokio::join!(setter, waiter);
     assert_eq!(result, ConnectionState::Connected);
   }
 }
