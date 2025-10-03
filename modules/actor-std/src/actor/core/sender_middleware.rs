@@ -1,13 +1,30 @@
 use std::fmt::{Debug, Formatter};
-use std::sync::Arc;
 
-use crate::actor::core::sender_middleware_chain::SenderMiddlewareChain;
+use nexus_actor_core_rs::context::CoreSenderMiddleware;
+
+use crate::actor::core::sender_middleware_chain::{SenderInvocation, SenderMiddlewareChain};
 
 #[derive(Clone)]
-pub struct SenderMiddleware(Arc<dyn Fn(SenderMiddlewareChain) -> SenderMiddlewareChain + Send + Sync + 'static>);
+pub struct SenderMiddleware(CoreSenderMiddleware<SenderInvocation>);
 
 unsafe impl Send for SenderMiddleware {}
 unsafe impl Sync for SenderMiddleware {}
+
+impl SenderMiddleware {
+  pub fn new(f: impl Fn(SenderMiddlewareChain) -> SenderMiddlewareChain + Send + Sync + 'static) -> Self {
+    let middleware = CoreSenderMiddleware::new(move |chain| {
+      let wrapped = SenderMiddlewareChain::from_inner(chain);
+      let result = f(wrapped);
+      result.into_inner()
+    });
+    SenderMiddleware(middleware)
+  }
+
+  pub fn run(&self, next: SenderMiddlewareChain) -> SenderMiddlewareChain {
+    let result = self.0.run(next.into_inner());
+    SenderMiddlewareChain::from_inner(result)
+  }
+}
 
 impl Debug for SenderMiddleware {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -16,8 +33,8 @@ impl Debug for SenderMiddleware {
 }
 
 impl PartialEq for SenderMiddleware {
-  fn eq(&self, _other: &Self) -> bool {
-    Arc::ptr_eq(&self.0, &_other.0)
+  fn eq(&self, other: &Self) -> bool {
+    self.0 == other.0
   }
 }
 
@@ -25,17 +42,7 @@ impl Eq for SenderMiddleware {}
 
 impl std::hash::Hash for SenderMiddleware {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    (self.0.as_ref() as *const dyn Fn(SenderMiddlewareChain) -> SenderMiddlewareChain).hash(state);
-  }
-}
-
-impl SenderMiddleware {
-  pub fn new(f: impl Fn(SenderMiddlewareChain) -> SenderMiddlewareChain + Send + Sync + 'static) -> Self {
-    SenderMiddleware(Arc::new(f))
-  }
-
-  pub fn run(&self, next: SenderMiddlewareChain) -> SenderMiddlewareChain {
-    (self.0)(next)
+    self.0.hash(state);
   }
 }
 

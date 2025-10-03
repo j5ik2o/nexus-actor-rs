@@ -1,6 +1,6 @@
 use crate::actor::context::context_snapshot::ContextSnapshot;
 use crate::actor::message::MessageEnvelope;
-use nexus_actor_core_rs::context::CoreActorContextSnapshot;
+use nexus_actor_core_rs::context::{CoreActorContextSnapshot, CoreReceiverInvocation};
 
 #[derive(Debug, Clone)]
 pub struct ReceiverSnapshot {
@@ -34,5 +34,66 @@ impl ReceiverSnapshot {
 
   pub fn into_parts(self) -> (ContextSnapshot, MessageEnvelope) {
     (self.context, self.message)
+  }
+
+  pub fn to_core_invocation(&self) -> Option<CoreReceiverInvocation> {
+    let core_snapshot = self.core_snapshot()?.clone();
+    let envelope = self.message.clone().into_core();
+    Some(CoreReceiverInvocation::new(core_snapshot, envelope))
+  }
+
+  pub fn into_core_invocation(self) -> Option<CoreReceiverInvocation> {
+    let (snapshot, envelope) = self.into_parts();
+    let core_snapshot = snapshot.into_core_snapshot()?;
+    Some(CoreReceiverInvocation::new(core_snapshot, envelope.into_core()))
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::actor::message::Message;
+  use nexus_actor_core_rs::{CorePid, MessageHandle};
+  use std::any::Any;
+
+  #[derive(Debug, Clone, PartialEq)]
+  struct TestMessage(&'static str);
+
+  impl Message for TestMessage {
+    fn eq_message(&self, other: &dyn Message) -> bool {
+      other
+        .as_any()
+        .downcast_ref::<TestMessage>()
+        .map_or(false, |value| value == self)
+    }
+
+    fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
+      self
+    }
+
+    fn get_type_name(&self) -> String {
+      "TestMessage".to_string()
+    }
+  }
+
+  #[test]
+  fn convert_to_core_invocation() {
+    let core_snapshot = CoreActorContextSnapshot::new(
+      CorePid::new("node", "actor"),
+      None,
+      Some(MessageHandle::new(TestMessage("msg"))),
+      None,
+    );
+
+    let context_snapshot = ContextSnapshot::default().with_core_snapshot(core_snapshot.clone());
+    let envelope = MessageEnvelope::new(MessageHandle::new(TestMessage("msg")));
+    let snapshot = ReceiverSnapshot::new(context_snapshot, envelope.clone());
+
+    let invocation = snapshot.to_core_invocation().expect("core invocation");
+    assert_eq!(invocation.context().self_pid_core(), core_snapshot.self_pid_core());
+    assert_eq!(
+      invocation.envelope().message_handle().type_id(),
+      envelope.get_message_handle().type_id()
+    );
   }
 }

@@ -1,21 +1,28 @@
 use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
 
+use futures::future::BoxFuture;
+use nexus_actor_core_rs::context::CoreReceiverMiddleware;
+
 use crate::actor::context::ReceiverSnapshot;
 use crate::actor::core::actor_error::ActorError;
 use crate::actor::core::receiver_middleware_chain::ReceiverMiddlewareChain;
-use futures::future::BoxFuture;
 
 #[allow(clippy::type_complexity)]
 #[derive(Clone)]
-pub struct ReceiverMiddleware(Arc<dyn Fn(ReceiverMiddlewareChain) -> ReceiverMiddlewareChain + Send + Sync + 'static>);
+pub struct ReceiverMiddleware(CoreReceiverMiddleware<ReceiverSnapshot, ActorError>);
 
 unsafe impl Send for ReceiverMiddleware {}
 unsafe impl Sync for ReceiverMiddleware {}
 
 impl ReceiverMiddleware {
   pub fn new(f: impl Fn(ReceiverMiddlewareChain) -> ReceiverMiddlewareChain + Send + Sync + 'static) -> Self {
-    ReceiverMiddleware(Arc::new(f))
+    let middleware = CoreReceiverMiddleware::new(move |chain| {
+      let wrapped = ReceiverMiddlewareChain::from_inner(chain);
+      let result = f(wrapped);
+      result.into_inner()
+    });
+    ReceiverMiddleware(middleware)
   }
 
   pub fn from_sync(f: impl Fn(ReceiverSnapshot) -> ReceiverSnapshot + Send + Sync + 'static) -> Self {
@@ -43,7 +50,8 @@ impl ReceiverMiddleware {
   }
 
   pub fn run(&self, next: ReceiverMiddlewareChain) -> ReceiverMiddlewareChain {
-    (self.0)(next)
+    let result = self.0.run(next.into_inner());
+    ReceiverMiddlewareChain::from_inner(result)
   }
 }
 
@@ -54,8 +62,8 @@ impl Debug for ReceiverMiddleware {
 }
 
 impl PartialEq for ReceiverMiddleware {
-  fn eq(&self, _other: &Self) -> bool {
-    Arc::ptr_eq(&self.0, &_other.0)
+  fn eq(&self, other: &Self) -> bool {
+    self.0 == other.0
   }
 }
 
@@ -63,7 +71,7 @@ impl Eq for ReceiverMiddleware {}
 
 impl std::hash::Hash for ReceiverMiddleware {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    (self.0.as_ref() as *const dyn Fn(ReceiverMiddlewareChain) -> ReceiverMiddlewareChain).hash(state);
+    self.0.hash(state);
   }
 }
 

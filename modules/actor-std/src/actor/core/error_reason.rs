@@ -56,6 +56,10 @@ impl ErrorReason {
       backtrace: Backtrace::new(),
     }
   }
+
+  pub fn into_core(self) -> ErrorReasonCore {
+    self.inner
+  }
 }
 
 impl From<std::io::Error> for ErrorReason {
