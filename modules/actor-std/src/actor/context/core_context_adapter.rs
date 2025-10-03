@@ -1,7 +1,7 @@
 use nexus_actor_core_rs::actor::core_types::message_handle::MessageHandle;
 use nexus_actor_core_rs::actor::core_types::message_headers::ReadonlyMessageHeadersHandle;
 use nexus_actor_core_rs::actor::core_types::pid::CorePid;
-use nexus_actor_core_rs::context::{CoreActorContext, CoreActorContextBuilder, CoreActorContextSnapshot};
+use nexus_actor_core_rs::context::{CoreActorContext, CoreActorContextSnapshot, CoreContextSnapshot};
 
 use futures::FutureExt;
 
@@ -10,24 +10,36 @@ use std::time::Duration;
 
 #[derive(Clone)]
 pub struct StdActorContextSnapshot {
-  core: CoreActorContextSnapshot,
+  core: CoreContextSnapshot,
 }
 
 impl StdActorContextSnapshot {
   pub fn self_pid_core(&self) -> CorePid {
-    self.core.self_pid_core()
+    self
+      .core
+      .self_pid()
+      .cloned()
+      .expect("StdActorContextSnapshot missing self pid")
   }
 
   pub fn sender_pid_core(&self) -> Option<CorePid> {
-    self.core.sender_pid_core()
+    self.core.sender_pid().cloned()
   }
 
   pub fn into_core(self) -> CoreActorContextSnapshot {
+    self.core.build().expect("StdActorContextSnapshot missing self pid")
+  }
+
+  pub fn into_core_context(self) -> CoreContextSnapshot {
     self.core
   }
 
-  pub fn as_core(&self) -> &CoreActorContextSnapshot {
-    &self.core
+  pub fn as_core(&self) -> CoreActorContextSnapshot {
+    self
+      .core
+      .clone()
+      .build()
+      .expect("StdActorContextSnapshot missing self pid")
   }
 
   pub async fn capture(handle: &ContextHandle) -> Self {
@@ -46,31 +58,35 @@ impl StdActorContextSnapshot {
     } else {
       Some(receive_timeout)
     };
-    let core = CoreActorContextBuilder::new(self_pid)
+    let core = CoreContextSnapshot::new()
+      .with_self_pid(Some(self_pid))
       .with_sender(sender)
-      .with_message(message)
-      .with_headers(headers)
-      .with_receive_timeout(timeout_opt)
-      .build();
+      .with_message_handle(message)
+      .with_message_header(headers)
+      .with_receive_timeout(timeout_opt);
     Self { core }
   }
 }
 
 impl CoreActorContext for StdActorContextSnapshot {
   fn self_pid(&self) -> CorePid {
-    self.core.self_pid()
+    self.self_pid_core()
   }
 
   fn sender_pid(&self) -> Option<CorePid> {
-    self.core.sender_pid()
+    self.sender_pid_core()
   }
 
   fn message(&self) -> Option<MessageHandle> {
-    self.core.message()
+    self.core.message_handle().cloned()
   }
 
   fn headers(&self) -> Option<ReadonlyMessageHeadersHandle> {
-    self.core.headers()
+    self.core.message_header().cloned()
+  }
+
+  fn receive_timeout(&self) -> Option<Duration> {
+    self.core.receive_timeout()
   }
 }
 

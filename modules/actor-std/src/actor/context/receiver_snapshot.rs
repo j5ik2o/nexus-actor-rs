@@ -1,6 +1,6 @@
 use crate::actor::context::context_snapshot::ContextSnapshot;
 use crate::actor::message::MessageEnvelope;
-use nexus_actor_core_rs::context::{CoreActorContextSnapshot, CoreReceiverInvocation};
+use nexus_actor_core_rs::context::{CoreActorContextSnapshot, CoreReceiverInvocation, CoreReceiverSnapshot};
 
 #[derive(Debug, Clone)]
 pub struct ReceiverSnapshot {
@@ -21,7 +21,7 @@ impl ReceiverSnapshot {
     &self.message
   }
 
-  pub fn core_snapshot(&self) -> Option<&CoreActorContextSnapshot> {
+  pub fn core_snapshot(&self) -> Option<CoreActorContextSnapshot> {
     self.context.core_snapshot()
   }
 
@@ -36,16 +36,23 @@ impl ReceiverSnapshot {
     (self.context, self.message)
   }
 
+  pub fn to_core_snapshot(&self) -> Option<CoreReceiverSnapshot> {
+    let context = self.context.core_context_snapshot()?;
+    Some(CoreReceiverSnapshot::new(context, self.message.clone().into_core()))
+  }
+
+  pub fn into_core_snapshot(self) -> Option<CoreReceiverSnapshot> {
+    let (context, message) = self.into_parts();
+    let core_context = context.into_core_context_snapshot()?;
+    Some(CoreReceiverSnapshot::new(core_context, message.into_core()))
+  }
+
   pub fn to_core_invocation(&self) -> Option<CoreReceiverInvocation> {
-    let core_snapshot = self.core_snapshot()?.clone();
-    let envelope = self.message.clone().into_core();
-    Some(CoreReceiverInvocation::new(core_snapshot, envelope))
+    self.to_core_snapshot()?.into_core_invocation()
   }
 
   pub fn into_core_invocation(self) -> Option<CoreReceiverInvocation> {
-    let (snapshot, envelope) = self.into_parts();
-    let core_snapshot = snapshot.into_core_snapshot()?;
-    Some(CoreReceiverInvocation::new(core_snapshot, envelope.into_core()))
+    self.into_core_snapshot()?.into_core_invocation()
   }
 }
 
@@ -53,6 +60,7 @@ impl ReceiverSnapshot {
 mod tests {
   use super::*;
   use crate::actor::message::Message;
+  use nexus_actor_core_rs::context::CoreContextSnapshot;
   use nexus_actor_core_rs::{CorePid, MessageHandle};
   use std::any::Any;
 
@@ -85,7 +93,7 @@ mod tests {
       None,
     );
 
-    let context_snapshot = ContextSnapshot::default().with_core_snapshot(core_snapshot.clone());
+    let context_snapshot = ContextSnapshot::default().with_core_snapshot(CoreContextSnapshot::from(&core_snapshot));
     let envelope = MessageEnvelope::new(MessageHandle::new(TestMessage("msg")));
     let snapshot = ReceiverSnapshot::new(context_snapshot, envelope.clone());
 

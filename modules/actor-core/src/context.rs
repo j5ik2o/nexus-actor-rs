@@ -3,6 +3,7 @@
 pub mod core;
 pub mod extensions;
 pub mod middleware;
+pub mod snapshot;
 
 pub use core::{
   CoreActorContext, CoreActorContextBuilder, CoreActorContextSnapshot, CoreMailboxFactory, CoreProps, CorePropsFactory,
@@ -16,3 +17,4 @@ pub use middleware::{
   CoreReceiverMiddleware, CoreReceiverMiddlewareChain, CoreSenderMiddleware, CoreSenderMiddlewareChain,
   CoreSpawnMiddleware,
 };
+pub use snapshot::{CoreContextSnapshot, CoreReceiverSnapshot};

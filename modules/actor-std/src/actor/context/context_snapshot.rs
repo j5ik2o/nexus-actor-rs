@@ -1,12 +1,15 @@
+use core::mem;
+
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::actor_context::ActorContext;
 use crate::actor::context::context_handle::ContextHandle;
 use crate::actor::context::ContextBorrow;
 use crate::actor::core::{ActorHandle, ExtendedPid};
 use crate::actor::message::{MessageEnvelope, MessageHandle, ReadonlyMessageHeadersHandle};
-use nexus_actor_core_rs::context::CoreActorContextSnapshot;
+use nexus_actor_core_rs::actor::core_types::pid::CorePid;
+use nexus_actor_core_rs::context::{CoreActorContextSnapshot, CoreContextSnapshot};
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct ContextSnapshot {
   actor_system: Option<ActorSystem>,
   actor: Option<ActorHandle>,
@@ -17,38 +20,48 @@ pub struct ContextSnapshot {
   message_handle: Option<MessageHandle>,
   message_header: Option<ReadonlyMessageHeadersHandle>,
   context_handle: Option<ContextHandle>,
-  core_snapshot: Option<CoreActorContextSnapshot>,
+  core_snapshot: CoreContextSnapshot,
+}
+
+impl Default for ContextSnapshot {
+  fn default() -> Self {
+    Self {
+      actor_system: None,
+      actor: None,
+      parent: None,
+      self_pid: None,
+      sender: None,
+      message_envelope: None,
+      message_handle: None,
+      message_header: None,
+      context_handle: None,
+      core_snapshot: CoreContextSnapshot::new(),
+    }
+  }
 }
 
 impl ContextSnapshot {
   pub fn from_borrow(borrow: &ContextBorrow<'_>) -> Self {
-    Self {
-      actor_system: Some(borrow.actor_system().clone()),
-      actor: borrow.actor().cloned(),
-      parent: borrow.parent().cloned(),
-      self_pid: borrow.self_pid().cloned(),
-      ..Self::default()
-    }
+    Self::default()
+      .with_actor_system_opt(Some(borrow.actor_system().clone()))
+      .with_actor_opt(borrow.actor().cloned())
+      .with_parent_opt(borrow.parent().cloned())
+      .with_self_pid_opt(borrow.self_pid().cloned())
   }
 
   pub fn from_actor_context(actor_context: &ActorContext) -> Self {
-    let mut snapshot = Self::from_borrow(&actor_context.borrow());
-    snapshot.sender = actor_context.try_sender();
-    snapshot.message_envelope = actor_context.try_message_envelope();
-    snapshot.message_handle = actor_context.try_message_handle();
-    snapshot.message_header = actor_context.try_message_header();
-    snapshot
+    Self::from_borrow(&actor_context.borrow())
+      .with_sender_opt(actor_context.try_sender())
+      .with_message_envelope_opt(actor_context.try_message_envelope())
+      .with_message_handle_opt(actor_context.try_message_handle())
+      .with_message_header_opt(actor_context.try_message_header())
   }
 
   pub fn from_context_handle(context_handle: &ContextHandle) -> Self {
     if let Some(actor_context) = context_handle.actor_context_arc() {
-      let mut snapshot = Self::from_actor_context(actor_context.as_ref());
-      snapshot.context_handle = Some(context_handle.clone());
-      snapshot
+      Self::from_actor_context(actor_context.as_ref()).with_context_handle(context_handle.clone())
     } else {
-      let mut snapshot = Self::default();
-      snapshot.context_handle = Some(context_handle.clone());
-      snapshot
+      Self::default().with_context_handle(context_handle.clone())
     }
   }
 
@@ -89,8 +102,8 @@ impl ContextSnapshot {
     self.message_header.as_ref()
   }
 
-  pub fn core_snapshot(&self) -> Option<&CoreActorContextSnapshot> {
-    self.core_snapshot.as_ref()
+  pub fn core_snapshot(&self) -> Option<CoreActorContextSnapshot> {
+    self.core_context_snapshot()?.build()
   }
 
   pub fn with_actor_system_opt(mut self, actor_system: Option<ActorSystem>) -> Self {
@@ -104,31 +117,44 @@ impl ContextSnapshot {
   }
 
   pub fn with_parent_opt(mut self, parent: Option<ExtendedPid>) -> Self {
+    let core = mem::take(&mut self.core_snapshot);
+    self.core_snapshot = core.with_parent(parent.as_ref().map(CorePid::from));
     self.parent = parent;
     self
   }
 
   pub fn with_self_pid_opt(mut self, self_pid: Option<ExtendedPid>) -> Self {
+    let core = mem::take(&mut self.core_snapshot);
+    self.core_snapshot = core.with_self_pid(self_pid.as_ref().map(CorePid::from));
     self.self_pid = self_pid;
     self
   }
 
   pub fn with_sender_opt(mut self, sender: Option<ExtendedPid>) -> Self {
+    let core = mem::take(&mut self.core_snapshot);
+    self.core_snapshot = core.with_sender(sender.as_ref().map(CorePid::from));
     self.sender = sender;
     self
   }
 
   pub fn with_message_envelope_opt(mut self, envelope: Option<MessageEnvelope>) -> Self {
+    let core_envelope = envelope.as_ref().map(|env| env.clone().into_core());
+    let core = mem::take(&mut self.core_snapshot);
+    self.core_snapshot = core.with_message_envelope(core_envelope);
     self.message_envelope = envelope;
     self
   }
 
   pub fn with_message_handle_opt(mut self, handle: Option<MessageHandle>) -> Self {
+    let core = mem::take(&mut self.core_snapshot);
+    self.core_snapshot = core.with_message_handle(handle.clone());
     self.message_handle = handle;
     self
   }
 
   pub fn with_message_header_opt(mut self, header: Option<ReadonlyMessageHeadersHandle>) -> Self {
+    let core = mem::take(&mut self.core_snapshot);
+    self.core_snapshot = core.with_message_header(header.clone());
     self.message_header = header;
     self
   }
@@ -138,13 +164,22 @@ impl ContextSnapshot {
     self
   }
 
-  pub fn with_core_snapshot(mut self, snapshot: CoreActorContextSnapshot) -> Self {
-    self.core_snapshot = Some(snapshot);
+  pub fn with_core_snapshot(mut self, snapshot: CoreContextSnapshot) -> Self {
+    self.self_pid = snapshot.self_pid().map(ExtendedPid::from);
+    self.sender = snapshot.sender_pid().map(ExtendedPid::from);
+    self.message_handle = snapshot.message_handle().cloned();
+    self.message_header = snapshot.message_header().cloned();
+    self.message_envelope = snapshot.message_envelope().cloned().map(MessageEnvelope::from_core);
+    self.core_snapshot = snapshot;
     self
   }
 
-  pub fn with_core_snapshot_opt(mut self, snapshot: Option<CoreActorContextSnapshot>) -> Self {
-    self.core_snapshot = snapshot;
+  pub fn with_core_snapshot_opt(mut self, snapshot: Option<CoreContextSnapshot>) -> Self {
+    if let Some(snapshot) = snapshot {
+      self = self.with_core_snapshot(snapshot);
+    } else {
+      self.core_snapshot = CoreContextSnapshot::new();
+    }
     self
   }
 
@@ -164,7 +199,55 @@ impl ContextSnapshot {
     self.message_handle
   }
 
+  pub fn core_context_snapshot(&self) -> Option<CoreContextSnapshot> {
+    let builder = apply_self_pid(self.core_snapshot.clone(), self.self_pid.as_ref());
+    if builder.self_pid().is_some() {
+      Some(builder)
+    } else {
+      None
+    }
+  }
+
+  pub fn into_core_context_snapshot(self) -> Option<CoreContextSnapshot> {
+    let ContextSnapshot {
+      self_pid,
+      core_snapshot,
+      ..
+    } = self;
+    let builder = apply_self_pid(core_snapshot, self_pid.as_ref());
+    if builder.self_pid().is_some() {
+      Some(builder)
+    } else {
+      None
+    }
+  }
+
   pub fn into_core_snapshot(self) -> Option<CoreActorContextSnapshot> {
-    self.core_snapshot
+    self.into_core_context_snapshot()?.build()
+  }
+}
+
+fn apply_self_pid(snapshot: CoreContextSnapshot, self_pid: Option<&ExtendedPid>) -> CoreContextSnapshot {
+  if snapshot.self_pid().is_some() {
+    snapshot
+  } else if let Some(pid) = self_pid {
+    snapshot.with_self_pid(Some(CorePid::from(pid)))
+  } else {
+    snapshot
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::actor::core::ExtendedPid;
+  use nexus_actor_core_rs::actor::core_types::pid::CorePid;
+
+  #[test]
+  fn core_snapshot_uses_fallback_self_pid() {
+    let core_pid = CorePid::new("addr", "id");
+    let snapshot = ContextSnapshot::default().with_self_pid_opt(Some(ExtendedPid::from_core(core_pid.clone())));
+    let core_snapshot = snapshot.core_snapshot().expect("core snapshot");
+    assert_eq!(core_snapshot.self_pid_core(), core_pid);
   }
 }

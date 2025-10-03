@@ -27,6 +27,7 @@ use crate::actor::message::ReadonlyMessageHeadersHandle;
 use crate::actor::message::ResponseHandle;
 use crate::actor::process::actor_future::ActorFuture;
 use crate::ctxext::extensions::{ContextExtensionHandle, ContextExtensionId};
+use nexus_actor_core_rs::context::CoreContextSnapshot;
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct ContextLockMetricsSnapshot {
@@ -282,7 +283,9 @@ impl ContextHandle {
 
   pub async fn snapshot_with_core(&self) -> ContextSnapshot {
     let core_snapshot = self.core_snapshot().await;
-    self.snapshot_with_borrow().with_core_snapshot(core_snapshot)
+    self
+      .snapshot_with_borrow()
+      .with_core_snapshot(CoreContextSnapshot::from(core_snapshot))
   }
 
   pub async fn try_into_actor_context(&self) -> Option<ActorContext> {
