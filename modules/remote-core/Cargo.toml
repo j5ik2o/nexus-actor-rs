@@ -9,10 +9,7 @@ categories = ["concurrency", "asynchronous"]
 readme = "../../README.md"
 repository = "https://github.com/j5ik2o/nexus-actor-rs"
 
-[dependencies]
-nexus-remote-std-rs = { path = "../remote-std", optional = true }
-
 [features]
 default = ["std"]
-std = ["dep:nexus-remote-std-rs"]
+std = []
 alloc = []
