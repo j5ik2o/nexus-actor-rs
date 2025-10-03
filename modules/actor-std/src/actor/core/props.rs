@@ -291,7 +291,8 @@ impl Props {
       props.sender_middleware.extend(middlewares.clone());
       props.sender_middleware_chain = make_sender_middleware_chain(
         &props.sender_middleware,
-        SenderMiddlewareChain::new(|sch, target, me| async move {
+        SenderMiddlewareChain::new(|sch, target_core, me| async move {
+          let target = ExtendedPid::from(target_core);
           target
             .send_user_message(sch.get_actor_system().await.clone(), MessageHandle::new(me))
             .await

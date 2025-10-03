@@ -159,12 +159,13 @@ impl RootContext {
       sender_middleware,
       SenderMiddlewareChain::new({
         let weak_system = weak_system.clone();
-        move |_, target, envelope| {
+        move |_, target_core, envelope| {
           let weak_system = weak_system.clone();
           async move {
             let actor_system = weak_system
               .upgrade()
               .expect("ActorSystem dropped before RootContext sender middleware");
+            let target = ExtendedPid::from(target_core);
             target
               .send_user_message(actor_system, envelope.get_message_handle())
               .await

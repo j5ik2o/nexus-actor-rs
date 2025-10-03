@@ -3,12 +3,13 @@ use std::future::Future;
 
 use futures::future::BoxFuture;
 use nexus_actor_core_rs::context::CoreSenderMiddlewareChain;
+use nexus_actor_core_rs::CorePid;
 
 use crate::actor::context::SenderContextHandle;
 use crate::actor::core::pid::ExtendedPid;
 use crate::actor::message::MessageEnvelope;
 
-pub type SenderInvocation = (SenderContextHandle, ExtendedPid, MessageEnvelope);
+pub type SenderInvocation = (SenderContextHandle, CorePid, MessageEnvelope);
 
 #[derive(Clone)]
 pub struct SenderMiddlewareChain {
@@ -38,7 +39,7 @@ impl std::hash::Hash for SenderMiddlewareChain {
 impl SenderMiddlewareChain {
   pub fn new<F, Fut>(f: F) -> Self
   where
-    F: Fn(SenderContextHandle, ExtendedPid, MessageEnvelope) -> Fut + Send + Sync + 'static,
+    F: Fn(SenderContextHandle, CorePid, MessageEnvelope) -> Fut + Send + Sync + 'static,
     Fut: Future<Output = ()> + Send + 'static, {
     let inner = CoreSenderMiddlewareChain::new(move |(context, target, envelope): SenderInvocation| {
       Box::pin(f(context, target, envelope)) as BoxFuture<'static, ()>
@@ -47,7 +48,7 @@ impl SenderMiddlewareChain {
   }
 
   pub async fn run(&self, context: SenderContextHandle, target: ExtendedPid, envelope: MessageEnvelope) {
-    self.inner.run((context, target, envelope)).await
+    self.inner.run((context, target.to_core(), envelope)).await
   }
 
   pub fn from_core(inner: CoreSenderMiddlewareChain<SenderInvocation>) -> Self {
