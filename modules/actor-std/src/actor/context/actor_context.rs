@@ -945,17 +945,25 @@ impl BasePart for ActorContext {
   }
 
   async fn watch(&mut self, pid: &ExtendedPid) {
+    self.watch_core(&pid.to_core()).await;
+  }
+
+  async fn watch_core(&mut self, pid: &CorePid) {
     let watcher = self.get_self_opt().await.unwrap();
     let message = SystemMessage::watch(watcher.to_core());
-    pid
+    ExtendedPid::from(pid.clone())
       .send_system_message(self.actor_system(), MessageHandle::new(message))
       .await;
   }
 
   async fn unwatch(&mut self, pid: &ExtendedPid) {
+    self.unwatch_core(&pid.to_core()).await;
+  }
+
+  async fn unwatch_core(&mut self, pid: &CorePid) {
     let watcher = self.get_self_opt().await.unwrap();
     let message = SystemMessage::unwatch(watcher.to_core());
-    pid
+    ExtendedPid::from(pid.clone())
       .send_system_message(self.actor_system(), MessageHandle::new(message))
       .await;
   }
@@ -998,12 +1006,18 @@ impl BasePart for ActorContext {
   }
 
   async fn forward(&self, pid: &ExtendedPid) {
+    self.forward_core(&pid.to_core()).await;
+  }
+
+  async fn forward_core(&self, pid: &CorePid) {
     if let Some(message_arc) = self.load_message_arc() {
       let message = message_arc.as_ref();
       if let Some(sm) = message.to_typed::<SystemMessage>() {
         panic!("SystemMessage cannot be forwarded: {:?}", sm);
       } else {
-        pid.send_user_message(self.actor_system(), message.clone()).await;
+        ExtendedPid::from(pid.clone())
+          .send_user_message(self.actor_system(), message.clone())
+          .await;
       }
     }
   }

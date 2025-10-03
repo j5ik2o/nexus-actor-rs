@@ -113,9 +113,15 @@ pub trait BasePart: Debug + Send + Sync + 'static {
 
   // Watch registers the actor as a monitor for the specified PID
   async fn watch(&mut self, pid: &ExtendedPid);
+  async fn watch_core(&mut self, pid: &CorePid) {
+    self.watch(&ExtendedPid::from(pid.clone())).await;
+  }
 
   // Unwatch unregisters the actor as a monitor for the specified PID
   async fn unwatch(&mut self, pid: &ExtendedPid);
+  async fn unwatch_core(&mut self, pid: &CorePid) {
+    self.unwatch(&ExtendedPid::from(pid.clone())).await;
+  }
 
   // SetReceiveTimeout sets the inactivity timeout, after which a ReceiveTimeout message will be sent to the actor.
   // A duration of less than 1ms will disable the inactivity timer.
@@ -128,6 +134,9 @@ pub trait BasePart: Debug + Send + Sync + 'static {
 
   // Forward forwards current message to the given PID
   async fn forward(&self, pid: &ExtendedPid);
+  async fn forward_core(&self, pid: &CorePid) {
+    self.forward(&ExtendedPid::from(pid.clone())).await;
+  }
 
   async fn reenter_after(&self, f: ActorFuture, continuation: Continuer);
 }
