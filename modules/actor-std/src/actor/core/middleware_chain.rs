@@ -16,12 +16,11 @@ pub fn make_receiver_middleware_chain(
     return None;
   }
 
-  let core_middlewares = receiver_middleware
-    .iter()
-    .map(|middleware| middleware.as_core().clone())
-    .collect::<Vec<_>>();
-
-  compose_receiver_chain(&core_middlewares, last_receiver.into_core()).map(ReceiverMiddlewareChain::from_core)
+  compose_receiver_chain(
+    receiver_middleware.iter().map(|middleware| middleware.as_core()),
+    last_receiver.into_core(),
+  )
+  .map(ReceiverMiddlewareChain::from_core)
 }
 
 pub fn make_sender_middleware_chain(
@@ -32,12 +31,11 @@ pub fn make_sender_middleware_chain(
     return None;
   }
 
-  let core_middlewares = sender_middleware
-    .iter()
-    .map(|middleware| middleware.as_core().clone())
-    .collect::<Vec<_>>();
-
-  compose_sender_chain(&core_middlewares, last_sender.into_core()).map(SenderMiddlewareChain::from_core)
+  compose_sender_chain(
+    sender_middleware.iter().map(|middleware| middleware.as_core()),
+    last_sender.into_core(),
+  )
+  .map(SenderMiddlewareChain::from_core)
 }
 
 pub fn make_context_decorator_chain(
@@ -59,10 +57,8 @@ pub fn make_spawn_middleware_chain(spawn_middleware: &[SpawnMiddleware], last_sp
     return None;
   }
 
-  let core_middlewares = spawn_middleware
-    .iter()
-    .map(|middleware| middleware.as_core().clone())
-    .collect::<Vec<_>>();
-
-  compose_spawn_chain(&core_middlewares, last_spawner)
+  compose_spawn_chain(
+    spawn_middleware.iter().map(|middleware| middleware.as_core()),
+    last_spawner,
+  )
 }

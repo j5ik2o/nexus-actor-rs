@@ -2,6 +2,7 @@
 
 use alloc::boxed::Box;
 use alloc::sync::Arc;
+use alloc::vec::Vec;
 use core::fmt::{Debug, Formatter};
 use core::future::Future;
 use core::hash::{Hash, Hasher};
@@ -374,19 +375,21 @@ static_assertions::assert_impl_all!(CoreSenderMiddlewareChain<u8>: Send, Sync);
 static_assertions::assert_impl_all!(CoreSpawnMiddleware<u8>: Send, Sync);
 
 /// 与えられた receiver middleware 群からチェーンを構築する。
-pub fn compose_receiver_chain<S, E>(
-  middlewares: &[CoreReceiverMiddleware<S, E>],
+pub fn compose_receiver_chain<'a, S, E, I>(
+  middlewares: I,
   tail: CoreReceiverMiddlewareChain<S, E>,
 ) -> Option<CoreReceiverMiddlewareChain<S, E>>
 where
   S: Send + 'static,
-  E: Send + 'static, {
-  if middlewares.is_empty() {
+  E: Send + 'static,
+  I: IntoIterator<Item = &'a CoreReceiverMiddleware<S, E>>, {
+  let collected: Vec<_> = middlewares.into_iter().collect();
+  if collected.is_empty() {
     return None;
   }
 
   let mut chain = tail;
-  for middleware in middlewares.iter().rev() {
+  for middleware in collected.into_iter().rev() {
     chain = middleware.run(chain);
   }
 
@@ -394,18 +397,20 @@ where
 }
 
 /// 与えられた sender middleware 群からチェーンを構築する。
-pub fn compose_sender_chain<A>(
-  middlewares: &[CoreSenderMiddleware<A>],
+pub fn compose_sender_chain<'a, A, I>(
+  middlewares: I,
   tail: CoreSenderMiddlewareChain<A>,
 ) -> Option<CoreSenderMiddlewareChain<A>>
 where
-  A: Send + 'static, {
-  if middlewares.is_empty() {
+  A: Send + 'static,
+  I: IntoIterator<Item = &'a CoreSenderMiddleware<A>>, {
+  let collected: Vec<_> = middlewares.into_iter().collect();
+  if collected.is_empty() {
     return None;
   }
 
   let mut chain = tail;
-  for middleware in middlewares.iter().rev() {
+  for middleware in collected.into_iter().rev() {
     chain = middleware.run(chain);
   }
 
@@ -413,15 +418,17 @@ where
 }
 
 /// 与えられた spawn middleware 群を適用し、最終的な Spawner（あるいは同等の型）を返す。
-pub fn compose_spawn_chain<T>(middlewares: &[CoreSpawnMiddleware<T>], tail: T) -> Option<T>
+pub fn compose_spawn_chain<'a, T, I>(middlewares: I, tail: T) -> Option<T>
 where
-  T: Send + 'static, {
-  if middlewares.is_empty() {
+  T: Send + 'static,
+  I: IntoIterator<Item = &'a CoreSpawnMiddleware<T>>, {
+  let collected: Vec<_> = middlewares.into_iter().collect();
+  if collected.is_empty() {
     return None;
   }
 
   let mut current = tail;
-  for middleware in middlewares.iter().rev() {
+  for middleware in collected.into_iter().rev() {
     current = middleware.run(current);
   }
 
