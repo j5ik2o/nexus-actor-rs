@@ -51,6 +51,8 @@
 - Mailbox／Supervisor 系の Tokio 依存を core 抽象＋std アダプタへ集約。Mailbox は CoreMailbox トレイトと CoreMailboxFactory で統合し、Supervisor は CoreSupervisorStrategy へ一本化。std 層は `StdSupervisorContext`／`StdSupervisorAdapter`／Tokio 同期プリミティブのみを提供し、remote/guardian も共通ハンドル利用へ移行。
 - Props が `CoreProps` を内部に保持するよう再構成し、actor-std の拡張設定（メールボックス生成・ミドルウェア・メトリクス）が core 抽象を通じて供給されるよう統一。`core_props()` は保持済み CoreProps を返し、no_std 層が必要とする最小 API を actor-core で完結させた。
 - MessageHandles と PidSet を CoreMessageHandles/CorePidSet として actor-core へ移植。std 層は Tokio ベースの `AsyncMutex`／`AsyncRwLock` を注入するラッパーのみとなり、alloc 環境でも共通ロジックが利用可能に。
+- CoreActorError・CoreReceiverInvocation と MessageEnvelope の Core⇔Std 変換 API を整備し、ReceiverSnapshot から core 呼び出しデータを直接得られるようにして Props／ActorContext の no_std 化基盤を拡充（2025-10-02）。
+- Receiver／Sender／Spawn middleware を CoreMiddleware 抽象（CoreReceiverMiddlewareChain/CoreSenderMiddlewareChain/CoreSpawnMiddleware）へ移行し、actor-std 側は context スナップショットや ExtendedPid 変換を担う薄いアダプタのみに整理（2025-10-02）。
 
 ## 継続タスク（優先度：高→低）
 - 【高：ActorContext／Props 最小核】ActorContext・Props のうち同期／no_std で必要な API を actor-core に定義し、std 層はメールボックス・メトリクス拡張へ専念できる構造へ段階的に移行する。

@@ -8,7 +8,7 @@
 
 ## API 概要
 - `cluster/src/provider.rs` で `ClusterProvider` が定義され、`start_member` / `start_client` / `shutdown` に加えて `resolve_partition_manager` を要求。後者でクラスタ内の他ノードが保持する `PartitionManager` を参照できる。
-- `ClusterProviderContext` は `cluster_name`・`node_address`・`kinds`・`partition_manager` に加え、`EventStream` 参照を保持する。`provider_context_from_kinds` で `Cluster` から構築され、トポロジ更新時には `TopologyEvent` を publish できる。
+- `ClusterProviderContext` は `cluster_name`・`node_address`・`kinds`・`partition_manager`・`core_runtime` を保持し、`EventStream` を介したトポロジ通知を行う。`provider_context_from_kinds` が `Cluster` から構築し、トポロジ更新時には `TopologyEvent` を publish できる。
 - `Cluster::start_member` / `start_client` / `shutdown` はプロバイダーへ委譲しつつ、Virtual Actor ランタイム (`cluster/src/virtual_actor.rs`) と連携する。
 
 ## ラインナップ整理

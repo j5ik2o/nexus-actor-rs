@@ -7,7 +7,6 @@ use std::sync::{Arc, Weak};
 use std::time::Duration;
 use thiserror::Error;
 use tokio::sync::{broadcast, RwLock};
-use tokio::task::JoinHandle;
 use tokio_stream::wrappers::BroadcastStream;
 
 use crate::generated::registry::cluster_registry_client::ClusterRegistryClient;
@@ -17,6 +16,7 @@ use crate::generated::registry::{
 use crate::kind::ClusterKind;
 use crate::partition::manager::{ClusterTopology, PartitionManager};
 use crate::rendezvous::ClusterMember;
+use nexus_actor_core_rs::runtime::{CoreJoinHandle, CoreRuntime, CoreTaskFuture};
 use nexus_actor_std_rs::actor::message::{Message, MessageHandle};
 use nexus_actor_std_rs::event_stream::EventStream;
 use tonic::transport::{Channel, Endpoint};
@@ -30,6 +30,7 @@ pub struct ClusterProviderContext {
   pub kinds: Vec<String>,
   pub partition_manager: Arc<PartitionManager>,
   event_stream: Arc<EventStream>,
+  core_runtime: CoreRuntime,
 }
 
 impl ClusterProviderContext {
@@ -39,6 +40,7 @@ impl ClusterProviderContext {
     kinds: impl IntoIterator<Item = String>,
     partition_manager: Arc<PartitionManager>,
     event_stream: Arc<EventStream>,
+    core_runtime: CoreRuntime,
   ) -> Self {
     Self {
       cluster_name: cluster_name.into(),
@@ -46,6 +48,7 @@ impl ClusterProviderContext {
       kinds: kinds.into_iter().collect(),
       partition_manager,
       event_stream,
+      core_runtime,
     }
   }
 
@@ -55,6 +58,10 @@ impl ClusterProviderContext {
 
   pub fn event_stream(&self) -> Arc<EventStream> {
     self.event_stream.clone()
+  }
+
+  pub fn core_runtime(&self) -> CoreRuntime {
+    self.core_runtime.clone()
   }
 }
 
@@ -141,7 +148,11 @@ pub trait ClusterProvider: Send + Sync + fmt::Debug + 'static {
 
 #[async_trait]
 pub trait RegistryClient: Send + Sync + fmt::Debug + 'static {
-  async fn join_member(&self, member: RegistryMember) -> Result<RegistryWatch, RegistryError>;
+  async fn join_member(
+    &self,
+    member: RegistryMember,
+    core_runtime: CoreRuntime,
+  ) -> Result<RegistryWatch, RegistryError>;
 
   async fn leave_member(&self, cluster_name: &str, node_address: &str) -> Result<(), RegistryError>;
 
@@ -282,6 +293,7 @@ pub fn provider_context_from_kinds(
   kinds: &DashMap<String, ClusterKind>,
   partition_manager: Arc<PartitionManager>,
   event_stream: Arc<EventStream>,
+  core_runtime: CoreRuntime,
 ) -> ClusterProviderContext {
   let kind_names = kinds.iter().map(|entry| entry.key().clone()).collect::<Vec<_>>();
   ClusterProviderContext::new(
@@ -290,6 +302,7 @@ pub fn provider_context_from_kinds(
     kind_names,
     partition_manager,
     event_stream,
+    core_runtime,
   )
 }
 
@@ -320,8 +333,8 @@ pub struct GrpcRegistryClusterProvider<R: RegistryClient> {
   registry: Arc<R>,
   partition_managers: RwLock<HashMap<String, Weak<PartitionManager>>>,
   members: RwLock<HashMap<String, RegisteredMember>>,
-  watch_tasks: RwLock<HashMap<String, JoinHandle<()>>>,
-  heartbeat_tasks: RwLock<HashMap<String, JoinHandle<()>>>,
+  watch_tasks: RwLock<HashMap<String, Arc<dyn CoreJoinHandle>>>,
+  heartbeat_tasks: RwLock<HashMap<String, Arc<dyn CoreJoinHandle>>>,
   settings: GrpcRegistrySettings,
 }
 
@@ -353,11 +366,13 @@ impl<R: RegistryClient> GrpcRegistryClusterProvider<R> {
     node_address: String,
     partition_manager: Arc<PartitionManager>,
     event_stream: Arc<EventStream>,
+    core_runtime: CoreRuntime,
     mut stream: BroadcastStream<ClusterTopology>,
   ) {
     let cluster_for_log = cluster_name.clone();
     let address_for_log = node_address.clone();
-    let handle = tokio::spawn(async move {
+    let spawner = core_runtime.spawner();
+    let future: CoreTaskFuture = Box::pin(async move {
       while let Some(result) = stream.next().await {
         match result {
           Ok(topology) => {
@@ -375,18 +390,26 @@ impl<R: RegistryClient> GrpcRegistryClusterProvider<R> {
       }
     });
 
-    let mut tasks = self.watch_tasks.write().await;
-    if let Some(existing) = tasks.insert(node_address, handle) {
-      existing.abort();
+    match spawner.spawn(future) {
+      Ok(handle) => {
+        let mut tasks = self.watch_tasks.write().await;
+        if let Some(existing) = tasks.insert(node_address, handle) {
+          existing.cancel();
+        }
+      }
+      Err(err) => {
+        warn!(error = ?err, cluster = %cluster_name, node = %node_address, "failed to spawn registry watch");
+      }
     }
   }
 
-  async fn start_heartbeat(&self, cluster_name: String, node_address: String) {
+  async fn start_heartbeat(&self, cluster_name: String, node_address: String, core_runtime: CoreRuntime) {
     let interval = self.settings.heartbeat_interval;
     let registry = self.registry.clone();
     let cluster_clone = cluster_name.clone();
     let node_clone = node_address.clone();
-    let handle = tokio::spawn(async move {
+    let spawner = core_runtime.spawner();
+    let future: CoreTaskFuture = Box::pin(async move {
       let mut ticker = tokio::time::interval(interval);
       loop {
         ticker.tick().await;
@@ -396,14 +419,21 @@ impl<R: RegistryClient> GrpcRegistryClusterProvider<R> {
       }
     });
 
-    if let Some(existing) = self.heartbeat_tasks.write().await.insert(node_address, handle) {
-      existing.abort();
+    match spawner.spawn(future) {
+      Ok(handle) => {
+        if let Some(existing) = self.heartbeat_tasks.write().await.insert(node_address, handle) {
+          existing.cancel();
+        }
+      }
+      Err(err) => {
+        warn!(error = ?err, cluster = %cluster_name, node = %node_address, "failed to spawn heartbeat task");
+      }
     }
   }
 
   async fn stop_heartbeat(&self, node_address: &str) {
     if let Some(handle) = self.heartbeat_tasks.write().await.remove(node_address) {
-      handle.abort();
+      handle.cancel();
     }
   }
 
@@ -414,7 +444,7 @@ impl<R: RegistryClient> GrpcRegistryClusterProvider<R> {
 
   async fn register_node(&self, ctx: &ClusterProviderContext) -> Result<RegistryWatch, ClusterProviderError> {
     let member = RegistryMember::new(ctx.cluster_name.clone(), ctx.node_address.clone(), ctx.kinds.clone());
-    let watch = self.registry.join_member(member.clone()).await?;
+    let watch = self.registry.join_member(member.clone(), ctx.core_runtime()).await?;
 
     {
       let mut managers = self.partition_managers.write().await;
@@ -519,7 +549,11 @@ impl From<Status> for RegistryError {
 
 #[async_trait]
 impl RegistryClient for GrpcRegistryClient {
-  async fn join_member(&self, member: RegistryMember) -> Result<RegistryWatch, RegistryError> {
+  async fn join_member(
+    &self,
+    member: RegistryMember,
+    core_runtime: CoreRuntime,
+  ) -> Result<RegistryWatch, RegistryError> {
     let mut client = self.client().await?;
 
     let request = JoinRequest {
@@ -538,13 +572,14 @@ impl RegistryClient for GrpcRegistryClient {
     let (sender, receiver) = broadcast::channel(32);
     let _ = sender.send(topology.clone());
 
-    let sender_clone = sender.clone();
-    tokio::spawn(async move {
+    let mut stream_for_task = stream;
+    let sender_for_task = sender.clone();
+    let future: CoreTaskFuture = Box::pin(async move {
       loop {
-        match stream.message().await {
+        match stream_for_task.message().await {
           Ok(Some(update)) => {
             let topology = GrpcRegistryClient::update_from_watch(update);
-            let _ = sender_clone.send(topology);
+            let _ = sender_for_task.send(topology);
           }
           Ok(None) => break,
           Err(status) => {
@@ -554,6 +589,15 @@ impl RegistryClient for GrpcRegistryClient {
         }
       }
     });
+
+    let spawner = core_runtime.spawner();
+    match spawner.spawn(future) {
+      Ok(handle) => handle.detach(),
+      Err(err) => {
+        warn!(error = ?err, cluster = %member.cluster_name, node = %member.node_address, "failed to spawn registry watch task");
+        return Err(RegistryError::OperationFailed("failed to spawn registry watch".into()));
+      }
+    }
 
     Ok(RegistryWatch::new(topology, receiver))
   }
@@ -610,11 +654,18 @@ impl<R: RegistryClient> ClusterProvider for GrpcRegistryClusterProvider<R> {
     let pm = ctx.partition_manager.clone();
     let node_address = ctx.node_address.clone();
     self
-      .register_watch(ctx.cluster_name.clone(), node_address, pm, ctx.event_stream(), stream)
+      .register_watch(
+        ctx.cluster_name.clone(),
+        node_address,
+        pm,
+        ctx.event_stream(),
+        ctx.core_runtime(),
+        stream,
+      )
       .await;
 
     self
-      .start_heartbeat(ctx.cluster_name.clone(), ctx.node_address.clone())
+      .start_heartbeat(ctx.cluster_name.clone(), ctx.node_address.clone(), ctx.core_runtime())
       .await;
 
     Ok(())
@@ -652,7 +703,7 @@ impl<R: RegistryClient> ClusterProvider for GrpcRegistryClusterProvider<R> {
         let mut tasks = self.watch_tasks.write().await;
         tasks.remove(&address)
       } {
-        handle.abort();
+        handle.cancel();
       }
 
       let mut managers = self.partition_managers.write().await;
@@ -762,7 +813,11 @@ mod tests {
 
   #[async_trait]
   impl RegistryClient for MockRegistryClient {
-    async fn join_member(&self, member: RegistryMember) -> Result<RegistryWatch, RegistryError> {
+    async fn join_member(
+      &self,
+      member: RegistryMember,
+      _core_runtime: CoreRuntime,
+    ) -> Result<RegistryWatch, RegistryError> {
       let mut guard = self.inner.lock().await;
       let state = guard.entry(member.cluster_name.clone()).or_insert_with(|| {
         let (sender, _) = broadcast::channel(32);
@@ -1110,14 +1165,16 @@ mod tests {
 }
 
 #[allow(dead_code)]
+#[cfg(test)]
 pub mod registry_server {
   use super::*;
+  use nexus_actor_core_rs::runtime::{CoreJoinHandle, CoreSpawner, CoreTaskFuture};
+  use nexus_utils_std_rs::runtime::TokioCoreSpawner;
 
   use std::net::SocketAddr;
   use std::time::{Duration, Instant};
 
   use tokio::sync::{broadcast, RwLock};
-  use tokio::task::JoinHandle;
   use tokio_stream::wrappers::UnboundedReceiverStream;
   use tonic::transport::Server;
   use tonic::{async_trait, Response, Status};
@@ -1210,7 +1267,8 @@ pub mod registry_server {
 
     fn spawn_cleanup_task(&self) {
       let state = self.state.clone();
-      tokio::spawn(async move {
+      let spawner = TokioCoreSpawner::current();
+      let future: CoreTaskFuture = Box::pin(async move {
         let mut ticker = tokio::time::interval(state.cleanup_interval);
         loop {
           ticker.tick().await;
@@ -1231,6 +1289,9 @@ pub mod registry_server {
           }
         }
       });
+      if let Ok(handle) = spawner.spawn(future) {
+        handle.detach();
+      }
     }
 
     async fn upsert_member(&self, member: Member) -> WatchUpdate {
@@ -1328,7 +1389,8 @@ pub mod registry_server {
       }
 
       let service = self.clone();
-      tokio::spawn(async move {
+      let spawner = TokioCoreSpawner::current();
+      let future: CoreTaskFuture = Box::pin(async move {
         loop {
           match receiver.recv().await {
             Ok(update) => {
@@ -1345,6 +1407,9 @@ pub mod registry_server {
           }
         }
       });
+      if let Ok(handle) = spawner.spawn(future) {
+        handle.detach();
+      }
 
       Ok(Response::new(UnboundedReceiverStream::new(rx)))
     }
@@ -1369,16 +1434,31 @@ pub mod registry_server {
   }
 
   #[allow(dead_code)]
+  pub struct RegistryServerHandle {
+    handle: Arc<dyn CoreJoinHandle>,
+  }
+
+  impl RegistryServerHandle {
+    pub fn abort(self) {
+      self.handle.cancel();
+    }
+  }
+
   pub fn spawn_registry_server(
     addr: SocketAddr,
     config: GrpcRegistryServerConfig,
-  ) -> (GrpcRegistryService, JoinHandle<Result<(), tonic::transport::Error>>) {
+  ) -> (GrpcRegistryService, RegistryServerHandle) {
     let service = GrpcRegistryService::new(&config);
     let cloned_service = service.clone();
-    let handle = tokio::spawn(async move { cloned_service.serve(addr, &config).await });
-    (service, handle)
+    let spawner = TokioCoreSpawner::current();
+    let future: CoreTaskFuture = Box::pin(async move {
+      let _ = cloned_service.serve(addr, &config).await;
+    });
+    let handle = spawner.spawn(future).expect("failed to spawn registry server task");
+    (service, RegistryServerHandle { handle })
   }
 }
 
+#[cfg(test)]
 #[allow(unused_imports)]
-pub use registry_server::{spawn_registry_server, GrpcRegistryServerConfig, GrpcRegistryService};
+pub use registry_server::{spawn_registry_server, GrpcRegistryServerConfig, GrpcRegistryService, RegistryServerHandle};

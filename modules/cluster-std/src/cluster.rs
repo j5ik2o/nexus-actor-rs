@@ -1,3 +1,4 @@
+use std::fmt;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -26,10 +27,9 @@ use crate::provider::{
   provider_context_from_kinds, ClusterProvider, ClusterProviderContext, ClusterProviderError, TopologyEvent,
 };
 use crate::rendezvous::ClusterMember;
+use nexus_actor_core_rs::runtime::{CoreJoinHandle, CoreTaskFuture};
 use nexus_actor_std_rs::event_stream::Subscription;
-use tokio::runtime::Handle;
 use tokio::sync::{oneshot, Mutex};
-use tokio::task::JoinHandle;
 use tracing::{error, info, warn};
 
 use thiserror::Error;
@@ -106,7 +106,7 @@ impl ActivationHandler for ClusterActivationHandler {
 }
 
 /// Virtual Actor を管理する最小限の Cluster 実装。
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Cluster {
   actor_system: Arc<ActorSystem>,
   config: ClusterConfig,
@@ -115,8 +115,16 @@ pub struct Cluster {
   kinds: Arc<DashMap<String, ClusterKind>>,
   partition_manager: Arc<PartitionManager>,
   remote: Arc<Mutex<Option<Arc<Remote>>>>,
-  remote_task: Arc<Mutex<Option<JoinHandle<()>>>>,
+  remote_task: Arc<Mutex<Option<Arc<dyn CoreJoinHandle>>>>,
   topology_subscription: Arc<Mutex<Option<Subscription>>>,
+}
+
+impl fmt::Debug for Cluster {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    f.debug_struct("Cluster")
+      .field("cluster_name", &self.config.cluster_name)
+      .finish_non_exhaustive()
+  }
 }
 
 impl Cluster {
@@ -183,12 +191,14 @@ impl Cluster {
   async fn provider_context(&self) -> ClusterProviderContext {
     let address = self.actor_system.get_address().await;
     let event_stream = self.actor_system.get_event_stream().await;
+    let core_runtime = self.actor_system.core_runtime();
     provider_context_from_kinds(
       &self.config.cluster_name,
       address,
       &self.kinds,
       self.partition_manager.clone(),
       event_stream,
+      core_runtime,
     )
   }
 
@@ -257,8 +267,8 @@ impl Cluster {
     let remote_arc = Arc::new(remote);
     let (started_tx, started_rx) = oneshot::channel();
     let remote_clone = remote_arc.clone();
-
-    let handle = tokio::spawn(async move {
+    let spawner = self.actor_system.core_runtime().spawner();
+    let future: CoreTaskFuture = Box::pin(async move {
       let start_result = remote_clone
         .start_with_callback(|| async {
           let _ = started_tx.send(());
@@ -268,6 +278,16 @@ impl Cluster {
         error!(?err, "Remote server terminated with error");
       }
     });
+
+    let handle = match spawner.spawn(future) {
+      Ok(handle) => handle,
+      Err(err) => {
+        error!(?err, "Failed to spawn remote server task");
+        return Err(ClusterError::Provider(ClusterProviderError::ProviderError(
+          "failed to spawn remote".into(),
+        )));
+      }
+    };
 
     let _ = started_rx.await;
 
@@ -341,13 +361,11 @@ impl Cluster {
   }
 
   fn spawn_local_topology_refresh(&self) {
-    if Handle::try_current().is_err() {
-      return;
-    }
     let actor_system = self.actor_system.clone();
     let kinds = self.kinds.clone();
     let partition_manager = self.partition_manager.clone();
-    tokio::spawn(async move {
+    let spawner = actor_system.core_runtime().spawner();
+    let future: CoreTaskFuture = Box::pin(async move {
       let address = actor_system.get_address().await;
       let kind_names = kinds.iter().map(|entry| entry.key().clone()).collect::<Vec<_>>();
       let member = ClusterMember::new(address, kind_names);
@@ -355,6 +373,10 @@ impl Cluster {
         .update_topology(ClusterTopology { members: vec![member] })
         .await;
     });
+
+    if let Err(err) = spawner.spawn(future) {
+      warn!(?err, "failed to spawn local topology refresh task");
+    }
   }
 
   pub async fn shutdown(&self, graceful: bool) -> Result<(), ClusterError> {
@@ -381,7 +403,7 @@ impl Cluster {
       let mut guard = self.remote_task.lock().await;
       guard.take()
     } {
-      let _ = handle.await;
+      handle.join().await;
     }
     self.clear_topology_logging().await;
     self.partition_manager.stop().await;
