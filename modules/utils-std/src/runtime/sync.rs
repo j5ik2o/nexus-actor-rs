@@ -5,10 +5,11 @@ use std::boxed::Box;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
+use super::spawn::TokioCoreSpawner;
 use nexus_actor_core_rs::actor::core_types::restart::FailureClock;
 use nexus_actor_core_rs::runtime::{
-  AsyncMutex, AsyncNotify, AsyncRwLock, AsyncYield, CoreRuntime, CoreRuntimeConfig, CoreScheduledHandle,
-  CoreScheduledHandleRef, CoreScheduledTask, CoreScheduler, CoreTaskFuture, Timer,
+  AsyncMutex, AsyncNotify, AsyncRwLock, AsyncYield, CoreJoinHandle, CoreRuntime, CoreRuntimeConfig,
+  CoreScheduledHandle, CoreScheduledHandleRef, CoreScheduledTask, CoreScheduler, CoreSpawner, CoreTaskFuture, Timer,
 };
 use tokio::sync::{Mutex as TokioMutexRaw, MutexGuard, Notify, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
@@ -146,44 +147,37 @@ impl FailureClock for InstantFailureClock {
 #[derive(Debug, Default)]
 pub struct TokioScheduler;
 
-#[derive(Debug)]
 struct TokioScheduledHandle {
-  handle: std::sync::Mutex<Option<tokio::task::JoinHandle<()>>>,
+  handle: Arc<dyn CoreJoinHandle>,
 }
 
 impl TokioScheduledHandle {
-  fn new(handle: tokio::task::JoinHandle<()>) -> Self {
-    Self {
-      handle: std::sync::Mutex::new(Some(handle)),
-    }
+  fn new(handle: Arc<dyn CoreJoinHandle>) -> Self {
+    Self { handle }
   }
 }
 
 impl CoreScheduledHandle for TokioScheduledHandle {
   fn cancel(&self) {
-    if let Some(handle) = self.handle.lock().expect("mutex poisoned").take() {
-      handle.abort();
-    }
+    self.handle.cancel();
   }
 
   fn is_cancelled(&self) -> bool {
-    self
-      .handle
-      .lock()
-      .expect("mutex poisoned")
-      .as_ref()
-      .map_or(true, tokio::task::JoinHandle::is_finished)
+    self.handle.is_finished()
   }
 }
 
 impl TokioScheduler {
-  fn spawn_task<F>(future: F) -> tokio::task::JoinHandle<()>
+  fn spawn_task<F>(future: F) -> Arc<dyn CoreJoinHandle>
   where
     F: Future<Output = ()> + Send + 'static, {
-    tokio::spawn(future)
+    let task: CoreTaskFuture = Box::pin(future);
+    TokioCoreSpawner::current()
+      .spawn(task)
+      .expect("Tokio scheduler failed to spawn task")
   }
 
-  fn wrap_handle(handle: tokio::task::JoinHandle<()>) -> CoreScheduledHandleRef {
+  fn wrap_handle(handle: Arc<dyn CoreJoinHandle>) -> CoreScheduledHandleRef {
     Arc::new(TokioScheduledHandle::new(handle)) as CoreScheduledHandleRef
   }
 
@@ -259,8 +253,10 @@ impl TokioRuntime {
     let timer: Arc<dyn Timer> = self.timer.clone();
     let scheduler: Arc<dyn CoreScheduler> = self.scheduler.clone();
     let failure_clock: Arc<dyn FailureClock> = self.failure_clock.clone();
+    let spawner: Arc<dyn CoreSpawner> = Arc::new(TokioCoreSpawner::current());
     let config = CoreRuntimeConfig::new(timer, scheduler)
       .with_yielder(self.yielder.clone() as Arc<dyn AsyncYield>)
+      .with_spawner(spawner)
       .with_failure_clock(failure_clock);
     CoreRuntime::from(config)
   }

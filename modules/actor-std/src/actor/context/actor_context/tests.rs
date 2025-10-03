@@ -15,7 +15,10 @@ use crate::actor::message::Message;
 use crate::actor::message::MessageHandle;
 use crate::actor::message::ResponseHandle;
 use crate::actor::message::Touched;
+use nexus_actor_core_rs::runtime::CoreSpawner as _;
+use nexus_actor_core_rs::runtime::CoreTaskFuture;
 use nexus_message_derive_rs::Message;
+use nexus_utils_std_rs::runtime::TokioCoreSpawner;
 use opentelemetry_sdk::metrics::SdkMeterProvider;
 use tokio::task::yield_now;
 use tokio::time::timeout;
@@ -173,7 +176,7 @@ async fn test_actor_context_metrics_reentrancy() {
   let ctx = ActorContext::new(system.clone(), props, None).await;
 
   let ctx_spawn = ctx.clone();
-  let join_handle = tokio::spawn(async move {
+  let task: CoreTaskFuture = Box::pin(async move {
     loop {
       if ctx_spawn.metrics_sink_or_init().is_some() {
         break;
@@ -182,6 +185,7 @@ async fn test_actor_context_metrics_reentrancy() {
     }
     let _ = ctx_spawn.get_self_opt().await;
   });
+  let join_handle = TokioCoreSpawner::current().spawn(task).expect("spawn metrics task");
 
   let result = timeout(Duration::from_millis(200), async move {
     loop {
@@ -190,7 +194,7 @@ async fn test_actor_context_metrics_reentrancy() {
       }
       yield_now().await;
     }
-    join_handle.await.expect("metrics task failed");
+    join_handle.clone().join().await;
   })
   .await;
 
