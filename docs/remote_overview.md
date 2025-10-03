@@ -16,7 +16,7 @@
 - gRPC 管理 RPC（ListProcesses / GetProcessDiagnostics）が利用可能で、`remote/src/endpoint_reader.rs:420-520` で診断応答を提供。
 
 ## 残課題
-- `remote/src/config.rs` の `endpoint_writer_queue_snapshot_interval` 既定値が 1 のまま。運用推奨値（本番 32, staging 8, dev 1）へ更新し、Runbook に記載する。
+- `endpoint_writer_queue_snapshot_interval` は既定値を 32 に更新済み（本番推奨）。staging/dev の推奨値（8/1）の運用ルールを Runbook に追記する。
 - BlockList を公開 API（`Remote::block_system` など）から操作できるようにし、送受信経路の拒否制御と DeadLetter 統計連携を整備する。
 - TLS / keepalive など Channel 設定を `ConfigOption` 経由で注入する API を拡張する。現在は `Channel::from_shared("http://…")` 固定。
 - `EndpointWriter` のログレベルは `tracing::info!` が多く、ハイボリューム環境でノイズとなるためメトリクス化や sample ロギングを検討する。
