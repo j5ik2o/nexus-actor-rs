@@ -23,6 +23,10 @@ impl MessageEnvelope {
     }
   }
 
+  pub fn from_core(inner: CoreMessageEnvelope) -> Self {
+    Self { inner }
+  }
+
   pub fn with_header(mut self, header: MessageHeaders) -> Self {
     self.inner = self.inner.with_header(header.to_map());
     self
@@ -59,6 +63,14 @@ impl MessageEnvelope {
 
   pub fn get_headers(&self) -> Option<MessageHeaders> {
     self.get_header()
+  }
+
+  pub fn into_core(self) -> CoreMessageEnvelope {
+    self.inner
+  }
+
+  pub fn as_core(&self) -> &CoreMessageEnvelope {
+    &self.inner
   }
 }
 

@@ -9,7 +9,10 @@ use crate::actor::message::MessageHandle;
 use crate::actor::process::future::{ActorFutureError, ActorFutureProcess};
 use crate::actor::process::{Process, ProcessHandle};
 use async_trait::async_trait;
+use nexus_actor_core_rs::runtime::CoreSpawner as _;
+use nexus_actor_core_rs::runtime::CoreTaskFuture;
 use nexus_utils_std_rs::concurrent::AsyncBarrier;
+use nexus_utils_std_rs::runtime::TokioCoreSpawner;
 use tokio::sync::Notify;
 use tokio::time::{sleep, Duration};
 
@@ -85,10 +88,11 @@ async fn test_future_pipe_to_message() {
   for process in [a1.clone(), a2.clone(), a3.clone()] {
     let barrier = barrier.clone();
     let received = process.notify.clone();
-    tokio::spawn(async move {
+    let task: CoreTaskFuture = Box::pin(async move {
       received.notified().await;
       barrier.wait().await;
     });
+    TokioCoreSpawner::current().spawn(task).expect("spawn watcher").detach();
   }
 
   future_process
@@ -139,10 +143,11 @@ async fn test_future_pipe_to_timeout_sends_error() {
   for process in [a1.clone(), a2.clone(), a3.clone()] {
     let barrier = barrier.clone();
     let received = process.notify.clone();
-    tokio::spawn(async move {
+    let task: CoreTaskFuture = Box::pin(async move {
       received.notified().await;
       barrier.wait().await;
     });
+    TokioCoreSpawner::current().spawn(task).expect("spawn watcher").detach();
   }
 
   let err = future_process.result().await;
@@ -171,23 +176,25 @@ async fn test_new_future_timeout_no_race() {
   let future_process = ActorFutureProcess::new(system, Duration::from_millis(200)).await;
   let barrier = AsyncBarrier::new(2);
 
-  tokio::spawn({
-    let future = future_process.clone();
-    let barrier = barrier.clone();
-    async move {
-      match tokio::time::timeout(
-        Duration::from_millis(100),
-        future.complete(MessageHandle::new("response".to_string())),
-      )
-      .await
-      {
-        Ok(_) => {}
-        Err(_) => panic!("timeout"),
-      }
-
-      barrier.wait().await;
+  let future = future_process.clone();
+  let barrier_clone = barrier.clone();
+  let task: CoreTaskFuture = Box::pin(async move {
+    match tokio::time::timeout(
+      Duration::from_millis(100),
+      future.complete(MessageHandle::new("response".to_string())),
+    )
+    .await
+    {
+      Ok(_) => {}
+      Err(_) => panic!("timeout"),
     }
+
+    barrier_clone.wait().await;
   });
+  TokioCoreSpawner::current()
+    .spawn(task)
+    .expect("spawn timeout completer")
+    .detach();
 
   barrier.wait().await;
 

@@ -3,11 +3,26 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 use std::time::Duration;
 
-use tokio::sync::Mutex;
+use nexus_actor_core_rs::runtime::CoreSpawner as _;
+use nexus_actor_core_rs::runtime::{CoreJoinHandle, CoreTaskFuture};
+use nexus_utils_std_rs::runtime::TokioCoreSpawner;
+use tokio::sync::{oneshot, Mutex};
 
 use crate::actor::core_types::message_types::Message;
 use crate::actor::message::MessageHandle;
 use crate::event_stream::predicate::Predicate;
+
+fn spawn_bool_task<Fut>(future: Fut) -> (Arc<dyn CoreJoinHandle>, oneshot::Receiver<bool>)
+where
+  Fut: std::future::Future<Output = bool> + Send + 'static, {
+  let (tx, rx) = oneshot::channel();
+  let task: CoreTaskFuture = Box::pin(async move {
+    let result = future.await;
+    let _ = tx.send(result);
+  });
+  let handle = TokioCoreSpawner::current().spawn(task).expect("spawn predicate task");
+  (handle, rx)
+}
 
 #[tokio::test]
 async fn test_predicate_thread_safety() {
@@ -16,10 +31,14 @@ async fn test_predicate_thread_safety() {
     let counter = counter.clone();
     move |_| {
       let counter = counter.clone();
-      tokio::spawn(async move {
+      let task: CoreTaskFuture = Box::pin(async move {
         let mut lock = counter.lock().await;
         *lock += 1;
       });
+      TokioCoreSpawner::current()
+        .spawn(task)
+        .expect("spawn counter increment")
+        .detach();
       true
     }
   });
@@ -27,12 +46,14 @@ async fn test_predicate_thread_safety() {
   let handles: Vec<_> = (0..10)
     .map(|_| {
       let pred = predicate.clone();
-      tokio::spawn(async move { pred.run(MessageHandle::new("test".to_string())) })
+      spawn_bool_task(async move { pred.run(MessageHandle::new("test".to_string())) })
     })
     .collect();
 
-  for handle in handles {
-    assert!(handle.await.unwrap());
+  for (handle, rx) in handles {
+    let result = rx.await.unwrap_or(false);
+    handle.clone().join().await;
+    assert!(result);
   }
 
   tokio::time::sleep(Duration::from_millis(100)).await;

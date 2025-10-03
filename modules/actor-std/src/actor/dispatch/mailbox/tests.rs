@@ -14,8 +14,10 @@ use crate::actor::dispatch::{Mailbox, MailboxQueueKind};
 use crate::actor::message::MessageHandle;
 use crate::runtime::tokio_core_runtime;
 use async_trait::async_trait;
-use nexus_actor_core_rs::runtime::AsyncYield;
+use nexus_actor_core_rs::runtime::CoreSpawner as _;
+use nexus_actor_core_rs::runtime::{AsyncYield, CoreTaskFuture};
 use nexus_utils_std_rs::collections::{MpscUnboundedChannelQueue, PriorityQueue, QueueReader, QueueWriter, RingQueue};
+use nexus_utils_std_rs::runtime::TokioCoreSpawner;
 use parking_lot::Mutex;
 use rand::prelude::*;
 use rand::rngs::SmallRng;
@@ -300,7 +302,7 @@ async fn test_unbounded_mpsc_mailbox_user_message_consistency() {
     let mailbox = mailbox.clone();
     let mut rng = rng.clone();
 
-    let h = tokio::spawn(async move {
+    let task: CoreTaskFuture = Box::pin(async move {
       for i in 0..cmax {
         if rng.random_range(0..10) == 0 {
           let wait_time = rng.random_range(0..1000);
@@ -311,11 +313,12 @@ async fn test_unbounded_mpsc_mailbox_user_message_consistency() {
           .await;
       }
     });
-    join_handles.push(h);
+    let handle = TokioCoreSpawner::current().spawn(task).expect("spawn mailbox producer");
+    join_handles.push(handle);
   }
 
   for h in join_handles {
-    h.await.unwrap();
+    h.clone().join().await;
   }
 
   sleep(Duration::from_secs(1)).await;
@@ -358,7 +361,7 @@ async fn test_unbounded_mpsc_mailbox_system_message_consistency() {
     let mailbox = mailbox.clone();
     let mut rng = rng.clone();
 
-    let h = tokio::spawn(async move {
+    let task: CoreTaskFuture = Box::pin(async move {
       for i in 0..cmax {
         if rng.random_range(0..10) == 0 {
           let wait_time = rng.random_range(0..1000);
@@ -369,11 +372,14 @@ async fn test_unbounded_mpsc_mailbox_system_message_consistency() {
           .await;
       }
     });
-    join_handles.push(h);
+    let handle = TokioCoreSpawner::current()
+      .spawn(task)
+      .expect("spawn mailbox system producer");
+    join_handles.push(handle);
   }
 
   for h in join_handles {
-    h.await.unwrap();
+    h.clone().join().await;
   }
 
   sleep(Duration::from_secs(1)).await;

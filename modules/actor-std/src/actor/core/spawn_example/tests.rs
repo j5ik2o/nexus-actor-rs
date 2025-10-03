@@ -5,7 +5,10 @@ use crate::actor::context::{MessagePart, SpawnerPart};
 use crate::actor::core::props::Props;
 use crate::actor::message::AutoReceiveMessage;
 use crate::actor::message::Message;
+use nexus_actor_core_rs::runtime::CoreSpawner as _;
+use nexus_actor_core_rs::runtime::CoreTaskFuture;
 use nexus_utils_std_rs::concurrent::AsyncBarrier;
+use nexus_utils_std_rs::runtime::TokioCoreSpawner;
 use tracing_subscriber::EnvFilter;
 
 #[tokio::test]
@@ -30,9 +33,13 @@ async fn example_root_context_spawn() {
       tracing::debug!("msg = {:?}", msg);
       if let Some(AutoReceiveMessage::PreStart) = msg.as_any().downcast_ref::<AutoReceiveMessage>() {
         tracing::debug!("Hello World!");
-        tokio::spawn(async move {
+        let task: CoreTaskFuture = Box::pin(async move {
           b.wait().await;
         });
+        TokioCoreSpawner::current()
+          .spawn(task)
+          .expect("spawn barrier wait")
+          .detach();
       }
       Ok(())
     }

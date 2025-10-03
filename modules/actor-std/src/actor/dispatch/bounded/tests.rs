@@ -44,16 +44,16 @@ async fn test_bounded_queue_concurrent_operations() {
   let queue = setup_test_environment();
   let queue_clone = queue.clone();
 
-  let producer = tokio::spawn(async move {
+  let producer = async move {
     let mut q = queue;
     for i in 1..=4 {
       while q.offer(MessageHandle::new(i)).is_err() {
         sleep(Duration::from_millis(10)).await;
       }
     }
-  });
+  };
 
-  let consumer = tokio::spawn(async move {
+  let consumer = async move {
     let mut q = queue_clone;
     let mut sum = 0;
     for _ in 1..=4 {
@@ -63,9 +63,8 @@ async fn test_bounded_queue_concurrent_operations() {
       sleep(Duration::from_millis(20)).await;
     }
     sum
-  });
+  };
 
-  producer.await.unwrap();
-  let sum = consumer.await.unwrap();
+  let (_, sum) = tokio::join!(producer, consumer);
   assert_eq!(sum, 10); // 1 + 2 + 3 + 4
 }
