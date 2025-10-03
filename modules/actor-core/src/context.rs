@@ -6,8 +6,9 @@ pub mod middleware;
 pub mod snapshot;
 
 pub use core::{
-  CoreActorContext, CoreActorContextBuilder, CoreActorContextSnapshot, CoreActorSystemId, CoreMailboxFactory, CoreProps,
-  CorePropsFactory, CoreReceiverInvocation, CoreSenderInvocation, CoreSenderSnapshot, CoreSupervisorStrategyHandle,
+  CoreActorContext, CoreActorContextBuilder, CoreActorContextSnapshot, CoreActorSystemId, CoreMailboxFactory,
+  CoreProps, CorePropsFactory, CoreReceiverInvocation, CoreSenderInvocation, CoreSenderSnapshot,
+  CoreSupervisorStrategyHandle,
 };
 pub use extensions::{
   next_core_context_extension_id, CoreContextExtension, CoreContextExtensionHandle, CoreContextExtensionId,

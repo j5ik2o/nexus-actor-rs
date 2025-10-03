@@ -534,6 +534,10 @@ impl Props {
       core_props = core_props.with_receiver_middleware_chain(chain.to_core_invocation_chain());
     }
 
+    if let Some(chain) = &self.sender_middleware_chain {
+      core_props = core_props.with_sender_middleware_chain(chain.to_core_invocation_chain());
+    }
+
     self.core_props = core_props;
   }
 }

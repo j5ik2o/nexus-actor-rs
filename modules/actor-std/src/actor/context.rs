@@ -21,6 +21,7 @@ mod actor_context;
 mod actor_context_extras;
 mod base_spawner;
 mod context_handle;
+mod context_registry;
 mod context_snapshot;
 mod core_context_adapter;
 mod lock_timing;
@@ -40,12 +41,12 @@ mod typed_root_context;
 
 use crate::actor::process::actor_future::ActorFuture;
 pub use {
-  self::actor_context::*, self::base_spawner::*, self::context_handle::*, self::context_snapshot::*,
-  self::core_context_adapter::StdActorContextSnapshot, self::lock_timing::lock_wait_snapshot,
-  self::lock_timing::LockStatRecord, self::mock_context::*, self::receiver_context_handle::*,
-  self::receiver_snapshot::*, self::root_context::*, self::sender_context_handle::*, self::spawner_context_handle::*,
-  self::typed_context_borrow::*, self::typed_context_handle::*, self::typed_context_snapshot::*,
-  self::typed_root_context::*,
+  self::actor_context::*, self::base_spawner::*, self::context_handle::*, self::context_registry::ContextRegistry,
+  self::context_snapshot::*, self::core_context_adapter::StdActorContextSnapshot,
+  self::lock_timing::lock_wait_snapshot, self::lock_timing::LockStatRecord, self::mock_context::*,
+  self::receiver_context_handle::*, self::receiver_snapshot::*, self::root_context::*, self::sender_context_handle::*,
+  self::spawner_context_handle::*, self::typed_context_borrow::*, self::typed_context_handle::*,
+  self::typed_context_snapshot::*, self::typed_root_context::*,
 };
 
 pub trait Context:

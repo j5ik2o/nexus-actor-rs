@@ -1,8 +1,9 @@
 use async_trait::async_trait;
 use std::time::Duration;
 
-use crate::actor::actor_system::ActorSystem;
+use crate::actor::actor_system::{with_actor_system, ActorSystem};
 use crate::actor::context::context_handle::ContextHandle;
+use crate::actor::context::context_registry::ContextRegistry;
 use crate::actor::context::root_context::RootContext;
 use crate::actor::context::{CoreSenderPart, InfoPart, MessagePart, SenderContext, SenderPart};
 use crate::actor::core::ActorHandle;
@@ -11,6 +12,7 @@ use crate::actor::message::MessageEnvelope;
 use crate::actor::message::MessageHandle;
 use crate::actor::message::ReadonlyMessageHeadersHandle;
 use crate::actor::process::actor_future::ActorFuture;
+use nexus_actor_core_rs::context::CoreSenderSnapshot;
 use nexus_actor_core_rs::CorePid;
 
 #[derive(Debug, Clone)]
@@ -44,6 +46,32 @@ impl SenderContextHandle {
 
   pub fn try_sender_core(&self) -> Option<CorePid> {
     self.try_sender().map(|pid| pid.to_core())
+  }
+
+  pub async fn capture_core_snapshot(&self) -> Option<CoreSenderSnapshot> {
+    match &self.0 {
+      SenderContextRef::Context(context) => {
+        let actor_system = context.get_actor_system().await;
+        let system_id = actor_system.system_id();
+        let self_pid = context.get_self_opt().await?;
+        ContextRegistry::register(system_id, self_pid.id(), context);
+        let core_snapshot = context.core_snapshot().await;
+        Some(CoreSenderSnapshot::new(core_snapshot, system_id))
+      }
+      SenderContextRef::Root(_) => None,
+    }
+  }
+
+  pub async fn from_core_snapshot(snapshot: &CoreSenderSnapshot) -> Option<Self> {
+    let (context_snapshot, system_id) = snapshot.clone().into_parts();
+    let self_pid = context_snapshot.self_pid_core();
+    if let Some(handle) = ContextRegistry::get(system_id, self_pid.id()) {
+      return Some(SenderContextHandle::from_context(handle));
+    }
+
+    let actor_system = with_actor_system(system_id, |sys| sys.clone())?;
+    let root = actor_system.get_root_context().await;
+    Some(SenderContextHandle::from_root(root))
   }
 }
 
