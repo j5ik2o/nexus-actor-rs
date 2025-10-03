@@ -4,6 +4,7 @@ use alloc::boxed::Box;
 use alloc::sync::Arc;
 use core::any::Any;
 use core::fmt;
+use core::time::Duration;
 
 use crate::actor::core_types::actor_error::CoreActorError;
 use crate::actor::core_types::mailbox::{CoreMailbox, CoreMailboxFuture};
@@ -18,6 +19,9 @@ pub trait CoreActorContext: Any + Send + Sync {
   fn sender_pid(&self) -> Option<CorePid>;
   fn message(&self) -> Option<MessageHandle>;
   fn headers(&self) -> Option<ReadonlyMessageHeadersHandle>;
+  fn receive_timeout(&self) -> Option<Duration> {
+    None
+  }
   // TODO(#core-context): provide accessors for receive timeout / actor state snapshots once core API stabilises.
 }
 
@@ -27,6 +31,7 @@ pub struct CoreActorContextSnapshot {
   sender: Option<CorePid>,
   message: Option<MessageHandle>,
   headers: Option<ReadonlyMessageHeadersHandle>,
+  receive_timeout: Option<Duration>,
 }
 
 impl CoreActorContextSnapshot {
@@ -42,6 +47,7 @@ impl CoreActorContextSnapshot {
       sender,
       message,
       headers,
+      receive_timeout: None,
     }
   }
 
@@ -63,6 +69,74 @@ impl CoreActorContextSnapshot {
   #[must_use]
   pub fn headers_handle(&self) -> Option<ReadonlyMessageHeadersHandle> {
     self.headers.clone()
+  }
+
+  #[must_use]
+  pub fn receive_timeout(&self) -> Option<Duration> {
+    self.receive_timeout
+  }
+
+  #[must_use]
+  pub fn with_receive_timeout(mut self, timeout: Option<Duration>) -> Self {
+    self.receive_timeout = timeout;
+    self
+  }
+}
+
+#[derive(Clone, Debug)]
+pub struct CoreActorContextBuilder {
+  self_pid: CorePid,
+  sender: Option<CorePid>,
+  message: Option<MessageHandle>,
+  headers: Option<ReadonlyMessageHeadersHandle>,
+  receive_timeout: Option<Duration>,
+}
+
+impl CoreActorContextBuilder {
+  #[must_use]
+  pub fn new(self_pid: CorePid) -> Self {
+    Self {
+      self_pid,
+      sender: None,
+      message: None,
+      headers: None,
+      receive_timeout: None,
+    }
+  }
+
+  #[must_use]
+  pub fn with_sender(mut self, sender: Option<CorePid>) -> Self {
+    self.sender = sender;
+    self
+  }
+
+  #[must_use]
+  pub fn with_message(mut self, message: Option<MessageHandle>) -> Self {
+    self.message = message;
+    self
+  }
+
+  #[must_use]
+  pub fn with_headers(mut self, headers: Option<ReadonlyMessageHeadersHandle>) -> Self {
+    self.headers = headers;
+    self
+  }
+
+  #[must_use]
+  pub fn with_receive_timeout(mut self, timeout: Option<Duration>) -> Self {
+    self.receive_timeout = timeout;
+    self
+  }
+
+  #[must_use]
+  pub fn build(self) -> CoreActorContextSnapshot {
+    CoreActorContextSnapshot {
+      self_pid: self.self_pid,
+      sender: self.sender,
+      message: self.message,
+      headers: self.headers,
+      receive_timeout: self.receive_timeout,
+    }
   }
 }
 
@@ -109,6 +183,10 @@ impl CoreActorContext for CoreActorContextSnapshot {
 
   fn headers(&self) -> Option<ReadonlyMessageHeadersHandle> {
     self.headers_handle()
+  }
+
+  fn receive_timeout(&self) -> Option<Duration> {
+    self.receive_timeout()
   }
 }
 
@@ -203,6 +281,7 @@ mod tests {
   use super::*;
   use crate::actor::core_types::message::Message;
   use core::any::Any;
+  use core::time::Duration;
 
   #[derive(Debug, Clone, PartialEq)]
   struct TestMessage(&'static str);
@@ -233,10 +312,20 @@ mod tests {
     assert_eq!(snapshot.sender_pid_core(), Some(sender_pid));
     assert!(snapshot.message_handle().unwrap().is_typed::<TestMessage>());
     assert!(snapshot.headers_handle().is_none());
+    assert!(snapshot.receive_timeout().is_none());
 
     let core_ctx: &dyn CoreActorContext = &snapshot;
     assert_eq!(core_ctx.self_pid(), self_pid);
     assert!(core_ctx.message().unwrap().is_typed::<TestMessage>());
+  }
+
+  #[test]
+  fn builder_supports_receive_timeout() {
+    let snapshot = CoreActorContextBuilder::new(CorePid::new("node", "actor"))
+      .with_receive_timeout(Some(Duration::from_secs(5)))
+      .build();
+
+    assert_eq!(snapshot.receive_timeout(), Some(Duration::from_secs(5)));
   }
 
   #[test]

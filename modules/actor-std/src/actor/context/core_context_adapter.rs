@@ -1,11 +1,12 @@
 use nexus_actor_core_rs::actor::core_types::message_handle::MessageHandle;
 use nexus_actor_core_rs::actor::core_types::message_headers::ReadonlyMessageHeadersHandle;
 use nexus_actor_core_rs::actor::core_types::pid::CorePid;
-use nexus_actor_core_rs::context::{CoreActorContext, CoreActorContextSnapshot};
+use nexus_actor_core_rs::context::{CoreActorContext, CoreActorContextBuilder, CoreActorContextSnapshot};
 
 use futures::FutureExt;
 
-use crate::actor::context::{ContextHandle, InfoPart, MessagePart, SenderPart};
+use crate::actor::context::{BasePart, ContextHandle, InfoPart, MessagePart, SenderPart};
+use std::time::Duration;
 
 #[derive(Clone)]
 pub struct StdActorContextSnapshot {
@@ -39,9 +40,19 @@ impl StdActorContextSnapshot {
     let headers = message
       .as_ref()
       .and_then(|m| m.to_typed::<ReadonlyMessageHeadersHandle>());
-    Self {
-      core: CoreActorContextSnapshot::new(self_pid, sender, message, headers),
-    }
+    let receive_timeout: Duration = handle.get_receive_timeout().await;
+    let timeout_opt = if receive_timeout.is_zero() {
+      None
+    } else {
+      Some(receive_timeout)
+    };
+    let core = CoreActorContextBuilder::new(self_pid)
+      .with_sender(sender)
+      .with_message(message)
+      .with_headers(headers)
+      .with_receive_timeout(timeout_opt)
+      .build();
+    Self { core }
   }
 }
 

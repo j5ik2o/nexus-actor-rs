@@ -1,67 +1,42 @@
 use crate::actor::context::ExtensionPart;
 use async_trait::async_trait;
-use std::fmt::Debug;
-use std::sync::atomic::{AtomicI32, Ordering};
+use nexus_actor_core_rs::context::{
+  next_core_context_extension_id, CoreContextExtension, CoreContextExtensionHandle, CoreContextExtensionId,
+  CoreContextExtensions, CoreExtensionBorrow, CoreExtensionBorrowMut,
+};
+use nexus_utils_std_rs::runtime::sync::TokioRwLock;
 use std::sync::Arc;
-use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
-pub type ContextExtensionId = i32;
+pub type ContextExtensionId = CoreContextExtensionId;
 
-static CURRENT_CONTEXT_EXTENSION_ID: AtomicI32 = AtomicI32::new(0);
+pub trait ContextExtension: CoreContextExtension {}
 
-pub trait ContextExtension: Debug + Send + Sync + 'static {
-  fn extension_id(&self) -> ContextExtensionId;
-}
+impl<T> ContextExtension for T where T: CoreContextExtension {}
 
-#[derive(Debug, Clone)]
-pub struct ContextExtensionHandle(Arc<dyn ContextExtension>);
-
-impl ContextExtensionHandle {
-  pub fn new(extension: Arc<dyn ContextExtension>) -> Self {
-    ContextExtensionHandle(extension)
-  }
-}
-
-impl ContextExtension for ContextExtensionHandle {
-  fn extension_id(&self) -> ContextExtensionId {
-    self.0.extension_id()
-  }
-}
+pub type ContextExtensionHandle = CoreContextExtensionHandle;
 
 #[derive(Debug, Clone)]
 pub struct ContextExtensions {
-  extensions: Arc<RwLock<Vec<Option<ContextExtensionHandle>>>>,
+  inner: CoreContextExtensions<TokioRwLock<Vec<Option<ContextExtensionHandle>>>>,
 }
 
 impl ContextExtensions {
   pub fn new() -> Self {
     Self {
-      extensions: Arc::new(RwLock::new(vec![None, None, None])),
+      inner: CoreContextExtensions::from_lock(Arc::new(TokioRwLock::new(vec![]))),
     }
   }
 
   pub async fn borrow_extension(&self, id: ContextExtensionId) -> Option<ExtensionBorrow<'_>> {
-    let guard = self.extensions.read().await;
-    if let Some(Some(_)) = guard.get(id as usize) {
-      Some(ExtensionBorrow {
-        guard,
-        index: id as usize,
-      })
-    } else {
-      None
-    }
+    self.inner.borrow_extension(id).await.map(ExtensionBorrow)
   }
 
   pub async fn borrow_extension_mut(&self, id: ContextExtensionId) -> Option<ExtensionBorrowMut<'_>> {
-    let guard = self.extensions.write().await;
-    if let Some(Some(_)) = guard.get(id as usize) {
-      Some(ExtensionBorrowMut {
-        guard,
-        index: id as usize,
-      })
-    } else {
-      None
-    }
+    self.inner.borrow_extension_mut(id).await.map(ExtensionBorrowMut)
+  }
+
+  pub async fn inner(&self) -> CoreContextExtensions<TokioRwLock<Vec<Option<ContextExtensionHandle>>>> {
+    self.inner.clone()
   }
 }
 
@@ -71,50 +46,37 @@ impl Default for ContextExtensions {
   }
 }
 
-pub struct ExtensionBorrow<'a> {
-  guard: RwLockReadGuard<'a, Vec<Option<ContextExtensionHandle>>>,
-  index: usize,
-}
+pub struct ExtensionBorrow<'a>(CoreExtensionBorrow<'a, TokioRwLock<Vec<Option<ContextExtensionHandle>>>>);
 
 impl<'a> ExtensionBorrow<'a> {
   pub fn handle(&self) -> &ContextExtensionHandle {
-    self.guard[self.index].as_ref().expect("extension missing")
+    self.0.handle()
   }
 }
 
-pub struct ExtensionBorrowMut<'a> {
-  guard: RwLockWriteGuard<'a, Vec<Option<ContextExtensionHandle>>>,
-  index: usize,
-}
+pub struct ExtensionBorrowMut<'a>(CoreExtensionBorrowMut<'a, TokioRwLock<Vec<Option<ContextExtensionHandle>>>>);
 
 impl<'a> ExtensionBorrowMut<'a> {
   pub fn handle(&self) -> &ContextExtensionHandle {
-    self.guard[self.index].as_ref().expect("extension missing")
+    self.0.handle()
   }
 
   pub fn handle_mut(&mut self) -> &mut ContextExtensionHandle {
-    self.guard[self.index].as_mut().expect("extension missing")
+    self.0.handle_mut()
   }
 }
 
 #[async_trait]
 impl ExtensionPart for ContextExtensions {
   async fn get(&mut self, id: ContextExtensionId) -> Option<ContextExtensionHandle> {
-    let mg = self.extensions.read().await;
-    mg.get(id as usize).and_then(|ext| ext.clone())
+    self.inner.get(id).await
   }
 
   async fn set(&mut self, extension: ContextExtensionHandle) {
-    let id = extension.extension_id() as usize;
-    let mut guard = self.extensions.write().await;
-    if id >= guard.len() {
-      let missing = id + 1 - guard.len();
-      guard.extend(std::iter::repeat(None).take(missing));
-    }
-    guard[id] = Some(extension);
+    self.inner.set(extension).await;
   }
 }
 
 pub fn next_context_extension_id() -> ContextExtensionId {
-  CURRENT_CONTEXT_EXTENSION_ID.fetch_add(1, Ordering::SeqCst)
+  next_core_context_extension_id()
 }
