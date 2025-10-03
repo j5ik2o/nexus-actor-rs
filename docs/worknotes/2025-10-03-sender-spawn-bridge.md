@@ -114,3 +114,22 @@
 - 登録は ContextHandle::snapshot_with_core() 内で実行、Scope をぬける際や ActorContext drop 時に解除。
 - 登録する値は `WeakContextHandle` にし、アップグレードできなければ削除。
 - RootContext は ContextRegistry に登録しない（PID や ActorSystem をその場で取得）。
+
+### CoreSpawnAdapter 詳細設計
+- Core 側で `CoreSpawnAdapter` トレイトを定義:
+  - `fn spawn(&self, invocation: CoreSpawnInvocation) -> CoreSpawnFuture<Result<CorePid, CoreActorSpawnError>>`
+  - 別途, `CoreActorSpawnError` に `AdapterUnavailable` / `AdapterFailed` などを追加。
+- CoreSpawnInvocation には以下を保持:
+  - `parent_snapshot: CoreSenderSnapshot`
+  - `child_props: CoreProps` (純データ)
+  - `child_pid: CorePid` (予約済み PID)
+  - `metadata: Option<Arc<str>>` (type hint 等)
+  - `adapter: Arc<dyn CoreSpawnAdapter>`
+- CoreProps 側には spawn chain (CoreSpawnMiddlewareChainHandle) と adapter を保持。
+- std 側で `StdSpawnAdapter` を実装し、Props::rebuild_core_props() 時に adapter を `Arc` 入りで CoreProps へ渡す。
+- std 側では Adapter 内で以下を行う：
+  1. ActorSystemRegistry/ContextRegistry で `SpawnerContextHandle` を復元。
+  2. `Props::from_core_props(child_props)` で std Props を構築。
+  3. 予約済み PID と共に既存 Spawner に委譲。
+- フォールバック：Adapter が ActorSystem/Context を復元できない場合は `CoreActorSpawnError::AdapterUnavailable` を返し、呼び出し元が dead-letter 等へフォールバック。
+- テスト：spawn middleware 付き Props の end-to-end テスト、Adapter エラー時の挙動など。
