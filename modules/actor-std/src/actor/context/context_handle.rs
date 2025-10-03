@@ -527,6 +527,18 @@ impl ContextHandle {
     self.try_get_sender_opt()
   }
 
+  pub async fn watch_core(&mut self, pid: &CorePid) {
+    BasePart::watch(self, &ExtendedPid::from(pid.clone())).await;
+  }
+
+  pub async fn unwatch_core(&mut self, pid: &CorePid) {
+    BasePart::unwatch(self, &ExtendedPid::from(pid.clone())).await;
+  }
+
+  pub async fn forward_core(&self, pid: &CorePid) {
+    BasePart::forward(self, &ExtendedPid::from(pid.clone())).await;
+  }
+
   pub fn with_typed_borrow<M, R, F>(&self, f: F) -> Option<R>
   where
     M: crate::actor::message::Message,
