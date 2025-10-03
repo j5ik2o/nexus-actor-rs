@@ -14,7 +14,7 @@ pub use extensions::{
   CoreContextExtensions, CoreExtensionBorrow, CoreExtensionBorrowMut,
 };
 pub use middleware::{
-  compose_sender_chain, compose_spawn_chain, CoreReceiverMiddleware, CoreReceiverMiddlewareChain, CoreSenderMiddleware,
-  CoreSenderMiddlewareChain, CoreSpawnMiddleware,
+  compose_receiver_chain, compose_sender_chain, compose_spawn_chain, CoreReceiverMiddleware,
+  CoreReceiverMiddlewareChain, CoreSenderMiddleware, CoreSenderMiddlewareChain, CoreSpawnMiddleware,
 };
 pub use snapshot::{CoreContextSnapshot, CoreReceiverSnapshot};
