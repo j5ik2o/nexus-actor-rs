@@ -83,3 +83,28 @@
 - テスト方針:
   - spawn middleware を含む Props を生成し、CoreProps 経由で子アクターが起動するかを確認。
   - ActorSystem を drop した後のリカバリやデッドレターへのフォールバックもテスト。
+
+### Spawn 実装方針補足
+- `CoreSpawnInvocation` には以下を保持:
+  - `parent_snapshot: CoreSenderSnapshot`
+  - `child_props: CoreProps`
+  - `child_pid: CorePid` (予約済み)
+  - `adapter: Arc<dyn CoreSpawnAdapter>` （spawn 実行に必要な std ブリッジ）
+- `CoreSpawnAdapter` トレイトを Core 側で定義:
+  - `fn spawn(&self, invocation: &CoreSpawnInvocation) -> CoreSpawnFuture<Result<CorePid, CoreSpawnError>>`
+  - CoreProps は純データのみ。実際の ActorProducer/Spawner は adapter が保持する。
+- std 側で `StdSpawnAdapter` を実装:
+  - Props 生成時に `Arc<StdSpawnAdapter>` を作り、CoreSpawnInvocation の adapter として登録。
+  - `spawn()` では ActorSystemRegistry/ContextRegistry を使って `SpawnerContextHandle` を復元し、既存 Spawner を呼び出す。
+- `Props::rebuild_core_props` 時のフロー:
+  1. 子用 std Props の clone を `StdSpawnAdapter` に保持。
+  2. `CoreSpawnInvocation::new(parent_snapshot, core_child_props, reserved_pid, Arc::new(adapter))` を生成し、CoreProps の spawn chain にセット。
+- 実行時フロー:
+  1. Core 側で spawn middleware が走ると `CoreSpawnInvocation` が作られ adapter が呼ばれる。
+  2. adapter 内で Props/ActorProducer を復元し、既存 Spawner に委譲。
+- エラー処理:
+  - ActorSystemRegistry や ContextRegistry から復元できなければ `CoreSpawnError::SpawnerUnavailable`。
+  - Props 復元に失敗した場合も同様。
+- テスト:
+  - spawn middleware を含む Props での end-to-end テスト。
+  - ActorSystem drop 時のフォールバック確認。
