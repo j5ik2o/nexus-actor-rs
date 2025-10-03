@@ -245,11 +245,11 @@ impl<M: Message> BasePart for TypedActorContext<M> {
   }
 
   async fn watch(&mut self, pid: &ExtendedPid) {
-    self.underlying.watch(pid).await
+    self.underlying.watch_core(&pid.to_core()).await
   }
 
   async fn unwatch(&mut self, pid: &ExtendedPid) {
-    self.underlying.unwatch(pid).await
+    self.underlying.unwatch_core(&pid.to_core()).await
   }
 
   async fn set_receive_timeout(&mut self, d: &Duration) {
@@ -261,7 +261,7 @@ impl<M: Message> BasePart for TypedActorContext<M> {
   }
 
   async fn forward(&self, pid: &ExtendedPid) {
-    self.underlying.forward(pid).await
+    self.underlying.forward_core(&pid.to_core()).await
   }
 
   async fn reenter_after(&self, f: ActorFuture, continuation: Continuer) {

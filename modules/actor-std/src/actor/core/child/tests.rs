@@ -226,7 +226,7 @@ async fn test_actor_receives_terminated_from_watched() {
         async move {
           let msg = ctx.get_message_handle_opt().await.expect("message not found");
           if let Some(AutoReceiveMessage::PostStart) = msg.to_typed::<AutoReceiveMessage>() {
-            ctx.watch(&cloned_child).await;
+            ctx.watch_core(&cloned_child.to_core()).await;
             cloned_ab.wait().await;
           }
           if let Some(AutoReceiveMessage::Terminated(ti)) = msg.to_typed::<AutoReceiveMessage>() {

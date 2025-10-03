@@ -300,6 +300,32 @@ impl RootContext {
       None => Some(sink),
     }
   }
+
+  async fn send_system_message_core(&self, pid: &CorePid, message: SystemMessage) {
+    ExtendedPid::from(pid.clone())
+      .send_system_message(self.actor_system(), MessageHandle::new(message))
+      .await;
+  }
+
+  pub async fn watch_target_core(&self, target: &CorePid, watcher: &CorePid) {
+    self
+      .send_system_message_core(target, SystemMessage::watch(watcher.clone()))
+      .await;
+  }
+
+  pub async fn unwatch_target_core(&self, target: &CorePid, watcher: &CorePid) {
+    self
+      .send_system_message_core(target, SystemMessage::unwatch(watcher.clone()))
+      .await;
+  }
+
+  pub async fn watch_target(&self, target: &ExtendedPid, watcher: &ExtendedPid) {
+    self.watch_target_core(&target.to_core(), &watcher.to_core()).await;
+  }
+
+  pub async fn unwatch_target(&self, target: &ExtendedPid, watcher: &ExtendedPid) {
+    self.unwatch_target_core(&target.to_core(), &watcher.to_core()).await;
+  }
 }
 
 #[async_trait]
@@ -467,16 +493,10 @@ impl StopperPart for RootContext {
   }
 
   async fn stop_future_with_timeout(&mut self, pid: &ExtendedPid, timeout: Duration) -> ActorFuture {
-    let actor_system = self.actor_system();
-    let future_process = ActorFutureProcess::new(actor_system.clone(), timeout).await;
+    let future_process = ActorFutureProcess::new(self.actor_system(), timeout).await;
 
     let future_pid = future_process.get_pid().await.clone();
-    pid
-      .send_system_message(
-        actor_system,
-        MessageHandle::new(SystemMessage::watch(future_pid.to_core())),
-      )
-      .await;
+    self.watch_target_core(&pid.to_core(), &future_pid.to_core()).await;
     self.stop(pid).await;
 
     future_process.get_future().await
@@ -490,16 +510,10 @@ impl StopperPart for RootContext {
   }
 
   async fn poison_future_with_timeout(&mut self, pid: &ExtendedPid, timeout: Duration) -> ActorFuture {
-    let actor_system = self.actor_system();
-    let future_process = ActorFutureProcess::new(actor_system.clone(), timeout).await;
+    let future_process = ActorFutureProcess::new(self.actor_system(), timeout).await;
 
     let future_pid = future_process.get_pid().await.clone();
-    pid
-      .send_system_message(
-        actor_system,
-        MessageHandle::new(SystemMessage::watch(future_pid.to_core())),
-      )
-      .await;
+    self.watch_target_core(&pid.to_core(), &future_pid.to_core()).await;
     self.poison(pid).await;
 
     future_process.get_future().await
