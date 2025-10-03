@@ -47,7 +47,8 @@ impl Default for Config {
         endpoint_writer_batch_size: 1000,
         endpoint_manager_batch_size: 1000,
         endpoint_writer_queue_size: 1000000,
-        endpoint_writer_queue_snapshot_interval: 1,
+        // 運用推奨値に合わせて既定値を 32 に設定（dev は必要に応じて ConfigOption で上書き）
+        endpoint_writer_queue_snapshot_interval: 32,
         endpoint_manager_queue_size: 1000000,
         kinds: DashMap::new(),
         max_retry_count: 5,
