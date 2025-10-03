@@ -601,6 +601,10 @@ mod tests {
       fn escalate<'a>(&'a self, _: crate::error::ErrorReasonCore, _: MessageHandle) -> CoreSupervisorFuture<'a, ()> {
         Box::pin(async {})
       }
+
+      fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
+        self
+      }
     }
 
     #[derive(Default)]
@@ -609,6 +613,10 @@ mod tests {
     impl CoreSupervisorContext for NullContext {
       fn now(&self) -> u64 {
         0
+      }
+
+      fn as_any(&self) -> &(dyn Any + Send + Sync + 'static) {
+        self
       }
     }
 

@@ -51,10 +51,12 @@ impl CoreSupervisorStrategy for RestartingStrategy {
     reason: ErrorReasonCore,
     _message_handle: MessageHandle,
   ) -> CoreSupervisorStrategyFuture<'a> {
-    let std_ctx = (ctx as &dyn Any)
+    let std_ctx = ctx
+      .as_any()
       .downcast_ref::<StdSupervisorContext>()
       .expect("StdSupervisorContext expected");
-    let std_supervisor = (supervisor as &dyn Any)
+    let std_supervisor = supervisor
+      .as_any()
       .downcast_ref::<StdSupervisorAdapter>()
       .expect("StdSupervisorAdapter expected");
 

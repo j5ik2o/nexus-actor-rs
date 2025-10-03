@@ -71,6 +71,10 @@ impl CoreSupervisorContext for StdSupervisorContext {
       saturating_millis(self.anchor.elapsed())
     }
   }
+
+  fn as_any(&self) -> &(dyn std::any::Any + Send + Sync + 'static) {
+    self
+  }
 }
 
 pub fn stats_from_tracker(
@@ -134,6 +138,10 @@ impl CoreSupervisor for StdSupervisorAdapter {
     let supervisor = self.handle.get_supervisor();
     let reason_std = ErrorReason::from_core(reason);
     Box::pin(async move { supervisor.escalate_failure(reason_std, message).await })
+  }
+
+  fn as_any(&self) -> &(dyn std::any::Any + Send + Sync + 'static) {
+    self
   }
 }
 

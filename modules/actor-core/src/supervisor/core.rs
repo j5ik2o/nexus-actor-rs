@@ -26,6 +26,7 @@ pub enum CoreSupervisorDirective {
 
 pub trait CoreSupervisorContext: Any + Send + Sync {
   fn now(&self) -> u64;
+  fn as_any(&self) -> &(dyn Any + Send + Sync + 'static);
 }
 
 pub trait CoreSupervisorStrategy: Any + Send + Sync {
@@ -50,6 +51,8 @@ pub trait CoreSupervisor: Any + Send + Sync {
     message: MessageHandle,
   ) -> CoreSupervisorFuture<'a, ()>;
   fn escalate<'a>(&'a self, reason: ErrorReasonCore, message: MessageHandle) -> CoreSupervisorFuture<'a, ()>;
+
+  fn as_any(&self) -> &(dyn Any + Send + Sync + 'static);
 }
 
 #[derive(Debug, Clone, Copy, Default)]

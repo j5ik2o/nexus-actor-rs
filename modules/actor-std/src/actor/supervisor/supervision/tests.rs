@@ -161,7 +161,8 @@ mod test {
       _message_handle: MessageHandle,
     ) -> CoreSupervisorStrategyFuture<'a> {
       let notify = self.notify.clone();
-      let std_supervisor = (supervisor as &dyn Any)
+      let std_supervisor = supervisor
+        .as_any()
         .downcast_ref::<StdSupervisorAdapter>()
         .expect("StdSupervisorAdapter expected");
       let supervisor_handle = std_supervisor.handle();
