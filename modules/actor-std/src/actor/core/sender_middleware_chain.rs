@@ -8,7 +8,7 @@ use crate::actor::context::SenderContextHandle;
 use crate::actor::core::pid::ExtendedPid;
 use crate::actor::message::MessageEnvelope;
 
-pub(crate) type SenderInvocation = (SenderContextHandle, ExtendedPid, MessageEnvelope);
+pub type SenderInvocation = (SenderContextHandle, ExtendedPid, MessageEnvelope);
 
 #[derive(Clone)]
 pub struct SenderMiddlewareChain {
@@ -50,12 +50,16 @@ impl SenderMiddlewareChain {
     self.inner.run((context, target, envelope)).await
   }
 
-  pub(crate) fn from_inner(inner: CoreSenderMiddlewareChain<SenderInvocation>) -> Self {
+  pub fn from_core(inner: CoreSenderMiddlewareChain<SenderInvocation>) -> Self {
     Self { inner }
   }
 
-  pub(crate) fn into_inner(self) -> CoreSenderMiddlewareChain<SenderInvocation> {
+  pub fn into_core(self) -> CoreSenderMiddlewareChain<SenderInvocation> {
     self.inner
+  }
+
+  pub fn as_core(&self) -> &CoreSenderMiddlewareChain<SenderInvocation> {
+    &self.inner
   }
 }
 

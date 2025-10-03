@@ -13,16 +13,24 @@ unsafe impl Sync for SenderMiddleware {}
 impl SenderMiddleware {
   pub fn new(f: impl Fn(SenderMiddlewareChain) -> SenderMiddlewareChain + Send + Sync + 'static) -> Self {
     let middleware = CoreSenderMiddleware::new(move |chain| {
-      let wrapped = SenderMiddlewareChain::from_inner(chain);
+      let wrapped = SenderMiddlewareChain::from_core(chain);
       let result = f(wrapped);
-      result.into_inner()
+      result.into_core()
     });
     SenderMiddleware(middleware)
   }
 
   pub fn run(&self, next: SenderMiddlewareChain) -> SenderMiddlewareChain {
-    let result = self.0.run(next.into_inner());
-    SenderMiddlewareChain::from_inner(result)
+    let result = self.0.run(next.into_core());
+    SenderMiddlewareChain::from_core(result)
+  }
+
+  pub fn as_core(&self) -> &CoreSenderMiddleware<SenderInvocation> {
+    &self.0
+  }
+
+  pub fn into_core(self) -> CoreSenderMiddleware<SenderInvocation> {
+    self.0
   }
 }
 

@@ -18,6 +18,14 @@ impl SpawnMiddleware {
   pub fn run(&self, next: Spawner) -> Spawner {
     self.0.run(next)
   }
+
+  pub fn as_core(&self) -> &CoreSpawnMiddleware<Spawner> {
+    &self.0
+  }
+
+  pub fn into_core(self) -> CoreSpawnMiddleware<Spawner> {
+    self.0
+  }
 }
 
 impl Debug for SpawnMiddleware {
