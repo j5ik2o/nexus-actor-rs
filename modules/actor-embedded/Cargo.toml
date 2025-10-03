@@ -10,7 +10,7 @@ readme = "../../README.md"
 repository = "https://github.com/j5ik2o/nexus-actor-rs"
 
 [features]
-default = ["embassy"]
+default = []
 embassy = ["dep:embassy-sync", "dep:embassy-time", "dep:embassy-executor", "dep:embassy-futures"]
 
 [dependencies]
