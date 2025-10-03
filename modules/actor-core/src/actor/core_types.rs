@@ -26,4 +26,6 @@ pub mod response;
 #[cfg(feature = "alloc")]
 pub mod restart;
 #[cfg(feature = "alloc")]
+pub mod serialized;
+#[cfg(feature = "alloc")]
 pub mod system_message;

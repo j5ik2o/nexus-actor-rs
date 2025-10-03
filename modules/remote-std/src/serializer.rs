@@ -1,4 +1,5 @@
 use dashmap::DashMap;
+use nexus_actor_core_rs::actor::core_types::serialized::CoreSerializationError;
 use nexus_actor_std_rs::actor::message::Message;
 use once_cell::sync::Lazy;
 use prost::Message as ProstMessage;
@@ -8,20 +9,14 @@ use std::fmt::{Display, Formatter};
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::marker::PhantomData;
 use std::sync::Arc;
-use thiserror::Error;
 
 #[cfg(test)]
 mod tests;
 
-#[derive(Error, Debug)]
-pub enum SerializerError {
-  #[error("Serialization error")]
-  SerializationError(String),
-  #[error("Deserialization error")]
-  DeserializationError(String),
-  #[error("Unknown type")]
-  UnknownType,
-}
+pub type SerializerError = CoreSerializationError;
+
+pub use nexus_actor_core_rs::actor::core_types::serialized::CoreRootSerializable as RootSerializable;
+pub use nexus_actor_core_rs::actor::core_types::serialized::CoreRootSerialized as RootSerialized;
 
 pub trait Serializer<T>: Send + Sync {
   fn serialize(&self, msg: &T) -> Result<Vec<u8>, SerializerError>;
@@ -398,12 +393,4 @@ pub fn initialize_proto_serializers<T: Message + Default + ProstMessage + Send +
   register_serializer(SerializerId::Proto, Arc::new(ProtoSerializer::<T>::default()))?;
   register_serializer_any(SerializerId::Proto, Arc::new(ProtoSerializer::<T>::default()))?;
   Ok(())
-}
-
-pub trait RootSerializable: Message {
-  fn serialize(&self) -> Result<Arc<dyn RootSerialized>, SerializerError>;
-}
-
-pub trait RootSerialized: Message {
-  fn deserialize(&self) -> Result<Arc<dyn RootSerializable>, SerializerError>;
 }

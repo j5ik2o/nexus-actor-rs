@@ -31,6 +31,8 @@ pub use actor::core_types::response::{Response, ResponseHandle};
 #[cfg(feature = "alloc")]
 pub use actor::core_types::restart::{CoreRestartTracker, FailureClock};
 #[cfg(feature = "alloc")]
+pub use actor::core_types::serialized::{CoreRootSerializable, CoreRootSerialized, CoreSerializationError};
+#[cfg(feature = "alloc")]
 pub use actor::core_types::system_message::{SystemMessage, UnwatchMessage, WatchMessage};
 
 #[cfg(feature = "alloc")]

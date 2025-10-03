@@ -1,6 +1,7 @@
 #![cfg(feature = "alloc")]
 
 use alloc::sync::Arc;
+use core::any::Any;
 use core::time::Duration;
 
 use crate::actor::core_types::message_envelope::CoreMessageEnvelope;
@@ -11,7 +12,7 @@ use crate::context::core::{CoreActorContextBuilder, CoreActorContextSnapshot};
 
 #[derive(Debug, Clone, Default)]
 pub struct CoreContextSnapshot {
-  actor: Option<Arc<dyn core::any::Any + Send + Sync>>, // placeholder for future extensions
+  actor: Option<Arc<dyn Any + Send + Sync>>, // placeholder for future extensions
   parent: Option<CorePid>,
   self_pid: Option<CorePid>,
   sender: Option<CorePid>,
@@ -70,7 +71,7 @@ impl CoreContextSnapshot {
   }
 
   #[must_use]
-  pub fn with_actor(mut self, actor: Option<Arc<dyn core::any::Any + Send + Sync>>) -> Self {
+  pub fn with_actor(mut self, actor: Option<Arc<dyn Any + Send + Sync>>) -> Self {
     self.actor = actor;
     self
   }
@@ -103,6 +104,23 @@ impl CoreContextSnapshot {
   #[must_use]
   pub fn receive_timeout(&self) -> Option<Duration> {
     self.receive_timeout
+  }
+
+  #[must_use]
+  pub fn parent_pid(&self) -> Option<&CorePid> {
+    self.parent.as_ref()
+  }
+
+  #[must_use]
+  pub fn actor_arc(&self) -> Option<Arc<dyn Any + Send + Sync>> {
+    self.actor.clone()
+  }
+
+  #[must_use]
+  pub fn actor_as<T>(&self) -> Option<&T>
+  where
+    T: Any + Send + Sync + 'static, {
+    self.actor.as_ref()?.as_ref().downcast_ref::<T>()
   }
 
   #[must_use]
