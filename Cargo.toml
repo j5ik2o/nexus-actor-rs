@@ -10,6 +10,7 @@ members = [
   "modules/message-derive-std",
   "modules/remote-core",
   "modules/remote-std",
+  "modules/remote-embedded",
   "modules/cluster-core",
   "modules/cluster-std",
   "modules/utils-embedded"

@@ -1,0 +1,103 @@
+#![cfg_attr(not(feature = "std"), no_std)]
+
+#[cfg(not(any(feature = "std", feature = "alloc")))]
+compile_error!("nexus-remote-embedded-rs requires either the `std` or `alloc` feature.");
+
+#[cfg(any(feature = "std", feature = "alloc"))]
+extern crate alloc;
+
+#[cfg(any(feature = "std", feature = "alloc"))]
+use alloc::boxed::Box;
+
+use core::sync::atomic::{AtomicBool, Ordering};
+
+pub use nexus_remote_core_rs::core_api::{
+  BoxFuture, EndpointHandle, RemoteRuntime, RemoteRuntimeConfig, RemoteTransport, TransportEndpoint, TransportError,
+  TransportErrorKind, TransportListener,
+};
+
+/// Minimal in-memory transport for embedded experimentation.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct LoopbackTransport;
+
+impl LoopbackTransport {
+  #[inline]
+  pub const fn new() -> Self {
+    Self
+  }
+}
+
+/// Handle returned by [`LoopbackTransport`].
+#[derive(Debug)]
+pub struct LoopbackHandle {
+  endpoint: TransportEndpoint,
+  closed: AtomicBool,
+}
+
+impl LoopbackHandle {
+  #[inline]
+  fn new(endpoint: TransportEndpoint) -> Self {
+    Self {
+      endpoint,
+      closed: AtomicBool::new(false),
+    }
+  }
+
+  /// Returns the endpoint descriptor associated with this handle.
+  #[inline]
+  pub fn endpoint(&self) -> &TransportEndpoint {
+    &self.endpoint
+  }
+
+  /// Reports whether `close` has been invoked.
+  #[inline]
+  pub fn is_closed(&self) -> bool {
+    self.closed.load(Ordering::SeqCst)
+  }
+}
+
+impl EndpointHandle for LoopbackHandle {
+  #[inline]
+  fn close(&self) {
+    self.closed.store(true, Ordering::SeqCst);
+  }
+}
+
+impl RemoteTransport for LoopbackTransport {
+  type Handle = LoopbackHandle;
+
+  #[inline]
+  fn connect(&self, endpoint: &TransportEndpoint) -> BoxFuture<'_, Result<Self::Handle, TransportError>> {
+    let endpoint = endpoint.clone();
+    Box::pin(async move { Ok(LoopbackHandle::new(endpoint)) })
+  }
+
+  #[inline]
+  fn serve(&self, _listener: TransportListener) -> BoxFuture<'_, Result<(), TransportError>> {
+    Box::pin(async { Ok(()) })
+  }
+}
+
+#[cfg(all(test, feature = "std"))]
+mod tests {
+  use super::*;
+  use futures::executor::block_on;
+
+  #[test]
+  fn loopback_connects_and_closes() {
+    let transport = LoopbackTransport::new();
+    let endpoint = TransportEndpoint::new("loopback://peer".to_string());
+    let handle = block_on(transport.connect(&endpoint)).expect("connect succeeds");
+    assert_eq!(handle.endpoint().uri, endpoint.uri);
+    assert!(!handle.is_closed());
+    handle.close();
+    assert!(handle.is_closed());
+  }
+
+  #[test]
+  fn loopback_serve_is_noop() {
+    let transport = LoopbackTransport::new();
+    let listener = TransportListener::new("loopback://listen".to_string());
+    block_on(transport.serve(listener)).expect("serve succeeds");
+  }
+}
