@@ -14,11 +14,11 @@ pub fn make_receiver_middleware_chain(
   if receiver_middleware.is_empty() {
     return None;
   }
-  let mut h = receiver_middleware.last().unwrap().run(last_receiver);
-  for middleware in receiver_middleware.iter().rev().skip(1) {
-    h = middleware.run(h);
+  let mut core_chain = last_receiver.into_core();
+  for middleware in receiver_middleware.iter().rev() {
+    core_chain = middleware.as_core().run(core_chain);
   }
-  Some(h)
+  Some(ReceiverMiddlewareChain::from_core(core_chain))
 }
 
 pub fn make_sender_middleware_chain(
@@ -28,11 +28,11 @@ pub fn make_sender_middleware_chain(
   if sender_middleware.is_empty() {
     return None;
   }
-  let mut h = sender_middleware.last().unwrap().run(last_sender);
-  for middleware in sender_middleware.iter().rev().skip(1) {
-    h = middleware.run(h);
+  let mut core_chain = last_sender.into_core();
+  for middleware in sender_middleware.iter().rev() {
+    core_chain = middleware.as_core().run(core_chain);
   }
-  Some(h)
+  Some(SenderMiddlewareChain::from_core(core_chain))
 }
 
 pub fn make_context_decorator_chain(
@@ -53,9 +53,9 @@ pub fn make_spawn_middleware_chain(spawn_middleware: &[SpawnMiddleware], last_sp
   if spawn_middleware.is_empty() {
     return None;
   }
-  let mut h = spawn_middleware.last().unwrap().run(last_spawner);
-  for middleware in spawn_middleware.iter().rev().skip(1) {
-    h = middleware.run(h);
+  let mut spawner = last_spawner;
+  for middleware in spawn_middleware.iter().rev() {
+    spawner = middleware.run(spawner);
   }
-  Some(h)
+  Some(spawner)
 }
