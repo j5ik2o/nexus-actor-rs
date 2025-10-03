@@ -4,6 +4,12 @@ use std::sync::{Arc, Weak};
 use tokio::sync::{Mutex, RwLock};
 use uuid::Uuid;
 
+pub(crate) mod registry;
+pub use registry::with_actor_system;
+use registry::{next_actor_system_id, register_actor_system};
+
+pub type ActorSystemId = u64;
+
 use crate::actor::context::{RootContext, TypedRootContext};
 use crate::actor::core::ExtendedPid;
 use crate::actor::dispatch::DeadLetterProcess;
@@ -31,15 +37,21 @@ struct ActorSystemInner {
   dead_letter: Option<DeadLetterProcess>,
   extensions: Extensions,
   id: String,
+  system_id: ActorSystemId,
   config: Arc<ArcSwap<Config>>,
   metrics_runtime: Arc<ArcSwapOption<MetricsRuntime>>,
 }
 
 impl ActorSystemInner {
-  async fn new(config: Arc<ArcSwap<Config>>, metrics_runtime: Arc<ArcSwapOption<MetricsRuntime>>) -> Self {
+  async fn new(
+    config: Arc<ArcSwap<Config>>,
+    metrics_runtime: Arc<ArcSwapOption<MetricsRuntime>>,
+    system_id: ActorSystemId,
+  ) -> Self {
     let id = Uuid::new_v4().to_string();
     Self {
       id: id.clone(),
+      system_id,
       config,
       process_registry: None,
       root_context: None,
@@ -58,6 +70,7 @@ pub struct ActorSystem {
   metrics_runtime: Arc<ArcSwapOption<MetricsRuntime>>,
   guardians: Arc<ArcSwapOption<GuardiansValue>>,
   core_runtime: CoreRuntime,
+  system_id: ActorSystemId,
 }
 
 #[derive(Debug, Clone)]
@@ -67,6 +80,7 @@ pub struct WeakActorSystem {
   metrics_runtime: Weak<ArcSwapOption<MetricsRuntime>>,
   guardians: Weak<ArcSwapOption<GuardiansValue>>,
   core_runtime: CoreRuntime,
+  system_id: ActorSystemId,
 }
 
 impl ActorSystem {
@@ -85,15 +99,17 @@ impl ActorSystem {
     let metrics_runtime_swap = Arc::new(ArcSwapOption::from(None::<Arc<MetricsRuntime>>));
     let guardians_swap = Arc::new(ArcSwapOption::from(None::<Arc<GuardiansValue>>));
     let core_runtime = config.core_runtime.clone();
+    let system_id = next_actor_system_id();
 
     let system = Self {
       inner: Arc::new(RwLock::new(
-        ActorSystemInner::new(config_swap.clone(), metrics_runtime_swap.clone()).await,
+        ActorSystemInner::new(config_swap.clone(), metrics_runtime_swap.clone(), system_id).await,
       )),
       config: config_swap.clone(),
       metrics_runtime: metrics_runtime_swap.clone(),
       guardians: guardians_swap.clone(),
       core_runtime,
+      system_id,
     };
     system
       .set_root_context(RootContext::new(system.clone(), EMPTY_MESSAGE_HEADER.clone(), &[]))
@@ -122,6 +138,8 @@ impl ActorSystem {
       .add_process(event_stream_process, "eventstream")
       .await;
 
+    register_actor_system(system_id, &system);
+
     Ok(system)
   }
 
@@ -132,6 +150,7 @@ impl ActorSystem {
       metrics_runtime: Arc::downgrade(&self.metrics_runtime),
       guardians: Arc::downgrade(&self.guardians),
       core_runtime: self.core_runtime.clone(),
+      system_id: self.system_id,
     }
   }
 
@@ -148,6 +167,10 @@ impl ActorSystem {
   pub async fn get_id(&self) -> String {
     let inner_mg = self.inner.read().await;
     inner_mg.id.clone()
+  }
+
+  pub fn system_id(&self) -> ActorSystemId {
+    self.system_id
   }
 
   pub async fn get_address(&self) -> String {
@@ -257,6 +280,7 @@ impl WeakActorSystem {
       metrics_runtime,
       guardians,
       core_runtime: self.core_runtime.clone(),
+      system_id: self.system_id,
     })
   }
 }

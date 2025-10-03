@@ -207,26 +207,59 @@ pub type CoreSupervisorStrategyHandle = Arc<dyn CoreSupervisorStrategy + Send + 
 pub type CoreReceiverMiddlewareChainHandle =
   crate::context::middleware::CoreReceiverMiddlewareChain<CoreReceiverInvocation, CoreActorError>;
 
+pub type CoreActorSystemId = u64;
+
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct CoreSenderInvocation {
+pub struct CoreSenderSnapshot {
   context: CoreActorContextSnapshot,
-  target: CorePid,
-  envelope: CoreMessageEnvelope,
+  actor_system_id: CoreActorSystemId,
 }
 
-impl CoreSenderInvocation {
+impl CoreSenderSnapshot {
   #[must_use]
-  pub fn new(context: CoreActorContextSnapshot, target: CorePid, envelope: CoreMessageEnvelope) -> Self {
+  pub fn new(context: CoreActorContextSnapshot, actor_system_id: CoreActorSystemId) -> Self {
     Self {
       context,
-      target,
-      envelope,
+      actor_system_id,
     }
   }
 
   #[must_use]
   pub fn context(&self) -> &CoreActorContextSnapshot {
     &self.context
+  }
+
+  #[must_use]
+  pub fn actor_system_id(&self) -> CoreActorSystemId {
+    self.actor_system_id
+  }
+
+  #[must_use]
+  pub fn into_parts(self) -> (CoreActorContextSnapshot, CoreActorSystemId) {
+    (self.context, self.actor_system_id)
+  }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CoreSenderInvocation {
+  snapshot: CoreSenderSnapshot,
+  target: CorePid,
+  envelope: CoreMessageEnvelope,
+}
+
+impl CoreSenderInvocation {
+  #[must_use]
+  pub fn new(snapshot: CoreSenderSnapshot, target: CorePid, envelope: CoreMessageEnvelope) -> Self {
+    Self {
+      snapshot,
+      target,
+      envelope,
+    }
+  }
+
+  #[must_use]
+  pub fn snapshot(&self) -> &CoreSenderSnapshot {
+    &self.snapshot
   }
 
   #[must_use]
@@ -240,8 +273,8 @@ impl CoreSenderInvocation {
   }
 
   #[must_use]
-  pub fn into_parts(self) -> (CoreActorContextSnapshot, CorePid, CoreMessageEnvelope) {
-    (self.context, self.target, self.envelope)
+  pub fn into_parts(self) -> (CoreSenderSnapshot, CorePid, CoreMessageEnvelope) {
+    (self.snapshot, self.target, self.envelope)
   }
 }
 
@@ -253,6 +286,7 @@ pub struct CoreProps {
   pub mailbox_factory: Option<CoreMailboxFactory>,
   pub supervisor_strategy: Option<CoreSupervisorStrategyHandle>,
   pub receiver_middleware_chain: Option<CoreReceiverMiddlewareChainHandle>,
+  pub sender_middleware_chain: Option<CoreSenderMiddlewareChainHandle>,
   // TODO(#core-context): extend with minimal actor factory / supervisor hooks required by core Actors.
 }
 
@@ -263,6 +297,7 @@ impl fmt::Debug for CoreProps {
       .field("has_mailbox_factory", &self.mailbox_factory.is_some())
       .field("has_supervisor_strategy", &self.supervisor_strategy.is_some())
       .field("has_receiver_middleware", &self.receiver_middleware_chain.is_some())
+      .field("has_sender_middleware", &self.sender_middleware_chain.is_some())
       .finish()
   }
 }
@@ -298,6 +333,12 @@ impl CoreProps {
   }
 
   #[must_use]
+  pub fn with_sender_middleware_chain(mut self, chain: CoreSenderMiddlewareChainHandle) -> Self {
+    self.sender_middleware_chain = Some(chain);
+    self
+  }
+
+  #[must_use]
   pub fn mailbox_factory(&self) -> Option<&CoreMailboxFactory> {
     self.mailbox_factory.as_ref()
   }
@@ -313,6 +354,11 @@ impl CoreProps {
   #[must_use]
   pub fn receiver_middleware_chain(&self) -> Option<&CoreReceiverMiddlewareChainHandle> {
     self.receiver_middleware_chain.as_ref()
+  }
+
+  #[must_use]
+  pub fn sender_middleware_chain(&self) -> Option<&CoreSenderMiddlewareChainHandle> {
+    self.sender_middleware_chain.as_ref()
   }
 }
 
@@ -478,11 +524,18 @@ mod tests {
   fn receiver_middleware_chain_defaults_and_setters() {
     let props = CoreProps::default();
     assert!(props.receiver_middleware_chain().is_none());
+    assert!(props.sender_middleware_chain().is_none());
 
     let chain: CoreReceiverMiddlewareChainHandle =
       crate::context::middleware::CoreReceiverMiddlewareChain::new(|_| async { Ok::<_, CoreActorError>(()) });
     let configured = CoreProps::new().with_receiver_middleware_chain(chain.clone());
     assert!(configured.receiver_middleware_chain().is_some());
     assert_eq!(configured.receiver_middleware_chain().unwrap(), &chain);
+
+    let sender_chain: CoreSenderMiddlewareChainHandle =
+      crate::context::middleware::CoreSenderMiddlewareChain::new(|_| async {});
+    let configured = configured.with_sender_middleware_chain(sender_chain.clone());
+    assert!(configured.sender_middleware_chain().is_some());
+    assert_eq!(configured.sender_middleware_chain().unwrap(), &sender_chain);
   }
 }
