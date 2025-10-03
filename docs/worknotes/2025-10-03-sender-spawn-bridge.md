@@ -58,3 +58,28 @@
   - Props::from_core_props() で CoreProps -> std Props を復元。
 - Props::rebuild_core_props() を更新し、sender/spawn チェーンも CoreProps に反映。
 - 既存ユニットテストを拡張し、ContextRegistry なしでは動作しないケースも検証。
+
+## Spawn ブリッジ詳細設計 (2025-10-03 更新)
+
+- CoreSpawnInvocation の構造:
+  - parent: CoreSenderSnapshot (親コンテキスト)
+  - child_props: CoreProps (子アクターの CoreProps)
+  - child_pid: CorePid (予約済み PID)
+  - actor_system_id: ActorSystemId
+  - metadata: SpawnMetadata (type hint, guardian 情報など)
+- 子 Props の復元:
+  - Props::from_core_props() を実装し、CoreProps から std Props を再構築。
+  - sender/spawn middleware、metrics、guardian 等の再設定を行う。
+- PID 予約戦略:
+  - 親が spawn ミドルウェアを実行する前に ProcessRegistry で ID を予約し、CoreSpawnInvocation に格納。
+- 実行フロー (Core -> std):
+  1. Core spawn チェーンは tail として CoreSpawnInvocation を生成。
+  2. std 側 spawn ブリッジが ActorSystemRegistry + ContextRegistry を使って SpawnerContextHandle を復元。
+  3. Props::from_core_props(child_props) で std Props を復元し、既存 Spawner に委譲。
+  4. 後処理で ContextRegistry へ子 Context を登録。
+- エラーハンドリング:
+  - ActorSystem/Context 復元に失敗した場合は CoreSpawnError::SpawnerUnavailable を返却。
+  - Props 復元に失敗した場合も同様にエラー扱い。
+- テスト方針:
+  - spawn middleware を含む Props を生成し、CoreProps 経由で子アクターが起動するかを確認。
+  - ActorSystem を drop した後のリカバリやデッドレターへのフォールバックもテスト。
