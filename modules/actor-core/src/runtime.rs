@@ -12,10 +12,41 @@ pub use nexus_utils_core_rs::async_primitives::{AsyncMutex, AsyncNotify, AsyncRw
 
 /// Future 型の共通表現。スケジューラが実行する非同期タスクはこの型を返す必要があります。
 pub type CoreTaskFuture = Pin<Box<dyn Future<Output = ()> + Send + 'static>>;
+pub type CoreJoinFuture = Pin<Box<dyn Future<Output = ()> + Send + 'static>>;
 
 /// スケジューラが起動するタスクファクトリ。
 /// 戻り値の Future は必ず `Send + 'static` である必要があります。
 pub type CoreScheduledTask = Arc<dyn Fn() -> CoreTaskFuture + Send + Sync + 'static>;
+
+/// Spawn 処理で返却される JoinHandle の共通インターフェース。
+pub trait CoreJoinHandle: Send + Sync {
+  /// タスクをキャンセルします。複数回呼び出しても安全です。
+  fn cancel(&self);
+
+  /// タスクが完了していれば true。
+  fn is_finished(&self) -> bool {
+    false
+  }
+
+  /// ハンドルを破棄し、結果の取得を放棄します。
+  fn detach(self: Arc<Self>);
+
+  /// タスク完了を待機します。キャンセル済みの場合は即座に完了します。
+  fn join(self: Arc<Self>) -> CoreJoinFuture;
+}
+
+/// Spawn 失敗時のエラー。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CoreSpawnError {
+  ExecutorUnavailable,
+  CapacityExhausted,
+  Rejected,
+}
+
+/// Spawn を提供する最小抽象。
+pub trait CoreSpawner: Send + Sync + 'static {
+  fn spawn(&self, task: CoreTaskFuture) -> Result<Arc<dyn CoreJoinHandle>, CoreSpawnError>;
+}
 
 /// スケジューラが返すハンドルの共通インターフェース。
 pub trait CoreScheduledHandle: Send + Sync {
@@ -52,6 +83,7 @@ pub struct CoreRuntimeConfig {
   timer: Arc<dyn Timer>,
   scheduler: Arc<dyn CoreScheduler>,
   yielder: Option<Arc<dyn AsyncYield>>,
+  spawner: Arc<dyn CoreSpawner>,
   failure_clock: Option<Arc<dyn FailureClock>>,
 }
 
@@ -87,6 +119,7 @@ impl CoreRuntimeConfig {
       timer,
       scheduler,
       yielder: None,
+      spawner: Arc::new(NoopSpawner),
       failure_clock: None,
     }
   }
@@ -98,6 +131,11 @@ impl CoreRuntimeConfig {
 
   pub fn with_failure_clock(mut self, failure_clock: Arc<dyn FailureClock>) -> Self {
     self.failure_clock = Some(failure_clock);
+    self
+  }
+
+  pub fn with_spawner(mut self, spawner: Arc<dyn CoreSpawner>) -> Self {
+    self.spawner = spawner;
     self
   }
 
@@ -115,8 +153,35 @@ impl CoreRuntimeConfig {
     self.yielder.clone()
   }
 
+  pub fn spawner(&self) -> Arc<dyn CoreSpawner> {
+    self.spawner.clone()
+  }
+
   pub fn failure_clock(&self) -> Option<Arc<dyn FailureClock>> {
     self.failure_clock.clone()
+  }
+}
+
+#[derive(Debug)]
+#[allow(dead_code)]
+struct NoopJoinHandle;
+
+impl CoreJoinHandle for NoopJoinHandle {
+  fn cancel(&self) {}
+
+  fn detach(self: Arc<Self>) {}
+
+  fn join(self: Arc<Self>) -> CoreJoinFuture {
+    Box::pin(async move {})
+  }
+}
+
+#[derive(Debug)]
+struct NoopSpawner;
+
+impl CoreSpawner for NoopSpawner {
+  fn spawn(&self, _task: CoreTaskFuture) -> Result<Arc<dyn CoreJoinHandle>, CoreSpawnError> {
+    Err(CoreSpawnError::ExecutorUnavailable)
   }
 }
 
@@ -133,6 +198,7 @@ pub struct CoreRuntime {
   timer: Arc<dyn Timer>,
   scheduler: Arc<dyn CoreScheduler>,
   yielder: Option<Arc<dyn AsyncYield>>,
+  spawner: Arc<dyn CoreSpawner>,
   failure_clock: Option<Arc<dyn FailureClock>>,
 }
 
@@ -145,10 +211,12 @@ impl fmt::Debug for CoreRuntime {
       .as_ref()
       .map(|arc| Arc::as_ptr(arc) as *const ())
       .unwrap_or(core::ptr::null());
+    let spawner_ptr = Arc::as_ptr(&self.spawner) as *const ();
     f.debug_struct("CoreRuntime")
       .field("timer", &timer_ptr)
       .field("scheduler", &scheduler_ptr)
       .field("yielder", &yielder_ptr)
+      .field("spawner", &spawner_ptr)
       .field(
         "failure_clock",
         &self
@@ -168,6 +236,7 @@ impl CoreRuntime {
       timer: config.timer(),
       scheduler: config.scheduler(),
       yielder: config.yielder(),
+      spawner: config.spawner(),
       failure_clock: config.failure_clock(),
     }
   }
@@ -184,6 +253,10 @@ impl CoreRuntime {
 
   pub fn yielder(&self) -> Option<Arc<dyn AsyncYield>> {
     self.yielder.clone()
+  }
+
+  pub fn spawner(&self) -> Arc<dyn CoreSpawner> {
+    self.spawner.clone()
   }
 
   pub fn failure_clock(&self) -> Option<Arc<dyn FailureClock>> {

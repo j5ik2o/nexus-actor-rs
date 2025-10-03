@@ -5,12 +5,14 @@ members = [
   "modules/utils-std",
   "modules/actor-core",
   "modules/actor-std",
+  "modules/actor-embedded",
   "modules/message-derive-core",
   "modules/message-derive-std",
   "modules/remote-core",
   "modules/remote-std",
   "modules/cluster-core",
-  "modules/cluster-std"
+  "modules/cluster-std",
+  "modules/utils-embedded"
 ]
 
 [workspace.dependencies]
