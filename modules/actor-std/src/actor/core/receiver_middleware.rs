@@ -18,9 +18,9 @@ unsafe impl Sync for ReceiverMiddleware {}
 impl ReceiverMiddleware {
   pub fn new(f: impl Fn(ReceiverMiddlewareChain) -> ReceiverMiddlewareChain + Send + Sync + 'static) -> Self {
     let middleware = CoreReceiverMiddleware::new(move |chain| {
-      let wrapped = ReceiverMiddlewareChain::from_inner(chain);
+      let wrapped = ReceiverMiddlewareChain::from_core(chain);
       let result = f(wrapped);
-      result.into_inner()
+      result.into_core()
     });
     ReceiverMiddleware(middleware)
   }
@@ -50,8 +50,16 @@ impl ReceiverMiddleware {
   }
 
   pub fn run(&self, next: ReceiverMiddlewareChain) -> ReceiverMiddlewareChain {
-    let result = self.0.run(next.into_inner());
-    ReceiverMiddlewareChain::from_inner(result)
+    let result = self.0.run(next.into_core());
+    ReceiverMiddlewareChain::from_core(result)
+  }
+
+  pub fn as_core(&self) -> &CoreReceiverMiddleware<ReceiverSnapshot, ActorError> {
+    &self.0
+  }
+
+  pub fn into_core(self) -> CoreReceiverMiddleware<ReceiverSnapshot, ActorError> {
+    self.0
   }
 }
 

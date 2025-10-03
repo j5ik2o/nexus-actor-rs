@@ -23,6 +23,11 @@ impl CoreSerializationError {
   pub fn deserialization(msg: impl Into<String>) -> Self {
     Self::DeserializationError(msg.into())
   }
+
+  #[must_use]
+  pub const fn unknown_type() -> Self {
+    Self::UnknownType
+  }
 }
 
 impl core::fmt::Display for CoreSerializationError {

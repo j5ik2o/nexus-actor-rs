@@ -320,7 +320,7 @@ pub fn find_serializer_any_all(type_name: &str) -> Option<Arc<dyn SerializerAny>
 #[cfg_attr(not(test), allow(dead_code))]
 pub fn serialize<T: 'static>(msg: &T, serializer_id: &SerializerId) -> Result<Vec<u8>, SerializerError> {
   let serializer =
-    find_serializer::<T>(serializer_id, std::any::type_name::<T>()).ok_or(SerializerError::UnknownType)?;
+    find_serializer::<T>(serializer_id, std::any::type_name::<T>()).ok_or_else(SerializerError::unknown_type)?;
   serializer.serialize(msg)
 }
 
@@ -331,18 +331,18 @@ pub fn serialize_any(msg: &dyn Any, serializer_id: &SerializerId, type_name: &st
     type_name
   );
   if *serializer_id == SerializerId::None {
-    let serializer = find_serializer_any_all(type_name).ok_or(SerializerError::UnknownType)?;
+    let serializer = find_serializer_any_all(type_name).ok_or_else(SerializerError::unknown_type)?;
     return serializer.serialize_any(msg);
   }
   let serializer_opt = find_serializer_any(serializer_id, type_name);
-  let serializer = serializer_opt.ok_or(SerializerError::UnknownType)?;
+  let serializer = serializer_opt.ok_or_else(SerializerError::unknown_type)?;
   serializer.serialize_any(msg)
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
 pub fn deserialize<T: 'static>(bytes: &[u8], serializer_id: &SerializerId) -> Result<T, SerializerError> {
   let serializer =
-    find_serializer::<T>(serializer_id, std::any::type_name::<T>()).ok_or(SerializerError::UnknownType)?;
+    find_serializer::<T>(serializer_id, std::any::type_name::<T>()).ok_or_else(SerializerError::unknown_type)?;
   serializer.deserialize(bytes)
 }
 
@@ -352,10 +352,10 @@ pub fn deserialize_any(
   type_name: &str,
 ) -> Result<Arc<dyn Any + Send + Sync>, SerializerError> {
   if *serializer_id == SerializerId::None {
-    let serializer = find_serializer_any_all(type_name).ok_or(SerializerError::UnknownType)?;
+    let serializer = find_serializer_any_all(type_name).ok_or_else(SerializerError::unknown_type)?;
     return serializer.deserialize_any(bytes);
   }
-  let serializer = find_serializer_any(serializer_id, type_name).ok_or(SerializerError::UnknownType)?;
+  let serializer = find_serializer_any(serializer_id, type_name).ok_or_else(SerializerError::unknown_type)?;
   serializer.deserialize_any(bytes)
 }
 
@@ -365,10 +365,10 @@ pub fn deserialize_message(
   type_name: &str,
 ) -> Result<Arc<dyn Message>, SerializerError> {
   if *serializer_id == SerializerId::None {
-    let serializer = find_serializer_any_all(type_name).ok_or(SerializerError::UnknownType)?;
+    let serializer = find_serializer_any_all(type_name).ok_or_else(SerializerError::unknown_type)?;
     return serializer.deserialize_message(bytes);
   }
-  let serializer = find_serializer_any(serializer_id, type_name).ok_or(SerializerError::UnknownType)?;
+  let serializer = find_serializer_any(serializer_id, type_name).ok_or_else(SerializerError::unknown_type)?;
   serializer.deserialize_message(bytes)
 }
 

@@ -61,15 +61,15 @@ impl ReceiverMiddlewareChain {
     Self { inner }
   }
 
-  pub(crate) fn from_inner(inner: CoreReceiverMiddlewareChain<ReceiverSnapshot, ActorError>) -> Self {
+  pub fn from_core(inner: CoreReceiverMiddlewareChain<ReceiverSnapshot, ActorError>) -> Self {
     Self { inner }
   }
 
-  pub(crate) fn into_inner(self) -> CoreReceiverMiddlewareChain<ReceiverSnapshot, ActorError> {
+  pub fn into_core(self) -> CoreReceiverMiddlewareChain<ReceiverSnapshot, ActorError> {
     self.inner
   }
 
-  pub(crate) fn inner(&self) -> &CoreReceiverMiddlewareChain<ReceiverSnapshot, ActorError> {
+  pub fn as_core(&self) -> &CoreReceiverMiddlewareChain<ReceiverSnapshot, ActorError> {
     &self.inner
   }
 
