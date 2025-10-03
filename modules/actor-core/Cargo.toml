@@ -15,5 +15,6 @@ alloc = []
 
 [dependencies]
 nexus-utils-core-rs = { version = "0.*", path = "../utils-core", default-features = false, features = ["alloc"] }
+static_assertions = { workspace = true }
 
 [dev-dependencies]

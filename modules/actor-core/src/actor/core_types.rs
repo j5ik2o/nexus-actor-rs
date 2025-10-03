@@ -1,4 +1,6 @@
 #[cfg(feature = "alloc")]
+pub mod actor_error;
+#[cfg(feature = "alloc")]
 pub mod auto_receive;
 #[cfg(feature = "alloc")]
 pub mod mailbox;

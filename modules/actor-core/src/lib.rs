@@ -6,6 +6,8 @@ extern crate alloc;
 pub mod actor;
 
 #[cfg(feature = "alloc")]
+pub use actor::core_types::actor_error::CoreActorError;
+#[cfg(feature = "alloc")]
 pub use actor::core_types::auto_receive::{AutoReceiveMessage, TerminatedMessage};
 #[cfg(feature = "alloc")]
 pub use actor::core_types::mailbox::{
@@ -36,8 +38,9 @@ pub mod runtime;
 
 #[cfg(feature = "alloc")]
 pub use runtime::{
-  AsyncMutex, AsyncNotify, AsyncRwLock, CoreRuntime, CoreRuntimeConfig, CoreScheduledHandle, CoreScheduledHandleRef,
-  CoreScheduledTask, CoreScheduler, CoreTaskFuture, Timer,
+  AsyncMutex, AsyncNotify, AsyncRwLock, CoreJoinFuture, CoreJoinHandle, CoreRuntime, CoreRuntimeConfig,
+  CoreScheduledHandle, CoreScheduledHandleRef, CoreScheduledTask, CoreScheduler, CoreSpawnError, CoreSpawner,
+  CoreTaskFuture, Timer,
 };
 
 #[cfg(feature = "alloc")]
