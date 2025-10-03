@@ -1,5 +1,3 @@
-use std::any::Any;
-
 use crate::actor::core::ErrorReason;
 use crate::actor::message::MessageHandle;
 use crate::actor::supervisor::core_adapters::{StdSupervisorAdapter, StdSupervisorContext};

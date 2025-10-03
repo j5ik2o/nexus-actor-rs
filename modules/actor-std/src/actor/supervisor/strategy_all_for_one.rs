@@ -1,5 +1,4 @@
 use opentelemetry::KeyValue;
-use std::any::Any;
 use std::sync::Arc;
 use std::time::Duration;
 
