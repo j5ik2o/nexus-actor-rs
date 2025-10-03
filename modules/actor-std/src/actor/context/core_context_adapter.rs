@@ -6,6 +6,9 @@ use nexus_actor_core_rs::context::{CoreActorContext, CoreActorContextSnapshot, C
 use futures::FutureExt;
 
 use crate::actor::context::{BasePart, ContextHandle, InfoPart, MessagePart, SenderPart};
+use crate::actor::core::ActorHandle;
+use std::any::Any;
+use std::sync::Arc;
 use std::time::Duration;
 
 #[derive(Clone)]
@@ -45,6 +48,7 @@ impl StdActorContextSnapshot {
   pub async fn capture(handle: &ContextHandle) -> Self {
     let self_pid = handle.get_self().await.to_core();
     let sender = handle.get_sender().await.map(|pid| pid.to_core());
+    let parent = handle.get_parent().await.map(|pid| pid.to_core());
     let message = handle
       .try_get_message_handle_opt()
       .or_else(|| handle.get_message_handle_opt().now_or_never().flatten());
@@ -58,12 +62,18 @@ impl StdActorContextSnapshot {
     } else {
       Some(receive_timeout)
     };
+    let actor_arc: Option<Arc<dyn Any + Send + Sync>> = handle.get_actor().await.map(|actor| {
+      let handle_arc: Arc<ActorHandle> = Arc::new(actor);
+      handle_arc as Arc<dyn Any + Send + Sync>
+    });
     let core = CoreContextSnapshot::new()
       .with_self_pid(Some(self_pid))
       .with_sender(sender)
+      .with_parent(parent)
       .with_message_handle(message)
       .with_message_header(headers)
-      .with_receive_timeout(timeout_opt);
+      .with_receive_timeout(timeout_opt)
+      .with_actor(actor_arc);
     Self { core }
   }
 }

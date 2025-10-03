@@ -21,6 +21,7 @@
 - `CorePid` と `CoreMessageEnvelope` を導入し、PID／メッセージ封筒の純データ表現を actor-core に集約。std 側では ProtoBuf との相互変換と Tokio 依存処理のみを担うよう再編。
 - `ProcessHandle` を `CoreProcessHandle` トレイトでラップし、CorePid ベースでの送受信 API を用意して Tokio 依存を std 実装に閉じ込めた。
 - ProcessRegistry の AddressResolver を CorePid 入力へ切り替え、remote ハンドラ登録もコア抽象経由で行うよう更新。
+- CoreContextSnapshot に parent／actor／シリアライズ情報を保持する抽象を追加し、std 側からのスナップショット capture でも同情報を供給できるよう調整（2025-10-03）。
 - ActorContext のメッセージ API を `MessageEnvelope` ラッパ経由に整理し、CoreMessageEnvelope と整合する変換経路を確立。
 - Supervisor／SupervisorStrategy トレイトを CorePid ベースへ移行し、`CorePidRef` 抽象と `ExtendedPid` 実装を整備して、監視系メトリクス・イベントの橋渡しを簡潔化。
 - ExtendedPid ↔ CorePid 変換の共通ヘルパー（`From` 実装・スライス変換ユーティリティ）を追加し、監視経路・コンテキストからの PID 変換処理を一元化。
