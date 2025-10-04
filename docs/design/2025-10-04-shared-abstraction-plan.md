@@ -108,3 +108,12 @@ pub trait Spawn {
 - 上記で示した async モデルのコード断片（std/tokio・RP2040・RP2350 向け）は、所有モデル抽象の考え方を共有するための参考資料である。
 - 実際の実装では、性能・安全性・周辺コンポーネントとの整合を考慮し、これらをそのまま適用せずに最適な形で再設計すること。
 - 設計アイデアとして参照しつつ、必要な箇所はモジュール構成や抽象を含めて見直す。
+
+## RP2040 向け動作確認サンプル
+- `modules/actor-embedded/examples/rp2040_basic.rs` では、`LocalMailbox` / `ImmediateTimer` を使った最小構成の actor を RP2040 上で動かす例を提供する。
+- ビルド手順（事前に `rustup target add thumbv6m-none-eabi` を実行）
+  ```bash
+  cargo build -p nexus-actor-embedded-rs --example rp2040_basic \
+    --target thumbv6m-none-eabi --no-default-features --features embedded_rc
+  ```
+- 例では `alloc_cortex_m`, `cortex-m-rt`, `panic-halt` を利用してヒープ初期化とエントリポイントを用意し、`actor_loop` を単一メッセージで動作確認する。実際のアプリケーションでは Embassy 等の実行器やハードウェアタイマに差し替える。
