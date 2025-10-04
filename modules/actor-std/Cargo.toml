@@ -2,7 +2,6 @@
 name = "nexus-actor-std-rs"
 version = "3.0.1"
 edition = "2021"
-build = "build.rs"
 description = "Standard runtime implementation for Nexus Actor"
 license = "MIT OR Apache-2.0"
 keywords = ["actors", "actor-model", "async", "tokio"]
@@ -24,7 +23,6 @@ chrono = "0.4"
 dashmap = { workspace = true }
 futures = { workspace = true }
 im = "15.0.0"
-nexus-message-derive-std-rs = { path = "../message-derive-std" }
 nexus-utils-std-rs = { version = "0.*", path = "../utils-std" }
 num_enum = "0.7.2"
 once_cell = "1.19.0"
@@ -73,30 +71,6 @@ governor = "0.10.0"
 clap = { version = "4.5.9", features = ["derive"] }
 tracing = { workspace = true }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-nexus-message-derive-std-rs = { path = "../message-derive-std" }
 nexus-utils-std-rs = { version = "0.*", path = "../utils-std" }
 rstest = "0.26.0"
 loom = "0.7"
-
-[[bench]]
-name = "actor_context_lock"
-harness = false
-
-[[bench]]
-name = "dispatcher_queue_latency"
-harness = false
-
-[[bench]]
-name = "mailbox_throughput"
-harness = false
-
-[[bench]]
-name = "queue_throughput"
-harness = false
-
-[[bench]]
-name = "reentrancy"
-harness = false
-
-[build-dependencies]
-tonic-build = { version = "0.13.0" }
