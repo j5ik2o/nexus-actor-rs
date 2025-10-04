@@ -11,9 +11,10 @@ use crate::metrics::record_sender_snapshot;
 use crate::remote::Remote;
 use crate::serializer::RootSerializable;
 use crate::serializer::{serialize_any, SerializerId};
+use crate::{RemoteTransport, TransportEndpoint};
 use async_trait::async_trait;
 use dashmap::DashMap;
-use futures::{StreamExt, TryFutureExt};
+use futures::StreamExt;
 use nexus_actor_core_rs::runtime::CoreTaskFuture;
 use nexus_actor_std_rs::actor::actor_system::ActorSystem;
 use nexus_actor_std_rs::actor::context::{BasePart, ContextHandle, InfoPart, MessagePart, SenderPart, StopperPart};
@@ -37,13 +38,12 @@ pub struct EndpointWriter {
   address: String,
   conn: Arc<RwLock<Option<Channel>>>,
   stream: Arc<RwLock<Option<RemotingClient<Channel>>>>,
+  transport_endpoint: TransportEndpoint,
   remote: Weak<Remote>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum EndpointWriterError {
-  #[error("Invalid URL: {0}")]
-  InvalidUrl(String),
   #[error("Failed to connect to remote: {0}")]
   Connection(String),
   #[error("Failed to send connect request: {code}, {message}")]
@@ -55,13 +55,14 @@ pub enum EndpointWriterError {
 }
 
 impl EndpointWriter {
-  pub fn new(remote: Weak<Remote>, address: String, config: Config) -> Self {
+  pub fn new(remote: Weak<Remote>, address: String, config: Config, transport_endpoint: TransportEndpoint) -> Self {
     Self {
       config,
       address,
       conn: Arc::new(RwLock::new(None)),
       stream: Arc::new(RwLock::new(None)),
       remote,
+      transport_endpoint,
     }
   }
 
@@ -149,12 +150,16 @@ impl EndpointWriter {
   }
 
   async fn create_channel(&self) -> Result<Channel, EndpointWriterError> {
-    let address = format!("http://{}", self.address);
-    let endpoint = Channel::from_shared(address).map_err(|e| EndpointWriterError::InvalidUrl(e.to_string()))?;
-    endpoint
-      .connect()
-      .map_err(|e| EndpointWriterError::Connection(e.to_string()))
+    let remote = self
+      .remote
+      .upgrade()
+      .ok_or_else(|| EndpointWriterError::Connection("remote dropped".to_string()))?;
+    let transport = remote.transport();
+    let handle = transport
+      .connect(&self.transport_endpoint)
       .await
+      .map_err(|_| EndpointWriterError::Connection("remote transport connect failed".to_string()))?;
+    Ok(handle.channel())
   }
 
   async fn connect_request(

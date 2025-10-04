@@ -40,6 +40,7 @@ use thiserror::Error;
 use tokio::sync::oneshot;
 use tokio::sync::Mutex;
 use tokio::sync::OnceCell;
+use tonic::transport::Channel;
 use tonic::transport::Server;
 
 #[derive(Debug, Clone, Error)]
@@ -158,8 +159,20 @@ pub struct Remote {
   inner: Arc<RemoteInner>,
 }
 
-#[derive(Debug, Default, Clone, Copy)]
-pub struct TonicEndpointHandle;
+#[derive(Debug, Clone)]
+pub struct TonicEndpointHandle {
+  channel: Channel,
+}
+
+impl TonicEndpointHandle {
+  fn new(channel: Channel) -> Self {
+    Self { channel }
+  }
+
+  pub fn channel(&self) -> Channel {
+    self.channel.clone()
+  }
+}
 
 impl crate::EndpointHandle for TonicEndpointHandle {
   fn close(&self) {}
@@ -208,13 +221,23 @@ impl crate::RemoteTransport for TonicRemoteTransport {
 
   fn connect(
     &self,
-    _endpoint: &crate::TransportEndpoint,
+    endpoint: &crate::TransportEndpoint,
   ) -> crate::BoxFuture<'_, Result<Self::Handle, crate::TransportError>> {
-    Box::pin(async {
-      Err(crate::TransportError::with_detail(
-        crate::TransportErrorKind::Unavailable,
-        "grpc transport connect is managed by Remote",
-      ))
+    let endpoint = endpoint.clone();
+    Box::pin(async move {
+      let (host, port) = parse_transport_endpoint(&endpoint)
+        .map_err(|_| crate::TransportError::with_detail(crate::TransportErrorKind::Other, "invalid endpoint"))?;
+      let url = if endpoint.uri.starts_with("http://") || endpoint.uri.starts_with("https://") {
+        endpoint.uri.clone()
+      } else {
+        format!("http://{}:{}", host, port)
+      };
+      let channel = Channel::from_shared(url)
+        .map_err(|_| crate::TransportError::with_detail(crate::TransportErrorKind::Other, "invalid endpoint url"))?
+        .connect()
+        .await
+        .map_err(|_| crate::TransportError::with_detail(crate::TransportErrorKind::Connection, "connect failed"))?;
+      Ok(TonicEndpointHandle::new(channel))
     })
   }
 

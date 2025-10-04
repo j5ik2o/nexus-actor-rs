@@ -6,6 +6,7 @@ use crate::endpoint_writer_mailbox::EndpointWriterMailbox;
 use crate::metrics::record_sender_snapshot;
 use crate::remote::Remote;
 use crate::watch_registry::WatchRegistry;
+use crate::TransportEndpoint;
 use async_trait::async_trait;
 use nexus_actor_std_rs::actor::context::{BasePart, ContextHandle, MessagePart, SpawnerPart};
 use nexus_actor_std_rs::actor::core::{Actor, ActorError, ErrorReason, ExtendedPid, Props};
@@ -67,7 +68,14 @@ impl EndpointSupervisor {
         let cloned_remote = remote.clone();
         let cloned_address = address.clone();
         let cloned_config = config.clone();
-        async move { EndpointWriter::new(cloned_remote, cloned_address, cloned_config) }
+        async move {
+          EndpointWriter::new(
+            cloned_remote,
+            cloned_address.clone(),
+            cloned_config.clone(),
+            TransportEndpoint::new(cloned_address.clone()),
+          )
+        }
       },
       [Props::with_mailbox_producer(self.endpoint_writer_mailbox_producer())],
     )

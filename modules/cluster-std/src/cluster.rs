@@ -11,7 +11,7 @@ use nexus_actor_std_rs::actor::process::future::ActorFutureError;
 use nexus_actor_std_rs::generated::actor::Pid;
 use nexus_remote_std_rs::{
   ActivationHandler, ActivationHandlerError, Config as RemoteConfig, ConfigOption as RemoteConfigOption, Remote,
-  ResponseStatusCode,
+  ResponseStatusCode, TransportEndpoint,
 };
 use std::time::Duration;
 
@@ -251,6 +251,11 @@ impl Cluster {
     let mut remote_config_options = vec![
       RemoteConfigOption::with_host(remote_options.host()),
       RemoteConfigOption::with_port(remote_options.port()),
+      RemoteConfigOption::with_transport_endpoint(TransportEndpoint::new(format!(
+        "{}:{}",
+        remote_options.host(),
+        remote_options.port()
+      ))),
     ];
 
     if let Some(advertised) = remote_options.advertised_address() {
