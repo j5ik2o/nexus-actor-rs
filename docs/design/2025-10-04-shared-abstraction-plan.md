@@ -73,6 +73,11 @@ pub trait Spawn {
 - `ArcStateCell<T, RM = NoopRawMutex>`（embedded）: `Arc<embassy_sync::mutex::Mutex<RM, T>>` を利用し、`embedded_arc` フィーチャで提供する。既定では `ArcLocalStateCell<T>` により `NoopRawMutex` を採用して単一エグゼキュータ向け最小実装とし、実機で割り込みやマルチコアを扱う場合は `ArcCsStateCell<T>` を使って `CriticalSectionRawMutex` を選択する。必要に応じて他の `RawMutex` へも切り替えられる。
 - `StateCell` トレイトは `borrow` / `borrow_mut` を同期 API として提供しており、Actor 本体は単一スレッドでメッセージ処理を行う前提に立つ。今後 async ロックが必要な場合は `StateCell` 拡張メソッドに `try_borrow_async` 等を追加する余地を残す。
 
+## モジュール構成ポリシー
+- `actor-std` は `spawn.rs` / `timer.rs` / `mailbox.rs` / `state.rs` に分割し、Tokio 依存の責務を明確化して再エクスポート専用の `lib.rs` から集約する。
+- `actor-embedded` も同様に `spawn.rs` / `timer.rs` / `mailbox.rs` / `state.rs` / `shared.rs` へ分離し、feature ごとの実装差分をファイル単位で追えるようにした。
+- これにより std / embedded の両環境で MECE な検証対象を保ちつつ、今後の拡張（例: Embassy バリエーションや追加ランタイム）を小さなモジュール追加で進められる。
+
 ## 運用上の考慮
 - `Shared<T>` の実装ごとに `Send` / `Sync` 制約が変わるため、`Shared` トレイトや利用側で適切な境界を設ける。
 - `Arc` → `Shared` への置換は ActorRef / Context / Mailbox / Scheduler / Runtime 全域に波及するため、段階的なリファクタリング計画が必要。
