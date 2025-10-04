@@ -68,9 +68,8 @@ mod test {
     let system = ActorSystem::new().await.unwrap();
     let mut root_context = system.get_root_context().await;
 
-    let cloned_observer = observer.clone();
     let middles = ReceiverMiddleware::from_async(move |snapshot, next| {
-      let cloned_observer = cloned_observer.clone();
+      let cloned_observer = observer.clone();
       Box::pin(async move {
         tracing::debug!("ReceiverMiddleware: envelope = {:?}", snapshot.message());
         let msg = snapshot.message().get_message_handle();
