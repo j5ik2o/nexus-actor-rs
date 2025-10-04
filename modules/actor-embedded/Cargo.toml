@@ -21,6 +21,8 @@ alloc-cortex-m = { version = "0.4", optional = true }
 cortex-m = { version = "0.7", optional = true }
 cortex-m-rt = { version = "0.7", optional = true }
 panic-halt = { version = "0.2", optional = true }
+rp2040-hal = { version = "0.9", default-features = false, features = ["critical-section-impl"], optional = true }
+embedded-hal = { version = "0.2", optional = true }
 
 [target.'cfg(target_os = "none")'.dependencies]
 alloc-cortex-m = "0.4"
@@ -28,3 +30,5 @@ cortex-m = "0.7"
 cortex-m-rt = { version = "0.7", features = ["device"] }
 panic-halt = "0.2"
 rp2040-boot2 = "0.3"
+rp2040-hal = { version = "0.9", default-features = false, features = ["critical-section-impl"] }
+embedded-hal = "0.2"

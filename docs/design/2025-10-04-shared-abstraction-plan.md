@@ -122,3 +122,15 @@ pub trait Spawn {
   - 公式 SDK の `uf2conv.py` など別ツールを利用する。
   - `elf2uf2-rs` にパッチを当てて ABI チェックを外し、ローカルで再ビルドする。
   - LLVM リンカ設定で OSABI を 0 (`System V`) に修正できないか調査する（要検討）。
+
+- 目視確認用に `modules/actor-embedded/examples/rp2040_led.rs` も用意。以下の手順でビルド／書き込みするとオンボード LED (GP25) が点滅し、新しいファームの動作を確認できる。
+  ```bash
+  cargo build -p nexus-actor-embedded-rs --example rp2040_led \
+    --target thumbv6m-none-eabi --no-default-features --features embedded_rc --release
+
+  python3 scripts/uf2conv.py target/thumbv6m-none-eabi/release/examples/rp2040_led \
+    -o target/thumbv6m-none-eabi/release/examples/rp2040_led.uf2 \
+    --family RP2040 --base 0x10000000
+
+  picotool load target/thumbv6m-none-eabi/release/examples/rp2040_led.uf2 -x
+  ```

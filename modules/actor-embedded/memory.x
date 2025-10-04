@@ -5,8 +5,6 @@ MEMORY
   RAM   : ORIGIN = 0x20000000, LENGTH = 264K
 }
 
-ENTRY(_entry);
-
 SECTIONS
 {
   .boot_loader ORIGIN(BOOT2) :
