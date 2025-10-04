@@ -69,7 +69,8 @@ pub trait Spawn {
 
 ## StateCell 実装ポリシー
 - `RcStateCell<T>`: `Rc<RefCell<T>>` を内部に保持し、`embedded_rc` フィーチャで利用する。シングルスレッド前提で `RefCell` による実行時借用チェックを活用する。
-- `ArcStateCell<T, RM = NoopRawMutex>`: `Arc<embassy_sync::mutex::Mutex<RM, T>>` を利用し、`embedded_arc` フィーチャで提供する。既定では `ArcLocalStateCell<T>` により `NoopRawMutex` を採用して単一エグゼキュータ向け最小実装とし、実機で割り込みやマルチコアを扱う場合は `ArcCsStateCell<T>` を使って `CriticalSectionRawMutex` を選択する。必要に応じて他の `RawMutex` へも切り替えられる。
+- `ArcStateCell<T>`（std）: `Arc<std::sync::Mutex<T>>` を内部に保持し、Tokio ランタイム上で同期的に状態を書き換える用途に用いる。`actor-std` のプレリュードから利用可能。
+- `ArcStateCell<T, RM = NoopRawMutex>`（embedded）: `Arc<embassy_sync::mutex::Mutex<RM, T>>` を利用し、`embedded_arc` フィーチャで提供する。既定では `ArcLocalStateCell<T>` により `NoopRawMutex` を採用して単一エグゼキュータ向け最小実装とし、実機で割り込みやマルチコアを扱う場合は `ArcCsStateCell<T>` を使って `CriticalSectionRawMutex` を選択する。必要に応じて他の `RawMutex` へも切り替えられる。
 - `StateCell` トレイトは `borrow` / `borrow_mut` を同期 API として提供しており、Actor 本体は単一スレッドでメッセージ処理を行う前提に立つ。今後 async ロックが必要な場合は `StateCell` 拡張メソッドに `try_borrow_async` 等を追加する余地を残す。
 
 ## 運用上の考慮
