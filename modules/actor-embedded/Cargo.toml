@@ -22,8 +22,9 @@ cortex-m = { version = "0.7", optional = true }
 cortex-m-rt = { version = "0.7", optional = true }
 panic-halt = { version = "0.2", optional = true }
 
-[target.'cfg(target_os = "none")'.dev-dependencies]
+[target.'cfg(target_os = "none")'.dependencies]
 alloc-cortex-m = "0.4"
 cortex-m = "0.7"
 cortex-m-rt = { version = "0.7", features = ["device"] }
 panic-halt = "0.2"
+rp2040-boot2 = "0.3"

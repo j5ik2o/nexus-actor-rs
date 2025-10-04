@@ -22,6 +22,8 @@ use cortex_m::{asm, interrupt};
 use cortex_m_rt::entry;
 #[cfg(all(target_arch = "arm", target_os = "none"))]
 use panic_halt as _;
+#[cfg(all(target_arch = "arm", target_os = "none"))]
+use rp2040_boot2;
 
 #[cfg(all(target_arch = "arm", target_os = "none"))]
 use nexus_actor_core_rs::{actor_loop, Mailbox};
@@ -36,6 +38,11 @@ static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
 const HEAP_SIZE: usize = 8 * 1024;
 #[cfg(all(target_arch = "arm", target_os = "none"))]
 static mut HEAP: [u8; HEAP_SIZE] = [0; HEAP_SIZE];
+
+#[cfg(all(target_arch = "arm", target_os = "none"))]
+#[link_section = ".boot2"]
+#[used]
+static BOOT_LOADER: [u8; 256] = rp2040_boot2::BOOT_LOADER_W25Q080;
 
 #[cfg(all(target_arch = "arm", target_os = "none"))]
 #[entry]
