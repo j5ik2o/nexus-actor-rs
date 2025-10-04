@@ -11,7 +11,7 @@ pub trait Shared<T>: Clone + Deref<Target = T> {
   }
 }
 
-#[cfg(all(feature = "alloc", feature = "std"))]
+#[cfg(feature = "alloc")]
 mod std_impl {
   use super::Shared;
   use alloc::sync::Arc;

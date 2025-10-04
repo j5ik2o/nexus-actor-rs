@@ -3,18 +3,31 @@
 extern crate alloc;
 
 use alloc::collections::VecDeque;
+#[cfg(feature = "embedded_rc")]
 use alloc::rc::Rc;
-use core::cell::{Ref, RefCell, RefMut};
+#[cfg(feature = "embedded_arc")]
+use alloc::sync::Arc;
+use core::cell::RefCell;
+#[cfg(feature = "embedded_rc")]
+use core::cell::{Ref, RefMut};
 use core::future::Future;
+#[cfg(feature = "embedded_rc")]
 use core::ops::Deref;
 use core::pin::Pin;
 use core::task::{Context, Poll, Waker};
 use core::time::Duration;
 
-use nexus_actor_core_rs::{Mailbox, Shared, Spawn, StateCell, Timer};
+#[cfg(feature = "embedded_rc")]
+use nexus_actor_core_rs::Shared;
+use nexus_actor_core_rs::{Mailbox, Spawn, StateCell, Timer};
 
+#[cfg(feature = "embedded_arc")]
+use spin::{Mutex, MutexGuard};
+
+#[cfg(feature = "embedded_rc")]
 pub struct RcShared<T>(Rc<T>);
 
+#[cfg(feature = "embedded_rc")]
 impl<T> RcShared<T> {
   pub fn new(value: T) -> Self {
     Self(Rc::new(value))
@@ -29,12 +42,14 @@ impl<T> RcShared<T> {
   }
 }
 
+#[cfg(feature = "embedded_rc")]
 impl<T> Clone for RcShared<T> {
   fn clone(&self) -> Self {
     Self(self.0.clone())
   }
 }
 
+#[cfg(feature = "embedded_rc")]
 impl<T> Deref for RcShared<T> {
   type Target = T;
 
@@ -43,6 +58,7 @@ impl<T> Deref for RcShared<T> {
   }
 }
 
+#[cfg(feature = "embedded_rc")]
 impl<T> Shared<T> for RcShared<T> {
   fn try_unwrap(self) -> Result<T, Self>
   where
@@ -51,8 +67,10 @@ impl<T> Shared<T> for RcShared<T> {
   }
 }
 
+#[cfg(feature = "embedded_rc")]
 pub struct RcStateCell<T>(Rc<RefCell<T>>);
 
+#[cfg(feature = "embedded_rc")]
 impl<T> RcStateCell<T> {
   pub fn new(value: T) -> Self {
     <Self as StateCell<T>>::new(value)
@@ -67,12 +85,14 @@ impl<T> RcStateCell<T> {
   }
 }
 
+#[cfg(feature = "embedded_rc")]
 impl<T> Clone for RcStateCell<T> {
   fn clone(&self) -> Self {
     Self(self.0.clone())
   }
 }
 
+#[cfg(feature = "embedded_rc")]
 impl<T> StateCell<T> for RcStateCell<T> {
   type Ref<'a>
     = Ref<'a, T>
@@ -97,6 +117,65 @@ impl<T> StateCell<T> for RcStateCell<T> {
 
   fn borrow_mut(&self) -> Self::RefMut<'_> {
     self.0.borrow_mut()
+  }
+}
+
+#[cfg(feature = "embedded_arc")]
+pub struct ArcStateCell<T> {
+  inner: Arc<Mutex<T>>,
+}
+
+#[cfg(feature = "embedded_arc")]
+impl<T> ArcStateCell<T> {
+  pub fn new(value: T) -> Self {
+    Self {
+      inner: Arc::new(Mutex::new(value)),
+    }
+  }
+
+  pub fn from_arc(inner: Arc<Mutex<T>>) -> Self {
+    Self { inner }
+  }
+
+  pub fn into_arc(self) -> Arc<Mutex<T>> {
+    self.inner
+  }
+}
+
+#[cfg(feature = "embedded_arc")]
+impl<T> Clone for ArcStateCell<T> {
+  fn clone(&self) -> Self {
+    Self {
+      inner: self.inner.clone(),
+    }
+  }
+}
+
+#[cfg(feature = "embedded_arc")]
+impl<T> StateCell<T> for ArcStateCell<T> {
+  type Ref<'a>
+    = MutexGuard<'a, T>
+  where
+    Self: 'a,
+    T: 'a;
+  type RefMut<'a>
+    = MutexGuard<'a, T>
+  where
+    Self: 'a,
+    T: 'a;
+
+  fn new(value: T) -> Self
+  where
+    Self: Sized, {
+    ArcStateCell::new(value)
+  }
+
+  fn borrow(&self) -> Self::Ref<'_> {
+    self.inner.lock()
+  }
+
+  fn borrow_mut(&self) -> Self::RefMut<'_> {
+    self.inner.lock()
   }
 }
 
@@ -171,7 +250,11 @@ impl<'a, M> Future for LocalMailboxRecv<'a, M> {
 }
 
 pub mod prelude {
-  pub use super::{ImmediateSpawner, ImmediateTimer, LocalMailbox, RcShared, RcStateCell};
+  #[cfg(feature = "embedded_arc")]
+  pub use super::ArcStateCell;
+  pub use super::{ImmediateSpawner, ImmediateTimer, LocalMailbox};
+  #[cfg(feature = "embedded_rc")]
+  pub use super::{RcShared, RcStateCell};
 }
 
 #[cfg(test)]
@@ -180,6 +263,7 @@ mod tests {
 
   use super::*;
 
+  #[cfg(feature = "embedded_rc")]
   #[test]
   fn rc_state_cell_borrow_mut_applies_changes() {
     let cell = RcStateCell::new(0_u32);
@@ -192,6 +276,7 @@ mod tests {
     assert_eq!(*cell.borrow(), 42);
   }
 
+  #[cfg(feature = "embedded_rc")]
   #[test]
   fn rc_state_cell_clone_shares_state() {
     let cell = RcStateCell::new(10_u32);
@@ -203,5 +288,19 @@ mod tests {
     }
 
     assert_eq!(*cell.borrow(), 15);
+  }
+
+  #[cfg(feature = "embedded_arc")]
+  #[test]
+  fn arc_state_cell_borrow_updates_shared_value() {
+    let cell = ArcStateCell::new(1_u32);
+    let cloned = cell.clone();
+
+    {
+      let mut value = cloned.borrow_mut();
+      *value = 7;
+    }
+
+    assert_eq!(*cell.borrow(), 7);
   }
 }
