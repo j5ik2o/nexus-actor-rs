@@ -1,31 +1,24 @@
 use alloc::vec::Vec;
 
-use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex, RawMutex};
 use nexus_utils_core_rs::{
   PriorityMessage, QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, DEFAULT_PRIORITY, PRIORITY_LEVELS,
 };
 
-use super::queue_arc::{ArcLocalRingQueue, ArcRingQueue};
-
-pub type ArcLocalPriorityQueue<E> = ArcPriorityQueue<E, NoopRawMutex>;
-pub type ArcCsPriorityQueue<E> = ArcPriorityQueue<E, CriticalSectionRawMutex>;
+use crate::RcRingQueue;
 
 #[derive(Debug, Clone)]
-pub struct ArcPriorityQueue<E, RM = NoopRawMutex>
-where
-  RM: RawMutex, {
-  queues: Vec<ArcRingQueue<E, RM>>,
+pub struct RcPriorityQueue<E> {
+  queues: Vec<RcRingQueue<E>>,
 }
 
-impl<E, RM> ArcPriorityQueue<E, RM>
+impl<E> RcPriorityQueue<E>
 where
   E: PriorityMessage,
-  RM: RawMutex,
 {
   pub fn new(capacity_per_level: usize) -> Self {
     let mut queues = Vec::with_capacity(PRIORITY_LEVELS);
     for _ in 0..PRIORITY_LEVELS {
-      queues.push(ArcRingQueue::new(capacity_per_level));
+      queues.push(RcRingQueue::new(capacity_per_level));
     }
     Self { queues }
   }
@@ -69,10 +62,9 @@ where
   }
 }
 
-impl<E, RM> QueueBase<E> for ArcPriorityQueue<E, RM>
+impl<E> QueueBase<E> for RcPriorityQueue<E>
 where
   E: PriorityMessage,
-  RM: RawMutex,
 {
   fn len(&self) -> QueueSize {
     self.len_shared()
@@ -90,20 +82,18 @@ where
   }
 }
 
-impl<E, RM> QueueWriter<E> for ArcPriorityQueue<E, RM>
+impl<E> QueueWriter<E> for RcPriorityQueue<E>
 where
   E: PriorityMessage,
-  RM: RawMutex,
 {
   fn offer(&mut self, element: E) -> Result<(), QueueError<E>> {
     self.offer_shared(element)
   }
 }
 
-impl<E, RM> QueueReader<E> for ArcPriorityQueue<E, RM>
+impl<E> QueueReader<E> for RcPriorityQueue<E>
 where
   E: PriorityMessage,
-  RM: RawMutex,
 {
   fn poll(&mut self) -> Result<Option<E>, QueueError<E>> {
     self.poll_shared()
@@ -130,14 +120,14 @@ mod tests {
   }
 
   #[test]
-  fn arc_priority_queue_orders() {
-    let queue = ArcLocalPriorityQueue::new(3);
+  fn rc_priority_queue_orders() {
+    let queue = RcPriorityQueue::new(4);
     queue.offer_shared(Msg(1, 0)).unwrap();
-    queue.offer_shared(Msg(9, 7)).unwrap();
-    queue.offer_shared(Msg(5, 3)).unwrap();
+    queue.offer_shared(Msg(5, 7)).unwrap();
+    queue.offer_shared(Msg(3, 3)).unwrap();
 
-    assert_eq!(queue.poll_shared().unwrap().unwrap().0, 9);
     assert_eq!(queue.poll_shared().unwrap().unwrap().0, 5);
+    assert_eq!(queue.poll_shared().unwrap().unwrap().0, 3);
     assert_eq!(queue.poll_shared().unwrap().unwrap().0, 1);
     assert!(queue.poll_shared().unwrap().is_none());
   }
