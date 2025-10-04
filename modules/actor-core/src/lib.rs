@@ -6,15 +6,12 @@ extern crate alloc;
 use core::time::Duration;
 
 mod mailbox;
-mod shared;
 mod spawn;
-mod state;
 mod timer;
 
 pub use mailbox::Mailbox;
-pub use shared::Shared;
+pub use nexus_utils_core_rs::sync::{Shared, StateCell};
 pub use spawn::Spawn;
-pub use state::StateCell;
 pub use timer::Timer;
 
 /// Minimal actor loop that waits for messages, handles them, and yields control.

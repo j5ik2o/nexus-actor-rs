@@ -1,3 +1,5 @@
-#![no_std]
+#![cfg_attr(not(feature = "std"), no_std)]
 
-pub fn placeholder() {}
+pub mod sync;
+
+pub use sync::{Shared, StateCell};

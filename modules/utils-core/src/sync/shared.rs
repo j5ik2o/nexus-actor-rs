@@ -10,17 +10,3 @@ pub trait Shared<T>: Clone + Deref<Target = T> {
     Err(self)
   }
 }
-
-#[cfg(feature = "alloc")]
-mod std_impl {
-  use super::Shared;
-  use alloc::sync::Arc;
-
-  impl<T> Shared<T> for Arc<T> {
-    fn try_unwrap(self) -> Result<T, Self>
-    where
-      T: Sized, {
-      Arc::try_unwrap(self).map_err(|arc| arc)
-    }
-  }
-}

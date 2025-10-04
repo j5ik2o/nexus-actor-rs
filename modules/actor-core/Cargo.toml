@@ -15,5 +15,6 @@ alloc = []
 std = ["alloc"]
 
 [dependencies]
+nexus-utils-core-rs = { path = "../utils-core", default-features = false }
 
 [dev-dependencies]
