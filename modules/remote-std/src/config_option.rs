@@ -1,12 +1,15 @@
-use crate::config::Config;
+use crate::config::{Config, TransportEndpointError};
 use nexus_actor_std_rs::actor::core::Props;
+use nexus_remote_core_rs::TransportEndpoint;
 use std::time::Duration;
+use thiserror::Error;
 
 #[derive(Debug, Clone)]
 pub enum ConfigOption {
   SetHost(String),
   SetPort(u16),
   SetAdvertisedAddress(String),
+  SetTransportEndpoint(TransportEndpoint),
   PutKind(String, Props),
   SetEndpointWriterBatchSize(usize),
   SetEndpointWriterQueueSize(usize),
@@ -22,8 +25,14 @@ pub enum ConfigOption {
   SetBackpressureCriticalThreshold(f64),
 }
 
+#[derive(Debug, Error)]
+pub enum ConfigOptionError {
+  #[error(transparent)]
+  TransportEndpoint(#[from] TransportEndpointError),
+}
+
 impl ConfigOption {
-  pub async fn apply(&self, config: &mut Config) {
+  pub async fn apply(&self, config: &mut Config) -> Result<(), ConfigOptionError> {
     match self {
       ConfigOption::SetHost(host) => {
         config.set_host(host.clone()).await;
@@ -33,6 +42,9 @@ impl ConfigOption {
       }
       ConfigOption::SetAdvertisedAddress(advertised_address) => {
         config.set_advertised_address(advertised_address.clone()).await;
+      }
+      ConfigOption::SetTransportEndpoint(endpoint) => {
+        config.set_transport_endpoint(endpoint).await?;
       }
       ConfigOption::PutKind(kind, props) => {
         config.put_kind(kind, props.clone()).await;
@@ -74,6 +86,7 @@ impl ConfigOption {
         config.set_backpressure_critical_threshold(*threshold).await;
       }
     }
+    Ok(())
   }
 
   pub fn with_host(host: &str) -> ConfigOption {
@@ -86,6 +99,10 @@ impl ConfigOption {
 
   pub fn with_advertised_address(advertised_address: &str) -> ConfigOption {
     ConfigOption::SetAdvertisedAddress(advertised_address.to_string())
+  }
+
+  pub fn with_transport_endpoint(endpoint: TransportEndpoint) -> ConfigOption {
+    ConfigOption::SetTransportEndpoint(endpoint)
   }
 
   pub fn with_kind(kind: &str, props: Props) -> ConfigOption {
@@ -144,6 +161,7 @@ impl ConfigOption {
 #[cfg(test)]
 mod tests {
   use super::*;
+  use nexus_remote_core_rs::TransportEndpoint;
 
   #[tokio::test]
   async fn config_option_apply_updates_config() {
@@ -167,7 +185,7 @@ mod tests {
     ];
 
     for option in &options {
-      option.apply(&mut config).await;
+      option.apply(&mut config).await.unwrap();
     }
 
     assert_eq!(config.get_host().await.unwrap(), "192.168.0.1");
@@ -191,5 +209,20 @@ mod tests {
     assert_eq!(config.get_endpoint_heartbeat_timeout().await, Duration::from_secs(30));
     assert_eq!(config.get_backpressure_warning_threshold().await, 0.4);
     assert_eq!(config.get_backpressure_critical_threshold().await, 0.75);
+  }
+
+  #[tokio::test]
+  async fn config_option_transport_endpoint_sets_fields() {
+    let mut config = Config::default();
+    let endpoint = TransportEndpoint::new("tcp://10.1.2.3:7001".to_string());
+
+    ConfigOption::with_transport_endpoint(endpoint.clone())
+      .apply(&mut config)
+      .await
+      .unwrap();
+
+    assert_eq!(config.get_host().await.unwrap(), "10.1.2.3");
+    assert_eq!(config.get_port().await.unwrap(), 7001);
+    assert_eq!(config.transport_endpoint().await.unwrap().uri, endpoint.uri);
   }
 }

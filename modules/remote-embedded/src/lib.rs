@@ -12,8 +12,8 @@ use alloc::boxed::Box;
 use core::sync::atomic::{AtomicBool, Ordering};
 
 pub use nexus_remote_core_rs::core_api::{
-  BoxFuture, EndpointHandle, RemoteRuntime, RemoteRuntimeConfig, RemoteTransport, TransportEndpoint, TransportError,
-  TransportErrorKind, TransportListener,
+  BlockListStore, BoxFuture, EndpointHandle, MetricsSink, RemoteRuntime, RemoteRuntimeConfig, RemoteTransport,
+  SerializerRegistry, TransportEndpoint, TransportError, TransportErrorKind, TransportListener,
 };
 
 /// Minimal in-memory transport for embedded experimentation.
@@ -80,8 +80,28 @@ impl RemoteTransport for LoopbackTransport {
 
 #[cfg(all(test, feature = "std"))]
 mod tests {
-  use super::*;
+  use super::{
+    BlockListStore, EndpointHandle, LoopbackTransport, MetricsSink, RemoteRuntime, RemoteRuntimeConfig, RemoteTransport,
+    SerializerRegistry, TransportEndpoint, TransportListener,
+  };
   use futures::executor::block_on;
+  use std::sync::Arc;
+
+  struct DummySerializer;
+
+  impl SerializerRegistry for DummySerializer {}
+
+  struct DummyBlockList;
+
+  impl BlockListStore for DummyBlockList {
+    fn is_blocked(&self, _system: &str) -> bool {
+      false
+    }
+  }
+
+  struct DummyMetrics;
+
+  impl MetricsSink for DummyMetrics {}
 
   #[test]
   fn loopback_connects_and_closes() {
@@ -99,5 +119,25 @@ mod tests {
     let transport = LoopbackTransport::new();
     let listener = TransportListener::new("loopback://listen".to_string());
     block_on(transport.serve(listener)).expect("serve succeeds");
+  }
+
+  #[test]
+  fn remote_runtime_configures_components() {
+    let transport = Arc::new(LoopbackTransport::new());
+    let serializer: Arc<dyn SerializerRegistry> = Arc::new(DummySerializer);
+    let block_list: Arc<dyn BlockListStore> = Arc::new(DummyBlockList);
+    let metrics: Arc<dyn MetricsSink> = Arc::new(DummyMetrics);
+
+    let runtime = RemoteRuntime::new(
+      RemoteRuntimeConfig::new(transport.clone())
+        .with_serializer(serializer.clone())
+        .with_block_list(block_list.clone())
+        .with_metrics(metrics.clone()),
+    );
+
+    assert!(Arc::ptr_eq(&runtime.transport(), &transport));
+    assert!(runtime.serializer().is_some());
+    assert!(runtime.block_list().is_some());
+    assert!(runtime.metrics().is_some());
   }
 }

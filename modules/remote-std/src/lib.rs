@@ -26,9 +26,14 @@ mod tests;
 mod watch_registry;
 
 pub use config::Config;
-pub use config_option::ConfigOption;
+pub use config_option::{ConfigOption, ConfigOptionError};
 pub use endpoint_watcher::EndpointWatcher;
 pub use remote::{ActivationHandler, ActivationHandlerError, Remote};
 pub use response_status_code::ResponseStatusCode;
 pub use serializer::{initialize_json_serializers, initialize_proto_serializers, SerializerId};
 pub use watch_registry::WatchRegistry;
+
+pub use nexus_remote_core_rs::{
+  BlockListStore, BoxFuture, EndpointHandle, MetricsSink, RemoteRuntime, RemoteRuntimeConfig, RemoteTransport,
+  SerializerRegistry, TransportEndpoint, TransportError, TransportErrorKind, TransportListener,
+};

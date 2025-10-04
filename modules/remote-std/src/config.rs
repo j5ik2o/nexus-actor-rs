@@ -1,12 +1,15 @@
 use crate::config::server_config::ServerConfig;
-use crate::config_option::ConfigOption;
+use crate::config_option::{ConfigOption, ConfigOptionError};
 use dashmap::DashMap;
 use nexus_actor_std_rs::actor::core::Props;
+use nexus_remote_core_rs::TransportEndpoint;
 use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
+use thiserror::Error;
 use tokio::sync::Mutex;
+use url::Url;
 pub mod server_config;
 
 #[derive(Debug)]
@@ -35,6 +38,16 @@ struct ConfigInner {
 #[derive(Debug, Clone)]
 pub struct Config {
   inner: Arc<Mutex<ConfigInner>>,
+}
+
+#[derive(Debug, Error, Clone, PartialEq, Eq)]
+pub enum TransportEndpointError {
+  #[error("transport endpoint missing host component: {uri}")]
+  MissingHost { uri: String },
+  #[error("transport endpoint missing port component: {uri}")]
+  MissingPort { uri: String },
+  #[error("invalid transport endpoint: {uri}")]
+  Invalid { uri: String },
 }
 
 impl Default for Config {
@@ -68,12 +81,18 @@ impl Default for Config {
 
 impl Config {
   pub async fn from(options: impl IntoIterator<Item = ConfigOption>) -> Config {
+    Self::try_from_options(options)
+      .await
+      .unwrap_or_else(|err| panic!("invalid remote config option: {err}"))
+  }
+
+  pub async fn try_from_options(options: impl IntoIterator<Item = ConfigOption>) -> Result<Config, ConfigOptionError> {
     let options = options.into_iter().collect::<Vec<_>>();
     let mut config = Config::default();
-    for option in options {
-      option.apply(&mut config).await;
+    for option in &options {
+      option.apply(&mut config).await?;
     }
-    config
+    Ok(config)
   }
 
   pub async fn get_host(&self) -> Option<String> {
@@ -124,6 +143,25 @@ impl Config {
   pub async fn set_advertised_address(&mut self, advertised_address: String) {
     let mut mg = self.inner.lock().await;
     mg.advertised_address = Some(advertised_address);
+  }
+
+  pub async fn set_transport_endpoint(&mut self, endpoint: &TransportEndpoint) -> Result<(), TransportEndpointError> {
+    let (host, port) = parse_transport_endpoint(endpoint)?;
+    self.set_host(host).await;
+    self.set_port(port).await;
+    self.set_advertised_address(endpoint.uri.clone()).await;
+    Ok(())
+  }
+
+  pub async fn transport_endpoint(&self) -> Option<TransportEndpoint> {
+    if let Some(advertised) = self.get_advertised_address().await {
+      return Some(TransportEndpoint::new(advertised));
+    }
+
+    match (self.get_host().await, self.get_port().await) {
+      (Some(host), Some(port)) => Some(TransportEndpoint::new(format!("{host}:{port}"))),
+      _ => None,
+    }
   }
 
   pub async fn get_endpoint_writer_batch_size(&self) -> usize {
@@ -292,11 +330,53 @@ impl Config {
   }
 }
 
+fn parse_transport_endpoint(endpoint: &TransportEndpoint) -> Result<(String, u16), TransportEndpointError> {
+  let uri = endpoint.uri.trim();
+  if uri.is_empty() {
+    return Err(TransportEndpointError::Invalid { uri: uri.to_string() });
+  }
+
+  if let Ok(url) = Url::parse(uri) {
+    let host = url
+      .host_str()
+      .ok_or_else(|| TransportEndpointError::MissingHost { uri: uri.to_string() })?;
+    let port = url
+      .port()
+      .or_else(|| url.port_or_known_default())
+      .ok_or_else(|| TransportEndpointError::MissingPort { uri: uri.to_string() })?;
+    return Ok((host.to_string(), port));
+  }
+
+  if let Ok(url) = Url::parse(&format!("tcp://{uri}")) {
+    if let Some(host) = url.host_str() {
+      if let Some(port) = url.port() {
+        return Ok((host.to_string(), port));
+      }
+    }
+  }
+
+  if let Ok(addr) = uri.parse::<SocketAddr>() {
+    return Ok((addr.ip().to_string(), addr.port()));
+  }
+
+  if let Some((host_part, port_part)) = uri.rsplit_once(':') {
+    if let Ok(port) = port_part.parse::<u16>() {
+      let host = host_part.trim();
+      if !host.is_empty() {
+        return Ok((host.to_string(), port));
+      }
+    }
+  }
+
+  Err(TransportEndpointError::Invalid { uri: uri.to_string() })
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
   use crate::config::server_config::ServerConfig;
   use nexus_actor_std_rs::actor::core::Props;
+  use nexus_remote_core_rs::TransportEndpoint;
 
   #[tokio::test]
   async fn config_accessors_cover_writer_and_manager_fields() {
@@ -330,5 +410,28 @@ mod tests {
     assert_eq!(config.get_retry_interval().await, Duration::from_millis(200));
     assert!(config.get_server_config().await.is_some());
     assert_eq!(config.get_kinds().await.len(), kinds.len() + 1);
+  }
+
+  #[tokio::test]
+  async fn config_transport_endpoint_round_trip() {
+    let mut config = Config::default();
+    let endpoint = TransportEndpoint::new("tcp://127.0.0.1:8123".to_string());
+
+    config.set_transport_endpoint(&endpoint).await.unwrap();
+
+    assert_eq!(config.get_host().await.unwrap(), "127.0.0.1");
+    assert_eq!(config.get_port().await.unwrap(), 8123);
+    assert_eq!(config.transport_endpoint().await.unwrap().uri, endpoint.uri);
+  }
+
+  #[tokio::test]
+  async fn config_try_from_options_accepts_transport_endpoint() {
+    let endpoint = TransportEndpoint::new("127.0.0.1:9200".to_string());
+    let config = Config::try_from_options([ConfigOption::with_transport_endpoint(endpoint.clone())])
+      .await
+      .unwrap();
+
+    let resolved = config.transport_endpoint().await.unwrap();
+    assert_eq!(resolved.uri, endpoint.uri);
   }
 }

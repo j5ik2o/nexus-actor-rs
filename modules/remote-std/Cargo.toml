@@ -17,6 +17,7 @@ nexus-actor-std-rs = { version = "3.*", path = "../actor-std" }
 nexus-actor-core-rs = { version = "3.*", path = "../actor-core", default-features = false, features = ["alloc"] }
 nexus-message-derive-std-rs = { path = "../message-derive-std" }
 nexus-utils-std-rs = { version = "0.*", path = "../utils-std" }
+nexus-remote-core-rs = { path = "../remote-core" }
 num_enum = { workspace = true }
 once_cell = { workspace = true }
 parking_lot = { workspace = true }
@@ -30,6 +31,7 @@ tonic = { workspace = true }
 tonic-types = { workspace = true }
 tracing = { workspace = true }
 regex = { workspace = true }
+url = "2.5"
 opentelemetry = { version = "0.31.0", features = ["metrics"] }
 arc-swap = "1.7"
 
