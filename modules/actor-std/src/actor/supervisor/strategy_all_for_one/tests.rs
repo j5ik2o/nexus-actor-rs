@@ -118,7 +118,7 @@ mod test {
     tokio::time::sleep(Duration::from_millis(10)).await;
 
     let second = strategy.should_stop(&mut stats).await;
-    assert!(second, "時間窓内の連続失敗で停止に遷移する");
+    assert!(second, "consecutive failures within time window trigger stop");
 
     tokio::time::sleep(Duration::from_millis(60)).await;
 
