@@ -113,7 +113,7 @@ mod test {
     let mut stats = RestartStatistics::with_runtime(&crate::runtime::tokio_core_runtime());
 
     let first = strategy.should_stop(&mut stats).await;
-    assert!(!first, "初回の失敗は再起動許容範囲内");
+    assert!(!first, "first failure is within restart tolerance");
 
     tokio::time::sleep(Duration::from_millis(10)).await;
 
