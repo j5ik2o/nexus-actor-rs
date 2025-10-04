@@ -4,14 +4,14 @@ extern crate alloc;
 
 use alloc::collections::VecDeque;
 use alloc::rc::Rc;
-use core::cell::RefCell;
+use core::cell::{Ref, RefCell, RefMut};
 use core::future::Future;
 use core::ops::Deref;
 use core::pin::Pin;
 use core::task::{Context, Poll, Waker};
 use core::time::Duration;
 
-use nexus_actor_core_rs::{Mailbox, Shared, Spawn, Timer};
+use nexus_actor_core_rs::{Mailbox, Shared, Spawn, StateCell, Timer};
 
 pub struct RcShared<T>(Rc<T>);
 
@@ -48,6 +48,55 @@ impl<T> Shared<T> for RcShared<T> {
   where
     T: Sized, {
     Rc::try_unwrap(self.0).map_err(RcShared)
+  }
+}
+
+pub struct RcStateCell<T>(Rc<RefCell<T>>);
+
+impl<T> RcStateCell<T> {
+  pub fn new(value: T) -> Self {
+    <Self as StateCell<T>>::new(value)
+  }
+
+  pub fn from_rc(rc: Rc<RefCell<T>>) -> Self {
+    Self(rc)
+  }
+
+  pub fn into_rc(self) -> Rc<RefCell<T>> {
+    self.0
+  }
+}
+
+impl<T> Clone for RcStateCell<T> {
+  fn clone(&self) -> Self {
+    Self(self.0.clone())
+  }
+}
+
+impl<T> StateCell<T> for RcStateCell<T> {
+  type Ref<'a>
+    = Ref<'a, T>
+  where
+    Self: 'a,
+    T: 'a;
+  type RefMut<'a>
+    = RefMut<'a, T>
+  where
+    Self: 'a,
+    T: 'a;
+
+  fn new(value: T) -> Self
+  where
+    Self: Sized, {
+    Self(Rc::new(RefCell::new(value)))
+  }
+
+  fn borrow(&self) -> Self::Ref<'_> {
+    self.0.borrow()
+  }
+
+  fn borrow_mut(&self) -> Self::RefMut<'_> {
+    self.0.borrow_mut()
   }
 }
 
@@ -122,5 +171,37 @@ impl<'a, M> Future for LocalMailboxRecv<'a, M> {
 }
 
 pub mod prelude {
-  pub use super::{ImmediateSpawner, ImmediateTimer, LocalMailbox, RcShared};
+  pub use super::{ImmediateSpawner, ImmediateTimer, LocalMailbox, RcShared, RcStateCell};
+}
+
+#[cfg(test)]
+mod tests {
+  extern crate std;
+
+  use super::*;
+
+  #[test]
+  fn rc_state_cell_borrow_mut_applies_changes() {
+    let cell = RcStateCell::new(0_u32);
+
+    {
+      let mut value = cell.borrow_mut();
+      *value = 42;
+    }
+
+    assert_eq!(*cell.borrow(), 42);
+  }
+
+  #[test]
+  fn rc_state_cell_clone_shares_state() {
+    let cell = RcStateCell::new(10_u32);
+    let cloned = cell.clone();
+
+    {
+      let mut value = cloned.borrow_mut();
+      *value += 5;
+    }
+
+    assert_eq!(*cell.borrow(), 15);
+  }
 }
