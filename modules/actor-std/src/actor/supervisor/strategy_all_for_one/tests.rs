@@ -123,7 +123,7 @@ mod test {
     tokio::time::sleep(Duration::from_millis(60)).await;
 
     let third = strategy.should_stop(&mut stats).await;
-    assert!(!third, "時間窓が経過すると再起動予算がリセットされる");
+    assert!(!third, "restart budget resets after time window expires");
   }
 
   #[tokio::test]
