@@ -19,3 +19,4 @@ nexus-remote-core-rs = { path = "../remote-core", default-features = false, feat
 
 [dev-dependencies]
 futures = { workspace = true }
+nexus-actor-core-rs = { path = "../actor-core", default-features = false, features = ["alloc"] }

@@ -23,6 +23,7 @@ pub enum ConfigOption {
   SetEndpointHeartbeatTimeout(Duration),
   SetBackpressureWarningThreshold(f64),
   SetBackpressureCriticalThreshold(f64),
+  AddInitialBlockedMember(String),
 }
 
 #[derive(Debug, Error)]
@@ -84,6 +85,9 @@ impl ConfigOption {
       }
       ConfigOption::SetBackpressureCriticalThreshold(threshold) => {
         config.set_backpressure_critical_threshold(*threshold).await;
+      }
+      ConfigOption::AddInitialBlockedMember(member) => {
+        config.add_initial_blocked_member(member.clone()).await;
       }
     }
     Ok(())
@@ -156,6 +160,10 @@ impl ConfigOption {
   pub fn with_backpressure_critical_threshold(threshold: f64) -> ConfigOption {
     ConfigOption::SetBackpressureCriticalThreshold(threshold)
   }
+
+  pub fn with_initial_blocked_member(member: impl Into<String>) -> ConfigOption {
+    ConfigOption::AddInitialBlockedMember(member.into())
+  }
 }
 
 #[cfg(test)]
@@ -182,6 +190,7 @@ mod tests {
       ConfigOption::with_endpoint_heartbeat_timeout(Duration::from_secs(30)),
       ConfigOption::with_backpressure_warning_threshold(0.4),
       ConfigOption::with_backpressure_critical_threshold(0.75),
+      ConfigOption::with_initial_blocked_member("node-initial"),
     ];
 
     for option in &options {
@@ -209,6 +218,7 @@ mod tests {
     assert_eq!(config.get_endpoint_heartbeat_timeout().await, Duration::from_secs(30));
     assert_eq!(config.get_backpressure_warning_threshold().await, 0.4);
     assert_eq!(config.get_backpressure_critical_threshold().await, 0.75);
+    assert_eq!(config.initial_blocked_members().await, vec!["node-initial".to_string()]);
   }
 
   #[tokio::test]

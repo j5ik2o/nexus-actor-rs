@@ -13,3 +13,6 @@ repository = "https://github.com/j5ik2o/nexus-actor-rs"
 default = ["std"]
 std = []
 alloc = []
+
+[dependencies]
+nexus-actor-core-rs = { path = "../actor-core", default-features = false, features = ["alloc"] }

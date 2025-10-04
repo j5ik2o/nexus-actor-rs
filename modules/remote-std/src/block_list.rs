@@ -1,6 +1,8 @@
 use dashmap::DashSet;
 use std::sync::Arc;
 
+use crate::BlockListStore;
+
 #[derive(Debug, Clone)]
 pub struct BlockList {
   blocked_members: Arc<DashSet<String>>,
@@ -43,6 +45,12 @@ impl BlockList {
 
   pub async fn get_blocked_members(&self) -> Arc<DashSet<String>> {
     self.blocked_members.clone()
+  }
+}
+
+impl BlockListStore for BlockList {
+  fn is_blocked(&self, system: &str) -> bool {
+    self.blocked_members.contains(system)
   }
 }
 

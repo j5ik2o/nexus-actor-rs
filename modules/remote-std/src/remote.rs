@@ -16,6 +16,7 @@ use crate::response_status_code::{ActorPidResponseExt, ResponseError, ResponseSt
 use crate::serializer::initialize_proto_serializers;
 use crate::serializer::SerializerId;
 use crate::TransportEndpoint;
+use crate::{BlockListStore, MetricsSink as RemoteMetricsSink, RemoteRuntime, RemoteRuntimeConfig};
 use async_trait::async_trait;
 use dashmap::DashMap;
 use nexus_actor_std_rs::actor::actor_system::ActorSystem;
@@ -23,7 +24,7 @@ use nexus_actor_std_rs::actor::context::SenderPart;
 use nexus_actor_std_rs::actor::core::ExtendedPid;
 use nexus_actor_std_rs::actor::core::Props;
 use nexus_actor_std_rs::actor::message::{MessageHandle, ReadonlyMessageHeadersHandle};
-use nexus_actor_std_rs::actor::metrics::metrics_impl::MetricsSink;
+use nexus_actor_std_rs::actor::metrics::metrics_impl::MetricsSink as StdMetricsSink;
 use nexus_actor_std_rs::actor::process::future::ActorFutureError;
 use nexus_actor_std_rs::actor::process::process_registry::AddressResolver;
 use nexus_actor_std_rs::actor::process::ProcessHandle;
@@ -111,7 +112,25 @@ impl Shutdown {
   }
 }
 
-#[derive(Debug)]
+#[derive(Clone)]
+struct RemoteMetricsSinkAdapter {
+  _inner: Arc<StdMetricsSink>,
+}
+
+impl RemoteMetricsSinkAdapter {
+  fn new(inner: Arc<StdMetricsSink>) -> Self {
+    Self { _inner: inner }
+  }
+}
+
+impl fmt::Debug for RemoteMetricsSinkAdapter {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    f.debug_struct("RemoteMetricsSinkAdapter").finish()
+  }
+}
+
+impl RemoteMetricsSink for RemoteMetricsSinkAdapter {}
+
 struct RemoteInner {
   actor_system: ActorSystem,
   endpoint_reader: Mutex<Option<EndpointReader>>,
@@ -120,12 +139,13 @@ struct RemoteInner {
   kinds: DashMap<String, Props>,
   block_list: BlockList,
   shutdown: Mutex<Option<Shutdown>>,
-  metrics_sink: OnceCell<Option<Arc<MetricsSink>>>,
+  metrics_sink: OnceCell<Option<Arc<StdMetricsSink>>>,
+  remote_runtime: OnceCell<RemoteRuntime<TonicRemoteTransport>>,
   activation_handler: Mutex<Option<Arc<dyn ActivationHandler>>>,
 }
 
 impl RemoteInner {
-  async fn metrics_sink(&self) -> Option<Arc<MetricsSink>> {
+  async fn metrics_sink(&self) -> Option<Arc<StdMetricsSink>> {
     self
       .metrics_sink
       .get_or_init(|| async {
@@ -151,6 +171,12 @@ impl RemoteInner {
   async fn activation_handler(&self) -> Option<Arc<dyn ActivationHandler>> {
     let guard = self.activation_handler.lock().await;
     guard.clone()
+  }
+}
+
+impl fmt::Debug for RemoteInner {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    f.debug_struct("RemoteInner").finish()
   }
 }
 
@@ -248,6 +274,25 @@ impl crate::RemoteTransport for TonicRemoteTransport {
 }
 
 impl Remote {
+  async fn initialize_runtime(&self) {
+    if self.inner.remote_runtime.get().is_some() {
+      return;
+    }
+
+    let transport = Arc::new(TonicRemoteTransport::new(self));
+    let mut config = RemoteRuntimeConfig::new(self.inner.actor_system.core_runtime(), transport.clone());
+
+    let block_list_store: Arc<dyn BlockListStore> = Arc::new(self.inner.block_list.clone());
+    config = config.with_block_list(block_list_store);
+
+    if let Some(metrics) = self.inner.metrics_sink().await {
+      let adapter: Arc<dyn RemoteMetricsSink> = Arc::new(RemoteMetricsSinkAdapter::new(metrics.clone()));
+      config = config.with_metrics(adapter);
+    }
+
+    let _ = self.inner.remote_runtime.set(RemoteRuntime::new(config));
+  }
+
   pub async fn new(actor_system: ActorSystem, config: Config) -> Self {
     let remote = Remote {
       inner: Arc::new(RemoteInner {
@@ -259,6 +304,7 @@ impl Remote {
         block_list: BlockList::new(),
         shutdown: Mutex::new(None),
         metrics_sink: OnceCell::new(),
+        remote_runtime: OnceCell::new(),
         activation_handler: Mutex::new(None),
       }),
     };
@@ -268,12 +314,28 @@ impl Remote {
       remote.register(entry.key(), entry.value().clone());
     }
 
+    let initial_blocked = remote.inner.config.initial_blocked_members().await;
+    if !initial_blocked.is_empty() {
+      remote.inner.block_list.block_multi(initial_blocked.into_iter()).await;
+    }
+
     actor_system
       .get_extensions()
       .await
       .register(Arc::new(Mutex::new(remote.clone())))
       .await;
+    remote.initialize_runtime().await;
     remote
+  }
+
+  pub async fn runtime(&self) -> RemoteRuntime<TonicRemoteTransport> {
+    self.initialize_runtime().await;
+    self
+      .inner
+      .remote_runtime
+      .get()
+      .expect("remote runtime initialized")
+      .clone()
   }
 
   async fn get_endpoint_reader(&self) -> EndpointReader {
@@ -336,7 +398,7 @@ impl Remote {
     set.iter().map(|s| s.clone()).collect()
   }
 
-  pub async fn metrics_sink(&self) -> Option<Arc<MetricsSink>> {
+  pub async fn metrics_sink(&self) -> Option<Arc<StdMetricsSink>> {
     self.inner.metrics_sink().await
   }
 

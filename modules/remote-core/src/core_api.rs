@@ -13,6 +13,8 @@ use alloc::boxed::Box;
 use alloc::string::String;
 use alloc::sync::Arc;
 
+use nexus_actor_core_rs::{CoreJoinHandle, CoreRuntime, CoreSpawnError, CoreTaskFuture};
+
 /// Utility alias for boxed futures.
 pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
@@ -84,11 +86,19 @@ pub trait EndpointHandle: Send + Sync {
   fn close(&self);
 }
 
-/// Abstract transport interface, to be implemented by std/embedded layers.
+/// 抽象的なリモートトランスポート層。
+///
+/// 実装は `no_std + alloc` 環境でも動作し、I/O の詳細を [`RemoteRuntime`] から隠蔽します。
+/// 長時間ブロックする処理は [`RemoteRuntime::spawn`] 経由で [`CoreRuntime`] のスケジューラに委譲してください。
 pub trait RemoteTransport: Send + Sync + 'static {
   type Handle: EndpointHandle;
 
+  /// 指定したエンドポイントへ接続し、ハンドルを返却します。
+  /// 非同期に実行され、エラー種別は [`TransportErrorKind`] で表現します。
   fn connect(&self, endpoint: &TransportEndpoint) -> BoxFuture<'_, Result<Self::Handle, TransportError>>;
+
+  /// リスナーを起動し、受信ループを開始します。
+  /// 失敗時には [`TransportErrorKind::Unavailable`] などで状態を表現します。
   fn serve(&self, listener: TransportListener) -> BoxFuture<'_, Result<(), TransportError>>;
 }
 
@@ -107,15 +117,17 @@ pub trait MetricsSink: Send + Sync {}
 
 #[derive(Clone)]
 pub struct RemoteRuntimeConfig<T: RemoteTransport> {
-  pub transport: Arc<T>,
-  pub serializer: Option<Arc<dyn SerializerRegistry>>,
-  pub block_list: Option<Arc<dyn BlockListStore>>,
-  pub metrics: Option<Arc<dyn MetricsSink>>,
+  core: CoreRuntime,
+  transport: Arc<T>,
+  serializer: Option<Arc<dyn SerializerRegistry>>,
+  block_list: Option<Arc<dyn BlockListStore>>,
+  metrics: Option<Arc<dyn MetricsSink>>,
 }
 
 impl<T: RemoteTransport> RemoteRuntimeConfig<T> {
-  pub fn new(transport: Arc<T>) -> Self {
+  pub fn new(core: CoreRuntime, transport: Arc<T>) -> Self {
     Self {
+      core,
       transport,
       serializer: None,
       block_list: None,
@@ -137,9 +149,30 @@ impl<T: RemoteTransport> RemoteRuntimeConfig<T> {
     self.metrics = Some(sink);
     self
   }
+
+  pub fn core(&self) -> CoreRuntime {
+    self.core.clone()
+  }
+
+  pub fn transport(&self) -> Arc<T> {
+    self.transport.clone()
+  }
+
+  pub fn serializer(&self) -> Option<Arc<dyn SerializerRegistry>> {
+    self.serializer.clone()
+  }
+
+  pub fn block_list(&self) -> Option<Arc<dyn BlockListStore>> {
+    self.block_list.clone()
+  }
+
+  pub fn metrics(&self) -> Option<Arc<dyn MetricsSink>> {
+    self.metrics.clone()
+  }
 }
 
 /// Minimal runtime wrapper to carry core dependencies for remoting.
+#[derive(Clone)]
 pub struct RemoteRuntime<T: RemoteTransport> {
   config: RemoteRuntimeConfig<T>,
 }
@@ -149,19 +182,33 @@ impl<T: RemoteTransport> RemoteRuntime<T> {
     Self { config }
   }
 
+  pub fn core(&self) -> CoreRuntime {
+    self.config.core()
+  }
+
   pub fn transport(&self) -> Arc<T> {
-    self.config.transport.clone()
+    self.config.transport()
   }
 
   pub fn serializer(&self) -> Option<Arc<dyn SerializerRegistry>> {
-    self.config.serializer.clone()
+    self.config.serializer()
   }
 
   pub fn block_list(&self) -> Option<Arc<dyn BlockListStore>> {
-    self.config.block_list.clone()
+    self.config.block_list()
   }
 
   pub fn metrics(&self) -> Option<Arc<dyn MetricsSink>> {
-    self.config.metrics.clone()
+    self.config.metrics()
+  }
+
+  /// [`CoreRuntime::spawner`] を介してタスクを実行します。
+  ///
+  /// 戻り値の [`CoreJoinHandle`] は、必要に応じてキャンセルや join に利用できます。
+  pub fn spawn<F>(&self, future: F) -> Result<Arc<dyn CoreJoinHandle>, CoreSpawnError>
+  where
+    F: Future<Output = ()> + Send + 'static, {
+    let task: CoreTaskFuture = Box::pin(future);
+    self.config.core().spawner().spawn(task)
   }
 }

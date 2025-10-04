@@ -260,6 +260,44 @@ async fn client_connection_backpressure_overflow() -> TestResult<()> {
 }
 
 #[tokio::test]
+async fn remote_runtime_tracks_block_list_updates() -> TestResult<()> {
+  let (remote_arc, _endpoint_reader) = setup_remote_with_manager().await?;
+  let runtime = remote_arc.runtime().await;
+
+  let block_list = runtime.block_list().expect("runtime exposes block list store");
+  assert!(!block_list.is_blocked("node-x"));
+
+  remote_arc.block_system("node-x").await;
+  assert!(block_list.is_blocked("node-x"));
+
+  remote_arc.unblock_system("node-x").await;
+  assert!(!block_list.is_blocked("node-x"));
+
+  Ok(())
+}
+
+#[tokio::test]
+async fn remote_runtime_applies_initial_blocked_members() -> TestResult<()> {
+  let (remote_arc, _endpoint_reader) = setup_remote_with_options(vec![
+    ConfigOption::with_host("127.0.0.1"),
+    ConfigOption::with_port(19082),
+    ConfigOption::with_initial_blocked_member("node-initial"),
+  ])
+  .await?;
+
+  let runtime = remote_arc.runtime().await;
+  let block_list = runtime
+    .block_list()
+    .expect("runtime exposes block list store for initial members");
+  assert!(block_list.is_blocked("node-initial"));
+
+  let blocked = remote_arc.list_blocked_systems().await;
+  assert!(blocked.contains(&"node-initial".to_string()));
+
+  Ok(())
+}
+
+#[tokio::test]
 async fn remote_await_reconnect_returns_connection_state() -> TestResult<()> {
   let (remote_arc, _endpoint_reader) = setup_remote_with_manager().await?;
   let manager = remote_arc.get_endpoint_manager().await;

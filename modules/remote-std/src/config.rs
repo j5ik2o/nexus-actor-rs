@@ -33,6 +33,7 @@ struct ConfigInner {
   heartbeat_timeout: Duration,
   backpressure_warning_threshold: f64,
   backpressure_critical_threshold: f64,
+  initial_blocked_members: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -74,6 +75,7 @@ impl Default for Config {
         heartbeat_timeout: Duration::from_secs(45),
         backpressure_warning_threshold: 0.6,
         backpressure_critical_threshold: 0.85,
+        initial_blocked_members: Vec::new(),
       })),
     }
   }
@@ -93,6 +95,18 @@ impl Config {
       option.apply(&mut config).await?;
     }
     Ok(config)
+  }
+
+  pub async fn add_initial_blocked_member(&mut self, member: String) {
+    let mut mg = self.inner.lock().await;
+    if !mg.initial_blocked_members.iter().any(|existing| existing == &member) {
+      mg.initial_blocked_members.push(member);
+    }
+  }
+
+  pub async fn initial_blocked_members(&self) -> Vec<String> {
+    let mg = self.inner.lock().await;
+    mg.initial_blocked_members.clone()
   }
 
   pub async fn get_host(&self) -> Option<String> {

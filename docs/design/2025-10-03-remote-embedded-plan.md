@@ -38,6 +38,8 @@
 - **std トランスポート**: `TonicRemoteTransport` を追加し、`Remote::start_with_callback` が `TransportListener` と `TransportEndpoint` を経由して起動する構造に整理。`EndpointWriter` も新トランスポートを用いて gRPC チャネルを確立。
 - **設定伝播**: `RemoteConfigOption::with_transport_endpoint` を導入し、`ClusterConfig -> RemoteOptions -> RemoteConfig` の流れで advertised address/host/port を一元的に渡す仕組みを実装。
 - **embedded 雛形**: Loopback ベースの `RemoteRuntime` 構成テストを追加し、core 抽象との連携を検証。今後は実デバイス向けトランスポート拡張が課題。
+- **Runtime 連携**: `RemoteRuntimeConfig::new` が `CoreRuntime` と `TonicRemoteTransport` を束ねるよう更新し、`Remote::runtime()` からブロックリスト共有と将来の spawn 委譲が行える土台を整備。
+- **BlockList 初期化**: `ConfigOption::with_initial_blocked_member` を追加し、Remote 起動時に BlockListStore へ初期値を流し込む経路を整備。
 
 ## 次のステップ
 - **ドキュメント**: `remote_improvement_plan.md` を更新し、TransportEndpoint ベースの設定手順と tonic ブリッジの要点を明文化する。
