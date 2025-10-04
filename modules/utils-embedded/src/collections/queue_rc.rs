@@ -1,46 +1,51 @@
-use alloc::rc::Rc;
 use core::cell::RefCell;
 
 use nexus_utils_core_rs::{
-  collections::queue::{QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, RingBuffer},
-  DEFAULT_CAPACITY,
+  QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, RingBuffer, SharedRingQueue, DEFAULT_CAPACITY,
 };
+
+use crate::sync::RcShared;
 
 #[derive(Debug, Clone)]
 pub struct RcRingQueue<E> {
-  inner: Rc<RefCell<RingBuffer<E>>>,
+  inner: SharedRingQueue<RcShared<RefCell<RingBuffer<E>>>, E>,
 }
 
 impl<E> RcRingQueue<E> {
   pub fn new(capacity: usize) -> Self {
+    let storage = RcShared::new(RefCell::new(RingBuffer::new(capacity)));
     Self {
-      inner: Rc::new(RefCell::new(RingBuffer::new(capacity))),
+      inner: SharedRingQueue::new(storage),
     }
   }
 
   pub fn with_dynamic(mut self, dynamic: bool) -> Self {
-    self.set_dynamic(dynamic);
+    self.inner = self.inner.with_dynamic(dynamic);
     self
   }
 
-  pub fn set_dynamic(&mut self, dynamic: bool) {
-    self.inner.borrow_mut().set_dynamic(dynamic);
+  pub fn set_dynamic(&self, dynamic: bool) {
+    self.inner.set_dynamic(dynamic);
   }
 
   pub fn offer_shared(&self, element: E) -> Result<(), QueueError<E>> {
-    self.inner.borrow_mut().offer(element)
+    self.inner.offer_shared(element)
   }
 
   pub fn poll_shared(&self) -> Result<Option<E>, QueueError<E>> {
-    self.inner.borrow_mut().poll()
+    self.inner.poll_shared()
   }
 
   pub fn len_shared(&self) -> QueueSize {
-    self.inner.borrow().len()
+    self.inner.len_shared()
   }
 
   pub fn clean_up_shared(&self) {
-    self.inner.borrow_mut().clean_up();
+    self.inner.clean_up_shared();
+  }
+
+  pub fn capacity_shared(&self) -> QueueSize {
+    self.inner.capacity_shared()
   }
 }
 
@@ -52,27 +57,27 @@ impl<E> Default for RcRingQueue<E> {
 
 impl<E> QueueBase<E> for RcRingQueue<E> {
   fn len(&self) -> QueueSize {
-    self.len_shared()
+    self.inner.len()
   }
 
   fn capacity(&self) -> QueueSize {
-    self.inner.borrow().capacity()
+    self.inner.capacity()
   }
 }
 
 impl<E> QueueWriter<E> for RcRingQueue<E> {
   fn offer(&mut self, element: E) -> Result<(), QueueError<E>> {
-    self.offer_shared(element)
+    self.inner.offer(element)
   }
 }
 
 impl<E> QueueReader<E> for RcRingQueue<E> {
   fn poll(&mut self) -> Result<Option<E>, QueueError<E>> {
-    self.poll_shared()
+    self.inner.poll()
   }
 
   fn clean_up(&mut self) {
-    self.clean_up_shared();
+    self.inner.clean_up();
   }
 }
 

@@ -2,6 +2,7 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 use nexus_utils_core_rs::sync::Shared;
+use nexus_utils_core_rs::{QueueStorage, SharedQueueHandle};
 
 #[derive(Debug)]
 pub struct ArcShared<T>(Arc<T>);
@@ -39,5 +40,16 @@ impl<T> Shared<T> for ArcShared<T> {
 impl<T> Clone for ArcShared<T> {
   fn clone(&self) -> Self {
     Self(self.0.clone())
+  }
+}
+
+impl<T, E> SharedQueueHandle<E> for ArcShared<T>
+where
+  T: QueueStorage<E>,
+{
+  type Storage = T;
+
+  fn storage(&self) -> &Self::Storage {
+    &self.0
   }
 }

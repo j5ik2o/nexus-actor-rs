@@ -1,3 +1,3 @@
 pub mod queue;
 
-pub use queue::RingQueue;
+pub use queue::{AsyncMpscBoundedQueue, AsyncMpscUnboundedQueue, PriorityQueue, RingQueue};

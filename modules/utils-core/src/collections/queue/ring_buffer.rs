@@ -65,11 +65,15 @@ impl<T> RingBuffer<T> {
 
 impl<T> QueueBase<T> for RingBuffer<T> {
   fn len(&self) -> QueueSize {
-    QueueSize::new(self.len)
+    QueueSize::limited(self.len)
   }
 
   fn capacity(&self) -> QueueSize {
-    QueueSize::new(self.buf.len())
+    if self.dynamic {
+      QueueSize::limitless()
+    } else {
+      QueueSize::limited(self.buf.len())
+    }
   }
 }
 
@@ -139,6 +143,6 @@ mod tests {
     buffer.offer(1).unwrap();
     buffer.offer(2).unwrap();
     assert_eq!(buffer.len().to_usize(), 2);
-    assert!(buffer.capacity().to_usize() >= 2);
+    assert!(buffer.capacity().is_limitless());
   }
 }

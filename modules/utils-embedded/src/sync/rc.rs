@@ -3,6 +3,7 @@ use core::cell::{Ref, RefCell, RefMut};
 use core::ops::Deref;
 
 use nexus_utils_core_rs::sync::{Shared, StateCell};
+use nexus_utils_core_rs::{QueueStorage, SharedQueueHandle};
 
 #[derive(Debug)]
 pub struct RcShared<T>(Rc<T>);
@@ -40,6 +41,17 @@ impl<T> Shared<T> for RcShared<T> {
   where
     T: Sized, {
     Rc::try_unwrap(self.0).map_err(RcShared)
+  }
+}
+
+impl<T, E> SharedQueueHandle<E> for RcShared<T>
+where
+  T: QueueStorage<E>,
+{
+  type Storage = T;
+
+  fn storage(&self) -> &Self::Storage {
+    &self.0
   }
 }
 

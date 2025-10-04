@@ -1,50 +1,51 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 
+use crate::sync::ArcShared;
 use nexus_utils_core_rs::{
-  collections::queue::{QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, RingBuffer},
+  QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, RingBuffer, SharedQueue, SharedRingQueue,
   DEFAULT_CAPACITY,
 };
 
 #[derive(Debug, Clone)]
 pub struct RingQueue<E> {
-  inner: Arc<Mutex<RingBuffer<E>>>,
+  inner: SharedRingQueue<ArcShared<Mutex<RingBuffer<E>>>, E>,
 }
 
 impl<E> RingQueue<E> {
   pub fn new(capacity: usize) -> Self {
+    let storage = ArcShared::new(Mutex::new(RingBuffer::new(capacity)));
     Self {
-      inner: Arc::new(Mutex::new(RingBuffer::new(capacity))),
+      inner: SharedRingQueue::new(storage),
     }
   }
 
   pub fn with_dynamic(mut self, dynamic: bool) -> Self {
-    self.set_dynamic(dynamic);
+    self.inner = self.inner.with_dynamic(dynamic);
     self
   }
 
-  pub fn set_dynamic(&mut self, dynamic: bool) {
-    self.with_lock(|buffer| buffer.set_dynamic(dynamic));
+  pub fn set_dynamic(&self, dynamic: bool) {
+    self.inner.set_dynamic(dynamic);
   }
 
   pub fn offer_shared(&self, element: E) -> Result<(), QueueError<E>> {
-    self.with_lock(|buffer| buffer.offer(element))
+    self.inner.offer_shared(element)
   }
 
   pub fn poll_shared(&self) -> Result<Option<E>, QueueError<E>> {
-    self.with_lock(|buffer| buffer.poll())
+    self.inner.poll_shared()
   }
 
   pub fn clean_up_shared(&self) {
-    self.with_lock(|buffer| buffer.clean_up());
+    self.inner.clean_up_shared();
   }
 
   pub fn len_shared(&self) -> QueueSize {
-    self.with_lock(|buffer| buffer.len())
+    self.inner.len_shared()
   }
 
-  fn with_lock<R>(&self, f: impl FnOnce(&mut RingBuffer<E>) -> R) -> R {
-    let mut guard = self.inner.lock().expect("ring queue mutex poisoned");
-    f(&mut guard)
+  pub fn capacity_shared(&self) -> QueueSize {
+    self.inner.capacity_shared()
   }
 }
 
@@ -56,27 +57,41 @@ impl<E> Default for RingQueue<E> {
 
 impl<E> QueueBase<E> for RingQueue<E> {
   fn len(&self) -> QueueSize {
-    self.len_shared()
+    self.inner.len()
   }
 
   fn capacity(&self) -> QueueSize {
-    self.with_lock(|buffer| buffer.capacity())
+    self.inner.capacity()
   }
 }
 
 impl<E> QueueWriter<E> for RingQueue<E> {
   fn offer(&mut self, element: E) -> Result<(), QueueError<E>> {
-    self.offer_shared(element)
+    self.inner.offer(element)
   }
 }
 
 impl<E> QueueReader<E> for RingQueue<E> {
   fn poll(&mut self) -> Result<Option<E>, QueueError<E>> {
-    self.poll_shared()
+    self.inner.poll()
   }
 
   fn clean_up(&mut self) {
-    self.clean_up_shared();
+    self.inner.clean_up();
+  }
+}
+
+impl<E> SharedQueue<E> for RingQueue<E> {
+  fn offer_shared(&self, element: E) -> Result<(), QueueError<E>> {
+    self.inner.offer_shared(element)
+  }
+
+  fn poll_shared(&self) -> Result<Option<E>, QueueError<E>> {
+    self.inner.poll_shared()
+  }
+
+  fn clean_up_shared(&self) {
+    self.inner.clean_up_shared();
   }
 }
 

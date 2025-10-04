@@ -3,6 +3,7 @@ use alloc::sync::Arc;
 use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex, RawMutex};
 use embassy_sync::mutex::{Mutex, MutexGuard};
 use nexus_utils_core_rs::sync::{Shared, StateCell};
+use nexus_utils_core_rs::{QueueStorage, RingBuffer, SharedQueueHandle};
 
 #[derive(Debug)]
 pub struct ArcShared<T>(Arc<T>);
@@ -40,6 +41,17 @@ impl<T> Shared<T> for ArcShared<T> {
   where
     T: Sized, {
     Arc::try_unwrap(self.0).map_err(ArcShared)
+  }
+}
+
+impl<T, E> SharedQueueHandle<E> for ArcShared<T>
+where
+  T: QueueStorage<E>,
+{
+  type Storage = T;
+
+  fn storage(&self) -> &Self::Storage {
+    &self.0
   }
 }
 
@@ -117,6 +129,21 @@ where
 
   fn borrow_mut(&self) -> Self::RefMut<'_> {
     self.lock()
+  }
+}
+
+impl<E, RM> QueueStorage<E> for ArcStateCell<RingBuffer<E>, RM>
+where
+  RM: RawMutex,
+{
+  fn with_read<R>(&self, f: impl FnOnce(&RingBuffer<E>) -> R) -> R {
+    let guard = self.lock();
+    f(&guard)
+  }
+
+  fn with_write<R>(&self, f: impl FnOnce(&mut RingBuffer<E>) -> R) -> R {
+    let mut guard = self.lock();
+    f(&mut guard)
   }
 }
 
