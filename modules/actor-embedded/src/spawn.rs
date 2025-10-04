@@ -282,27 +282,41 @@ struct EmbassySchedulerState {
 
 impl EmbassySchedulerState {
   fn register(&self, handle: &Arc<dyn CoreJoinHandle>) {
-    self.handles.lock(|handles| {
-      handles.push(Arc::downgrade(handle));
-      handles.retain(|weak| weak.strong_count() > 0);
-    });
+    // SAFETY: `lock_mut` is never called reentrantly and the closure does not suspend.
+    unsafe {
+      self.handles.lock_mut(|handles| {
+        handles.push(Arc::downgrade(handle));
+        handles.retain(|weak| weak.strong_count() > 0);
+      });
+    }
   }
 
   fn cancel_all(&self) {
-    self.handles.lock(|handles| {
-      for weak in handles.iter() {
-        if let Some(handle) = weak.upgrade() {
-          handle.cancel();
-        }
-      }
-      handles.retain(|weak| weak.strong_count() > 0);
-    });
+    let handles_to_cancel: Vec<Arc<dyn CoreJoinHandle>> = unsafe {
+      self.handles.lock_mut(|handles| {
+        let mut strong = Vec::with_capacity(handles.len());
+        handles.retain(|weak| {
+          if let Some(handle) = weak.upgrade() {
+            strong.push(handle);
+          }
+          // drop existing entry regardless, since the caller will cancel all
+          false
+        });
+        strong
+      })
+    };
+
+    for handle in handles_to_cancel {
+      handle.cancel();
+    }
   }
 
   fn prune(&self) {
-    self.handles.lock(|handles| {
-      handles.retain(|weak| weak.strong_count() > 0);
-    });
+    unsafe {
+      self
+        .handles
+        .lock_mut(|handles| handles.retain(|weak| weak.strong_count() > 0));
+    }
   }
 }
 
