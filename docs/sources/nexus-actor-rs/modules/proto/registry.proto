@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package nexus.actor.cluster.registry.v1;
+
+import "google/protobuf/empty.proto";
+
+message Member {
+  string cluster_name = 1;
+  string node_address = 2;
+  repeated string kinds = 3;
+}
+
+message JoinRequest {
+  Member member = 1;
+}
+
+message LeaveRequest {
+  string cluster_name = 1;
+  string node_address = 2;
+}
+
+message RegisterClientRequest {
+  string cluster_name = 1;
+  string client_id = 2;
+}
+
+message HeartbeatRequest {
+  string cluster_name = 1;
+  string node_address = 2;
+}
+
+message WatchUpdate {
+  repeated Member members = 1;
+}
+
+service ClusterRegistry {
+  rpc Join(JoinRequest) returns (stream WatchUpdate);
+  rpc Leave(LeaveRequest) returns (google.protobuf.Empty);
+  rpc RegisterClient(RegisterClientRequest) returns (google.protobuf.Empty);
+  rpc Heartbeat(HeartbeatRequest) returns (google.protobuf.Empty);
+}

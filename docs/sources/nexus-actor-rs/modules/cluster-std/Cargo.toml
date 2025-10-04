@@ -1,0 +1,39 @@
+[package]
+name = "nexus-cluster-std-rs"
+version = "0.0.1"
+edition = "2021"
+description = "Cluster library for Nexus Actor (std layer)"
+license = "MIT OR Apache-2.0"
+keywords = [ "nexus", "actor", "cluster", "grpc", "tonic" ]
+categories = [ "concurrency", "asynchronous", "network-programming" ]
+readme = "../../README.md"
+repository = "https://github.com/j5ik2o/nexus-actor-rs"
+
+[dependencies]
+async-trait = { workspace = true }
+dashmap = { workspace = true }
+futures = { workspace = true }
+nexus-actor-std-rs = { version = "3.*", path = "../actor-std" }
+nexus-actor-core-rs = { version = "3.*", path = "../actor-core", default-features = false, features = ["alloc"] }
+nexus-message-derive-std-rs = { path = "../message-derive-std" }
+nexus-remote-core-rs = { path = "../remote-core" }
+nexus-remote-std-rs = { path = "../remote-std" }
+fnv = "1.0"
+num_enum = "0.7.2"
+once_cell = "1.19.0"
+prost = "0.13.0"
+prost-types = "0.13"
+thiserror = "2.0.0"
+tokio = { version = "1.37.0" , features = ["full"] }
+tonic = "0.13.0"
+tonic-types = "0.14.0"
+tracing = "0.1"
+serde = { workspace = true, features = ["derive"] }
+tokio-stream = { version = "0.1", features = ["sync"] }
+
+[dev-dependencies]
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+nexus-utils-std-rs = { path = "../utils-std" }
+
+[build-dependencies]
+tonic-build = { version = "0.13.0" }

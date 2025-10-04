@@ -1,11 +1,9 @@
-use nexus_actor_core_rs::runtime::CoreTaskFuture;
-use nexus_actor_std_rs::actor::actor_system::ActorSystem;
-use nexus_actor_std_rs::actor::context::SenderPart;
-use nexus_actor_std_rs::actor::core::{ActorProcess, ExtendedPid};
-use nexus_actor_std_rs::actor::message::{MessageEnvelope, MessageHandle, MessageHeaders};
-use nexus_actor_std_rs::actor::metrics::metrics_impl::MetricsSink;
-use nexus_actor_std_rs::actor::process::Process;
-use nexus_actor_std_rs::generated::actor::Pid;
+use nexus_actor_core_rs::actor::actor_system::ActorSystem;
+use nexus_actor_core_rs::actor::context::SenderPart;
+use nexus_actor_core_rs::actor::core::{ActorProcess, ExtendedPid};
+use nexus_actor_core_rs::actor::message::{MessageEnvelope, MessageHandle, MessageHeaders};
+use nexus_actor_core_rs::actor::process::Process;
+use nexus_actor_core_rs::generated::actor::Pid;
 
 use crate::endpoint_manager::{EndpointManager, RequestKeyWrapper};
 use crate::generated::remote;
@@ -19,10 +17,7 @@ use crate::message_decoder::{decode_wire_message, DecodedMessage};
 use crate::messages::RemoteTerminate;
 use crate::remote::Remote;
 use crate::serializer::SerializerId;
-use opentelemetry::KeyValue;
 use regex::Regex;
-use std::collections::HashSet;
-use std::convert::TryFrom;
 use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Weak};
@@ -37,7 +32,6 @@ use tonic::{Request, Response, Status, Streaming};
 pub enum EndpointReaderError {
   #[error("Unknown target")]
   UnknownTarget,
-  #[allow(dead_code)]
   #[error("Unknown sender")]
   UnknownSender,
   #[error("Deserialization error: {0}")]
@@ -88,15 +82,6 @@ impl EndpointReader {
       .clone()
   }
 
-  async fn metrics_sink(&self) -> Option<Arc<MetricsSink>> {
-    self
-      .remote
-      .upgrade()
-      .expect("Remote has been dropped")
-      .metrics_sink()
-      .await
-  }
-
   async fn on_server_connection(&self, response_tx: &Sender<Result<RemoteMessage, Status>>, sc: &ServerConnection) {
     let blocked = self
       .remote
@@ -114,12 +99,6 @@ impl EndpointReader {
 
     if let Err(e) = self.send_connect_response(response_tx, &sc.system_id, blocked).await {
       tracing::error!("EndpointReader failed to send ConnectResponse message: {}", e);
-    }
-
-    if !blocked {
-      if let Some(manager) = self.get_endpoint_manager_opt().await {
-        manager.mark_heartbeat(&sc.system_id).await;
-      }
     }
   }
 
@@ -164,12 +143,6 @@ impl EndpointReader {
         );
       }
     }
-
-    if !blocked {
-      if let Some(manager) = self.get_endpoint_manager_opt().await {
-        manager.mark_heartbeat(&cc.system_id).await;
-      }
-    }
   }
 
   async fn send_connect_response(
@@ -194,8 +167,6 @@ impl EndpointReader {
   async fn on_message_batch(&self, message_batch: &MessageBatch) -> Result<(), EndpointReaderError> {
     tracing::debug!("EndpointReader received {} envelopes", message_batch.envelopes.len());
 
-    let mut touched_addresses: HashSet<String> = HashSet::new();
-    let metrics_sink = self.metrics_sink().await;
     for envelope in &message_batch.envelopes {
       let payload = &envelope.message_data;
       let mut sender = Pid::default();
@@ -215,11 +186,16 @@ impl EndpointReader {
         &message_batch.targets,
       )
       .map(ExtendedPid::new)
-      .ok_or(EndpointReaderError::UnknownTarget)?;
-      touched_addresses.insert(target.address().to_string());
+      .ok_or_else(|| EndpointReaderError::UnknownTarget)?;
+
+      if envelope.serializer_id < 0 {
+        return Err(EndpointReaderError::Deserialization(
+          "Negative serializer id".to_string(),
+        ));
+      }
 
       let serializer_id =
-        SerializerId::try_from(envelope.serializer_id).map_err(EndpointReaderError::Deserialization)?;
+        SerializerId::try_from(envelope.serializer_id as u32).map_err(EndpointReaderError::Deserialization)?;
 
       if envelope.type_id < 0 || (envelope.type_id as usize) >= message_batch.type_names.len() {
         return Err(EndpointReaderError::Deserialization(format!(
@@ -228,34 +204,10 @@ impl EndpointReader {
         )));
       }
 
-      let type_name = message_batch.type_names[envelope.type_id as usize].clone();
+      let type_name = &message_batch.type_names[envelope.type_id as usize];
 
-      if let Some(sink) = metrics_sink.as_ref() {
-        let labels = vec![
-          KeyValue::new("remote.endpoint", target.address().to_string()),
-          KeyValue::new("remote.direction", "inbound".to_string()),
-          KeyValue::new("remote.message_type", type_name.clone()),
-        ];
-        sink.record_message_size_with_labels(payload.len() as u64, &labels);
-      }
-
-      let target_addr = target.address().to_string();
-
-      let decoded = match decode_wire_message(&type_name, &serializer_id, payload) {
-        Ok(decoded) => decoded,
-        Err(e) => {
-          if let Some(sink) = metrics_sink.as_ref() {
-            let labels = vec![
-              KeyValue::new("remote.endpoint", target_addr.clone()),
-              KeyValue::new("remote.direction", "inbound".to_string()),
-              KeyValue::new("remote.message_type", type_name.clone()),
-              KeyValue::new("remote.error", "deserialization".to_string()),
-            ];
-            sink.increment_remote_receive_failure_with_labels(&labels);
-          }
-          return Err(EndpointReaderError::Deserialization(e.to_string()));
-        }
-      };
+      let decoded = decode_wire_message(type_name, &serializer_id, payload)
+        .map_err(|e| EndpointReaderError::Deserialization(e.to_string()))?;
 
       let actor_system = self.get_actor_system().await;
       let mut root_context = actor_system.get_root_context().await;
@@ -284,16 +236,7 @@ impl EndpointReader {
           let msg_handle = MessageHandle::new_arc(message_arc);
 
           if sender_opt.is_none() && envelope.message_header.is_none() {
-            root_context.send(target.clone(), msg_handle).await;
-            if let Some(sink) = metrics_sink.as_ref() {
-              let labels = vec![
-                KeyValue::new("remote.endpoint", target_addr.clone()),
-                KeyValue::new("remote.direction", "inbound".to_string()),
-                KeyValue::new("remote.message_type", type_name.clone()),
-                KeyValue::new("remote.result", "success".to_string()),
-              ];
-              sink.increment_remote_receive_success_with_labels(&labels);
-            }
+            root_context.send(target, msg_handle).await;
             continue;
           }
 
@@ -307,26 +250,8 @@ impl EndpointReader {
           if let Some(sender_pid) = sender_opt {
             local_envelope = local_envelope.with_sender(ExtendedPid::new(sender_pid));
           }
-          root_context
-            .send(target.clone(), MessageHandle::new(local_envelope))
-            .await;
+          root_context.send(target, MessageHandle::new(local_envelope)).await;
         }
-      }
-
-      if let Some(sink) = metrics_sink.as_ref() {
-        let labels = vec![
-          KeyValue::new("remote.endpoint", target_addr.clone()),
-          KeyValue::new("remote.direction", "inbound".to_string()),
-          KeyValue::new("remote.message_type", type_name.clone()),
-          KeyValue::new("remote.result", "success".to_string()),
-        ];
-        sink.increment_remote_receive_success_with_labels(&labels);
-      }
-    }
-
-    if let Some(manager) = self.get_endpoint_manager_opt().await {
-      for address in touched_addresses {
-        manager.mark_heartbeat(&address).await;
       }
     }
     Ok(())
@@ -336,7 +261,6 @@ impl EndpointReader {
     self.suspended.store(suspend, std::sync::atomic::Ordering::SeqCst);
   }
 
-  #[cfg_attr(not(test), allow(dead_code))]
   async fn get_suspend(suspended: Arc<Mutex<bool>>) -> bool {
     *suspended.lock().await
   }
@@ -399,7 +323,7 @@ impl Remoting for EndpointReader {
   type ReceiveStream = Pin<Box<dyn Stream<Item = Result<RemoteMessage, Status>> + Send>>;
 
   async fn receive(&self, request: Request<Streaming<RemoteMessage>>) -> Result<Response<Self::ReceiveStream>, Status> {
-    tracing::debug!("EndpointReader is starting");
+    tracing::info!("EndpointReader is starting");
     let suspended = self.suspended.clone();
 
     let request_arc = Arc::new(Mutex::new(request));
@@ -414,15 +338,12 @@ impl Remoting for EndpointReader {
     let endpoint_reader_connections = self.get_endpoint_manager().await.get_endpoint_reader_connections();
     endpoint_reader_connections.insert(connection_key.clone(), disconnect_tx_arc.clone());
 
-    let actor_system = self.get_actor_system().await;
-    let spawner = actor_system.core_runtime().spawner();
-
-    let future_disconnect: CoreTaskFuture = {
+    tokio::spawn({
       let cloned_self = self.clone();
       let cloned_disconnect_rx = disconnect_rx_arc.clone();
       let cloned_response_tx = response_tx.clone();
       let cloned_connection_key = connection_key.clone();
-      Box::pin(async move {
+      async move {
         let manager = cloned_self.get_endpoint_manager().await;
         let should_disconnect = Self::get_disconnect_flg(cloned_disconnect_rx).await;
         if should_disconnect {
@@ -442,27 +363,20 @@ impl Remoting for EndpointReader {
         }
         manager.get_endpoint_reader_connections().remove(&cloned_connection_key);
         manager.deregister_client_connection(&cloned_connection_key);
-      })
-    };
+      }
+    });
 
-    match spawner.clone().spawn(future_disconnect) {
-      Ok(handle) => handle.detach(),
-      Err(err) => tracing::error!(error = ?err, "Failed to spawn disconnect watcher task"),
-    }
-
-    let future_stream: CoreTaskFuture = {
+    tokio::spawn({
       let cloned_self = self.clone();
       let cloned_request_arc = request_arc.clone();
       let cloned_response_tx = response_tx.clone();
       let cloned_connection_key = connection_key.clone();
-      let suspended_flag = suspended.clone();
-      let disconnect_tx_arc = disconnect_tx_arc.clone();
-      Box::pin(async move {
+      async move {
         let mut request_mg = cloned_request_arc.lock().await;
         while let Some(msg) = request_mg.get_mut().next().await {
           match msg {
             Ok(remote_msg) => {
-              if suspended_flag.load(Ordering::SeqCst) {
+              if suspended.load(Ordering::SeqCst) {
                 continue;
               }
 
@@ -502,14 +416,9 @@ impl Remoting for EndpointReader {
         if let Some(tx) = disconnect_tx_arc.lock().await.take() {
           let _ = tx.send(false).await;
         }
-        tracing::debug!("EndpointReader stream closed");
-      })
-    };
-
-    match spawner.spawn(future_stream) {
-      Ok(handle) => handle.detach(),
-      Err(err) => tracing::error!(error = ?err, "Failed to spawn stream reader task"),
-    }
+        tracing::info!("EndpointReader stream closed");
+      }
+    });
 
     let output_stream = ReceiverStream::new(response_rx);
     Ok(Response::new(Box::pin(output_stream) as Self::ReceiveStream))
@@ -520,7 +429,7 @@ impl Remoting for EndpointReader {
     request: Request<ListProcessesRequest>,
   ) -> Result<Response<ListProcessesResponse>, Status> {
     let req = request.into_inner();
-    let match_type = ListProcessesMatchType::try_from(req.r#type).unwrap_or(ListProcessesMatchType::MatchPartOfString);
+    let match_type = ListProcessesMatchType::from_i32(req.r#type).unwrap_or(ListProcessesMatchType::MatchPartOfString);
 
     let actor_system = self.get_actor_system().await;
     let registry = actor_system.get_process_registry().await;
