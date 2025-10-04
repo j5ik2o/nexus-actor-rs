@@ -57,6 +57,11 @@ pub trait CoreScheduledHandle: Send + Sync {
   fn is_cancelled(&self) -> bool {
     false
   }
+
+  /// ハンドルがまだ有効であれば `true`。
+  fn is_active(&self) -> bool {
+    !self.is_cancelled()
+  }
 }
 
 /// スケジュールドタスクを表す参照型。
@@ -75,6 +80,9 @@ pub trait CoreScheduler: Send + Sync + 'static {
     interval: Duration,
     task: CoreScheduledTask,
   ) -> CoreScheduledHandleRef;
+
+  /// スケジューラが管理するタスクを全てキャンセルします。
+  fn drain(&self) {}
 }
 
 /// ランタイムが保持すべき構成要素。
@@ -182,6 +190,71 @@ struct NoopSpawner;
 impl CoreSpawner for NoopSpawner {
   fn spawn(&self, _task: CoreTaskFuture) -> Result<Arc<dyn CoreJoinHandle>, CoreSpawnError> {
     Err(CoreSpawnError::ExecutorUnavailable)
+  }
+}
+
+/// [`CoreSpawner`] 実装をクロージャで定義したい場合の補助構造体。
+#[derive(Clone)]
+pub struct FnCoreSpawner {
+  spawn_fn: Arc<dyn Fn(CoreTaskFuture) -> Result<Arc<dyn CoreJoinHandle>, CoreSpawnError> + Send + Sync>,
+}
+
+impl FnCoreSpawner {
+  pub fn new<F>(spawn_fn: F) -> Self
+  where
+    F: Fn(CoreTaskFuture) -> Result<Arc<dyn CoreJoinHandle>, CoreSpawnError> + Send + Sync + 'static, {
+    Self {
+      spawn_fn: Arc::new(spawn_fn),
+    }
+  }
+}
+
+impl CoreSpawner for FnCoreSpawner {
+  fn spawn(&self, task: CoreTaskFuture) -> Result<Arc<dyn CoreJoinHandle>, CoreSpawnError> {
+    (self.spawn_fn)(task)
+  }
+}
+
+/// [`CoreJoinHandle`] をクロージャでラップするヘルパー。
+#[derive(Clone)]
+pub struct FnJoinHandle {
+  cancel: Arc<dyn Fn() + Send + Sync>,
+  is_finished: Arc<dyn Fn() -> bool + Send + Sync>,
+  detach: Arc<dyn Fn() + Send + Sync>,
+  join: Arc<dyn Fn() -> CoreJoinFuture + Send + Sync>,
+}
+
+impl FnJoinHandle {
+  pub fn new<C, F, D, J>(cancel: C, is_finished: F, detach: D, join: J) -> Self
+  where
+    C: Fn() + Send + Sync + 'static,
+    F: Fn() -> bool + Send + Sync + 'static,
+    D: Fn() + Send + Sync + 'static,
+    J: Fn() -> CoreJoinFuture + Send + Sync + 'static, {
+    Self {
+      cancel: Arc::new(cancel),
+      is_finished: Arc::new(is_finished),
+      detach: Arc::new(detach),
+      join: Arc::new(join),
+    }
+  }
+}
+
+impl CoreJoinHandle for FnJoinHandle {
+  fn cancel(&self) {
+    (self.cancel)()
+  }
+
+  fn is_finished(&self) -> bool {
+    (self.is_finished)()
+  }
+
+  fn detach(self: Arc<Self>) {
+    (self.detach)()
+  }
+
+  fn join(self: Arc<Self>) -> CoreJoinFuture {
+    (self.join)()
   }
 }
 

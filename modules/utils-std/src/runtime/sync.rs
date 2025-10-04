@@ -1,8 +1,9 @@
+use core::fmt;
 use core::future::Future;
 use core::pin::Pin;
 use core::time::Duration;
 use std::boxed::Box;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, Weak};
 use std::time::Instant;
 
 use super::spawn::TokioCoreSpawner;
@@ -144,31 +145,97 @@ impl FailureClock for InstantFailureClock {
   }
 }
 
-#[derive(Debug, Default)]
-pub struct TokioScheduler;
+#[derive(Default)]
+pub struct TokioScheduler {
+  state: Arc<TokioSchedulerState>,
+}
+
+impl fmt::Debug for TokioScheduler {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    f.debug_struct("TokioScheduler").finish()
+  }
+}
+
+struct TokioSchedulerState {
+  handles: Mutex<Vec<Weak<dyn CoreJoinHandle>>>,
+}
+
+impl TokioSchedulerState {
+  fn new() -> Self {
+    Self {
+      handles: Mutex::new(Vec::new()),
+    }
+  }
+
+  fn register(&self, handle: &Arc<dyn CoreJoinHandle>) {
+    let mut guard = self.handles.lock().expect("handles mutex poisoned");
+    guard.push(Arc::downgrade(handle));
+    guard.retain(|weak| weak.strong_count() > 0);
+  }
+
+  fn cancel_all(&self) {
+    let mut guard = self.handles.lock().expect("handles mutex poisoned");
+    for weak in guard.iter() {
+      if let Some(handle) = weak.upgrade() {
+        handle.cancel();
+      }
+    }
+    guard.retain(|weak| weak.strong_count() > 0);
+  }
+
+  fn prune(&self) {
+    let mut guard = self.handles.lock().expect("handles mutex poisoned");
+    guard.retain(|weak| weak.strong_count() > 0);
+  }
+}
+
+impl Default for TokioSchedulerState {
+  fn default() -> Self {
+    Self::new()
+  }
+}
 
 struct TokioScheduledHandle {
   handle: Arc<dyn CoreJoinHandle>,
+  state: Arc<TokioSchedulerState>,
 }
 
 impl TokioScheduledHandle {
-  fn new(handle: Arc<dyn CoreJoinHandle>) -> Self {
-    Self { handle }
+  fn new(handle: Arc<dyn CoreJoinHandle>, state: Arc<TokioSchedulerState>) -> Self {
+    state.register(&handle);
+    Self { handle, state }
   }
 }
 
 impl CoreScheduledHandle for TokioScheduledHandle {
   fn cancel(&self) {
     self.handle.cancel();
+    self.state.prune();
   }
 
   fn is_cancelled(&self) -> bool {
     self.handle.is_finished()
   }
+
+  fn is_active(&self) -> bool {
+    !self.handle.is_finished()
+  }
+}
+
+impl Drop for TokioScheduledHandle {
+  fn drop(&mut self) {
+    self.state.prune();
+  }
 }
 
 impl TokioScheduler {
-  fn spawn_task<F>(future: F) -> Arc<dyn CoreJoinHandle>
+  pub fn new() -> Self {
+    Self {
+      state: Arc::new(TokioSchedulerState::default()),
+    }
+  }
+
+  fn spawn_task<F>(&self, future: F) -> Arc<dyn CoreJoinHandle>
   where
     F: Future<Output = ()> + Send + 'static, {
     let task: CoreTaskFuture = Box::pin(future);
@@ -177,8 +244,8 @@ impl TokioScheduler {
       .expect("Tokio scheduler failed to spawn task")
   }
 
-  fn wrap_handle(handle: Arc<dyn CoreJoinHandle>) -> CoreScheduledHandleRef {
-    Arc::new(TokioScheduledHandle::new(handle)) as CoreScheduledHandleRef
+  fn wrap_handle(&self, handle: Arc<dyn CoreJoinHandle>) -> CoreScheduledHandleRef {
+    Arc::new(TokioScheduledHandle::new(handle, self.state.clone())) as CoreScheduledHandleRef
   }
 
   fn run_task(task: CoreScheduledTask) -> CoreTaskFuture {
@@ -194,7 +261,7 @@ impl CoreScheduler for TokioScheduler {
       }
       TokioScheduler::run_task(task).await;
     };
-    Self::wrap_handle(Self::spawn_task(future))
+    self.wrap_handle(self.spawn_task(future))
   }
 
   fn schedule_repeated(
@@ -215,7 +282,11 @@ impl CoreScheduler for TokioScheduler {
         tokio::time::sleep(interval).await;
       }
     };
-    Self::wrap_handle(Self::spawn_task(future))
+    self.wrap_handle(self.spawn_task(future))
+  }
+
+  fn drain(&self) {
+    self.state.cancel_all();
   }
 }
 
@@ -275,4 +346,45 @@ impl Default for TokioRuntime {
 
 pub fn tokio_core_runtime() -> CoreRuntime {
   TokioRuntime::default().core_runtime()
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use std::sync::atomic::{AtomicUsize, Ordering};
+
+  fn make_task(counter: Arc<AtomicUsize>) -> CoreScheduledTask {
+    Arc::new(move || {
+      let counter = counter.clone();
+      Box::pin(async move {
+        counter.fetch_add(1, Ordering::SeqCst);
+      })
+    })
+  }
+
+  #[tokio::test]
+  async fn schedule_once_executes_and_completes() {
+    let scheduler = TokioScheduler::default();
+    let counter = Arc::new(AtomicUsize::new(0));
+    let handle = scheduler.schedule_once(Duration::from_millis(10), make_task(counter.clone()));
+
+    tokio::time::sleep(Duration::from_millis(40)).await;
+
+    assert_eq!(counter.load(Ordering::SeqCst), 1);
+    assert!(!handle.is_active());
+    assert!(handle.is_cancelled());
+  }
+
+  #[tokio::test]
+  async fn drain_cancels_pending_tasks() {
+    let scheduler = TokioScheduler::default();
+    let counter = Arc::new(AtomicUsize::new(0));
+    let handle = scheduler.schedule_repeated(Duration::from_secs(1), Duration::from_secs(1), make_task(counter));
+
+    scheduler.drain();
+    tokio::time::sleep(Duration::from_millis(20)).await;
+
+    assert!(!handle.is_active());
+    assert!(handle.is_cancelled());
+  }
 }

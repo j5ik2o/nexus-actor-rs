@@ -42,7 +42,7 @@ pub mod runtime;
 pub use runtime::{
   AsyncMutex, AsyncNotify, AsyncRwLock, CoreJoinFuture, CoreJoinHandle, CoreRuntime, CoreRuntimeConfig,
   CoreScheduledHandle, CoreScheduledHandleRef, CoreScheduledTask, CoreScheduler, CoreSpawnError, CoreSpawner,
-  CoreTaskFuture, Timer,
+  CoreTaskFuture, FnCoreSpawner, FnJoinHandle, Timer,
 };
 
 #[cfg(feature = "alloc")]

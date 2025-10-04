@@ -12,4 +12,6 @@ pub mod spawn;
 #[cfg(feature = "embassy")]
 pub use embedded::EmbeddedRuntimeBuilder;
 #[cfg(feature = "embassy")]
-pub use spawn::{FnCoreSpawner, FnJoinHandle};
+pub use nexus_actor_core_rs::runtime::{FnCoreSpawner, FnJoinHandle};
+#[cfg(feature = "embassy")]
+pub use spawn::EmbassyScheduler;

@@ -7,6 +7,8 @@ use nexus_actor_core_rs::runtime::{
 use nexus_utils_core_rs::async_primitives::Timer;
 use nexus_utils_embedded_rs::async_primitives::EmbassyTimerWrapper;
 
+use crate::spawn::EmbassyScheduler;
+
 /// Embassy 向け Runtime 設定を構築するためのビルダ。
 pub struct EmbeddedRuntimeBuilder {
   timer: Option<Arc<dyn Timer>>,
@@ -40,9 +42,15 @@ impl EmbeddedRuntimeBuilder {
 
   pub fn build(self) -> CoreRuntimeConfig {
     let timer: Arc<dyn Timer> = self.timer.unwrap_or_else(|| Arc::new(EmbassyTimerWrapper));
-    let scheduler: Arc<dyn CoreScheduler> = self.scheduler.unwrap_or_else(|| Arc::new(UnsupportedScheduler));
+    let spawner_opt = self.spawner;
+    let scheduler: Arc<dyn CoreScheduler> = match (self.scheduler, spawner_opt.as_ref()) {
+      (Some(scheduler), _) => scheduler,
+      (None, Some(spawner)) => Arc::new(EmbassyScheduler::new(spawner.clone())),
+      (None, None) => Arc::new(UnsupportedScheduler),
+    };
+
     let mut config = CoreRuntimeConfig::new(timer, scheduler);
-    if let Some(spawner) = self.spawner {
+    if let Some(spawner) = spawner_opt {
       config = config.with_spawner(spawner);
     }
     config

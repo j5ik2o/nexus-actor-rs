@@ -1,78 +1,22 @@
 use alloc::boxed::Box;
-use alloc::sync::Arc;
+use alloc::sync::{Arc, Weak};
+use alloc::vec::Vec;
 use core::future::Future;
 use core::pin::Pin;
 use core::sync::atomic::{AtomicBool, Ordering};
 use core::task::{Context, Poll};
+use core::time::Duration;
 
 use embassy_executor::raw::TaskStorage;
 use embassy_executor::{SendSpawner, SpawnError};
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
+use embassy_sync::blocking_mutex::Mutex as BlockingMutex;
 use embassy_sync::signal::Signal;
-use nexus_actor_core_rs::runtime::{CoreJoinFuture, CoreJoinHandle, CoreSpawnError, CoreSpawner, CoreTaskFuture};
-
-/// Generic CoreSpawner implementation backed by user-provided closures.
-pub struct FnCoreSpawner {
-  spawn_fn: Arc<dyn Fn(CoreTaskFuture) -> Result<Arc<dyn CoreJoinHandle>, CoreSpawnError> + Send + Sync>,
-}
-
-impl FnCoreSpawner {
-  pub fn new<F>(spawn_fn: F) -> Self
-  where
-    F: Fn(CoreTaskFuture) -> Result<Arc<dyn CoreJoinHandle>, CoreSpawnError> + Send + Sync + 'static, {
-    Self {
-      spawn_fn: Arc::new(spawn_fn),
-    }
-  }
-}
-
-impl CoreSpawner for FnCoreSpawner {
-  fn spawn(&self, task: CoreTaskFuture) -> Result<Arc<dyn CoreJoinHandle>, CoreSpawnError> {
-    (self.spawn_fn)(task)
-  }
-}
-
-/// CoreJoinHandle implementation backed by user-provided callbacks.
-pub struct FnJoinHandle {
-  cancel: Arc<dyn Fn() + Send + Sync>,
-  is_finished: Arc<dyn Fn() -> bool + Send + Sync>,
-  detach: Arc<dyn Fn() + Send + Sync>,
-  join: Arc<dyn Fn() -> CoreJoinFuture + Send + Sync>,
-}
-
-impl FnJoinHandle {
-  pub fn new<C, F, D, J>(cancel: C, is_finished: F, detach: D, join: J) -> Self
-  where
-    C: Fn() + Send + Sync + 'static,
-    F: Fn() -> bool + Send + Sync + 'static,
-    D: Fn() + Send + Sync + 'static,
-    J: Fn() -> CoreJoinFuture + Send + Sync + 'static, {
-    Self {
-      cancel: Arc::new(cancel),
-      is_finished: Arc::new(is_finished),
-      detach: Arc::new(detach),
-      join: Arc::new(join),
-    }
-  }
-}
-
-impl CoreJoinHandle for FnJoinHandle {
-  fn cancel(&self) {
-    (self.cancel)();
-  }
-
-  fn is_finished(&self) -> bool {
-    (self.is_finished)()
-  }
-
-  fn detach(self: Arc<Self>) {
-    (self.detach)();
-  }
-
-  fn join(self: Arc<Self>) -> CoreJoinFuture {
-    (self.join)()
-  }
-}
+use embassy_time::{Duration as EmbassyDuration, Timer as EmbassyTimer};
+use nexus_actor_core_rs::runtime::{
+  CoreJoinFuture, CoreJoinHandle, CoreScheduledHandle, CoreScheduledHandleRef, CoreScheduledTask, CoreScheduler,
+  CoreSpawnError, CoreSpawner, CoreTaskFuture,
+};
 
 /// Join state shared between the spawned Embassy task and the join handle.
 struct EmbassyJoinState {
@@ -259,4 +203,152 @@ impl<const N: usize> CoreSpawner for EmbassyCoreSpawner<N> {
       Err(CoreSpawnError::CapacityExhausted)
     }
   }
+}
+
+#[derive(Clone)]
+pub struct EmbassyScheduler {
+  spawner: Arc<dyn CoreSpawner>,
+  state: Arc<EmbassySchedulerState>,
+}
+
+impl EmbassyScheduler {
+  pub fn new(spawner: Arc<dyn CoreSpawner>) -> Self {
+    Self {
+      spawner,
+      state: Arc::new(EmbassySchedulerState::default()),
+    }
+  }
+
+  fn spawn_task<F>(&self, future: F) -> Arc<dyn CoreJoinHandle>
+  where
+    F: Future<Output = ()> + Send + 'static, {
+    let task: CoreTaskFuture = Box::pin(future);
+    self.spawner.spawn(task).expect("EmbassyScheduler failed to spawn task")
+  }
+
+  fn wrap_handle(&self, handle: Arc<dyn CoreJoinHandle>) -> CoreScheduledHandleRef {
+    Arc::new(EmbassyScheduledHandle::new(handle, self.state.clone())) as CoreScheduledHandleRef
+  }
+
+  fn run_task(task: CoreScheduledTask) -> CoreTaskFuture {
+    (task)()
+  }
+
+  fn sleep(duration: Duration) -> impl Future<Output = ()> {
+    EmbassyTimer::after(to_embassy_duration(duration))
+  }
+}
+
+impl CoreScheduler for EmbassyScheduler {
+  fn schedule_once(&self, delay: Duration, task: CoreScheduledTask) -> CoreScheduledHandleRef {
+    let future = async move {
+      if !delay.is_zero() {
+        Self::sleep(delay).await;
+      }
+      EmbassyScheduler::run_task(task).await;
+    };
+    self.wrap_handle(self.spawn_task(future))
+  }
+
+  fn schedule_repeated(
+    &self,
+    initial_delay: Duration,
+    interval: Duration,
+    task: CoreScheduledTask,
+  ) -> CoreScheduledHandleRef {
+    let future = async move {
+      if !initial_delay.is_zero() {
+        EmbassyScheduler::sleep(initial_delay).await;
+      }
+      loop {
+        EmbassyScheduler::run_task(task.clone()).await;
+        if interval.is_zero() {
+          break;
+        }
+        EmbassyScheduler::sleep(interval).await;
+      }
+    };
+    self.wrap_handle(self.spawn_task(future))
+  }
+
+  fn drain(&self) {
+    self.state.cancel_all();
+  }
+}
+
+struct EmbassySchedulerState {
+  handles: BlockingMutex<CriticalSectionRawMutex, Vec<Weak<dyn CoreJoinHandle>>>,
+}
+
+impl EmbassySchedulerState {
+  fn register(&self, handle: &Arc<dyn CoreJoinHandle>) {
+    self.handles.lock(|handles| {
+      handles.push(Arc::downgrade(handle));
+      handles.retain(|weak| weak.strong_count() > 0);
+    });
+  }
+
+  fn cancel_all(&self) {
+    self.handles.lock(|handles| {
+      for weak in handles.iter() {
+        if let Some(handle) = weak.upgrade() {
+          handle.cancel();
+        }
+      }
+      handles.retain(|weak| weak.strong_count() > 0);
+    });
+  }
+
+  fn prune(&self) {
+    self.handles.lock(|handles| {
+      handles.retain(|weak| weak.strong_count() > 0);
+    });
+  }
+}
+
+impl Default for EmbassySchedulerState {
+  fn default() -> Self {
+    Self {
+      handles: BlockingMutex::new(Vec::new()),
+    }
+  }
+}
+
+struct EmbassyScheduledHandle {
+  handle: Arc<dyn CoreJoinHandle>,
+  state: Arc<EmbassySchedulerState>,
+}
+
+impl EmbassyScheduledHandle {
+  fn new(handle: Arc<dyn CoreJoinHandle>, state: Arc<EmbassySchedulerState>) -> Self {
+    state.register(&handle);
+    Self { handle, state }
+  }
+}
+
+impl CoreScheduledHandle for EmbassyScheduledHandle {
+  fn cancel(&self) {
+    self.handle.cancel();
+    self.state.prune();
+  }
+
+  fn is_cancelled(&self) -> bool {
+    self.handle.is_finished()
+  }
+
+  fn is_active(&self) -> bool {
+    !self.handle.is_finished()
+  }
+}
+
+impl Drop for EmbassyScheduledHandle {
+  fn drop(&mut self) {
+    self.state.prune();
+  }
+}
+
+fn to_embassy_duration(duration: Duration) -> EmbassyDuration {
+  let secs = EmbassyDuration::from_secs(duration.as_secs());
+  let nanos = EmbassyDuration::from_nanos(duration.subsec_nanos() as u64);
+  secs.checked_add(nanos).unwrap_or(EmbassyDuration::MAX)
 }
