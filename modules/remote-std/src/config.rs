@@ -330,26 +330,23 @@ impl Config {
   }
 }
 
-fn parse_transport_endpoint(endpoint: &TransportEndpoint) -> Result<(String, u16), TransportEndpointError> {
+pub(crate) fn parse_transport_endpoint(endpoint: &TransportEndpoint) -> Result<(String, u16), TransportEndpointError> {
   let uri = endpoint.uri.trim();
   if uri.is_empty() {
     return Err(TransportEndpointError::Invalid { uri: uri.to_string() });
   }
 
   if let Ok(url) = Url::parse(uri) {
-    let host = url
-      .host_str()
-      .ok_or_else(|| TransportEndpointError::MissingHost { uri: uri.to_string() })?;
-    let port = url
-      .port()
-      .or_else(|| url.port_or_known_default())
-      .ok_or_else(|| TransportEndpointError::MissingPort { uri: uri.to_string() })?;
-    return Ok((host.to_string(), port));
+    if let Some(host) = url.host_str() {
+      if let Some(port) = url.port().or_else(|| url.port_or_known_default()) {
+        return Ok((host.to_string(), port));
+      }
+    }
   }
 
   if let Ok(url) = Url::parse(&format!("tcp://{uri}")) {
     if let Some(host) = url.host_str() {
-      if let Some(port) = url.port() {
+      if let Some(port) = url.port().or_else(|| url.port_or_known_default()) {
         return Ok((host.to_string(), port));
       }
     }

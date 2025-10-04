@@ -2,6 +2,7 @@
 mod tests;
 
 use crate::block_list::BlockList;
+use crate::config::parse_transport_endpoint;
 use crate::config::server_config::ServerConfig;
 use crate::config::Config;
 use crate::endpoint_manager::{EndpointManager, EndpointStatisticsSnapshot};
@@ -14,6 +15,7 @@ use crate::remote_process::RemoteProcess;
 use crate::response_status_code::{ActorPidResponseExt, ResponseError, ResponseStatusCode};
 use crate::serializer::initialize_proto_serializers;
 use crate::serializer::SerializerId;
+use crate::TransportEndpoint;
 use async_trait::async_trait;
 use dashmap::DashMap;
 use nexus_actor_std_rs::actor::actor_system::ActorSystem;
@@ -32,7 +34,7 @@ use std::any::Any;
 use std::fmt;
 use std::future::Future;
 use std::net::ToSocketAddrs;
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
 use std::time::Duration;
 use thiserror::Error;
 use tokio::sync::oneshot;
@@ -154,6 +156,72 @@ impl RemoteInner {
 #[derive(Debug, Clone)]
 pub struct Remote {
   inner: Arc<RemoteInner>,
+}
+
+#[derive(Debug, Default, Clone, Copy)]
+pub struct TonicEndpointHandle;
+
+impl crate::EndpointHandle for TonicEndpointHandle {
+  fn close(&self) {}
+}
+
+#[derive(Debug, Clone)]
+pub struct TonicRemoteTransport {
+  remote: Weak<RemoteInner>,
+}
+
+impl TonicRemoteTransport {
+  fn new(remote: &Remote) -> Self {
+    Self {
+      remote: Arc::downgrade(&remote.inner),
+    }
+  }
+
+  fn upgrade_remote(&self) -> Result<Remote, crate::TransportError> {
+    self
+      .remote
+      .upgrade()
+      .map(|inner| Remote { inner })
+      .ok_or_else(|| crate::TransportError::with_detail(crate::TransportErrorKind::Unavailable, "remote dropped"))
+  }
+
+  pub async fn serve_with_callback<F, Fut>(
+    &self,
+    listener: crate::TransportListener,
+    on_start: F,
+  ) -> Result<(), crate::TransportError>
+  where
+    F: FnOnce() -> Fut,
+    Fut: Future<Output = ()> + Send + Sync, {
+    let remote = self.upgrade_remote()?;
+    start_server_with_listener(remote, listener, on_start)
+      .await
+      .map_err(|err| {
+        tracing::error!("remote transport server error: {err}");
+        crate::TransportError::with_detail(crate::TransportErrorKind::Other, "remote server error")
+      })
+  }
+}
+
+impl crate::RemoteTransport for TonicRemoteTransport {
+  type Handle = TonicEndpointHandle;
+
+  fn connect(
+    &self,
+    _endpoint: &crate::TransportEndpoint,
+  ) -> crate::BoxFuture<'_, Result<Self::Handle, crate::TransportError>> {
+    Box::pin(async {
+      Err(crate::TransportError::with_detail(
+        crate::TransportErrorKind::Unavailable,
+        "grpc transport connect is managed by Remote",
+      ))
+    })
+  }
+
+  fn serve(&self, listener: crate::TransportListener) -> crate::BoxFuture<'_, Result<(), crate::TransportError>> {
+    let transport = self.clone();
+    Box::pin(async move { transport.serve_with_callback(listener, || async {}).await })
+  }
 }
 
 impl Remote {
@@ -328,77 +396,8 @@ impl Remote {
   where
     F: FnOnce() -> Fut,
     Fut: Future<Output = ()> + Send + Sync, {
-    let (shutdown, rx) = Shutdown::new();
-    {
-      let mut mg = self.inner.shutdown.lock().await;
-      *mg = Some(shutdown.clone());
-    }
-
-    let my_self = Arc::new(self.clone());
-    let cloned_self = my_self.clone();
-    let mut server = Server::builder();
-    if let Some(sc) = &self.inner.config.get_server_config().await {
-      server = Self::configure_server(server, sc);
-    }
-
-    let advertised_address = self.inner.config.get_advertised_address().await;
-    let listen_host = self.inner.config.get_host().await.expect("Host is not found");
-    let port = self.inner.config.get_port().await.expect("Port is not found");
-    let socket_addrs = (listen_host.as_str(), port)
-      .to_socket_addrs()
-      .expect("Invalid host")
-      .collect::<Vec<_>>();
-    let socket_addr = socket_addrs
-      .into_iter()
-      .find(|addr| addr.is_ipv4())
-      .expect("Failed to resolve hostname");
-
-    let published_address = advertised_address.unwrap_or_else(|| format!("{}:{}", listen_host, port));
-    tracing::debug!(
-      "Binding to {:?}, published address = {}",
-      socket_addr,
-      published_address
-    );
-
-    let process_registry = self.inner.actor_system.get_process_registry().await;
-    process_registry.register_address_resolver(AddressResolver::new(move |core_pid| {
-      let cloned_self = cloned_self.clone();
-      let (address, id, request_id) = core_pid.clone().into_parts();
-      let pid = Pid {
-        address,
-        id,
-        request_id,
-      };
-      async move {
-        let (ph, _) = cloned_self.remote_handler(&pid).await;
-        Some(ph)
-      }
-    }));
-    process_registry.set_address(published_address);
-    tracing::info!("Starting server: {}", socket_addr);
-
-    let self_weak = Arc::downgrade(&my_self);
-
-    let mut endpoint_manager = EndpointManager::new(self_weak.clone());
-    endpoint_manager.start().await.map_err(|e| {
-      tracing::error!("Failed to start EndpointManager: {:?}", e);
-      RemoteError::ServerError
-    })?;
-    self.set_endpoint_manager(endpoint_manager.clone()).await;
-
-    let endpoint_reader = EndpointReader::new(self_weak);
-    self.set_endpoint_reader(endpoint_reader.clone()).await;
-
-    let router = server.add_service(RemotingServer::new(endpoint_reader));
-    let shutdown_future = async {
-      tracing::info!("Server started: {}", socket_addr);
-      on_start().await;
-      rx.await.ok();
-    };
-    if router.serve_with_shutdown(socket_addr, shutdown_future).await.is_err() {
-      return Err(RemoteError::ServerError);
-    }
-    Ok(())
+    let listener = self.compute_transport_listener().await?;
+    start_server_with_listener(self.clone(), listener, on_start).await
   }
 
   fn configure_server(mut server: Server, sc: &ServerConfig) -> Server {
@@ -445,6 +444,20 @@ impl Remote {
     Ok(())
   }
 
+  pub fn transport(&self) -> TonicRemoteTransport {
+    TonicRemoteTransport::new(self)
+  }
+
+  async fn compute_transport_listener(&self) -> Result<crate::TransportListener, RemoteError> {
+    if let Some(endpoint) = self.inner.config.transport_endpoint().await {
+      return Ok(crate::TransportListener::new(endpoint.uri));
+    }
+
+    let host = self.inner.config.get_host().await.ok_or(RemoteError::ServerError)?;
+    let port = self.inner.config.get_port().await.ok_or(RemoteError::ServerError)?;
+    Ok(crate::TransportListener::new(format!("{}:{}", host, port)))
+  }
+
   pub async fn send_message(
     &self,
     target: Pid,
@@ -462,6 +475,101 @@ impl Remote {
     };
     self.get_endpoint_manager().await.remote_deliver(rd).await
   }
+}
+
+async fn start_server_with_listener<F, Fut>(
+  remote: Remote,
+  listener: crate::TransportListener,
+  on_start: F,
+) -> Result<(), RemoteError>
+where
+  F: FnOnce() -> Fut,
+  Fut: Future<Output = ()> + Send + Sync, {
+  let (shutdown, rx) = Shutdown::new();
+  {
+    let mut mg = remote.inner.shutdown.lock().await;
+    *mg = Some(shutdown.clone());
+  }
+
+  let my_self = Arc::new(remote.clone());
+  let cloned_self = my_self.clone();
+  let mut server = Server::builder();
+  if let Some(sc) = &remote.inner.config.get_server_config().await {
+    server = Remote::configure_server(server, sc);
+  }
+
+  let endpoint = if listener.bind.is_empty() {
+    remote
+      .inner
+      .config
+      .transport_endpoint()
+      .await
+      .unwrap_or_else(|| TransportEndpoint::new(String::new()))
+  } else {
+    TransportEndpoint::new(listener.bind.clone())
+  };
+
+  let (listen_host, port) = parse_transport_endpoint(&endpoint).map_err(|err| {
+    tracing::error!("failed to parse transport endpoint {}: {err}", endpoint.uri);
+    RemoteError::ServerError
+  })?;
+
+  let advertised_address = remote.inner.config.get_advertised_address().await;
+  let socket_addrs = (listen_host.as_str(), port)
+    .to_socket_addrs()
+    .map_err(|_| RemoteError::ServerError)?
+    .collect::<Vec<_>>();
+  let socket_addr = socket_addrs
+    .into_iter()
+    .find(|addr| addr.is_ipv4())
+    .ok_or(RemoteError::ServerError)?;
+
+  let published_address = advertised_address.unwrap_or_else(|| format!("{}:{}", listen_host, port));
+  tracing::debug!(
+    "Binding to {:?}, published address = {}",
+    socket_addr,
+    published_address
+  );
+
+  let process_registry = remote.inner.actor_system.get_process_registry().await;
+  process_registry.register_address_resolver(AddressResolver::new(move |core_pid| {
+    let cloned_self = cloned_self.clone();
+    let (address, id, request_id) = core_pid.clone().into_parts();
+    let pid = Pid {
+      address,
+      id,
+      request_id,
+    };
+    async move {
+      let (ph, _) = cloned_self.remote_handler(&pid).await;
+      Some(ph)
+    }
+  }));
+  process_registry.set_address(published_address);
+  tracing::info!("Starting server: {}", socket_addr);
+
+  let self_weak = Arc::downgrade(&my_self);
+
+  let mut endpoint_manager = EndpointManager::new(self_weak.clone());
+  endpoint_manager.start().await.map_err(|e| {
+    tracing::error!("Failed to start EndpointManager: {:?}", e);
+    RemoteError::ServerError
+  })?;
+  remote.set_endpoint_manager(endpoint_manager.clone()).await;
+
+  let endpoint_reader = EndpointReader::new(self_weak);
+  remote.set_endpoint_reader(endpoint_reader.clone()).await;
+
+  let router = server.add_service(RemotingServer::new(endpoint_reader));
+  let shutdown_future = async {
+    tracing::info!("Server started: {}", socket_addr);
+    on_start().await;
+    rx.await.ok();
+  };
+  if router.serve_with_shutdown(socket_addr, shutdown_future).await.is_err() {
+    return Err(RemoteError::ServerError);
+  }
+  Ok(())
 }
 
 impl Extension for Remote {

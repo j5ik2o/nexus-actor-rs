@@ -81,8 +81,8 @@ impl RemoteTransport for LoopbackTransport {
 #[cfg(all(test, feature = "std"))]
 mod tests {
   use super::{
-    BlockListStore, EndpointHandle, LoopbackTransport, MetricsSink, RemoteRuntime, RemoteRuntimeConfig, RemoteTransport,
-    SerializerRegistry, TransportEndpoint, TransportListener,
+    BlockListStore, EndpointHandle, LoopbackTransport, MetricsSink, RemoteRuntime, RemoteRuntimeConfig,
+    RemoteTransport, SerializerRegistry, TransportEndpoint, TransportListener,
   };
   use futures::executor::block_on;
   use std::sync::Arc;
