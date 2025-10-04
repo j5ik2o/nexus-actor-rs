@@ -5,6 +5,7 @@ use nexus_actor_std_rs::actor::message::Message;
 use nexus_actor_std_rs::actor::message::{MessageHandle, ResponseHandle};
 
 use crate::config::Config;
+use crate::TransportEndpoint;
 use crate::config_option::ConfigOption;
 use crate::endpoint_manager::EndpointManager;
 use crate::endpoint_state::ConnectionState;
@@ -198,7 +199,7 @@ async fn test_advertised_address() {
   let mut running = RunningRemote::start(vec![
     ConfigOption::with_host("127.0.0.1"),
     ConfigOption::with_port(port),
-    ConfigOption::with_advertised_address("localhost:6500"),
+    ConfigOption::with_transport_endpoint(TransportEndpoint::new("localhost:6500".to_string())),
   ])
   .await
   .unwrap();
