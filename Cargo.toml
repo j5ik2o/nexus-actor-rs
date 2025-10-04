@@ -3,17 +3,10 @@ resolver = "2"
 members = [
   "modules/utils-core",
   "modules/utils-std",
+  "modules/utils-embedded",
   "modules/actor-core",
   "modules/actor-std",
-  "modules/actor-embedded",
-  "modules/message-derive-core",
-  "modules/message-derive-std",
-  "modules/remote-core",
-  "modules/remote-std",
-  "modules/remote-embedded",
-  "modules/cluster-core",
-  "modules/cluster-std",
-  "modules/utils-embedded"
+  "modules/actor-embedded"
 ]
 
 [workspace.dependencies]
