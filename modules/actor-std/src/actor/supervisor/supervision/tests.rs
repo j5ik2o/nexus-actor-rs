@@ -65,11 +65,12 @@ mod test {
       .with_env_filter(EnvFilter::from_default_env())
       .try_init();
     let observer = Observer::new();
+    let observer_for_middleware = observer.clone();
     let system = ActorSystem::new().await.unwrap();
     let mut root_context = system.get_root_context().await;
 
     let middles = ReceiverMiddleware::from_async(move |snapshot, next| {
-      let cloned_observer = observer.clone();
+      let cloned_observer = observer_for_middleware.clone();
       Box::pin(async move {
         tracing::debug!("ReceiverMiddleware: envelope = {:?}", snapshot.message());
         let msg = snapshot.message().get_message_handle();
