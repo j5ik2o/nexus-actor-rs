@@ -73,6 +73,12 @@ pub trait Spawn {
 - `ArcStateCell<T, RM = NoopRawMutex>`（embedded）: `Arc<embassy_sync::mutex::Mutex<RM, T>>` を利用し、`embedded_arc` フィーチャで提供する。既定では `ArcLocalStateCell<T>` により `NoopRawMutex` を採用して単一エグゼキュータ向け最小実装とし、実機で割り込みやマルチコアを扱う場合は `ArcCsStateCell<T>` を使って `CriticalSectionRawMutex` を選択する。必要に応じて他の `RawMutex` へも切り替えられる。
 - `StateCell` トレイトは `borrow` / `borrow_mut` を同期 API として提供しており、Actor 本体は単一スレッドでメッセージ処理を行う前提に立つ。今後 async ロックが必要な場合は `StateCell` 拡張メソッドに `try_borrow_async` 等を追加する余地を残す。
 
+## Queue 抽象の配置
+- `nexus-utils-core-rs` に `RingBuffer` と `QueueBase` 系トレイトを集約し、`no_std + alloc` 前提でリングキューの基盤を提供する。
+- `nexus-utils-std-rs` では `RingQueue<E>` を `Arc<Mutex<_>>` でラップし、共有アクセス向け API（`offer_shared` / `poll_shared` など）を公開する。
+- `nexus-utils-embedded-rs` では `RcRingQueue<E>` と `ArcRingQueue<E, RM>` を用意し、`rc` フィーチャでは `Rc<RefCell<_>>`、`arc` フィーチャでは Embassy の `Mutex<RM, _>` を使用する。`ArcLocalRingQueue` / `ArcCsRingQueue` などのエイリアスで環境に合わせた排他制御を選択する。
+- `actor-*` 側はユーティリティ経由の再エクスポートを利用し、std / embedded いずれの構成でも一貫したテスト・サンプルを保つ。
+
 ## モジュール構成ポリシー
 - `actor-std` は `spawn.rs` / `timer.rs` / `mailbox.rs` / `state.rs` に分割し、Tokio 依存の責務を明確化して再エクスポート専用の `lib.rs` から集約する。
 - `actor-embedded` も同様に `spawn.rs` / `timer.rs` / `mailbox.rs` / `state.rs` / `shared.rs` へ分離し、feature ごとの実装差分をファイル単位で追えるようにした。
