@@ -117,3 +117,8 @@ pub trait Spawn {
     --target thumbv6m-none-eabi --no-default-features --features embedded_rc
   ```
 - 例では `alloc_cortex_m`, `cortex-m-rt`, `panic-halt` を利用してヒープ初期化とエントリポイントを用意し、`actor_loop` を単一メッセージで動作確認する。実際のアプリケーションでは Embassy 等の実行器やハードウェアタイマに差し替える。
+
+- UF2 変換 (`elf2uf2-rs`) についての注意: 生成された ELF の OS/ABI フィールドが `GNU/Linux (0x3)` になっているため、現行の `elf2uf2-rs` は "Unrecognized ABI" エラーを返す。回避策としては以下のいずれかを採用する。
+  - 公式 SDK の `uf2conv.py` など別ツールを利用する。
+  - `elf2uf2-rs` にパッチを当てて ABI チェックを外し、ローカルで再ビルドする。
+  - LLVM リンカ設定で OSABI を 0 (`System V`) に修正できないか調査する（要検討）。
