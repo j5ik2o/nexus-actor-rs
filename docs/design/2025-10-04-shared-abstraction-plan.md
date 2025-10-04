@@ -4,6 +4,7 @@
 - `core` クレートは `no_std + alloc` を前提とし、OS / スレッド / `Arc` に依存しない純粋ロジック層を構築する。
 - `std` モジュールはサーバ／Linux 環境を対象とし、`Arc`・`Send`・`Sync`・`tokio` 等でフル機能化する。
 - `embedded` モジュールは MCU 向けとし、`Arc` に頼らず `Rc` または `StaticRef` を利用する所有モデルを採用する。
+- RP2040 / RP2350 など MCU によって原子命令サポートが異なるため、feature で `embedded_rc`（`Rc` ベース）と `embedded_arc`（`Arc` ベース）を切り替えられるようにする（将来的に Embassy などの実装を差し替えやすくする）。
 - コアの公開 API は共通とし、所有モデルだけをトレイトで切り替える設計にする。
 - この方針を今後の最優先タスクとする。
 
@@ -35,6 +36,7 @@ default = ["std"]
 std = []
 embedded_rc = []      # RP2040 等、シングルコア / 非アトミック環境
 embedded_static = []  # `StaticRef` による完全 static 構成
+embedded_arc = []     # RP2350 等、atomic 命令対応 MCU 向け（Arc 利用可）
 ```
 
 - std / embedded で共有するコードは `Shared` を通じて抽象化。
@@ -84,6 +86,7 @@ pub trait Spawn {
    - `std` 構成では従来通り `Arc` を用い、既存テストがすべて通る状態を維持しながら進める。
    - `embedded_rc` フィーチャを新設し、RP2040（Cortex-M0+）向けビルドで `Rc` を利用できるようにする。`alloc` あり／`no_std` 前提のビルドパスと CI を整える。
    - `embedded_static` など追加モードも検討し、静的メモリ向けの `StaticRef` 実装を整備する。
+   - `embedded_arc` フィーチャでは Arc を利用し、RP2350 のような atomic 対応 MCU で Embassy の `Channel` などを活用できるようにする。
 
 4. **Mailbox / Spawn 抽象の切り替え**
    - `Mailbox` や `Spawn` のトレイト化を進め、std 版（tokio）と embedded 版（heapless 等）の実装差を吸収する。
