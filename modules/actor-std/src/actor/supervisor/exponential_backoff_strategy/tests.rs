@@ -54,6 +54,9 @@ mod test {
     }
 
     let failure_count = stats.failure_count().await;
-    assert_eq!(3, failure_count, "failure_count should reflect consecutive failures by count");
+    assert_eq!(
+      3, failure_count,
+      "failure_count should reflect consecutive failures by count"
+    );
   }
 }
