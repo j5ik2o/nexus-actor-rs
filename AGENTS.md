@@ -28,6 +28,10 @@
 - 作業終了時には以下を実行する：
   - `cargo +nightly fmt && cargo build && cargo test`
 - カバレッジ計測が必要な場合は `cargo make coverage` または `./coverage.sh` を使用する。
+- Embedded 系の検証手順：
+  - `modules/utils-embedded` の単体テストは `cargo test -p nexus-utils-embedded-rs --no-default-features --features embassy` を PC 上で実行（`scripts/test-embedded.sh` でラップ済み）。
+  - `modules/actor-embedded` は `cargo test -p nexus-actor-embedded-rs --no-default-features --features embassy --no-run` でビルド検証し、実行系は `cargo run -p nexus-actor-embedded-rs --example embassy_scheduler --no-default-features --features embassy` を用いる。
+  - 裸メタル向けの実機テストを行う場合は、別途ターゲット用 runner（例：`probe-run`）を整備し、`--target <embedded-target>` を指定して実行する。
 
 ---
 
@@ -87,9 +91,10 @@
 
 ## プロジェクト構成
 
-- `core/` : アクターランタイム実装および `tests.rs` による検証。
-- `remote/` : gRPC 通信および `.proto` 生成物を管理。
-- `utils/`, `message-derive/` : 共通ヘルパー・マクロを提供。
+- `modules/core-*/` : アクターランタイム実装および `tests.rs` による検証。
+- `modules/remote-*/` : gRPC 通信および `.proto` 生成物を管理。
+- `modules/cluster-*/`: クラスター機能
+- `modules/utils-*/`, `modules/message-derive-*/` : 共通ヘルパー・マクロを提供。
 - `docs/` : 設計メモ・優先タスクを保持し、作業前に確認する。
 
 ---

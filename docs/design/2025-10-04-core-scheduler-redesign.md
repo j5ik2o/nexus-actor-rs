@@ -32,6 +32,8 @@
 4. **テスト戦略**
    - `cfg(feature = "std")` 下で `schedule_once` / `schedule_repeated` が所要時間を概ね満たす非同期テストを追加。
    - `no_std` モードではモックタイマを注入し、インスタントを疑似しながら `is_active` と `drain` が期待通り遷移することを確認。
+   - CI に `cargo test --no-default-features --features embassy --no-run` を追加し、Embassy 実装が継続的にコンパイルされることを保証。
+   - `modules/actor-embedded/examples/embassy_scheduler.rs` を継続的にビルドし、Embassy 向けサンプルが API の変更に追随できるようにする。
 
 ## 実装タスク
 1. **インターフェース更新 (MUST)**
@@ -42,7 +44,7 @@
    - ユニットテスト追加 (`tokio::test`)。
 3. **EmbassyScheduler 実装 (MUST)**
    - `EmbassyTaskSlot` を共用しつつ、タイマーベース Future を生成するヘルパーを追加。
-   - `cargo test --no-default-features --features embassy` で動作検証。
+   - `cargo test --no-default-features --features embassy --no-run` でコンパイル検証。
 4. **ドキュメント更新 (SHOULD)**
    - `docs/design/2025-10-03-actor-embedded-plan.md` と `docs/remote_improvement_plan.md` を再更新し、API 変更点と移行手順を追記。
 5. **後続検討 (COULD)**

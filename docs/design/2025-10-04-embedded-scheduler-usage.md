@@ -43,4 +43,5 @@
 ## 確認項目
 - **キャンセル確認**: `CoreScheduledHandle::cancel()` でループ Future が停止するか確認。
 - **ノイズ排除**: スロット不足時は `CoreSpawnError::CapacityExhausted` が返るため、スロット拡張か待ち時間調整を検討。
-- **no_std ビルド**: `cargo test --no-default-features --features embassy` で Embedded 用テストを通してから統合。
+- **no_std ビルド**: `cargo test --no-default-features --features embassy --no-run` を CI で実行し、`EmbassyScheduler` 向けバイナリ／テストがコンパイルされることを担保。
+- **サンプル実行**: `modules/actor-embedded/examples/embassy_scheduler.rs` を参考に、`embassy_executor::raw::Executor` を用いたローカル検証を行う。Executor の初期化時には `#[export_name = "__pender"]` を定義し、ポーリングループでタスクが一度だけ実行されることを確認する。
