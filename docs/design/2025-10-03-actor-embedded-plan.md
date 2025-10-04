@@ -8,7 +8,7 @@
 ## 構成
 - クレート名は `nexus-actor-embedded-rs` を想定し、`modules/actor-embedded` に配置。
 - Cargo feature: `default = ["embassy"]` とし、`embassy` は `embassy-time`, `embassy-sync`, `embassy-executor` を有効化。`std` フラグは持たず strictly no_std。
-- 公開 API: `pub use nexus_actor_core_rs::{actor::*, context::*, supervisor::*};` に加え、Embassy 向けにタイマ／スケジューラ／スポーナーを注入できる `EmbeddedRuntimeBuilder` を提供（`with_timer`/`with_scheduler`/`with_spawner` と新設の `spawn::FnCoreSpawner`/`FnJoinHandle`）。
+- 公開 API: `pub use nexus_actor_core_rs::{actor::*, context::*, supervisor::*};` に加え、Embassy 向けにタイマ／スケジューラ／スポーナーを注入できる `EmbeddedRuntimeBuilder` を提供（`with_timer`/`with_scheduler`/`with_spawner` と `runtime::FnCoreSpawner`/`FnJoinHandle`）。
 - `embedded_runtime` モジュールはデフォルトで `EmbassyTimerWrapper` と `UnsupportedScheduler` を用意し、利用側が Embassy の `Spawner` をラップした `CoreSpawner` を `with_spawner` で設定する想定。
 - `AsyncMutex`/`AsyncNotify`/`AsyncRwLock` の暫定実装は `modules/utils-embedded` に配置し、必要に応じて最適化を進める。
 
@@ -23,7 +23,7 @@
   - `defmt` はオプション扱い。`feature = "defmt-log"` で有効化する案。
 
 ## タスク（優先度順）
-1. **MUST** `EmbeddedRwLock` の API 設計: actor-core が要求する read/write 操作（複数 read + 単一 write）を満たすか検証し、性能面の懸念があれば actor-core 側の利用箇所を要調整として洗い出す。
+1. **MUST** `EmbeddedRwLock` の API 設計: actor-core が要求する read/write 操作（複数 read + 単一 write）を満たすか検証し、性能面の懸念があれば actor-core 側の利用箇所を要調整として洗い出す。→ 2025-10-04 時点で `embassy_sync::rwlock::RwLock` ベースの `EmbeddedRwLock` を実装し、複数 read / 単一 write のユニットテストを追加済み。
 2. **MUST** `CoreSpawn` 抽象: executor 非依存でタスクを起動するトレイトを `actor-core` に追加し、Tokio (`tokio::spawn`) と Embassy (`Spawner::spawn`) 双方の実装方針を明示。
 3. **MUST** `CoreScheduler` 再設計: Embassy でのタイマー駆動タスクを成立させる API（`schedule_once`/`schedule_repeated`）の内部実装案をまとめ、Tokio 側との差分と API 互換性を確認。
 4. **SHOULD** ロギング Hook: `actor-core` で `CoreLogger`（仮称）を定義し、std/embedded で `tracing`/`defmt` を注入できる仕組みを検討。
