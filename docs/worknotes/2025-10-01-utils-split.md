@@ -34,15 +34,15 @@
    - `modules/utils-std`（仮）で tokio / std 依存コードを re-export。
    - `nexus-utils-std-rs` が `nexus-utils-core-rs` を feature 付きで利用できるようにする。
 6. **依存元の調整**
-   - `modules/actor/Cargo.toml` 等を更新し、core と std の両方を適切に参照。
+   - `modules/actor-core/Cargo.toml` 等を更新し、core と std の両方を適切に参照。
    - `cargo test --workspace` & `cargo test --no-default-features --features alloc -p nexus-utils-core-rs` を実行。
 7. **CI への追加**
    - `.github/workflows/ci.yml` に no_std ビルドを追加（`cargo check -p nexus-utils-core-rs --no-default-features --features alloc`）。
 
 ## 現状整理（区分: 状態 / 影響 / 残課題）
-- **状態**: `modules/utils-core` を新設し `#![no_std]` かつ `alloc` 前提で `Element`/`QueueError`/`QueueSize`/`PriorityMessage`/`Queue*` を移設済み。
-- **影響**: `nexus-utils-std-rs` が core を再エクスポートする構成に更新され、`actor` と `remote` は `nexus_utils_std_rs` 依存へ切り替え。
-- **残課題**: なし（2025-10-01 に CI へ no_std チェックを追加し、同日に `cargo test --workspace` を完了）。
+- **状態**: `modules/utils-core` に `RingBuffer` を実装し、`RingQueue` は std 層で `Mutex<RingBuffer>` をラップする構造へ移行済み。加えて MPSC／Ring／Priority 各キューを `CoreMailboxQueue` に直結するアダプタ（`UnboundedMpscCoreMailboxQueue` など）を導入。
+- **影響**: キュー操作ロジックは core に集約され、`nexus-utils-std-rs` は同期プリミティブ（`Mutex`/`Arc`）と Tokio 依存コードのみを保持。Mailbox 側は trait object 化された `CoreMailboxQueue` を経由し、メトリクス取得が統一化。
+- **残課題**: なし（2025-10-01 時点）。今後は MPSC 以外の同期プリミティブ微調整やキュー latency トラッキングの拡張が対象。
 
 ## チェックリスト
 - [x] `nexus-utils-core-rs` が `#![no_std]` でコンパイルできる。

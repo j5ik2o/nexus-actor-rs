@@ -28,11 +28,16 @@ use toml_edit::{Document, Item, Table, InlineTable};
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cargo_toml_paths = [
         "Cargo.toml",
-        "modules/utils/Cargo.toml",
-        "modules/message-derive/Cargo.toml",
-        "modules/actor/Cargo.toml",
-        "modules/remote/Cargo.toml",
-        "modules/cluster/Cargo.toml",
+        "modules/utils-core/Cargo.toml",
+        "modules/utils-std/Cargo.toml",
+        "modules/message-derive-core/Cargo.toml",
+        "modules/message-derive-std/Cargo.toml",
+        "modules/actor-core/Cargo.toml",
+        "modules/actor-std/Cargo.toml",
+        "modules/remote-core/Cargo.toml",
+        "modules/remote-std/Cargo.toml",
+        "modules/cluster-core/Cargo.toml",
+        "modules/cluster-std/Cargo.toml",
     ];
 
     for path in cargo_toml_paths.iter() {

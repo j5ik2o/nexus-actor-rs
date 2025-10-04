@@ -1,3 +1,7 @@
+#[cfg(test)]
+use crate::runtime::TokioCoreSpawner;
+#[cfg(test)]
+use nexus_actor_core_rs::runtime::{CoreSpawner, CoreTaskFuture};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use tokio::sync::Notify;
@@ -69,12 +73,15 @@ async fn test_main() {
 
   for i in 0..3 {
     let wg = wg.clone();
-    tokio::spawn(async move {
-      // 非同期の作業をシミュレート
-      tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+    let task: CoreTaskFuture = Box::pin(async move {
+      tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
       tracing::info!("Task {} completed", i);
       wg.done();
     });
+    TokioCoreSpawner::current()
+      .spawn(task)
+      .expect("spawn wait group task")
+      .detach();
   }
 
   wg.add(3);

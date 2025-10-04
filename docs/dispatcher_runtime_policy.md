@@ -5,7 +5,7 @@
 - **適用時の注意点**: 新規 Dispatcher を追加する際の留意事項。
 
 ## 既存ガイドライン
-- `modules/actor/src/actor/dispatch/dispatcher/single_worker_dispatcher.rs` は `Drop` で `Runtime::shutdown_background()` を呼び、Tokio ランタイムの二重解放を防止。
+- `modules/actor-core/src/actor/dispatch/dispatcher/single_worker_dispatcher.rs` は `Drop` で `Runtime::shutdown_background()` を呼び、Tokio ランタイムの二重解放を防止。
 - ランタイム所有は `Option<Handle>` ではなく `Option<Arc<Runtime>>` で保持し、`ActorSystem` 側と参照カウントを共有する実装に統一。
 - `CurrentThreadDispatcher` のように外部ランタイムを利用する実装はランタイムを保持せず、上記パターンに該当しない。
 

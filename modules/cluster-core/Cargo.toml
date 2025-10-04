@@ -1,0 +1,21 @@
+[package]
+name = "nexus-cluster-core-rs"
+version = "0.0.1"
+edition = "2021"
+description = "Core abstractions for Nexus cluster"
+license = "MIT OR Apache-2.0"
+keywords = ["nexus", "actor", "cluster"]
+categories = ["concurrency", "asynchronous"]
+readme = "../../README.md"
+repository = "https://github.com/j5ik2o/nexus-actor-rs"
+
+[dependencies]
+nexus-cluster-std-rs = { path = "../cluster-std" }
+
+[features]
+default = ["std"]
+std = []
+alloc = []
+
+[dev-dependencies]
+pretty_assertions = "1"

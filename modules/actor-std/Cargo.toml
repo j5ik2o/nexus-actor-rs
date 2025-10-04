@@ -1,0 +1,102 @@
+[package]
+name = "nexus-actor-std-rs"
+version = "3.0.1"
+edition = "2021"
+build = "build.rs"
+description = "Standard runtime implementation for Nexus Actor"
+license = "MIT OR Apache-2.0"
+keywords = ["actors", "actor-model", "async", "tokio"]
+categories = ["concurrency", "asynchronous", "network-programming"]
+readme = "../../README.md"
+repository = "https://github.com/j5ik2o/nexus-actor-rs"
+
+[features]
+default = []
+lock-metrics = ["nexus-actor-core-rs/alloc"]
+tokio-console = ["console-subscriber"]
+
+[dependencies]
+nexus-actor-core-rs = { version = "3.*", path = "../actor-core" }
+async-trait = "0.1.80"
+backtrace = "0.3"
+base64-string-rs = "0.0.1"
+chrono = "0.4"
+dashmap = { workspace = true }
+futures = { workspace = true }
+im = "15.0.0"
+nexus-message-derive-std-rs = { path = "../message-derive-std" }
+nexus-utils-std-rs = { version = "0.*", path = "../utils-std" }
+num_enum = "0.7.2"
+once_cell = "1.19.0"
+oni-comb-uri-rs = "0.2.1"
+opentelemetry = { version = "0.31.0", features = ["metrics"] }
+opentelemetry-otlp = { version = "0.31.0", features = ["grpc-tonic", "trace", "metrics"] }
+opentelemetry-stdout = { version = "0.31.0", features = ["metrics"] }
+opentelemetry_sdk = { version = "0.31.0", features = ["metrics", "rt-tokio", "testing"] }
+prost = "0.13.0"
+prost-types = "0.13"
+rand = { version = "0.9.0-alpha.2", features = ["small_rng"] }
+regex = "1.10.6"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+siphasher = "1.0.1"
+static_assertions = "1.1.0"
+strum = { version = "0.27", features = ["derive"] }
+strum_macros = "0.27"
+thiserror = "2.0.0"
+time = "0.3.36"
+tokio = { version = "1.37.0" , features = ["full"] }
+tokio-condvar = "0.3.0"
+tokio-util = { version = "0.7", features = ["time"] }
+tonic = "0.13.0"
+tonic-types = "0.14.0"
+tracing = "0.1"
+tracing-futures = "0.2.5"
+tracing-opentelemetry = { version = "0.32.0", features = ["metrics"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+uuid = { version = "1.9.0", features = ["v4"] }
+arc-swap = "1.7"
+parking_lot = "0.12"
+console-subscriber = { version = "0.4", optional = true }
+
+[dev-dependencies]
+async-trait = { workspace = true }
+tokio = { workspace = true }
+tokio-util = { version = "0.7", features = ["time"] }
+futures = { workspace = true }
+criterion = { version = "0.7", default-features = false, features = ["html_reports", "async_tokio"] }
+opentelemetry = { version = "0.31.0", features = ["metrics"] }
+opentelemetry-stdout = { version = "0.31.0", features = ["metrics"] }
+opentelemetry_sdk = { version = "0.31.0", features = ["metrics", "rt-tokio", "testing"] }
+rand = "0.9"
+governor = "0.10.0"
+clap = { version = "4.5.9", features = ["derive"] }
+tracing = { workspace = true }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+nexus-message-derive-std-rs = { path = "../message-derive-std" }
+nexus-utils-std-rs = { version = "0.*", path = "../utils-std" }
+rstest = "0.26.0"
+loom = "0.7"
+
+[[bench]]
+name = "actor_context_lock"
+harness = false
+
+[[bench]]
+name = "dispatcher_queue_latency"
+harness = false
+
+[[bench]]
+name = "mailbox_throughput"
+harness = false
+
+[[bench]]
+name = "queue_throughput"
+harness = false
+
+[[bench]]
+name = "reentrancy"
+harness = false
+
+[build-dependencies]
+tonic-build = { version = "0.13.0" }

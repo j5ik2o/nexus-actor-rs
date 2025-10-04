@@ -1,11 +1,22 @@
 use crate::collections::element::Element;
 use crate::collections::{MpscUnboundedChannelQueue, QueueError, QueueSize};
 use crate::collections::{QueueBase, QueueReader, QueueWriter};
+use crate::runtime::TokioCoreSpawner;
+use nexus_actor_core_rs::runtime::CoreSpawner as _;
+use nexus_actor_core_rs::runtime::{CoreJoinHandle, CoreTaskFuture};
+use std::sync::Arc;
 
 #[derive(Debug, Clone, PartialEq)]
 struct TestElement(i32);
 
 impl Element for TestElement {}
+
+fn spawn_unit_task<Fut>(future: Fut) -> Arc<dyn CoreJoinHandle>
+where
+  Fut: std::future::Future<Output = ()> + Send + 'static, {
+  let task: CoreTaskFuture = Box::pin(future);
+  TokioCoreSpawner::current().spawn(task).expect("spawn queue task")
+}
 
 #[test]
 fn test_new_queue() {
@@ -64,11 +75,11 @@ fn test_clean_up() {
 #[tokio::test]
 async fn test_concurrent_operations() {
   let queue = MpscUnboundedChannelQueue::<TestElement>::new();
-  let mut handles = vec![];
+  let mut handles: Vec<Arc<dyn CoreJoinHandle>> = vec![];
 
   for i in 0..10 {
     let mut q = queue.clone();
-    handles.push(tokio::spawn(async move {
+    handles.push(spawn_unit_task(async move {
       for j in 0..10 {
         q.offer(TestElement(i * 10 + j)).unwrap();
       }
@@ -77,7 +88,7 @@ async fn test_concurrent_operations() {
 
   for _ in 0..5 {
     let mut q = queue.clone();
-    handles.push(tokio::spawn(async move {
+    handles.push(spawn_unit_task(async move {
       let mut count = 0;
       while count < 20 {
         if q.poll().unwrap().is_some() {
@@ -88,7 +99,7 @@ async fn test_concurrent_operations() {
   }
 
   for handle in handles {
-    handle.await.unwrap();
+    handle.clone().join().await;
   }
 
   assert_eq!(queue.len(), QueueSize::Limited(0));

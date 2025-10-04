@@ -11,7 +11,7 @@
 3. `QueueLatencyTracker.timestamps`: `Mutex<VecDeque<Instant>>` でラッチし、同期 push/pop を実行。
 
 ## 検証済み呼び出し
-- `DefaultMailbox::poll_system_mailbox` / `poll_user_mailbox`（`modules/actor/src/actor/dispatch/mailbox/default_mailbox.rs:430-520`）: `inner` ロック→ハンドル clone→ロック解放→`poll_sync` 実行（`await` 無し）。
+- `DefaultMailbox::poll_system_mailbox` / `poll_user_mailbox`（`modules/actor-core/src/actor/dispatch/mailbox/default_mailbox.rs:430-520`）: `inner` ロック→ハンドル clone→ロック解放→`poll_sync` 実行（`await` 無し）。
 - `DefaultMailbox::post_user_message` / `post_system_message`：同様に `inner` ロック後に `offer_sync` を呼び、非同期 `await` は行わない。
 - `DefaultMailbox::record_queue_dequeue` 経由のメトリクス更新では、`inner` ロック後に `QueueLatencyTracker` を clone し、ロック解放後に同期操作のみを実施。
 

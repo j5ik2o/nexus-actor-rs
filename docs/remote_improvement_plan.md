@@ -41,17 +41,23 @@
   - BlockList API のユニットテストと、EndpointReader がブロック済みノードを拒否する end-to-end テスト。
 - **備考**:
   - 非同期 API なので `Remote` から `BlockList` のメソッドを await しつつラップする。
+  - RemoteRuntime からは `BlockListStore` として参照でき、起動直後から初期ブロックが反映される。
 
-### EndpointWriter の再接続とメトリクス整備
-- **対象**: `remote/src/endpoint_writer.rs`
+### TransportEndpoint 対応と tonic ブリッジ
+- **対象**: `remote-core`, `remote-std`, `cluster-std`
 - **内容**:
-  - 接続断検知時に指数バックオフで再接続を試みる処理を追加。
-  - 送信成功／失敗の統計を `tracing` または `metrics` crate 連携で記録する。
+  - `RemoteTransport`／`RemoteRuntime` をコア抽象として再エクスポートし、std/embedded から利用できるよう統合済み。
+  - `TonicRemoteTransport` を追加し、`Remote::start` が `TransportListener` と `TransportEndpoint` を経由して起動するよう再構成。
+  - `EndpointWriter` が TransportEndpoint を保持し、new transport を通じて gRPC チャネルを確立する構造に変更。
+  - `ClusterConfig -> RemoteOptions -> RemoteConfigOption` で transport endpoint を伝播する仕組みを導入。
+  - `Remote::runtime()` から `CoreRuntime` と共有するリモートランタイムを初期化し、ブロックリストを `BlockListStore` として公開。
 - **テスト**:
-  - 接続断シナリオを模したユニットテスト（チャネルを意図的に閉じて再接続が発火するか）。
-  - メトリクスが更新されるかの検証（mock exporter を利用）。
-- **備考**:
-  - protoactor-go の `remoteEndpointWriter` の挙動に合わせて DeadLetter の扱いを整える。
+  - `remote::tests::test_advertised_address`、`cluster::tests::remote_activation_*` を TransportEndpoint 経路で成功するまで調整済み。
+  - `EndpointWriter` ユニットテストでリモート喪失時のエラーを確認。
+- **今後のTODO**:
+  - TransportEndpoint を使った TLS/認証設定例を追加。
+  - `RemoteTransport::connect` エラー時のリトライポリシーを検討。
+  - embedded 向け transport 実装（UART/TCP 等）を設計。
 
 ### ドキュメント＆サンプル拡充
 - **対象**: `docs/`, `remote/examples/`
@@ -88,6 +94,6 @@
 
 ## 関連する Core 側の優先課題
 
-- **ActorContext ロック構造の改善** (`modules/actor/src/actor/context/actor_context.rs:112-160`, `:204-237`): `Arc<Mutex<...>>` を保持したまま非同期処理やコールバックを実行しており、メトリクスやユーザーコードから同じコンテキスト API を呼ぶと自己デッドロックを誘発する。ロック解放タイミングの見直しと責務分割が必須。
-- **ExtendedPid の ProcessHandle キャッシュ再設計** (`modules/actor/src/actor/core/pid.rs:96-114`): `process_handle.lock().await` を保持したまま ProcessRegistry を再帰的に呼び出すため、同一 PID を辿ると再入で固まる。キャッシュ更新フェーズと ProcessRegistry 参照を分離する設計変更が必要。
-- **グローバル Extension 登録の同期整理** (`modules/actor/src/extensions.rs:32-58`): `Arc<Mutex<dyn Extension>>` と `Synchronized` の多段ロックで Extension 取得→ロック→downcast を行っており、取得中に Extension 側で Context API を呼ぶと競合しやすい。再入を避けるための読み取り専用構造（例: once_cell + RwLock）へ置き換える。
+- **ActorContext ロック構造の改善** (`modules/actor-core/src/actor/context/actor_context.rs:112-160`, `:204-237`): `Arc<Mutex<...>>` を保持したまま非同期処理やコールバックを実行しており、メトリクスやユーザーコードから同じコンテキスト API を呼ぶと自己デッドロックを誘発する。ロック解放タイミングの見直しと責務分割が必須。
+- **ExtendedPid の ProcessHandle キャッシュ再設計** (`modules/actor-core/src/actor/core/pid.rs:96-114`): `process_handle.lock().await` を保持したまま ProcessRegistry を再帰的に呼び出すため、同一 PID を辿ると再入で固まる。キャッシュ更新フェーズと ProcessRegistry 参照を分離する設計変更が必要。
+- **グローバル Extension 登録の同期整理** (`modules/actor-core/src/extensions.rs:32-58`): `Arc<Mutex<dyn Extension>>` と `Synchronized` の多段ロックで Extension 取得→ロック→downcast を行っており、取得中に Extension 側で Context API を呼ぶと競合しやすい。再入を避けるための読み取り専用構造（例: once_cell + RwLock）へ置き換える。

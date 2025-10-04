@@ -19,3 +19,4 @@ tokio-condvar = "0.3.0"
 tracing = { workspace = true }
 parking_lot = { workspace = true }
 nexus-utils-core-rs = { version = "0.*", path = "../utils-core" }
+nexus-actor-core-rs = { version = "3.*", path = "../actor-core", default-features = false, features = ["alloc"] }

@@ -10,7 +10,7 @@
 - 同期化前 (`0ae465fc312eceb863297ed5efd549909648fa89`) と同期化後の性能差を再確認したい場合に実施する。
 
 ## 手順
-1. `git checkout 0ae465fc312eceb863297ed5efd549909648fa89`（同期化前）を取得し、`modules/actor/benches/mailbox_throughput.rs` を現行ブランチへコピーする。
+1. `git checkout 0ae465fc312eceb863297ed5efd549909648fa89`（同期化前）を取得し、`modules/actor-core/benches/mailbox_throughput.rs` を現行ブランチへコピーする。
 2. `cargo bench --bench mailbox_throughput -- --samples 100` などで計測し、`target/criterion/mailbox_throughput/.../new/benchmark.csv` を保存。
 3. 現行コミットへ戻り再度 `cargo bench --bench mailbox_throughput` を実行し、`criterion diff` または CSV 比較で差分を確認。
 4. 結果は `docs/mailbox_sync_transition_plan.md` の「Nightly ベンチ」節へ追記し、今後の基準に反映する。

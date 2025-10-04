@@ -3,7 +3,7 @@
 ## 計測概要
 - 日付: 2025-09-26 (JST)
 - ブランチ: refactor-0925
-- 計測対象: modules/actor/examples/actor-context-lock-tracing (ActorContextExtras ホットパス負荷シナリオ)
+- 計測対象: modules/actor-core/examples/actor-context-lock-tracing (ActorContextExtras ホットパス負荷シナリオ)
 
 ## セットアップ
 - 使用コマンド: `RUSTFLAGS="--cfg tokio_unstable" RUST_LOG="info,nexus_actor::lock_wait=debug,actor_context_lock_tracing::summary=info" cargo run -p nexus-actor-core-rs --features tokio-console --example actor-context-lock-tracing`

@@ -1,0 +1,135 @@
+# sender/spawn middleware Core ブリッジ設計メモ（2025-10-03）
+
+## 区分基準
+- **課題整理**: 現状の制約と原因を明確化する。
+- **設計方針**: Core 側へ橋渡しするための抽象設計を示す。
+- **実装ステップ**: 実際の変更手順を段階的に分解する。
+
+## 課題整理
+1. **SenderContextHandle の復元不能**  
+   - `SenderContextHandle` は `ContextHandle`/`RootContext` を内部に保持し、実行時に `ActorSystem` へアクセスする。  
+   - `CoreSenderInvocation` には ActorSystem 参照が無いため、Core → std へ戻した際に送信 API を呼べない。
+2. **SpawnMiddleware が std 依存**  
+   - `SpawnMiddleware` は `Spawner` を引数・戻り値に取るが、`Spawner` は `ActorSystem`／`Props`／`SpawnerContextHandle` へ依存。  
+   - CoreProps に `Spawner` を埋め込んでも no_std 環境で実行できず、Core 実装と整合しない。
+
+## 設計方針
+1. **CoreSenderSnapshot の導入**  
+   - `CoreActorContextSnapshot` に加え、送信時に必要なメタ情報（例: `ActorSystemId`、カスタムハンドル識別子）を保持する純データ構造を新設する。  
+   - Core 環境ではデータのまま保持し、std 実行時に `SenderContextFactory` が ActorSystem を解決して `SenderContextHandle` を生成する。
+2. **CoreSenderMiddlewareChain の拡張**  
+   - `CoreSenderInvocation` を `(CoreSenderSnapshot, CorePid, CoreMessageEnvelope)` に拡張。  
+   - std 側は `SenderContextFactory`（`Arc<dyn Fn(CoreSenderSnapshot) -> SenderContextHandle>`）を tail クロージャとして登録し、実行時に Snapshot からハンドルを復元する。
+3. **CoreSpawnInvocation と Factory**  
+   - 親コンテキスト snapshot、`CoreProps`, 子アクター ID などを保持する `CoreSpawnInvocation` を定義。  
+   - std 側で `SpawnContextFactory` や `SpawnerBridge` を用意し、CoreInvocation から既存 `Spawner` 呼び出しへ再ルーティングする。
+4. **Props::rebuild_core_props の整理**  
+   - sender/spawn の Core チェーンを作成する処理を追加し、CoreProps へセットする。  
+   - 工廠時には tail クロージャが ActorSystem／Context を取得できるよう `ActorSystemBridge` をコールバックとして登録。
+
+## 実装ステップ
+1. Core クレート
+   1. `CoreSenderSnapshot`・`CoreSpawnInvocation` を追加。  
+   2. `CoreSenderInvocation` を snapshot を含む構造へ更新し、`CoreSenderMiddlewareChainHandle` を再定義。  
+   3. `CoreProps` に sender/spawn middleware 用のフィールドと setter/getter を追加。
+2. std クレート
+   1. `SenderContextHandle` に `from_core_snapshot`（`ActorSystem` を引数に受ける）を追加。  
+   2. `SenderMiddlewareChain::to_core_invocation_chain` を実装し、CoreSnapshot → std 実行を復元するブリッジを追加。  
+   3. `SpawnMiddleware` に `to_core_invocation_chain`（`SpawnerBridge`）を追加。  
+   4. `Props::rebuild_core_props` の sender/spawn セクションを実装。  
+   5. `RootContext` など sender middleware を利用する箇所が新チェーン API で動作するよう順次調整。
+3. テスト
+   - sender/spawn middleware を利用するユニットテストを追加し、CoreProps へ伝播後も従来通り動作することを検証。  
+   - Integration テストで CoreProps を経由した監視チェーンが正しく再生されるか確認。
+
+
+## 実装ステップ詳細 (2025-10-03 更新)
+
+- ContextRegistry を追加:
+  - ActorSystemId と CorePid の組をキーに Weak Context を管理。
+  - ContextHandle/RootContext がスコープに入る際に登録、ドロップ時に解除。
+- Sender ブリッジ:
+  - CoreSenderSnapshot に ActorSystemId/self_pid 等を含める。
+  - SenderContextHandle::from_core_snapshot() で ActorSystemRegistry + ContextRegistry 経由で復元。
+  - SenderMiddlewareChain::to_core_invocation_chain() で CoreInvocation -> std 実行を行う。
+- Spawn ブリッジ:
+  - CoreSpawnInvocation (親 snapshot, child CoreProps, child pid, metadata) を定義。
+  - SpawnMiddleware::to_core_invocation_chain() で std props/spawner へ戻す。
+  - Props::from_core_props() で CoreProps -> std Props を復元。
+- Props::rebuild_core_props() を更新し、sender/spawn チェーンも CoreProps に反映。
+- 既存ユニットテストを拡張し、ContextRegistry なしでは動作しないケースも検証。
+
+## Spawn ブリッジ詳細設計 (2025-10-03 更新)
+
+- CoreSpawnInvocation の構造:
+  - parent: CoreSenderSnapshot (親コンテキスト)
+  - child_props: CoreProps (子アクターの CoreProps)
+  - child_pid: CorePid (予約済み PID)
+  - actor_system_id: ActorSystemId
+  - metadata: SpawnMetadata (type hint, guardian 情報など)
+- 子 Props の復元:
+  - Props::from_core_props() を実装し、CoreProps から std Props を再構築。
+  - sender/spawn middleware、metrics、guardian 等の再設定を行う。
+- PID 予約戦略:
+  - 親が spawn ミドルウェアを実行する前に ProcessRegistry で ID を予約し、CoreSpawnInvocation に格納。
+- 実行フロー (Core -> std):
+  1. Core spawn チェーンは tail として CoreSpawnInvocation を生成。
+  2. std 側 spawn ブリッジが ActorSystemRegistry + ContextRegistry を使って SpawnerContextHandle を復元。
+  3. Props::from_core_props(child_props) で std Props を復元し、既存 Spawner に委譲。
+  4. 後処理で ContextRegistry へ子 Context を登録。
+- エラーハンドリング:
+  - ActorSystem/Context 復元に失敗した場合は CoreSpawnError::SpawnerUnavailable を返却。
+  - Props 復元に失敗した場合も同様にエラー扱い。
+- テスト方針:
+  - spawn middleware を含む Props を生成し、CoreProps 経由で子アクターが起動するかを確認。
+  - ActorSystem を drop した後のリカバリやデッドレターへのフォールバックもテスト。
+
+### Spawn 実装方針補足
+- `CoreSpawnInvocation` には以下を保持:
+  - `parent_snapshot: CoreSenderSnapshot`
+  - `child_props: CoreProps`
+  - `child_pid: CorePid` (予約済み)
+  - `adapter: Arc<dyn CoreSpawnAdapter>` （spawn 実行に必要な std ブリッジ）
+- `CoreSpawnAdapter` トレイトを Core 側で定義:
+  - `fn spawn(&self, invocation: &CoreSpawnInvocation) -> CoreSpawnFuture<Result<CorePid, CoreSpawnError>>`
+  - CoreProps は純データのみ。実際の ActorProducer/Spawner は adapter が保持する。
+- std 側で `StdSpawnAdapter` を実装:
+  - Props 生成時に `Arc<StdSpawnAdapter>` を作り、CoreSpawnInvocation の adapter として登録。
+  - `spawn()` では ActorSystemRegistry/ContextRegistry を使って `SpawnerContextHandle` を復元し、既存 Spawner を呼び出す。
+- `Props::rebuild_core_props` 時のフロー:
+  1. 子用 std Props の clone を `StdSpawnAdapter` に保持。
+  2. `CoreSpawnInvocation::new(parent_snapshot, core_child_props, reserved_pid, Arc::new(adapter))` を生成し、CoreProps の spawn chain にセット。
+- 実行時フロー:
+  1. Core 側で spawn middleware が走ると `CoreSpawnInvocation` が作られ adapter が呼ばれる。
+  2. adapter 内で Props/ActorProducer を復元し、既存 Spawner に委譲。
+- エラー処理:
+  - ActorSystemRegistry や ContextRegistry から復元できなければ `CoreSpawnError::SpawnerUnavailable`。
+  - Props 復元に失敗した場合も同様。
+- テスト:
+  - spawn middleware を含む Props での end-to-end テスト。
+  - ActorSystem drop 時のフォールバック確認。
+
+## ContextRegistry 実装メモ
+- ContextHandle snapshot 時に `(system_id, self_pid)` で登録／解除。
+- 登録は ContextHandle::snapshot_with_core() 内で実行、Scope をぬける際や ActorContext drop 時に解除。
+- 登録する値は `WeakContextHandle` にし、アップグレードできなければ削除。
+- RootContext は ContextRegistry に登録しない（PID や ActorSystem をその場で取得）。
+
+### CoreSpawnAdapter 詳細設計
+- Core 側で `CoreSpawnAdapter` トレイトを定義:
+  - `fn spawn(&self, invocation: CoreSpawnInvocation) -> CoreSpawnFuture<Result<CorePid, CoreActorSpawnError>>`
+  - 別途, `CoreActorSpawnError` に `AdapterUnavailable` / `AdapterFailed` などを追加。
+- CoreSpawnInvocation には以下を保持:
+  - `parent_snapshot: CoreSenderSnapshot`
+  - `child_props: CoreProps` (純データ)
+  - `child_pid: CorePid` (予約済み PID)
+  - `metadata: Option<Arc<str>>` (type hint 等)
+  - `adapter: Arc<dyn CoreSpawnAdapter>`
+- CoreProps 側には spawn chain (CoreSpawnMiddlewareChainHandle) と adapter を保持。
+- std 側で `StdSpawnAdapter` を実装し、Props::rebuild_core_props() 時に adapter を `Arc` 入りで CoreProps へ渡す。
+- std 側では Adapter 内で以下を行う：
+  1. ActorSystemRegistry/ContextRegistry で `SpawnerContextHandle` を復元。
+  2. `Props::from_core_props(child_props)` で std Props を構築。
+  3. 予約済み PID と共に既存 Spawner に委譲。
+- フォールバック：Adapter が ActorSystem/Context を復元できない場合は `CoreActorSpawnError::AdapterUnavailable` を返し、呼び出し元が dead-letter 等へフォールバック。
+- テスト：spawn middleware 付き Props の end-to-end テスト、Adapter エラー時の挙動など。

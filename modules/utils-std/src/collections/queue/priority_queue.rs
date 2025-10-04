@@ -27,6 +27,37 @@ where
       phantom_data: PhantomData,
     }
   }
+
+  pub fn offer_shared(&self, element: E) -> Result<(), QueueError<E>> {
+    let mut item_priority = DEFAULT_PRIORITY;
+    if let Some(priority) = element.get_priority() {
+      item_priority = priority.clamp(0, PRIORITY_LEVELS as i8 - 1);
+    }
+    let mut guard = self.priority_queues.write();
+    guard[item_priority as usize].offer(element)
+  }
+
+  pub fn poll_shared(&self) -> Result<Option<E>, QueueError<E>> {
+    let mut guard = self.priority_queues.write();
+    for p in (0..PRIORITY_LEVELS).rev() {
+      if let Ok(Some(item)) = guard[p].poll() {
+        return Ok(Some(item));
+      }
+    }
+    Ok(None)
+  }
+
+  pub fn clean_up_shared(&self) {
+    let mut guard = self.priority_queues.write();
+    for queue in guard.iter_mut() {
+      queue.clean_up();
+    }
+  }
+
+  pub fn len_shared(&self) -> usize {
+    let guard = self.priority_queues.read();
+    guard.iter().map(|queue| queue.len().to_usize()).sum()
+  }
 }
 
 impl<E, Q> QueueBase<E> for PriorityQueue<E, Q>
