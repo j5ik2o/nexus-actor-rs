@@ -87,4 +87,17 @@ mod tests {
     assert_eq!(queue.poll_shared().unwrap(), Some(10));
     assert_eq!(queue.poll_shared().unwrap(), None);
   }
+
+  #[test]
+  fn rc_ring_queue_shared_clone() {
+    let queue = RcRingQueue::new(4);
+    let cloned = queue.clone();
+
+    queue.offer_shared(1).unwrap();
+    cloned.offer_shared(2).unwrap();
+
+    assert_eq!(queue.len_shared().to_usize(), 2);
+    assert_eq!(queue.poll_shared().unwrap(), Some(1));
+    assert_eq!(cloned.poll_shared().unwrap(), Some(2));
+  }
 }

@@ -114,4 +114,18 @@ mod tests {
     queue.offer_shared(1).unwrap();
     assert_eq!(queue.poll_shared().unwrap(), Some(1));
   }
+
+  #[cfg(feature = "arc")]
+  #[test]
+  fn arc_ring_queue_shared_clone() {
+    let queue = ArcLocalRingQueue::new(2);
+    let cloned = queue.clone();
+
+    queue.offer_shared(5).unwrap();
+    cloned.offer_shared(6).unwrap();
+
+    assert_eq!(queue.len_shared().to_usize(), 2);
+    assert_eq!(queue.poll_shared().unwrap(), Some(5));
+    assert_eq!(cloned.poll_shared().unwrap(), Some(6));
+  }
 }

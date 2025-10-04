@@ -95,4 +95,18 @@ mod tests {
     assert_eq!(queue.poll_shared().unwrap(), Some(2));
     assert_eq!(queue.poll_shared().unwrap(), None);
   }
+
+  #[test]
+  fn ring_queue_shared_clone_observes_state() {
+    let queue = RingQueue::new(4);
+    let cloned = queue.clone();
+
+    queue.offer_shared(10).unwrap();
+    queue.offer_shared(11).unwrap();
+
+    assert_eq!(cloned.len_shared().to_usize(), 2);
+    assert_eq!(cloned.poll_shared().unwrap(), Some(10));
+    assert_eq!(queue.poll_shared().unwrap(), Some(11));
+    assert_eq!(queue.poll_shared().unwrap(), None);
+  }
 }
