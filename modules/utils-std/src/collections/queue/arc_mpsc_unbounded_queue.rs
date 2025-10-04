@@ -3,32 +3,30 @@ use std::sync::Arc;
 
 use parking_lot::Mutex;
 use tokio::sync::mpsc;
-use tokio::sync::mpsc::error::{TryRecvError, TrySendError};
+use tokio::sync::mpsc::error::TryRecvError;
 
 use nexus_utils_core_rs::{Element, QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, SharedQueue};
 
 #[derive(Debug)]
-struct MpscBoundedInner<E> {
-  receiver: Mutex<mpsc::Receiver<E>>,
-  capacity: usize,
+struct MpscUnboundedInner<E> {
+  receiver: Mutex<mpsc::UnboundedReceiver<E>>,
   is_closed: AtomicBool,
 }
 
 #[derive(Debug, Clone)]
-pub struct AsyncMpscBoundedQueue<E> {
-  sender: mpsc::Sender<E>,
-  inner: Arc<MpscBoundedInner<E>>,
+pub struct ArcMpscUnboundedQueue<E> {
+  sender: mpsc::UnboundedSender<E>,
+  inner: Arc<MpscUnboundedInner<E>>,
   len: Arc<AtomicUsize>,
 }
 
-impl<E> AsyncMpscBoundedQueue<E> {
-  pub fn new(capacity: usize) -> Self {
-    let (sender, receiver) = mpsc::channel(capacity);
+impl<E> ArcMpscUnboundedQueue<E> {
+  pub fn new() -> Self {
+    let (sender, receiver) = mpsc::unbounded_channel();
     Self {
       sender,
-      inner: Arc::new(MpscBoundedInner {
+      inner: Arc::new(MpscUnboundedInner {
         receiver: Mutex::new(receiver),
-        capacity,
         is_closed: AtomicBool::new(false),
       }),
       len: Arc::new(AtomicUsize::new(0)),
@@ -41,13 +39,6 @@ impl<E> AsyncMpscBoundedQueue<E> {
     }
     let mut guard = self.inner.receiver.lock();
     guard.try_recv()
-  }
-
-  fn try_send(&self, element: E) -> Result<(), TrySendError<E>> {
-    if self.inner.is_closed.load(Ordering::SeqCst) {
-      return Err(TrySendError::Closed(element));
-    }
-    self.sender.try_send(element)
   }
 
   fn increment_len(&self) {
@@ -66,15 +57,14 @@ impl<E> AsyncMpscBoundedQueue<E> {
   pub fn offer_shared(&self, element: E) -> Result<(), QueueError<E>>
   where
     E: Element, {
-    match self.try_send(element) {
+    match self.sender.send(element) {
       Ok(()) => {
         self.increment_len();
         Ok(())
       }
-      Err(TrySendError::Full(item)) => Err(QueueError::Full(item)),
-      Err(TrySendError::Closed(item)) => {
+      Err(err) => {
         self.inner.is_closed.store(true, Ordering::SeqCst);
-        Err(QueueError::Closed(item))
+        Err(QueueError::Closed(err.0))
       }
     }
   }
@@ -105,29 +95,25 @@ impl<E> AsyncMpscBoundedQueue<E> {
   pub fn len_shared(&self) -> QueueSize {
     QueueSize::limited(self.len.load(Ordering::SeqCst))
   }
-
-  pub fn capacity_shared(&self) -> QueueSize {
-    QueueSize::limited(self.inner.capacity)
-  }
 }
 
-impl<E: Element> QueueBase<E> for AsyncMpscBoundedQueue<E> {
+impl<E: Element> QueueBase<E> for ArcMpscUnboundedQueue<E> {
   fn len(&self) -> QueueSize {
     self.len_shared()
   }
 
   fn capacity(&self) -> QueueSize {
-    self.capacity_shared()
+    QueueSize::limitless()
   }
 }
 
-impl<E: Element> QueueWriter<E> for AsyncMpscBoundedQueue<E> {
+impl<E: Element> QueueWriter<E> for ArcMpscUnboundedQueue<E> {
   fn offer(&mut self, element: E) -> Result<(), QueueError<E>> {
     self.offer_shared(element)
   }
 }
 
-impl<E: Element> QueueReader<E> for AsyncMpscBoundedQueue<E> {
+impl<E: Element> QueueReader<E> for ArcMpscUnboundedQueue<E> {
   fn poll(&mut self) -> Result<Option<E>, QueueError<E>> {
     self.poll_shared()
   }
@@ -137,17 +123,23 @@ impl<E: Element> QueueReader<E> for AsyncMpscBoundedQueue<E> {
   }
 }
 
-impl<E: Element> SharedQueue<E> for AsyncMpscBoundedQueue<E> {
+impl<E: Element> SharedQueue<E> for ArcMpscUnboundedQueue<E> {
   fn offer_shared(&self, element: E) -> Result<(), QueueError<E>> {
-    AsyncMpscBoundedQueue::offer_shared(self, element)
+    ArcMpscUnboundedQueue::offer_shared(self, element)
   }
 
   fn poll_shared(&self) -> Result<Option<E>, QueueError<E>> {
-    AsyncMpscBoundedQueue::poll_shared(self)
+    ArcMpscUnboundedQueue::poll_shared(self)
   }
 
   fn clean_up_shared(&self) {
-    AsyncMpscBoundedQueue::clean_up_shared(self)
+    ArcMpscUnboundedQueue::clean_up_shared(self)
+  }
+}
+
+impl<E: Element> Default for ArcMpscUnboundedQueue<E> {
+  fn default() -> Self {
+    Self::new()
   }
 }
 
@@ -156,22 +148,22 @@ mod tests {
   use super::*;
 
   #[test]
-  fn bounded_queue_respects_capacity() {
-    let queue = AsyncMpscBoundedQueue::new(1);
-    queue.offer_shared(1).unwrap();
-    let err = queue.offer_shared(2).unwrap_err();
-    assert!(matches!(err, QueueError::Full(2)));
+  fn unbounded_queue_offer_poll_cycle() {
+    let queue: ArcMpscUnboundedQueue<u32> = ArcMpscUnboundedQueue::new();
+    queue.offer_shared(10).unwrap();
+    queue.offer_shared(20).unwrap();
+
+    assert_eq!(queue.len().to_usize(), 2);
+    assert_eq!(queue.poll_shared().unwrap(), Some(10));
+    assert_eq!(queue.poll_shared().unwrap(), Some(20));
+    assert_eq!(queue.poll_shared().unwrap(), None);
   }
 
   #[test]
-  fn bounded_queue_poll_returns_items() {
-    let queue = AsyncMpscBoundedQueue::new(2);
-    queue.offer_shared(1).unwrap();
-    queue.offer_shared(2).unwrap();
-
-    assert_eq!(queue.len().to_usize(), 2);
-    assert_eq!(queue.poll_shared().unwrap(), Some(1));
-    assert_eq!(queue.poll_shared().unwrap(), Some(2));
-    assert_eq!(queue.poll_shared().unwrap(), None);
+  fn unbounded_queue_closed_on_receiver_drop() {
+    let queue: ArcMpscUnboundedQueue<u32> = ArcMpscUnboundedQueue::new();
+    queue.clean_up_shared();
+    let err = queue.poll_shared().unwrap_err();
+    assert!(matches!(err, QueueError::Disconnected));
   }
 }
