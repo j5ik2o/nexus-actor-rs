@@ -1,3 +1,7 @@
 #![no_std]
 
-pub fn placeholder() {}
+extern crate alloc;
+
+pub mod sync;
+
+pub use sync::*;

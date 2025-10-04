@@ -1,8 +1,8 @@
 use std::sync::{Arc, Mutex, MutexGuard};
 
-use nexus_actor_core_rs::StateCell;
+use nexus_utils_core_rs::sync::StateCell;
 
-/// Arc-based state cell backed by `std::sync::Mutex` for synchronous access on std runtimes.
+#[derive(Debug)]
 pub struct ArcStateCell<T>(Arc<Mutex<T>>);
 
 impl<T> ArcStateCell<T> {
@@ -49,5 +49,23 @@ impl<T> StateCell<T> for ArcStateCell<T> {
 
   fn borrow_mut(&self) -> Self::RefMut<'_> {
     self.0.lock().expect("mutex poisoned")
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn arc_state_cell_updates() {
+    let cell = ArcStateCell::new(0_u32);
+    let cloned = cell.clone();
+
+    {
+      let mut value = cloned.borrow_mut();
+      *value = 5;
+    }
+
+    assert_eq!(*cell.borrow(), 5);
   }
 }
