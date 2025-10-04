@@ -32,3 +32,14 @@
 - MUST-3: `remote-core` の Cargo から `nexus-remote-std-rs` 依存を外し、コア型を移設。
 - SHOULD-1: `remote-embedded` 雛形作成、ベアトランスポートの PoC（適当な channel を使ったテスト）。
 - SHOULD-2: `remote-std` 実装を新抽象に追従させるリファクタリング計画を作成。
+
+## 進捗整理（2025-10-04 時点）
+- **API 実装**: remote-core で `core_api` を再エクスポートし、remote-std/remote-embedded が同一抽象を直接利用できるよう統合済み。
+- **std トランスポート**: `TonicRemoteTransport` を追加し、`Remote::start_with_callback` が `TransportListener` と `TransportEndpoint` を経由して起動する構造に整理。`EndpointWriter` も新トランスポートを用いて gRPC チャネルを確立。
+- **設定伝播**: `RemoteConfigOption::with_transport_endpoint` を導入し、`ClusterConfig -> RemoteOptions -> RemoteConfig` の流れで advertised address/host/port を一元的に渡す仕組みを実装。
+- **embedded 雛形**: Loopback ベースの `RemoteRuntime` 構成テストを追加し、core 抽象との連携を検証。今後は実デバイス向けトランスポート拡張が課題。
+
+## 次のステップ
+- **ドキュメント**: `remote_improvement_plan.md` を更新し、TransportEndpoint ベースの設定手順と tonic ブリッジの要点を明文化する。
+- **テスト強化**: EndpointWriter の接続失敗パスや Cluster のリモート回帰シナリオを追加し、TransportEndpoint 経由の安定性を確認する。
+- **embedded 拡張検討**: UART/TCP など低層トランスポート案と必要な SerializerRegistry 実装を洗い出し、SHOULD 項目に優先度を付与する。

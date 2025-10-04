@@ -536,6 +536,27 @@ impl EndpointWriter {
   }
 }
 
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use std::sync::Weak;
+
+  #[tokio::test]
+  async fn create_channel_fails_when_remote_dropped() {
+    let config = Config::default();
+    let mut writer = EndpointWriter::new(
+      Weak::new(),
+      "127.0.0.1:5000".to_string(),
+      config,
+      TransportEndpoint::new("127.0.0.1:5000".to_string()),
+    );
+
+    let err = writer.create_channel().await.expect_err("remote upgrade should fail");
+
+    assert!(matches!(err, EndpointWriterError::Connection(msg) if msg == "remote dropped"));
+  }
+}
+
 fn add_to_lookup(m: &mut DashMap<String, i32>, name: String, a: &mut Vec<String>) -> i32 {
   let max = m.len() as i32;
 
