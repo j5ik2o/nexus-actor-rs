@@ -39,7 +39,7 @@ arc-swap = "1.7"
 bytes = "1.6"
 http-body-util = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-criterion = { version = "0.5", features = ["async_tokio"] }
+criterion = { version = "0.7", features = ["async_tokio"] }
 
 [build-dependencies]
 tonic-build = { version = "0.13.0" }
