@@ -22,7 +22,9 @@ use nexus_actor_core_rs::Shared;
 use nexus_actor_core_rs::{Mailbox, Spawn, StateCell, Timer};
 
 #[cfg(feature = "embedded_arc")]
-use spin::{Mutex, MutexGuard};
+use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex, RawMutex};
+#[cfg(feature = "embedded_arc")]
+use embassy_sync::mutex::{Mutex, MutexGuard};
 
 #[cfg(feature = "embedded_rc")]
 pub struct RcShared<T>(Rc<T>);
@@ -121,29 +123,49 @@ impl<T> StateCell<T> for RcStateCell<T> {
 }
 
 #[cfg(feature = "embedded_arc")]
-pub struct ArcStateCell<T> {
-  inner: Arc<Mutex<T>>,
+pub struct ArcStateCell<T, RM = NoopRawMutex>
+where
+  RM: RawMutex, {
+  inner: Arc<Mutex<RM, T>>,
 }
 
 #[cfg(feature = "embedded_arc")]
-impl<T> ArcStateCell<T> {
+pub type ArcCsStateCell<T> = ArcStateCell<T, CriticalSectionRawMutex>;
+#[cfg(feature = "embedded_arc")]
+pub type ArcLocalStateCell<T> = ArcStateCell<T, NoopRawMutex>;
+
+#[cfg(feature = "embedded_arc")]
+impl<T, RM> ArcStateCell<T, RM>
+where
+  RM: RawMutex,
+{
   pub fn new(value: T) -> Self {
     Self {
       inner: Arc::new(Mutex::new(value)),
     }
   }
 
-  pub fn from_arc(inner: Arc<Mutex<T>>) -> Self {
+  pub fn from_arc(inner: Arc<Mutex<RM, T>>) -> Self {
     Self { inner }
   }
 
-  pub fn into_arc(self) -> Arc<Mutex<T>> {
+  pub fn into_arc(self) -> Arc<Mutex<RM, T>> {
     self.inner
+  }
+
+  fn lock(&self) -> MutexGuard<'_, RM, T> {
+    self
+      .inner
+      .try_lock()
+      .unwrap_or_else(|_| panic!("ArcStateCell: concurrent access detected"))
   }
 }
 
 #[cfg(feature = "embedded_arc")]
-impl<T> Clone for ArcStateCell<T> {
+impl<T, RM> Clone for ArcStateCell<T, RM>
+where
+  RM: RawMutex,
+{
   fn clone(&self) -> Self {
     Self {
       inner: self.inner.clone(),
@@ -152,14 +174,17 @@ impl<T> Clone for ArcStateCell<T> {
 }
 
 #[cfg(feature = "embedded_arc")]
-impl<T> StateCell<T> for ArcStateCell<T> {
+impl<T, RM> StateCell<T> for ArcStateCell<T, RM>
+where
+  RM: RawMutex,
+{
   type Ref<'a>
-    = MutexGuard<'a, T>
+    = MutexGuard<'a, RM, T>
   where
     Self: 'a,
     T: 'a;
   type RefMut<'a>
-    = MutexGuard<'a, T>
+    = MutexGuard<'a, RM, T>
   where
     Self: 'a,
     T: 'a;
@@ -171,11 +196,11 @@ impl<T> StateCell<T> for ArcStateCell<T> {
   }
 
   fn borrow(&self) -> Self::Ref<'_> {
-    self.inner.lock()
+    self.lock()
   }
 
   fn borrow_mut(&self) -> Self::RefMut<'_> {
-    self.inner.lock()
+    self.lock()
   }
 }
 
@@ -251,7 +276,7 @@ impl<'a, M> Future for LocalMailboxRecv<'a, M> {
 
 pub mod prelude {
   #[cfg(feature = "embedded_arc")]
-  pub use super::ArcStateCell;
+  pub use super::{ArcCsStateCell, ArcLocalStateCell, ArcStateCell};
   pub use super::{ImmediateSpawner, ImmediateTimer, LocalMailbox};
   #[cfg(feature = "embedded_rc")]
   pub use super::{RcShared, RcStateCell};
@@ -293,7 +318,7 @@ mod tests {
   #[cfg(feature = "embedded_arc")]
   #[test]
   fn arc_state_cell_borrow_updates_shared_value() {
-    let cell = ArcStateCell::new(1_u32);
+    let cell = ArcLocalStateCell::new(1_u32);
     let cloned = cell.clone();
 
     {

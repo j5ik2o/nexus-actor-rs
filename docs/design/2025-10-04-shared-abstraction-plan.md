@@ -32,11 +32,11 @@ pub trait Shared<T>: Clone + core::ops::Deref<Target = T> {
 
 ```toml
 [features]
-default = ["std"]
-std = []
+default = ["alloc", "embedded_rc"]
+alloc = []
 embedded_rc = []      # RP2040 等、シングルコア / 非アトミック環境
-embedded_static = []  # `StaticRef` による完全 static 構成
-embedded_arc = []     # RP2350 等、atomic 命令対応 MCU 向け（Arc 利用可）
+embedded_arc = ["embassy-sync", "critical-section"]     # RP2350 等、atomic 命令対応 MCU 向け（Arc + Embassy 同期）
+embedded_static = []  # `StaticRef` による完全 static 構成（準備中）
 ```
 
 - std / embedded で共有するコードは `Shared` を通じて抽象化。
@@ -66,6 +66,11 @@ pub trait Spawn {
 | std (サーバ)       | `Arc<T>`            | OS スレッド / tokio            | `Send` + `Sync` 前提          |
 | RP2350 (Cortex-M33)| `Arc<T>`            | デュアルコア / embassy         | 原子命令あり                  |
 | RP2040 (Cortex-M0+)| `Rc<T>` or `StaticRef<T>` | シングルコア async / 割り込み | 原子命令なし。`Rc` は単核専用 |
+
+## StateCell 実装ポリシー
+- `RcStateCell<T>`: `Rc<RefCell<T>>` を内部に保持し、`embedded_rc` フィーチャで利用する。シングルスレッド前提で `RefCell` による実行時借用チェックを活用する。
+- `ArcStateCell<T, RM = NoopRawMutex>`: `Arc<embassy_sync::mutex::Mutex<RM, T>>` を利用し、`embedded_arc` フィーチャで提供する。既定では `ArcLocalStateCell<T>` により `NoopRawMutex` を採用して単一エグゼキュータ向け最小実装とし、実機で割り込みやマルチコアを扱う場合は `ArcCsStateCell<T>` を使って `CriticalSectionRawMutex` を選択する。必要に応じて他の `RawMutex` へも切り替えられる。
+- `StateCell` トレイトは `borrow` / `borrow_mut` を同期 API として提供しており、Actor 本体は単一スレッドでメッセージ処理を行う前提に立つ。今後 async ロックが必要な場合は `StateCell` 拡張メソッドに `try_borrow_async` 等を追加する余地を残す。
 
 ## 運用上の考慮
 - `Shared<T>` の実装ごとに `Send` / `Sync` 制約が変わるため、`Shared` トレイトや利用側で適切な境界を設ける。
@@ -134,3 +139,13 @@ pub trait Spawn {
 
   picotool load target/thumbv6m-none-eabi/release/examples/rp2040_led.uf2 -x
   ```
+
+## RP2350 向け動作確認サンプル
+- `modules/actor-embedded/examples/rp2350_arc.rs` は `ArcStateCell`（既定 `NoopRawMutex`）を利用した最小構成を示し、RP2350（Cortex-M33 クラス）で `embedded_arc` を有効化した際の動作確認に用いる。
+- ビルド例（thumbv8m/main ターゲットを事前に追加しておく）：
+  ```bash
+  rustup target add thumbv8m.main-none-eabihf
+  cargo build -p nexus-actor-embedded-rs --example rp2350_arc \
+    --target thumbv8m.main-none-eabihf --no-default-features --features alloc,embedded_arc
+  ```
+- 実機で割り込み共存を行う場合は `ArcCsStateCell::new` を採用し、`critical-section` 実装（例: `cortex-m` の `critical-section-single-core`）を初期化する。CI では少なくとも上記クロスビルドを追加し、`embedded_arc` のビルド破綻を検知するようジョブを拡張する。

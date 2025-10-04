@@ -13,7 +13,7 @@ repository = "https://github.com/j5ik2o/nexus-actor-rs"
 default = ["alloc", "embedded_rc"]
 alloc = []
 embedded_rc = []
-embedded_arc = ["dep:spin"]
+embedded_arc = ["dep:embassy-sync", "dep:critical-section"]
 
 [dependencies]
 nexus-actor-core-rs = { path = "../actor-core", default-features = false, features = ["alloc"] }
@@ -23,7 +23,8 @@ cortex-m-rt = { version = "0.7", optional = true }
 panic-halt = { version = "0.2", optional = true }
 rp2040-hal = { version = "0.9", default-features = false, features = ["critical-section-impl"], optional = true }
 embedded-hal = { version = "0.2", optional = true }
-spin = { version = "0.9", default-features = false, features = ["mutex", "spin_mutex"], optional = true }
+embassy-sync = { version = "0.7", default-features = false, optional = true }
+critical-section = { version = "1.2", optional = true }
 
 [target.'cfg(target_os = "none")'.dependencies]
 alloc-cortex-m = "0.4"
@@ -33,3 +34,7 @@ panic-halt = "0.2"
 rp2040-boot2 = "0.3"
 rp2040-hal = { version = "0.9", default-features = false, features = ["critical-section-impl"] }
 embedded-hal = "0.2"
+
+[[example]]
+name = "rp2350_arc"
+required-features = ["embedded_arc"]
