@@ -72,10 +72,30 @@ pub trait Spawn {
 - Feature 組み合わせが増加するため、CI で主要パス（`std`, `embedded_rc`, `embedded_static`）をカバーする体制を準備する。
 
 ## 今後の進め方（初期ステップ）
-1. `Shared<T>` トレイトと代表的な実装を導入し、既存 `Arc` ベースのコードを `Shared` に置き換える。
-2. Actor / Scheduler / Mailbox など主要コンポーネントで `Shared` を透過させるための API 調整を行う。
-3. `embedded_rc` フィーチャを作成し、RP2040 ターゲットで `Rc` ベースのビルドを確認する。
-4. `embedded_static` など追加モードや `RP2350` 向けの `Arc` モードを順次整備する。
+1. **Shared 抽象導入の足場づくり**
+   - `Shared<T>` トレイトと代表的な実装（`Arc` / `Rc` / `StaticRef`）を追加し、段階的に既存コードへ適用できるようにする。
+   - まずは `core` 層で `Arc` を直接持っている箇所を洗い出し、`Shared` を通すためのジェネリクス化が妥当か、API を再設計すべきかを分類する。
+
+2. **基盤コンポーネントのジェネリクス化**
+   - ActorRef / Context / Mailbox / Scheduler / Runtime など、共有所有権を扱うコア API を `Shared` ベースに書き換える。
+   - この際、`Send`/`Sync` 制約の有無や `try_unwrap` の扱いなど、環境差異を吸収するための追加メソッドが必要か検討する。
+
+3. **環境別フィーチャの実装**
+   - `std` 構成では従来通り `Arc` を用い、既存テストがすべて通る状態を維持しながら進める。
+   - `embedded_rc` フィーチャを新設し、RP2040（Cortex-M0+）向けビルドで `Rc` を利用できるようにする。`alloc` あり／`no_std` 前提のビルドパスと CI を整える。
+   - `embedded_static` など追加モードも検討し、静的メモリ向けの `StaticRef` 実装を整備する。
+
+4. **Mailbox / Spawn 抽象の切り替え**
+   - `Mailbox` や `Spawn` のトレイト化を進め、std 版（tokio）と embedded 版（heapless 等）の実装差を吸収する。
+   - 関連するテストとベンチマークを `Shared` ベースに更新する。
+
+5. **CI & ドキュメント整備**
+   - 主要フィーチャ組み合わせ（`std`, `embedded_rc`, `embedded_static`）を CI で継続的に検証する。
+   - `AGENTS.md` など運用ドキュメントに、所有モデルを切り替える手順とフィーチャ一覧を明記する。
+
+6. **段階的リリース計画**
+   - 既存の `std` / `Arc` 構成を壊さないよう小さなステップで進める。
+   - 各マイルストーンで `cargo test --workspace` とクロスビルドを実施しながら、段階的に `Shared` ベースへ移行する。
 
 ## 優先度
 - 本設計は `embedded` モジュールで Arc が利用できない MCU をサポートする唯一の実現手段であり、最優先で進める。
