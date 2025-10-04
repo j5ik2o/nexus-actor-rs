@@ -8,7 +8,6 @@
 - **実装方針**:
     - 既存の多くの実装を参考にして、一貫性のあるコードを書くこと
     - protoactor-go(@docs/sources/protoactor-go)の実装を参考にすること（Goの実装からRustイディオムに変換）
-    - 再設計中のコードについて、旧実装は `docs/sources/nexus-actor-rs-old/` に参照用として保管済み。参照のみとし、新規実装は Shared 抽象 / async モデル案に基づいて構築する
 - **後方互換性**: 後方互換は不要（破壊的変更を恐れずに最適な設計を追求すること）
 - CLAUDE.mdも参照すること。
 - serena mcpを有効活用すること

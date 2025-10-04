@@ -1,0 +1,18 @@
+[package]
+name = "nexus-remote-core-rs"
+version = "0.0.1"
+edition = "2021"
+description = "Core abstractions for Nexus remote messaging"
+license = "MIT OR Apache-2.0"
+keywords = ["nexus", "actor", "remote"]
+categories = ["concurrency", "asynchronous"]
+readme = "../../README.md"
+repository = "https://github.com/j5ik2o/nexus-actor-rs"
+
+[features]
+default = ["std"]
+std = []
+alloc = []
+
+[dependencies]
+nexus-actor-core-rs = { path = "../actor-core", default-features = false, features = ["alloc"] }

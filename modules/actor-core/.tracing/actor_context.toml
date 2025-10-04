@@ -1,0 +1,21 @@
+# ActorContext 計測用 tracing 設定 (PoC)
+
+# console_subscriber を用いた tokio-console 用の設定例
+[console]
+# RUSTFLAGS="--cfg tokio_unstable" でコンパイルする前提
+mode = "tokio-console"
+filter = "nexus_actor=trace,actor_context=trace"
+# optional: tokio-console の bind アドレス
+listen_address = "127.0.0.1:6669"
+
+[export]
+# tracing-flame 等の利用を想定した出力パス
+flamegraph = "target/tracing/actor_context.folded"
+
+[spans]
+# 追加で計測したいスパンを列挙 (PoC 時に更新)
+tracked = [
+  "actor_context::ensure_extras",
+  "actor_context::receive_timeout_handler",
+  "pid_set::add",
+]

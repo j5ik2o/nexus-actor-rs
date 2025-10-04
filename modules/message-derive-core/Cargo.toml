@@ -1,0 +1,12 @@
+[package]
+name = "nexus-message-derive-core-rs"
+version = "0.0.1"
+edition = "2021"
+description = "Shared definitions for message derive tooling"
+license = "MIT OR Apache-2.0"
+keywords = ["nexus", "actor", "message"]
+categories = ["development-tools"]
+readme = "../../README.md"
+repository = "https://github.com/j5ik2o/nexus-actor-rs"
+
+[dependencies]
