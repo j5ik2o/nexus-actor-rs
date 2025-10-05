@@ -1,42 +1,42 @@
-use crate::RingQueue;
+use crate::ArcRingQueue;
 use nexus_utils_core_rs::{
   PriorityMessage, QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, SharedPriorityQueue, SharedQueue,
   PRIORITY_LEVELS,
 };
 
 #[derive(Debug, Clone)]
-pub struct PriorityQueue<E> {
-  inner: SharedPriorityQueue<RingQueue<E>, E>,
+pub struct ArcPriorityQueue<E> {
+  inner: SharedPriorityQueue<ArcRingQueue<E>, E>,
 }
 
-impl<E> PriorityQueue<E> {
+impl<E> ArcPriorityQueue<E> {
   pub fn new(capacity_per_level: usize) -> Self {
     let levels = (0..PRIORITY_LEVELS)
-      .map(|_| RingQueue::new(capacity_per_level))
+      .map(|_| ArcRingQueue::new(capacity_per_level))
       .collect();
     Self {
       inner: SharedPriorityQueue::new(levels),
     }
   }
 
-  pub fn levels(&self) -> &[RingQueue<E>] {
+  pub fn levels(&self) -> &[ArcRingQueue<E>] {
     self.inner.levels()
   }
 
-  pub fn levels_mut(&mut self) -> &mut [RingQueue<E>] {
+  pub fn levels_mut(&mut self) -> &mut [ArcRingQueue<E>] {
     self.inner.levels_mut()
   }
 
-  pub fn inner(&self) -> &SharedPriorityQueue<RingQueue<E>, E> {
+  pub fn inner(&self) -> &SharedPriorityQueue<ArcRingQueue<E>, E> {
     &self.inner
   }
 
-  pub fn inner_mut(&mut self) -> &mut SharedPriorityQueue<RingQueue<E>, E> {
+  pub fn inner_mut(&mut self) -> &mut SharedPriorityQueue<ArcRingQueue<E>, E> {
     &mut self.inner
   }
 }
 
-impl<E> PriorityQueue<E>
+impl<E> ArcPriorityQueue<E>
 where
   E: PriorityMessage,
 {
@@ -53,7 +53,7 @@ where
   }
 }
 
-impl<E> QueueBase<E> for PriorityQueue<E>
+impl<E> QueueBase<E> for ArcPriorityQueue<E>
 where
   E: PriorityMessage,
 {
@@ -66,7 +66,7 @@ where
   }
 }
 
-impl<E> QueueWriter<E> for PriorityQueue<E>
+impl<E> QueueWriter<E> for ArcPriorityQueue<E>
 where
   E: PriorityMessage,
 {
@@ -75,7 +75,7 @@ where
   }
 }
 
-impl<E> QueueReader<E> for PriorityQueue<E>
+impl<E> QueueReader<E> for ArcPriorityQueue<E>
 where
   E: PriorityMessage,
 {
@@ -88,7 +88,7 @@ where
   }
 }
 
-impl<E> SharedQueue<E> for PriorityQueue<E>
+impl<E> SharedQueue<E> for ArcPriorityQueue<E>
 where
   E: PriorityMessage,
 {
@@ -122,7 +122,7 @@ mod tests {
 
   #[test]
   fn priority_queue_orders_elements() {
-    let queue = PriorityQueue::new(4);
+    let queue = ArcPriorityQueue::new(4);
     queue.offer(Msg(10, 1)).unwrap();
     queue.offer(Msg(99, 7)).unwrap();
     queue.offer(Msg(20, 3)).unwrap();
@@ -135,7 +135,7 @@ mod tests {
 
   #[test]
   fn priority_queue_len_capacity_and_clean_up() {
-    let queue = PriorityQueue::new(2);
+    let queue = ArcPriorityQueue::new(2);
     assert_eq!(queue.len(), QueueSize::limited(0));
 
     queue.offer(Msg(1, 0)).unwrap();
@@ -147,13 +147,13 @@ mod tests {
 
   #[test]
   fn priority_queue_capacity_reflects_levels() {
-    let queue = PriorityQueue::<Msg>::new(1);
+    let queue = ArcPriorityQueue::<Msg>::new(1);
     assert!(queue.capacity().is_limitless());
   }
 
   #[test]
   fn priority_queue_offer_via_trait() {
-    let mut queue = PriorityQueue::new(2);
+    let mut queue = ArcPriorityQueue::new(2);
     queue.offer_mut(Msg(5, 2)).unwrap();
     assert_eq!(queue.poll_mut().unwrap().unwrap().0, 5);
   }

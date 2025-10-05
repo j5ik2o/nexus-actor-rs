@@ -1,3 +1,3 @@
-mod priority_queue;
+mod arc_priority_queue;
 
-pub use priority_queue::PriorityQueue;
+pub use arc_priority_queue::ArcPriorityQueue;

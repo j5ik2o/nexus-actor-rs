@@ -7,11 +7,11 @@ use nexus_utils_core_rs::{
 };
 
 #[derive(Debug, Clone)]
-pub struct RingQueue<E> {
+pub struct ArcRingQueue<E> {
   inner: SharedRingQueue<ArcShared<Mutex<RingBuffer<E>>>, E>,
 }
 
-impl<E> RingQueue<E> {
+impl<E> ArcRingQueue<E> {
   pub fn new(capacity: usize) -> Self {
     let storage = ArcShared::new(Mutex::new(RingBuffer::new(capacity)));
     Self {
@@ -29,13 +29,13 @@ impl<E> RingQueue<E> {
   }
 }
 
-impl<E> Default for RingQueue<E> {
+impl<E> Default for ArcRingQueue<E> {
   fn default() -> Self {
     Self::new(DEFAULT_CAPACITY)
   }
 }
 
-impl<E> QueueBase<E> for RingQueue<E> {
+impl<E> QueueBase<E> for ArcRingQueue<E> {
   fn len(&self) -> QueueSize {
     self.inner.len()
   }
@@ -45,13 +45,13 @@ impl<E> QueueBase<E> for RingQueue<E> {
   }
 }
 
-impl<E> QueueWriter<E> for RingQueue<E> {
+impl<E> QueueWriter<E> for ArcRingQueue<E> {
   fn offer_mut(&mut self, element: E) -> Result<(), QueueError<E>> {
     self.inner.offer_mut(element)
   }
 }
 
-impl<E> QueueReader<E> for RingQueue<E> {
+impl<E> QueueReader<E> for ArcRingQueue<E> {
   fn poll_mut(&mut self) -> Result<Option<E>, QueueError<E>> {
     self.inner.poll_mut()
   }
@@ -61,7 +61,7 @@ impl<E> QueueReader<E> for RingQueue<E> {
   }
 }
 
-impl<E> SharedQueue<E> for RingQueue<E> {
+impl<E> SharedQueue<E> for ArcRingQueue<E> {
   fn offer(&self, element: E) -> Result<(), QueueError<E>> {
     self.inner.offer(element)
   }
@@ -81,7 +81,7 @@ mod tests {
 
   #[test]
   fn ring_queue_offer_poll() {
-    let queue = RingQueue::new(2).with_dynamic(false);
+    let queue = ArcRingQueue::new(2).with_dynamic(false);
     queue.offer(1).unwrap();
     queue.offer(2).unwrap();
     assert_eq!(queue.offer(3), Err(QueueError::Full(3)));
@@ -93,7 +93,7 @@ mod tests {
 
   #[test]
   fn ring_queue_shared_clone_observes_state() {
-    let queue = RingQueue::new(4);
+    let queue = ArcRingQueue::new(4);
     let cloned = queue.clone();
 
     queue.offer(10).unwrap();
@@ -107,7 +107,7 @@ mod tests {
 
   #[test]
   fn ring_queue_clean_up_resets_queue() {
-    let queue = RingQueue::new(2);
+    let queue = ArcRingQueue::new(2);
     queue.offer(1).unwrap();
     queue.offer(2).unwrap();
 
@@ -118,7 +118,7 @@ mod tests {
 
   #[test]
   fn ring_queue_dynamic_resize() {
-    let queue = RingQueue::new(1);
+    let queue = ArcRingQueue::new(1);
     queue.set_dynamic(true);
     queue.offer(1).unwrap();
     queue.offer(2).unwrap();
@@ -127,7 +127,7 @@ mod tests {
 
   #[test]
   fn ring_queue_capacity_and_poll_via_traits() {
-    let mut queue = RingQueue::new(1).with_dynamic(false);
+    let mut queue = ArcRingQueue::new(1).with_dynamic(false);
     queue.offer_mut(9).unwrap();
     assert_eq!(queue.capacity(), QueueSize::limited(1));
     assert_eq!(queue.poll_mut().unwrap(), Some(9));

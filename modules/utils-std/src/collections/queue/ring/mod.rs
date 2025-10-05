@@ -1,3 +1,3 @@
-mod ring_queue;
+mod arc_ring_queue;
 
-pub use ring_queue::RingQueue;
+pub use arc_ring_queue::ArcRingQueue;

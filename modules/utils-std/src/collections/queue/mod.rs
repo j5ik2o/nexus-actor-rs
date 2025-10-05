@@ -3,5 +3,5 @@ pub mod priority;
 pub mod ring;
 
 pub use mpsc::{ArcMpscBoundedQueue, ArcMpscUnboundedQueue};
-pub use priority::PriorityQueue;
-pub use ring::RingQueue;
+pub use priority::ArcPriorityQueue;
+pub use ring::ArcRingQueue;

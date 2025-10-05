@@ -1,4 +1,4 @@
-use crate::collections::queue::mpsc::backend::TokioBoundedMpscBackend;
+use crate::collections::queue::mpsc::TokioBoundedMpscBackend;
 use crate::sync::ArcShared;
 use nexus_utils_core_rs::{
   Element, MpscBackend, MpscBuffer, QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, RingBufferBackend,
