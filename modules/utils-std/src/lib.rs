@@ -9,13 +9,15 @@ pub use nexus_utils_core_rs::{
 };
 
 pub use collections::{ArcMpscBoundedQueue, ArcMpscUnboundedQueue, ArcPriorityQueue, ArcRingQueue, ArcStack};
-pub use concurrent::{Synchronized, SynchronizedRw, TokioMutexBackend, TokioRwLockBackend};
+pub use concurrent::{
+  CountDownLatch, Synchronized, SynchronizedRw, TokioCountDownLatchBackend, TokioMutexBackend, TokioRwLockBackend,
+};
 pub use sync::{ArcShared, ArcStateCell};
 
 pub mod prelude {
   pub use super::{
     ArcMpscBoundedQueue, ArcMpscUnboundedQueue, ArcPriorityQueue, ArcRingQueue, ArcShared, ArcStack, ArcStateCell,
-    Synchronized, SynchronizedRw,
+    CountDownLatch, Synchronized, SynchronizedRw,
   };
   pub use nexus_utils_core_rs::{
     Element, PriorityMessage, QueueBase, QueueError, QueueReader, QueueSize, QueueStorage, QueueWriter, RingBuffer,

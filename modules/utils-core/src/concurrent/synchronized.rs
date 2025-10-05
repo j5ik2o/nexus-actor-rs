@@ -22,11 +22,8 @@ impl<G> GuardHandle<G> {
   }
 }
 
-impl<G> Deref for GuardHandle<G>
-where
-  G: Deref,
-{
-  type Target = G::Target;
+impl<G> Deref for GuardHandle<G> {
+  type Target = G;
 
   fn deref(&self) -> &Self::Target {
     &self.guard

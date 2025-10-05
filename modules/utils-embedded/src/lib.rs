@@ -15,11 +15,13 @@ pub use nexus_utils_core_rs::{
 pub use collections::*;
 #[cfg(feature = "arc")]
 pub use concurrent::{
-  ArcCsSynchronized, ArcCsSynchronizedRw, ArcLocalSynchronized, ArcLocalSynchronizedRw, ArcMutexBackend,
-  ArcRwLockBackend, ArcSynchronized, ArcSynchronizedRw,
+  ArcCountDownLatchBackend, ArcCsCountDownLatch, ArcCsSynchronized, ArcCsSynchronizedRw, ArcLocalCountDownLatch,
+  ArcLocalSynchronized, ArcLocalSynchronizedRw, ArcMutexBackend, ArcRwLockBackend, ArcSynchronized, ArcSynchronizedRw,
 };
 #[cfg(feature = "rc")]
-pub use concurrent::{RcMutexBackend, RcRwLockBackend, RcSynchronized, RcSynchronizedRw};
+pub use concurrent::{
+  RcCountDownLatch, RcCountDownLatchBackend, RcMutexBackend, RcRwLockBackend, RcSynchronized, RcSynchronizedRw,
+};
 pub use sync::*;
 
 pub mod prelude {
@@ -33,11 +35,11 @@ pub mod prelude {
   pub use crate::collections::{RcMpscBoundedQueue, RcMpscUnboundedQueue, RcPriorityQueue, RcRingQueue, RcStack};
   #[cfg(feature = "arc")]
   pub use crate::concurrent::{
-    ArcCsSynchronized, ArcCsSynchronizedRw, ArcLocalSynchronized, ArcLocalSynchronizedRw, ArcSynchronized,
-    ArcSynchronizedRw,
+    ArcCsCountDownLatch, ArcCsSynchronized, ArcCsSynchronizedRw, ArcLocalCountDownLatch, ArcLocalSynchronized,
+    ArcLocalSynchronizedRw, ArcSynchronized, ArcSynchronizedRw,
   };
   #[cfg(feature = "rc")]
-  pub use crate::concurrent::{RcSynchronized, RcSynchronizedRw};
+  pub use crate::concurrent::{RcCountDownLatch, RcSynchronized, RcSynchronizedRw};
   #[cfg(feature = "arc")]
   pub use crate::sync::{ArcCsStateCell, ArcLocalStateCell, ArcShared, ArcStateCell};
   #[cfg(feature = "rc")]

@@ -110,6 +110,7 @@ mod tests {
 
     let result = {
       let guard = sync.lock().await;
+      let guard = guard.into_inner();
       *guard
     };
 

@@ -12,5 +12,8 @@ pub use collections::{
   SharedPriorityQueue, SharedQueue, SharedQueueHandle, SharedRingQueue, SharedStack, SharedStackHandle, StackBase,
   StackBuffer, StackError, StackMut, StackStorage, DEFAULT_CAPACITY, DEFAULT_PRIORITY, PRIORITY_LEVELS,
 };
-pub use concurrent::{BoxFuture, Synchronized, SynchronizedMutexBackend, SynchronizedRw, SynchronizedRwBackend};
+pub use concurrent::{
+  BoxFuture, CountDownLatch, CountDownLatchBackend, GuardHandle, Synchronized, SynchronizedMutexBackend,
+  SynchronizedRw, SynchronizedRwBackend,
+};
 pub use sync::{Shared, StateCell};

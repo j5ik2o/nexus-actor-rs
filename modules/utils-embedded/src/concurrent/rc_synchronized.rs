@@ -109,6 +109,7 @@ mod tests {
 
       let updated = {
         let guard = sync.lock().await;
+        let guard = guard.into_inner();
         *guard
       };
       assert_eq!(updated, 7);
