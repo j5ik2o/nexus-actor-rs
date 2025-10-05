@@ -3,6 +3,7 @@
 extern crate alloc;
 
 pub mod collections;
+pub mod concurrent;
 pub mod sync;
 
 pub use collections::{
@@ -11,4 +12,5 @@ pub use collections::{
   SharedPriorityQueue, SharedQueue, SharedQueueHandle, SharedRingQueue, SharedStack, SharedStackHandle, StackBase,
   StackBuffer, StackError, StackMut, StackStorage, DEFAULT_CAPACITY, DEFAULT_PRIORITY, PRIORITY_LEVELS,
 };
+pub use concurrent::{BoxFuture, Synchronized, SynchronizedMutexBackend, SynchronizedRw, SynchronizedRwBackend};
 pub use sync::{Shared, StateCell};

@@ -3,6 +3,7 @@
 extern crate alloc;
 
 pub mod collections;
+pub mod concurrent;
 pub mod sync;
 
 pub use nexus_utils_core_rs::{
@@ -12,6 +13,13 @@ pub use nexus_utils_core_rs::{
 };
 
 pub use collections::*;
+#[cfg(feature = "arc")]
+pub use concurrent::{
+  ArcCsSynchronized, ArcCsSynchronizedRw, ArcLocalSynchronized, ArcLocalSynchronizedRw, ArcMutexBackend,
+  ArcRwLockBackend, ArcSynchronized, ArcSynchronizedRw,
+};
+#[cfg(feature = "rc")]
+pub use concurrent::{RcMutexBackend, RcRwLockBackend, RcSynchronized, RcSynchronizedRw};
 pub use sync::*;
 
 pub mod prelude {
@@ -23,6 +31,13 @@ pub mod prelude {
   };
   #[cfg(feature = "rc")]
   pub use crate::collections::{RcMpscBoundedQueue, RcMpscUnboundedQueue, RcPriorityQueue, RcRingQueue, RcStack};
+  #[cfg(feature = "arc")]
+  pub use crate::concurrent::{
+    ArcCsSynchronized, ArcCsSynchronizedRw, ArcLocalSynchronized, ArcLocalSynchronizedRw, ArcSynchronized,
+    ArcSynchronizedRw,
+  };
+  #[cfg(feature = "rc")]
+  pub use crate::concurrent::{RcSynchronized, RcSynchronizedRw};
   #[cfg(feature = "arc")]
   pub use crate::sync::{ArcCsStateCell, ArcLocalStateCell, ArcShared, ArcStateCell};
   #[cfg(feature = "rc")]

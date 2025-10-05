@@ -11,7 +11,7 @@ repository = "https://github.com/j5ik2o/nexus-actor-rs"
 
 [features]
 default = ["rc"]
-rc = []
+rc = ["dep:embassy-sync"]
 arc = ["dep:embassy-sync", "dep:critical-section"]
 embassy = ["arc", "dep:embassy-time", "dep:embassy-futures"]
 
@@ -24,3 +24,4 @@ nexus-utils-core-rs = { path = "../utils-core", default-features = false, featur
 
 [dev-dependencies]
 static_assertions = { workspace = true }
+futures = { version = "0.3", default-features = false, features = ["alloc"] }
