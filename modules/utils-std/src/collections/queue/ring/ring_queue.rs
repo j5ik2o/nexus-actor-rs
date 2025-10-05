@@ -27,26 +27,6 @@ impl<E> RingQueue<E> {
   pub fn set_dynamic(&self, dynamic: bool) {
     self.inner.set_dynamic(dynamic);
   }
-
-  pub fn offer_shared(&self, element: E) -> Result<(), QueueError<E>> {
-    self.inner.offer_shared(element)
-  }
-
-  pub fn poll_shared(&self) -> Result<Option<E>, QueueError<E>> {
-    self.inner.poll_shared()
-  }
-
-  pub fn clean_up_shared(&self) {
-    self.inner.clean_up_shared();
-  }
-
-  pub fn len_shared(&self) -> QueueSize {
-    self.inner.len_shared()
-  }
-
-  pub fn capacity_shared(&self) -> QueueSize {
-    self.inner.capacity_shared()
-  }
 }
 
 impl<E> Default for RingQueue<E> {
@@ -83,15 +63,15 @@ impl<E> QueueReader<E> for RingQueue<E> {
 
 impl<E> SharedQueue<E> for RingQueue<E> {
   fn offer(&self, element: E) -> Result<(), QueueError<E>> {
-    self.inner.offer_shared(element)
+    self.inner.offer(element)
   }
 
   fn poll(&self) -> Result<Option<E>, QueueError<E>> {
-    self.inner.poll_shared()
+    self.inner.poll()
   }
 
   fn clean_up(&self) {
-    self.inner.clean_up_shared();
+    self.inner.clean_up();
   }
 }
 
@@ -102,13 +82,13 @@ mod tests {
   #[test]
   fn ring_queue_offer_poll() {
     let queue = RingQueue::new(2).with_dynamic(false);
-    queue.offer_shared(1).unwrap();
-    queue.offer_shared(2).unwrap();
-    assert_eq!(queue.offer_shared(3), Err(QueueError::Full(3)));
+    queue.offer(1).unwrap();
+    queue.offer(2).unwrap();
+    assert_eq!(queue.offer(3), Err(QueueError::Full(3)));
 
-    assert_eq!(queue.poll_shared().unwrap(), Some(1));
-    assert_eq!(queue.poll_shared().unwrap(), Some(2));
-    assert_eq!(queue.poll_shared().unwrap(), None);
+    assert_eq!(queue.poll().unwrap(), Some(1));
+    assert_eq!(queue.poll().unwrap(), Some(2));
+    assert_eq!(queue.poll().unwrap(), None);
   }
 
   #[test]
@@ -116,33 +96,33 @@ mod tests {
     let queue = RingQueue::new(4);
     let cloned = queue.clone();
 
-    queue.offer_shared(10).unwrap();
-    queue.offer_shared(11).unwrap();
+    queue.offer(10).unwrap();
+    queue.offer(11).unwrap();
 
-    assert_eq!(cloned.len_shared().to_usize(), 2);
-    assert_eq!(cloned.poll_shared().unwrap(), Some(10));
-    assert_eq!(queue.poll_shared().unwrap(), Some(11));
-    assert_eq!(queue.poll_shared().unwrap(), None);
+    assert_eq!(cloned.len().to_usize(), 2);
+    assert_eq!(cloned.poll().unwrap(), Some(10));
+    assert_eq!(queue.poll().unwrap(), Some(11));
+    assert_eq!(queue.poll().unwrap(), None);
   }
 
   #[test]
   fn ring_queue_clean_up_resets_queue() {
     let queue = RingQueue::new(2);
-    queue.offer_shared(1).unwrap();
-    queue.offer_shared(2).unwrap();
+    queue.offer(1).unwrap();
+    queue.offer(2).unwrap();
 
-    queue.clean_up_shared();
-    assert_eq!(queue.len_shared().to_usize(), 0);
-    assert!(queue.poll_shared().unwrap().is_none());
+    queue.clean_up();
+    assert_eq!(queue.len().to_usize(), 0);
+    assert!(queue.poll().unwrap().is_none());
   }
 
   #[test]
   fn ring_queue_dynamic_resize() {
     let queue = RingQueue::new(1);
     queue.set_dynamic(true);
-    queue.offer_shared(1).unwrap();
-    queue.offer_shared(2).unwrap();
-    assert!(queue.len_shared().to_usize() >= 2);
+    queue.offer(1).unwrap();
+    queue.offer(2).unwrap();
+    assert!(queue.len().to_usize() >= 2);
   }
 
   #[test]

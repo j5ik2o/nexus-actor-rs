@@ -30,35 +30,35 @@ where
       .clamp(0, PRIORITY_LEVELS as i8 - 1) as usize
   }
 
-  pub fn offer_shared(&self, element: E) -> Result<(), QueueError<E>> {
+  pub fn offer(&self, element: E) -> Result<(), QueueError<E>> {
     let idx = self.priority_index(&element);
-    self.queues[idx].offer_shared(element)
+    self.queues[idx].offer(element)
   }
 
-  pub fn poll_shared(&self) -> Result<Option<E>, QueueError<E>> {
+  pub fn poll(&self) -> Result<Option<E>, QueueError<E>> {
     for queue in self.queues.iter().rev() {
-      if let Some(item) = queue.poll_shared()? {
+      if let Some(item) = queue.poll()? {
         return Ok(Some(item));
       }
     }
     Ok(None)
   }
 
-  pub fn len_shared(&self) -> QueueSize {
+  pub fn clean_up(&self) {
+    for queue in &self.queues {
+      queue.clean_up();
+    }
+  }
+
+  fn total_len(&self) -> QueueSize {
     let mut total = 0usize;
     for queue in &self.queues {
-      match queue.len_shared() {
+      match queue.len() {
         QueueSize::Limitless => return QueueSize::limitless(),
         QueueSize::Limited(value) => total += value,
       }
     }
     QueueSize::limited(total)
-  }
-
-  pub fn clean_up_shared(&self) {
-    for queue in &self.queues {
-      queue.clean_up_shared();
-    }
   }
 }
 
@@ -67,13 +67,13 @@ where
   E: PriorityMessage,
 {
   fn len(&self) -> QueueSize {
-    self.len_shared()
+    self.total_len()
   }
 
   fn capacity(&self) -> QueueSize {
     let mut total = 0usize;
     for queue in &self.queues {
-      match queue.capacity_shared() {
+      match queue.capacity() {
         QueueSize::Limitless => return QueueSize::limitless(),
         QueueSize::Limited(value) => total += value,
       }
@@ -87,7 +87,7 @@ where
   E: PriorityMessage,
 {
   fn offer_mut(&mut self, element: E) -> Result<(), QueueError<E>> {
-    self.offer_shared(element)
+    self.offer(element)
   }
 }
 
@@ -96,11 +96,11 @@ where
   E: PriorityMessage,
 {
   fn poll_mut(&mut self) -> Result<Option<E>, QueueError<E>> {
-    self.poll_shared()
+    self.poll()
   }
 
   fn clean_up_mut(&mut self) {
-    self.clean_up_shared();
+    self.clean_up();
   }
 }
 
@@ -109,15 +109,15 @@ where
   E: PriorityMessage,
 {
   fn offer(&self, element: E) -> Result<(), QueueError<E>> {
-    self.offer_shared(element)
+    self.offer(element)
   }
 
   fn poll(&self) -> Result<Option<E>, QueueError<E>> {
-    self.poll_shared()
+    self.poll()
   }
 
   fn clean_up(&self) {
-    self.clean_up_shared();
+    self.clean_up();
   }
 }
 
@@ -139,26 +139,26 @@ mod tests {
   #[test]
   fn priority_queue_orders_elements() {
     let queue = PriorityQueue::new(4);
-    queue.offer_shared(Msg(10, 1)).unwrap();
-    queue.offer_shared(Msg(99, 7)).unwrap();
-    queue.offer_shared(Msg(20, 3)).unwrap();
+    queue.offer(Msg(10, 1)).unwrap();
+    queue.offer(Msg(99, 7)).unwrap();
+    queue.offer(Msg(20, 3)).unwrap();
 
-    assert_eq!(queue.poll_shared().unwrap().unwrap().0, 99);
-    assert_eq!(queue.poll_shared().unwrap().unwrap().0, 20);
-    assert_eq!(queue.poll_shared().unwrap().unwrap().0, 10);
-    assert!(queue.poll_shared().unwrap().is_none());
+    assert_eq!(queue.poll().unwrap().unwrap().0, 99);
+    assert_eq!(queue.poll().unwrap().unwrap().0, 20);
+    assert_eq!(queue.poll().unwrap().unwrap().0, 10);
+    assert!(queue.poll().unwrap().is_none());
   }
 
   #[test]
   fn priority_queue_len_capacity_and_clean_up() {
     let queue = PriorityQueue::new(2);
-    assert_eq!(queue.len_shared(), QueueSize::limited(0));
+    assert_eq!(queue.len(), QueueSize::limited(0));
 
-    queue.offer_shared(Msg(1, 0)).unwrap();
-    assert_eq!(queue.len_shared(), QueueSize::limited(1));
+    queue.offer(Msg(1, 0)).unwrap();
+    assert_eq!(queue.len(), QueueSize::limited(1));
 
-    queue.clean_up_shared();
-    assert_eq!(queue.len_shared(), QueueSize::limited(0));
+    queue.clean_up();
+    assert_eq!(queue.len(), QueueSize::limited(0));
   }
 
   #[test]

@@ -8,7 +8,8 @@ use nexus_utils_core_rs::{
 #[derive(Debug)]
 pub struct ArcMpscUnboundedQueue<E, RM = NoopRawMutex>
 where
-  RM: RawMutex, {
+  RM: RawMutex,
+{
   inner: SharedMpscQueue<ArcShared<RingBufferBackend<ArcStateCell<MpscBuffer<E>, RM>>>, E>,
 }
 
@@ -24,26 +25,6 @@ where
     Self {
       inner: SharedMpscQueue::new(storage),
     }
-  }
-
-  pub fn offer_shared(&self, element: E) -> Result<(), QueueError<E>>
-  where
-    E: Element, {
-    self.inner.offer(element)
-  }
-
-  pub fn poll_shared(&self) -> Result<Option<E>, QueueError<E>>
-  where
-    E: Element, {
-    self.inner.poll()
-  }
-
-  pub fn clean_up_shared(&self) {
-    self.inner.clean_up();
-  }
-
-  pub fn len_shared(&self) -> QueueSize {
-    self.inner.len_shared()
   }
 }
 
@@ -91,22 +72,23 @@ where
   RM: RawMutex,
 {
   fn offer(&self, element: E) -> Result<(), QueueError<E>> {
-    self.offer_shared(element)
+    self.inner.offer(element)
   }
 
   fn poll(&self) -> Result<Option<E>, QueueError<E>> {
-    self.poll_shared()
+    self.inner.poll()
   }
 
   fn clean_up(&self) {
-    self.clean_up_shared();
+    self.inner.clean_up();
   }
 }
 
 #[derive(Debug)]
 pub struct ArcMpscBoundedQueue<E, RM = NoopRawMutex>
 where
-  RM: RawMutex, {
+  RM: RawMutex,
+{
   inner: SharedMpscQueue<ArcShared<RingBufferBackend<ArcStateCell<MpscBuffer<E>, RM>>>, E>,
 }
 
@@ -124,30 +106,6 @@ where
     Self {
       inner: SharedMpscQueue::new(storage),
     }
-  }
-
-  pub fn offer_shared(&self, element: E) -> Result<(), QueueError<E>>
-  where
-    E: Element, {
-    self.inner.offer(element)
-  }
-
-  pub fn poll_shared(&self) -> Result<Option<E>, QueueError<E>>
-  where
-    E: Element, {
-    self.inner.poll()
-  }
-
-  pub fn clean_up_shared(&self) {
-    self.inner.clean_up();
-  }
-
-  pub fn len_shared(&self) -> QueueSize {
-    self.inner.len_shared()
-  }
-
-  pub fn capacity_shared(&self) -> QueueSize {
-    self.inner.capacity_shared()
   }
 }
 
@@ -195,15 +153,15 @@ where
   RM: RawMutex,
 {
   fn offer(&self, element: E) -> Result<(), QueueError<E>> {
-    self.offer_shared(element)
+    self.inner.offer(element)
   }
 
   fn poll(&self) -> Result<Option<E>, QueueError<E>> {
-    self.poll_shared()
+    self.inner.poll()
   }
 
   fn clean_up(&self) {
-    self.clean_up_shared();
+    self.inner.clean_up();
   }
 }
 
@@ -211,7 +169,7 @@ where
 mod tests {
   use super::*;
   use crate::tests::init_arc_critical_section;
-  use nexus_utils_core_rs::{QueueBase, QueueReader, QueueWriter};
+  use nexus_utils_core_rs::{QueueBase, QueueReader, QueueWriter, SharedQueue};
 
   fn prepare() {
     init_arc_critical_section();
@@ -221,31 +179,31 @@ mod tests {
   fn arc_unbounded_offer_poll() {
     prepare();
     let queue: ArcMpscUnboundedQueue<u32> = ArcMpscUnboundedQueue::new();
-    queue.offer_shared(1).unwrap();
-    queue.offer_shared(2).unwrap();
+    queue.offer(1).unwrap();
+    queue.offer(2).unwrap();
     assert_eq!(queue.len().to_usize(), 2);
-    assert_eq!(queue.poll_shared().unwrap(), Some(1));
-    assert_eq!(queue.poll_shared().unwrap(), Some(2));
-    assert_eq!(queue.poll_shared().unwrap(), None);
+    assert_eq!(queue.poll().unwrap(), Some(1));
+    assert_eq!(queue.poll().unwrap(), Some(2));
+    assert_eq!(queue.poll().unwrap(), None);
   }
 
   #[test]
   fn arc_unbounded_clean_up_signals_disconnect() {
     prepare();
     let queue: ArcMpscUnboundedQueue<u8> = ArcMpscUnboundedQueue::new();
-    queue.offer_shared(9).unwrap();
-    queue.clean_up_shared();
+    queue.offer(9).unwrap();
+    queue.clean_up();
 
-    assert!(matches!(queue.poll_shared(), Err(QueueError::Disconnected)));
-    assert!(matches!(queue.offer_shared(1), Err(QueueError::Closed(1))));
+    assert!(matches!(queue.poll(), Err(QueueError::Disconnected)));
+    assert!(matches!(queue.offer(1), Err(QueueError::Closed(1))));
   }
 
   #[test]
   fn arc_bounded_capacity_limit() {
     prepare();
     let queue: ArcMpscBoundedQueue<u32> = ArcMpscBoundedQueue::new(1);
-    queue.offer_shared(10).unwrap();
-    let err = queue.offer_shared(11).unwrap_err();
+    queue.offer(10).unwrap();
+    let err = queue.offer(11).unwrap_err();
     assert!(matches!(err, QueueError::Full(11)));
   }
 
@@ -253,21 +211,21 @@ mod tests {
   fn arc_bounded_clean_up_closes_queue() {
     prepare();
     let queue: ArcMpscBoundedQueue<u32> = ArcMpscBoundedQueue::new(2);
-    queue.offer_shared(1).unwrap();
-    queue.clean_up_shared();
+    queue.offer(1).unwrap();
+    queue.clean_up();
 
-    assert!(matches!(queue.poll_shared(), Err(QueueError::Disconnected)));
-    assert!(matches!(queue.offer_shared(2), Err(QueueError::Closed(2))));
+    assert!(matches!(queue.poll(), Err(QueueError::Disconnected)));
+    assert!(matches!(queue.offer(2), Err(QueueError::Closed(2))));
   }
 
   #[test]
   fn arc_bounded_reports_len_and_capacity() {
     prepare();
     let queue: ArcMpscBoundedQueue<u32> = ArcMpscBoundedQueue::new(3);
-    assert_eq!(queue.capacity_shared(), QueueSize::limited(3));
+    assert_eq!(queue.capacity(), QueueSize::limited(3));
 
-    queue.offer_shared(1).unwrap();
-    assert_eq!(queue.len_shared(), QueueSize::limited(1));
+    queue.offer(1).unwrap();
+    assert_eq!(queue.len(), QueueSize::limited(1));
   }
 
   #[test]

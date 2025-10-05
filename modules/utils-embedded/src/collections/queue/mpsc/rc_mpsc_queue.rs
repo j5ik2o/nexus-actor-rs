@@ -19,26 +19,6 @@ impl<E> RcMpscUnboundedQueue<E> {
       inner: SharedMpscQueue::new(storage),
     }
   }
-
-  pub fn offer_shared(&self, element: E) -> Result<(), QueueError<E>>
-  where
-    E: Element, {
-    self.inner.offer_shared(element)
-  }
-
-  pub fn poll_shared(&self) -> Result<Option<E>, QueueError<E>>
-  where
-    E: Element, {
-    self.inner.poll_shared()
-  }
-
-  pub fn clean_up_shared(&self) {
-    self.inner.clean_up_shared();
-  }
-
-  pub fn len_shared(&self) -> QueueSize {
-    self.inner.len_shared()
-  }
 }
 
 impl<E> Default for RcMpscUnboundedQueue<E> {
@@ -75,15 +55,15 @@ impl<E: Element> QueueReader<E> for RcMpscUnboundedQueue<E> {
 
 impl<E: Element> SharedQueue<E> for RcMpscUnboundedQueue<E> {
   fn offer(&self, element: E) -> Result<(), QueueError<E>> {
-    self.offer_shared(element)
+    self.inner.offer(element)
   }
 
   fn poll(&self) -> Result<Option<E>, QueueError<E>> {
-    self.poll_shared()
+    self.inner.poll()
   }
 
   fn clean_up(&self) {
-    self.clean_up_shared();
+    self.inner.clean_up();
   }
 }
 
@@ -98,26 +78,6 @@ impl<E> RcMpscBoundedQueue<E> {
     Self {
       inner: SharedMpscQueue::new(storage),
     }
-  }
-
-  pub fn offer_shared(&self, element: E) -> Result<(), QueueError<E>>
-  where
-    E: Element, {
-    self.inner.offer_shared(element)
-  }
-
-  pub fn poll_shared(&self) -> Result<Option<E>, QueueError<E>>
-  where
-    E: Element, {
-    self.inner.poll_shared()
-  }
-
-  pub fn clean_up_shared(&self) {
-    self.inner.clean_up_shared();
-  }
-
-  pub fn len_shared(&self) -> QueueSize {
-    self.inner.len_shared()
   }
 }
 
@@ -149,68 +109,69 @@ impl<E: Element> QueueReader<E> for RcMpscBoundedQueue<E> {
 
 impl<E: Element> SharedQueue<E> for RcMpscBoundedQueue<E> {
   fn offer(&self, element: E) -> Result<(), QueueError<E>> {
-    self.offer_shared(element)
+    self.inner.offer(element)
   }
 
   fn poll(&self) -> Result<Option<E>, QueueError<E>> {
-    self.poll_shared()
+    self.inner.poll()
   }
 
   fn clean_up(&self) {
-    self.clean_up_shared();
+    self.inner.clean_up();
   }
 }
 
 #[cfg(test)]
 mod tests {
   use super::*;
+  use nexus_utils_core_rs::{QueueBase, SharedQueue};
 
   #[test]
   fn rc_unbounded_offer_poll() {
     let queue: RcMpscUnboundedQueue<u32> = RcMpscUnboundedQueue::new();
-    queue.offer_shared(1).unwrap();
-    queue.offer_shared(2).unwrap();
+    queue.offer(1).unwrap();
+    queue.offer(2).unwrap();
     assert_eq!(queue.len().to_usize(), 2);
-    assert_eq!(queue.poll_shared().unwrap(), Some(1));
-    assert_eq!(queue.poll_shared().unwrap(), Some(2));
-    assert_eq!(queue.poll_shared().unwrap(), None);
+    assert_eq!(queue.poll().unwrap(), Some(1));
+    assert_eq!(queue.poll().unwrap(), Some(2));
+    assert_eq!(queue.poll().unwrap(), None);
   }
 
   #[test]
   fn rc_unbounded_clean_up_signals_disconnected() {
     let queue: RcMpscUnboundedQueue<u8> = RcMpscUnboundedQueue::new();
-    queue.offer_shared(1).unwrap();
-    queue.clean_up_shared();
+    queue.offer(1).unwrap();
+    queue.clean_up();
 
-    assert!(matches!(queue.poll_shared(), Err(QueueError::Disconnected)));
-    assert!(matches!(queue.offer_shared(2), Err(QueueError::Closed(2))));
+    assert!(matches!(queue.poll(), Err(QueueError::Disconnected)));
+    assert!(matches!(queue.offer(2), Err(QueueError::Closed(2))));
   }
 
   #[test]
   fn rc_bounded_capacity_limit() {
     let queue: RcMpscBoundedQueue<u32> = RcMpscBoundedQueue::new(1);
-    queue.offer_shared(42).unwrap();
-    let err = queue.offer_shared(99).unwrap_err();
+    queue.offer(42).unwrap();
+    let err = queue.offer(99).unwrap_err();
     assert!(matches!(err, QueueError::Full(99)));
   }
 
   #[test]
   fn rc_bounded_clean_up_closes_queue() {
     let queue: RcMpscBoundedQueue<u32> = RcMpscBoundedQueue::new(2);
-    queue.offer_shared(1).unwrap();
-    queue.offer_shared(2).unwrap();
+    queue.offer(1).unwrap();
+    queue.offer(2).unwrap();
 
-    queue.clean_up_shared();
-    assert!(matches!(queue.poll_shared(), Err(QueueError::Disconnected)));
-    assert!(matches!(queue.offer_shared(3), Err(QueueError::Closed(3))));
+    queue.clean_up();
+    assert!(matches!(queue.poll(), Err(QueueError::Disconnected)));
+    assert!(matches!(queue.offer(3), Err(QueueError::Closed(3))));
   }
 
   #[test]
   fn rc_bounded_capacity_tracking() {
     let queue: RcMpscBoundedQueue<u32> = RcMpscBoundedQueue::new(2);
     assert_eq!(queue.capacity().to_usize(), 2);
-    queue.offer_shared(1).unwrap();
-    assert_eq!(queue.len_shared(), QueueSize::limited(1));
+    queue.offer(1).unwrap();
+    assert_eq!(queue.len(), QueueSize::limited(1));
   }
 
   #[test]

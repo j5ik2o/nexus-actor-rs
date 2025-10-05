@@ -35,7 +35,8 @@ pub trait SharedQueueHandle<E>: Shared<Self::Storage> + Clone {
 #[derive(Debug)]
 pub struct SharedRingQueue<S, E>
 where
-  S: SharedQueueHandle<E>, {
+  S: SharedQueueHandle<E>,
+{
   storage: S,
   _marker: core::marker::PhantomData<E>,
 }
@@ -74,28 +75,18 @@ where
   }
 
   /// Offer an element using the shared storage handle.
-  pub fn offer_shared(&self, element: E) -> Result<(), QueueError<E>> {
+  pub fn offer(&self, element: E) -> Result<(), QueueError<E>> {
     self.handle().with_write(|buffer| buffer.offer_mut(element))
   }
 
   /// Poll an element using the shared storage handle.
-  pub fn poll_shared(&self) -> Result<Option<E>, QueueError<E>> {
+  pub fn poll(&self) -> Result<Option<E>, QueueError<E>> {
     self.handle().with_write(|buffer| buffer.poll_mut())
   }
 
   /// Clean up remaining elements.
-  pub fn clean_up_shared(&self) {
+  pub fn clean_up(&self) {
     self.handle().with_write(|buffer| buffer.clean_up_mut());
-  }
-
-  /// Return the length as observed through the shared storage.
-  pub fn len_shared(&self) -> QueueSize {
-    self.handle().with_read(|buffer| buffer.len())
-  }
-
-  /// Return the capacity as observed through the shared storage.
-  pub fn capacity_shared(&self) -> QueueSize {
-    self.handle().with_read(|buffer| buffer.capacity())
   }
 
   fn handle(&self) -> &S::Storage {
@@ -120,11 +111,11 @@ where
   S: SharedQueueHandle<E>,
 {
   fn len(&self) -> QueueSize {
-    self.len_shared()
+    self.handle().with_read(|buffer| buffer.len())
   }
 
   fn capacity(&self) -> QueueSize {
-    self.capacity_shared()
+    self.handle().with_read(|buffer| buffer.capacity())
   }
 }
 
@@ -133,7 +124,7 @@ where
   S: SharedQueueHandle<E>,
 {
   fn offer_mut(&mut self, element: E) -> Result<(), QueueError<E>> {
-    self.offer_shared(element)
+    self.offer(element)
   }
 }
 
@@ -142,11 +133,11 @@ where
   S: SharedQueueHandle<E>,
 {
   fn poll_mut(&mut self) -> Result<Option<E>, QueueError<E>> {
-    self.poll_shared()
+    self.poll()
   }
 
   fn clean_up_mut(&mut self) {
-    self.clean_up_shared();
+    self.clean_up();
   }
 }
 
@@ -155,15 +146,15 @@ where
   S: SharedQueueHandle<E>,
 {
   fn offer(&self, element: E) -> Result<(), QueueError<E>> {
-    self.offer_shared(element)
+    self.offer(element)
   }
 
   fn poll(&self) -> Result<Option<E>, QueueError<E>> {
-    self.poll_shared()
+    self.poll()
   }
 
   fn clean_up(&self) {
-    self.clean_up_shared();
+    self.clean_up();
   }
 }
 
@@ -253,30 +244,30 @@ mod tests {
   #[test]
   fn shared_ring_queue_offer_poll() {
     let queue: SharedRingQueue<_, _> = SharedRingQueue::new(RcRingBufferHandle::new(2)).with_dynamic(false);
-    assert!(queue.offer_shared(1).is_ok());
-    assert!(queue.offer_shared(2).is_ok());
-    assert_eq!(queue.offer_shared(3), Err(QueueError::Full(3)));
+    assert!(queue.offer(1).is_ok());
+    assert!(queue.offer(2).is_ok());
+    assert_eq!(queue.offer(3), Err(QueueError::Full(3)));
 
-    assert_eq!(queue.poll_shared().unwrap(), Some(1));
-    assert_eq!(queue.poll_shared().unwrap(), Some(2));
-    assert_eq!(queue.poll_shared().unwrap(), None);
+    assert_eq!(queue.poll().unwrap(), Some(1));
+    assert_eq!(queue.poll().unwrap(), Some(2));
+    assert_eq!(queue.poll().unwrap(), None);
   }
 
   #[test]
   fn shared_ring_queue_len_capacity() {
     let queue: SharedRingQueue<_, _> = SharedRingQueue::new(RcRingBufferHandle::new(2));
     // dynamic by default -> limitless capacity reporting
-    assert!(queue.capacity_shared().is_limitless());
+    assert!(queue.capacity().is_limitless());
 
     queue.set_dynamic(false);
-    assert_eq!(queue.capacity_shared(), QueueSize::limited(2));
+    assert_eq!(queue.capacity(), QueueSize::limited(2));
 
-    queue.offer_shared(10).unwrap();
-    queue.offer_shared(11).unwrap();
-    assert_eq!(queue.len_shared(), QueueSize::limited(2));
+    queue.offer(10).unwrap();
+    queue.offer(11).unwrap();
+    assert_eq!(queue.len(), QueueSize::limited(2));
 
-    queue.clean_up_shared();
-    assert_eq!(queue.len_shared(), QueueSize::limited(0));
+    queue.clean_up();
+    assert_eq!(queue.len(), QueueSize::limited(0));
   }
 
   #[test]
@@ -317,9 +308,9 @@ mod tests {
     let storage = MutexHandle(Arc::new(Mutex::new(RingBuffer::new(1).with_dynamic(false))));
     let queue = SharedRingQueue::new(storage);
 
-    queue.offer_shared(5).unwrap();
-    assert!(matches!(queue.offer_shared(6), Err(QueueError::Full(6))));
-    assert_eq!(queue.poll_shared().unwrap(), Some(5));
+    queue.offer(5).unwrap();
+    assert!(matches!(queue.offer(6), Err(QueueError::Full(6))));
+    assert_eq!(queue.poll().unwrap(), Some(5));
   }
 
   #[test]

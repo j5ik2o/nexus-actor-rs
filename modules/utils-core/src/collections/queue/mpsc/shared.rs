@@ -5,7 +5,8 @@ use crate::collections::{QueueBase, QueueError, QueueReader, QueueSize, QueueWri
 #[derive(Debug)]
 pub struct SharedMpscQueue<S, T>
 where
-  S: SharedMpscHandle<T>, {
+  S: SharedMpscHandle<T>,
+{
   storage: S,
   _marker: core::marker::PhantomData<T>,
 }
@@ -33,27 +34,23 @@ where
     self.storage.backend().set_capacity(capacity)
   }
 
-  pub fn offer_shared(&self, element: T) -> Result<(), QueueError<T>> {
+  pub fn offer(&self, element: T) -> Result<(), QueueError<T>> {
     self.storage.backend().try_send(element)
   }
 
-  pub fn poll_shared(&self) -> Result<Option<T>, QueueError<T>> {
+  pub fn poll(&self) -> Result<Option<T>, QueueError<T>> {
     self.storage.backend().try_recv()
   }
 
-  pub fn clean_up_shared(&self) {
+  pub fn clean_up(&self) {
     self.storage.backend().close();
   }
 
-  pub fn len_shared(&self) -> QueueSize {
-    self.storage.backend().len()
-  }
-
-  pub fn capacity_shared(&self) -> QueueSize {
+  pub fn capacity(&self) -> QueueSize {
     self.storage.backend().capacity()
   }
 
-  pub fn is_closed_shared(&self) -> bool {
+  pub fn is_closed(&self) -> bool {
     self.storage.backend().is_closed()
   }
 
@@ -79,11 +76,11 @@ where
   S: SharedMpscHandle<T>,
 {
   fn len(&self) -> QueueSize {
-    self.len_shared()
+    self.backend().len()
   }
 
   fn capacity(&self) -> QueueSize {
-    self.capacity_shared()
+    self.capacity()
   }
 }
 
@@ -114,15 +111,15 @@ where
   S: SharedMpscHandle<T>,
 {
   fn offer(&self, element: T) -> Result<(), QueueError<T>> {
-    self.backend().try_send(element)
+    self.offer(element)
   }
 
   fn poll(&self) -> Result<Option<T>, QueueError<T>> {
-    self.backend().try_recv()
+    self.poll()
   }
 
   fn clean_up(&self) {
-    self.backend().close();
+    self.clean_up();
   }
 }
 
@@ -193,19 +190,19 @@ mod tests {
   #[test]
   fn shared_queue_shared_operations() {
     let queue: SharedMpscQueue<_, u32> = SharedMpscQueue::new(RcBackendHandle::<u32>::new(Some(2)));
-    queue.offer_shared(1).unwrap();
-    queue.offer_shared(2).unwrap();
-    assert!(queue.offer_shared(3).is_err());
-    assert_eq!(queue.poll_shared().unwrap(), Some(1));
-    assert_eq!(queue.poll_shared().unwrap(), Some(2));
+    queue.offer(1).unwrap();
+    queue.offer(2).unwrap();
+    assert!(queue.offer(3).is_err());
+    assert_eq!(queue.poll().unwrap(), Some(1));
+    assert_eq!(queue.poll().unwrap(), Some(2));
   }
 
   #[test]
   fn shared_queue_cleanup_marks_closed() {
     let queue: SharedMpscQueue<_, u32> = SharedMpscQueue::new(RcBackendHandle::<u32>::new(None));
-    queue.offer_shared(1).unwrap();
-    queue.clean_up_shared();
-    assert!(matches!(queue.poll_shared(), Err(QueueError::Disconnected)));
-    assert!(matches!(queue.offer_shared(2), Err(QueueError::Closed(2))));
+    queue.offer(1).unwrap();
+    queue.clean_up();
+    assert!(matches!(queue.poll(), Err(QueueError::Disconnected)));
+    assert!(matches!(queue.offer(2), Err(QueueError::Closed(2))));
   }
 }

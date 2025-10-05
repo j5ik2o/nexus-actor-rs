@@ -1,6 +1,7 @@
 use embassy_sync::blocking_mutex::raw::{NoopRawMutex, RawMutex};
 use nexus_utils_core_rs::{
-  QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, RingBuffer, SharedRingQueue, DEFAULT_CAPACITY,
+  QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, RingBuffer, SharedQueue, SharedRingQueue,
+  DEFAULT_CAPACITY,
 };
 
 use crate::sync::{ArcShared, ArcStateCell};
@@ -8,7 +9,8 @@ use crate::sync::{ArcShared, ArcStateCell};
 #[derive(Debug)]
 pub struct ArcRingQueue<E, RM = NoopRawMutex>
 where
-  RM: RawMutex, {
+  RM: RawMutex,
+{
   inner: SharedRingQueue<ArcShared<ArcStateCell<RingBuffer<E>, RM>>, E>,
 }
 
@@ -32,26 +34,6 @@ where
 
   pub fn set_dynamic(&self, dynamic: bool) {
     self.inner.set_dynamic(dynamic);
-  }
-
-  pub fn offer_shared(&self, element: E) -> Result<(), QueueError<E>> {
-    self.inner.offer_shared(element)
-  }
-
-  pub fn poll_shared(&self) -> Result<Option<E>, QueueError<E>> {
-    self.inner.poll_shared()
-  }
-
-  pub fn len_shared(&self) -> QueueSize {
-    self.inner.len_shared()
-  }
-
-  pub fn clean_up_shared(&self) {
-    self.inner.clean_up_shared();
-  }
-
-  pub fn capacity_shared(&self) -> QueueSize {
-    self.inner.capacity_shared()
   }
 }
 
@@ -90,6 +72,23 @@ where
   }
 }
 
+impl<E, RM> SharedQueue<E> for ArcRingQueue<E, RM>
+where
+  RM: RawMutex,
+{
+  fn offer(&self, element: E) -> Result<(), QueueError<E>> {
+    self.inner.offer(element)
+  }
+
+  fn poll(&self) -> Result<Option<E>, QueueError<E>> {
+    self.inner.poll()
+  }
+
+  fn clean_up(&self) {
+    self.inner.clean_up();
+  }
+}
+
 impl<E, RM> Default for ArcRingQueue<E, RM>
 where
   RM: RawMutex,
@@ -123,8 +122,8 @@ mod tests {
   fn arc_ring_queue_offer_poll() {
     prepare();
     let queue = ArcLocalRingQueue::new(1);
-    queue.offer_shared(1).unwrap();
-    assert_eq!(queue.poll_shared().unwrap(), Some(1));
+    queue.offer(1).unwrap();
+    assert_eq!(queue.poll().unwrap(), Some(1));
   }
 
   #[test]
@@ -133,33 +132,33 @@ mod tests {
     let queue = ArcLocalRingQueue::new(2);
     let cloned = queue.clone();
 
-    queue.offer_shared(5).unwrap();
-    cloned.offer_shared(6).unwrap();
+    queue.offer(5).unwrap();
+    cloned.offer(6).unwrap();
 
-    assert_eq!(queue.len_shared().to_usize(), 2);
-    assert_eq!(queue.poll_shared().unwrap(), Some(5));
-    assert_eq!(cloned.poll_shared().unwrap(), Some(6));
+    assert_eq!(queue.len().to_usize(), 2);
+    assert_eq!(queue.poll().unwrap(), Some(5));
+    assert_eq!(cloned.poll().unwrap(), Some(6));
   }
 
   #[test]
   fn arc_ring_queue_dynamic_and_clean_up() {
     prepare();
     let queue = ArcLocalRingQueue::new(1).with_dynamic(false);
-    queue.offer_shared(1).unwrap();
-    assert!(matches!(queue.offer_shared(2), Err(QueueError::Full(2))));
+    queue.offer(1).unwrap();
+    assert!(matches!(queue.offer(2), Err(QueueError::Full(2))));
 
-    queue.clean_up_shared();
-    assert_eq!(queue.len_shared().to_usize(), 0);
+    queue.clean_up();
+    assert_eq!(queue.len().to_usize(), 0);
   }
 
   #[test]
   fn arc_ring_queue_capacity_reporting() {
     prepare();
     let queue: ArcRingQueue<u32> = ArcLocalRingQueue::new(2);
-    assert!(queue.capacity_shared().is_limitless());
+    assert!(queue.capacity().is_limitless());
 
     queue.set_dynamic(false);
-    assert_eq!(queue.capacity_shared(), QueueSize::limited(2));
+    assert_eq!(queue.capacity(), QueueSize::limited(2));
   }
 
   #[test]

@@ -1,7 +1,8 @@
 use core::cell::RefCell;
 
 use nexus_utils_core_rs::{
-  QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, RingBuffer, SharedRingQueue, DEFAULT_CAPACITY,
+  QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, RingBuffer, SharedQueue, SharedRingQueue,
+  DEFAULT_CAPACITY,
 };
 
 use crate::sync::RcShared;
@@ -26,26 +27,6 @@ impl<E> RcRingQueue<E> {
 
   pub fn set_dynamic(&self, dynamic: bool) {
     self.inner.set_dynamic(dynamic);
-  }
-
-  pub fn offer_shared(&self, element: E) -> Result<(), QueueError<E>> {
-    self.inner.offer_shared(element)
-  }
-
-  pub fn poll_shared(&self) -> Result<Option<E>, QueueError<E>> {
-    self.inner.poll_shared()
-  }
-
-  pub fn len_shared(&self) -> QueueSize {
-    self.inner.len_shared()
-  }
-
-  pub fn clean_up_shared(&self) {
-    self.inner.clean_up_shared();
-  }
-
-  pub fn capacity_shared(&self) -> QueueSize {
-    self.inner.capacity_shared()
   }
 }
 
@@ -81,6 +62,20 @@ impl<E> QueueReader<E> for RcRingQueue<E> {
   }
 }
 
+impl<E> SharedQueue<E> for RcRingQueue<E> {
+  fn offer(&self, element: E) -> Result<(), QueueError<E>> {
+    self.inner.offer(element)
+  }
+
+  fn poll(&self) -> Result<Option<E>, QueueError<E>> {
+    self.inner.poll()
+  }
+
+  fn clean_up(&self) {
+    self.inner.clean_up();
+  }
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -88,9 +83,9 @@ mod tests {
   #[test]
   fn rc_ring_queue_offer_poll() {
     let queue = RcRingQueue::new(1).with_dynamic(false);
-    queue.offer_shared(10).unwrap();
-    assert_eq!(queue.poll_shared().unwrap(), Some(10));
-    assert_eq!(queue.poll_shared().unwrap(), None);
+    queue.offer(10).unwrap();
+    assert_eq!(queue.poll().unwrap(), Some(10));
+    assert_eq!(queue.poll().unwrap(), None);
   }
 
   #[test]
@@ -98,39 +93,39 @@ mod tests {
     let queue = RcRingQueue::new(4);
     let cloned = queue.clone();
 
-    queue.offer_shared(1).unwrap();
-    cloned.offer_shared(2).unwrap();
+    queue.offer(1).unwrap();
+    cloned.offer(2).unwrap();
 
-    assert_eq!(queue.len_shared().to_usize(), 2);
-    assert_eq!(queue.poll_shared().unwrap(), Some(1));
-    assert_eq!(cloned.poll_shared().unwrap(), Some(2));
+    assert_eq!(queue.len().to_usize(), 2);
+    assert_eq!(queue.poll().unwrap(), Some(1));
+    assert_eq!(cloned.poll().unwrap(), Some(2));
   }
 
   #[test]
   fn rc_ring_queue_clean_up_resets_state() {
     let queue = RcRingQueue::new(2);
-    queue.offer_shared(1).unwrap();
-    queue.offer_shared(2).unwrap();
+    queue.offer(1).unwrap();
+    queue.offer(2).unwrap();
 
-    queue.clean_up_shared();
-    assert_eq!(queue.len_shared().to_usize(), 0);
-    assert!(queue.poll_shared().unwrap().is_none());
+    queue.clean_up();
+    assert_eq!(queue.len().to_usize(), 0);
+    assert!(queue.poll().unwrap().is_none());
   }
 
   #[test]
   fn rc_ring_queue_dynamic_growth() {
     let queue = RcRingQueue::new(1).with_dynamic(true);
-    queue.offer_shared(1).unwrap();
-    queue.offer_shared(2).unwrap();
-    assert_eq!(queue.len_shared().to_usize(), 2);
+    queue.offer(1).unwrap();
+    queue.offer(2).unwrap();
+    assert_eq!(queue.len().to_usize(), 2);
   }
 
   #[test]
   fn rc_ring_queue_set_dynamic_switches_mode() {
     let queue = RcRingQueue::new(1);
     queue.set_dynamic(false);
-    queue.offer_shared(1).unwrap();
-    assert!(matches!(queue.offer_shared(2), Err(QueueError::Full(2))));
+    queue.offer(1).unwrap();
+    assert!(matches!(queue.offer(2), Err(QueueError::Full(2))));
   }
 
   #[test]

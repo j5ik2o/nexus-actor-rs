@@ -2,7 +2,8 @@ use alloc::vec::Vec;
 
 use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex, RawMutex};
 use nexus_utils_core_rs::{
-  PriorityMessage, QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, DEFAULT_PRIORITY, PRIORITY_LEVELS,
+  PriorityMessage, QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, SharedQueue, DEFAULT_PRIORITY,
+  PRIORITY_LEVELS,
 };
 
 use crate::collections::queue_arc::ArcRingQueue;
@@ -13,7 +14,8 @@ pub type ArcCsPriorityQueue<E> = ArcPriorityQueue<E, CriticalSectionRawMutex>;
 #[derive(Debug, Clone)]
 pub struct ArcPriorityQueue<E, RM = NoopRawMutex>
 where
-  RM: RawMutex, {
+  RM: RawMutex,
+{
   queues: Vec<ArcRingQueue<E, RM>>,
 }
 
@@ -48,35 +50,35 @@ where
       .clamp(0, PRIORITY_LEVELS as i8 - 1) as usize
   }
 
-  pub fn offer_shared(&self, element: E) -> Result<(), QueueError<E>> {
+  pub fn offer(&self, element: E) -> Result<(), QueueError<E>> {
     let idx = self.priority_index(&element);
-    self.queues[idx].offer_shared(element)
+    self.queues[idx].offer(element)
   }
 
-  pub fn poll_shared(&self) -> Result<Option<E>, QueueError<E>> {
+  pub fn poll(&self) -> Result<Option<E>, QueueError<E>> {
     for queue in self.queues.iter().rev() {
-      if let Some(item) = queue.poll_shared()? {
+      if let Some(item) = queue.poll()? {
         return Ok(Some(item));
       }
     }
     Ok(None)
   }
 
-  pub fn len_shared(&self) -> QueueSize {
+  pub fn clean_up(&self) {
+    for queue in &self.queues {
+      queue.clean_up();
+    }
+  }
+
+  fn total_len(&self) -> QueueSize {
     let mut total = 0usize;
     for queue in &self.queues {
-      match queue.len_shared() {
+      match queue.len() {
         QueueSize::Limitless => return QueueSize::limitless(),
         QueueSize::Limited(value) => total += value,
       }
     }
     QueueSize::limited(total)
-  }
-
-  pub fn clean_up_shared(&self) {
-    for queue in &self.queues {
-      queue.clean_up_shared();
-    }
   }
 }
 
@@ -86,13 +88,13 @@ where
   RM: RawMutex,
 {
   fn len(&self) -> QueueSize {
-    self.len_shared()
+    self.total_len()
   }
 
   fn capacity(&self) -> QueueSize {
     let mut total = 0usize;
     for queue in &self.queues {
-      match queue.capacity_shared() {
+      match queue.capacity() {
         QueueSize::Limitless => return QueueSize::limitless(),
         QueueSize::Limited(value) => total += value,
       }
@@ -107,7 +109,7 @@ where
   RM: RawMutex,
 {
   fn offer_mut(&mut self, element: E) -> Result<(), QueueError<E>> {
-    self.offer_shared(element)
+    self.offer(element)
   }
 }
 
@@ -117,11 +119,29 @@ where
   RM: RawMutex,
 {
   fn poll_mut(&mut self) -> Result<Option<E>, QueueError<E>> {
-    self.poll_shared()
+    self.poll()
   }
 
   fn clean_up_mut(&mut self) {
-    self.clean_up_shared();
+    self.clean_up();
+  }
+}
+
+impl<E, RM> SharedQueue<E> for ArcPriorityQueue<E, RM>
+where
+  E: PriorityMessage,
+  RM: RawMutex,
+{
+  fn offer(&self, element: E) -> Result<(), QueueError<E>> {
+    self.offer(element)
+  }
+
+  fn poll(&self) -> Result<Option<E>, QueueError<E>> {
+    self.poll()
+  }
+
+  fn clean_up(&self) {
+    self.clean_up();
   }
 }
 
@@ -129,7 +149,7 @@ where
 mod tests {
   use super::*;
   use crate::tests::init_arc_critical_section;
-  use nexus_utils_core_rs::{QueueBase, QueueReader, QueueWriter};
+  use nexus_utils_core_rs::{QueueBase, QueueReader, QueueWriter, SharedQueue};
 
   fn prepare() {
     init_arc_critical_section();
@@ -150,33 +170,33 @@ mod tests {
   fn arc_priority_queue_orders() {
     prepare();
     let queue: ArcLocalPriorityQueue<Msg> = ArcLocalPriorityQueue::new(3);
-    queue.offer_shared(Msg(1, 0)).unwrap();
-    queue.offer_shared(Msg(9, 7)).unwrap();
-    queue.offer_shared(Msg(5, 3)).unwrap();
+    queue.offer(Msg(1, 0)).unwrap();
+    queue.offer(Msg(9, 7)).unwrap();
+    queue.offer(Msg(5, 3)).unwrap();
 
-    assert_eq!(queue.poll_shared().unwrap().unwrap().0, 9);
-    assert_eq!(queue.poll_shared().unwrap().unwrap().0, 5);
-    assert_eq!(queue.poll_shared().unwrap().unwrap().0, 1);
-    assert!(queue.poll_shared().unwrap().is_none());
+    assert_eq!(queue.poll().unwrap().unwrap().0, 9);
+    assert_eq!(queue.poll().unwrap().unwrap().0, 5);
+    assert_eq!(queue.poll().unwrap().unwrap().0, 1);
+    assert!(queue.poll().unwrap().is_none());
   }
 
   #[test]
   fn arc_priority_queue_len_and_clean_up() {
     prepare();
     let queue: ArcLocalPriorityQueue<Msg> = ArcLocalPriorityQueue::new(1);
-    queue.offer_shared(Msg(1, 0)).unwrap();
-    assert_eq!(queue.len_shared(), QueueSize::limited(1));
-    queue.clean_up_shared();
-    assert_eq!(queue.len_shared(), QueueSize::limited(0));
+    queue.offer(Msg(1, 0)).unwrap();
+    assert_eq!(queue.len(), QueueSize::limited(1));
+    queue.clean_up();
+    assert_eq!(queue.len(), QueueSize::limited(0));
   }
 
   #[test]
   fn arc_priority_queue_len_across_levels() {
     prepare();
     let queue: ArcLocalPriorityQueue<Msg> = ArcLocalPriorityQueue::new(2);
-    queue.offer_shared(Msg(1, 0)).unwrap();
-    queue.offer_shared(Msg(2, 5)).unwrap();
-    assert_eq!(queue.len_shared(), QueueSize::limited(2));
+    queue.offer(Msg(1, 0)).unwrap();
+    queue.offer(Msg(2, 5)).unwrap();
+    assert_eq!(queue.len(), QueueSize::limited(2));
   }
 
   #[test]
@@ -216,12 +236,12 @@ mod tests {
     }
 
     let queue: ArcLocalPriorityQueue<OptionalPriority> = ArcLocalPriorityQueue::new(1).with_dynamic(false);
-    queue.offer_shared(OptionalPriority(1, Some(127))).unwrap();
-    queue.offer_shared(OptionalPriority(2, Some(-128))).unwrap();
-    queue.offer_shared(OptionalPriority(3, None)).unwrap();
+    queue.offer(OptionalPriority(1, Some(127))).unwrap();
+    queue.offer(OptionalPriority(2, Some(-128))).unwrap();
+    queue.offer(OptionalPriority(3, None)).unwrap();
 
-    assert_eq!(queue.poll_shared().unwrap().unwrap().0, 1);
-    assert_eq!(queue.poll_shared().unwrap().unwrap().0, 3);
-    assert_eq!(queue.poll_shared().unwrap().unwrap().0, 2);
+    assert_eq!(queue.poll().unwrap().unwrap().0, 1);
+    assert_eq!(queue.poll().unwrap().unwrap().0, 3);
+    assert_eq!(queue.poll().unwrap().unwrap().0, 2);
   }
 }
