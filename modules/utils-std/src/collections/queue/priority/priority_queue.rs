@@ -1,64 +1,55 @@
-use std::vec::Vec;
-
 use crate::RingQueue;
 use nexus_utils_core_rs::{
-  PriorityMessage, QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, SharedQueue, DEFAULT_PRIORITY,
+  PriorityMessage, QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, SharedPriorityQueue, SharedQueue,
   PRIORITY_LEVELS,
 };
 
 #[derive(Debug, Clone)]
 pub struct PriorityQueue<E> {
-  queues: Vec<RingQueue<E>>,
+  inner: SharedPriorityQueue<RingQueue<E>, E>,
+}
+
+impl<E> PriorityQueue<E> {
+  pub fn new(capacity_per_level: usize) -> Self {
+    let levels = (0..PRIORITY_LEVELS)
+      .map(|_| RingQueue::new(capacity_per_level))
+      .collect();
+    Self {
+      inner: SharedPriorityQueue::new(levels),
+    }
+  }
+
+  pub fn levels(&self) -> &[RingQueue<E>] {
+    self.inner.levels()
+  }
+
+  pub fn levels_mut(&mut self) -> &mut [RingQueue<E>] {
+    self.inner.levels_mut()
+  }
+
+  pub fn inner(&self) -> &SharedPriorityQueue<RingQueue<E>, E> {
+    &self.inner
+  }
+
+  pub fn inner_mut(&mut self) -> &mut SharedPriorityQueue<RingQueue<E>, E> {
+    &mut self.inner
+  }
 }
 
 impl<E> PriorityQueue<E>
 where
   E: PriorityMessage,
 {
-  pub fn new(capacity_per_level: usize) -> Self {
-    let mut queues = Vec::with_capacity(PRIORITY_LEVELS);
-    for _ in 0..PRIORITY_LEVELS {
-      queues.push(RingQueue::new(capacity_per_level));
-    }
-    Self { queues }
-  }
-
-  fn priority_index(&self, element: &E) -> usize {
-    element
-      .get_priority()
-      .unwrap_or(DEFAULT_PRIORITY)
-      .clamp(0, PRIORITY_LEVELS as i8 - 1) as usize
-  }
-
   pub fn offer(&self, element: E) -> Result<(), QueueError<E>> {
-    let idx = self.priority_index(&element);
-    self.queues[idx].offer(element)
+    self.inner.offer(element)
   }
 
   pub fn poll(&self) -> Result<Option<E>, QueueError<E>> {
-    for queue in self.queues.iter().rev() {
-      if let Some(item) = queue.poll()? {
-        return Ok(Some(item));
-      }
-    }
-    Ok(None)
+    self.inner.poll()
   }
 
   pub fn clean_up(&self) {
-    for queue in &self.queues {
-      queue.clean_up();
-    }
-  }
-
-  fn total_len(&self) -> QueueSize {
-    let mut total = 0usize;
-    for queue in &self.queues {
-      match queue.len() {
-        QueueSize::Limitless => return QueueSize::limitless(),
-        QueueSize::Limited(value) => total += value,
-      }
-    }
-    QueueSize::limited(total)
+    self.inner.clean_up();
   }
 }
 
@@ -67,18 +58,11 @@ where
   E: PriorityMessage,
 {
   fn len(&self) -> QueueSize {
-    self.total_len()
+    self.inner.len()
   }
 
   fn capacity(&self) -> QueueSize {
-    let mut total = 0usize;
-    for queue in &self.queues {
-      match queue.capacity() {
-        QueueSize::Limitless => return QueueSize::limitless(),
-        QueueSize::Limited(value) => total += value,
-      }
-    }
-    QueueSize::limited(total)
+    self.inner.capacity()
   }
 }
 
@@ -87,7 +71,7 @@ where
   E: PriorityMessage,
 {
   fn offer_mut(&mut self, element: E) -> Result<(), QueueError<E>> {
-    self.offer(element)
+    self.inner.offer_mut(element)
   }
 }
 
@@ -96,11 +80,11 @@ where
   E: PriorityMessage,
 {
   fn poll_mut(&mut self) -> Result<Option<E>, QueueError<E>> {
-    self.poll()
+    self.inner.poll_mut()
   }
 
   fn clean_up_mut(&mut self) {
-    self.clean_up();
+    self.inner.clean_up_mut();
   }
 }
 

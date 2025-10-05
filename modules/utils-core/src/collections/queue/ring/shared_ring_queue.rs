@@ -35,8 +35,7 @@ pub trait SharedQueueHandle<E>: Shared<Self::Storage> + Clone {
 #[derive(Debug)]
 pub struct SharedRingQueue<S, E>
 where
-  S: SharedQueueHandle<E>,
-{
+  S: SharedQueueHandle<E>, {
   storage: S,
   _marker: core::marker::PhantomData<E>,
 }

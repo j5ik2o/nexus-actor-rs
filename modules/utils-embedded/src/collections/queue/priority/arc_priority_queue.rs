@@ -1,8 +1,6 @@
-use alloc::vec::Vec;
-
 use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex, RawMutex};
 use nexus_utils_core_rs::{
-  PriorityMessage, QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, SharedQueue, DEFAULT_PRIORITY,
+  PriorityMessage, QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, SharedPriorityQueue, SharedQueue,
   PRIORITY_LEVELS,
 };
 
@@ -14,26 +12,25 @@ pub type ArcCsPriorityQueue<E> = ArcPriorityQueue<E, CriticalSectionRawMutex>;
 #[derive(Debug, Clone)]
 pub struct ArcPriorityQueue<E, RM = NoopRawMutex>
 where
-  RM: RawMutex,
-{
-  queues: Vec<ArcRingQueue<E, RM>>,
+  RM: RawMutex, {
+  inner: SharedPriorityQueue<ArcRingQueue<E, RM>, E>,
 }
 
 impl<E, RM> ArcPriorityQueue<E, RM>
 where
-  E: PriorityMessage,
   RM: RawMutex,
 {
   pub fn new(capacity_per_level: usize) -> Self {
-    let mut queues = Vec::with_capacity(PRIORITY_LEVELS);
-    for _ in 0..PRIORITY_LEVELS {
-      queues.push(ArcRingQueue::new(capacity_per_level));
+    let levels = (0..PRIORITY_LEVELS)
+      .map(|_| ArcRingQueue::new(capacity_per_level))
+      .collect();
+    Self {
+      inner: SharedPriorityQueue::new(levels),
     }
-    Self { queues }
   }
 
   pub fn set_dynamic(&self, dynamic: bool) {
-    for queue in &self.queues {
+    for queue in self.inner.levels() {
       queue.set_dynamic(dynamic);
     }
   }
@@ -43,42 +40,16 @@ where
     self
   }
 
-  fn priority_index(&self, element: &E) -> usize {
-    element
-      .get_priority()
-      .unwrap_or(DEFAULT_PRIORITY)
-      .clamp(0, PRIORITY_LEVELS as i8 - 1) as usize
+  pub fn levels(&self) -> &[ArcRingQueue<E, RM>] {
+    self.inner.levels()
   }
 
-  pub fn offer(&self, element: E) -> Result<(), QueueError<E>> {
-    let idx = self.priority_index(&element);
-    self.queues[idx].offer(element)
+  pub fn levels_mut(&mut self) -> &mut [ArcRingQueue<E, RM>] {
+    self.inner.levels_mut()
   }
 
-  pub fn poll(&self) -> Result<Option<E>, QueueError<E>> {
-    for queue in self.queues.iter().rev() {
-      if let Some(item) = queue.poll()? {
-        return Ok(Some(item));
-      }
-    }
-    Ok(None)
-  }
-
-  pub fn clean_up(&self) {
-    for queue in &self.queues {
-      queue.clean_up();
-    }
-  }
-
-  fn total_len(&self) -> QueueSize {
-    let mut total = 0usize;
-    for queue in &self.queues {
-      match queue.len() {
-        QueueSize::Limitless => return QueueSize::limitless(),
-        QueueSize::Limited(value) => total += value,
-      }
-    }
-    QueueSize::limited(total)
+  pub fn inner(&self) -> &SharedPriorityQueue<ArcRingQueue<E, RM>, E> {
+    &self.inner
   }
 }
 
@@ -88,18 +59,11 @@ where
   RM: RawMutex,
 {
   fn len(&self) -> QueueSize {
-    self.total_len()
+    self.inner.len()
   }
 
   fn capacity(&self) -> QueueSize {
-    let mut total = 0usize;
-    for queue in &self.queues {
-      match queue.capacity() {
-        QueueSize::Limitless => return QueueSize::limitless(),
-        QueueSize::Limited(value) => total += value,
-      }
-    }
-    QueueSize::limited(total)
+    self.inner.capacity()
   }
 }
 
@@ -109,7 +73,7 @@ where
   RM: RawMutex,
 {
   fn offer_mut(&mut self, element: E) -> Result<(), QueueError<E>> {
-    self.offer(element)
+    self.inner.offer_mut(element)
   }
 }
 
@@ -119,11 +83,11 @@ where
   RM: RawMutex,
 {
   fn poll_mut(&mut self) -> Result<Option<E>, QueueError<E>> {
-    self.poll()
+    self.inner.poll_mut()
   }
 
   fn clean_up_mut(&mut self) {
-    self.clean_up();
+    self.inner.clean_up_mut();
   }
 }
 
@@ -133,15 +97,15 @@ where
   RM: RawMutex,
 {
   fn offer(&self, element: E) -> Result<(), QueueError<E>> {
-    self.offer(element)
+    self.inner.offer(element)
   }
 
   fn poll(&self) -> Result<Option<E>, QueueError<E>> {
-    self.poll()
+    self.inner.poll()
   }
 
   fn clean_up(&self) {
-    self.clean_up();
+    self.inner.clean_up();
   }
 }
 

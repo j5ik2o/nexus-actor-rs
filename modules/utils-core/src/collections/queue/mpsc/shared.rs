@@ -5,8 +5,7 @@ use crate::collections::{QueueBase, QueueError, QueueReader, QueueSize, QueueWri
 #[derive(Debug)]
 pub struct SharedMpscQueue<S, T>
 where
-  S: SharedMpscHandle<T>,
-{
+  S: SharedMpscHandle<T>, {
   storage: S,
   _marker: core::marker::PhantomData<T>,
 }

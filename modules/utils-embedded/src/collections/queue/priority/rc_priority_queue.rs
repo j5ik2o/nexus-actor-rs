@@ -1,7 +1,5 @@
-use alloc::vec::Vec;
-
 use nexus_utils_core_rs::{
-  PriorityMessage, QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, SharedQueue, DEFAULT_PRIORITY,
+  PriorityMessage, QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, SharedPriorityQueue, SharedQueue,
   PRIORITY_LEVELS,
 };
 
@@ -9,23 +7,21 @@ use crate::RcRingQueue;
 
 #[derive(Debug, Clone)]
 pub struct RcPriorityQueue<E> {
-  queues: Vec<RcRingQueue<E>>,
+  inner: SharedPriorityQueue<RcRingQueue<E>, E>,
 }
 
-impl<E> RcPriorityQueue<E>
-where
-  E: PriorityMessage,
-{
+impl<E> RcPriorityQueue<E> {
   pub fn new(capacity_per_level: usize) -> Self {
-    let mut queues = Vec::with_capacity(PRIORITY_LEVELS);
-    for _ in 0..PRIORITY_LEVELS {
-      queues.push(RcRingQueue::new(capacity_per_level));
+    let levels = (0..PRIORITY_LEVELS)
+      .map(|_| RcRingQueue::new(capacity_per_level))
+      .collect();
+    Self {
+      inner: SharedPriorityQueue::new(levels),
     }
-    Self { queues }
   }
 
   pub fn set_dynamic(&self, dynamic: bool) {
-    for queue in &self.queues {
+    for queue in self.inner.levels() {
       queue.set_dynamic(dynamic);
     }
   }
@@ -35,42 +31,16 @@ where
     self
   }
 
-  fn priority_index(&self, element: &E) -> usize {
-    element
-      .get_priority()
-      .unwrap_or(DEFAULT_PRIORITY)
-      .clamp(0, PRIORITY_LEVELS as i8 - 1) as usize
+  pub fn levels(&self) -> &[RcRingQueue<E>] {
+    self.inner.levels()
   }
 
-  pub fn offer(&self, element: E) -> Result<(), QueueError<E>> {
-    let idx = self.priority_index(&element);
-    self.queues[idx].offer(element)
+  pub fn levels_mut(&mut self) -> &mut [RcRingQueue<E>] {
+    self.inner.levels_mut()
   }
 
-  pub fn poll(&self) -> Result<Option<E>, QueueError<E>> {
-    for queue in self.queues.iter().rev() {
-      if let Some(item) = queue.poll()? {
-        return Ok(Some(item));
-      }
-    }
-    Ok(None)
-  }
-
-  pub fn clean_up(&self) {
-    for queue in &self.queues {
-      queue.clean_up();
-    }
-  }
-
-  fn total_len(&self) -> QueueSize {
-    let mut total = 0usize;
-    for queue in &self.queues {
-      match queue.len() {
-        QueueSize::Limitless => return QueueSize::limitless(),
-        QueueSize::Limited(value) => total += value,
-      }
-    }
-    QueueSize::limited(total)
+  pub fn inner(&self) -> &SharedPriorityQueue<RcRingQueue<E>, E> {
+    &self.inner
   }
 }
 
@@ -79,18 +49,11 @@ where
   E: PriorityMessage,
 {
   fn len(&self) -> QueueSize {
-    self.total_len()
+    self.inner.len()
   }
 
   fn capacity(&self) -> QueueSize {
-    let mut total = 0usize;
-    for queue in &self.queues {
-      match queue.capacity() {
-        QueueSize::Limitless => return QueueSize::limitless(),
-        QueueSize::Limited(value) => total += value,
-      }
-    }
-    QueueSize::limited(total)
+    self.inner.capacity()
   }
 }
 
@@ -99,7 +62,7 @@ where
   E: PriorityMessage,
 {
   fn offer_mut(&mut self, element: E) -> Result<(), QueueError<E>> {
-    self.offer(element)
+    self.inner.offer_mut(element)
   }
 }
 
@@ -108,11 +71,11 @@ where
   E: PriorityMessage,
 {
   fn poll_mut(&mut self) -> Result<Option<E>, QueueError<E>> {
-    self.poll()
+    self.inner.poll_mut()
   }
 
   fn clean_up_mut(&mut self) {
-    self.clean_up();
+    self.inner.clean_up_mut();
   }
 }
 
@@ -121,15 +84,15 @@ where
   E: PriorityMessage,
 {
   fn offer(&self, element: E) -> Result<(), QueueError<E>> {
-    self.offer(element)
+    self.inner.offer(element)
   }
 
   fn poll(&self) -> Result<Option<E>, QueueError<E>> {
-    self.poll()
+    self.inner.poll()
   }
 
   fn clean_up(&self) {
-    self.clean_up();
+    self.inner.clean_up();
   }
 }
 

@@ -36,8 +36,7 @@ impl<T> ArcStack<T> {
 
   pub fn peek_shared(&self) -> Option<T>
   where
-    T: Clone,
-  {
+    T: Clone, {
     self.inner.peek_shared()
   }
 
@@ -85,8 +84,7 @@ impl<T> StackMut<T> for ArcStack<T> {
 
   fn peek(&self) -> Option<T>
   where
-    T: Clone,
-  {
+    T: Clone, {
     self.inner.peek()
   }
 }
