@@ -1,6 +1,6 @@
 [package]
 name = "nexus-actor-core-rs"
-version = "3.0.2"
+version = "3.0.3"
 edition = "2021"
 description = "Foundation for Nexus Actor (no_std skeleton)"
 license = "MIT OR Apache-2.0"
