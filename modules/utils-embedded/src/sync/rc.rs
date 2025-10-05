@@ -3,7 +3,7 @@ use core::cell::{Ref, RefCell, RefMut};
 use core::ops::Deref;
 
 use nexus_utils_core_rs::sync::{Shared, StateCell};
-use nexus_utils_core_rs::{QueueStorage, SharedQueueHandle};
+use nexus_utils_core_rs::{MpscBuffer, QueueStorage, SharedMpscHandle, SharedQueueHandle};
 
 #[derive(Debug)]
 pub struct RcShared<T>(Rc<T>);
@@ -49,6 +49,14 @@ where
   T: QueueStorage<E>,
 {
   type Storage = T;
+
+  fn storage(&self) -> &Self::Storage {
+    &self.0
+  }
+}
+
+impl<T> SharedMpscHandle<T> for RcShared<RefCell<MpscBuffer<T>>> {
+  type Storage = RefCell<MpscBuffer<T>>;
 
   fn storage(&self) -> &Self::Storage {
     &self.0

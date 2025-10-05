@@ -3,7 +3,7 @@ use alloc::sync::Arc;
 use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex, RawMutex};
 use embassy_sync::mutex::{Mutex, MutexGuard};
 use nexus_utils_core_rs::sync::{Shared, StateCell};
-use nexus_utils_core_rs::{QueueStorage, RingBuffer, SharedQueueHandle};
+use nexus_utils_core_rs::{MpscBuffer, MpscStorage, QueueStorage, RingBuffer, SharedMpscHandle, SharedQueueHandle};
 
 #[derive(Debug)]
 pub struct ArcShared<T>(Arc<T>);
@@ -49,6 +49,17 @@ where
   T: QueueStorage<E>,
 {
   type Storage = T;
+
+  fn storage(&self) -> &Self::Storage {
+    &self.0
+  }
+}
+
+impl<T, RM> SharedMpscHandle<T> for ArcShared<ArcStateCell<MpscBuffer<T>, RM>>
+where
+  RM: RawMutex,
+{
+  type Storage = ArcStateCell<MpscBuffer<T>, RM>;
 
   fn storage(&self) -> &Self::Storage {
     &self.0
@@ -129,6 +140,21 @@ where
 
   fn borrow_mut(&self) -> Self::RefMut<'_> {
     self.lock()
+  }
+}
+
+impl<T, RM> MpscStorage<T> for ArcStateCell<MpscBuffer<T>, RM>
+where
+  RM: RawMutex,
+{
+  fn with_read<R>(&self, f: impl FnOnce(&MpscBuffer<T>) -> R) -> R {
+    let guard = self.borrow();
+    f(&guard)
+  }
+
+  fn with_write<R>(&self, f: impl FnOnce(&mut MpscBuffer<T>) -> R) -> R {
+    let mut guard = self.borrow_mut();
+    f(&mut guard)
   }
 }
 

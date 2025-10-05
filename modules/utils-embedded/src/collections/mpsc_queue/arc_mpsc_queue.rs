@@ -1,36 +1,14 @@
-use alloc::collections::VecDeque;
-
+use crate::sync::{ArcShared, ArcStateCell};
 use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex, RawMutex};
-
-use nexus_utils_core_rs::{Element, QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, SharedQueue};
-
-use crate::sync::ArcStateCell;
-use nexus_utils_core_rs::StateCell;
+use nexus_utils_core_rs::{
+  Element, MpscBuffer, QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, SharedMpscQueue, SharedQueue,
+};
 
 #[derive(Debug)]
-struct ArcMpscQueueState<E> {
-  buffer: VecDeque<E>,
-  closed: bool,
-}
-
-impl<E> ArcMpscQueueState<E> {
-  fn new() -> Self {
-    Self {
-      buffer: VecDeque::new(),
-      closed: false,
-    }
-  }
-
-  fn len(&self) -> usize {
-    self.buffer.len()
-  }
-}
-
-#[derive(Debug, Clone)]
 pub struct ArcMpscUnboundedQueue<E, RM = NoopRawMutex>
 where
   RM: RawMutex, {
-  state: ArcStateCell<ArcMpscQueueState<E>, RM>,
+  inner: SharedMpscQueue<ArcShared<ArcStateCell<MpscBuffer<E>, RM>>, E>,
 }
 
 pub type ArcLocalMpscUnboundedQueue<E> = ArcMpscUnboundedQueue<E, NoopRawMutex>;
@@ -41,98 +19,74 @@ where
   RM: RawMutex,
 {
   pub fn new() -> Self {
+    let storage = ArcShared::new(ArcStateCell::new(MpscBuffer::new(None)));
     Self {
-      state: ArcStateCell::new(ArcMpscQueueState::new()),
+      inner: SharedMpscQueue::new(storage),
     }
   }
 
-  fn with_state<R>(&self, f: impl FnOnce(&mut ArcMpscQueueState<E>) -> R) -> R {
-    let mut guard = self.state.borrow_mut();
-    f(&mut guard)
+  pub fn offer_shared(&self, element: E) -> Result<(), QueueError<E>>
+  where
+    E: Element, {
+    self.inner.offer_shared(element)
   }
 
-  fn with_state_ref<R>(&self, f: impl FnOnce(&ArcMpscQueueState<E>) -> R) -> R {
-    let guard = self.state.borrow();
-    f(&guard)
-  }
-}
-
-impl<E: Element, RM> ArcMpscUnboundedQueue<E, RM>
-where
-  RM: RawMutex,
-{
-  pub fn offer_shared(&self, element: E) -> Result<(), QueueError<E>> {
-    self.with_state(|state| {
-      if state.closed {
-        return Err(QueueError::Closed(element));
-      }
-      state.buffer.push_back(element);
-      Ok(())
-    })
-  }
-
-  pub fn poll_shared(&self) -> Result<Option<E>, QueueError<E>> {
-    self.with_state(|state| {
-      if let Some(item) = state.buffer.pop_front() {
-        return Ok(Some(item));
-      }
-      if state.closed {
-        Err(QueueError::Disconnected)
-      } else {
-        Ok(None)
-      }
-    })
+  pub fn poll_shared(&self) -> Result<Option<E>, QueueError<E>>
+  where
+    E: Element, {
+    self.inner.poll_shared()
   }
 
   pub fn clean_up_shared(&self) {
-    self.with_state(|state| {
-      state.buffer.clear();
-      state.closed = true;
-    });
+    self.inner.clean_up_shared();
   }
 
   pub fn len_shared(&self) -> QueueSize {
-    self.with_state_ref(|state| QueueSize::limited(state.len()))
+    self.inner.len_shared()
   }
 }
 
-impl<E: Element, RM> QueueBase<E> for ArcMpscUnboundedQueue<E, RM>
+impl<E, RM> QueueBase<E> for ArcMpscUnboundedQueue<E, RM>
 where
+  E: Element,
   RM: RawMutex,
 {
   fn len(&self) -> QueueSize {
-    self.len_shared()
+    self.inner.len()
   }
 
   fn capacity(&self) -> QueueSize {
-    QueueSize::limitless()
+    self.inner.capacity()
   }
 }
 
-impl<E: Element, RM> QueueWriter<E> for ArcMpscUnboundedQueue<E, RM>
+impl<E, RM> QueueWriter<E> for ArcMpscUnboundedQueue<E, RM>
 where
+  E: Element,
   RM: RawMutex,
 {
   fn offer(&mut self, element: E) -> Result<(), QueueError<E>> {
-    self.offer_shared(element)
+    self.inner.offer(element)
   }
 }
 
-impl<E: Element, RM> QueueReader<E> for ArcMpscUnboundedQueue<E, RM>
+impl<E, RM> QueueReader<E> for ArcMpscUnboundedQueue<E, RM>
 where
+  E: Element,
   RM: RawMutex,
 {
   fn poll(&mut self) -> Result<Option<E>, QueueError<E>> {
-    self.poll_shared()
+    self.inner.poll()
   }
 
   fn clean_up(&mut self) {
-    self.clean_up_shared();
+    self.inner.clean_up();
   }
 }
 
-impl<E: Element, RM> SharedQueue<E> for ArcMpscUnboundedQueue<E, RM>
+impl<E, RM> SharedQueue<E> for ArcMpscUnboundedQueue<E, RM>
 where
+  E: Element,
   RM: RawMutex,
 {
   fn offer_shared(&self, element: E) -> Result<(), QueueError<E>> {
@@ -148,12 +102,11 @@ where
   }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct ArcMpscBoundedQueue<E, RM = NoopRawMutex>
 where
   RM: RawMutex, {
-  state: ArcStateCell<ArcMpscQueueState<E>, RM>,
-  capacity: usize,
+  inner: SharedMpscQueue<ArcShared<ArcStateCell<MpscBuffer<E>, RM>>, E>,
 }
 
 pub type ArcLocalMpscBoundedQueue<E> = ArcMpscBoundedQueue<E, NoopRawMutex>;
@@ -164,106 +117,78 @@ where
   RM: RawMutex,
 {
   pub fn new(capacity: usize) -> Self {
+    let storage = ArcShared::new(ArcStateCell::new(MpscBuffer::new(Some(capacity))));
     Self {
-      state: ArcStateCell::new(ArcMpscQueueState::new()),
-      capacity,
+      inner: SharedMpscQueue::new(storage),
     }
   }
 
-  fn with_state<R>(&self, f: impl FnOnce(&mut ArcMpscQueueState<E>) -> R) -> R {
-    let mut guard = self.state.borrow_mut();
-    f(&mut guard)
+  pub fn offer_shared(&self, element: E) -> Result<(), QueueError<E>>
+  where
+    E: Element, {
+    self.inner.offer_shared(element)
   }
 
-  fn with_state_ref<R>(&self, f: impl FnOnce(&ArcMpscQueueState<E>) -> R) -> R {
-    let guard = self.state.borrow();
-    f(&guard)
-  }
-}
-
-impl<E: Element, RM> ArcMpscBoundedQueue<E, RM>
-where
-  RM: RawMutex,
-{
-  pub fn offer_shared(&self, element: E) -> Result<(), QueueError<E>> {
-    self.with_state(|state| {
-      if state.closed {
-        return Err(QueueError::Closed(element));
-      }
-      if state.buffer.len() >= self.capacity {
-        return Err(QueueError::Full(element));
-      }
-      state.buffer.push_back(element);
-      Ok(())
-    })
-  }
-
-  pub fn poll_shared(&self) -> Result<Option<E>, QueueError<E>> {
-    self.with_state(|state| {
-      if let Some(item) = state.buffer.pop_front() {
-        return Ok(Some(item));
-      }
-      if state.closed {
-        Err(QueueError::Disconnected)
-      } else {
-        Ok(None)
-      }
-    })
+  pub fn poll_shared(&self) -> Result<Option<E>, QueueError<E>>
+  where
+    E: Element, {
+    self.inner.poll_shared()
   }
 
   pub fn clean_up_shared(&self) {
-    self.with_state(|state| {
-      state.buffer.clear();
-      state.closed = true;
-    });
+    self.inner.clean_up_shared();
   }
 
   pub fn len_shared(&self) -> QueueSize {
-    self.with_state_ref(|state| QueueSize::limited(state.len()))
+    self.inner.len_shared()
   }
 
   pub fn capacity_shared(&self) -> QueueSize {
-    QueueSize::limited(self.capacity)
+    self.inner.capacity_shared()
   }
 }
 
-impl<E: Element, RM> QueueBase<E> for ArcMpscBoundedQueue<E, RM>
+impl<E, RM> QueueBase<E> for ArcMpscBoundedQueue<E, RM>
 where
+  E: Element,
   RM: RawMutex,
 {
   fn len(&self) -> QueueSize {
-    self.len_shared()
+    self.inner.len()
   }
 
   fn capacity(&self) -> QueueSize {
-    self.capacity_shared()
+    self.inner.capacity()
   }
 }
 
-impl<E: Element, RM> QueueWriter<E> for ArcMpscBoundedQueue<E, RM>
+impl<E, RM> QueueWriter<E> for ArcMpscBoundedQueue<E, RM>
 where
+  E: Element,
   RM: RawMutex,
 {
   fn offer(&mut self, element: E) -> Result<(), QueueError<E>> {
-    self.offer_shared(element)
+    self.inner.offer(element)
   }
 }
 
-impl<E: Element, RM> QueueReader<E> for ArcMpscBoundedQueue<E, RM>
+impl<E, RM> QueueReader<E> for ArcMpscBoundedQueue<E, RM>
 where
+  E: Element,
   RM: RawMutex,
 {
   fn poll(&mut self) -> Result<Option<E>, QueueError<E>> {
-    self.poll_shared()
+    self.inner.poll()
   }
 
   fn clean_up(&mut self) {
-    self.clean_up_shared();
+    self.inner.clean_up();
   }
 }
 
-impl<E: Element, RM> SharedQueue<E> for ArcMpscBoundedQueue<E, RM>
+impl<E, RM> SharedQueue<E> for ArcMpscBoundedQueue<E, RM>
 where
+  E: Element,
   RM: RawMutex,
 {
   fn offer_shared(&self, element: E) -> Result<(), QueueError<E>> {

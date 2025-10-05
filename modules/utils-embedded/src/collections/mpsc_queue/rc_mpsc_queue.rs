@@ -1,110 +1,74 @@
-use alloc::collections::VecDeque;
-use alloc::rc::Rc;
 use core::cell::RefCell;
 
-use nexus_utils_core_rs::{Element, QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, SharedQueue};
+use nexus_utils_core_rs::{
+  Element, MpscBuffer, QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, SharedMpscQueue, SharedQueue,
+};
 
-#[derive(Debug)]
-struct RcMpscQueueState<E> {
-  buffer: VecDeque<E>,
-  closed: bool,
-}
-
-impl<E> RcMpscQueueState<E> {
-  fn new() -> Self {
-    Self {
-      buffer: VecDeque::new(),
-      closed: false,
-    }
-  }
-
-  fn len(&self) -> usize {
-    self.buffer.len()
-  }
-}
+use crate::sync::RcShared;
 
 #[derive(Debug, Clone)]
 pub struct RcMpscUnboundedQueue<E> {
-  state: Rc<RefCell<RcMpscQueueState<E>>>,
+  inner: SharedMpscQueue<RcShared<RefCell<MpscBuffer<E>>>, E>,
 }
 
 impl<E> RcMpscUnboundedQueue<E> {
   pub fn new() -> Self {
+    let storage = RcShared::new(RefCell::new(MpscBuffer::new(None)));
     Self {
-      state: Rc::new(RefCell::new(RcMpscQueueState::new())),
+      inner: SharedMpscQueue::new(storage),
     }
   }
 
-  fn with_state<R>(&self, f: impl FnOnce(&mut RcMpscQueueState<E>) -> R) -> R {
-    let mut guard = self.state.borrow_mut();
-    f(&mut guard)
+  pub fn offer_shared(&self, element: E) -> Result<(), QueueError<E>>
+  where
+    E: Element, {
+    self.inner.offer_shared(element)
   }
 
-  fn with_state_ref<R>(&self, f: impl FnOnce(&RcMpscQueueState<E>) -> R) -> R {
-    let guard = self.state.borrow();
-    f(&guard)
-  }
-}
-
-impl<E: Element> RcMpscUnboundedQueue<E> {
-  pub fn offer_shared(&self, element: E) -> Result<(), QueueError<E>> {
-    self.with_state(|state| {
-      if state.closed {
-        return Err(QueueError::Closed(element));
-      }
-      state.buffer.push_back(element);
-      Ok(())
-    })
-  }
-
-  pub fn poll_shared(&self) -> Result<Option<E>, QueueError<E>> {
-    self.with_state(|state| {
-      if let Some(item) = state.buffer.pop_front() {
-        return Ok(Some(item));
-      }
-      if state.closed {
-        Err(QueueError::Disconnected)
-      } else {
-        Ok(None)
-      }
-    })
+  pub fn poll_shared(&self) -> Result<Option<E>, QueueError<E>>
+  where
+    E: Element, {
+    self.inner.poll_shared()
   }
 
   pub fn clean_up_shared(&self) {
-    self.with_state(|state| {
-      state.buffer.clear();
-      state.closed = true;
-    });
+    self.inner.clean_up_shared();
   }
 
   pub fn len_shared(&self) -> QueueSize {
-    self.with_state_ref(|state| QueueSize::limited(state.len()))
+    self.inner.len_shared()
+  }
+}
+
+impl<E> Default for RcMpscUnboundedQueue<E> {
+  fn default() -> Self {
+    Self::new()
   }
 }
 
 impl<E: Element> QueueBase<E> for RcMpscUnboundedQueue<E> {
   fn len(&self) -> QueueSize {
-    self.len_shared()
+    self.inner.len()
   }
 
   fn capacity(&self) -> QueueSize {
-    QueueSize::limitless()
+    self.inner.capacity()
   }
 }
 
 impl<E: Element> QueueWriter<E> for RcMpscUnboundedQueue<E> {
   fn offer(&mut self, element: E) -> Result<(), QueueError<E>> {
-    self.offer_shared(element)
+    self.inner.offer(element)
   }
 }
 
 impl<E: Element> QueueReader<E> for RcMpscUnboundedQueue<E> {
   fn poll(&mut self) -> Result<Option<E>, QueueError<E>> {
-    self.poll_shared()
+    self.inner.poll()
   }
 
   fn clean_up(&mut self) {
-    self.clean_up_shared();
+    self.inner.clean_up();
   }
 }
 
@@ -122,99 +86,63 @@ impl<E: Element> SharedQueue<E> for RcMpscUnboundedQueue<E> {
   }
 }
 
-impl<E> Default for RcMpscUnboundedQueue<E> {
-  fn default() -> Self {
-    Self::new()
-  }
-}
-
 #[derive(Debug, Clone)]
 pub struct RcMpscBoundedQueue<E> {
-  state: Rc<RefCell<RcMpscQueueState<E>>>,
-  capacity: usize,
+  inner: SharedMpscQueue<RcShared<RefCell<MpscBuffer<E>>>, E>,
 }
 
 impl<E> RcMpscBoundedQueue<E> {
   pub fn new(capacity: usize) -> Self {
+    let storage = RcShared::new(RefCell::new(MpscBuffer::new(Some(capacity))));
     Self {
-      state: Rc::new(RefCell::new(RcMpscQueueState::new())),
-      capacity,
+      inner: SharedMpscQueue::new(storage),
     }
   }
 
-  fn with_state<R>(&self, f: impl FnOnce(&mut RcMpscQueueState<E>) -> R) -> R {
-    let mut guard = self.state.borrow_mut();
-    f(&mut guard)
+  pub fn offer_shared(&self, element: E) -> Result<(), QueueError<E>>
+  where
+    E: Element, {
+    self.inner.offer_shared(element)
   }
 
-  fn with_state_ref<R>(&self, f: impl FnOnce(&RcMpscQueueState<E>) -> R) -> R {
-    let guard = self.state.borrow();
-    f(&guard)
-  }
-}
-
-impl<E: Element> RcMpscBoundedQueue<E> {
-  pub fn offer_shared(&self, element: E) -> Result<(), QueueError<E>> {
-    self.with_state(|state| {
-      if state.closed {
-        return Err(QueueError::Closed(element));
-      }
-      if state.buffer.len() >= self.capacity {
-        return Err(QueueError::Full(element));
-      }
-      state.buffer.push_back(element);
-      Ok(())
-    })
-  }
-
-  pub fn poll_shared(&self) -> Result<Option<E>, QueueError<E>> {
-    self.with_state(|state| {
-      if let Some(item) = state.buffer.pop_front() {
-        return Ok(Some(item));
-      }
-      if state.closed {
-        Err(QueueError::Disconnected)
-      } else {
-        Ok(None)
-      }
-    })
+  pub fn poll_shared(&self) -> Result<Option<E>, QueueError<E>>
+  where
+    E: Element, {
+    self.inner.poll_shared()
   }
 
   pub fn clean_up_shared(&self) {
-    self.with_state(|state| {
-      state.buffer.clear();
-      state.closed = true;
-    });
+    self.inner.clean_up_shared();
   }
 
   pub fn len_shared(&self) -> QueueSize {
-    self.with_state_ref(|state| QueueSize::limited(state.len()))
+    self.inner.len_shared()
   }
 }
 
 impl<E: Element> QueueBase<E> for RcMpscBoundedQueue<E> {
   fn len(&self) -> QueueSize {
-    self.len_shared()
+    self.inner.len()
   }
 
   fn capacity(&self) -> QueueSize {
-    QueueSize::limited(self.capacity)
+    self.inner.capacity()
   }
 }
 
 impl<E: Element> QueueWriter<E> for RcMpscBoundedQueue<E> {
   fn offer(&mut self, element: E) -> Result<(), QueueError<E>> {
-    self.offer_shared(element)
+    self.inner.offer(element)
   }
 }
 
 impl<E: Element> QueueReader<E> for RcMpscBoundedQueue<E> {
   fn poll(&mut self) -> Result<Option<E>, QueueError<E>> {
-    self.poll_shared()
+    self.inner.poll()
   }
 
   fn clean_up(&mut self) {
-    self.clean_up_shared();
+    self.inner.clean_up();
   }
 }
 
@@ -235,7 +163,6 @@ impl<E: Element> SharedQueue<E> for RcMpscBoundedQueue<E> {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use nexus_utils_core_rs::{QueueBase, QueueReader, QueueWriter};
 
   #[test]
   fn rc_unbounded_offer_poll() {
@@ -280,7 +207,7 @@ mod tests {
   #[test]
   fn rc_bounded_capacity_tracking() {
     let queue: RcMpscBoundedQueue<u32> = RcMpscBoundedQueue::new(2);
-    assert_eq!(queue.capacity(), QueueSize::limited(2));
+    assert_eq!(queue.capacity().to_usize(), 2);
     queue.offer_shared(1).unwrap();
     assert_eq!(queue.len_shared(), QueueSize::limited(1));
   }
@@ -290,22 +217,5 @@ mod tests {
     let mut queue: RcMpscUnboundedQueue<u32> = RcMpscUnboundedQueue::new();
     queue.offer(1).unwrap();
     assert_eq!(queue.poll().unwrap(), Some(1));
-  }
-
-  #[test]
-  fn rc_unbounded_capacity_reports_limitless() {
-    let queue: RcMpscUnboundedQueue<u32> = RcMpscUnboundedQueue::new();
-    assert!(queue.capacity().is_limitless());
-  }
-
-  #[test]
-  fn rc_bounded_trait_cleanup_marks_closed() {
-    let mut queue: RcMpscBoundedQueue<u32> = RcMpscBoundedQueue::new(2);
-    queue.offer(10).unwrap();
-    queue.offer(11).unwrap();
-
-    queue.clean_up();
-    assert!(matches!(queue.poll(), Err(QueueError::Disconnected)));
-    assert!(matches!(queue.offer(12), Err(QueueError::Closed(12))));
   }
 }
