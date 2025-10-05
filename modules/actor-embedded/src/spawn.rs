@@ -26,6 +26,9 @@ mod tests {
       flag.store(true, Ordering::SeqCst);
     });
 
-    assert!(!polled.load(Ordering::SeqCst), "future should not be polled by ImmediateSpawner");
+    assert!(
+      !polled.load(Ordering::SeqCst),
+      "future should not be polled by ImmediateSpawner"
+    );
   }
 }

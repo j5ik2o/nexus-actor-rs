@@ -32,7 +32,7 @@ pub trait SharedQueueHandle<E>: Shared<Self::Storage> + Clone {
 /// The structure forwards all queue operations to the `QueueStorage`
 /// implementation exposed via the shared handle, ensuring that runtime-specific
 /// synchronization remains outside the common logic layer.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct SharedRingQueue<S, E>
 where
   S: SharedQueueHandle<E>, {
@@ -100,6 +100,18 @@ where
 
   fn handle(&self) -> &S::Storage {
     self.storage.storage()
+  }
+}
+
+impl<S, E> Clone for SharedRingQueue<S, E>
+where
+  S: SharedQueueHandle<E>,
+{
+  fn clone(&self) -> Self {
+    Self {
+      storage: self.storage.clone(),
+      _marker: core::marker::PhantomData,
+    }
   }
 }
 
@@ -203,7 +215,7 @@ mod tests {
 
   use crate::sync::Shared;
 
-  use super::{QueueError, QueueSize, RingBuffer, SharedQueueHandle, SharedRingQueue};
+  use super::{QueueBase, QueueError, QueueSize, RingBuffer, SharedQueueHandle, SharedRingQueue};
 
   #[derive(Debug)]
   struct RcRingBufferHandle<E>(Rc<RefCell<RingBuffer<E>>>);
@@ -252,11 +264,72 @@ mod tests {
 
   #[test]
   fn shared_ring_queue_len_capacity() {
-    let queue: SharedRingQueue<_, _> = SharedRingQueue::new(RcRingBufferHandle::new(4)).with_dynamic(false);
-    assert_eq!(queue.len_shared(), QueueSize::limited(0));
-    assert_eq!(queue.capacity_shared(), QueueSize::limited(4));
+    let queue: SharedRingQueue<_, _> = SharedRingQueue::new(RcRingBufferHandle::new(2));
+    // dynamic by default -> limitless capacity reporting
+    assert!(queue.capacity_shared().is_limitless());
+
+    queue.set_dynamic(false);
+    assert_eq!(queue.capacity_shared(), QueueSize::limited(2));
 
     queue.offer_shared(10).unwrap();
-    assert_eq!(queue.len_shared(), QueueSize::limited(1));
+    queue.offer_shared(11).unwrap();
+    assert_eq!(queue.len_shared(), QueueSize::limited(2));
+
+    queue.clean_up_shared();
+    assert_eq!(queue.len_shared(), QueueSize::limited(0));
+  }
+
+  #[test]
+  fn shared_ring_queue_with_mutex_storage() {
+    extern crate std;
+
+    use crate::sync::Shared;
+    use core::ops::Deref;
+    use std::sync::{Arc, Mutex};
+
+    #[derive(Debug)]
+    struct MutexHandle<E>(Arc<Mutex<RingBuffer<E>>>);
+
+    impl<E> Clone for MutexHandle<E> {
+      fn clone(&self) -> Self {
+        Self(self.0.clone())
+      }
+    }
+
+    impl<E> Deref for MutexHandle<E> {
+      type Target = Mutex<RingBuffer<E>>;
+
+      fn deref(&self) -> &Self::Target {
+        &self.0
+      }
+    }
+
+    impl<E> Shared<Mutex<RingBuffer<E>>> for MutexHandle<E> {}
+
+    impl<E> SharedQueueHandle<E> for MutexHandle<E> {
+      type Storage = Mutex<RingBuffer<E>>;
+
+      fn storage(&self) -> &Self::Storage {
+        &self.0
+      }
+    }
+
+    let storage = MutexHandle(Arc::new(Mutex::new(RingBuffer::new(1).with_dynamic(false))));
+    let queue = SharedRingQueue::new(storage);
+
+    queue.offer_shared(5).unwrap();
+    assert!(matches!(queue.offer_shared(6), Err(QueueError::Full(6))));
+    assert_eq!(queue.poll_shared().unwrap(), Some(5));
+  }
+
+  #[test]
+  fn shared_ring_queue_storage_accessors() {
+    let queue: SharedRingQueue<_, _> = SharedRingQueue::new(RcRingBufferHandle::<u8>::new(1));
+    queue.set_dynamic(false);
+    let handle_ref = queue.storage();
+    assert_eq!(handle_ref.deref().borrow().len().to_usize(), 0);
+
+    let storage = queue.clone().into_storage();
+    assert_eq!(storage.deref().borrow().capacity().to_usize(), 1);
   }
 }

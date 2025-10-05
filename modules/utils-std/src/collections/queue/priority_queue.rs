@@ -148,4 +148,29 @@ mod tests {
     assert_eq!(queue.poll_shared().unwrap().unwrap().0, 10);
     assert!(queue.poll_shared().unwrap().is_none());
   }
+
+  #[test]
+  fn priority_queue_len_capacity_and_clean_up() {
+    let queue = PriorityQueue::new(2);
+    assert_eq!(queue.len_shared(), QueueSize::limited(0));
+
+    queue.offer_shared(Msg(1, 0)).unwrap();
+    assert_eq!(queue.len_shared(), QueueSize::limited(1));
+
+    queue.clean_up_shared();
+    assert_eq!(queue.len_shared(), QueueSize::limited(0));
+  }
+
+  #[test]
+  fn priority_queue_capacity_reflects_levels() {
+    let queue = PriorityQueue::<Msg>::new(1);
+    assert!(queue.capacity().is_limitless());
+  }
+
+  #[test]
+  fn priority_queue_offer_via_trait() {
+    let mut queue = PriorityQueue::new(2);
+    queue.offer(Msg(5, 2)).unwrap();
+    assert_eq!(queue.poll().unwrap().unwrap().0, 5);
+  }
 }

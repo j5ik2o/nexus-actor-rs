@@ -72,6 +72,7 @@ mod tests {
     struct NoopWake;
     impl Wake for NoopWake {
       fn wake(self: Arc<Self>) {}
+
       fn wake_by_ref(self: &Arc<Self>) {}
     }
     Waker::from(Arc::new(NoopWake))
@@ -79,8 +80,7 @@ mod tests {
 
   fn pin_poll<F: Future>(mut fut: F) -> (Poll<F::Output>, F)
   where
-    F: Unpin,
-  {
+    F: Unpin, {
     let waker = noop_waker();
     let mut cx = Context::from_waker(&waker);
     let poll = Pin::new(&mut fut).poll(&mut cx);

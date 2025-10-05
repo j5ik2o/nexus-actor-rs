@@ -1,6 +1,6 @@
+mod mpsc_queue;
 mod priority_queue;
 mod ring_queue;
-mod mpsc_queue;
 
 pub use mpsc_queue::arc_mpsc_bounded_queue::ArcMpscBoundedQueue;
 pub use mpsc_queue::arc_mpsc_unbounded_queue::ArcMpscUnboundedQueue;

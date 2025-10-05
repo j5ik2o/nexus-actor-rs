@@ -174,4 +174,22 @@ mod tests {
     assert_eq!(queue.poll_shared().unwrap(), Some(2));
     assert_eq!(queue.poll_shared().unwrap(), None);
   }
+
+  #[test]
+  fn bounded_queue_clean_up_closes_channel() {
+    let queue = ArcMpscBoundedQueue::new(1);
+    queue.offer_shared(1).unwrap();
+    queue.clean_up_shared();
+
+    assert!(matches!(queue.poll_shared(), Err(QueueError::Disconnected)));
+    assert!(matches!(queue.offer_shared(2), Err(QueueError::Closed(2))));
+  }
+
+  #[test]
+  fn bounded_queue_capacity_and_len_shared() {
+    let queue = ArcMpscBoundedQueue::new(3);
+    assert_eq!(queue.capacity_shared(), QueueSize::limited(3));
+    queue.offer_shared(1).unwrap();
+    assert_eq!(queue.len_shared(), QueueSize::limited(1));
+  }
 }

@@ -77,6 +77,7 @@ pub trait Spawn {
 - `nexus-utils-core-rs` に `RingBuffer` と `QueueBase` 系トレイトを集約し、`no_std + alloc` 前提でリングキューの基盤を提供する。
 - `nexus-utils-std-rs` では `RingQueue<E>` を `Arc<Mutex<_>>` でラップし、共有アクセス向け API（`offer_shared` / `poll_shared` など）を公開する。
 - `nexus-utils-embedded-rs` では `RcRingQueue<E>` と `ArcRingQueue<E, RM>` を用意し、`rc` フィーチャでは `Rc<RefCell<_>>`、`arc` フィーチャでは Embassy の `Mutex<RM, _>` を使用する。`ArcLocalRingQueue` / `ArcCsRingQueue` などのエイリアスで環境に合わせた排他制御を選択する。
+- 両クレートは `prelude` モジュールで `QueueWriter` / `SharedQueue` など core 側のトレイトを含む共通インターフェイスを再エクスポートし、利用者が core の API だけで操作できるよう保証する。
 - `actor-*` 側はユーティリティ経由の再エクスポートを利用し、std / embedded いずれの構成でも一貫したテスト・サンプルを保つ。
 
 ## モジュール構成ポリシー

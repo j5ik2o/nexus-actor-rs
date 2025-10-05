@@ -124,4 +124,32 @@ mod tests {
     assert_eq!(queue.poll_shared().unwrap(), Some(11));
     assert_eq!(queue.poll_shared().unwrap(), None);
   }
+
+  #[test]
+  fn ring_queue_clean_up_resets_queue() {
+    let queue = RingQueue::new(2);
+    queue.offer_shared(1).unwrap();
+    queue.offer_shared(2).unwrap();
+
+    queue.clean_up_shared();
+    assert_eq!(queue.len_shared().to_usize(), 0);
+    assert!(queue.poll_shared().unwrap().is_none());
+  }
+
+  #[test]
+  fn ring_queue_dynamic_resize() {
+    let queue = RingQueue::new(1);
+    queue.set_dynamic(true);
+    queue.offer_shared(1).unwrap();
+    queue.offer_shared(2).unwrap();
+    assert!(queue.len_shared().to_usize() >= 2);
+  }
+
+  #[test]
+  fn ring_queue_capacity_and_poll_via_traits() {
+    let mut queue = RingQueue::new(1).with_dynamic(false);
+    queue.offer(9).unwrap();
+    assert_eq!(queue.capacity(), QueueSize::limited(1));
+    assert_eq!(queue.poll().unwrap(), Some(9));
+  }
 }

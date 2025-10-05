@@ -235,6 +235,7 @@ impl<E: Element> SharedQueue<E> for RcMpscBoundedQueue<E> {
 #[cfg(test)]
 mod tests {
   use super::*;
+  use nexus_utils_core_rs::{QueueBase, QueueReader, QueueWriter};
 
   #[test]
   fn rc_unbounded_offer_poll() {
@@ -248,10 +249,63 @@ mod tests {
   }
 
   #[test]
+  fn rc_unbounded_clean_up_signals_disconnected() {
+    let queue: RcMpscUnboundedQueue<u8> = RcMpscUnboundedQueue::new();
+    queue.offer_shared(1).unwrap();
+    queue.clean_up_shared();
+
+    assert!(matches!(queue.poll_shared(), Err(QueueError::Disconnected)));
+    assert!(matches!(queue.offer_shared(2), Err(QueueError::Closed(2))));
+  }
+
+  #[test]
   fn rc_bounded_capacity_limit() {
     let queue: RcMpscBoundedQueue<u32> = RcMpscBoundedQueue::new(1);
     queue.offer_shared(42).unwrap();
     let err = queue.offer_shared(99).unwrap_err();
     assert!(matches!(err, QueueError::Full(99)));
+  }
+
+  #[test]
+  fn rc_bounded_clean_up_closes_queue() {
+    let queue: RcMpscBoundedQueue<u32> = RcMpscBoundedQueue::new(2);
+    queue.offer_shared(1).unwrap();
+    queue.offer_shared(2).unwrap();
+
+    queue.clean_up_shared();
+    assert!(matches!(queue.poll_shared(), Err(QueueError::Disconnected)));
+    assert!(matches!(queue.offer_shared(3), Err(QueueError::Closed(3))));
+  }
+
+  #[test]
+  fn rc_bounded_capacity_tracking() {
+    let queue: RcMpscBoundedQueue<u32> = RcMpscBoundedQueue::new(2);
+    assert_eq!(queue.capacity(), QueueSize::limited(2));
+    queue.offer_shared(1).unwrap();
+    assert_eq!(queue.len_shared(), QueueSize::limited(1));
+  }
+
+  #[test]
+  fn rc_unbounded_offer_poll_via_traits() {
+    let mut queue: RcMpscUnboundedQueue<u32> = RcMpscUnboundedQueue::new();
+    queue.offer(1).unwrap();
+    assert_eq!(queue.poll().unwrap(), Some(1));
+  }
+
+  #[test]
+  fn rc_unbounded_capacity_reports_limitless() {
+    let queue: RcMpscUnboundedQueue<u32> = RcMpscUnboundedQueue::new();
+    assert!(queue.capacity().is_limitless());
+  }
+
+  #[test]
+  fn rc_bounded_trait_cleanup_marks_closed() {
+    let mut queue: RcMpscBoundedQueue<u32> = RcMpscBoundedQueue::new(2);
+    queue.offer(10).unwrap();
+    queue.offer(11).unwrap();
+
+    queue.clean_up();
+    assert!(matches!(queue.poll(), Err(QueueError::Disconnected)));
+    assert!(matches!(queue.offer(12), Err(QueueError::Closed(12))));
   }
 }

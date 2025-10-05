@@ -1,9 +1,9 @@
+mod mpsc_queue;
+mod priority_queue;
 #[cfg(feature = "arc")]
 pub mod queue_arc;
 #[cfg(feature = "rc")]
 pub mod queue_rc;
-mod mpsc_queue;
-mod priority_queue;
 
 #[cfg(feature = "arc")]
 pub use mpsc_queue::arc_mpsc_queue::{

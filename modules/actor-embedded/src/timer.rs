@@ -28,6 +28,7 @@ mod tests {
     struct NoopWake;
     impl Wake for NoopWake {
       fn wake(self: Arc<Self>) {}
+
       fn wake_by_ref(self: &Arc<Self>) {}
     }
     Waker::from(Arc::new(NoopWake))

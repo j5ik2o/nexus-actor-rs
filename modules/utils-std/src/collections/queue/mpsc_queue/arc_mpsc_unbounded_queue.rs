@@ -160,10 +160,18 @@ mod tests {
   }
 
   #[test]
+  fn unbounded_queue_len_shared_updates() {
+    let queue: ArcMpscUnboundedQueue<u32> = ArcMpscUnboundedQueue::new();
+    queue.offer_shared(1).unwrap();
+    assert_eq!(queue.len_shared(), QueueSize::limited(1));
+  }
+
+  #[test]
   fn unbounded_queue_closed_on_receiver_drop() {
     let queue: ArcMpscUnboundedQueue<u32> = ArcMpscUnboundedQueue::new();
     queue.clean_up_shared();
     let err = queue.poll_shared().unwrap_err();
     assert!(matches!(err, QueueError::Disconnected));
+    assert!(matches!(queue.offer_shared(1), Err(QueueError::Closed(1))));
   }
 }

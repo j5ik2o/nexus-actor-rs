@@ -5,6 +5,7 @@ use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex, R
 use nexus_utils_core_rs::{Element, QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, SharedQueue};
 
 use crate::sync::ArcStateCell;
+use nexus_utils_core_rs::StateCell;
 
 #[derive(Debug)]
 struct ArcMpscQueueState<E> {
@@ -281,9 +282,16 @@ where
 #[cfg(test)]
 mod tests {
   use super::*;
+  use crate::tests::init_arc_critical_section;
+  use nexus_utils_core_rs::{QueueBase, QueueReader, QueueWriter};
+
+  fn prepare() {
+    init_arc_critical_section();
+  }
 
   #[test]
   fn arc_unbounded_offer_poll() {
+    prepare();
     let queue: ArcMpscUnboundedQueue<u32> = ArcMpscUnboundedQueue::new();
     queue.offer_shared(1).unwrap();
     queue.offer_shared(2).unwrap();
@@ -294,10 +302,70 @@ mod tests {
   }
 
   #[test]
+  fn arc_unbounded_clean_up_signals_disconnect() {
+    prepare();
+    let queue: ArcMpscUnboundedQueue<u8> = ArcMpscUnboundedQueue::new();
+    queue.offer_shared(9).unwrap();
+    queue.clean_up_shared();
+
+    assert!(matches!(queue.poll_shared(), Err(QueueError::Disconnected)));
+    assert!(matches!(queue.offer_shared(1), Err(QueueError::Closed(1))));
+  }
+
+  #[test]
   fn arc_bounded_capacity_limit() {
+    prepare();
     let queue: ArcMpscBoundedQueue<u32> = ArcMpscBoundedQueue::new(1);
     queue.offer_shared(10).unwrap();
     let err = queue.offer_shared(11).unwrap_err();
     assert!(matches!(err, QueueError::Full(11)));
+  }
+
+  #[test]
+  fn arc_bounded_clean_up_closes_queue() {
+    prepare();
+    let queue: ArcMpscBoundedQueue<u32> = ArcMpscBoundedQueue::new(2);
+    queue.offer_shared(1).unwrap();
+    queue.clean_up_shared();
+
+    assert!(matches!(queue.poll_shared(), Err(QueueError::Disconnected)));
+    assert!(matches!(queue.offer_shared(2), Err(QueueError::Closed(2))));
+  }
+
+  #[test]
+  fn arc_bounded_reports_len_and_capacity() {
+    prepare();
+    let queue: ArcMpscBoundedQueue<u32> = ArcMpscBoundedQueue::new(3);
+    assert_eq!(queue.capacity_shared(), QueueSize::limited(3));
+
+    queue.offer_shared(1).unwrap();
+    assert_eq!(queue.len_shared(), QueueSize::limited(1));
+  }
+
+  #[test]
+  fn arc_unbounded_offer_poll_via_traits() {
+    prepare();
+    let mut queue: ArcMpscUnboundedQueue<u32> = ArcMpscUnboundedQueue::new();
+    queue.offer(7).unwrap();
+    assert_eq!(queue.poll().unwrap(), Some(7));
+  }
+
+  #[test]
+  fn arc_unbounded_capacity_reports_limitless() {
+    prepare();
+    let queue: ArcMpscUnboundedQueue<u32> = ArcMpscUnboundedQueue::new();
+    assert!(queue.capacity().is_limitless());
+  }
+
+  #[test]
+  fn arc_bounded_trait_cleanup_marks_closed() {
+    prepare();
+    let mut queue: ArcMpscBoundedQueue<u32> = ArcMpscBoundedQueue::new(2);
+    queue.offer(1).unwrap();
+    queue.offer(2).unwrap();
+
+    queue.clean_up();
+    assert!(matches!(queue.poll(), Err(QueueError::Disconnected)));
+    assert!(matches!(queue.offer(3), Err(QueueError::Closed(3))));
   }
 }
