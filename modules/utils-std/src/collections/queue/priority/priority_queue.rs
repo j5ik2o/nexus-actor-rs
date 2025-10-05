@@ -1,6 +1,6 @@
 use std::vec::Vec;
 
-use super::RingQueue;
+use crate::RingQueue;
 use nexus_utils_core_rs::{
   PriorityMessage, QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, SharedQueue, DEFAULT_PRIORITY,
   PRIORITY_LEVELS,
