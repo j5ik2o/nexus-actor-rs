@@ -76,9 +76,33 @@ pub trait Spawn {
 ## Queue 抽象の配置
 - `nexus-utils-core-rs` に `RingBuffer` と `QueueBase` 系トレイトを集約し、`no_std + alloc` 前提でリングキューの基盤を提供する。
 - `nexus-utils-std-rs` では `RingQueue<E>` を `Arc<Mutex<_>>` でラップし、共有アクセス向け API（`offer_shared` / `poll_shared` など）を公開する。
-- `nexus-utils-embedded-rs` では `RcRingQueue<E>` と `ArcRingQueue<E, RM>` を用意し、`rc` フィーチャでは `Rc<RefCell<_>>`、`arc` フィーチャでは Embassy の `Mutex<RM, _>` を使用する。`ArcLocalRingQueue` / `ArcCsRingQueue` などのエイリアスで環境に合わせた排他制御を選択する。
+- `nexus-utils-embedded-rs` では `RcRingQueue<E>` と `ArcRingQueue<E, RM>` を用意し、`rc` フィーチャでは `Rc<RefCell<_>>`、`arc` フィーチャでは Embassy の `Mutex<RM, _>` を使用する。`ArcLocalRingQueue` / `ArcCsRingQueue` などのエイリアスで環境に合わせた排他制御を選択しつつ、ロジックは core の共有実装へ委譲する。
 - 両クレートは `prelude` モジュールで `QueueWriter` / `SharedQueue` など core 側のトレイトを含む共通インターフェイスを再エクスポートし、利用者が core の API だけで操作できるよう保証する。
 - `actor-*` 側はユーティリティ経由の再エクスポートを利用し、std / embedded いずれの構成でも一貫したテスト・サンプルを保つ。
+
+### MPSC バックエンド再設計計画（2025-10-05 更新）
+1. **抽象名と API の刷新**
+   - 現行の `MpscStorage` を `MpscBackend`（仮称）へ改名し、`try_send` / `try_recv` / `close` / `len` / `capacity` 等のトランスポート指向 API に整理する。
+   - `SharedMpscQueue` は新 backend を委譲するだけの薄いラッパへ再設計し、プラットフォーム固有の詳細を背後へ隠蔽する。
+2. **リングバッファ backend の再配置**
+   - 既存のリングバッファ実装を `core` 上の `MpscBackend` 1 実装として切り出し、std / embedded からは backend 指定のみで利用できるようにする。
+   - `QueueWriter` / `QueueReader` / `SharedQueue` を通じてアクセスする既存 API は維持し、内部で利用する backend だけを差し替える。
+3. **Tokio backend の追加**
+   - `tokio::sync::mpsc` を包む `TokioMpscBackend` を `utils-std` に実装し、`ArcMpsc*` 系型は backend 選択に専念させる。
+   - 将来 `Tokio` 以外のランタイム（例: `async-std`）へ拡張する余地を残し、backend の差し替えで対応できるようにする。
+4. **Embassy backend 拡張**
+   - RP2350 向けに `embassy_sync::channel::Channel` を包む backend を検討し、`embedded_arc` フィーチャで切り替え可能とする。
+   - RP2040 向けの `Rc` 基盤も同一トレイトで運用し、バックエンドの違いを `core` で統一的に扱う。
+5. **テスト & カバレッジ**
+   - backend 差し替えが同一振る舞いを提供することを確認する統合テストを `utils-core` に追加する。
+   - `std` / `embedded` では `core` の振る舞いをモック backend で検証し、プラットフォーム依存コードは薄いアダプタ部のテストに限定する。
+   - `./coverage.sh` に backend 差し替えテストを組み込み、全モジュール 80% 以上のラインカバレッジを維持する。
+
+### コード配置とテスト方針（共通原則）
+- 可能な限り 1 ファイル 1 型を基本とし、複数型を同一ファイルに置く場合は密接に関連する実装のみに留める。論理的なまとまりは `pub use` を活用して表現する。
+- コアとなる振る舞いは `utils-core` / `actor-core` に集中させ、`std` / `embedded` は依存プラットフォームへ接続する薄い適合レイヤとする。
+- 単体テストは `core` 層に集約し、`std` 側でモックや backend 差し替えを用いた検証を実行する。embedded 固有のコードは PC 上でも動作するモック（std の `critical-section` 実装など）を用意し、必要最低限の追加テストで済む構造を維持する。
+- カバレッジ目標は全モジュール 80% 以上とし、`cargo test --workspace` と `cargo test -p nexus-utils-embedded-rs --no-default-features --features arc` を含む計測スクリプトを維持する。
 
 ### Stack 抽象
 - LIFO 構造についても `StackBuffer<T>`（core）と `SharedStack<S, T>` を導入し、`Queue` と同等の共有モデルで扱えるようにする。
