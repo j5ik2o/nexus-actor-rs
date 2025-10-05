@@ -168,6 +168,7 @@ where
 #[cfg(test)]
 mod tests {
   extern crate alloc;
+  use crate::collections::priority::Vec;
   use alloc::rc::Rc;
   use core::cell::RefCell;
 

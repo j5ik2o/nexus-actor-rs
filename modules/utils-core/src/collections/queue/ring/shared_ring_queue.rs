@@ -270,6 +270,7 @@ mod tests {
   }
 
   #[test]
+  #[cfg(all(feature = "alloc", feature = "std"))]
   fn shared_ring_queue_with_mutex_storage() {
     extern crate std;
 
