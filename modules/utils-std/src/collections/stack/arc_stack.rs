@@ -4,11 +4,11 @@ use crate::sync::ArcShared;
 use nexus_utils_core_rs::{QueueSize, SharedStack, SharedStackHandle, StackBase, StackBuffer, StackError, StackMut};
 
 #[derive(Debug, Clone)]
-pub struct Stack<T> {
+pub struct ArcStack<T> {
   inner: SharedStack<ArcShared<Mutex<StackBuffer<T>>>, T>,
 }
 
-impl<T> Stack<T> {
+impl<T> ArcStack<T> {
   pub fn new() -> Self {
     let storage = ArcShared::new(Mutex::new(StackBuffer::new()));
     Self {
@@ -54,13 +54,13 @@ impl<T> Stack<T> {
   }
 }
 
-impl<T> Default for Stack<T> {
+impl<T> Default for ArcStack<T> {
   fn default() -> Self {
     Self::new()
   }
 }
 
-impl<T> StackBase<T> for Stack<T> {
+impl<T> StackBase<T> for ArcStack<T> {
   fn len(&self) -> QueueSize {
     self.inner.len()
   }
@@ -70,7 +70,7 @@ impl<T> StackBase<T> for Stack<T> {
   }
 }
 
-impl<T> StackMut<T> for Stack<T> {
+impl<T> StackMut<T> for ArcStack<T> {
   fn push(&mut self, value: T) -> Result<(), StackError<T>> {
     self.inner.push(value)
   }
@@ -105,7 +105,7 @@ mod tests {
 
   #[test]
   fn stack_push_pop() {
-    let mut stack = Stack::with_capacity(1);
+    let mut stack = ArcStack::with_capacity(1);
     stack.push(1).unwrap();
     assert!(stack.push(2).is_err());
     assert_eq!(stack.pop(), Some(1));
@@ -114,7 +114,7 @@ mod tests {
 
   #[test]
   fn stack_shared_access() {
-    let stack = Stack::new();
+    let stack = ArcStack::new();
     stack.push_shared(10).unwrap();
     let cloned = stack.clone();
     cloned.push_shared(11).unwrap();
@@ -126,7 +126,7 @@ mod tests {
 
   #[test]
   fn stack_peek_shared() {
-    let stack = Stack::new();
+    let stack = ArcStack::new();
     stack.push_shared(5).unwrap();
     assert_eq!(stack.peek_shared(), Some(5));
     stack.pop_shared();

@@ -107,7 +107,7 @@ pub trait Spawn {
 ### Stack 抽象
 - LIFO 構造についても `StackBuffer<T>`（core）と `SharedStack<S, T>` を導入し、`Queue` と同等の共有モデルで扱えるようにする。
 - `StackStorage` / `SharedStackHandle` を実装することで、`Arc<Mutex<_>>` や `Rc<RefCell<_>>`、`ArcStateCell<_>` を透過的に利用できる。
-- std 向けには `Stack<T>`（内部は `ArcShared<Mutex<_>>`）、embedded 向けには `RcStack<T>` / `ArcStack<T, RM>` を提供し、`prelude` から再エクスポートすることで core の `StackBase` / `StackMut` API 経由で操作可能にする。
+- std 向けには `ArcStack<T>`（内部は `ArcShared<Mutex<_>>`）、embedded 向けには `RcStack<T>` / `ArcStack<T, RM>` を提供し、`prelude` から再エクスポートすることで core の `StackBase` / `StackMut` API 経由で操作可能にする。
 - core に振る舞いを集中させるのが基本方針。`StackBuffer` や `SharedStack` のロジックはすべて core に置き、std 側（`Arc` + `Mutex`）で単体テストを回せば大半の品質をカバーできる。embedded 側は所有モデルだけを差し替え、std で通したテストケースを再利用することで最小限の追加検証で済む構造とする。
 
 ## モジュール構成ポリシー
@@ -192,3 +192,11 @@ pub trait Spawn {
     --target thumbv8m.main-none-eabihf --no-default-features --features alloc,embedded_arc
   ```
 - 実機で割り込み共存を行う場合は `ArcCsStateCell::new` を採用し、`critical-section` 実装（例: `cortex-m` の `critical-section-single-core`）を初期化する。CI では少なくとも上記クロスビルドを追加し、`embedded_arc` のビルド破綻を検知するようジョブを拡張する。
+
+## Rust ファイル構成ルール（2025-10-05 追加）
+- 1 ファイル 1 役割を原則とし、公開構造体やバックエンド実装が複数存在する場合は `queue/mpsc/backend.rs` のように責務ごとのサブモジュールへ分割する。
+- `mod.rs` は利用せず、ディレクトリ直下の `mod.rs` が既存に残る場合は再エクスポート専用ファイルとして扱い、実装本体は `foo.rs` / `bar.rs` に配置する。
+- 共有アクセス用の API 命名は引数の参照形で統一する：`offer_mut`（`&mut self`）、`offer`（`&self`）。`*_shared` や `try_offer` といった冗長なサフィックスは使用しない。
+- テストは同一ファイルの `#[cfg(test)] mod tests` にまとめ、補助ハンドルや `Shared` 実装はテスト用モジュール内でローカル定義する。複数のテストから使い回すヘルパは `tests` モジュール配下の関数で提供する。
+- インポート順序は「標準ライブラリ → 外部クレート → ワークスペース内クレート → ローカルモジュール」を基本とし、`use crate::…` / `use super::…` を混在させない。再エクスポート (`pub use`) はモジュール末尾にまとめる。
+- Feature 切り替えが必要な場合はファイル単位で `cfg` を付与し、単一ファイルに `#[cfg]` ブロックが乱立しないよう留意する。環境差が大きい箇所は `foo/std.rs` / `foo/embedded.rs` のようにファイルを分割して `mod` で切り替える。

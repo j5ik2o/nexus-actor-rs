@@ -1,3 +1,3 @@
-mod stack;
+mod arc_stack;
 
-pub use stack::Stack;
+pub use arc_stack::ArcStack;

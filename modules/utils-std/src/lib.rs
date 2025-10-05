@@ -7,12 +7,12 @@ pub use nexus_utils_core_rs::{
   PRIORITY_LEVELS,
 };
 
-pub use collections::{ArcMpscBoundedQueue, ArcMpscUnboundedQueue, PriorityQueue, RingQueue, Stack};
+pub use collections::{ArcMpscBoundedQueue, ArcMpscUnboundedQueue, ArcStack, PriorityQueue, RingQueue};
 pub use sync::{ArcShared, ArcStateCell};
 
 pub mod prelude {
   pub use super::{
-    ArcMpscBoundedQueue, ArcMpscUnboundedQueue, ArcShared, ArcStateCell, PriorityQueue, RingQueue, Stack,
+    ArcMpscBoundedQueue, ArcMpscUnboundedQueue, ArcShared, ArcStack, ArcStateCell, PriorityQueue, RingQueue,
   };
   pub use nexus_utils_core_rs::{
     Element, PriorityMessage, QueueBase, QueueError, QueueReader, QueueSize, QueueStorage, QueueWriter, RingBuffer,

@@ -2,4 +2,4 @@ pub mod queue;
 pub mod stack;
 
 pub use queue::{ArcMpscBoundedQueue, ArcMpscUnboundedQueue, PriorityQueue, RingQueue};
-pub use stack::Stack;
+pub use stack::ArcStack;
