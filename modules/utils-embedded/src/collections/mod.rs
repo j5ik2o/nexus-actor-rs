@@ -1,30 +1,22 @@
-mod mpsc_queue;
-mod priority_queue;
-#[cfg(feature = "arc")]
-pub mod queue_arc;
-#[cfg(feature = "rc")]
-pub mod queue_rc;
-#[cfg(feature = "arc")]
-pub mod stack_arc;
-#[cfg(feature = "rc")]
-pub mod stack_rc;
+pub mod queue;
+pub mod stack;
 
 #[cfg(feature = "arc")]
-pub use mpsc_queue::arc_mpsc_queue::{
+pub use queue::mpsc::{
   ArcCsMpscBoundedQueue, ArcCsMpscUnboundedQueue, ArcLocalMpscBoundedQueue, ArcLocalMpscUnboundedQueue,
   ArcMpscBoundedQueue, ArcMpscUnboundedQueue,
 };
 #[cfg(feature = "rc")]
-pub use mpsc_queue::rc_mpsc_queue::{RcMpscBoundedQueue, RcMpscUnboundedQueue};
+pub use queue::mpsc::{RcMpscBoundedQueue, RcMpscUnboundedQueue};
 #[cfg(feature = "arc")]
-pub use priority_queue::arc_priority_queue::{ArcCsPriorityQueue, ArcLocalPriorityQueue, ArcPriorityQueue};
+pub use queue::priority::{ArcCsPriorityQueue, ArcLocalPriorityQueue, ArcPriorityQueue};
 #[cfg(feature = "rc")]
-pub use priority_queue::rc_priority_queue::RcPriorityQueue;
+pub use queue::priority::RcPriorityQueue;
 #[cfg(feature = "arc")]
-pub use queue_arc::{ArcLocalRingQueue, ArcRingQueue};
+pub use queue::ring::{ArcLocalRingQueue, ArcRingQueue};
 #[cfg(feature = "rc")]
-pub use queue_rc::RcRingQueue;
+pub use queue::ring::RcRingQueue;
 #[cfg(feature = "arc")]
-pub use stack_arc::{ArcCsStack, ArcLocalStack, ArcStack};
+pub use stack::{ArcCsStack, ArcLocalStack, ArcStack};
 #[cfg(feature = "rc")]
-pub use stack_rc::RcStack;
+pub use stack::RcStack;
