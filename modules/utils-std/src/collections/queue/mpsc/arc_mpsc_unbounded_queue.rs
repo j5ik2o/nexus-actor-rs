@@ -1,18 +1,45 @@
+use crate::collections::queue::mpsc::backend::TokioUnboundedMpscBackend;
 use crate::sync::ArcShared;
 use nexus_utils_core_rs::{
-  Element, MpscBuffer, QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, RingBufferBackend, SharedMpscQueue,
-  SharedQueue,
+  Element, MpscBackend, MpscBuffer, QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, RingBufferBackend,
+  SharedMpscQueue, SharedQueue,
 };
-use std::sync::Mutex;
+use std::fmt;
+use std::sync::{Arc, Mutex};
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct ArcMpscUnboundedQueue<E> {
-  inner: SharedMpscQueue<ArcShared<RingBufferBackend<Mutex<MpscBuffer<E>>>>, E>,
+  inner: SharedMpscQueue<ArcShared<dyn MpscBackend<E> + Send + Sync>, E>,
 }
 
-impl<E> ArcMpscUnboundedQueue<E> {
+impl<E> fmt::Debug for ArcMpscUnboundedQueue<E> {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    f.debug_struct("ArcMpscUnboundedQueue").finish()
+  }
+}
+
+impl<E> ArcMpscUnboundedQueue<E>
+where
+  E: Element,
+{
   pub fn new() -> Self {
-    let storage = ArcShared::new(RingBufferBackend::new(Mutex::new(MpscBuffer::new(None))));
+    Self::with_tokio()
+  }
+
+  pub fn with_tokio() -> Self {
+    Self::from_backend(TokioUnboundedMpscBackend::new())
+  }
+
+  pub fn with_ring_buffer() -> Self {
+    let backend = RingBufferBackend::new(Mutex::new(MpscBuffer::new(None)));
+    Self::from_backend(backend)
+  }
+
+  fn from_backend<B>(backend: B) -> Self
+  where
+    B: MpscBackend<E> + Send + Sync + 'static, {
+    let arc_backend: Arc<dyn MpscBackend<E> + Send + Sync> = Arc::new(backend);
+    let storage = ArcShared::from_arc(arc_backend);
     Self {
       inner: SharedMpscQueue::new(storage),
     }
@@ -79,7 +106,10 @@ impl<E: Element> SharedQueue<E> for ArcMpscUnboundedQueue<E> {
   }
 }
 
-impl<E> Default for ArcMpscUnboundedQueue<E> {
+impl<E> Default for ArcMpscUnboundedQueue<E>
+where
+  E: Element,
+{
   fn default() -> Self {
     Self::new()
   }
@@ -108,5 +138,12 @@ mod tests {
     queue.clean_up_shared();
     assert!(matches!(queue.poll_shared(), Err(QueueError::Disconnected)));
     assert!(matches!(queue.offer_shared(2), Err(QueueError::Closed(2))));
+  }
+
+  #[test]
+  fn unbounded_queue_ring_buffer_constructor() {
+    let queue = ArcMpscUnboundedQueue::with_ring_buffer();
+    queue.offer_shared(1).unwrap();
+    assert_eq!(queue.poll_shared().unwrap(), Some(1));
   }
 }

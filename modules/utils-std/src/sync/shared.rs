@@ -1,17 +1,27 @@
 use std::ops::Deref;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use nexus_utils_core_rs::sync::Shared;
-use nexus_utils_core_rs::{MpscBuffer, QueueStorage, RingBufferBackend, SharedMpscHandle, SharedQueueHandle};
+use nexus_utils_core_rs::{MpscBackend, QueueStorage, SharedMpscHandle, SharedQueueHandle};
 
-#[derive(Debug)]
-pub struct ArcShared<T>(Arc<T>);
+pub struct ArcShared<T: ?Sized>(Arc<T>);
 
-impl<T> ArcShared<T> {
+impl<T: ?Sized> core::fmt::Debug for ArcShared<T> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    f.debug_struct("ArcShared").finish()
+  }
+}
+
+impl<T> ArcShared<T>
+where
+  T: Sized,
+{
   pub fn new(value: T) -> Self {
     Self(Arc::new(value))
   }
+}
 
+impl<T: ?Sized> ArcShared<T> {
   pub fn from_arc(inner: Arc<T>) -> Self {
     Self(inner)
   }
@@ -21,7 +31,7 @@ impl<T> ArcShared<T> {
   }
 }
 
-impl<T> Deref for ArcShared<T> {
+impl<T: ?Sized> Deref for ArcShared<T> {
   type Target = T;
 
   fn deref(&self) -> &Self::Target {
@@ -29,7 +39,7 @@ impl<T> Deref for ArcShared<T> {
   }
 }
 
-impl<T> Shared<T> for ArcShared<T> {
+impl<T: ?Sized> Shared<T> for ArcShared<T> {
   fn try_unwrap(self) -> Result<T, Self>
   where
     T: Sized, {
@@ -37,7 +47,7 @@ impl<T> Shared<T> for ArcShared<T> {
   }
 }
 
-impl<T> Clone for ArcShared<T> {
+impl<T: ?Sized> Clone for ArcShared<T> {
   fn clone(&self) -> Self {
     Self(self.0.clone())
   }
@@ -54,8 +64,11 @@ where
   }
 }
 
-impl<T> SharedMpscHandle<T> for ArcShared<RingBufferBackend<Mutex<MpscBuffer<T>>>> {
-  type Backend = RingBufferBackend<Mutex<MpscBuffer<T>>>;
+impl<T, B> SharedMpscHandle<T> for ArcShared<B>
+where
+  B: MpscBackend<T> + ?Sized,
+{
+  type Backend = B;
 
   fn backend(&self) -> &Self::Backend {
     &self.0

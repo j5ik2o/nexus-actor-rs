@@ -1,32 +1,55 @@
+use crate::collections::queue::mpsc::backend::TokioBoundedMpscBackend;
 use crate::sync::ArcShared;
 use nexus_utils_core_rs::{
-  Element, MpscBuffer, QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, RingBufferBackend, SharedMpscQueue,
-  SharedQueue,
+  Element, MpscBackend, MpscBuffer, QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, RingBufferBackend,
+  SharedMpscQueue, SharedQueue,
 };
-use std::sync::Mutex;
+use std::fmt;
+use std::sync::{Arc, Mutex};
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct ArcMpscBoundedQueue<E> {
-  inner: SharedMpscQueue<ArcShared<RingBufferBackend<Mutex<MpscBuffer<E>>>>, E>,
+  inner: SharedMpscQueue<ArcShared<dyn MpscBackend<E> + Send + Sync>, E>,
 }
 
-impl<E> ArcMpscBoundedQueue<E> {
+impl<E> fmt::Debug for ArcMpscBoundedQueue<E> {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    f.debug_struct("ArcMpscBoundedQueue").finish()
+  }
+}
+
+impl<E> ArcMpscBoundedQueue<E>
+where
+  E: Element,
+{
   pub fn new(capacity: usize) -> Self {
-    let storage = ArcShared::new(RingBufferBackend::new(Mutex::new(MpscBuffer::new(Some(capacity)))));
+    Self::with_tokio(capacity)
+  }
+
+  pub fn with_tokio(capacity: usize) -> Self {
+    Self::from_backend(TokioBoundedMpscBackend::new(capacity))
+  }
+
+  pub fn with_ring_buffer(capacity: usize) -> Self {
+    let backend = RingBufferBackend::new(Mutex::new(MpscBuffer::new(Some(capacity))));
+    Self::from_backend(backend)
+  }
+
+  fn from_backend<B>(backend: B) -> Self
+  where
+    B: MpscBackend<E> + Send + Sync + 'static, {
+    let arc_backend: Arc<dyn MpscBackend<E> + Send + Sync> = Arc::new(backend);
+    let storage = ArcShared::from_arc(arc_backend);
     Self {
       inner: SharedMpscQueue::new(storage),
     }
   }
 
-  pub fn offer_shared(&self, element: E) -> Result<(), QueueError<E>>
-  where
-    E: Element, {
+  pub fn offer_shared(&self, element: E) -> Result<(), QueueError<E>> {
     self.inner.offer_shared(element)
   }
 
-  pub fn poll_shared(&self) -> Result<Option<E>, QueueError<E>>
-  where
-    E: Element, {
+  pub fn poll_shared(&self) -> Result<Option<E>, QueueError<E>> {
     self.inner.poll_shared()
   }
 
@@ -115,5 +138,12 @@ mod tests {
 
     assert!(matches!(queue.poll_shared(), Err(QueueError::Disconnected)));
     assert!(matches!(queue.offer_shared(2), Err(QueueError::Closed(2))));
+  }
+
+  #[test]
+  fn bounded_queue_ring_buffer_constructor() {
+    let queue = ArcMpscBoundedQueue::with_ring_buffer(1);
+    queue.offer_shared(1).unwrap();
+    assert!(matches!(queue.offer_shared(2), Err(QueueError::Full(2))));
   }
 }

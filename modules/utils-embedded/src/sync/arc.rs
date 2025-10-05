@@ -4,17 +4,28 @@ use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex, R
 use embassy_sync::mutex::{Mutex, MutexGuard};
 use nexus_utils_core_rs::sync::{Shared, StateCell};
 use nexus_utils_core_rs::{
-  MpscBuffer, QueueStorage, RingBuffer, RingBufferBackend, RingBufferStorage, SharedMpscHandle, SharedQueueHandle,
+  MpscBackend, MpscBuffer, QueueStorage, RingBuffer, RingBufferBackend, RingBufferStorage, SharedMpscHandle,
+  SharedQueueHandle,
 };
 
-#[derive(Debug)]
-pub struct ArcShared<T>(Arc<T>);
+pub struct ArcShared<T: ?Sized>(Arc<T>);
 
-impl<T> ArcShared<T> {
+impl<T: ?Sized> core::fmt::Debug for ArcShared<T> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    f.debug_struct("ArcShared").finish()
+  }
+}
+
+impl<T> ArcShared<T>
+where
+  T: Sized,
+{
   pub fn new(value: T) -> Self {
     Self(Arc::new(value))
   }
+}
 
+impl<T: ?Sized> ArcShared<T> {
   pub fn from_arc(inner: Arc<T>) -> Self {
     Self(inner)
   }
@@ -24,13 +35,13 @@ impl<T> ArcShared<T> {
   }
 }
 
-impl<T> Clone for ArcShared<T> {
+impl<T: ?Sized> Clone for ArcShared<T> {
   fn clone(&self) -> Self {
     Self(self.0.clone())
   }
 }
 
-impl<T> core::ops::Deref for ArcShared<T> {
+impl<T: ?Sized> core::ops::Deref for ArcShared<T> {
   type Target = T;
 
   fn deref(&self) -> &Self::Target {
@@ -38,7 +49,7 @@ impl<T> core::ops::Deref for ArcShared<T> {
   }
 }
 
-impl<T> Shared<T> for ArcShared<T> {
+impl<T: ?Sized> Shared<T> for ArcShared<T> {
   fn try_unwrap(self) -> Result<T, Self>
   where
     T: Sized, {
@@ -57,11 +68,11 @@ where
   }
 }
 
-impl<T, RM> SharedMpscHandle<T> for ArcShared<RingBufferBackend<ArcStateCell<MpscBuffer<T>, RM>>>
+impl<T, B> SharedMpscHandle<T> for ArcShared<B>
 where
-  RM: RawMutex,
+  B: MpscBackend<T>,
 {
-  type Backend = RingBufferBackend<ArcStateCell<MpscBuffer<T>, RM>>;
+  type Backend = B;
 
   fn backend(&self) -> &Self::Backend {
     &self.0
