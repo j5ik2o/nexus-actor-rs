@@ -6,9 +6,9 @@ pub mod collections;
 pub mod sync;
 
 pub use collections::{
-  Element, MpscBuffer, MpscStorage, PriorityMessage, QueueBase, QueueError, QueueReader, QueueSize, QueueStorage,
-  QueueWriter, RingBuffer, SharedMpscHandle, SharedMpscQueue, SharedQueue, SharedQueueHandle, SharedRingQueue,
-  SharedStack, SharedStackHandle, StackBase, StackBuffer, StackError, StackMut, StackStorage, DEFAULT_CAPACITY,
-  DEFAULT_PRIORITY, PRIORITY_LEVELS,
+  Element, MpscBackend, MpscBuffer, PriorityMessage, QueueBase, QueueError, QueueReader, QueueSize, QueueStorage,
+  QueueWriter, RingBuffer, RingBufferBackend, RingBufferStorage, SharedMpscHandle, SharedMpscQueue, SharedQueue,
+  SharedQueueHandle, SharedRingQueue, SharedStack, SharedStackHandle, StackBase, StackBuffer, StackError, StackMut,
+  StackStorage, DEFAULT_CAPACITY, DEFAULT_PRIORITY, PRIORITY_LEVELS,
 };
 pub use sync::{Shared, StateCell};

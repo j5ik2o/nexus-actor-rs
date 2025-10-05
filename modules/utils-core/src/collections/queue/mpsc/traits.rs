@@ -1,53 +1,23 @@
-use super::buffer::MpscBuffer;
+use crate::collections::{QueueError, QueueSize};
 use crate::sync::Shared;
 
-/// Storage abstraction for [`SharedMpscQueue`].
-pub trait MpscStorage<T> {
-  fn with_read<R>(&self, f: impl FnOnce(&MpscBuffer<T>) -> R) -> R;
-  fn with_write<R>(&self, f: impl FnOnce(&mut MpscBuffer<T>) -> R) -> R;
-}
-
-/// Shared handle that exposes the underlying storage.
-pub trait SharedMpscHandle<T>: Shared<Self::Storage> + Clone {
-  type Storage: MpscStorage<T> + ?Sized;
-
-  fn storage(&self) -> &Self::Storage;
-}
-
-#[cfg(feature = "alloc")]
-mod alloc_impls {
-  use core::cell::RefCell;
-
-  use super::MpscStorage;
-  use crate::collections::queue::mpsc::buffer::MpscBuffer;
-
-  impl<T> MpscStorage<T> for RefCell<MpscBuffer<T>> {
-    fn with_read<R>(&self, f: impl FnOnce(&MpscBuffer<T>) -> R) -> R {
-      f(&self.borrow())
-    }
-
-    fn with_write<R>(&self, f: impl FnOnce(&mut MpscBuffer<T>) -> R) -> R {
-      f(&mut self.borrow_mut())
-    }
+/// Transport-oriented abstraction for queue backends.
+pub trait MpscBackend<T> {
+  fn try_send(&self, element: T) -> Result<(), QueueError<T>>;
+  fn try_recv(&self) -> Result<Option<T>, QueueError<T>>;
+  fn close(&self);
+  fn len(&self) -> QueueSize;
+  fn capacity(&self) -> QueueSize;
+  fn is_closed(&self) -> bool;
+  fn set_capacity(&self, capacity: Option<usize>) -> bool {
+    let _ = capacity;
+    false
   }
 }
 
-#[cfg(all(feature = "alloc", feature = "std"))]
-mod std_impls {
-  use std::sync::Mutex;
+/// Shared pointer that exposes a [`MpscBackend`].
+pub trait SharedMpscHandle<T>: Shared<Self::Backend> + Clone {
+  type Backend: MpscBackend<T> + ?Sized;
 
-  use super::MpscStorage;
-  use crate::collections::queue::mpsc::buffer::MpscBuffer;
-
-  impl<T> MpscStorage<T> for Mutex<MpscBuffer<T>> {
-    fn with_read<R>(&self, f: impl FnOnce(&MpscBuffer<T>) -> R) -> R {
-      let guard = self.lock().expect("mutex poisoned");
-      f(&guard)
-    }
-
-    fn with_write<R>(&self, f: impl FnOnce(&mut MpscBuffer<T>) -> R) -> R {
-      let mut guard = self.lock().expect("mutex poisoned");
-      f(&mut guard)
-    }
-  }
+  fn backend(&self) -> &Self::Backend;
 }

@@ -3,7 +3,9 @@ use alloc::sync::Arc;
 use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex, RawMutex};
 use embassy_sync::mutex::{Mutex, MutexGuard};
 use nexus_utils_core_rs::sync::{Shared, StateCell};
-use nexus_utils_core_rs::{MpscBuffer, MpscStorage, QueueStorage, RingBuffer, SharedMpscHandle, SharedQueueHandle};
+use nexus_utils_core_rs::{
+  MpscBuffer, QueueStorage, RingBuffer, RingBufferBackend, RingBufferStorage, SharedMpscHandle, SharedQueueHandle,
+};
 
 #[derive(Debug)]
 pub struct ArcShared<T>(Arc<T>);
@@ -55,13 +57,13 @@ where
   }
 }
 
-impl<T, RM> SharedMpscHandle<T> for ArcShared<ArcStateCell<MpscBuffer<T>, RM>>
+impl<T, RM> SharedMpscHandle<T> for ArcShared<RingBufferBackend<ArcStateCell<MpscBuffer<T>, RM>>>
 where
   RM: RawMutex,
 {
-  type Storage = ArcStateCell<MpscBuffer<T>, RM>;
+  type Backend = RingBufferBackend<ArcStateCell<MpscBuffer<T>, RM>>;
 
-  fn storage(&self) -> &Self::Storage {
+  fn backend(&self) -> &Self::Backend {
     &self.0
   }
 }
@@ -143,7 +145,7 @@ where
   }
 }
 
-impl<T, RM> MpscStorage<T> for ArcStateCell<MpscBuffer<T>, RM>
+impl<T, RM> RingBufferStorage<T> for ArcStateCell<MpscBuffer<T>, RM>
 where
   RM: RawMutex,
 {

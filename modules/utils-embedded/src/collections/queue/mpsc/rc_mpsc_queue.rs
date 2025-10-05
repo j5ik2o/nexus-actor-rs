@@ -1,19 +1,20 @@
 use core::cell::RefCell;
 
 use nexus_utils_core_rs::{
-  Element, MpscBuffer, QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, SharedMpscQueue, SharedQueue,
+  Element, MpscBuffer, QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, RingBufferBackend, SharedMpscQueue,
+  SharedQueue,
 };
 
 use crate::sync::RcShared;
 
 #[derive(Debug, Clone)]
 pub struct RcMpscUnboundedQueue<E> {
-  inner: SharedMpscQueue<RcShared<RefCell<MpscBuffer<E>>>, E>,
+  inner: SharedMpscQueue<RcShared<RingBufferBackend<RefCell<MpscBuffer<E>>>>, E>,
 }
 
 impl<E> RcMpscUnboundedQueue<E> {
   pub fn new() -> Self {
-    let storage = RcShared::new(RefCell::new(MpscBuffer::new(None)));
+    let storage = RcShared::new(RingBufferBackend::new(RefCell::new(MpscBuffer::new(None))));
     Self {
       inner: SharedMpscQueue::new(storage),
     }
@@ -88,12 +89,12 @@ impl<E: Element> SharedQueue<E> for RcMpscUnboundedQueue<E> {
 
 #[derive(Debug, Clone)]
 pub struct RcMpscBoundedQueue<E> {
-  inner: SharedMpscQueue<RcShared<RefCell<MpscBuffer<E>>>, E>,
+  inner: SharedMpscQueue<RcShared<RingBufferBackend<RefCell<MpscBuffer<E>>>>, E>,
 }
 
 impl<E> RcMpscBoundedQueue<E> {
   pub fn new(capacity: usize) -> Self {
-    let storage = RcShared::new(RefCell::new(MpscBuffer::new(Some(capacity))));
+    let storage = RcShared::new(RingBufferBackend::new(RefCell::new(MpscBuffer::new(Some(capacity)))));
     Self {
       inner: SharedMpscQueue::new(storage),
     }

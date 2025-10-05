@@ -1,7 +1,7 @@
-use super::traits::{MpscStorage, SharedMpscHandle};
+use super::traits::{MpscBackend, SharedMpscHandle};
 use crate::collections::{QueueBase, QueueError, QueueReader, QueueSize, QueueWriter};
 
-/// Shared queue facade that operates on a [`MpscStorage`].
+/// Shared queue facade that operates on a [`MpscBackend`].
 #[derive(Debug)]
 pub struct SharedMpscQueue<S, T>
 where
@@ -29,35 +29,36 @@ where
     self.storage
   }
 
-  pub fn set_capacity(&self, capacity: Option<usize>) {
-    self
-      .storage
-      .storage()
-      .with_write(|buffer| buffer.set_capacity(capacity));
+  pub fn set_capacity(&self, capacity: Option<usize>) -> bool {
+    self.storage.backend().set_capacity(capacity)
   }
 
   pub fn offer_shared(&self, element: T) -> Result<(), QueueError<T>> {
-    self.storage.storage().with_write(|buffer| buffer.offer(element))
+    self.storage.backend().try_send(element)
   }
 
   pub fn poll_shared(&self) -> Result<Option<T>, QueueError<T>> {
-    self.storage.storage().with_write(|buffer| buffer.poll())
+    self.storage.backend().try_recv()
   }
 
   pub fn clean_up_shared(&self) {
-    self.storage.storage().with_write(|buffer| buffer.clean_up());
+    self.storage.backend().close();
   }
 
   pub fn len_shared(&self) -> QueueSize {
-    self.storage.storage().with_read(|buffer| buffer.len())
+    self.storage.backend().len()
   }
 
   pub fn capacity_shared(&self) -> QueueSize {
-    self.storage.storage().with_read(|buffer| buffer.capacity())
+    self.storage.backend().capacity()
   }
 
   pub fn is_closed_shared(&self) -> bool {
-    self.storage.storage().with_read(|buffer| buffer.is_closed())
+    self.storage.backend().is_closed()
+  }
+
+  fn backend(&self) -> &S::Backend {
+    self.storage.backend()
   }
 }
 
@@ -91,7 +92,7 @@ where
   S: SharedMpscHandle<T>,
 {
   fn offer(&mut self, element: T) -> Result<(), QueueError<T>> {
-    SharedMpscQueue::offer_shared(self, element)
+    self.backend().try_send(element)
   }
 }
 
@@ -100,11 +101,11 @@ where
   S: SharedMpscHandle<T>,
 {
   fn poll(&mut self) -> Result<Option<T>, QueueError<T>> {
-    SharedMpscQueue::poll_shared(self)
+    self.backend().try_recv()
   }
 
   fn clean_up(&mut self) {
-    SharedMpscQueue::clean_up_shared(self);
+    self.backend().close();
   }
 }
 
@@ -113,15 +114,15 @@ where
   S: SharedMpscHandle<T>,
 {
   fn offer_shared(&self, element: T) -> Result<(), QueueError<T>> {
-    SharedMpscQueue::offer_shared(self, element)
+    self.backend().try_send(element)
   }
 
   fn poll_shared(&self) -> Result<Option<T>, QueueError<T>> {
-    SharedMpscQueue::poll_shared(self)
+    self.backend().try_recv()
   }
 
   fn clean_up_shared(&self) {
-    SharedMpscQueue::clean_up_shared(self)
+    self.backend().close();
   }
 }
 
@@ -131,40 +132,49 @@ mod tests {
   use alloc::rc::Rc;
   use core::cell::RefCell;
 
-  use crate::collections::queue::mpsc::buffer::MpscBuffer;
+  use core::fmt;
+
+  use crate::collections::queue::mpsc::backend::RingBufferBackend;
   use crate::collections::queue::mpsc::traits::SharedMpscHandle;
-  use crate::collections::queue::mpsc::SharedMpscQueue;
+  use crate::collections::queue::mpsc::{MpscBuffer, SharedMpscQueue};
   use crate::collections::QueueError;
 
-  #[derive(Debug)]
-  struct RcHandle<T>(Rc<RefCell<MpscBuffer<T>>>);
+  struct RcBackendHandle<T>(Rc<RingBufferBackend<RefCell<MpscBuffer<T>>>>);
 
-  impl<T> RcHandle<T> {
+  impl<T> RcBackendHandle<T> {
     fn new(capacity: Option<usize>) -> Self {
-      Self(Rc::new(RefCell::new(MpscBuffer::new(capacity))))
+      let buffer = RefCell::new(MpscBuffer::new(capacity));
+      let backend = RingBufferBackend::new(buffer);
+      Self(Rc::new(backend))
     }
   }
 
-  impl<T> Clone for RcHandle<T> {
+  impl<T> Clone for RcBackendHandle<T> {
     fn clone(&self) -> Self {
       Self(self.0.clone())
     }
   }
 
-  impl<T> core::ops::Deref for RcHandle<T> {
-    type Target = RefCell<MpscBuffer<T>>;
+  impl<T> fmt::Debug for RcBackendHandle<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+      f.debug_struct("RcBackendHandle").finish()
+    }
+  }
+
+  impl<T> core::ops::Deref for RcBackendHandle<T> {
+    type Target = RingBufferBackend<RefCell<MpscBuffer<T>>>;
 
     fn deref(&self) -> &Self::Target {
       &self.0
     }
   }
 
-  impl<T> crate::sync::Shared<RefCell<MpscBuffer<T>>> for RcHandle<T> {}
+  impl<T> crate::sync::Shared<RingBufferBackend<RefCell<MpscBuffer<T>>>> for RcBackendHandle<T> {}
 
-  impl<T> SharedMpscHandle<T> for RcHandle<T> {
-    type Storage = RefCell<MpscBuffer<T>>;
+  impl<T> SharedMpscHandle<T> for RcBackendHandle<T> {
+    type Backend = RingBufferBackend<RefCell<MpscBuffer<T>>>;
 
-    fn storage(&self) -> &Self::Storage {
+    fn backend(&self) -> &Self::Backend {
       &self.0
     }
   }
@@ -182,7 +192,7 @@ mod tests {
 
   #[test]
   fn shared_queue_shared_operations() {
-    let queue: SharedMpscQueue<_, u32> = SharedMpscQueue::new(RcHandle::<u32>::new(Some(2)));
+    let queue: SharedMpscQueue<_, u32> = SharedMpscQueue::new(RcBackendHandle::<u32>::new(Some(2)));
     queue.offer_shared(1).unwrap();
     queue.offer_shared(2).unwrap();
     assert!(queue.offer_shared(3).is_err());
@@ -192,7 +202,7 @@ mod tests {
 
   #[test]
   fn shared_queue_cleanup_marks_closed() {
-    let queue: SharedMpscQueue<_, u32> = SharedMpscQueue::new(RcHandle::<u32>::new(None));
+    let queue: SharedMpscQueue<_, u32> = SharedMpscQueue::new(RcBackendHandle::<u32>::new(None));
     queue.offer_shared(1).unwrap();
     queue.clean_up_shared();
     assert!(matches!(queue.poll_shared(), Err(QueueError::Disconnected)));

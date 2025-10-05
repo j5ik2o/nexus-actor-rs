@@ -1,14 +1,15 @@
 use crate::sync::{ArcShared, ArcStateCell};
 use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex, RawMutex};
 use nexus_utils_core_rs::{
-  Element, MpscBuffer, QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, SharedMpscQueue, SharedQueue,
+  Element, MpscBuffer, QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, RingBufferBackend, SharedMpscQueue,
+  SharedQueue,
 };
 
 #[derive(Debug)]
 pub struct ArcMpscUnboundedQueue<E, RM = NoopRawMutex>
 where
   RM: RawMutex, {
-  inner: SharedMpscQueue<ArcShared<ArcStateCell<MpscBuffer<E>, RM>>, E>,
+  inner: SharedMpscQueue<ArcShared<RingBufferBackend<ArcStateCell<MpscBuffer<E>, RM>>>, E>,
 }
 
 pub type ArcLocalMpscUnboundedQueue<E> = ArcMpscUnboundedQueue<E, NoopRawMutex>;
@@ -19,7 +20,7 @@ where
   RM: RawMutex,
 {
   pub fn new() -> Self {
-    let storage = ArcShared::new(ArcStateCell::new(MpscBuffer::new(None)));
+    let storage = ArcShared::new(RingBufferBackend::new(ArcStateCell::new(MpscBuffer::new(None))));
     Self {
       inner: SharedMpscQueue::new(storage),
     }
@@ -106,7 +107,7 @@ where
 pub struct ArcMpscBoundedQueue<E, RM = NoopRawMutex>
 where
   RM: RawMutex, {
-  inner: SharedMpscQueue<ArcShared<ArcStateCell<MpscBuffer<E>, RM>>, E>,
+  inner: SharedMpscQueue<ArcShared<RingBufferBackend<ArcStateCell<MpscBuffer<E>, RM>>>, E>,
 }
 
 pub type ArcLocalMpscBoundedQueue<E> = ArcMpscBoundedQueue<E, NoopRawMutex>;
@@ -117,7 +118,9 @@ where
   RM: RawMutex,
 {
   pub fn new(capacity: usize) -> Self {
-    let storage = ArcShared::new(ArcStateCell::new(MpscBuffer::new(Some(capacity))));
+    let storage = ArcShared::new(RingBufferBackend::new(ArcStateCell::new(MpscBuffer::new(Some(
+      capacity,
+    )))));
     Self {
       inner: SharedMpscQueue::new(storage),
     }

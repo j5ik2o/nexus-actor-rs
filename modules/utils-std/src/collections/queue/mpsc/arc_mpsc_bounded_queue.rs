@@ -1,17 +1,18 @@
 use crate::sync::ArcShared;
 use nexus_utils_core_rs::{
-  Element, MpscBuffer, QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, SharedMpscQueue, SharedQueue,
+  Element, MpscBuffer, QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, RingBufferBackend, SharedMpscQueue,
+  SharedQueue,
 };
 use std::sync::Mutex;
 
 #[derive(Debug, Clone)]
 pub struct ArcMpscBoundedQueue<E> {
-  inner: SharedMpscQueue<ArcShared<Mutex<MpscBuffer<E>>>, E>,
+  inner: SharedMpscQueue<ArcShared<RingBufferBackend<Mutex<MpscBuffer<E>>>>, E>,
 }
 
 impl<E> ArcMpscBoundedQueue<E> {
   pub fn new(capacity: usize) -> Self {
-    let storage = ArcShared::new(Mutex::new(MpscBuffer::new(Some(capacity))));
+    let storage = ArcShared::new(RingBufferBackend::new(Mutex::new(MpscBuffer::new(Some(capacity)))));
     Self {
       inner: SharedMpscQueue::new(storage),
     }

@@ -3,7 +3,7 @@ use core::cell::{Ref, RefCell, RefMut};
 use core::ops::Deref;
 
 use nexus_utils_core_rs::sync::{Shared, StateCell};
-use nexus_utils_core_rs::{MpscBuffer, QueueStorage, SharedMpscHandle, SharedQueueHandle};
+use nexus_utils_core_rs::{MpscBuffer, QueueStorage, RingBufferBackend, SharedMpscHandle, SharedQueueHandle};
 
 #[derive(Debug)]
 pub struct RcShared<T>(Rc<T>);
@@ -55,10 +55,10 @@ where
   }
 }
 
-impl<T> SharedMpscHandle<T> for RcShared<RefCell<MpscBuffer<T>>> {
-  type Storage = RefCell<MpscBuffer<T>>;
+impl<T> SharedMpscHandle<T> for RcShared<RingBufferBackend<RefCell<MpscBuffer<T>>>> {
+  type Backend = RingBufferBackend<RefCell<MpscBuffer<T>>>;
 
-  fn storage(&self) -> &Self::Storage {
+  fn backend(&self) -> &Self::Backend {
     &self.0
   }
 }

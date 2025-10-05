@@ -2,7 +2,7 @@ use std::ops::Deref;
 use std::sync::{Arc, Mutex};
 
 use nexus_utils_core_rs::sync::Shared;
-use nexus_utils_core_rs::{MpscBuffer, QueueStorage, SharedMpscHandle, SharedQueueHandle};
+use nexus_utils_core_rs::{MpscBuffer, QueueStorage, RingBufferBackend, SharedMpscHandle, SharedQueueHandle};
 
 #[derive(Debug)]
 pub struct ArcShared<T>(Arc<T>);
@@ -54,10 +54,10 @@ where
   }
 }
 
-impl<T> SharedMpscHandle<T> for ArcShared<Mutex<MpscBuffer<T>>> {
-  type Storage = Mutex<MpscBuffer<T>>;
+impl<T> SharedMpscHandle<T> for ArcShared<RingBufferBackend<Mutex<MpscBuffer<T>>>> {
+  type Backend = RingBufferBackend<Mutex<MpscBuffer<T>>>;
 
-  fn storage(&self) -> &Self::Storage {
+  fn backend(&self) -> &Self::Backend {
     &self.0
   }
 }
