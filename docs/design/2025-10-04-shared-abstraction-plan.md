@@ -80,6 +80,12 @@ pub trait Spawn {
 - 両クレートは `prelude` モジュールで `QueueWriter` / `SharedQueue` など core 側のトレイトを含む共通インターフェイスを再エクスポートし、利用者が core の API だけで操作できるよう保証する。
 - `actor-*` 側はユーティリティ経由の再エクスポートを利用し、std / embedded いずれの構成でも一貫したテスト・サンプルを保つ。
 
+### Stack 抽象
+- LIFO 構造についても `StackBuffer<T>`（core）と `SharedStack<S, T>` を導入し、`Queue` と同等の共有モデルで扱えるようにする。
+- `StackStorage` / `SharedStackHandle` を実装することで、`Arc<Mutex<_>>` や `Rc<RefCell<_>>`、`ArcStateCell<_>` を透過的に利用できる。
+- std 向けには `Stack<T>`（内部は `ArcShared<Mutex<_>>`）、embedded 向けには `RcStack<T>` / `ArcStack<T, RM>` を提供し、`prelude` から再エクスポートすることで core の `StackBase` / `StackMut` API 経由で操作可能にする。
+- core に振る舞いを集中させるのが基本方針。`StackBuffer` や `SharedStack` のロジックはすべて core に置き、std 側（`Arc` + `Mutex`）で単体テストを回せば大半の品質をカバーできる。embedded 側は所有モデルだけを差し替え、std で通したテストケースを再利用することで最小限の追加検証で済む構造とする。
+
 ## モジュール構成ポリシー
 - `actor-std` は `spawn.rs` / `timer.rs` / `mailbox.rs` / `state.rs` に分割し、Tokio 依存の責務を明確化して再エクスポート専用の `lib.rs` から集約する。
 - `actor-embedded` も同様に `spawn.rs` / `timer.rs` / `mailbox.rs` / `state.rs` / `shared.rs` へ分離し、feature ごとの実装差分をファイル単位で追えるようにした。
