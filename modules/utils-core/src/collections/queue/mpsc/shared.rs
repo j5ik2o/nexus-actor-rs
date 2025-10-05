@@ -133,8 +133,8 @@ mod tests {
 
   use crate::collections::queue::mpsc::buffer::MpscBuffer;
   use crate::collections::queue::mpsc::traits::SharedMpscHandle;
-  use crate::collections::QueueError;
   use crate::collections::queue::mpsc::SharedMpscQueue;
+  use crate::collections::QueueError;
 
   #[derive(Debug)]
   struct RcHandle<T>(Rc<RefCell<MpscBuffer<T>>>);

@@ -139,15 +139,15 @@ impl<E: Element> QueueReader<E> for ArcMpscBoundedQueue<E> {
 
 impl<E: Element> SharedQueue<E> for ArcMpscBoundedQueue<E> {
   fn offer_shared(&self, element: E) -> Result<(), QueueError<E>> {
-    ArcMpscBoundedQueue::offer_shared(self, element)
+    self.offer_shared(element)
   }
 
   fn poll_shared(&self) -> Result<Option<E>, QueueError<E>> {
-    ArcMpscBoundedQueue::poll_shared(self)
+    self.poll_shared()
   }
 
   fn clean_up_shared(&self) {
-    ArcMpscBoundedQueue::clean_up_shared(self)
+    self.clean_up_shared();
   }
 }
 

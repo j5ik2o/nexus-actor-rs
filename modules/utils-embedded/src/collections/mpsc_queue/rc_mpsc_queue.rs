@@ -74,15 +74,15 @@ impl<E: Element> QueueReader<E> for RcMpscUnboundedQueue<E> {
 
 impl<E: Element> SharedQueue<E> for RcMpscUnboundedQueue<E> {
   fn offer_shared(&self, element: E) -> Result<(), QueueError<E>> {
-    RcMpscUnboundedQueue::offer_shared(self, element)
+    self.offer_shared(element)
   }
 
   fn poll_shared(&self) -> Result<Option<E>, QueueError<E>> {
-    RcMpscUnboundedQueue::poll_shared(self)
+    self.poll_shared()
   }
 
   fn clean_up_shared(&self) {
-    RcMpscUnboundedQueue::clean_up_shared(self)
+    self.clean_up_shared();
   }
 }
 
@@ -148,15 +148,15 @@ impl<E: Element> QueueReader<E> for RcMpscBoundedQueue<E> {
 
 impl<E: Element> SharedQueue<E> for RcMpscBoundedQueue<E> {
   fn offer_shared(&self, element: E) -> Result<(), QueueError<E>> {
-    RcMpscBoundedQueue::offer_shared(self, element)
+    self.offer_shared(element)
   }
 
   fn poll_shared(&self) -> Result<Option<E>, QueueError<E>> {
-    RcMpscBoundedQueue::poll_shared(self)
+    self.poll_shared()
   }
 
   fn clean_up_shared(&self) {
-    RcMpscBoundedQueue::clean_up_shared(self)
+    self.clean_up_shared();
   }
 }
 

@@ -109,15 +109,15 @@ where
   E: PriorityMessage,
 {
   fn offer_shared(&self, element: E) -> Result<(), QueueError<E>> {
-    PriorityQueue::offer_shared(self, element)
+    self.offer_shared(element)
   }
 
   fn poll_shared(&self) -> Result<Option<E>, QueueError<E>> {
-    PriorityQueue::poll_shared(self)
+    self.poll_shared()
   }
 
   fn clean_up_shared(&self) {
-    PriorityQueue::clean_up_shared(self)
+    self.clean_up_shared();
   }
 }
 

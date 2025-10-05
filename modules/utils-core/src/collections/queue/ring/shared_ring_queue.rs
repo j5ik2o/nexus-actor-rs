@@ -155,15 +155,15 @@ where
   S: SharedQueueHandle<E>,
 {
   fn offer_shared(&self, element: E) -> Result<(), QueueError<E>> {
-    SharedRingQueue::offer_shared(self, element)
+    self.offer_shared(element)
   }
 
   fn poll_shared(&self) -> Result<Option<E>, QueueError<E>> {
-    SharedRingQueue::poll_shared(self)
+    self.poll_shared()
   }
 
   fn clean_up_shared(&self) {
-    SharedRingQueue::clean_up_shared(self)
+    self.clean_up_shared();
   }
 }
 
