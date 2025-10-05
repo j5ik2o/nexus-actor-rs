@@ -58,31 +58,31 @@ impl<E: Element> QueueBase<E> for RcMpscUnboundedQueue<E> {
 }
 
 impl<E: Element> QueueWriter<E> for RcMpscUnboundedQueue<E> {
-  fn offer(&mut self, element: E) -> Result<(), QueueError<E>> {
-    self.inner.offer(element)
+  fn offer_mut(&mut self, element: E) -> Result<(), QueueError<E>> {
+    self.inner.offer_mut(element)
   }
 }
 
 impl<E: Element> QueueReader<E> for RcMpscUnboundedQueue<E> {
-  fn poll(&mut self) -> Result<Option<E>, QueueError<E>> {
-    self.inner.poll()
+  fn poll_mut(&mut self) -> Result<Option<E>, QueueError<E>> {
+    self.inner.poll_mut()
   }
 
-  fn clean_up(&mut self) {
-    self.inner.clean_up();
+  fn clean_up_mut(&mut self) {
+    self.inner.clean_up_mut();
   }
 }
 
 impl<E: Element> SharedQueue<E> for RcMpscUnboundedQueue<E> {
-  fn offer_shared(&self, element: E) -> Result<(), QueueError<E>> {
+  fn offer(&self, element: E) -> Result<(), QueueError<E>> {
     self.offer_shared(element)
   }
 
-  fn poll_shared(&self) -> Result<Option<E>, QueueError<E>> {
+  fn poll(&self) -> Result<Option<E>, QueueError<E>> {
     self.poll_shared()
   }
 
-  fn clean_up_shared(&self) {
+  fn clean_up(&self) {
     self.clean_up_shared();
   }
 }
@@ -132,31 +132,31 @@ impl<E: Element> QueueBase<E> for RcMpscBoundedQueue<E> {
 }
 
 impl<E: Element> QueueWriter<E> for RcMpscBoundedQueue<E> {
-  fn offer(&mut self, element: E) -> Result<(), QueueError<E>> {
-    self.inner.offer(element)
+  fn offer_mut(&mut self, element: E) -> Result<(), QueueError<E>> {
+    self.inner.offer_mut(element)
   }
 }
 
 impl<E: Element> QueueReader<E> for RcMpscBoundedQueue<E> {
-  fn poll(&mut self) -> Result<Option<E>, QueueError<E>> {
-    self.inner.poll()
+  fn poll_mut(&mut self) -> Result<Option<E>, QueueError<E>> {
+    self.inner.poll_mut()
   }
 
-  fn clean_up(&mut self) {
-    self.inner.clean_up();
+  fn clean_up_mut(&mut self) {
+    self.inner.clean_up_mut();
   }
 }
 
 impl<E: Element> SharedQueue<E> for RcMpscBoundedQueue<E> {
-  fn offer_shared(&self, element: E) -> Result<(), QueueError<E>> {
+  fn offer(&self, element: E) -> Result<(), QueueError<E>> {
     self.offer_shared(element)
   }
 
-  fn poll_shared(&self) -> Result<Option<E>, QueueError<E>> {
+  fn poll(&self) -> Result<Option<E>, QueueError<E>> {
     self.poll_shared()
   }
 
-  fn clean_up_shared(&self) {
+  fn clean_up(&self) {
     self.clean_up_shared();
   }
 }
@@ -216,7 +216,7 @@ mod tests {
   #[test]
   fn rc_unbounded_offer_poll_via_traits() {
     let mut queue: RcMpscUnboundedQueue<u32> = RcMpscUnboundedQueue::new();
-    queue.offer(1).unwrap();
-    assert_eq!(queue.poll().unwrap(), Some(1));
+    queue.offer_mut(1).unwrap();
+    assert_eq!(queue.poll_mut().unwrap(), Some(1));
   }
 }

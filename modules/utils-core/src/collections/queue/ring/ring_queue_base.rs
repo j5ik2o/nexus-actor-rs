@@ -53,18 +53,18 @@ pub trait QueueBase<E> {
 }
 
 pub trait QueueWriter<E>: QueueBase<E> {
-  fn offer(&mut self, element: E) -> Result<(), QueueError<E>>;
+  fn offer_mut(&mut self, element: E) -> Result<(), QueueError<E>>;
 }
 
 pub trait QueueReader<E>: QueueBase<E> {
-  fn poll(&mut self) -> Result<Option<E>, QueueError<E>>;
-  fn clean_up(&mut self);
+  fn poll_mut(&mut self) -> Result<Option<E>, QueueError<E>>;
+  fn clean_up_mut(&mut self);
 }
 
 pub trait SharedQueue<E>: QueueBase<E> {
-  fn offer_shared(&self, element: E) -> Result<(), QueueError<E>>;
-  fn poll_shared(&self) -> Result<Option<E>, QueueError<E>>;
-  fn clean_up_shared(&self);
+  fn offer(&self, element: E) -> Result<(), QueueError<E>>;
+  fn poll(&self) -> Result<Option<E>, QueueError<E>>;
+  fn clean_up(&self);
 }
 
 #[cfg(test)]

@@ -91,7 +91,7 @@ impl<S, T> QueueWriter<T> for SharedMpscQueue<S, T>
 where
   S: SharedMpscHandle<T>,
 {
-  fn offer(&mut self, element: T) -> Result<(), QueueError<T>> {
+  fn offer_mut(&mut self, element: T) -> Result<(), QueueError<T>> {
     self.backend().try_send(element)
   }
 }
@@ -100,11 +100,11 @@ impl<S, T> QueueReader<T> for SharedMpscQueue<S, T>
 where
   S: SharedMpscHandle<T>,
 {
-  fn poll(&mut self) -> Result<Option<T>, QueueError<T>> {
+  fn poll_mut(&mut self) -> Result<Option<T>, QueueError<T>> {
     self.backend().try_recv()
   }
 
-  fn clean_up(&mut self) {
+  fn clean_up_mut(&mut self) {
     self.backend().close();
   }
 }
@@ -113,15 +113,15 @@ impl<S, T> crate::collections::queue::SharedQueue<T> for SharedMpscQueue<S, T>
 where
   S: SharedMpscHandle<T>,
 {
-  fn offer_shared(&self, element: T) -> Result<(), QueueError<T>> {
+  fn offer(&self, element: T) -> Result<(), QueueError<T>> {
     self.backend().try_send(element)
   }
 
-  fn poll_shared(&self) -> Result<Option<T>, QueueError<T>> {
+  fn poll(&self) -> Result<Option<T>, QueueError<T>> {
     self.backend().try_recv()
   }
 
-  fn clean_up_shared(&self) {
+  fn clean_up(&self) {
     self.backend().close();
   }
 }

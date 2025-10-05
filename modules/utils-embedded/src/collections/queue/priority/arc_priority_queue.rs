@@ -106,7 +106,7 @@ where
   E: PriorityMessage,
   RM: RawMutex,
 {
-  fn offer(&mut self, element: E) -> Result<(), QueueError<E>> {
+  fn offer_mut(&mut self, element: E) -> Result<(), QueueError<E>> {
     self.offer_shared(element)
   }
 }
@@ -116,11 +116,11 @@ where
   E: PriorityMessage,
   RM: RawMutex,
 {
-  fn poll(&mut self) -> Result<Option<E>, QueueError<E>> {
+  fn poll_mut(&mut self) -> Result<Option<E>, QueueError<E>> {
     self.poll_shared()
   }
 
-  fn clean_up(&mut self) {
+  fn clean_up_mut(&mut self) {
     self.clean_up_shared();
   }
 }

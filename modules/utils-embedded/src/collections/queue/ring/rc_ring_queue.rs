@@ -66,18 +66,18 @@ impl<E> QueueBase<E> for RcRingQueue<E> {
 }
 
 impl<E> QueueWriter<E> for RcRingQueue<E> {
-  fn offer(&mut self, element: E) -> Result<(), QueueError<E>> {
-    self.inner.offer(element)
+  fn offer_mut(&mut self, element: E) -> Result<(), QueueError<E>> {
+    self.inner.offer_mut(element)
   }
 }
 
 impl<E> QueueReader<E> for RcRingQueue<E> {
-  fn poll(&mut self) -> Result<Option<E>, QueueError<E>> {
-    self.inner.poll()
+  fn poll_mut(&mut self) -> Result<Option<E>, QueueError<E>> {
+    self.inner.poll_mut()
   }
 
-  fn clean_up(&mut self) {
-    self.inner.clean_up();
+  fn clean_up_mut(&mut self) {
+    self.inner.clean_up_mut();
   }
 }
 
@@ -136,7 +136,7 @@ mod tests {
   #[test]
   fn rc_ring_queue_trait_interface() {
     let mut queue = RcRingQueue::new(1).with_dynamic(false);
-    queue.offer(3).unwrap();
-    assert_eq!(queue.poll().unwrap(), Some(3));
+    queue.offer_mut(3).unwrap();
+    assert_eq!(queue.poll_mut().unwrap(), Some(3));
   }
 }

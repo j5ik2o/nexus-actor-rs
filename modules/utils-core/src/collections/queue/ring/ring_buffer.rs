@@ -45,7 +45,7 @@ impl<T> RingBuffer<T> {
   fn grow(&mut self) {
     let new_cap = self.buf.len().saturating_mul(2).max(1);
     let mut items = Vec::with_capacity(self.len);
-    while let Ok(Some(item)) = self.poll() {
+    while let Ok(Some(item)) = self.poll_mut() {
       items.push(item);
     }
 
@@ -56,7 +56,7 @@ impl<T> RingBuffer<T> {
 
     for item in items {
       // reinsert without triggering another grow
-      if let Err(QueueError::Full(_)) = self.offer(item) {
+      if let Err(QueueError::Full(_)) = self.offer_mut(item) {
         panic!("ring buffer grow failed to reserve capacity");
       }
     }
@@ -78,7 +78,7 @@ impl<T> QueueBase<T> for RingBuffer<T> {
 }
 
 impl<T> QueueWriter<T> for RingBuffer<T> {
-  fn offer(&mut self, item: T) -> Result<(), QueueError<T>> {
+  fn offer_mut(&mut self, item: T) -> Result<(), QueueError<T>> {
     if self.len == self.buf.len() {
       if self.dynamic {
         self.grow();
@@ -95,7 +95,7 @@ impl<T> QueueWriter<T> for RingBuffer<T> {
 }
 
 impl<T> QueueReader<T> for RingBuffer<T> {
-  fn poll(&mut self) -> Result<Option<T>, QueueError<T>> {
+  fn poll_mut(&mut self) -> Result<Option<T>, QueueError<T>> {
     if self.len == 0 {
       return Ok(None);
     }
@@ -106,9 +106,9 @@ impl<T> QueueReader<T> for RingBuffer<T> {
     Ok(Some(value))
   }
 
-  fn clean_up(&mut self) {
+  fn clean_up_mut(&mut self) {
     while self.len > 0 {
-      let _ = self.poll();
+      let _ = self.poll_mut();
     }
   }
 }
@@ -128,20 +128,20 @@ mod tests {
   #[test]
   fn ring_buffer_offer_poll() {
     let mut buffer = RingBuffer::new(2).with_dynamic(false);
-    buffer.offer(1).unwrap();
-    buffer.offer(2).unwrap();
-    assert_eq!(buffer.offer(3), Err(QueueError::Full(3)));
+    buffer.offer_mut(1).unwrap();
+    buffer.offer_mut(2).unwrap();
+    assert_eq!(buffer.offer_mut(3), Err(QueueError::Full(3)));
 
-    assert_eq!(buffer.poll().unwrap(), Some(1));
-    assert_eq!(buffer.poll().unwrap(), Some(2));
-    assert_eq!(buffer.poll().unwrap(), None);
+    assert_eq!(buffer.poll_mut().unwrap(), Some(1));
+    assert_eq!(buffer.poll_mut().unwrap(), Some(2));
+    assert_eq!(buffer.poll_mut().unwrap(), None);
   }
 
   #[test]
   fn ring_buffer_grows_when_dynamic() {
     let mut buffer = RingBuffer::new(1);
-    buffer.offer(1).unwrap();
-    buffer.offer(2).unwrap();
+    buffer.offer_mut(1).unwrap();
+    buffer.offer_mut(2).unwrap();
     assert_eq!(buffer.len().to_usize(), 2);
     assert!(buffer.capacity().is_limitless());
   }

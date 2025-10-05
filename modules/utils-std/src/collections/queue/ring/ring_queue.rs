@@ -66,31 +66,31 @@ impl<E> QueueBase<E> for RingQueue<E> {
 }
 
 impl<E> QueueWriter<E> for RingQueue<E> {
-  fn offer(&mut self, element: E) -> Result<(), QueueError<E>> {
-    self.inner.offer(element)
+  fn offer_mut(&mut self, element: E) -> Result<(), QueueError<E>> {
+    self.inner.offer_mut(element)
   }
 }
 
 impl<E> QueueReader<E> for RingQueue<E> {
-  fn poll(&mut self) -> Result<Option<E>, QueueError<E>> {
-    self.inner.poll()
+  fn poll_mut(&mut self) -> Result<Option<E>, QueueError<E>> {
+    self.inner.poll_mut()
   }
 
-  fn clean_up(&mut self) {
-    self.inner.clean_up();
+  fn clean_up_mut(&mut self) {
+    self.inner.clean_up_mut();
   }
 }
 
 impl<E> SharedQueue<E> for RingQueue<E> {
-  fn offer_shared(&self, element: E) -> Result<(), QueueError<E>> {
+  fn offer(&self, element: E) -> Result<(), QueueError<E>> {
     self.inner.offer_shared(element)
   }
 
-  fn poll_shared(&self) -> Result<Option<E>, QueueError<E>> {
+  fn poll(&self) -> Result<Option<E>, QueueError<E>> {
     self.inner.poll_shared()
   }
 
-  fn clean_up_shared(&self) {
+  fn clean_up(&self) {
     self.inner.clean_up_shared();
   }
 }
@@ -148,8 +148,8 @@ mod tests {
   #[test]
   fn ring_queue_capacity_and_poll_via_traits() {
     let mut queue = RingQueue::new(1).with_dynamic(false);
-    queue.offer(9).unwrap();
+    queue.offer_mut(9).unwrap();
     assert_eq!(queue.capacity(), QueueSize::limited(1));
-    assert_eq!(queue.poll().unwrap(), Some(9));
+    assert_eq!(queue.poll_mut().unwrap(), Some(9));
   }
 }

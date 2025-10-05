@@ -97,7 +97,7 @@ impl<E> QueueWriter<E> for RcPriorityQueue<E>
 where
   E: PriorityMessage,
 {
-  fn offer(&mut self, element: E) -> Result<(), QueueError<E>> {
+  fn offer_mut(&mut self, element: E) -> Result<(), QueueError<E>> {
     self.offer_shared(element)
   }
 }
@@ -106,11 +106,11 @@ impl<E> QueueReader<E> for RcPriorityQueue<E>
 where
   E: PriorityMessage,
 {
-  fn poll(&mut self) -> Result<Option<E>, QueueError<E>> {
+  fn poll_mut(&mut self) -> Result<Option<E>, QueueError<E>> {
     self.poll_shared()
   }
 
-  fn clean_up(&mut self) {
+  fn clean_up_mut(&mut self) {
     self.clean_up_shared();
   }
 }
@@ -177,11 +177,11 @@ mod tests {
   #[test]
   fn rc_priority_queue_trait_cleanup() {
     let mut queue: RcPriorityQueue<Msg> = RcPriorityQueue::new(2).with_dynamic(false);
-    queue.offer(Msg(1, 0)).unwrap();
-    queue.offer(Msg(2, 1)).unwrap();
-    assert_eq!(queue.poll().unwrap().unwrap().0, 2);
-    queue.clean_up();
-    assert!(queue.poll().unwrap().is_none());
+    queue.offer_mut(Msg(1, 0)).unwrap();
+    queue.offer_mut(Msg(2, 1)).unwrap();
+    assert_eq!(queue.poll_mut().unwrap().unwrap().0, 2);
+    queue.clean_up_mut();
+    assert!(queue.poll_mut().unwrap().is_none());
   }
 
   #[test]

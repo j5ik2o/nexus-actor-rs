@@ -29,17 +29,17 @@ where
   pub fn offer_shared(&self, element: E) -> Result<(), QueueError<E>>
   where
     E: Element, {
-    self.inner.offer_shared(element)
+    self.inner.offer(element)
   }
 
   pub fn poll_shared(&self) -> Result<Option<E>, QueueError<E>>
   where
     E: Element, {
-    self.inner.poll_shared()
+    self.inner.poll()
   }
 
   pub fn clean_up_shared(&self) {
-    self.inner.clean_up_shared();
+    self.inner.clean_up();
   }
 
   pub fn len_shared(&self) -> QueueSize {
@@ -66,8 +66,8 @@ where
   E: Element,
   RM: RawMutex,
 {
-  fn offer(&mut self, element: E) -> Result<(), QueueError<E>> {
-    self.inner.offer(element)
+  fn offer_mut(&mut self, element: E) -> Result<(), QueueError<E>> {
+    self.inner.offer_mut(element)
   }
 }
 
@@ -76,12 +76,12 @@ where
   E: Element,
   RM: RawMutex,
 {
-  fn poll(&mut self) -> Result<Option<E>, QueueError<E>> {
-    self.inner.poll()
+  fn poll_mut(&mut self) -> Result<Option<E>, QueueError<E>> {
+    self.inner.poll_mut()
   }
 
-  fn clean_up(&mut self) {
-    self.inner.clean_up();
+  fn clean_up_mut(&mut self) {
+    self.inner.clean_up_mut();
   }
 }
 
@@ -90,15 +90,15 @@ where
   E: Element,
   RM: RawMutex,
 {
-  fn offer_shared(&self, element: E) -> Result<(), QueueError<E>> {
+  fn offer(&self, element: E) -> Result<(), QueueError<E>> {
     self.offer_shared(element)
   }
 
-  fn poll_shared(&self) -> Result<Option<E>, QueueError<E>> {
+  fn poll(&self) -> Result<Option<E>, QueueError<E>> {
     self.poll_shared()
   }
 
-  fn clean_up_shared(&self) {
+  fn clean_up(&self) {
     self.clean_up_shared();
   }
 }
@@ -129,17 +129,17 @@ where
   pub fn offer_shared(&self, element: E) -> Result<(), QueueError<E>>
   where
     E: Element, {
-    self.inner.offer_shared(element)
+    self.inner.offer(element)
   }
 
   pub fn poll_shared(&self) -> Result<Option<E>, QueueError<E>>
   where
     E: Element, {
-    self.inner.poll_shared()
+    self.inner.poll()
   }
 
   pub fn clean_up_shared(&self) {
-    self.inner.clean_up_shared();
+    self.inner.clean_up();
   }
 
   pub fn len_shared(&self) -> QueueSize {
@@ -170,8 +170,8 @@ where
   E: Element,
   RM: RawMutex,
 {
-  fn offer(&mut self, element: E) -> Result<(), QueueError<E>> {
-    self.inner.offer(element)
+  fn offer_mut(&mut self, element: E) -> Result<(), QueueError<E>> {
+    self.inner.offer_mut(element)
   }
 }
 
@@ -180,12 +180,12 @@ where
   E: Element,
   RM: RawMutex,
 {
-  fn poll(&mut self) -> Result<Option<E>, QueueError<E>> {
-    self.inner.poll()
+  fn poll_mut(&mut self) -> Result<Option<E>, QueueError<E>> {
+    self.inner.poll_mut()
   }
 
-  fn clean_up(&mut self) {
-    self.inner.clean_up();
+  fn clean_up_mut(&mut self) {
+    self.inner.clean_up_mut();
   }
 }
 
@@ -194,15 +194,15 @@ where
   E: Element,
   RM: RawMutex,
 {
-  fn offer_shared(&self, element: E) -> Result<(), QueueError<E>> {
+  fn offer(&self, element: E) -> Result<(), QueueError<E>> {
     self.offer_shared(element)
   }
 
-  fn poll_shared(&self) -> Result<Option<E>, QueueError<E>> {
+  fn poll(&self) -> Result<Option<E>, QueueError<E>> {
     self.poll_shared()
   }
 
-  fn clean_up_shared(&self) {
+  fn clean_up(&self) {
     self.clean_up_shared();
   }
 }

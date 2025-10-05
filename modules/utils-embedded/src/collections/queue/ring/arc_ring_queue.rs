@@ -72,8 +72,8 @@ impl<E, RM> QueueWriter<E> for ArcRingQueue<E, RM>
 where
   RM: RawMutex,
 {
-  fn offer(&mut self, element: E) -> Result<(), QueueError<E>> {
-    self.inner.offer(element)
+  fn offer_mut(&mut self, element: E) -> Result<(), QueueError<E>> {
+    self.inner.offer_mut(element)
   }
 }
 
@@ -81,12 +81,12 @@ impl<E, RM> QueueReader<E> for ArcRingQueue<E, RM>
 where
   RM: RawMutex,
 {
-  fn poll(&mut self) -> Result<Option<E>, QueueError<E>> {
-    self.inner.poll()
+  fn poll_mut(&mut self) -> Result<Option<E>, QueueError<E>> {
+    self.inner.poll_mut()
   }
 
-  fn clean_up(&mut self) {
-    self.inner.clean_up();
+  fn clean_up_mut(&mut self) {
+    self.inner.clean_up_mut();
   }
 }
 
