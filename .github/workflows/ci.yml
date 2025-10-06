@@ -59,4 +59,4 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: nightly
-      - run: cargo test -p nexus-actor-embedded-rs --no-default-features --features embassy --no-run
+      - run: cargo test -p nexus-utils-embedded-rs --no-default-features --features embassy --no-run
