@@ -7,7 +7,9 @@ pub use element::Element;
 pub use priority::{PriorityMessage, SharedPriorityQueue, DEFAULT_PRIORITY, PRIORITY_LEVELS};
 pub use queue::{
   MpscBackend, MpscBuffer, MpscHandle, MpscQueue, QueueBase, QueueError, QueueHandle, QueueReader, QueueRw,
-  QueueRwHandle, QueueSize, QueueStorage, QueueWriter, RingBuffer, RingBufferBackend, RingBufferStorage, RingQueue,
-  DEFAULT_CAPACITY,
+  QueueRwHandle, QueueSize, QueueStorage, QueueWriter, RingBackend, RingBuffer, RingBufferBackend, RingBufferStorage,
+  RingHandle, RingQueue, RingStorageBackend, DEFAULT_CAPACITY,
 };
-pub use stack::{SharedStack, SharedStackHandle, StackBase, StackBuffer, StackError, StackMut, StackStorage};
+pub use stack::{
+  Stack, StackBackend, StackBase, StackBuffer, StackError, StackHandle, StackMut, StackStorage, StackStorageBackend,
+};

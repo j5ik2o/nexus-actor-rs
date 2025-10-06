@@ -15,4 +15,4 @@ pub use traits::QueueHandle as QueueRwHandle;
 pub use traits::{QueueBase, QueueHandle, QueueReader, QueueRw, QueueWriter};
 
 pub use mpsc::{MpscBackend, MpscBuffer, MpscHandle, MpscQueue, RingBufferBackend};
-pub use ring::{RingBuffer, RingQueue, DEFAULT_CAPACITY};
+pub use ring::{RingBackend, RingBuffer, RingHandle, RingQueue, RingStorageBackend, DEFAULT_CAPACITY};

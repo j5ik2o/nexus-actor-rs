@@ -8,9 +8,10 @@ pub mod sync;
 
 pub use collections::{
   Element, MpscBackend, MpscBuffer, MpscHandle, MpscQueue, PriorityMessage, QueueBase, QueueError, QueueHandle,
-  QueueReader, QueueRw, QueueRwHandle, QueueSize, QueueStorage, QueueWriter, RingBuffer, RingBufferBackend,
-  RingBufferStorage, RingQueue, SharedPriorityQueue, SharedStack, SharedStackHandle, StackBase, StackBuffer,
-  StackError, StackMut, StackStorage, DEFAULT_CAPACITY, DEFAULT_PRIORITY, PRIORITY_LEVELS,
+  QueueReader, QueueRw, QueueRwHandle, QueueSize, QueueStorage, QueueWriter, RingBackend, RingBuffer,
+  RingBufferBackend, RingBufferStorage, RingHandle, RingQueue, RingStorageBackend, SharedPriorityQueue, Stack,
+  StackBackend, StackBase, StackBuffer, StackError, StackHandle, StackMut, StackStorage, StackStorageBackend,
+  DEFAULT_CAPACITY, DEFAULT_PRIORITY, PRIORITY_LEVELS,
 };
 pub use concurrent::{
   AsyncBarrier, AsyncBarrierBackend, BoxFuture, CountDownLatch, CountDownLatchBackend, GuardHandle, Synchronized,

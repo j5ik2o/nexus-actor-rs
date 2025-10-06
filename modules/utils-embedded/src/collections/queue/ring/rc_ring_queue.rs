@@ -1,21 +1,23 @@
 use core::cell::RefCell;
 
 use nexus_utils_core_rs::{
-  QueueBase, QueueError, QueueReader, QueueRw, QueueSize, QueueWriter, RingBuffer, RingQueue, DEFAULT_CAPACITY,
+  QueueBase, QueueError, QueueReader, QueueRw, QueueSize, QueueWriter, RingBuffer, RingQueue, RingStorageBackend,
+  DEFAULT_CAPACITY,
 };
 
 use crate::sync::RcShared;
 
 #[derive(Debug, Clone)]
 pub struct RcRingQueue<E> {
-  inner: RingQueue<RcShared<RefCell<RingBuffer<E>>>, E>,
+  inner: RingQueue<RcShared<RingStorageBackend<RcShared<RefCell<RingBuffer<E>>>>>, E>,
 }
 
 impl<E> RcRingQueue<E> {
   pub fn new(capacity: usize) -> Self {
     let storage = RcShared::new(RefCell::new(RingBuffer::new(capacity)));
+    let backend = RcShared::new(RingStorageBackend::new(storage));
     Self {
-      inner: RingQueue::new(storage),
+      inner: RingQueue::new(backend),
     }
   }
 

@@ -4,17 +4,86 @@ use crate::sync::Shared;
 
 use super::StackError;
 
-/// Abstraction over storage used by [`SharedStack`].
+/// Abstraction over storage used by stack backends.
 pub trait StackStorage<T> {
   fn with_read<R>(&self, f: impl FnOnce(&StackBuffer<T>) -> R) -> R;
   fn with_write<R>(&self, f: impl FnOnce(&mut StackBuffer<T>) -> R) -> R;
 }
 
-/// Shared pointer handle that exposes the storage implementation.
-pub trait SharedStackHandle<T>: Shared<Self::Storage> + Clone {
-  type Storage: StackStorage<T> + ?Sized;
+/// Backend abstraction for stack operations.
+pub trait StackBackend<T> {
+  fn push(&self, value: T) -> Result<(), StackError<T>>;
+  fn pop(&self) -> Option<T>;
+  fn clear(&self);
+  fn len(&self) -> QueueSize;
+  fn capacity(&self) -> QueueSize;
+  fn set_capacity(&self, capacity: Option<usize>);
 
-  fn storage(&self) -> &Self::Storage;
+  fn peek(&self) -> Option<T>
+  where
+    T: Clone;
+}
+
+/// Handle that exposes a [`StackBackend`].
+pub trait StackHandle<T>: Shared<Self::Backend> + Clone {
+  type Backend: StackBackend<T> + ?Sized;
+
+  fn backend(&self) -> &Self::Backend;
+}
+
+/// Backend implementation that operates directly on a [`StackStorage`].
+#[derive(Debug)]
+pub struct StackStorageBackend<S> {
+  storage: S,
+}
+
+impl<S> StackStorageBackend<S> {
+  pub const fn new(storage: S) -> Self {
+    Self { storage }
+  }
+
+  pub fn storage(&self) -> &S {
+    &self.storage
+  }
+
+  pub fn into_storage(self) -> S {
+    self.storage
+  }
+}
+
+impl<S, T> StackBackend<T> for StackStorageBackend<S>
+where
+  S: StackStorage<T>,
+{
+  fn push(&self, value: T) -> Result<(), StackError<T>> {
+    self.storage.with_write(|buffer| buffer.push(value))
+  }
+
+  fn pop(&self) -> Option<T> {
+    self.storage.with_write(|buffer| buffer.pop())
+  }
+
+  fn clear(&self) {
+    self.storage.with_write(|buffer| buffer.clear());
+  }
+
+  fn len(&self) -> QueueSize {
+    self.storage.with_read(|buffer| buffer.len())
+  }
+
+  fn capacity(&self) -> QueueSize {
+    self.storage.with_read(|buffer| buffer.capacity())
+  }
+
+  fn set_capacity(&self, capacity: Option<usize>) {
+    self.storage.with_write(|buffer| buffer.set_capacity(capacity));
+  }
+
+  fn peek(&self) -> Option<T>
+  where
+    T: Clone, {
+    self.storage.with_read(|buffer| buffer.peek().cloned())
+  }
 }
 
 /// Base trait for stack-like collections.

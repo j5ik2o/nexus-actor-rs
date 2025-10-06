@@ -76,6 +76,7 @@ pub trait Spawn {
 ## Queue 抽象の配置
 - `nexus-utils-core-rs` に `RingBuffer` と `QueueBase` 系トレイトを集約し、`no_std + alloc` 前提でリングキューの基盤を提供する。
 - MPSC リング実装向けの `RingBufferStorage` トレイトも `collections::queue::storage` に集約し、`RingBufferBackend` と共有する。
+- リングキューは `RingBackend` / `RingStorageBackend` を介して動作し、MPSC と同様に Backend + Handle + Queue の三層構成へ統一する。
 - `nexus-utils-std-rs` では `RingQueue<E>` を `Arc<Mutex<_>>` でラップし、共有アクセス向け API（`offer` / `poll` など）を公開する。
 - `nexus-utils-embedded-rs` では `RcRingQueue<E>` と `ArcRingQueue<E, RM>` を用意し、`rc` フィーチャでは `Rc<RefCell<_>>`、`arc` フィーチャでは Embassy の `Mutex<RM, _>` を使用する。`ArcLocalRingQueue` / `ArcCsRingQueue` などのエイリアスで環境に合わせた排他制御を選択しつつ、ロジックは core の共有実装へ委譲する。
 - 両クレートは `prelude` モジュールで `QueueWriter` / `QueueRw` など core 側のトレイトを含む共通インターフェイスを再エクスポートし、利用者が core の API だけで操作できるよう保証する。
@@ -106,10 +107,10 @@ pub trait Spawn {
 - カバレッジ目標は全モジュール 80% 以上とし、`cargo test --workspace` と `cargo test -p nexus-utils-embedded-rs --no-default-features --features arc` を含む計測スクリプトを維持する。
 
 ### Stack 抽象
-- LIFO 構造についても `StackBuffer<T>`（core）と `SharedStack<S, T>` を導入し、`Queue` と同等の共有モデルで扱えるようにする。
-- `StackStorage` / `SharedStackHandle` を実装することで、`Arc<Mutex<_>>` や `Rc<RefCell<_>>`、`ArcStateCell<_>` を透過的に利用できる。
+- LIFO 構造についても `StackBuffer<T>`（core）と `Stack<H, T>` を導入し、`Queue` と同等の共有モデルで扱えるようにする。
+- `StackStorage` / `StackHandle` を実装することで、`Arc<Mutex<_>>` や `Rc<RefCell<_>>`、`ArcStateCell<_>` を透過的に利用できる。
 - std 向けには `ArcStack<T>`（内部は `ArcShared<Mutex<_>>`）、embedded 向けには `RcStack<T>` / `ArcStack<T, RM>` を提供し、`prelude` から再エクスポートすることで core の `StackBase` / `StackMut` API 経由で操作可能にする。
-- core に振る舞いを集中させるのが基本方針。`StackBuffer` や `SharedStack` のロジックはすべて core に置き、std 側（`Arc` + `Mutex`）で単体テストを回せば大半の品質をカバーできる。embedded 側は所有モデルだけを差し替え、std で通したテストケースを再利用することで最小限の追加検証で済む構造とする。
+- core に振る舞いを集中させるのが基本方針。`StackBuffer` や `Stack` のロジックはすべて core に置き、std 側（`Arc` + `Mutex`）で単体テストを回せば大半の品質をカバーできる。embedded 側は所有モデルだけを差し替え、std で通したテストケースを再利用することで最小限の追加検証で済む構造とする。
 
 ## モジュール構成ポリシー
 - `actor-std` は `spawn.rs` / `timer.rs` / `mailbox.rs` / `state.rs` に分割し、Tokio 依存の責務を明確化して再エクスポート専用の `lib.rs` から集約する。

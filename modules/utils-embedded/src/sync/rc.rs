@@ -3,7 +3,9 @@ use core::cell::{Ref, RefCell, RefMut};
 use core::ops::Deref;
 
 use nexus_utils_core_rs::sync::{Shared, StateCell};
-use nexus_utils_core_rs::{MpscBackend, MpscHandle, QueueHandle, QueueStorage};
+use nexus_utils_core_rs::{
+  MpscBackend, MpscHandle, QueueHandle, QueueStorage, RingBackend, RingHandle, StackBackend, StackHandle,
+};
 
 #[derive(Debug)]
 pub struct RcShared<T>(Rc<T>);
@@ -58,6 +60,28 @@ where
 impl<T, B> MpscHandle<T> for RcShared<B>
 where
   B: MpscBackend<T>,
+{
+  type Backend = B;
+
+  fn backend(&self) -> &Self::Backend {
+    &self.0
+  }
+}
+
+impl<E, B> RingHandle<E> for RcShared<B>
+where
+  B: RingBackend<E>,
+{
+  type Backend = B;
+
+  fn backend(&self) -> &Self::Backend {
+    &self.0
+  }
+}
+
+impl<T, B> StackHandle<T> for RcShared<B>
+where
+  B: StackBackend<T>,
 {
   type Backend = B;
 

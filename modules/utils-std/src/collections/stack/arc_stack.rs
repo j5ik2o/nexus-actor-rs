@@ -1,18 +1,21 @@
 use std::sync::Mutex;
 
 use crate::sync::ArcShared;
-use nexus_utils_core_rs::{QueueSize, SharedStack, SharedStackHandle, StackBase, StackBuffer, StackError, StackMut};
+use nexus_utils_core_rs::{
+  QueueSize, Stack, StackBase, StackBuffer, StackError, StackMut, StackStorage, StackStorageBackend,
+};
 
 #[derive(Debug, Clone)]
 pub struct ArcStack<T> {
-  inner: SharedStack<ArcShared<Mutex<StackBuffer<T>>>, T>,
+  inner: Stack<ArcShared<StackStorageBackend<ArcShared<Mutex<StackBuffer<T>>>>>, T>,
 }
 
 impl<T> ArcStack<T> {
   pub fn new() -> Self {
     let storage = ArcShared::new(Mutex::new(StackBuffer::new()));
+    let backend = ArcShared::new(StackStorageBackend::new(storage));
     Self {
-      inner: SharedStack::new(storage),
+      inner: Stack::new(backend),
     }
   }
 
@@ -26,30 +29,30 @@ impl<T> ArcStack<T> {
     self.inner.set_capacity(capacity);
   }
 
-  pub fn push_shared(&self, value: T) -> Result<(), StackError<T>> {
-    self.inner.push_shared(value)
+  pub fn push_ref(&self, value: T) -> Result<(), StackError<T>> {
+    self.inner.push_ref(value)
   }
 
-  pub fn pop_shared(&self) -> Option<T> {
-    self.inner.pop_shared()
+  pub fn pop_ref(&self) -> Option<T> {
+    self.inner.pop_ref()
   }
 
-  pub fn peek_shared(&self) -> Option<T>
+  pub fn peek_ref(&self) -> Option<T>
   where
     T: Clone, {
-    self.inner.peek_shared()
+    self.inner.peek_ref()
   }
 
-  pub fn clear_shared(&self) {
-    self.inner.clear_shared();
+  pub fn clear_ref(&self) {
+    self.inner.clear_ref();
   }
 
-  pub fn len_shared(&self) -> QueueSize {
-    self.inner.len_shared()
+  pub fn len_ref(&self) -> QueueSize {
+    self.inner.len_ref()
   }
 
-  pub fn capacity_shared(&self) -> QueueSize {
-    self.inner.capacity_shared()
+  pub fn capacity_ref(&self) -> QueueSize {
+    self.inner.capacity_ref()
   }
 }
 
@@ -89,11 +92,15 @@ impl<T> StackMut<T> for ArcStack<T> {
   }
 }
 
-impl<T> SharedStackHandle<T> for ArcShared<Mutex<StackBuffer<T>>> {
-  type Storage = Mutex<StackBuffer<T>>;
+impl<T> StackStorage<T> for ArcShared<Mutex<StackBuffer<T>>> {
+  fn with_read<R>(&self, f: impl FnOnce(&StackBuffer<T>) -> R) -> R {
+    let guard = self.lock().expect("mutex poisoned");
+    f(&guard)
+  }
 
-  fn storage(&self) -> &Self::Storage {
-    &self
+  fn with_write<R>(&self, f: impl FnOnce(&mut StackBuffer<T>) -> R) -> R {
+    let mut guard = self.lock().expect("mutex poisoned");
+    f(&mut guard)
   }
 }
 
@@ -111,23 +118,23 @@ mod tests {
   }
 
   #[test]
-  fn stack_shared_access() {
+  fn stack_handle_access() {
     let stack = ArcStack::new();
-    stack.push_shared(10).unwrap();
+    stack.push_ref(10).unwrap();
     let cloned = stack.clone();
-    cloned.push_shared(11).unwrap();
+    cloned.push_ref(11).unwrap();
 
-    assert_eq!(stack.len_shared().to_usize(), 2);
-    assert_eq!(cloned.pop_shared(), Some(11));
-    assert_eq!(stack.pop_shared(), Some(10));
+    assert_eq!(stack.len_ref().to_usize(), 2);
+    assert_eq!(cloned.pop_ref(), Some(11));
+    assert_eq!(stack.pop_ref(), Some(10));
   }
 
   #[test]
   fn stack_peek_shared() {
     let stack = ArcStack::new();
-    stack.push_shared(5).unwrap();
-    assert_eq!(stack.peek_shared(), Some(5));
-    stack.pop_shared();
-    assert_eq!(stack.peek_shared(), None);
+    stack.push_ref(5).unwrap();
+    assert_eq!(stack.peek_ref(), Some(5));
+    stack.pop_ref();
+    assert_eq!(stack.peek_ref(), None);
   }
 }

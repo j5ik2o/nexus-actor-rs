@@ -1,6 +1,7 @@
 use embassy_sync::blocking_mutex::raw::{NoopRawMutex, RawMutex};
 use nexus_utils_core_rs::{
-  QueueBase, QueueError, QueueReader, QueueRw, QueueSize, QueueWriter, RingBuffer, RingQueue, DEFAULT_CAPACITY,
+  QueueBase, QueueError, QueueReader, QueueRw, QueueSize, QueueWriter, RingBuffer, RingQueue, RingStorageBackend,
+  DEFAULT_CAPACITY,
 };
 
 use crate::sync::{ArcShared, ArcStateCell};
@@ -9,7 +10,7 @@ use crate::sync::{ArcShared, ArcStateCell};
 pub struct ArcRingQueue<E, RM = NoopRawMutex>
 where
   RM: RawMutex, {
-  inner: RingQueue<ArcShared<ArcStateCell<RingBuffer<E>, RM>>, E>,
+  inner: RingQueue<ArcShared<RingStorageBackend<ArcShared<ArcStateCell<RingBuffer<E>, RM>>>>, E>,
 }
 
 pub type ArcLocalRingQueue<E> = ArcRingQueue<E, NoopRawMutex>;
@@ -20,8 +21,9 @@ where
 {
   pub fn new(capacity: usize) -> Self {
     let storage = ArcShared::new(ArcStateCell::new(RingBuffer::new(capacity)));
+    let backend = ArcShared::new(RingStorageBackend::new(storage));
     Self {
-      inner: RingQueue::new(storage),
+      inner: RingQueue::new(backend),
     }
   }
 

@@ -8,8 +8,8 @@ pub mod sync;
 
 pub use nexus_utils_core_rs::{
   Element, MpscHandle, PriorityMessage, QueueBase, QueueError, QueueReader, QueueRw, QueueRwHandle, QueueSize,
-  QueueStorage, QueueWriter, RingBuffer, RingQueue, Shared, StateCell, DEFAULT_CAPACITY, DEFAULT_PRIORITY,
-  PRIORITY_LEVELS,
+  QueueStorage, QueueWriter, RingBackend, RingBuffer, RingQueue, RingStorageBackend, Shared, Stack, StackBackend,
+  StackHandle, StackStorage, StackStorageBackend, StateCell, DEFAULT_CAPACITY, DEFAULT_PRIORITY, PRIORITY_LEVELS,
 };
 
 pub use collections::*;
@@ -49,8 +49,9 @@ pub mod prelude {
   pub use crate::sync::{RcShared, RcStateCell};
   pub use nexus_utils_core_rs::{
     Element, MpscHandle, PriorityMessage, QueueBase, QueueError, QueueReader, QueueRw, QueueRwHandle, QueueSize,
-    QueueStorage, QueueWriter, RingBuffer, RingQueue, Shared, SharedStack, SharedStackHandle, StackBase, StackBuffer,
-    StackError, StackMut, StackStorage, StateCell, DEFAULT_CAPACITY, DEFAULT_PRIORITY, PRIORITY_LEVELS,
+    QueueStorage, QueueWriter, RingBackend, RingBuffer, RingQueue, RingStorageBackend, Shared, Stack, StackBackend,
+    StackBase, StackBuffer, StackError, StackHandle, StackMut, StackStorage, StackStorageBackend, StateCell,
+    DEFAULT_CAPACITY, DEFAULT_PRIORITY, PRIORITY_LEVELS,
   };
 }
 
