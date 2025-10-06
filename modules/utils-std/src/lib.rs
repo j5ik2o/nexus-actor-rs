@@ -3,8 +3,9 @@ pub mod concurrent;
 pub mod sync;
 
 pub use nexus_utils_core_rs::{
-  Element, PriorityMessage, QueueBase, QueueError, QueueHandle, QueueReader, QueueSize, QueueStorage, QueueWriter,
-  RingBuffer, RingQueue, Shared, SharedQueue, StateCell, DEFAULT_CAPACITY, DEFAULT_PRIORITY, PRIORITY_LEVELS,
+  Element, MpscHandle, PriorityMessage, QueueBase, QueueError, QueueHandle, QueueReader, QueueRw, QueueRwHandle,
+  QueueSize, QueueStorage, QueueWriter, RingBuffer, RingQueue, Shared, StateCell, DEFAULT_CAPACITY, DEFAULT_PRIORITY,
+  PRIORITY_LEVELS,
 };
 
 pub use collections::{ArcMpscBoundedQueue, ArcMpscUnboundedQueue, ArcPriorityQueue, ArcRingQueue, ArcStack};
@@ -20,7 +21,7 @@ pub mod prelude {
     AsyncBarrier, CountDownLatch, RingQueue, Synchronized, SynchronizedRw, WaitGroup,
   };
   pub use nexus_utils_core_rs::{
-    Element, PriorityMessage, QueueBase, QueueError, QueueReader, QueueSize, QueueStorage, QueueWriter, RingBuffer,
-    Shared, SharedQueue, SharedQueueHandle, StateCell, DEFAULT_CAPACITY, DEFAULT_PRIORITY, PRIORITY_LEVELS,
+    Element, MpscHandle, PriorityMessage, QueueBase, QueueError, QueueReader, QueueRw, QueueRwHandle, QueueSize,
+    QueueStorage, QueueWriter, RingBuffer, Shared, StateCell, DEFAULT_CAPACITY, DEFAULT_PRIORITY, PRIORITY_LEVELS,
   };
 }

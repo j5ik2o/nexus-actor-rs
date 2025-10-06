@@ -1,7 +1,7 @@
 use core::marker::PhantomData;
 
 use crate::collections::queue::{
-  QueueBase, QueueError, QueueHandle, QueueReader, QueueSize, QueueStorage, QueueWriter, SharedQueue,
+  QueueBase, QueueError, QueueHandle, QueueReader, QueueRw, QueueSize, QueueStorage, QueueWriter,
 };
 
 #[derive(Debug)]
@@ -100,7 +100,7 @@ where
   }
 }
 
-impl<S, E> SharedQueue<E> for RingQueue<S, E>
+impl<S, E> QueueRw<E> for RingQueue<S, E>
 where
   S: QueueHandle<E>,
 {

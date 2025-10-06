@@ -15,7 +15,7 @@ pub trait QueueReader<E>: QueueBase<E> {
   fn clean_up_mut(&mut self);
 }
 
-pub trait SharedQueue<E>: QueueBase<E> {
+pub trait QueueRw<E>: QueueBase<E> {
   fn offer(&self, element: E) -> Result<(), QueueError<E>>;
   fn poll(&self) -> Result<Option<E>, QueueError<E>>;
   fn clean_up(&self);

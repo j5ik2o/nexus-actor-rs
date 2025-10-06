@@ -15,8 +15,8 @@ pub trait MpscBackend<T> {
   }
 }
 
-/// Shared pointer that exposes a [`MpscBackend`].
-pub trait SharedMpscHandle<T>: Shared<Self::Backend> + Clone {
+/// Shared handle that exposes a [`MpscBackend`].
+pub trait MpscHandle<T>: Shared<Self::Backend> + Clone {
   type Backend: MpscBackend<T> + ?Sized;
 
   fn backend(&self) -> &Self::Backend;

@@ -1,7 +1,7 @@
 use core::cell::RefCell;
 
 use nexus_utils_core_rs::{
-  QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, RingBuffer, RingQueue, SharedQueue, DEFAULT_CAPACITY,
+  QueueBase, QueueError, QueueReader, QueueRw, QueueSize, QueueWriter, RingBuffer, RingQueue, DEFAULT_CAPACITY,
 };
 
 use crate::sync::RcShared;
@@ -61,7 +61,7 @@ impl<E> QueueReader<E> for RcRingQueue<E> {
   }
 }
 
-impl<E> SharedQueue<E> for RcRingQueue<E> {
+impl<E> QueueRw<E> for RcRingQueue<E> {
   fn offer(&self, element: E) -> Result<(), QueueError<E>> {
     self.inner.offer(element)
   }

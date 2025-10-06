@@ -1,18 +1,18 @@
-use super::traits::{MpscBackend, SharedMpscHandle};
-use crate::collections::{QueueBase, QueueError, QueueReader, QueueSize, QueueWriter};
+use super::traits::{MpscBackend, MpscHandle};
+use crate::collections::{QueueBase, QueueError, QueueReader, QueueRw, QueueSize, QueueWriter};
 
 /// Queue facade that operates on a [`MpscBackend`].
 #[derive(Debug)]
 pub struct MpscQueue<S, T>
 where
-  S: SharedMpscHandle<T>, {
+  S: MpscHandle<T>, {
   storage: S,
   _marker: core::marker::PhantomData<T>,
 }
 
 impl<S, T> MpscQueue<S, T>
 where
-  S: SharedMpscHandle<T>,
+  S: MpscHandle<T>,
 {
   pub fn new(storage: S) -> Self {
     Self {
@@ -60,7 +60,7 @@ where
 
 impl<S, T> Clone for MpscQueue<S, T>
 where
-  S: SharedMpscHandle<T>,
+  S: MpscHandle<T>,
 {
   fn clone(&self) -> Self {
     Self {
@@ -72,7 +72,7 @@ where
 
 impl<S, T> QueueBase<T> for MpscQueue<S, T>
 where
-  S: SharedMpscHandle<T>,
+  S: MpscHandle<T>,
 {
   fn len(&self) -> QueueSize {
     self.backend().len()
@@ -85,7 +85,7 @@ where
 
 impl<S, T> QueueWriter<T> for MpscQueue<S, T>
 where
-  S: SharedMpscHandle<T>,
+  S: MpscHandle<T>,
 {
   fn offer_mut(&mut self, element: T) -> Result<(), QueueError<T>> {
     self.backend().try_send(element)
@@ -94,7 +94,7 @@ where
 
 impl<S, T> QueueReader<T> for MpscQueue<S, T>
 where
-  S: SharedMpscHandle<T>,
+  S: MpscHandle<T>,
 {
   fn poll_mut(&mut self) -> Result<Option<T>, QueueError<T>> {
     self.backend().try_recv()
@@ -105,9 +105,9 @@ where
   }
 }
 
-impl<S, T> crate::collections::queue::SharedQueue<T> for MpscQueue<S, T>
+impl<S, T> QueueRw<T> for MpscQueue<S, T>
 where
-  S: SharedMpscHandle<T>,
+  S: MpscHandle<T>,
 {
   fn offer(&self, element: T) -> Result<(), QueueError<T>> {
     self.offer(element)
@@ -131,7 +131,7 @@ mod tests {
   use core::fmt;
 
   use crate::collections::queue::mpsc::backend::RingBufferBackend;
-  use crate::collections::queue::mpsc::traits::SharedMpscHandle;
+  use crate::collections::queue::mpsc::traits::MpscHandle;
   use crate::collections::queue::mpsc::{MpscBuffer, MpscQueue};
   use crate::collections::QueueError;
 
@@ -167,7 +167,7 @@ mod tests {
 
   impl<T> crate::sync::Shared<RingBufferBackend<RefCell<MpscBuffer<T>>>> for RcBackendHandle<T> {}
 
-  impl<T> SharedMpscHandle<T> for RcBackendHandle<T> {
+  impl<T> MpscHandle<T> for RcBackendHandle<T> {
     type Backend = RingBufferBackend<RefCell<MpscBuffer<T>>>;
 
     fn backend(&self) -> &Self::Backend {

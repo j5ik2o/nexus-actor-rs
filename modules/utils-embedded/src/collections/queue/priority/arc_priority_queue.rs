@@ -1,6 +1,6 @@
 use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex, RawMutex};
 use nexus_utils_core_rs::{
-  PriorityMessage, QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, SharedPriorityQueue, SharedQueue,
+  PriorityMessage, QueueBase, QueueError, QueueReader, QueueRw, QueueSize, QueueWriter, SharedPriorityQueue,
   PRIORITY_LEVELS,
 };
 
@@ -91,7 +91,7 @@ where
   }
 }
 
-impl<E, RM> SharedQueue<E> for ArcPriorityQueue<E, RM>
+impl<E, RM> QueueRw<E> for ArcPriorityQueue<E, RM>
 where
   E: PriorityMessage,
   RM: RawMutex,
@@ -113,7 +113,7 @@ where
 mod tests {
   use super::*;
   use crate::tests::init_arc_critical_section;
-  use nexus_utils_core_rs::{QueueBase, QueueReader, QueueWriter, SharedQueue};
+  use nexus_utils_core_rs::{QueueBase, QueueReader, QueueRw, QueueWriter};
 
   fn prepare() {
     init_arc_critical_section();

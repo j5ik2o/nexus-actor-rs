@@ -1,8 +1,8 @@
 use crate::collections::queue::mpsc::TokioBoundedMpscBackend;
 use crate::sync::ArcShared;
 use nexus_utils_core_rs::{
-  Element, MpscBackend, MpscBuffer, MpscQueue, QueueBase, QueueError, QueueReader, QueueSize, QueueWriter,
-  RingBufferBackend, SharedQueue,
+  Element, MpscBackend, MpscBuffer, MpscQueue, QueueBase, QueueError, QueueReader, QueueRw, QueueSize, QueueWriter,
+  RingBufferBackend,
 };
 use std::fmt;
 use std::sync::{Arc, Mutex};
@@ -72,7 +72,7 @@ impl<E: Element> QueueReader<E> for ArcMpscBoundedQueue<E> {
   }
 }
 
-impl<E: Element> SharedQueue<E> for ArcMpscBoundedQueue<E> {
+impl<E: Element> QueueRw<E> for ArcMpscBoundedQueue<E> {
   fn offer(&self, element: E) -> Result<(), QueueError<E>> {
     self.inner.offer(element)
   }

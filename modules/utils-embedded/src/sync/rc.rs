@@ -3,7 +3,7 @@ use core::cell::{Ref, RefCell, RefMut};
 use core::ops::Deref;
 
 use nexus_utils_core_rs::sync::{Shared, StateCell};
-use nexus_utils_core_rs::{MpscBackend, QueueHandle, QueueStorage, SharedMpscHandle};
+use nexus_utils_core_rs::{MpscBackend, MpscHandle, QueueHandle, QueueStorage};
 
 #[derive(Debug)]
 pub struct RcShared<T>(Rc<T>);
@@ -55,7 +55,7 @@ where
   }
 }
 
-impl<T, B> SharedMpscHandle<T> for RcShared<B>
+impl<T, B> MpscHandle<T> for RcShared<B>
 where
   B: MpscBackend<T>,
 {

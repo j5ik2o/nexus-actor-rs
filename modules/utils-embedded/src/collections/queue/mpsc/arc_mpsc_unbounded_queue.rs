@@ -1,8 +1,8 @@
 use crate::sync::{ArcShared, ArcStateCell};
 use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex, RawMutex};
 use nexus_utils_core_rs::{
-  Element, MpscBuffer, MpscQueue, QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, RingBufferBackend,
-  SharedQueue,
+  Element, MpscBuffer, MpscQueue, QueueBase, QueueError, QueueReader, QueueRw, QueueSize, QueueWriter,
+  RingBufferBackend,
 };
 
 #[derive(Debug)]
@@ -65,7 +65,7 @@ where
   }
 }
 
-impl<E, RM> SharedQueue<E> for ArcMpscUnboundedQueue<E, RM>
+impl<E, RM> QueueRw<E> for ArcMpscUnboundedQueue<E, RM>
 where
   E: Element,
   RM: RawMutex,
@@ -87,7 +87,7 @@ where
 mod tests {
   use super::*;
   use crate::tests::init_arc_critical_section;
-  use nexus_utils_core_rs::{QueueBase, QueueReader, QueueWriter, SharedQueue};
+  use nexus_utils_core_rs::{QueueBase, QueueReader, QueueRw, QueueWriter};
 
   fn prepare() {
     init_arc_critical_section();

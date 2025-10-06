@@ -1,6 +1,6 @@
 use super::{
   element::Element,
-  queue::{QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, SharedQueue},
+  queue::{QueueBase, QueueError, QueueReader, QueueRw, QueueSize, QueueWriter},
 };
 use alloc::vec::Vec;
 use core::marker::PhantomData;
@@ -16,14 +16,14 @@ pub trait PriorityMessage: Element {
 #[derive(Debug)]
 pub struct SharedPriorityQueue<Q, E>
 where
-  Q: SharedQueue<E>, {
+  Q: QueueRw<E>, {
   levels: Vec<Q>,
   _marker: PhantomData<E>,
 }
 
 impl<Q, E> SharedPriorityQueue<Q, E>
 where
-  Q: SharedQueue<E>,
+  Q: QueueRw<E>,
 {
   pub fn new(levels: Vec<Q>) -> Self {
     assert!(!levels.is_empty(), "SharedPriorityQueue requires at least one level");
@@ -99,7 +99,7 @@ where
 
 impl<Q, E> Clone for SharedPriorityQueue<Q, E>
 where
-  Q: SharedQueue<E> + Clone,
+  Q: QueueRw<E> + Clone,
 {
   fn clone(&self) -> Self {
     Self {
@@ -111,7 +111,7 @@ where
 
 impl<Q, E> QueueBase<E> for SharedPriorityQueue<Q, E>
 where
-  Q: SharedQueue<E>,
+  Q: QueueRw<E>,
   E: PriorityMessage,
 {
   fn len(&self) -> QueueSize {
@@ -125,7 +125,7 @@ where
 
 impl<Q, E> QueueWriter<E> for SharedPriorityQueue<Q, E>
 where
-  Q: SharedQueue<E>,
+  Q: QueueRw<E>,
   E: PriorityMessage,
 {
   fn offer_mut(&mut self, element: E) -> Result<(), QueueError<E>> {
@@ -135,7 +135,7 @@ where
 
 impl<Q, E> QueueReader<E> for SharedPriorityQueue<Q, E>
 where
-  Q: SharedQueue<E>,
+  Q: QueueRw<E>,
   E: PriorityMessage,
 {
   fn poll_mut(&mut self) -> Result<Option<E>, QueueError<E>> {
@@ -147,9 +147,9 @@ where
   }
 }
 
-impl<Q, E> SharedQueue<E> for SharedPriorityQueue<Q, E>
+impl<Q, E> QueueRw<E> for SharedPriorityQueue<Q, E>
 where
-  Q: SharedQueue<E>,
+  Q: QueueRw<E>,
   E: PriorityMessage,
 {
   fn offer(&self, element: E) -> Result<(), QueueError<E>> {
@@ -173,8 +173,8 @@ mod tests {
   use core::cell::RefCell;
 
   use super::{PriorityMessage, SharedPriorityQueue};
-  use crate::collections::queue::mpsc::{MpscBuffer, MpscQueue, RingBufferBackend, SharedMpscHandle};
-  use crate::collections::queue::{QueueBase, QueueReader, QueueWriter, SharedQueue};
+  use crate::collections::queue::mpsc::{MpscBuffer, MpscHandle, MpscQueue, RingBufferBackend};
+  use crate::collections::queue::{QueueBase, QueueReader, QueueRw, QueueWriter};
   use crate::collections::{QueueError, QueueSize};
   use crate::sync::Shared;
 
@@ -208,7 +208,7 @@ mod tests {
 
   impl<T> Shared<RingBufferBackend<RefCell<MpscBuffer<T>>>> for RcHandle<T> {}
 
-  impl<T> SharedMpscHandle<T> for RcHandle<T> {
+  impl<T> MpscHandle<T> for RcHandle<T> {
     type Backend = RingBufferBackend<RefCell<MpscBuffer<T>>>;
 
     fn backend(&self) -> &Self::Backend {
@@ -222,7 +222,7 @@ mod tests {
     }
   }
 
-  impl SharedQueue<u32> for TestQueue {
+  impl QueueRw<u32> for TestQueue {
     fn offer(&self, element: u32) -> Result<(), QueueError<u32>> {
       self.0.offer(element)
     }

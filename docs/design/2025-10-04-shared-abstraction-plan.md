@@ -78,7 +78,7 @@ pub trait Spawn {
 - MPSC リング実装向けの `RingBufferStorage` トレイトも `collections::queue::storage` に集約し、`RingBufferBackend` と共有する。
 - `nexus-utils-std-rs` では `RingQueue<E>` を `Arc<Mutex<_>>` でラップし、共有アクセス向け API（`offer` / `poll` など）を公開する。
 - `nexus-utils-embedded-rs` では `RcRingQueue<E>` と `ArcRingQueue<E, RM>` を用意し、`rc` フィーチャでは `Rc<RefCell<_>>`、`arc` フィーチャでは Embassy の `Mutex<RM, _>` を使用する。`ArcLocalRingQueue` / `ArcCsRingQueue` などのエイリアスで環境に合わせた排他制御を選択しつつ、ロジックは core の共有実装へ委譲する。
-- 両クレートは `prelude` モジュールで `QueueWriter` / `SharedQueue` など core 側のトレイトを含む共通インターフェイスを再エクスポートし、利用者が core の API だけで操作できるよう保証する。
+- 両クレートは `prelude` モジュールで `QueueWriter` / `QueueRw` など core 側のトレイトを含む共通インターフェイスを再エクスポートし、利用者が core の API だけで操作できるよう保証する。
 - `actor-*` 側はユーティリティ経由の再エクスポートを利用し、std / embedded いずれの構成でも一貫したテスト・サンプルを保つ。
 
 ### MPSC バックエンド再設計計画（2025-10-05 更新）
@@ -87,7 +87,7 @@ pub trait Spawn {
   - `MpscQueue` は新 backend を委譲するだけの薄いラッパへ再設計し、プラットフォーム固有の詳細を背後へ隠蔽する。
 2. **リングバッファ backend の再配置**
    - 既存のリングバッファ実装を `core` 上の `MpscBackend` 1 実装として切り出し、std / embedded からは backend 指定のみで利用できるようにする。
-   - `QueueWriter` / `QueueReader` / `SharedQueue` を通じてアクセスする既存 API は維持し、内部で利用する backend だけを差し替える。
+  - `QueueWriter` / `QueueReader` / `QueueRw` を通じてアクセスする既存 API は維持し、内部で利用する backend だけを差し替える。
 3. **Tokio backend の追加**
    - `tokio::sync::mpsc` を包む `TokioMpscBackend` を `utils-std` に実装し、`ArcMpsc*` 系型は backend 選択に専念させる。
    - 将来 `Tokio` 以外のランタイム（例: `async-std`）へ拡張する余地を残し、backend の差し替えで対応できるようにする。

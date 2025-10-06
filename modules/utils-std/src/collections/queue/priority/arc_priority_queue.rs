@@ -1,6 +1,6 @@
 use crate::ArcRingQueue;
 use nexus_utils_core_rs::{
-  PriorityMessage, QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, SharedPriorityQueue, SharedQueue,
+  PriorityMessage, QueueBase, QueueError, QueueReader, QueueRw, QueueSize, QueueWriter, SharedPriorityQueue,
   PRIORITY_LEVELS,
 };
 
@@ -88,7 +88,7 @@ where
   }
 }
 
-impl<E> SharedQueue<E> for ArcPriorityQueue<E>
+impl<E> QueueRw<E> for ArcPriorityQueue<E>
 where
   E: PriorityMessage,
 {

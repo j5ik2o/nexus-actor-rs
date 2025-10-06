@@ -2,7 +2,7 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 use nexus_utils_core_rs::sync::Shared;
-use nexus_utils_core_rs::{MpscBackend, QueueHandle, QueueStorage, SharedMpscHandle};
+use nexus_utils_core_rs::{MpscBackend, MpscHandle, QueueHandle, QueueStorage};
 
 pub struct ArcShared<T: ?Sized>(Arc<T>);
 
@@ -64,7 +64,7 @@ where
   }
 }
 
-impl<T, B> SharedMpscHandle<T> for ArcShared<B>
+impl<T, B> MpscHandle<T> for ArcShared<B>
 where
   B: MpscBackend<T> + ?Sized,
 {

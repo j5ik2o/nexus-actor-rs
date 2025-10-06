@@ -1,8 +1,8 @@
 use core::cell::RefCell;
 
 use nexus_utils_core_rs::{
-  Element, MpscBuffer, MpscQueue, QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, RingBufferBackend,
-  SharedQueue,
+  Element, MpscBuffer, MpscQueue, QueueBase, QueueError, QueueReader, QueueRw, QueueSize, QueueWriter,
+  RingBufferBackend,
 };
 
 use crate::sync::RcShared;
@@ -47,7 +47,7 @@ impl<E: Element> QueueReader<E> for RcMpscBoundedQueue<E> {
   }
 }
 
-impl<E: Element> SharedQueue<E> for RcMpscBoundedQueue<E> {
+impl<E: Element> QueueRw<E> for RcMpscBoundedQueue<E> {
   fn offer(&self, element: E) -> Result<(), QueueError<E>> {
     self.inner.offer(element)
   }
@@ -64,7 +64,7 @@ impl<E: Element> SharedQueue<E> for RcMpscBoundedQueue<E> {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use nexus_utils_core_rs::{QueueBase, SharedQueue};
+  use nexus_utils_core_rs::{QueueBase, QueueRw};
 
   #[test]
   fn rc_bounded_capacity_limit() {

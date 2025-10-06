@@ -1,6 +1,6 @@
 use embassy_sync::blocking_mutex::raw::{NoopRawMutex, RawMutex};
 use nexus_utils_core_rs::{
-  QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, RingBuffer, RingQueue, SharedQueue, DEFAULT_CAPACITY,
+  QueueBase, QueueError, QueueReader, QueueRw, QueueSize, QueueWriter, RingBuffer, RingQueue, DEFAULT_CAPACITY,
 };
 
 use crate::sync::{ArcShared, ArcStateCell};
@@ -70,7 +70,7 @@ where
   }
 }
 
-impl<E, RM> SharedQueue<E> for ArcRingQueue<E, RM>
+impl<E, RM> QueueRw<E> for ArcRingQueue<E, RM>
 where
   RM: RawMutex,
 {

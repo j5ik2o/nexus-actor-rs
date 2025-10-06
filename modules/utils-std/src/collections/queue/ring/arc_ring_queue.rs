@@ -2,7 +2,7 @@ use std::sync::Mutex;
 
 use crate::sync::ArcShared;
 use nexus_utils_core_rs::{
-  QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, RingBuffer, RingQueue, SharedQueue, DEFAULT_CAPACITY,
+  QueueBase, QueueError, QueueReader, QueueRw, QueueSize, QueueWriter, RingBuffer, RingQueue, DEFAULT_CAPACITY,
 };
 
 #[derive(Debug, Clone)]
@@ -60,7 +60,7 @@ impl<E> QueueReader<E> for ArcRingQueue<E> {
   }
 }
 
-impl<E> SharedQueue<E> for ArcRingQueue<E> {
+impl<E> QueueRw<E> for ArcRingQueue<E> {
   fn offer(&self, element: E) -> Result<(), QueueError<E>> {
     self.inner.offer(element)
   }
