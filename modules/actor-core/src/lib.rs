@@ -9,7 +9,7 @@ mod mailbox;
 mod spawn;
 mod timer;
 
-pub use mailbox::Mailbox;
+pub use mailbox::{Mailbox, MailboxSignal, QueueMailbox, QueueMailboxProducer, QueueMailboxRecv};
 pub use nexus_utils_core_rs::sync::{Shared, StateCell};
 pub use spawn::Spawn;
 pub use timer::Timer;
@@ -34,12 +34,16 @@ mod tests {
   extern crate alloc;
 
   use super::*;
-  use alloc::{collections::VecDeque, rc::Rc};
+  use alloc::rc::Rc;
   use core::cell::{Ref, RefCell, RefMut};
+  use core::fmt;
   use core::future::Future;
   use core::pin::Pin;
   use core::ptr;
   use core::task::{Context, Poll, RawWaker, RawWakerVTable, Waker};
+  use nexus_utils_core_rs::collections::queue::mpsc::MpscHandle;
+  use nexus_utils_core_rs::collections::queue::mpsc::{MpscBuffer, MpscQueue, RingBufferBackend};
+  use nexus_utils_core_rs::sync::Shared;
 
   struct TestStateCell<T>(Rc<RefCell<T>>);
 
@@ -82,48 +86,92 @@ mod tests {
     }
   }
 
-  struct TestMailbox<M> {
-    queue: RefCell<VecDeque<M>>,
+  #[derive(Clone, Default)]
+  struct TestSignal {
+    state: Rc<RefCell<SignalState>>,
   }
 
-  impl<M> TestMailbox<M> {
-    fn new(messages: impl IntoIterator<Item = M>) -> Self {
-      Self {
-        queue: RefCell::new(messages.into_iter().collect()),
-      }
-    }
+  #[derive(Default)]
+  struct SignalState {
+    notified: bool,
+    waker: Option<Waker>,
   }
 
-  impl<M> Mailbox<M> for TestMailbox<M> {
-    type RecvFuture<'a>
-      = TestMailboxRecv<'a, M>
+  impl MailboxSignal for TestSignal {
+    type WaitFuture<'a>
+      = TestSignalWait
     where
       Self: 'a;
-    type SendError = ();
 
-    fn try_send(&self, message: M) -> Result<(), Self::SendError> {
-      self.queue.borrow_mut().push_back(message);
-      Ok(())
+    fn notify(&self) {
+      let mut state = self.state.borrow_mut();
+      state.notified = true;
+      if let Some(waker) = state.waker.take() {
+        waker.wake();
+      }
     }
 
-    fn recv(&self) -> Self::RecvFuture<'_> {
-      TestMailboxRecv { mailbox: self }
+    fn wait(&self) -> Self::WaitFuture<'_> {
+      TestSignalWait { signal: self.clone() }
     }
   }
 
-  struct TestMailboxRecv<'a, M> {
-    mailbox: &'a TestMailbox<M>,
+  struct TestSignalWait {
+    signal: TestSignal,
   }
 
-  impl<'a, M> Future for TestMailboxRecv<'a, M> {
-    type Output = M;
+  impl Future for TestSignalWait {
+    type Output = ();
 
-    fn poll(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {
-      if let Some(message) = self.mailbox.queue.borrow_mut().pop_front() {
-        Poll::Ready(message)
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+      let mut state = self.signal.state.borrow_mut();
+      if state.notified {
+        state.notified = false;
+        Poll::Ready(())
       } else {
+        state.waker = Some(cx.waker().clone());
         Poll::Pending
       }
+    }
+  }
+
+  struct RcBackendHandle<T>(Rc<RingBufferBackend<RefCell<MpscBuffer<T>>>>);
+
+  impl<T> RcBackendHandle<T> {
+    fn new(capacity: Option<usize>) -> Self {
+      let buffer = RefCell::new(MpscBuffer::new(capacity));
+      let backend = RingBufferBackend::new(buffer);
+      Self(Rc::new(backend))
+    }
+  }
+
+  impl<T> Clone for RcBackendHandle<T> {
+    fn clone(&self) -> Self {
+      Self(self.0.clone())
+    }
+  }
+
+  impl<T> fmt::Debug for RcBackendHandle<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+      f.debug_struct("RcBackendHandle").finish()
+    }
+  }
+
+  impl<T> core::ops::Deref for RcBackendHandle<T> {
+    type Target = RingBufferBackend<RefCell<MpscBuffer<T>>>;
+
+    fn deref(&self) -> &Self::Target {
+      &self.0
+    }
+  }
+
+  impl<T> Shared<RingBufferBackend<RefCell<MpscBuffer<T>>>> for RcBackendHandle<T> {}
+
+  impl<T> MpscHandle<T> for RcBackendHandle<T> {
+    type Backend = RingBufferBackend<RefCell<MpscBuffer<T>>>;
+
+    fn backend(&self) -> &Self::Backend {
+      &self.0
     }
   }
 
@@ -142,7 +190,11 @@ mod tests {
 
   #[test]
   fn actor_loop_updates_state_cell_with_message() {
-    let mailbox = TestMailbox::new([3_u32]);
+    type TestQueue<T> = MpscQueue<RcBackendHandle<T>, T>;
+
+    let queue: TestQueue<u32> = MpscQueue::new(RcBackendHandle::new(None));
+    let mailbox = QueueMailbox::new(queue, TestSignal::default());
+    mailbox.try_send(3_u32).unwrap();
     let timer = TestTimer;
     let state = TestStateCell::new(0_u32);
     let state_for_handler = state.clone();

@@ -2,13 +2,13 @@ mod mailbox;
 mod spawn;
 mod timer;
 
-pub use mailbox::TokioMailbox;
+pub use mailbox::{TokioMailbox, TokioMailboxSender};
 pub use nexus_utils_std_rs::sync::{ArcShared, ArcStateCell};
 pub use spawn::TokioSpawner;
 pub use timer::TokioTimer;
 
 pub mod prelude {
-  pub use super::{ArcShared, ArcStateCell, TokioMailbox, TokioSpawner, TokioTimer};
+  pub use super::{ArcShared, ArcStateCell, TokioMailbox, TokioMailboxSender, TokioSpawner, TokioTimer};
   pub use nexus_actor_core_rs::actor_loop;
 }
 
