@@ -15,12 +15,15 @@ pub use nexus_utils_core_rs::{
 pub use collections::*;
 #[cfg(feature = "arc")]
 pub use concurrent::{
-  ArcCountDownLatchBackend, ArcCsCountDownLatch, ArcCsSynchronized, ArcCsSynchronizedRw, ArcLocalCountDownLatch,
-  ArcLocalSynchronized, ArcLocalSynchronizedRw, ArcMutexBackend, ArcRwLockBackend, ArcSynchronized, ArcSynchronizedRw,
+  ArcAsyncBarrierBackend, ArcCountDownLatchBackend, ArcCsAsyncBarrier, ArcCsCountDownLatch, ArcCsSynchronized,
+  ArcCsSynchronizedRw, ArcCsWaitGroup, ArcLocalAsyncBarrier, ArcLocalCountDownLatch, ArcLocalSynchronized,
+  ArcLocalSynchronizedRw, ArcLocalWaitGroup, ArcMutexBackend, ArcRwLockBackend, ArcSynchronized, ArcSynchronizedRw,
+  ArcWaitGroupBackend,
 };
 #[cfg(feature = "rc")]
 pub use concurrent::{
-  RcCountDownLatch, RcCountDownLatchBackend, RcMutexBackend, RcRwLockBackend, RcSynchronized, RcSynchronizedRw,
+  RcAsyncBarrier, RcAsyncBarrierBackend, RcCountDownLatch, RcCountDownLatchBackend, RcMutexBackend, RcRwLockBackend,
+  RcSynchronized, RcSynchronizedRw, RcWaitGroup, RcWaitGroupBackend,
 };
 pub use sync::*;
 
@@ -35,11 +38,12 @@ pub mod prelude {
   pub use crate::collections::{RcMpscBoundedQueue, RcMpscUnboundedQueue, RcPriorityQueue, RcRingQueue, RcStack};
   #[cfg(feature = "arc")]
   pub use crate::concurrent::{
-    ArcCsCountDownLatch, ArcCsSynchronized, ArcCsSynchronizedRw, ArcLocalCountDownLatch, ArcLocalSynchronized,
-    ArcLocalSynchronizedRw, ArcSynchronized, ArcSynchronizedRw,
+    ArcCsAsyncBarrier, ArcCsCountDownLatch, ArcCsSynchronized, ArcCsSynchronizedRw, ArcCsWaitGroup,
+    ArcLocalAsyncBarrier, ArcLocalCountDownLatch, ArcLocalSynchronized, ArcLocalSynchronizedRw, ArcLocalWaitGroup,
+    ArcSynchronized, ArcSynchronizedRw,
   };
   #[cfg(feature = "rc")]
-  pub use crate::concurrent::{RcCountDownLatch, RcSynchronized, RcSynchronizedRw};
+  pub use crate::concurrent::{RcAsyncBarrier, RcCountDownLatch, RcSynchronized, RcSynchronizedRw, RcWaitGroup};
   #[cfg(feature = "arc")]
   pub use crate::sync::{ArcCsStateCell, ArcLocalStateCell, ArcShared, ArcStateCell};
   #[cfg(feature = "rc")]
