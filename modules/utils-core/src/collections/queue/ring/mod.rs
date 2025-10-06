@@ -1,7 +1,9 @@
-mod ring_buffer;
-mod ring_queue_base;
-mod shared_ring_queue;
+mod buffer;
+mod handle;
+mod queue;
+mod storage;
 
-pub use ring_buffer::RingBuffer;
-pub use ring_queue_base::{QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, SharedQueue, DEFAULT_CAPACITY};
-pub use shared_ring_queue::{QueueStorage, SharedQueueHandle, SharedRingQueue};
+pub use buffer::{RingBuffer, DEFAULT_CAPACITY};
+pub use handle::SharedQueueHandle;
+pub use queue::SharedRingQueue;
+pub use storage::QueueStorage;

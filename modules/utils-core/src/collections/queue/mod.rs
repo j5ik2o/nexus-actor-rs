@@ -1,10 +1,15 @@
 //! no_std-friendly queue primitives shared between runtimes.
 
+mod queue_error;
+mod queue_size;
+mod traits;
+
 pub mod mpsc;
 pub mod ring;
 
+pub use queue_error::QueueError;
+pub use queue_size::QueueSize;
+pub use traits::{QueueBase, QueueReader, QueueWriter, SharedQueue};
+
 pub use mpsc::{MpscBackend, MpscBuffer, RingBufferBackend, RingBufferStorage, SharedMpscHandle, SharedMpscQueue};
-pub use ring::{
-  QueueBase, QueueError, QueueReader, QueueSize, QueueStorage, QueueWriter, RingBuffer, SharedQueue, SharedQueueHandle,
-  SharedRingQueue, DEFAULT_CAPACITY,
-};
+pub use ring::{QueueStorage, RingBuffer, SharedQueueHandle, SharedRingQueue, DEFAULT_CAPACITY};

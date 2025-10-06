@@ -1,7 +1,3 @@
-use core::fmt::Debug;
-
-pub const DEFAULT_CAPACITY: usize = 32;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum QueueSize {
   Limitless,
@@ -21,10 +17,6 @@ impl QueueSize {
     matches!(self, Self::Limitless)
   }
 
-  /// Convert the queue size into a raw `usize`.
-  ///
-  /// 無制限（`Limitless`）の場合は `usize::MAX` を返す。テストや統計用途で
-  /// 便宜的に使用するためのヘルパとする。
   pub const fn to_usize(self) -> usize {
     match self {
       Self::Limitless => usize::MAX,
@@ -39,37 +31,9 @@ impl Default for QueueSize {
   }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum QueueError<T> {
-  Full(T),
-  OfferError(T),
-  Closed(T),
-  Disconnected,
-}
-
-pub trait QueueBase<E> {
-  fn len(&self) -> QueueSize;
-  fn capacity(&self) -> QueueSize;
-}
-
-pub trait QueueWriter<E>: QueueBase<E> {
-  fn offer_mut(&mut self, element: E) -> Result<(), QueueError<E>>;
-}
-
-pub trait QueueReader<E>: QueueBase<E> {
-  fn poll_mut(&mut self) -> Result<Option<E>, QueueError<E>>;
-  fn clean_up_mut(&mut self);
-}
-
-pub trait SharedQueue<E>: QueueBase<E> {
-  fn offer(&self, element: E) -> Result<(), QueueError<E>>;
-  fn poll(&self) -> Result<Option<E>, QueueError<E>>;
-  fn clean_up(&self);
-}
-
 #[cfg(test)]
 mod tests {
-  use super::*;
+  use super::QueueSize;
 
   #[test]
   fn queue_size_helpers_work_as_expected() {

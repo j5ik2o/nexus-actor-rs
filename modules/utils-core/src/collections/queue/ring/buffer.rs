@@ -3,7 +3,9 @@ use alloc::vec::Vec;
 use core::fmt::Debug;
 use core::mem::MaybeUninit;
 
-use super::{QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, DEFAULT_CAPACITY};
+use crate::collections::queue::{QueueBase, QueueError, QueueReader, QueueSize, QueueWriter};
+
+pub const DEFAULT_CAPACITY: usize = 32;
 
 #[derive(Debug)]
 pub struct RingBuffer<T> {
