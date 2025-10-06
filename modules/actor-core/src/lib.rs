@@ -44,6 +44,7 @@ mod tests {
   use nexus_utils_core_rs::collections::queue::mpsc::MpscHandle;
   use nexus_utils_core_rs::collections::queue::mpsc::{MpscBuffer, MpscQueue, RingBufferBackend};
   use nexus_utils_core_rs::sync::Shared;
+  use nexus_utils_core_rs::QueueError;
 
   struct TestStateCell<T>(Rc<RefCell<T>>);
 
@@ -212,6 +213,30 @@ mod tests {
     assert_eq!(*state.borrow(), 3);
 
     assert!(matches!(poll_once(&mut future), Poll::Pending));
+  }
+
+  #[test]
+  fn queue_mailbox_handles_close_and_disconnect() {
+    type TestQueue<T> = MpscQueue<RcBackendHandle<T>, T>;
+
+    let queue: TestQueue<u32> = MpscQueue::new(RcBackendHandle::new(None));
+    let mailbox = QueueMailbox::new(queue, TestSignal::default());
+
+    let mut recv_future = mailbox.recv();
+    assert!(matches!(poll_once(&mut recv_future), Poll::Pending));
+
+    mailbox.try_send(42).unwrap();
+    assert_eq!(poll_once(&mut recv_future), Poll::Ready(42));
+
+    mailbox.close();
+    assert!(matches!(
+      mailbox.try_send(7),
+      Err(QueueError::Disconnected) | Err(QueueError::Closed(_))
+    ));
+
+    let mut closed_recv = mailbox.recv();
+    assert!(matches!(poll_once(&mut closed_recv), Poll::Pending));
+    assert!(mailbox.is_closed());
   }
 
   fn poll_once<F>(future: &mut F) -> Poll<F::Output>

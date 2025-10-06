@@ -17,4 +17,4 @@ pub use concurrent::{
   AsyncBarrier, AsyncBarrierBackend, BoxFuture, CountDownLatch, CountDownLatchBackend, GuardHandle, Synchronized,
   SynchronizedMutexBackend, SynchronizedRw, SynchronizedRwBackend, WaitGroup, WaitGroupBackend,
 };
-pub use sync::{Shared, StateCell};
+pub use sync::{Flag, Shared, StateCell};

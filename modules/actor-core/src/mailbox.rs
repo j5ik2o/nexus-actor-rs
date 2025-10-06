@@ -3,6 +3,7 @@ use core::marker::PhantomData;
 use core::pin::Pin;
 use core::task::{Context, Poll};
 
+use nexus_utils_core_rs::sync::Flag;
 use nexus_utils_core_rs::{Element, QueueError, QueueRw, QueueSize};
 
 /// Mailbox abstraction that decouples message queue implementations from core logic.
@@ -46,11 +47,16 @@ pub trait MailboxSignal: Clone {
 pub struct QueueMailbox<Q, S> {
   queue: Q,
   signal: S,
+  closed: Flag,
 }
 
 impl<Q, S> QueueMailbox<Q, S> {
-  pub const fn new(queue: Q, signal: S) -> Self {
-    Self { queue, signal }
+  pub fn new(queue: Q, signal: S) -> Self {
+    Self {
+      queue,
+      signal,
+      closed: Flag::default(),
+    }
   }
 
   pub fn queue(&self) -> &Q {
@@ -68,6 +74,7 @@ impl<Q, S> QueueMailbox<Q, S> {
     QueueMailboxProducer {
       queue: self.queue.clone(),
       signal: self.signal.clone(),
+      closed: self.closed.clone(),
     }
   }
 }
@@ -81,6 +88,7 @@ where
     Self {
       queue: self.queue.clone(),
       signal: self.signal.clone(),
+      closed: self.closed.clone(),
     }
   }
 }
@@ -90,6 +98,7 @@ where
 pub struct QueueMailboxProducer<Q, S> {
   queue: Q,
   signal: S,
+  closed: Flag,
 }
 
 impl<Q, S> QueueMailboxProducer<Q, S> {
@@ -98,9 +107,21 @@ impl<Q, S> QueueMailboxProducer<Q, S> {
     Q: QueueRw<M>,
     S: MailboxSignal,
     M: Element, {
-    self.queue.offer(message).map(|_| {
-      self.signal.notify();
-    })
+    if self.closed.get() {
+      return Err(QueueError::Disconnected);
+    }
+
+    match self.queue.offer(message) {
+      Ok(()) => {
+        self.signal.notify();
+        Ok(())
+      }
+      Err(err @ QueueError::Disconnected) | Err(err @ QueueError::Closed(_)) => {
+        self.closed.set(true);
+        Err(err)
+      }
+      Err(err) => Err(err),
+    }
   }
 }
 
@@ -117,9 +138,17 @@ where
   type SendError = QueueError<M>;
 
   fn try_send(&self, message: M) -> Result<(), Self::SendError> {
-    self.queue.offer(message).map(|_| {
-      self.signal.notify();
-    })
+    match self.queue.offer(message) {
+      Ok(()) => {
+        self.signal.notify();
+        Ok(())
+      }
+      Err(err @ QueueError::Disconnected) | Err(err @ QueueError::Closed(_)) => {
+        self.closed.set(true);
+        Err(err)
+      }
+      Err(err) => Err(err),
+    }
   }
 
   fn recv(&self) -> Self::RecvFuture<'_> {
@@ -141,10 +170,11 @@ where
   fn close(&self) {
     self.queue.clean_up();
     self.signal.notify();
+    self.closed.set(true);
   }
 
   fn is_closed(&self) -> bool {
-    false
+    self.closed.get()
   }
 }
 
@@ -168,6 +198,9 @@ where
 
   fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
     let this = unsafe { self.get_unchecked_mut() };
+    if this.mailbox.closed.get() {
+      return Poll::Pending;
+    }
     loop {
       match this.mailbox.queue.poll() {
         Ok(Some(message)) => {
@@ -179,10 +212,13 @@ where
             this.wait = Some(this.mailbox.signal.wait());
           }
         }
-        Err(QueueError::Disconnected) => panic!("mailbox disconnected"),
-        Err(QueueError::Closed(_)) => panic!("mailbox closed"),
+        Err(QueueError::Disconnected) | Err(QueueError::Closed(_)) => {
+          this.mailbox.closed.set(true);
+          this.wait = None;
+          return Poll::Pending;
+        }
         Err(QueueError::Full(_)) | Err(QueueError::OfferError(_)) => {
-          unreachable!("send-side errors should not occur during recv")
+          return Poll::Pending;
         }
       }
 
