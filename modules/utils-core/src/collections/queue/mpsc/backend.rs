@@ -1,4 +1,4 @@
-use super::storage::RingBufferStorage;
+use super::super::storage::RingBufferStorage;
 use super::traits::MpscBackend;
 use crate::collections::{QueueError, QueueSize};
 

@@ -3,8 +3,8 @@ pub mod concurrent;
 pub mod sync;
 
 pub use nexus_utils_core_rs::{
-  Element, PriorityMessage, QueueBase, QueueError, QueueReader, QueueSize, QueueStorage, QueueWriter, RingBuffer,
-  RingQueue, Shared, SharedQueue, SharedQueueHandle, StateCell, DEFAULT_CAPACITY, DEFAULT_PRIORITY, PRIORITY_LEVELS,
+  Element, PriorityMessage, QueueBase, QueueError, QueueHandle, QueueReader, QueueSize, QueueStorage, QueueWriter,
+  RingBuffer, RingQueue, Shared, SharedQueue, StateCell, DEFAULT_CAPACITY, DEFAULT_PRIORITY, PRIORITY_LEVELS,
 };
 
 pub use collections::{ArcMpscBoundedQueue, ArcMpscUnboundedQueue, ArcPriorityQueue, ArcRingQueue, ArcStack};

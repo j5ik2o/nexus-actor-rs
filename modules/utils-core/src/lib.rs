@@ -7,8 +7,8 @@ pub mod concurrent;
 pub mod sync;
 
 pub use collections::{
-  Element, MpscBackend, MpscBuffer, MpscQueue, PriorityMessage, QueueBase, QueueError, QueueReader, QueueSize,
-  QueueStorage, QueueWriter, RingBuffer, RingBufferBackend, RingBufferStorage, RingQueue, SharedMpscHandle,
+  Element, MpscBackend, MpscBuffer, MpscQueue, PriorityMessage, QueueBase, QueueError, QueueHandle, QueueReader,
+  QueueSize, QueueStorage, QueueWriter, RingBuffer, RingBufferBackend, RingBufferStorage, RingQueue, SharedMpscHandle,
   SharedPriorityQueue, SharedQueue, SharedQueueHandle, SharedStack, SharedStackHandle, StackBase, StackBuffer,
   StackError, StackMut, StackStorage, DEFAULT_CAPACITY, DEFAULT_PRIORITY, PRIORITY_LEVELS,
 };

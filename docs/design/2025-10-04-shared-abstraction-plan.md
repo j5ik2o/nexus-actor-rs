@@ -75,6 +75,7 @@ pub trait Spawn {
 
 ## Queue 抽象の配置
 - `nexus-utils-core-rs` に `RingBuffer` と `QueueBase` 系トレイトを集約し、`no_std + alloc` 前提でリングキューの基盤を提供する。
+- MPSC リング実装向けの `RingBufferStorage` トレイトも `collections::queue::storage` に集約し、`RingBufferBackend` と共有する。
 - `nexus-utils-std-rs` では `RingQueue<E>` を `Arc<Mutex<_>>` でラップし、共有アクセス向け API（`offer` / `poll` など）を公開する。
 - `nexus-utils-embedded-rs` では `RcRingQueue<E>` と `ArcRingQueue<E, RM>` を用意し、`rc` フィーチャでは `Rc<RefCell<_>>`、`arc` フィーチャでは Embassy の `Mutex<RM, _>` を使用する。`ArcLocalRingQueue` / `ArcCsRingQueue` などのエイリアスで環境に合わせた排他制御を選択しつつ、ロジックは core の共有実装へ委譲する。
 - 両クレートは `prelude` モジュールで `QueueWriter` / `SharedQueue` など core 側のトレイトを含む共通インターフェイスを再エクスポートし、利用者が core の API だけで操作できるよう保証する。

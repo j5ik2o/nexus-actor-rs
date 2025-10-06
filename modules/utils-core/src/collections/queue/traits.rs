@@ -1,4 +1,5 @@
-use super::{queue_error::QueueError, queue_size::QueueSize};
+use super::{queue_error::QueueError, queue_size::QueueSize, QueueStorage};
+use crate::sync::Shared;
 
 pub trait QueueBase<E> {
   fn len(&self) -> QueueSize;
@@ -18,4 +19,10 @@ pub trait SharedQueue<E>: QueueBase<E> {
   fn offer(&self, element: E) -> Result<(), QueueError<E>>;
   fn poll(&self) -> Result<Option<E>, QueueError<E>>;
   fn clean_up(&self);
+}
+
+pub trait QueueHandle<E>: Shared<Self::Storage> + Clone {
+  type Storage: QueueStorage<E> + ?Sized;
+
+  fn storage(&self) -> &Self::Storage;
 }

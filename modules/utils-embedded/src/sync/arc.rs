@@ -4,8 +4,8 @@ use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex, R
 use embassy_sync::mutex::{Mutex, MutexGuard};
 use nexus_utils_core_rs::sync::{Shared, StateCell};
 use nexus_utils_core_rs::{
-  MpscBackend, MpscBuffer, QueueStorage, RingBuffer, RingBufferBackend, RingBufferStorage, SharedMpscHandle,
-  SharedQueueHandle,
+  MpscBackend, MpscBuffer, QueueHandle, QueueStorage, RingBuffer, RingBufferBackend, RingBufferStorage,
+  SharedMpscHandle,
 };
 
 pub struct ArcShared<T: ?Sized>(Arc<T>);
@@ -57,7 +57,7 @@ impl<T: ?Sized> Shared<T> for ArcShared<T> {
   }
 }
 
-impl<T, E> SharedQueueHandle<E> for ArcShared<T>
+impl<T, E> QueueHandle<E> for ArcShared<T>
 where
   T: QueueStorage<E>,
 {

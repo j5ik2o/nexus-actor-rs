@@ -1,20 +1,20 @@
 use core::marker::PhantomData;
 
-use crate::collections::queue::{QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, SharedQueue};
-
-use super::{handle::SharedQueueHandle, storage::QueueStorage};
+use crate::collections::queue::{
+  QueueBase, QueueError, QueueHandle, QueueReader, QueueSize, QueueStorage, QueueWriter, SharedQueue,
+};
 
 #[derive(Debug)]
 pub struct RingQueue<S, E>
 where
-  S: SharedQueueHandle<E>, {
+  S: QueueHandle<E>, {
   storage: S,
   _marker: PhantomData<E>,
 }
 
 impl<S, E> RingQueue<S, E>
 where
-  S: SharedQueueHandle<E>,
+  S: QueueHandle<E>,
 {
   pub fn new(storage: S) -> Self {
     Self {
@@ -55,7 +55,7 @@ where
 
 impl<S, E> Clone for RingQueue<S, E>
 where
-  S: SharedQueueHandle<E>,
+  S: QueueHandle<E>,
 {
   fn clone(&self) -> Self {
     Self {
@@ -67,7 +67,7 @@ where
 
 impl<S, E> QueueBase<E> for RingQueue<S, E>
 where
-  S: SharedQueueHandle<E>,
+  S: QueueHandle<E>,
 {
   fn len(&self) -> QueueSize {
     self.storage.storage().with_read(|buffer| buffer.len())
@@ -80,7 +80,7 @@ where
 
 impl<S, E> QueueWriter<E> for RingQueue<S, E>
 where
-  S: SharedQueueHandle<E>,
+  S: QueueHandle<E>,
 {
   fn offer_mut(&mut self, element: E) -> Result<(), QueueError<E>> {
     self.offer(element)
@@ -89,7 +89,7 @@ where
 
 impl<S, E> QueueReader<E> for RingQueue<S, E>
 where
-  S: SharedQueueHandle<E>,
+  S: QueueHandle<E>,
 {
   fn poll_mut(&mut self) -> Result<Option<E>, QueueError<E>> {
     self.poll()
@@ -102,7 +102,7 @@ where
 
 impl<S, E> SharedQueue<E> for RingQueue<S, E>
 where
-  S: SharedQueueHandle<E>,
+  S: QueueHandle<E>,
 {
   fn offer(&self, element: E) -> Result<(), QueueError<E>> {
     self.offer(element)
@@ -125,7 +125,8 @@ mod tests {
   use core::cell::RefCell;
 
   use super::super::RingBuffer;
-  use super::{RingQueue, SharedQueueHandle};
+  use super::RingQueue;
+  use crate::collections::queue::QueueHandle;
 
   struct RcHandle<E>(Rc<RefCell<RingBuffer<E>>>);
 
@@ -143,7 +144,7 @@ mod tests {
     }
   }
 
-  impl<E> SharedQueueHandle<E> for RcHandle<E> {
+  impl<E> QueueHandle<E> for RcHandle<E> {
     type Storage = RefCell<RingBuffer<E>>;
 
     fn storage(&self) -> &Self::Storage {
