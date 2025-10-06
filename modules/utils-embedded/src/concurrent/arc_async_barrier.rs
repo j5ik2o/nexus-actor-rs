@@ -4,17 +4,29 @@ use alloc::boxed::Box;
 use alloc::sync::Arc;
 
 use core::sync::atomic::{AtomicUsize, Ordering};
-use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex, RawMutex};
+use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, RawMutex};
 use embassy_sync::signal::Signal;
 use nexus_utils_core_rs::concurrent::{AsyncBarrier as CoreAsyncBarrier, AsyncBarrierBackend, BoxFuture};
 
-#[derive(Clone, Debug)]
 pub struct ArcAsyncBarrierBackend<RM>
 where
   RM: RawMutex, {
   remaining: Arc<AtomicUsize>,
   initial: usize,
   signal: Arc<Signal<RM, ()>>,
+}
+
+impl<RM> Clone for ArcAsyncBarrierBackend<RM>
+where
+  RM: RawMutex,
+{
+  fn clone(&self) -> Self {
+    Self {
+      remaining: self.remaining.clone(),
+      initial: self.initial,
+      signal: self.signal.clone(),
+    }
+  }
 }
 
 impl<RM> AsyncBarrierBackend for ArcAsyncBarrierBackend<RM>
@@ -57,10 +69,10 @@ where
   }
 }
 
-pub type ArcLocalAsyncBarrier = CoreAsyncBarrier<ArcAsyncBarrierBackend<NoopRawMutex>>;
-pub type ArcCsAsyncBarrier = CoreAsyncBarrier<ArcAsyncBarrierBackend<CriticalSectionRawMutex>>;
+pub type ArcLocalAsyncBarrier = CoreAsyncBarrier<ArcAsyncBarrierBackend<CriticalSectionRawMutex>>;
+pub type ArcCsAsyncBarrier = ArcLocalAsyncBarrier;
 
-#[cfg(test)]
+#[cfg(all(test, feature = "std"))]
 mod tests {
   use super::ArcLocalAsyncBarrier;
   use futures::executor::block_on;

@@ -87,7 +87,7 @@ where
 mod tests {
   use super::*;
   use crate::tests::init_arc_critical_section;
-  use nexus_utils_core_rs::{QueueBase, QueueReader, QueueRw, QueueWriter};
+  use nexus_utils_core_rs::{QueueBase, QueueRw};
 
   fn prepare() {
     init_arc_critical_section();
@@ -119,7 +119,7 @@ mod tests {
   #[test]
   fn arc_unbounded_offer_poll_via_traits() {
     prepare();
-    let mut queue: ArcMpscUnboundedQueue<u32> = ArcMpscUnboundedQueue::new();
+    let queue: ArcMpscUnboundedQueue<u32> = ArcMpscUnboundedQueue::new();
     queue.offer(7).unwrap();
     assert_eq!(queue.poll().unwrap(), Some(7));
   }

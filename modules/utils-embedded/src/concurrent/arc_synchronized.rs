@@ -3,7 +3,7 @@
 use alloc::boxed::Box;
 use alloc::sync::Arc;
 
-use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex, RawMutex};
+use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, RawMutex};
 use embassy_sync::mutex::{Mutex, MutexGuard};
 use embassy_sync::rwlock::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use nexus_utils_core_rs::concurrent::{
@@ -20,7 +20,7 @@ where
 
 impl<RM, T> SynchronizedMutexBackend<T> for ArcMutexBackend<RM, T>
 where
-  RM: RawMutex + Send + Sync,
+  RM: RawMutex,
   T: Send,
 {
   type Guard<'a>
@@ -41,8 +41,7 @@ where
   }
 
   fn lock(&self) -> Self::LockFuture<'_> {
-    let inner = self.inner.clone();
-    Box::pin(async move { inner.lock().await })
+    Box::pin(self.inner.lock())
   }
 }
 
@@ -55,7 +54,7 @@ where
 
 impl<RM, T> SynchronizedRwBackend<T> for ArcRwLockBackend<RM, T>
 where
-  RM: RawMutex + Send + Sync,
+  RM: RawMutex,
   T: Send,
 {
   type ReadFuture<'a>
@@ -84,26 +83,26 @@ where
   }
 
   fn read(&self) -> Self::ReadFuture<'_> {
-    let inner = self.inner.clone();
-    Box::pin(async move { inner.read().await })
+    Box::pin(self.inner.read())
   }
 
   fn write(&self) -> Self::WriteFuture<'_> {
-    let inner = self.inner.clone();
-    Box::pin(async move { inner.write().await })
+    Box::pin(self.inner.write())
   }
 }
 
 pub type ArcSynchronized<T, RM> = CoreSynchronized<ArcMutexBackend<RM, T>, T>;
 pub type ArcSynchronizedRw<T, RM> = CoreSynchronizedRw<ArcRwLockBackend<RM, T>, T>;
 
-pub type ArcLocalSynchronized<T> = ArcSynchronized<T, NoopRawMutex>;
-pub type ArcLocalSynchronizedRw<T> = ArcSynchronizedRw<T, NoopRawMutex>;
-pub type ArcCsSynchronized<T> = ArcSynchronized<T, CriticalSectionRawMutex>;
-pub type ArcCsSynchronizedRw<T> = ArcSynchronizedRw<T, CriticalSectionRawMutex>;
+pub type ArcLocalSynchronized<T> = ArcSynchronized<T, CriticalSectionRawMutex>;
+pub type ArcLocalSynchronizedRw<T> = ArcSynchronizedRw<T, CriticalSectionRawMutex>;
+pub type ArcCsSynchronized<T> = ArcLocalSynchronized<T>;
+pub type ArcCsSynchronizedRw<T> = ArcLocalSynchronizedRw<T>;
 
-#[cfg(test)]
+#[cfg(all(test, feature = "std"))]
 mod tests {
+  use alloc::vec;
+
   use super::{ArcLocalSynchronized, ArcLocalSynchronizedRw};
   use futures::executor::block_on;
 

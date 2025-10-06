@@ -30,30 +30,30 @@ impl<T> RcStack<T> {
     self.inner.set_capacity(capacity);
   }
 
-  pub fn push_ref(&self, value: T) -> Result<(), StackError<T>> {
-    self.inner.push_ref(value)
+  pub fn push(&self, value: T) -> Result<(), StackError<T>> {
+    self.inner.push(value)
   }
 
-  pub fn pop_ref(&self) -> Option<T> {
-    self.inner.pop_ref()
+  pub fn pop(&self) -> Option<T> {
+    self.inner.pop()
   }
 
-  pub fn peek_ref(&self) -> Option<T>
+  pub fn peek(&self) -> Option<T>
   where
     T: Clone, {
-    self.inner.peek_ref()
+    self.inner.peek()
   }
 
-  pub fn clear_ref(&self) {
-    self.inner.clear_ref();
+  pub fn clear(&self) {
+    self.inner.clear();
   }
 
-  pub fn len_ref(&self) -> QueueSize {
-    self.inner.len_ref()
+  pub fn len(&self) -> QueueSize {
+    self.inner.len()
   }
 
-  pub fn capacity_ref(&self) -> QueueSize {
-    self.inner.capacity_ref()
+  pub fn capacity(&self) -> QueueSize {
+    self.inner.capacity()
   }
 }
 
@@ -109,7 +109,7 @@ mod tests {
 
   #[test]
   fn rc_stack_push_pop() {
-    let mut stack = RcStack::with_capacity(1);
+    let stack = RcStack::with_capacity(1);
     stack.push(1).unwrap();
     assert!(stack.push(2).is_err());
     assert_eq!(stack.pop(), Some(1));
@@ -119,21 +119,21 @@ mod tests {
   #[test]
   fn rc_stack_handle_operations() {
     let stack = RcStack::new();
-    stack.push_ref(10).unwrap();
+    stack.push(10).unwrap();
     let cloned = stack.clone();
-    cloned.push_ref(11).unwrap();
+    cloned.push(11).unwrap();
 
-    assert_eq!(stack.len_ref().to_usize(), 2);
-    assert_eq!(cloned.pop_ref(), Some(11));
-    assert_eq!(stack.pop_ref(), Some(10));
+    assert_eq!(stack.len().to_usize(), 2);
+    assert_eq!(cloned.pop(), Some(11));
+    assert_eq!(stack.pop(), Some(10));
   }
 
   #[test]
   fn rc_stack_peek_ref() {
     let stack = RcStack::new();
-    stack.push_ref(5).unwrap();
-    assert_eq!(stack.peek_ref(), Some(5));
-    stack.pop_ref();
-    assert_eq!(stack.peek_ref(), None);
+    stack.push(5).unwrap();
+    assert_eq!(stack.peek(), Some(5));
+    stack.pop();
+    assert_eq!(stack.peek(), None);
   }
 }

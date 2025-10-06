@@ -35,29 +35,29 @@ where
     self.backend.backend().set_capacity(capacity);
   }
 
-  pub fn push_ref(&self, value: T) -> Result<(), StackError<T>> {
+  pub fn push(&self, value: T) -> Result<(), StackError<T>> {
     self.backend.backend().push(value)
   }
 
-  pub fn pop_ref(&self) -> Option<T> {
+  pub fn pop(&self) -> Option<T> {
     self.backend.backend().pop()
   }
 
-  pub fn peek_ref(&self) -> Option<T>
+  pub fn peek(&self) -> Option<T>
   where
     T: Clone, {
     self.backend.backend().peek()
   }
 
-  pub fn clear_ref(&self) {
+  pub fn clear(&self) {
     self.backend.backend().clear();
   }
 
-  pub fn len_ref(&self) -> QueueSize {
+  pub fn len(&self) -> QueueSize {
     self.backend.backend().len()
   }
 
-  pub fn capacity_ref(&self) -> QueueSize {
+  pub fn capacity(&self) -> QueueSize {
     self.backend.backend().capacity()
   }
 }
@@ -79,11 +79,11 @@ where
   H: StackHandle<T>,
 {
   fn len(&self) -> QueueSize {
-    self.len_ref()
+    self.backend.backend().len()
   }
 
   fn capacity(&self) -> QueueSize {
-    self.capacity_ref()
+    self.backend.backend().capacity()
   }
 }
 
@@ -92,21 +92,21 @@ where
   H: StackHandle<T>,
 {
   fn push(&mut self, value: T) -> Result<(), StackError<T>> {
-    Stack::push_ref(self, value)
+    self.backend.backend().push(value)
   }
 
   fn pop(&mut self) -> Option<T> {
-    Stack::pop_ref(self)
+    self.backend.backend().pop()
   }
 
   fn clear(&mut self) {
-    Stack::clear_ref(self);
+    self.backend.backend().clear();
   }
 
   fn peek(&self) -> Option<T>
   where
     T: Clone, {
-    Stack::peek_ref(self)
+    self.backend.backend().peek()
   }
 }
 
@@ -179,7 +179,7 @@ mod tests {
   fn stack_push_pop_via_handle() {
     let storage = RcStorageHandle(Rc::new(RefCell::new(StackBuffer::new())));
     let backend = RcBackendHandle(Rc::new(StackStorageBackend::new(storage)));
-    let mut stack = Stack::new(backend.clone());
+    let stack = Stack::new(backend.clone());
 
     stack.set_capacity(Some(2));
     stack.push(1).unwrap();
@@ -195,10 +195,10 @@ mod tests {
     let backend = RcBackendHandle(Rc::new(StackStorageBackend::new(storage)));
     let stack = Stack::new(backend);
 
-    stack.push_ref(7).unwrap();
-    assert_eq!(stack.peek_ref(), Some(7));
-    stack.pop_ref();
-    assert_eq!(stack.peek_ref(), None);
+    stack.push(7).unwrap();
+    assert_eq!(stack.peek(), Some(7));
+    stack.pop();
+    assert_eq!(stack.peek(), None);
   }
 
   #[test]
@@ -207,8 +207,8 @@ mod tests {
     let backend = RcBackendHandle(Rc::new(StackStorageBackend::new(storage)));
     let stack = Stack::new(backend);
 
-    stack.push_ref(1).unwrap();
-    stack.clear_ref();
+    stack.push(1).unwrap();
+    stack.clear();
     assert!(stack.is_empty());
   }
 }

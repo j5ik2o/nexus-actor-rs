@@ -4,16 +4,27 @@ use nexus_utils_core_rs::{
   PRIORITY_LEVELS,
 };
 
-use crate::collections::queue_arc::ArcRingQueue;
+use crate::collections::queue::ring::ArcRingQueue;
 
 pub type ArcLocalPriorityQueue<E> = ArcPriorityQueue<E, NoopRawMutex>;
 pub type ArcCsPriorityQueue<E> = ArcPriorityQueue<E, CriticalSectionRawMutex>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct ArcPriorityQueue<E, RM = NoopRawMutex>
 where
   RM: RawMutex, {
   inner: SharedPriorityQueue<ArcRingQueue<E, RM>, E>,
+}
+
+impl<E, RM> Clone for ArcPriorityQueue<E, RM>
+where
+  RM: RawMutex,
+{
+  fn clone(&self) -> Self {
+    Self {
+      inner: self.inner.clone(),
+    }
+  }
 }
 
 impl<E, RM> ArcPriorityQueue<E, RM>
@@ -113,7 +124,7 @@ where
 mod tests {
   use super::*;
   use crate::tests::init_arc_critical_section;
-  use nexus_utils_core_rs::{QueueBase, QueueReader, QueueRw, QueueWriter};
+  use nexus_utils_core_rs::{QueueBase, QueueRw};
 
   fn prepare() {
     init_arc_critical_section();
@@ -177,7 +188,7 @@ mod tests {
   #[test]
   fn arc_priority_queue_trait_cleanup() {
     prepare();
-    let mut queue: ArcLocalPriorityQueue<Msg> = ArcLocalPriorityQueue::new(2).with_dynamic(false);
+    let queue: ArcLocalPriorityQueue<Msg> = ArcLocalPriorityQueue::new(2).with_dynamic(false);
     queue.offer(Msg(1, 0)).unwrap();
     queue.offer(Msg(2, 1)).unwrap();
     assert_eq!(queue.poll().unwrap().unwrap().0, 2);

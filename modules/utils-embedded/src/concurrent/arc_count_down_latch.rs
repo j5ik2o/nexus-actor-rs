@@ -3,17 +3,28 @@
 use alloc::boxed::Box;
 use alloc::sync::Arc;
 
-use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex, RawMutex};
+use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, RawMutex};
 use embassy_sync::mutex::Mutex;
 use embassy_sync::signal::Signal;
 use nexus_utils_core_rs::concurrent::{BoxFuture, CountDownLatch as CoreCountDownLatch, CountDownLatchBackend};
 
-#[derive(Clone)]
 pub struct ArcCountDownLatchBackend<RM>
 where
   RM: RawMutex, {
   count: Arc<Mutex<RM, usize>>,
   signal: Arc<Signal<RM, ()>>,
+}
+
+impl<RM> Clone for ArcCountDownLatchBackend<RM>
+where
+  RM: RawMutex,
+{
+  fn clone(&self) -> Self {
+    Self {
+      count: self.count.clone(),
+      signal: self.signal.clone(),
+    }
+  }
 }
 
 impl<RM> CountDownLatchBackend for ArcCountDownLatchBackend<RM>
@@ -66,10 +77,10 @@ where
   }
 }
 
-pub type ArcLocalCountDownLatch = CoreCountDownLatch<ArcCountDownLatchBackend<NoopRawMutex>>;
-pub type ArcCsCountDownLatch = CoreCountDownLatch<ArcCountDownLatchBackend<CriticalSectionRawMutex>>;
+pub type ArcLocalCountDownLatch = CoreCountDownLatch<ArcCountDownLatchBackend<CriticalSectionRawMutex>>;
+pub type ArcCsCountDownLatch = ArcLocalCountDownLatch;
 
-#[cfg(test)]
+#[cfg(all(test, feature = "std"))]
 mod tests {
   use super::ArcLocalCountDownLatch;
   use futures::executor::block_on;

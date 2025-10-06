@@ -89,7 +89,7 @@ where
 mod tests {
   use super::*;
   use crate::tests::init_arc_critical_section;
-  use nexus_utils_core_rs::{QueueBase, QueueReader, QueueRw, QueueWriter};
+  use nexus_utils_core_rs::{QueueBase, QueueRw};
 
   fn prepare() {
     init_arc_critical_section();
@@ -128,7 +128,7 @@ mod tests {
   #[test]
   fn arc_bounded_trait_cleanup_marks_closed() {
     prepare();
-    let mut queue: ArcMpscBoundedQueue<u32> = ArcMpscBoundedQueue::new(2);
+    let queue: ArcMpscBoundedQueue<u32> = ArcMpscBoundedQueue::new(2);
     queue.offer(1).unwrap();
     queue.offer(2).unwrap();
 

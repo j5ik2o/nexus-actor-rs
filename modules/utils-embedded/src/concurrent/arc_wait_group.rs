@@ -4,16 +4,27 @@ use alloc::boxed::Box;
 use alloc::sync::Arc;
 
 use core::sync::atomic::{AtomicUsize, Ordering};
-use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex, RawMutex};
+use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, RawMutex};
 use embassy_sync::signal::Signal;
 use nexus_utils_core_rs::concurrent::{BoxFuture, WaitGroup as CoreWaitGroup, WaitGroupBackend};
 
-#[derive(Clone, Debug)]
 pub struct ArcWaitGroupBackend<RM>
 where
   RM: RawMutex, {
   count: Arc<AtomicUsize>,
   signal: Arc<Signal<RM, ()>>,
+}
+
+impl<RM> Clone for ArcWaitGroupBackend<RM>
+where
+  RM: RawMutex,
+{
+  fn clone(&self) -> Self {
+    Self {
+      count: self.count.clone(),
+      signal: self.signal.clone(),
+    }
+  }
 }
 
 impl<RM> WaitGroupBackend for ArcWaitGroupBackend<RM>
@@ -62,10 +73,10 @@ where
   }
 }
 
-pub type ArcLocalWaitGroup = CoreWaitGroup<ArcWaitGroupBackend<NoopRawMutex>>;
-pub type ArcCsWaitGroup = CoreWaitGroup<ArcWaitGroupBackend<CriticalSectionRawMutex>>;
+pub type ArcLocalWaitGroup = CoreWaitGroup<ArcWaitGroupBackend<CriticalSectionRawMutex>>;
+pub type ArcCsWaitGroup = ArcLocalWaitGroup;
 
-#[cfg(test)]
+#[cfg(all(test, feature = "std"))]
 mod tests {
   use super::ArcLocalWaitGroup;
   use futures::executor::block_on;

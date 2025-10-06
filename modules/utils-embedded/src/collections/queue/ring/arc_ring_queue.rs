@@ -164,7 +164,7 @@ mod tests {
   #[test]
   fn arc_ring_queue_trait_interface() {
     prepare();
-    let mut queue: ArcRingQueue<u32> = ArcLocalRingQueue::new(1).with_dynamic(false);
+    let queue: ArcRingQueue<u32> = ArcLocalRingQueue::new(1).with_dynamic(false);
     queue.offer(4).unwrap();
     assert_eq!(queue.poll().unwrap(), Some(4));
   }
