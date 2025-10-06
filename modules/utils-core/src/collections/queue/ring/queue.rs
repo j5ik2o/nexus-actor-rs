@@ -5,14 +5,14 @@ use crate::collections::queue::{QueueBase, QueueError, QueueReader, QueueSize, Q
 use super::{handle::SharedQueueHandle, storage::QueueStorage};
 
 #[derive(Debug)]
-pub struct SharedRingQueue<S, E>
+pub struct RingQueue<S, E>
 where
   S: SharedQueueHandle<E>, {
   storage: S,
   _marker: PhantomData<E>,
 }
 
-impl<S, E> SharedRingQueue<S, E>
+impl<S, E> RingQueue<S, E>
 where
   S: SharedQueueHandle<E>,
 {
@@ -53,7 +53,7 @@ where
   }
 }
 
-impl<S, E> Clone for SharedRingQueue<S, E>
+impl<S, E> Clone for RingQueue<S, E>
 where
   S: SharedQueueHandle<E>,
 {
@@ -65,7 +65,7 @@ where
   }
 }
 
-impl<S, E> QueueBase<E> for SharedRingQueue<S, E>
+impl<S, E> QueueBase<E> for RingQueue<S, E>
 where
   S: SharedQueueHandle<E>,
 {
@@ -78,7 +78,7 @@ where
   }
 }
 
-impl<S, E> QueueWriter<E> for SharedRingQueue<S, E>
+impl<S, E> QueueWriter<E> for RingQueue<S, E>
 where
   S: SharedQueueHandle<E>,
 {
@@ -87,7 +87,7 @@ where
   }
 }
 
-impl<S, E> QueueReader<E> for SharedRingQueue<S, E>
+impl<S, E> QueueReader<E> for RingQueue<S, E>
 where
   S: SharedQueueHandle<E>,
 {
@@ -100,7 +100,7 @@ where
   }
 }
 
-impl<S, E> SharedQueue<E> for SharedRingQueue<S, E>
+impl<S, E> SharedQueue<E> for RingQueue<S, E>
 where
   S: SharedQueueHandle<E>,
 {
@@ -125,7 +125,7 @@ mod tests {
   use core::cell::RefCell;
 
   use super::super::RingBuffer;
-  use super::{SharedQueueHandle, SharedRingQueue};
+  use super::{RingQueue, SharedQueueHandle};
 
   struct RcHandle<E>(Rc<RefCell<RingBuffer<E>>>);
 
@@ -156,7 +156,7 @@ mod tests {
   #[test]
   fn shared_ring_queue_offer_poll() {
     let storage = RcHandle(Rc::new(RefCell::new(RingBuffer::new(2))));
-    let queue = SharedRingQueue::new(storage);
+    let queue = RingQueue::new(storage);
 
     queue.offer(1).unwrap();
     queue.offer(2).unwrap();

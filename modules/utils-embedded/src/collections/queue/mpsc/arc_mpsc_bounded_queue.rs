@@ -1,7 +1,7 @@
 use crate::sync::{ArcShared, ArcStateCell};
 use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex, RawMutex};
 use nexus_utils_core_rs::{
-  Element, MpscBuffer, QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, RingBufferBackend, SharedMpscQueue,
+  Element, MpscBuffer, MpscQueue, QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, RingBufferBackend,
   SharedQueue,
 };
 
@@ -9,7 +9,7 @@ use nexus_utils_core_rs::{
 pub struct ArcMpscBoundedQueue<E, RM = NoopRawMutex>
 where
   RM: RawMutex, {
-  inner: SharedMpscQueue<ArcShared<RingBufferBackend<ArcStateCell<MpscBuffer<E>, RM>>>, E>,
+  inner: MpscQueue<ArcShared<RingBufferBackend<ArcStateCell<MpscBuffer<E>, RM>>>, E>,
 }
 
 pub type ArcLocalMpscBoundedQueue<E> = ArcMpscBoundedQueue<E, NoopRawMutex>;
@@ -24,7 +24,7 @@ where
       capacity,
     )))));
     Self {
-      inner: SharedMpscQueue::new(storage),
+      inner: MpscQueue::new(storage),
     }
   }
 }

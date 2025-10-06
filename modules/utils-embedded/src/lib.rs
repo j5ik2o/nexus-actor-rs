@@ -8,8 +8,7 @@ pub mod sync;
 
 pub use nexus_utils_core_rs::{
   Element, PriorityMessage, QueueBase, QueueError, QueueReader, QueueSize, QueueStorage, QueueWriter, RingBuffer,
-  Shared, SharedQueue, SharedQueueHandle, SharedRingQueue, StateCell, DEFAULT_CAPACITY, DEFAULT_PRIORITY,
-  PRIORITY_LEVELS,
+  RingQueue, Shared, SharedQueue, SharedQueueHandle, StateCell, DEFAULT_CAPACITY, DEFAULT_PRIORITY, PRIORITY_LEVELS,
 };
 
 pub use collections::*;
@@ -39,8 +38,7 @@ pub mod prelude {
   #[cfg(feature = "arc")]
   pub use crate::concurrent::{
     ArcCsAsyncBarrier, ArcCsCountDownLatch, ArcCsSynchronized, ArcCsSynchronizedRw, ArcCsWaitGroup,
-    ArcLocalAsyncBarrier, ArcLocalCountDownLatch, ArcLocalSynchronized, ArcLocalSynchronizedRw, ArcLocalWaitGroup,
-    ArcSynchronized, ArcSynchronizedRw,
+    ArcLocalAsyncBarrier, ArcLocalCountDownLatch, ArcLocalWaitGroup, ArcSynchronized, ArcSynchronizedRw,
   };
   #[cfg(feature = "rc")]
   pub use crate::concurrent::{RcAsyncBarrier, RcCountDownLatch, RcSynchronized, RcSynchronizedRw, RcWaitGroup};
@@ -50,7 +48,7 @@ pub mod prelude {
   pub use crate::sync::{RcShared, RcStateCell};
   pub use nexus_utils_core_rs::{
     Element, PriorityMessage, QueueBase, QueueError, QueueReader, QueueSize, QueueStorage, QueueWriter, RingBuffer,
-    Shared, SharedQueue, SharedQueueHandle, SharedRingQueue, SharedStack, SharedStackHandle, StackBase, StackBuffer,
+    RingQueue, Shared, SharedQueue, SharedQueueHandle, SharedStack, SharedStackHandle, StackBase, StackBuffer,
     StackError, StackMut, StackStorage, StateCell, DEFAULT_CAPACITY, DEFAULT_PRIORITY, PRIORITY_LEVELS,
   };
 }

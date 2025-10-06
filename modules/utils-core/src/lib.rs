@@ -7,13 +7,13 @@ pub mod concurrent;
 pub mod sync;
 
 pub use collections::{
-  Element, MpscBackend, MpscBuffer, PriorityMessage, QueueBase, QueueError, QueueReader, QueueSize, QueueStorage,
-  QueueWriter, RingBuffer, RingBufferBackend, RingBufferStorage, SharedMpscHandle, SharedMpscQueue,
-  SharedPriorityQueue, SharedQueue, SharedQueueHandle, SharedRingQueue, SharedStack, SharedStackHandle, StackBase,
-  StackBuffer, StackError, StackMut, StackStorage, DEFAULT_CAPACITY, DEFAULT_PRIORITY, PRIORITY_LEVELS,
+  Element, MpscBackend, MpscBuffer, MpscQueue, PriorityMessage, QueueBase, QueueError, QueueReader, QueueSize,
+  QueueStorage, QueueWriter, RingBuffer, RingBufferBackend, RingBufferStorage, RingQueue, SharedMpscHandle,
+  SharedPriorityQueue, SharedQueue, SharedQueueHandle, SharedStack, SharedStackHandle, StackBase, StackBuffer,
+  StackError, StackMut, StackStorage, DEFAULT_CAPACITY, DEFAULT_PRIORITY, PRIORITY_LEVELS,
 };
 pub use concurrent::{
-  BoxFuture, CountDownLatch, CountDownLatchBackend, GuardHandle, Synchronized, SynchronizedMutexBackend,
-  SynchronizedRw, SynchronizedRwBackend,
+  AsyncBarrier, AsyncBarrierBackend, BoxFuture, CountDownLatch, CountDownLatchBackend, GuardHandle, Synchronized,
+  SynchronizedMutexBackend, SynchronizedRw, SynchronizedRwBackend, WaitGroup, WaitGroupBackend,
 };
 pub use sync::{Shared, StateCell};

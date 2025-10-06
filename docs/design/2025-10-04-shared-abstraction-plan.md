@@ -83,7 +83,7 @@ pub trait Spawn {
 ### MPSC バックエンド再設計計画（2025-10-05 更新）
 1. **抽象名と API の刷新**
    - 現行の `MpscStorage` を `MpscBackend`（仮称）へ改名し、`try_send` / `try_recv` / `close` / `len` / `capacity` 等のトランスポート指向 API に整理する。
-   - `SharedMpscQueue` は新 backend を委譲するだけの薄いラッパへ再設計し、プラットフォーム固有の詳細を背後へ隠蔽する。
+  - `MpscQueue` は新 backend を委譲するだけの薄いラッパへ再設計し、プラットフォーム固有の詳細を背後へ隠蔽する。
 2. **リングバッファ backend の再配置**
    - 既存のリングバッファ実装を `core` 上の `MpscBackend` 1 実装として切り出し、std / embedded からは backend 指定のみで利用できるようにする。
    - `QueueWriter` / `QueueReader` / `SharedQueue` を通じてアクセスする既存 API は維持し、内部で利用する backend だけを差し替える。

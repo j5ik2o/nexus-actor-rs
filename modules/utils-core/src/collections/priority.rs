@@ -173,13 +173,13 @@ mod tests {
   use core::cell::RefCell;
 
   use super::{PriorityMessage, SharedPriorityQueue};
-  use crate::collections::queue::mpsc::{MpscBuffer, RingBufferBackend, SharedMpscHandle, SharedMpscQueue};
+  use crate::collections::queue::mpsc::{MpscBuffer, MpscQueue, RingBufferBackend, SharedMpscHandle};
   use crate::collections::queue::{QueueBase, QueueReader, QueueWriter, SharedQueue};
   use crate::collections::{QueueError, QueueSize};
   use crate::sync::Shared;
 
   #[derive(Debug, Clone)]
-  struct TestQueue(SharedMpscQueue<RcHandle<u32>, u32>);
+  struct TestQueue(MpscQueue<RcHandle<u32>, u32>);
 
   #[derive(Debug)]
   struct RcHandle<T>(Rc<RingBufferBackend<RefCell<MpscBuffer<T>>>>);
@@ -264,11 +264,11 @@ mod tests {
 
   impl TestQueue {
     fn bounded(cap: usize) -> Self {
-      Self(SharedMpscQueue::new(RcHandle::new(Some(cap))))
+      Self(MpscQueue::new(RcHandle::new(Some(cap))))
     }
 
     fn unbounded() -> Self {
-      Self(SharedMpscQueue::new(RcHandle::new(None)))
+      Self(MpscQueue::new(RcHandle::new(None)))
     }
   }
 

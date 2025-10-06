@@ -1,16 +1,16 @@
 use super::traits::{MpscBackend, SharedMpscHandle};
 use crate::collections::{QueueBase, QueueError, QueueReader, QueueSize, QueueWriter};
 
-/// Shared queue facade that operates on a [`MpscBackend`].
+/// Queue facade that operates on a [`MpscBackend`].
 #[derive(Debug)]
-pub struct SharedMpscQueue<S, T>
+pub struct MpscQueue<S, T>
 where
   S: SharedMpscHandle<T>, {
   storage: S,
   _marker: core::marker::PhantomData<T>,
 }
 
-impl<S, T> SharedMpscQueue<S, T>
+impl<S, T> MpscQueue<S, T>
 where
   S: SharedMpscHandle<T>,
 {
@@ -58,7 +58,7 @@ where
   }
 }
 
-impl<S, T> Clone for SharedMpscQueue<S, T>
+impl<S, T> Clone for MpscQueue<S, T>
 where
   S: SharedMpscHandle<T>,
 {
@@ -70,7 +70,7 @@ where
   }
 }
 
-impl<S, T> QueueBase<T> for SharedMpscQueue<S, T>
+impl<S, T> QueueBase<T> for MpscQueue<S, T>
 where
   S: SharedMpscHandle<T>,
 {
@@ -83,7 +83,7 @@ where
   }
 }
 
-impl<S, T> QueueWriter<T> for SharedMpscQueue<S, T>
+impl<S, T> QueueWriter<T> for MpscQueue<S, T>
 where
   S: SharedMpscHandle<T>,
 {
@@ -92,7 +92,7 @@ where
   }
 }
 
-impl<S, T> QueueReader<T> for SharedMpscQueue<S, T>
+impl<S, T> QueueReader<T> for MpscQueue<S, T>
 where
   S: SharedMpscHandle<T>,
 {
@@ -105,7 +105,7 @@ where
   }
 }
 
-impl<S, T> crate::collections::queue::SharedQueue<T> for SharedMpscQueue<S, T>
+impl<S, T> crate::collections::queue::SharedQueue<T> for MpscQueue<S, T>
 where
   S: SharedMpscHandle<T>,
 {
@@ -132,7 +132,7 @@ mod tests {
 
   use crate::collections::queue::mpsc::backend::RingBufferBackend;
   use crate::collections::queue::mpsc::traits::SharedMpscHandle;
-  use crate::collections::queue::mpsc::{MpscBuffer, SharedMpscQueue};
+  use crate::collections::queue::mpsc::{MpscBuffer, MpscQueue};
   use crate::collections::QueueError;
 
   struct RcBackendHandle<T>(Rc<RingBufferBackend<RefCell<MpscBuffer<T>>>>);
@@ -188,7 +188,7 @@ mod tests {
 
   #[test]
   fn shared_queue_shared_operations() {
-    let queue: SharedMpscQueue<_, u32> = SharedMpscQueue::new(RcBackendHandle::<u32>::new(Some(2)));
+    let queue: MpscQueue<_, u32> = MpscQueue::new(RcBackendHandle::<u32>::new(Some(2)));
     queue.offer(1).unwrap();
     queue.offer(2).unwrap();
     assert!(queue.offer(3).is_err());
@@ -198,7 +198,7 @@ mod tests {
 
   #[test]
   fn shared_queue_cleanup_marks_closed() {
-    let queue: SharedMpscQueue<_, u32> = SharedMpscQueue::new(RcBackendHandle::<u32>::new(None));
+    let queue: MpscQueue<_, u32> = MpscQueue::new(RcBackendHandle::<u32>::new(None));
     queue.offer(1).unwrap();
     queue.clean_up();
     assert!(matches!(queue.poll(), Err(QueueError::Disconnected)));

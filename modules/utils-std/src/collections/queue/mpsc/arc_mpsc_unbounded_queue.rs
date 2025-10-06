@@ -1,15 +1,15 @@
 use crate::collections::queue::mpsc::TokioUnboundedMpscBackend;
 use crate::sync::ArcShared;
 use nexus_utils_core_rs::{
-  Element, MpscBackend, MpscBuffer, QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, RingBufferBackend,
-  SharedMpscQueue, SharedQueue,
+  Element, MpscBackend, MpscBuffer, MpscQueue, QueueBase, QueueError, QueueReader, QueueSize, QueueWriter,
+  RingBufferBackend, SharedQueue,
 };
 use std::fmt;
 use std::sync::{Arc, Mutex};
 
 #[derive(Clone)]
 pub struct ArcMpscUnboundedQueue<E> {
-  inner: SharedMpscQueue<ArcShared<dyn MpscBackend<E> + Send + Sync>, E>,
+  inner: MpscQueue<ArcShared<dyn MpscBackend<E> + Send + Sync>, E>,
 }
 
 impl<E> fmt::Debug for ArcMpscUnboundedQueue<E> {
@@ -41,7 +41,7 @@ where
     let arc_backend: Arc<dyn MpscBackend<E> + Send + Sync> = Arc::new(backend);
     let storage = ArcShared::from_arc(arc_backend);
     Self {
-      inner: SharedMpscQueue::new(storage),
+      inner: MpscQueue::new(storage),
     }
   }
 }

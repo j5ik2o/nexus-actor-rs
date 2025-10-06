@@ -2,20 +2,19 @@ use std::sync::Mutex;
 
 use crate::sync::ArcShared;
 use nexus_utils_core_rs::{
-  QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, RingBuffer, SharedQueue, SharedRingQueue,
-  DEFAULT_CAPACITY,
+  QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, RingBuffer, RingQueue, SharedQueue, DEFAULT_CAPACITY,
 };
 
 #[derive(Debug, Clone)]
 pub struct ArcRingQueue<E> {
-  inner: SharedRingQueue<ArcShared<Mutex<RingBuffer<E>>>, E>,
+  inner: RingQueue<ArcShared<Mutex<RingBuffer<E>>>, E>,
 }
 
 impl<E> ArcRingQueue<E> {
   pub fn new(capacity: usize) -> Self {
     let storage = ArcShared::new(Mutex::new(RingBuffer::new(capacity)));
     Self {
-      inner: SharedRingQueue::new(storage),
+      inner: RingQueue::new(storage),
     }
   }
 

@@ -11,5 +11,5 @@ pub use queue_error::QueueError;
 pub use queue_size::QueueSize;
 pub use traits::{QueueBase, QueueReader, QueueWriter, SharedQueue};
 
-pub use mpsc::{MpscBackend, MpscBuffer, RingBufferBackend, RingBufferStorage, SharedMpscHandle, SharedMpscQueue};
-pub use ring::{QueueStorage, RingBuffer, SharedQueueHandle, SharedRingQueue, DEFAULT_CAPACITY};
+pub use mpsc::{MpscBackend, MpscBuffer, MpscQueue, RingBufferBackend, RingBufferStorage, SharedMpscHandle};
+pub use ring::{QueueStorage, RingBuffer, RingQueue, SharedQueueHandle, DEFAULT_CAPACITY};

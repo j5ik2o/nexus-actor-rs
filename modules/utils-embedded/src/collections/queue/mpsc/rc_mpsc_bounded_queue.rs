@@ -1,7 +1,7 @@
 use core::cell::RefCell;
 
 use nexus_utils_core_rs::{
-  Element, MpscBuffer, QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, RingBufferBackend, SharedMpscQueue,
+  Element, MpscBuffer, MpscQueue, QueueBase, QueueError, QueueReader, QueueSize, QueueWriter, RingBufferBackend,
   SharedQueue,
 };
 
@@ -9,14 +9,14 @@ use crate::sync::RcShared;
 
 #[derive(Debug, Clone)]
 pub struct RcMpscBoundedQueue<E> {
-  inner: SharedMpscQueue<RcShared<RingBufferBackend<RefCell<MpscBuffer<E>>>>, E>,
+  inner: MpscQueue<RcShared<RingBufferBackend<RefCell<MpscBuffer<E>>>>, E>,
 }
 
 impl<E> RcMpscBoundedQueue<E> {
   pub fn new(capacity: usize) -> Self {
     let storage = RcShared::new(RingBufferBackend::new(RefCell::new(MpscBuffer::new(Some(capacity)))));
     Self {
-      inner: SharedMpscQueue::new(storage),
+      inner: MpscQueue::new(storage),
     }
   }
 }
