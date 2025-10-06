@@ -1,6 +1,6 @@
 [package]
 name = "nexus-actor-core-rs"
-version = "3.0.3"
+version = "3.0.2"
 edition = "2021"
 description = "Foundation for Nexus Actor (no_std skeleton)"
 license = "MIT OR Apache-2.0"
@@ -12,9 +12,9 @@ repository = "https://github.com/j5ik2o/nexus-actor-rs"
 [features]
 default = ["alloc"]
 alloc = []
+std = ["alloc"]
 
 [dependencies]
-nexus-utils-core-rs = { version = "0.*", path = "../utils-core", default-features = false, features = ["alloc"] }
-static_assertions = { workspace = true }
+nexus-utils-core-rs = { path = "../utils-core", default-features = false }
 
 [dev-dependencies]

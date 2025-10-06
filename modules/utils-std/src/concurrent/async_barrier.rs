@@ -1,28 +1,76 @@
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
-use tokio::sync::{Mutex, Notify};
 
-#[derive(Debug, Clone)]
-pub struct AsyncBarrier {
-  notify: Arc<Notify>,
-  count: Arc<Mutex<usize>>,
+use nexus_utils_core_rs::concurrent::{AsyncBarrier as CoreAsyncBarrier, AsyncBarrierBackend, BoxFuture};
+use tokio::sync::Notify;
+
+#[derive(Clone)]
+pub struct TokioAsyncBarrierBackend {
+  inner: Arc<Inner>,
 }
 
-impl AsyncBarrier {
-  pub fn new(count: usize) -> Self {
-    AsyncBarrier {
-      notify: Arc::new(Notify::new()),
-      count: Arc::new(Mutex::new(count)),
+struct Inner {
+  remaining: AtomicUsize,
+  initial: usize,
+  notify: Notify,
+}
+
+impl AsyncBarrierBackend for TokioAsyncBarrierBackend {
+  type WaitFuture<'a>
+    = BoxFuture<'a, ()>
+  where
+    Self: 'a;
+
+  fn new(count: usize) -> Self {
+    assert!(count > 0, "AsyncBarrier must have positive count");
+    Self {
+      inner: Arc::new(Inner {
+        remaining: AtomicUsize::new(count),
+        initial: count,
+        notify: Notify::new(),
+      }),
     }
   }
 
-  pub async fn wait(&self) {
-    let mut count = self.count.lock().await;
-    *count -= 1;
-    if *count == 0 {
-      self.notify.notify_waiters();
-    } else {
-      drop(count);
-      self.notify.notified().await;
-    }
+  fn wait(&self) -> Self::WaitFuture<'_> {
+    let inner = self.inner.clone();
+    Box::pin(async move {
+      let prev = inner.remaining.fetch_sub(1, Ordering::SeqCst);
+      assert!(prev > 0, "AsyncBarrier::wait called more times than count");
+      if prev == 1 {
+        inner.remaining.store(inner.initial, Ordering::SeqCst);
+        inner.notify.notify_waiters();
+      } else {
+        loop {
+          if inner.remaining.load(Ordering::SeqCst) == inner.initial {
+            break;
+          }
+          inner.notify.notified().await;
+        }
+      }
+    })
+  }
+}
+
+pub type AsyncBarrier = CoreAsyncBarrier<TokioAsyncBarrierBackend>;
+
+#[cfg(test)]
+mod tests {
+  use super::AsyncBarrier;
+  use tokio::join;
+
+  #[tokio::test]
+  async fn barrier_releases_all() {
+    let barrier = AsyncBarrier::new(2);
+    let b2 = barrier.clone();
+
+    let first = async move {
+      barrier.wait().await;
+    };
+    let second = async move {
+      b2.wait().await;
+    };
+
+    join!(first, second);
   }
 }

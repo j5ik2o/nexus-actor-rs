@@ -26,6 +26,7 @@ export LLVM_PROFILE_FILE="./target/coverage/cargo-test-%p-%m.profraw"
 
 # テストを実行
 cargo test --workspace
+cargo test -p nexus-utils-embedded-rs --no-default-features --features arc
 
 # カバレッジレポートを生成
 grcov . --binary-path ./target/debug/deps/ -s . -t html --branch --ignore-not-existing --ignore "*cargo*" --ignore "*tests*" -o ./target/coverage/html

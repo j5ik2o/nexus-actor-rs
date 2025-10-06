@@ -1,34 +1,31 @@
-#[cfg(test)]
-use crate::runtime::TokioCoreSpawner;
-#[cfg(test)]
-use nexus_actor_core_rs::runtime::{CoreSpawner, CoreTaskFuture};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+
+use nexus_utils_core_rs::concurrent::{BoxFuture, WaitGroup as CoreWaitGroup, WaitGroupBackend};
 use tokio::sync::Notify;
 
-#[derive(Debug, Clone)]
-pub struct WaitGroup {
+#[derive(Clone)]
+pub struct TokioWaitGroupBackend {
   inner: Arc<Inner>,
 }
 
-#[derive(Debug)]
 struct Inner {
   count: AtomicUsize,
   notify: Notify,
 }
 
-impl WaitGroup {
-  pub fn new() -> Self {
-    WaitGroup {
-      inner: Arc::new(Inner {
-        count: AtomicUsize::new(0),
-        notify: Notify::new(),
-      }),
-    }
+impl WaitGroupBackend for TokioWaitGroupBackend {
+  type WaitFuture<'a>
+    = BoxFuture<'a, ()>
+  where
+    Self: 'a;
+
+  fn new() -> Self {
+    Self::with_count(0)
   }
 
-  pub fn with_count(count: usize) -> Self {
-    WaitGroup {
+  fn with_count(count: usize) -> Self {
+    Self {
       inner: Arc::new(Inner {
         count: AtomicUsize::new(count),
         notify: Notify::new(),
@@ -36,55 +33,50 @@ impl WaitGroup {
     }
   }
 
-  pub fn add(&self, n: usize) {
+  fn add(&self, n: usize) {
     self.inner.count.fetch_add(n, Ordering::SeqCst);
   }
 
-  pub fn done(&self) {
-    let previous = self.inner.count.fetch_sub(1, Ordering::SeqCst);
-    tracing::debug!("done: count={}", previous);
-    assert!(previous > 0, "WaitGroup::done called more times than add");
-    if previous == 1 {
+  fn done(&self) {
+    let prev = self.inner.count.fetch_sub(1, Ordering::SeqCst);
+    assert!(prev > 0, "WaitGroup::done called more times than add");
+    if prev == 1 {
       self.inner.notify.notify_waiters();
     }
   }
 
-  pub async fn wait(&self) {
-    while self.inner.count.load(Ordering::SeqCst) != 0 {
-      let notified = self.inner.notify.notified();
-      if self.inner.count.load(Ordering::SeqCst) == 0 {
-        break;
+  fn wait(&self) -> Self::WaitFuture<'_> {
+    let inner = self.inner.clone();
+    Box::pin(async move {
+      loop {
+        if inner.count.load(Ordering::SeqCst) == 0 {
+          return;
+        }
+        inner.notify.notified().await;
       }
-      notified.await;
-    }
+    })
   }
 }
 
-impl Default for WaitGroup {
-  fn default() -> Self {
-    Self::new()
+pub type WaitGroup = CoreWaitGroup<TokioWaitGroupBackend>;
+
+#[cfg(test)]
+mod tests {
+  use super::WaitGroup;
+  use tokio::join;
+
+  #[tokio::test]
+  async fn wait_group_completes() {
+    let wg = WaitGroup::new();
+    wg.add(2);
+    let worker_wg = wg.clone();
+
+    let wait_fut = wg.wait();
+    let worker = async move {
+      worker_wg.done();
+      worker_wg.done();
+    };
+
+    join!(worker, wait_fut);
   }
-}
-
-// 使用例
-#[tokio::test]
-async fn test_main() {
-  let wg = WaitGroup::new();
-
-  for i in 0..3 {
-    let wg = wg.clone();
-    let task: CoreTaskFuture = Box::pin(async move {
-      tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
-      tracing::info!("Task {} completed", i);
-      wg.done();
-    });
-    TokioCoreSpawner::current()
-      .spawn(task)
-      .expect("spawn wait group task")
-      .detach();
-  }
-
-  wg.add(3);
-  wg.wait().await;
-  tracing::debug!("All tasks completed");
 }

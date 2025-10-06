@@ -2,22 +2,22 @@
 
 extern crate alloc;
 
-#[cfg(test)]
-extern crate std;
+mod mailbox;
+mod spawn;
+mod timer;
 
-pub use nexus_actor_core_rs as core;
+pub use mailbox::{LocalMailbox, LocalMailboxRecv};
+#[cfg(feature = "embedded_arc")]
+pub use nexus_utils_embedded_rs::sync::{ArcCsStateCell, ArcLocalStateCell, ArcShared, ArcStateCell};
+#[cfg(feature = "embedded_rc")]
+pub use nexus_utils_embedded_rs::sync::{RcShared, RcStateCell};
+pub use spawn::ImmediateSpawner;
+pub use timer::ImmediateTimer;
 
-#[cfg(feature = "embassy")]
-pub mod embedded;
-#[cfg(feature = "embassy")]
-pub mod spawn;
-
-#[cfg(all(test, feature = "embassy"))]
-mod tests;
-
-#[cfg(feature = "embassy")]
-pub use embedded::EmbeddedRuntimeBuilder;
-#[cfg(feature = "embassy")]
-pub use nexus_actor_core_rs::runtime::{FnCoreSpawner, FnJoinHandle};
-#[cfg(feature = "embassy")]
-pub use spawn::EmbassyScheduler;
+pub mod prelude {
+  #[cfg(feature = "embedded_arc")]
+  pub use super::{ArcCsStateCell, ArcLocalStateCell, ArcShared, ArcStateCell};
+  pub use super::{ImmediateSpawner, ImmediateTimer, LocalMailbox};
+  #[cfg(feature = "embedded_rc")]
+  pub use super::{RcShared, RcStateCell};
+}

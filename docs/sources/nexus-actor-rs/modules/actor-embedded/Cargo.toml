@@ -1,0 +1,26 @@
+[package]
+name = "nexus-actor-embedded-rs"
+version = "0.0.1"
+edition = "2021"
+description = "Embassy-oriented runtime bindings for Nexus Actor"
+license = "MIT OR Apache-2.0"
+keywords = ["actors", "embassy", "embedded"]
+categories = ["concurrency", "embedded"]
+readme = "../../README.md"
+repository = "https://github.com/j5ik2o/nexus-actor-rs"
+
+[features]
+default = []
+embassy = ["dep:embassy-sync", "dep:embassy-time", "dep:embassy-executor", "dep:embassy-futures"]
+
+[dependencies]
+nexus-actor-core-rs = { path = "../actor-core", default-features = false, features = ["alloc"] }
+nexus-utils-core-rs = { path = "../utils-core", default-features = false, features = ["alloc"] }
+nexus-utils-embedded-rs = { path = "../utils-embedded", default-features = false, features = ["embassy"] }
+embassy-sync = { version = "0.7", default-features = false, optional = true }
+embassy-time = { version = "0.5", default-features = false, optional = true }
+embassy-executor = { version = "0.9", default-features = false, optional = true }
+embassy-futures = { version = "0.1", default-features = false, optional = true }
+
+[dev-dependencies]
+static_assertions = { workspace = true }
