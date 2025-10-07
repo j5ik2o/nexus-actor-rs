@@ -66,6 +66,8 @@
 2. `GuardianStrategy::decide` で Escalate を返した際、`Guardian` が EscalationSink 経由で親アクターへ通知できるよう `PriorityScheduler::on_escalation` を活用する。（実装済み）
 3. 親ガーディアンが `SystemMessage::Escalate` を受け取った際に `Guardian::notify_failure` を再実行できるよう、EscalationSink を `Scheduler` / `ParentGuardian` で切り替える抽象を追加する。
    - Sink では FailureInfo と再起動統計（今後導入）を保持し、親 strategy が Stop/Restart/Escalate を再評価できる。
+   - ActorId を階層的に管理するため、`ActorPath`（例: Vec<ActorId>）を FailureInfo に含め、親 Guardian が自分の子を一意に特定できるようにする。
+   - 子 Guardian 登録時に `ActorPath` を生成し、親への通知では `ActorPath::parent()` を使って FailureInfo を更新する。
 4. `Supervisor` 実装に Failure/Escalate を通知するため、`ActorContext` に `notify_failure` フックを追加し、Typed 層でも `TypedSystemEvent::Failure` を処理できるようにする。
 5. テストシナリオ: (a) 子アクター → 親 → ルートで Escalate が連鎖し、最終的に Stop 指示が届くケース。 (b) EscalationSink が親 Guardian の strategy によって Restart/Stop を再評価するケース。 (c) Escalate が system guardian 経由で最終処理へ到達する end-to-end テスト。
 
