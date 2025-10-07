@@ -10,6 +10,7 @@ mod actor_path;
 mod context;
 mod escalation;
 mod failure;
+mod system;
 #[cfg(feature = "std")]
 mod failure_event_stream;
 mod guardian;
@@ -27,6 +28,7 @@ pub use escalation::{
   ParentGuardianSink, RootEscalationSink,
 };
 pub use failure::{FailureEvent, FailureInfo, FailureMetadata};
+pub use system::{ActorSystem, Props, RootContext};
 #[cfg(feature = "std")]
 pub use failure_event_stream::{FailureEventHub, FailureEventSubscription};
 pub use guardian::{AlwaysRestart, Guardian, GuardianStrategy};

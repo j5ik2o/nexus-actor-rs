@@ -1,4 +1,4 @@
-#[cfg(feature = "std")]
+#[cfg(any(feature = "rt-multi-thread", feature = "rt-current-thread"))]
 pub mod failure_event_bridge;
 mod spawn;
 mod timer;

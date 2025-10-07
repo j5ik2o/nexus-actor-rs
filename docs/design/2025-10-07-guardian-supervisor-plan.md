@@ -35,6 +35,14 @@
 2. Escalate をサポートし、上位 Guardian へ転送する際も `map_system` クロージャを通じてメッセージ型を変換する。`PriorityScheduler::on_escalation` 経由で FailureInfo を受け取ったら、親 Guardian／system guardian へ `SystemMessage::Escalate` を送出する。
 3. Typed 層が `map_system` を生成し、`SystemMessage` をユーザーの DSL に沿った挙動へマッピングできるようインターフェースを整備する。
 
+## 高水準 API の現状
+- `Props<M, R>`: MailboxOptions と `map_system` クロージャ、アクターハンドラを束ねる構造体。`Props::new` で簡単に生成できる。
+- `ActorSystem<M, R>`: Scheduler を内包し、`root_context()` で `RootContext` を取得する。現在は `AlwaysRestart` のみサポート。
+- `RootContext`:
+  - `spawn(props)` でアクターを起動し、`PriorityActorRef` を返す。
+  - `dispatch_all()` により Scheduler のディスパッチを進める。
+- actor-std では `TokioFailureEventBridge` を通じて `FailureEventHub` を tokio broadcast に橋渡しできる。
+
 ## EscalationSink TODO リスト
 - [ ] `actor-core`: `SchedulerEscalationSink` をパブリック API として再編し、
       `trait EscalationSink`（handle 戻り値 `Result<(), FailureInfo>`）と具体実装
@@ -44,6 +52,8 @@
 - [ ] `Guardian`: `escalate_failure` の戻り値を拡張し、
       `SupervisorDirective::Stop`／`Restart` を返さなかったケースでも FailureInfo に
       サブタイプ（例: `EscalationStage`）を付与できるよう検討する。
+- [x] `Props` / `ActorSystem` / `RootContext` 高水準 API を actor-core に追加し、Scheduler への直接依存なしに
+      アクターを起動・メッセージ送信できるようにする。
 - [ ] `ActorContext` / `ChildSpawnSpec`: `map_system` だけでなく EscalationSink のフックを
       親から子へ伝搬させ、Typed DSL で `SystemMessage::Escalate` を型安全に変換できるようにする。
 - [ ] `TypedMailboxAdapter`（予定）: `SystemMessage::Failure` と `SystemMessage::Escalate` を
