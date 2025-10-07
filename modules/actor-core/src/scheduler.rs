@@ -2,6 +2,7 @@ use alloc::boxed::Box;
 #[cfg(feature = "std")]
 use alloc::string::String;
 use alloc::sync::Arc;
+use alloc::vec;
 use alloc::vec::Vec;
 #[cfg(feature = "std")]
 use core::fmt;
@@ -16,9 +17,11 @@ use crate::context::{ActorContext, ChildSpawnSpec, PriorityActorRef};
 use crate::escalation::{CompositeEscalationSink, EscalationSink};
 use crate::failure::FailureInfo;
 use crate::guardian::{AlwaysRestart, Guardian, GuardianStrategy};
-use crate::mailbox::SystemMessage;
+use crate::mailbox::{Mailbox, MailboxSignal, SystemMessage};
 use crate::supervisor::Supervisor;
 use crate::{MailboxOptions, MailboxRuntime, PriorityEnvelope, QueueMailbox, QueueMailboxProducer};
+use futures::future::select_all;
+use futures::FutureExt;
 use nexus_utils_core_rs::{Element, QueueError, QueueRw};
 
 /// 優先度付きメールボックスを前提とした単純なスケジューラ実装。
@@ -117,23 +120,56 @@ where
     let len = self.actors.len();
     for idx in 0..len {
       let cell = &mut self.actors[idx];
-      cell.process_all(&mut self.guardian, &mut new_children, &mut self.escalations)?;
+      let _ = cell.process_pending(&mut self.guardian, &mut new_children, &mut self.escalations)?;
     }
     self.actors.extend(new_children.into_iter());
+    let _ = self.handle_escalations()?;
+    Ok(())
+  }
 
-    if !self.escalations.is_empty() {
-      let pending = core::mem::take(&mut self.escalations);
-      let mut remaining = Vec::new();
-      for info in pending.into_iter() {
-        let handled_locally = self.forward_to_local_parent(&info);
-        match self.escalation_sink.handle(info, handled_locally) {
-          Ok(()) => {}
-          Err(unhandled) => remaining.push(unhandled),
+  pub async fn dispatch_next(&mut self) -> Result<(), QueueError<PriorityEnvelope<M>>> {
+    loop {
+      let mut new_children = Vec::new();
+      let len = self.actors.len();
+      let mut processed_any = false;
+      for idx in 0..len {
+        let cell = &mut self.actors[idx];
+        if cell.process_pending(&mut self.guardian, &mut new_children, &mut self.escalations)? > 0 {
+          processed_any = true;
         }
       }
-      self.escalations = remaining;
+      if !new_children.is_empty() {
+        self.actors.extend(new_children.into_iter());
+      }
+      if processed_any || self.handle_escalations()? {
+        return Ok(());
+      }
+
+      let Some(index) = self.wait_for_any_signal().await else {
+        return Ok(());
+      };
+
+      if index >= self.actors.len() {
+        continue;
+      }
+
+      let mut new_children = Vec::new();
+      if self.actors[index]
+        .wait_and_process(&mut self.guardian, &mut new_children, &mut self.escalations)
+        .await?
+        > 0
+        || self.handle_escalations()?
+      {
+        if !new_children.is_empty() {
+          self.actors.extend(new_children.into_iter());
+        }
+        return Ok(());
+      }
+
+      if !new_children.is_empty() {
+        self.actors.extend(new_children.into_iter());
+      }
     }
-    Ok(())
   }
 
   pub fn actor_count(&self) -> usize {
@@ -164,6 +200,46 @@ where
 
   pub fn set_root_event_listener(&mut self, listener: Option<crate::FailureEventListener>) {
     self.escalation_sink.set_root_listener(listener);
+  }
+
+  fn handle_escalations(&mut self) -> Result<bool, QueueError<PriorityEnvelope<M>>> {
+    if self.escalations.is_empty() {
+      return Ok(false);
+    }
+
+    let pending = core::mem::take(&mut self.escalations);
+    let mut remaining = Vec::new();
+    let mut handled = false;
+    for info in pending.into_iter() {
+      let handled_locally = self.forward_to_local_parent(&info);
+      match self.escalation_sink.handle(info, handled_locally) {
+        Ok(()) => handled = true,
+        Err(unhandled) => remaining.push(unhandled),
+      }
+    }
+    self.escalations = remaining;
+    Ok(handled)
+  }
+
+  async fn wait_for_any_signal(&self) -> Option<usize> {
+    if self.actors.is_empty() {
+      return None;
+    }
+
+    let mut waiters = Vec::with_capacity(self.actors.len());
+    for (idx, cell) in self.actors.iter().enumerate() {
+      let signal = cell.signal_clone();
+      waiters.push(
+        async move {
+          signal.wait().await;
+          idx
+        }
+        .boxed_local(),
+      );
+    }
+
+    let (idx, _, _) = select_all(waiters).await;
+    Some(idx)
   }
 
   fn forward_to_local_parent(&self, info: &FailureInfo) -> bool {
@@ -238,26 +314,62 @@ where
     }
   }
 
-  fn process_all(
+  fn collect_envelopes(&mut self) -> Result<Vec<PriorityEnvelope<M>>, QueueError<PriorityEnvelope<M>>> {
+    let mut drained = Vec::new();
+    while let Some(envelope) = self.mailbox.queue().poll()? {
+      drained.push(envelope);
+    }
+    if drained.len() > 1 {
+      drained.sort_by(|a, b| b.priority().cmp(&a.priority()));
+    }
+    Ok(drained)
+  }
+
+  fn process_envelopes(
+    &mut self,
+    envelopes: Vec<PriorityEnvelope<M>>,
+    guardian: &mut Guardian<M, R, Strat>,
+    new_children: &mut Vec<ActorCell<M, R, Strat>>,
+    escalations: &mut Vec<FailureInfo>,
+  ) -> Result<usize, QueueError<PriorityEnvelope<M>>> {
+    let mut processed = 0;
+    for envelope in envelopes.into_iter() {
+      self.dispatch_envelope(envelope, guardian, new_children, escalations)?;
+      processed += 1;
+    }
+    Ok(processed)
+  }
+
+  fn process_pending(
     &mut self,
     guardian: &mut Guardian<M, R, Strat>,
     new_children: &mut Vec<ActorCell<M, R, Strat>>,
     escalations: &mut Vec<FailureInfo>,
   ) -> Result<usize, QueueError<PriorityEnvelope<M>>> {
-    let mut drained = Vec::new();
-    while let Some(envelope) = self.mailbox.queue().poll()? {
-      drained.push(envelope);
+    let envelopes = self.collect_envelopes()?;
+    if envelopes.is_empty() {
+      return Ok(0);
     }
+    self.process_envelopes(envelopes, guardian, new_children, escalations)
+  }
 
-    drained.sort_by(|a, b| b.priority().cmp(&a.priority()));
-
-    let processed = drained.len();
-
-    for envelope in drained.into_iter() {
-      self.dispatch_envelope(envelope, guardian, new_children, escalations)?;
+  async fn wait_and_process(
+    &mut self,
+    guardian: &mut Guardian<M, R, Strat>,
+    new_children: &mut Vec<ActorCell<M, R, Strat>>,
+    escalations: &mut Vec<FailureInfo>,
+  ) -> Result<usize, QueueError<PriorityEnvelope<M>>> {
+    let first = self.mailbox.recv().await;
+    let mut envelopes = vec![first];
+    envelopes.extend(self.collect_envelopes()?);
+    if envelopes.len() > 1 {
+      envelopes.sort_by(|a, b| b.priority().cmp(&a.priority()));
     }
+    self.process_envelopes(envelopes, guardian, new_children, escalations)
+  }
 
-    Ok(processed)
+  fn signal_clone(&self) -> R::Signal {
+    self.mailbox.signal().clone()
   }
 
   fn dispatch_envelope(

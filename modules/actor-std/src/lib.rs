@@ -69,7 +69,7 @@ mod tests {
     let actor_ref = root.spawn(props).expect("spawn typed actor");
 
     actor_ref.tell(99).expect("tell");
-    root.dispatch_all().expect("dispatch");
+    root.dispatch_next().await.expect("dispatch next");
 
     assert_eq!(log.lock().unwrap().as_slice(), &[99]);
   }

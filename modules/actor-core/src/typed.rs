@@ -165,6 +165,10 @@ where
   pub fn inner(&mut self) -> &mut ActorSystem<MessageEnvelope<U>, R, Strat> {
     &mut self.inner
   }
+
+  pub async fn dispatch_next(&mut self) -> Result<(), QueueError<PriorityEnvelope<MessageEnvelope<U>>>> {
+    self.inner.dispatch_next().await
+  }
 }
 
 pub struct TypedRootContext<'a, U, R, Strat>
@@ -195,6 +199,10 @@ where
 
   pub fn dispatch_all(&mut self) -> Result<(), QueueError<PriorityEnvelope<MessageEnvelope<U>>>> {
     self.inner.dispatch_all()
+  }
+
+  pub async fn dispatch_next(&mut self) -> Result<(), QueueError<PriorityEnvelope<MessageEnvelope<U>>>> {
+    self.inner.dispatch_next().await
   }
 
   pub fn raw(&mut self) -> &mut RootContext<'a, MessageEnvelope<U>, R, Strat> {

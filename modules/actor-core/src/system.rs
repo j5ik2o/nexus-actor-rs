@@ -100,6 +100,10 @@ where
   pub fn dispatch_all(&mut self) -> Result<(), QueueError<PriorityEnvelope<M>>> {
     self.system.scheduler.dispatch_all()
   }
+
+  pub async fn dispatch_next(&mut self) -> Result<(), QueueError<PriorityEnvelope<M>>> {
+    self.system.scheduler.dispatch_next().await
+  }
 }
 
 impl<M, R, Strat> ActorSystem<M, R, Strat>
@@ -112,6 +116,10 @@ where
 {
   pub fn root_context(&mut self) -> RootContext<'_, M, R, Strat> {
     RootContext { system: self }
+  }
+
+  pub async fn dispatch_next(&mut self) -> Result<(), QueueError<PriorityEnvelope<M>>> {
+    self.scheduler.dispatch_next().await
   }
 }
 

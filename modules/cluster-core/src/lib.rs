@@ -30,10 +30,12 @@ impl ClusterFailureBridge {
   }
 
   pub fn fan_out(&self, event: FailureEvent) {
-    match event {
+    match &event {
       FailureEvent::RootEscalated(info) => {
         self.remote_notifier.dispatch(info.clone());
       }
+      #[allow(unreachable_patterns)]
+      _ => {}
     }
     self.hub.listener()(event);
   }

@@ -48,6 +48,52 @@
   - `TypedActorRef::tell` でユーザーメッセージを型安全に送信し、SystemMessage は自動的に高優先度で処理される。
   - `PriorityActorRef` は priority-aware な低レベル API として現状の名前を維持し、`TypedActorRef` を高水準 API と位置付ける。（ドキュメント / プレリュードでレイヤの違いを明記する）
 
+## 非同期ディスパッチ API 方針（案）
+- 現状: `PriorityScheduler::dispatch_all()` が同期的にすべてのメッセージを処理する。Tokio / Embassy からは `dispatch_all()` を直接呼ぶため、`await` が登場しない。
+- 目標: 触れられるところから async 化し、`dispatch_next().await`（仮称）で利用者が「次のメッセージを await できる」ようにする。
+
+### 1. PriorityScheduler の async 化
+
+```rust
+impl<M, R, Strat> PriorityScheduler<M, R, Strat> {
+  pub async fn dispatch_next(&mut self) -> Result<(), QueueError<PriorityEnvelope<M>>> {
+    // 1) mailbox から一件取り出す（なければシグナルで待機）
+    // 2) 取り出した envelope を処理する（現状の dispatch_envelope を流用）
+    // 3) 追加の制御メッセージがあればループ継続
+  }
+
+  pub async fn run_forever(&mut self) -> Result<(), QueueError<PriorityEnvelope<M>>> {
+    loop {
+      self.dispatch_next().await?;
+    }
+  }
+}
+```
+
+- MailboxRuntime に async `wait_for_message()` を追加し、キューが空の場合は `NotifySignal::wait().await` で待機。メッセージ到着時に wake。
+- 既存の `dispatch_all()` は互換目的で残しつつ、内部では `block_on` 等を使って `dispatch_next()` をぐるぐる回す実装に変更する。
+
+### 2. ActorSystem / RootContext の async API
+
+- `RootContext` に `async fn dispatch_next(&mut self) -> Result<(), QueueError<PriorityEnvelope<M>>>` を追加。
+- `TypedRootContext` にも同様の async API を用意し、Tokio / Embassy から自然に使えるようにする。
+- `TypedActorSystem::run_until`（仮）など、エグゼキュータに合わせたラッパ関数を提供すると便利かもしれない。
+
+### 3. actor-std (Tokio) での統合
+
+- `TokioMailboxRuntime` は既に `NotifySignal` を持っているので、`dispatch_next().await` をそのまま利用できる。
+- `TokioActorSystem`（仮称）を追加し、Tokio タスクとして scheduler を `run_forever().await` させる設計を検討。
+- テストは `async fn` + `#[tokio::test]` で `.await` を伴う形に差し替え。
+
+### 4. actor-embedded (Embassy) での並行対応
+
+- Embassy executor 向けに `dispatch_next().await` を呼び出すタスクを作り、`Spawner` から spawn。
+- 既存の embedded 用テストも `.await` ベースに更新。
+
+### 5. 遷移期間における互換性
+
+- 同期 API (`dispatch_all`) をすぐには削除せず、内部的に `dispatch_next()` を同期ブロックで回す形に変更し、既存コードを壊さないよう配慮。
+- 段階的に async API を推奨し、非同期フローが安定したら同期 API を deprecated へ移行する。
 ## EscalationSink TODO リスト
 - [ ] `actor-core`: `SchedulerEscalationSink` をパブリック API として再編し、
       `trait EscalationSink`（handle 戻り値 `Result<(), FailureInfo>`）と具体実装
