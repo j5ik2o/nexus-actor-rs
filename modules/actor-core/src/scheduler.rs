@@ -31,7 +31,7 @@ where
   guardian: Guardian<M, R, Strat>,
   actors: Vec<ActorCell<M, R, Strat>>,
   escalations: Vec<FailureInfo>,
-  escalation_handler: Option<Box<dyn FnMut(&FailureInfo) + 'static>>,
+  escalation_handler: Option<Box<dyn FnMut(&FailureInfo) -> Result<(), QueueError<PriorityEnvelope<M>>> + 'static>>,
 }
 
 impl<M, R> PriorityScheduler<M, R, AlwaysRestart>
@@ -118,9 +118,14 @@ where
 
     if !self.escalations.is_empty() {
       if let Some(handler) = self.escalation_handler.as_mut() {
+        let mut remaining = Vec::new();
         for info in self.escalations.drain(..) {
-          handler(&info);
+          match handler(&info) {
+            Ok(()) => {}
+            Err(_) => remaining.push(info.clone()),
+          }
         }
+        self.escalations.extend(remaining);
       }
     }
     Ok(())
@@ -136,7 +141,7 @@ where
 
   pub fn on_escalation<F>(&mut self, handler: F)
   where
-    F: FnMut(&FailureInfo) + 'static, {
+    F: FnMut(&FailureInfo) -> Result<(), QueueError<PriorityEnvelope<M>>> + 'static, {
     self.escalation_handler = Some(Box::new(handler));
   }
 }
@@ -621,6 +626,7 @@ mod tests {
     let sink_clone = sink.clone();
     scheduler.on_escalation(move |info| {
       sink_clone.borrow_mut().push(info.clone());
+      Ok(())
     });
 
     let should_panic = Rc::new(Cell::new(true));
@@ -655,5 +661,58 @@ mod tests {
 
     // handler で除去済みのため take_escalations は空
     assert!(scheduler.take_escalations().is_empty());
+  }
+
+  #[cfg(feature = "std")]
+  #[test]
+  fn scheduler_escalation_handler_delivers_to_parent() {
+    let runtime = TestMailboxRuntime::unbounded();
+    let mut scheduler: PriorityScheduler<Message, _, AlwaysEscalate> =
+      PriorityScheduler::with_strategy(runtime.clone(), AlwaysEscalate);
+
+    let (parent_mailbox, parent_sender) = runtime.build_default_mailbox::<PriorityEnvelope<Message>>();
+    let parent_ref: PriorityActorRef<Message, TestMailboxRuntime> = PriorityActorRef::new(parent_sender);
+
+    scheduler.on_escalation(move |info| {
+      let envelope = PriorityEnvelope::from_system(SystemMessage::Escalate(info.clone())).map(Message::System);
+      parent_ref.try_send_envelope(envelope)?;
+      Ok(())
+    });
+
+    let should_panic = Rc::new(Cell::new(true));
+    let panic_flag = should_panic.clone();
+
+    let actor_ref = scheduler
+      .spawn_actor(
+        NoopSupervisor,
+        MailboxOptions::default(),
+        Arc::new(|sys| Message::System(sys)),
+        move |_, msg: Message| match msg {
+          Message::System(SystemMessage::Watch(_)) => {}
+          Message::User(_) if panic_flag.get() => {
+            panic_flag.set(false);
+            panic!("boom");
+          }
+          _ => {}
+        },
+      )
+      .unwrap();
+
+    actor_ref
+      .try_send_with_priority(Message::User(1), DEFAULT_PRIORITY)
+      .unwrap();
+
+    assert!(scheduler.dispatch_all().is_ok());
+
+    let envelope = parent_mailbox.queue().poll().unwrap().unwrap();
+    let (msg, _, channel) = envelope.into_parts_with_channel();
+    assert_eq!(channel, crate::mailbox::PriorityChannel::Control);
+    match msg {
+      Message::System(SystemMessage::Escalate(info)) => {
+        assert_eq!(info.actor, ActorId(0));
+        assert!(info.reason.contains("panic"));
+      }
+      other => panic!("unexpected message: {:?}", other),
+    }
   }
 }
