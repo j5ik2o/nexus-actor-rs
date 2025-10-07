@@ -1,5 +1,3 @@
-#![cfg(feature = "rc")]
-
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 

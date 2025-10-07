@@ -4,6 +4,10 @@ use crate::sync::Shared;
 pub trait QueueBase<E> {
   fn len(&self) -> QueueSize;
   fn capacity(&self) -> QueueSize;
+
+  fn is_empty(&self) -> bool {
+    self.len() == QueueSize::Limited(0)
+  }
 }
 
 pub trait QueueWriter<E>: QueueBase<E> {

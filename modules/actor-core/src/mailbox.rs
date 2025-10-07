@@ -27,6 +27,10 @@ pub trait Mailbox<M> {
     QueueSize::limitless()
   }
 
+  fn is_empty(&self) -> bool {
+    self.len() == QueueSize::Limited(0)
+  }
+
   fn close(&self) {}
 
   fn is_closed(&self) -> bool {

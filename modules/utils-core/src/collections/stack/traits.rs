@@ -19,6 +19,10 @@ pub trait StackBackend<T> {
   fn capacity(&self) -> QueueSize;
   fn set_capacity(&self, capacity: Option<usize>);
 
+  fn is_empty(&self) -> bool {
+    self.len() == QueueSize::Limited(0)
+  }
+
   fn peek(&self) -> Option<T>
   where
     T: Clone;

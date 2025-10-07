@@ -11,6 +11,10 @@ pub trait RingBackend<E> {
   fn len(&self) -> QueueSize;
   fn capacity(&self) -> QueueSize;
   fn set_dynamic(&self, dynamic: bool);
+
+  fn is_empty(&self) -> bool {
+    self.len() == QueueSize::Limited(0)
+  }
 }
 
 /// Handle that dereferences to a [`RingBackend`].
