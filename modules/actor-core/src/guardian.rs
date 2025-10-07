@@ -4,6 +4,7 @@ use core::fmt;
 
 use crate::actor_id::ActorId;
 use crate::context::PriorityActorRef;
+use crate::failure::FailureInfo;
 use crate::mailbox::{PriorityEnvelope, SystemMessage};
 use crate::supervisor::SupervisorDirective;
 use crate::MailboxRuntime;
@@ -71,45 +72,44 @@ where
     }
   }
 
-pub fn register_child(
-  &mut self,
-  control_ref: PriorityActorRef<M, R>,
-  map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
-  watcher: Option<ActorId>,
-) -> Result<ActorId, QueueError<PriorityEnvelope<M>>> {
-  let id = ActorId(self.next_id);
-  self.next_id += 1;
-  self.strategy.before_start(id);
-  self.children.insert(
-    id,
-    ChildRecord {
-      control_ref: control_ref.clone(),
-      map_system: map_system.clone(),
-      watcher,
-    },
-  );
+  pub fn register_child(
+    &mut self,
+    control_ref: PriorityActorRef<M, R>,
+    map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
+    watcher: Option<ActorId>,
+  ) -> Result<ActorId, QueueError<PriorityEnvelope<M>>> {
+    let id = ActorId(self.next_id);
+    self.next_id += 1;
+    self.strategy.before_start(id);
+    self.children.insert(
+      id,
+      ChildRecord {
+        control_ref: control_ref.clone(),
+        map_system: map_system.clone(),
+        watcher,
+      },
+    );
 
-  if let Some(watcher_id) = watcher {
-    let map_clone = map_system.clone();
-    let envelope =
-      PriorityEnvelope::from_system(SystemMessage::Watch(watcher_id)).map(move |sys| (map_clone)(sys));
-    control_ref.sender().try_send(envelope)?;
+    if let Some(watcher_id) = watcher {
+      let map_clone = map_system.clone();
+      let envelope = PriorityEnvelope::from_system(SystemMessage::Watch(watcher_id)).map(move |sys| (map_clone)(sys));
+      control_ref.sender().try_send(envelope)?;
+    }
+
+    Ok(id)
   }
 
-  Ok(id)
-}
-
-pub fn remove_child(&mut self, id: ActorId) -> Option<PriorityActorRef<M, R>> {
-  self.children.remove(&id).map(|record| {
-    if let Some(watcher_id) = record.watcher {
-      let map_clone = record.map_system.clone();
-      let envelope =
-        PriorityEnvelope::from_system(SystemMessage::Unwatch(watcher_id)).map(move |sys| (map_clone)(sys));
-      let _ = record.control_ref.sender().try_send(envelope);
-    }
-    record.control_ref
-  })
-}
+  pub fn remove_child(&mut self, id: ActorId) -> Option<PriorityActorRef<M, R>> {
+    self.children.remove(&id).map(|record| {
+      if let Some(watcher_id) = record.watcher {
+        let map_clone = record.map_system.clone();
+        let envelope =
+          PriorityEnvelope::from_system(SystemMessage::Unwatch(watcher_id)).map(move |sys| (map_clone)(sys));
+        let _ = record.control_ref.sender().try_send(envelope);
+      }
+      record.control_ref
+    })
+  }
 
   pub fn child_ref(&self, id: ActorId) -> Option<&PriorityActorRef<M, R>> {
     self.children.get(&id).map(|record| &record.control_ref)
@@ -119,22 +119,24 @@ pub fn remove_child(&mut self, id: ActorId) -> Option<PriorityActorRef<M, R>> {
     &mut self,
     actor: ActorId,
     error: &dyn fmt::Debug,
-  ) -> Result<(), QueueError<PriorityEnvelope<M>>> {
+  ) -> Result<Option<FailureInfo>, QueueError<PriorityEnvelope<M>>> {
+    let failure = FailureInfo::from_error(actor, error);
     let directive = self.strategy.decide(actor, error);
     match (directive, self.children.get(&actor)) {
-      (SupervisorDirective::Resume, _) => Ok(()),
+      (SupervisorDirective::Resume, _) => Ok(None),
       (SupervisorDirective::Stop, Some(record)) => {
         let envelope = PriorityEnvelope::from_system(SystemMessage::Stop).map(|sys| (record.map_system)(sys));
-        record.control_ref.sender().try_send(envelope)
+        record.control_ref.sender().try_send(envelope)?;
+        Ok(None)
       }
       (SupervisorDirective::Restart, Some(record)) => {
         let envelope = PriorityEnvelope::from_system(SystemMessage::Restart).map(|sys| (record.map_system)(sys));
         record.control_ref.sender().try_send(envelope)?;
         self.strategy.after_restart(actor);
-        Ok(())
+        Ok(None)
       }
-      (SupervisorDirective::Escalate, _) => Ok(()),
-      (_, None) => Ok(()),
+      (SupervisorDirective::Escalate, _) => Ok(Some(failure)),
+      (_, None) => Ok(Some(failure)),
     }
   }
 
@@ -171,7 +173,7 @@ mod tests {
     let first_envelope = mailbox.queue().poll().unwrap().unwrap();
     assert_eq!(first_envelope.into_parts().0, SystemMessage::Watch(parent_id));
 
-    guardian.notify_failure(actor_id, &"panic").unwrap();
+    assert!(guardian.notify_failure(actor_id, &"panic").unwrap().is_none());
 
     let envelope = mailbox.queue().poll().unwrap().unwrap();
     let (message, priority, channel) = envelope.into_parts_with_channel();
@@ -206,7 +208,7 @@ mod tests {
     let watch_envelope = mailbox.queue().poll().unwrap().unwrap();
     assert_eq!(watch_envelope.into_parts().0, SystemMessage::Watch(parent_id));
 
-    guardian.notify_failure(actor_id, &"panic").unwrap();
+    assert!(guardian.notify_failure(actor_id, &"panic").unwrap().is_none());
 
     let envelope = mailbox.queue().poll().unwrap().unwrap();
     assert_eq!(envelope.into_parts().0, SystemMessage::Stop);

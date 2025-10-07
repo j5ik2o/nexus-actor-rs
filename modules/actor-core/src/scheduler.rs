@@ -12,6 +12,7 @@ use std::panic::{catch_unwind, AssertUnwindSafe};
 
 use crate::actor_id::ActorId;
 use crate::context::{ActorContext, ChildSpawnSpec, PriorityActorRef};
+use crate::failure::FailureInfo;
 use crate::guardian::{AlwaysRestart, Guardian, GuardianStrategy};
 use crate::mailbox::SystemMessage;
 use crate::supervisor::Supervisor;
@@ -29,6 +30,7 @@ where
   runtime: R,
   guardian: Guardian<M, R, Strat>,
   actors: Vec<ActorCell<M, R, Strat>>,
+  escalations: Vec<FailureInfo>,
 }
 
 impl<M, R> PriorityScheduler<M, R, AlwaysRestart>
@@ -43,6 +45,7 @@ where
       runtime: runtime.clone(),
       guardian: Guardian::new(AlwaysRestart),
       actors: Vec::new(),
+      escalations: Vec::new(),
     }
   }
 
@@ -53,6 +56,7 @@ where
       runtime,
       guardian: Guardian::new(strategy),
       actors: Vec::new(),
+      escalations: Vec::new(),
     }
   }
 }
@@ -83,7 +87,9 @@ where
     let mut watchers = Vec::new();
     watchers.push(ActorId::ROOT);
     let primary_watcher = watchers.first().copied();
-    let actor_id = self.guardian.register_child(control_ref.clone(), map_system.clone(), primary_watcher)?;
+    let actor_id = self
+      .guardian
+      .register_child(control_ref.clone(), map_system.clone(), primary_watcher)?;
     let cell = ActorCell::new(
       actor_id,
       map_system,
@@ -103,7 +109,7 @@ where
     let len = self.actors.len();
     for idx in 0..len {
       let cell = &mut self.actors[idx];
-      cell.process_all(&mut self.guardian, &mut new_children)?;
+      cell.process_all(&mut self.guardian, &mut new_children, &mut self.escalations)?;
     }
     self.actors.extend(new_children.into_iter());
     Ok(())
@@ -111,6 +117,10 @@ where
 
   pub fn actor_count(&self) -> usize {
     self.actors.len()
+  }
+
+  pub fn take_escalations(&mut self) -> Vec<FailureInfo> {
+    core::mem::take(&mut self.escalations)
   }
 }
 
@@ -168,6 +178,7 @@ where
     &mut self,
     guardian: &mut Guardian<M, R, Strat>,
     new_children: &mut Vec<ActorCell<M, R, Strat>>,
+    escalations: &mut Vec<FailureInfo>,
   ) -> Result<usize, QueueError<PriorityEnvelope<M>>> {
     let mut drained = Vec::new();
     while let Some(envelope) = self.mailbox.queue().poll()? {
@@ -179,7 +190,7 @@ where
     let processed = drained.len();
 
     for envelope in drained.into_iter() {
-      self.dispatch_envelope(envelope, guardian, new_children)?;
+      self.dispatch_envelope(envelope, guardian, new_children, escalations)?;
     }
 
     Ok(processed)
@@ -190,7 +201,11 @@ where
     envelope: PriorityEnvelope<M>,
     guardian: &mut Guardian<M, R, Strat>,
     new_children: &mut Vec<ActorCell<M, R, Strat>>,
+    escalations: &mut Vec<FailureInfo>,
   ) -> Result<(), QueueError<PriorityEnvelope<M>>> {
+    #[cfg(not(feature = "std"))]
+    let _ = escalations;
+
     let (message, priority) = envelope.into_parts();
     self.supervisor.before_handle();
     let mut pending_specs = Vec::new();
@@ -244,7 +259,9 @@ where
         }
         Err(payload) => {
           let panic_debug = PanicDebug::new(&payload);
-          guardian.notify_failure(self.actor_id, &panic_debug)?;
+          if let Some(info) = guardian.notify_failure(self.actor_id, &panic_debug)? {
+            escalations.push(info);
+          }
           Ok(())
         }
       }
@@ -312,9 +329,11 @@ impl fmt::Debug for PanicDebug<'_> {
 #[cfg(test)]
 mod tests {
   use super::*;
+  use crate::actor_id::ActorId;
   use crate::mailbox::test_support::TestMailboxRuntime;
   use crate::mailbox::{MailboxOptions, SystemMessage};
   use crate::supervisor::NoopSupervisor;
+  use crate::SupervisorDirective;
   use alloc::rc::Rc;
   use alloc::sync::Arc;
   use alloc::vec;
@@ -323,6 +342,21 @@ mod tests {
   use core::cell::Cell;
   use core::cell::RefCell;
   use nexus_utils_core_rs::DEFAULT_PRIORITY;
+
+  #[cfg(feature = "std")]
+  #[derive(Clone, Copy, Debug)]
+  struct AlwaysEscalate;
+
+  #[cfg(feature = "std")]
+  impl<M, R> GuardianStrategy<M, R> for AlwaysEscalate
+  where
+    M: Element,
+    R: MailboxRuntime,
+  {
+    fn decide(&mut self, _actor: ActorId, _error: &dyn core::fmt::Debug) -> SupervisorDirective {
+      SupervisorDirective::Escalate
+    }
+  }
 
   #[derive(Debug, Clone, PartialEq, Eq)]
   enum Message {
@@ -556,5 +590,43 @@ mod tests {
 
     assert_eq!(log.borrow().as_slice(), &[Message::System(SystemMessage::Restart)]);
     assert!(!should_panic.get());
+  }
+
+  #[cfg(feature = "std")]
+  #[test]
+  fn scheduler_records_escalations() {
+    let runtime = TestMailboxRuntime::unbounded();
+    let mut scheduler: PriorityScheduler<Message, _, AlwaysEscalate> =
+      PriorityScheduler::with_strategy(runtime, AlwaysEscalate);
+
+    let should_panic = Rc::new(Cell::new(true));
+    let panic_flag = should_panic.clone();
+
+    let actor_ref = scheduler
+      .spawn_actor(
+        NoopSupervisor,
+        MailboxOptions::default(),
+        Arc::new(|sys| Message::System(sys)),
+        move |_, msg: Message| match msg {
+          Message::System(SystemMessage::Watch(_)) => {}
+          Message::User(_) if panic_flag.get() => {
+            panic_flag.set(false);
+            panic!("boom");
+          }
+          _ => {}
+        },
+      )
+      .unwrap();
+
+    actor_ref
+      .try_send_with_priority(Message::User(1), DEFAULT_PRIORITY)
+      .unwrap();
+
+    assert!(scheduler.dispatch_all().is_ok());
+
+    let escalations = scheduler.take_escalations();
+    assert_eq!(escalations.len(), 1);
+    assert_eq!(escalations[0].actor, ActorId(0));
+    assert!(escalations[0].reason.starts_with("panic:"));
   }
 }

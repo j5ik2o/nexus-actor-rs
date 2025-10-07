@@ -7,6 +7,7 @@ use nexus_utils_core_rs::sync::Flag;
 use nexus_utils_core_rs::{Element, PriorityMessage, QueueError, QueueRw, QueueSize, DEFAULT_PRIORITY};
 
 use crate::actor_id::ActorId;
+use crate::failure::FailureInfo;
 
 /// Mailbox abstraction that decouples message queue implementations from core logic.
 pub trait Mailbox<M> {
@@ -58,10 +59,11 @@ pub enum SystemMessage {
   Watch(ActorId),
   Unwatch(ActorId),
   Stop,
-  Failure,
+  Failure(FailureInfo),
   Restart,
   Suspend,
   Resume,
+  Escalate(FailureInfo),
 }
 
 impl SystemMessage {
@@ -70,9 +72,10 @@ impl SystemMessage {
     match self {
       SystemMessage::Watch(_) | SystemMessage::Unwatch(_) => DEFAULT_PRIORITY + 5,
       SystemMessage::Stop => DEFAULT_PRIORITY + 10,
-      SystemMessage::Failure => DEFAULT_PRIORITY + 12,
+      SystemMessage::Failure(_) => DEFAULT_PRIORITY + 12,
       SystemMessage::Restart => DEFAULT_PRIORITY + 11,
       SystemMessage::Suspend | SystemMessage::Resume => DEFAULT_PRIORITY + 9,
+      SystemMessage::Escalate(_) => DEFAULT_PRIORITY + 13,
     }
   }
 }

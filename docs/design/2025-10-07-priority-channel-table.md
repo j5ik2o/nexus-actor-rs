@@ -7,6 +7,7 @@
 | `SystemMessage::Watch` / `Unwatch` | Control | 監視更新は停止・障害通知より優先して処理したい |
 | `SystemMessage::Stop` | Control | 停止要求。終了処理を遅延させない |
 | `SystemMessage::Failure` | Control | Supervisor 再起動決定に直結するため優先処理 |
+| `SystemMessage::Escalate` | Control | 上位 Guardian / System 側へ障害通知をエスカレーション |
 | `SystemMessage::Restart` | Control | 再起動指示。protoactor-go の `Restarting` を参考 |
 | `SystemMessage::Suspend` / `Resume` | Control | Mailbox の状態切替。優先度高 |
 | Actor ユーザーメッセージ | Regular | `PriorityEnvelope::new` のデフォルト |

@@ -7,6 +7,7 @@ use core::time::Duration;
 
 mod actor_id;
 mod context;
+mod failure;
 mod guardian;
 mod mailbox;
 mod scheduler;
@@ -14,7 +15,9 @@ mod spawn;
 mod supervisor;
 mod timer;
 
+pub use actor_id::ActorId;
 pub use context::{ActorContext, PriorityActorRef};
+pub use failure::FailureInfo;
 pub use guardian::{AlwaysRestart, Guardian, GuardianStrategy};
 pub use mailbox::{
   Mailbox, MailboxOptions, MailboxPair, MailboxRuntime, MailboxSignal, PriorityEnvelope, QueueMailbox,
@@ -276,4 +279,3 @@ mod tests {
     RawWaker::new(ptr::null(), &VTABLE)
   }
 }
-pub use actor_id::ActorId;

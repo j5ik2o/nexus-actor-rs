@@ -18,9 +18,9 @@
 - panic 検出は `std` feature 時にのみ `catch_unwind` で処理し、no_std では未定義動作を避けるためガーディアン通知を行わず早期復帰する。
 - `GuardianStrategy` は protoactor-go の Strategy と同様に `decide` / `before_start` / `after_restart` を提供し、現状は `AlwaysRestart` のみ実装済み。
 
-### 今後の拡張ポイント
-- `SystemMessage::Watch` / `Unwatch` は 2025-10-07 実装済み。今後は、親コンテキスト側で通知を受け取り監視テーブルを更新する仕組み（`ActorContext` もしくは `Supervisor` へのフック）を整備する。
-- Escalate の送信先を multi-root（user/system guardian）で切り替えられるよう、`Guardian` にエスカレーション用アクタ参照を保持させる。
+### 現状と今後の拡張ポイント
+- `SystemMessage::Watch(ActorId)` / `Unwatch(ActorId)` は 2025-10-07 実装済み。`ActorContext` が `watchers()` / `register_watcher()` を提供し、子生成時に親 `ActorId` を自動登録する。今後は、この情報を Terminated 通知や typed API へ橋渡しする。
+- `Guardian::notify_failure` は `FailureInfo` を返し、`PriorityScheduler` が Escalate を蓄積する仕組みを導入済み。Escalate 先の通知（親 Guardian／System guardian）をハンドオフするコンポーネントが今後必要。
 - `map_system` を typed 層の DSL が差し替えられるよう、`TypedMailboxAdapter`（仮称）がクロージャ生成を担う。
 
 ## SystemMessage フロー（現状）
@@ -30,8 +30,8 @@
 4. no_std 構成では panic を捕捉できないため、今後 `Result` ベースのエラーパスや `SystemMessage::Failure` API を追加する余地がある。
 
 ## SystemMessage フロー（今後の計画）
-1. Guardian が送出した `SystemMessage::Watch` / `Unwatch` を親アクターで経路制御する。具体的には、`ActorContext` が制御メッセージ受信時に `watchers` テーブルへ登録・解除する API を公開する。
-2. Escalate をサポートし、上位 Guardian へ転送する際も `map_system` クロージャを通じてメッセージ型を変換する。
+1. Guardian が送出した `SystemMessage::Watch` / `Unwatch` を親アクターで経路制御する。現状 `ActorContext` の `watchers()` により監視者一覧を参照できるため、Terminated 通知処理と連動させる。
+2. Escalate をサポートし、上位 Guardian へ転送する際も `map_system` クロージャを通じてメッセージ型を変換する（現段階では `PriorityScheduler::take_escalations` で収集するのみ）。
 3. Typed 層が `map_system` を生成し、`SystemMessage` をユーザーの DSL に沿った挙動へマッピングできるようインターフェースを整備する。
 
 ## Watch / Unwatch 親伝播設計草案
@@ -53,16 +53,16 @@
 
 ## Failure / Escalate 拡張方針
 
-### 追加するメッセージ
-- `SystemMessage::Failure(FailureInfo)`：子アクターから親へ障害情報を伝播。
-- `SystemMessage::Escalate(FailureInfo)`：Guardian が上位 Guardian へ障害をエスカレート。
-- `FailureInfo` には `actor_id`, `reason`, `restart_stats`, `last_message` のような protoactor-go に準じたフィールドを含める。
+### 追加したメッセージ
+- `SystemMessage::Failure(FailureInfo)`：Restart/Stop と同じチャネルで障害情報を保持（Escalate しない場合でもダンプ可能）。
+- `SystemMessage::Escalate(FailureInfo)`：GuardianStrategy が Escalate を返した際、上位層へ伝播するためのメッセージ。現状は `PriorityScheduler::take_escalations` で収集する。
+- `FailureInfo` には `actor: ActorId` と `reason: String` を保持。再起動統計などの拡張は今後追加予定。
 
 ### 予定する実装ステップ
-1. `FailureInfo` 構造体を `actor-core` に追加し、`PriorityEnvelope<FailureInfo>` を扱えるよう `Element` を実装。
-2. `GuardianStrategy::decide` が `SupervisorDirective::Escalate` を返した際、`Guardian` が `SystemMessage::Escalate` を生成し、親 Guardian もしくはルート戦略へ転送する。
-3. `Supervisor` 実装に Failure/Escalate を通知するため、`ActorContext` に `notify_failure` フックを追加する。
-4. テストシナリオ: (a) 子アクターが panic し再起動。Restart/Stop を確認。(b) 再起動回数上限を超えた場合 Escalate を返す戦略で Failure メッセージが親へ流れることを確認。
+1. `FailureInfo` に Restart 統計や最終処理メッセージなどのメタ情報を追加し、SupervisorStrategy が条件判定に利用できるようにする。
+2. `GuardianStrategy::decide` で Escalate を返した際、`Guardian` が Escalate 用ハンドラへ移譲し、親アクターへの通知や system guardian 連携を実装する。
+3. `Supervisor` 実装に Failure/Escalate を通知するため、`ActorContext` に `notify_failure` フックを追加し、Typed 層でも `TypedSystemEvent::Failure` を処理できるようにする。
+4. テストシナリオ: (a) 子アクターが panic し再起動。Restart/Stop を確認。（済） (b) Escalate 戦略で `PriorityScheduler::take_escalations` に FailureInfo が蓄積されることを検証。（済） (c) 将来的に Escalate が親へ届く統合テストを追加。
 
 ### 留意点
 - Escalate の送信先は protoactor-go では GuardianProcess（system guardian）固定。Rust 版では `PriorityScheduler` が複数 Guardian を持てるようにし、`GuardianHandle` のような構造を介して上位に通知することを検討。
