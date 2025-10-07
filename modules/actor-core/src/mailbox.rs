@@ -12,7 +12,7 @@ use crate::failure::FailureInfo;
 /// Mailbox abstraction that decouples message queue implementations from core logic.
 pub trait Mailbox<M> {
   type SendError;
-  type RecvFuture<'a>: Future<Output = M> + 'a
+  type RecvFuture<'a>: Future<Output = Result<M, QueueError<M>>> + 'a
   where
     Self: 'a;
 
@@ -409,28 +409,33 @@ where
   S: MailboxSignal,
   M: Element,
 {
-  type Output = M;
+  type Output = Result<M, QueueError<M>>;
 
   fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
     let this = unsafe { self.get_unchecked_mut() };
     if this.mailbox.closed.get() {
-      return Poll::Pending;
+      return Poll::Ready(Err(QueueError::Disconnected));
     }
     loop {
       match this.mailbox.queue.poll() {
         Ok(Some(message)) => {
           this.wait = None;
-          return Poll::Ready(message);
+          return Poll::Ready(Ok(message));
         }
         Ok(None) => {
           if this.wait.is_none() {
             this.wait = Some(this.mailbox.signal.wait());
           }
         }
-        Err(QueueError::Disconnected) | Err(QueueError::Closed(_)) => {
+        Err(QueueError::Disconnected) => {
           this.mailbox.closed.set(true);
           this.wait = None;
-          return Poll::Pending;
+          return Poll::Ready(Err(QueueError::Disconnected));
+        }
+        Err(QueueError::Closed(message)) => {
+          this.mailbox.closed.set(true);
+          this.wait = None;
+          return Poll::Ready(Ok(message));
         }
         Err(QueueError::Full(_)) | Err(QueueError::OfferError(_)) => {
           return Poll::Pending;
@@ -664,8 +669,8 @@ pub mod test_support {
       let mut cx = Context::from_waker(&waker);
       let mut pinned = unsafe { Pin::new_unchecked(&mut future) };
 
-      assert_eq!(pinned.as_mut().poll(&mut cx), Poll::Ready(1));
-      assert_eq!(pinned.poll(&mut cx), Poll::Ready(2));
+      assert_eq!(pinned.as_mut().poll(&mut cx), Poll::Ready(Ok(1)));
+      assert_eq!(pinned.poll(&mut cx), Poll::Ready(Ok(2)));
     }
 
     fn noop_waker() -> Waker {

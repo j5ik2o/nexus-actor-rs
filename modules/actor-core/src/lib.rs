@@ -4,6 +4,7 @@
 extern crate alloc;
 
 use core::time::Duration;
+use nexus_utils_core_rs::QueueError;
 
 mod actor_id;
 mod actor_path;
@@ -54,8 +55,12 @@ where
   T: Timer,
   F: FnMut(M), {
   loop {
-    let message = mailbox.recv().await;
-    handler(message);
+    match mailbox.recv().await {
+      Ok(message) => handler(message),
+      Err(QueueError::Disconnected) => break,
+      Err(QueueError::Closed(message)) => handler(message),
+      Err(_) => break,
+    }
     timer.sleep(Duration::from_millis(0)).await;
   }
 }
@@ -257,7 +262,7 @@ mod tests {
     assert!(matches!(poll_once(&mut recv_future), Poll::Pending));
 
     mailbox.try_send(42).unwrap();
-    assert_eq!(poll_once(&mut recv_future), Poll::Ready(42));
+    assert_eq!(poll_once(&mut recv_future), Poll::Ready(Ok(42)));
 
     mailbox.close();
     assert!(matches!(
@@ -266,7 +271,7 @@ mod tests {
     ));
 
     let mut closed_recv = mailbox.recv();
-    assert!(matches!(poll_once(&mut closed_recv), Poll::Pending));
+    assert_eq!(poll_once(&mut closed_recv), Poll::Ready(Err(QueueError::Disconnected)));
     assert!(mailbox.is_closed());
   }
 

@@ -416,7 +416,11 @@ where
     new_children: &mut Vec<ActorCell<M, R, Strat>>,
     escalations: &mut Vec<FailureInfo>,
   ) -> Result<usize, QueueError<PriorityEnvelope<M>>> {
-    let first = self.mailbox.recv().await;
+    let first = match self.mailbox.recv().await {
+      Ok(message) => message,
+      Err(QueueError::Disconnected) => return Ok(0),
+      Err(err) => return Err(err),
+    };
     let mut envelopes = vec![first];
     envelopes.extend(self.collect_envelopes()?);
     if envelopes.len() > 1 {

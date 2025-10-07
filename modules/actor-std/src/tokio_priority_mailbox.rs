@@ -392,9 +392,9 @@ mod tests {
 
     tokio::task::yield_now().await;
 
-    let first = mailbox.recv().await;
-    let second = mailbox.recv().await;
-    let third = mailbox.recv().await;
+    let first = mailbox.recv().await.expect("first message");
+    let second = mailbox.recv().await.expect("second message");
+    let third = mailbox.recv().await.expect("third message");
 
     assert_eq!(first.into_parts(), (99, DEFAULT_PRIORITY + 7));
     assert_eq!(second.into_parts(), (20, DEFAULT_PRIORITY + 3));
@@ -411,7 +411,7 @@ mod tests {
       .await
       .expect("send default priority");
 
-    let envelope = mailbox.recv().await;
+    let envelope = mailbox.recv().await.expect("receive envelope");
     let (_, priority) = envelope.into_parts();
     assert_eq!(priority, DEFAULT_PRIORITY);
   }
@@ -430,8 +430,8 @@ mod tests {
       .await
       .expect("enqueue control message");
 
-    let first = mailbox.recv().await;
-    let second = mailbox.recv().await;
+    let first = mailbox.recv().await.expect("first message");
+    let second = mailbox.recv().await.expect("second message");
 
     assert_eq!(first.into_parts(), (99, DEFAULT_PRIORITY + 5));
     assert_eq!(second.into_parts(), (1, DEFAULT_PRIORITY));

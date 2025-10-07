@@ -335,10 +335,10 @@ mod tests {
 
     let future = mailbox.recv();
     let (first_poll, future) = pin_poll(future);
-    assert_eq!(first_poll, Poll::Ready(1));
+    assert_eq!(first_poll, Poll::Ready(Ok(1)));
 
     let (second_poll, _) = pin_poll(future);
-    assert_eq!(second_poll, Poll::Ready(2));
+    assert_eq!(second_poll, Poll::Ready(Ok(2)));
   }
 
   #[test]
@@ -354,7 +354,7 @@ mod tests {
 
     sender.try_send(99_u8).unwrap();
 
-    assert_eq!(pinned.poll(&mut cx), Poll::Ready(99));
+    assert_eq!(pinned.poll(&mut cx), Poll::Ready(Ok(99)));
   }
 
   #[test]
@@ -370,7 +370,7 @@ mod tests {
     sender.try_send(7_u8).unwrap();
 
     let value = pinned.poll(&mut cx);
-    assert_eq!(value, Poll::Ready(7));
+    assert_eq!(value, Poll::Ready(Ok(7)));
   }
 
   #[test]
@@ -381,7 +381,7 @@ mod tests {
     sender.try_send(11).unwrap();
     let future = mailbox.recv();
     let (poll, _) = pin_poll(future);
-    assert_eq!(poll, Poll::Ready(11));
+    assert_eq!(poll, Poll::Ready(Ok(11)));
     assert!(mailbox.capacity().is_limitless());
     assert_eq!(mailbox.len().to_usize(), 0);
   }

@@ -276,8 +276,8 @@ mod tests {
     assert!(matches!(sender.try_send(3), Err(QueueError::Full(3))));
     assert_eq!(mailbox.len().to_usize(), 2);
 
-    let first = mailbox.recv().await;
-    let second = mailbox.recv().await;
+    let first = mailbox.recv().await.expect("first message");
+    let second = mailbox.recv().await.expect("second message");
 
     assert_eq!(first, 1);
     assert_eq!(second, 2);
@@ -296,7 +296,7 @@ mod tests {
     assert!(mailbox.capacity().is_limitless());
 
     for expected in 0..32_u32 {
-      let received = mailbox.recv().await;
+      let received = mailbox.recv().await.expect("receive message");
       assert_eq!(received, expected);
     }
 
