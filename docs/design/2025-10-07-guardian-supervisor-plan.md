@@ -21,6 +21,7 @@
 ### 現状と今後の拡張ポイント
 - `SystemMessage::Watch(ActorId)` / `Unwatch(ActorId)` は 2025-10-07 実装済み。`ActorContext` が `watchers()` / `register_watcher()` を提供し、子生成時に親 `ActorId` を自動登録する。今後は、この情報を Terminated 通知や typed API へ橋渡しする。
 - `Guardian::notify_failure` は `FailureInfo` を返し、`PriorityScheduler` が Escalate を蓄積する仕組みを導入済み。Escalate 先の通知（親 Guardian／System guardian）をハンドオフするコンポーネントが今後必要。
+- `PriorityScheduler::on_escalation` を追加し、外部ランタイムが FailureInfo をリアルタイムに受け取れるようにした。これにより、現在はスケジューラ内で Escalate を処理しつつ、将来的に親 Guardian や system actor へ即時転送が可能。
 - `map_system` を typed 層の DSL が差し替えられるよう、`TypedMailboxAdapter`（仮称）がクロージャ生成を担う。
 
 ## SystemMessage フロー（現状）

@@ -31,6 +31,7 @@ where
   guardian: Guardian<M, R, Strat>,
   actors: Vec<ActorCell<M, R, Strat>>,
   escalations: Vec<FailureInfo>,
+  escalation_handler: Option<Box<dyn FnMut(&FailureInfo) + 'static>>,
 }
 
 impl<M, R> PriorityScheduler<M, R, AlwaysRestart>
@@ -46,6 +47,7 @@ where
       guardian: Guardian::new(AlwaysRestart),
       actors: Vec::new(),
       escalations: Vec::new(),
+      escalation_handler: None,
     }
   }
 
@@ -57,6 +59,7 @@ where
       guardian: Guardian::new(strategy),
       actors: Vec::new(),
       escalations: Vec::new(),
+      escalation_handler: None,
     }
   }
 }
@@ -112,6 +115,14 @@ where
       cell.process_all(&mut self.guardian, &mut new_children, &mut self.escalations)?;
     }
     self.actors.extend(new_children.into_iter());
+
+    if !self.escalations.is_empty() {
+      if let Some(handler) = self.escalation_handler.as_mut() {
+        for info in self.escalations.drain(..) {
+          handler(&info);
+        }
+      }
+    }
     Ok(())
   }
 
@@ -121,6 +132,12 @@ where
 
   pub fn take_escalations(&mut self) -> Vec<FailureInfo> {
     core::mem::take(&mut self.escalations)
+  }
+
+  pub fn on_escalation<F>(&mut self, handler: F)
+  where
+    F: FnMut(&FailureInfo) + 'static, {
+    self.escalation_handler = Some(Box::new(handler));
   }
 }
 
@@ -333,6 +350,7 @@ mod tests {
   use crate::mailbox::test_support::TestMailboxRuntime;
   use crate::mailbox::{MailboxOptions, SystemMessage};
   use crate::supervisor::NoopSupervisor;
+  #[cfg(feature = "std")]
   use crate::SupervisorDirective;
   use alloc::rc::Rc;
   use alloc::sync::Arc;
@@ -599,6 +617,12 @@ mod tests {
     let mut scheduler: PriorityScheduler<Message, _, AlwaysEscalate> =
       PriorityScheduler::with_strategy(runtime, AlwaysEscalate);
 
+    let sink: Rc<RefCell<Vec<FailureInfo>>> = Rc::new(RefCell::new(Vec::new()));
+    let sink_clone = sink.clone();
+    scheduler.on_escalation(move |info| {
+      sink_clone.borrow_mut().push(info.clone());
+    });
+
     let should_panic = Rc::new(Cell::new(true));
     let panic_flag = should_panic.clone();
 
@@ -624,9 +648,12 @@ mod tests {
 
     assert!(scheduler.dispatch_all().is_ok());
 
-    let escalations = scheduler.take_escalations();
-    assert_eq!(escalations.len(), 1);
-    assert_eq!(escalations[0].actor, ActorId(0));
-    assert!(escalations[0].reason.starts_with("panic:"));
+    let handler_data = sink.borrow();
+    assert_eq!(handler_data.len(), 1);
+    assert_eq!(handler_data[0].actor, ActorId(0));
+    assert!(handler_data[0].reason.starts_with("panic:"));
+
+    // handler で除去済みのため take_escalations は空
+    assert!(scheduler.take_escalations().is_empty());
   }
 }
