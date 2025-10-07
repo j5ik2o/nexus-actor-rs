@@ -43,31 +43,45 @@ mod tests {
   use core::cell::RefCell;
   use core::future::Future;
   use core::pin::Pin;
-  use core::task::{Context, Poll, RawWaker, RawWakerVTable, Waker};
+  use core::task::{Context, Poll};
+  use futures::task::{waker, ArcWake};
   use nexus_actor_core_rs::{MailboxOptions, TypedActorSystem, TypedProps};
+  use std::sync::{Arc, Condvar, Mutex};
 
   fn block_on<F: Future>(mut future: F) -> F::Output {
-    let waker = unsafe { Waker::from_raw(noop_raw_waker()) };
+    struct WaitCell {
+      state: Mutex<bool>,
+      cvar: Condvar,
+    }
+
+    impl ArcWake for WaitCell {
+      fn wake_by_ref(arc_self: &Arc<Self>) {
+        let mut ready = arc_self.state.lock().unwrap();
+        *ready = true;
+        arc_self.cvar.notify_one();
+      }
+    }
+
+    let cell = Arc::new(WaitCell {
+      state: Mutex::new(false),
+      cvar: Condvar::new(),
+    });
+    let waker = waker(cell.clone());
     let mut cx = Context::from_waker(&waker);
     // Safety: we never move `future` after pinning.
     let mut pinned = unsafe { Pin::new_unchecked(&mut future) };
     loop {
       match pinned.as_mut().poll(&mut cx) {
         Poll::Ready(output) => break output,
-        Poll::Pending => core::hint::spin_loop(),
+        Poll::Pending => {
+          let mut ready = cell.state.lock().unwrap();
+          while !*ready {
+            ready = cell.cvar.wait(ready).unwrap();
+          }
+          *ready = false;
+        }
       }
     }
-  }
-
-  unsafe fn noop_raw_waker() -> RawWaker {
-    fn clone(_: *const ()) -> RawWaker {
-      unsafe { noop_raw_waker() }
-    }
-    fn wake(_: *const ()) {}
-    fn wake_by_ref(_: *const ()) {}
-    fn drop(_: *const ()) {}
-
-    RawWaker::new(core::ptr::null(), &RawWakerVTable::new(clone, wake, wake_by_ref, drop))
   }
 
   #[test]

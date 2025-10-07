@@ -116,32 +116,13 @@ where
   }
 
   pub fn dispatch_all(&mut self) -> Result<(), QueueError<PriorityEnvelope<M>>> {
-    let mut new_children = Vec::new();
-    let len = self.actors.len();
-    for idx in 0..len {
-      let cell = &mut self.actors[idx];
-      let _ = cell.process_pending(&mut self.guardian, &mut new_children, &mut self.escalations)?;
-    }
-    self.actors.extend(new_children.into_iter());
-    let _ = self.handle_escalations()?;
+    let _ = self.drain_ready_cycle()?;
     Ok(())
   }
 
   pub async fn dispatch_next(&mut self) -> Result<(), QueueError<PriorityEnvelope<M>>> {
     loop {
-      let mut new_children = Vec::new();
-      let len = self.actors.len();
-      let mut processed_any = false;
-      for idx in 0..len {
-        let cell = &mut self.actors[idx];
-        if cell.process_pending(&mut self.guardian, &mut new_children, &mut self.escalations)? > 0 {
-          processed_any = true;
-        }
-      }
-      if !new_children.is_empty() {
-        self.actors.extend(new_children.into_iter());
-      }
-      if processed_any || self.handle_escalations()? {
+      if self.drain_ready_cycle()? {
         return Ok(());
       }
 
@@ -149,25 +130,8 @@ where
         return Ok(());
       };
 
-      if index >= self.actors.len() {
-        continue;
-      }
-
-      let mut new_children = Vec::new();
-      if self.actors[index]
-        .wait_and_process(&mut self.guardian, &mut new_children, &mut self.escalations)
-        .await?
-        > 0
-        || self.handle_escalations()?
-      {
-        if !new_children.is_empty() {
-          self.actors.extend(new_children.into_iter());
-        }
+      if self.process_waiting_actor(index).await? {
         return Ok(());
-      }
-
-      if !new_children.is_empty() {
-        self.actors.extend(new_children.into_iter());
       }
     }
   }
@@ -240,6 +204,46 @@ where
 
     let (idx, _, _) = select_all(waiters).await;
     Some(idx)
+  }
+
+  fn drain_ready_cycle(&mut self) -> Result<bool, QueueError<PriorityEnvelope<M>>> {
+    let mut new_children = Vec::new();
+    let len = self.actors.len();
+    let mut processed_any = false;
+    for idx in 0..len {
+      let cell = &mut self.actors[idx];
+      if cell.process_pending(&mut self.guardian, &mut new_children, &mut self.escalations)? > 0 {
+        processed_any = true;
+      }
+    }
+    self.finish_cycle(new_children, processed_any)
+  }
+
+  async fn process_waiting_actor(&mut self, index: usize) -> Result<bool, QueueError<PriorityEnvelope<M>>> {
+    if index >= self.actors.len() {
+      return Ok(false);
+    }
+
+    let mut new_children = Vec::new();
+    let processed = self.actors[index]
+      .wait_and_process(&mut self.guardian, &mut new_children, &mut self.escalations)
+      .await?
+      > 0;
+
+    self.finish_cycle(new_children, processed)
+  }
+
+  fn finish_cycle(
+    &mut self,
+    new_children: Vec<ActorCell<M, R, Strat>>,
+    processed_any: bool,
+  ) -> Result<bool, QueueError<PriorityEnvelope<M>>> {
+    if !new_children.is_empty() {
+      self.actors.extend(new_children);
+    }
+
+    let handled = self.handle_escalations()?;
+    Ok(processed_any || handled)
   }
 
   fn forward_to_local_parent(&self, info: &FailureInfo) -> bool {
