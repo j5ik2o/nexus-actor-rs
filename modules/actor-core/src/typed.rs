@@ -1,6 +1,8 @@
 use alloc::sync::Arc;
 use core::convert::Infallible;
 
+use crate::actor_id::ActorId;
+use crate::actor_path::ActorPath;
 use crate::context::{ActorContext, PriorityActorRef};
 use crate::guardian::AlwaysRestart;
 use crate::mailbox::SystemMessage;
@@ -17,6 +19,84 @@ pub enum MessageEnvelope<U> {
 }
 
 impl<U> Element for MessageEnvelope<U> where U: Element {}
+
+/// Typed actor execution context wrapper.
+/// 'r: lifetime of the mutable reference to ActorContext
+/// 'ctx: lifetime parameter of ActorContext itself
+pub struct TypedContext<'r, 'ctx, U, R>
+where
+  U: Element,
+  R: MailboxRuntime + Clone + 'static,
+  R::Queue<PriorityEnvelope<MessageEnvelope<U>>>: Clone,
+  R::Signal: Clone, {
+  inner: &'r mut ActorContext<'ctx, MessageEnvelope<U>, R, dyn Supervisor<MessageEnvelope<U>>>,
+}
+
+impl<'r, 'ctx, U, R> TypedContext<'r, 'ctx, U, R>
+where
+  U: Element,
+  R: MailboxRuntime + Clone + 'static,
+  R::Queue<PriorityEnvelope<MessageEnvelope<U>>>: Clone,
+  R::Signal: Clone,
+{
+  pub fn actor_id(&self) -> ActorId {
+    self.inner.actor_id()
+  }
+
+  pub fn actor_path(&self) -> &ActorPath {
+    self.inner.actor_path()
+  }
+
+  pub fn watchers(&self) -> &[ActorId] {
+    self.inner.watchers()
+  }
+
+  pub fn send_to_self(&self, message: U) -> Result<(), QueueError<PriorityEnvelope<MessageEnvelope<U>>>> {
+    self
+      .inner
+      .send_to_self_with_priority(MessageEnvelope::User(message), DEFAULT_PRIORITY)
+  }
+
+  pub fn send_system_to_self(
+    &self,
+    message: SystemMessage,
+  ) -> Result<(), QueueError<PriorityEnvelope<MessageEnvelope<U>>>> {
+    let priority = message.priority();
+    self
+      .inner
+      .send_control_to_self(MessageEnvelope::System(message), priority)
+  }
+
+  pub fn inner(&mut self) -> &mut ActorContext<'ctx, MessageEnvelope<U>, R, dyn Supervisor<MessageEnvelope<U>>> {
+    self.inner
+  }
+}
+
+/// Minimal typed behavior abstraction.
+pub struct Behavior<U, R>
+where
+  U: Element,
+  R: MailboxRuntime + Clone + 'static,
+  R::Queue<PriorityEnvelope<MessageEnvelope<U>>>: Clone,
+  R::Signal: Clone, {
+  handler: Box<dyn for<'r, 'ctx> FnMut(&mut TypedContext<'r, 'ctx, U, R>, U) + 'static>,
+}
+
+impl<U, R> Behavior<U, R>
+where
+  U: Element,
+  R: MailboxRuntime + Clone + 'static,
+  R::Queue<PriorityEnvelope<MessageEnvelope<U>>>: Clone,
+  R::Signal: Clone,
+{
+  pub fn stateless<F>(handler: F) -> Self
+  where
+    F: for<'r, 'ctx> FnMut(&mut TypedContext<'r, 'ctx, U, R>, U) + 'static, {
+    Self {
+      handler: Box::new(handler),
+    }
+  }
+}
 
 pub struct TypedProps<U, R>
 where
@@ -40,27 +120,58 @@ where
     Self::with_system_handler(
       options,
       handler,
-      Option::<fn(&mut ActorContext<'_, MessageEnvelope<U>, R, dyn Supervisor<MessageEnvelope<U>>>, SystemMessage)>::None,
+      Option::<
+        fn(
+          &mut ActorContext<'_, MessageEnvelope<U>, R, dyn Supervisor<MessageEnvelope<U>>>,
+          SystemMessage,
+        ),
+      >::None,
     )
+  }
+
+  pub fn from_typed_handler<G>(options: MailboxOptions, handler: G) -> Self
+  where
+    G: for<'r, 'ctx> FnMut(&mut TypedContext<'r, 'ctx, U, R>, U) + 'static, {
+    Self::with_behavior(options, Behavior::stateless(handler))
+  }
+
+  pub fn with_behavior(options: MailboxOptions, behavior: Behavior<U, R>) -> Self {
+    Self::with_behavior_and_system::<
+      fn(&mut ActorContext<'_, MessageEnvelope<U>, R, dyn Supervisor<MessageEnvelope<U>>>, SystemMessage),
+    >(options, behavior, None)
   }
 
   pub fn with_system_handler<F, G>(options: MailboxOptions, user_handler: F, system_handler: Option<G>) -> Self
   where
     F: FnMut(&mut ActorContext<'_, MessageEnvelope<U>, R, dyn Supervisor<MessageEnvelope<U>>>, U) + 'static,
-    G: FnMut(&mut ActorContext<'_, MessageEnvelope<U>, R, dyn Supervisor<MessageEnvelope<U>>>, SystemMessage) + 'static,
-  {
-    let map_system = Arc::new(|sys: SystemMessage| MessageEnvelope::System(sys));
+    G: for<'ctx> FnMut(&mut ActorContext<'ctx, MessageEnvelope<U>, R, dyn Supervisor<MessageEnvelope<U>>>, SystemMessage)
+      + 'static, {
     let mut user_handler = user_handler;
-    let mut system_handler = system_handler;
+    let behavior = Behavior::stateless(move |ctx: &mut TypedContext<'_, '_, U, R>, message| {
+      user_handler(ctx.inner(), message);
+    });
+    Self::with_behavior_and_system(options, behavior, system_handler)
+  }
 
+  pub fn with_behavior_and_system<S>(
+    options: MailboxOptions,
+    mut behavior: Behavior<U, R>,
+    mut system_handler: Option<S>,
+  ) -> Self
+  where
+    S: for<'ctx> FnMut(&mut ActorContext<'ctx, MessageEnvelope<U>, R, dyn Supervisor<MessageEnvelope<U>>>, SystemMessage)
+      + 'static, {
+    let map_system = Arc::new(|sys: SystemMessage| MessageEnvelope::System(sys));
     let handler = move |ctx: &mut ActorContext<'_, MessageEnvelope<U>, R, dyn Supervisor<MessageEnvelope<U>>>,
                         envelope: MessageEnvelope<U>| {
       match envelope {
         MessageEnvelope::User(message) => {
-          user_handler(ctx, message);
+          // Inline behavior.handle to avoid lifetime issues in closure
+          let mut typed_ctx = TypedContext { inner: ctx };
+          (behavior.handler)(&mut typed_ctx, message);
         }
         MessageEnvelope::System(message) => {
-          if let Some(ref mut handler) = system_handler {
+          if let Some(handler) = system_handler.as_mut() {
             handler(ctx, message);
           }
         }

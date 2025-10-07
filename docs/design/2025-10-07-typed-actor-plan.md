@@ -76,7 +76,7 @@ pub struct TypedActorRef<M> {
 - `spawn_child` が返す `TypedActorRef` をプロミスベースで扱える仕組み。
 
 ## TODO
-1. `Behavior<M>` と `TypedContext<M>` の最小実装を `actor-core` に追加。
+1. `Behavior<M>` と `TypedContext<M>` の最小実装を `actor-core` に追加。（2025-10-07 完了）
 2. typed → untyped アダプタ（`TypedActorAdapter`）を作成し、`map_system` クロージャを生成する API を定義。
 3. `TypedProps` 初期化時に `map_system` を `ActorContext::spawn_child` へ渡す経路を実装。
 4. サンプルアクター（stateless/stateful）で単体テストし、SystemMessage が typed 層に伝播する統合テストを整備。
