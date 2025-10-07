@@ -6,6 +6,7 @@ extern crate alloc;
 use core::time::Duration;
 
 mod context;
+mod guardian;
 mod mailbox;
 mod scheduler;
 mod spawn;
@@ -13,6 +14,7 @@ mod supervisor;
 mod timer;
 
 pub use context::{ActorContext, PriorityActorRef};
+pub use guardian::{ActorId, AlwaysRestart, Guardian, GuardianStrategy};
 pub use mailbox::{
   Mailbox, MailboxOptions, MailboxPair, MailboxRuntime, MailboxSignal, PriorityEnvelope, QueueMailbox,
   QueueMailboxProducer, QueueMailboxRecv,

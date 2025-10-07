@@ -157,11 +157,11 @@ mod tests {
   use super::*;
   use crate::mailbox::test_support::TestMailboxRuntime;
   use crate::mailbox::{MailboxOptions, SystemMessage};
-  use nexus_utils_core_rs::DEFAULT_PRIORITY;
   use crate::supervisor::NoopSupervisor;
   use alloc::rc::Rc;
   use alloc::vec::Vec;
   use core::cell::RefCell;
+  use nexus_utils_core_rs::DEFAULT_PRIORITY;
 
   #[derive(Debug, Clone, PartialEq, Eq)]
   enum Message {
@@ -225,7 +225,10 @@ mod tests {
 
     scheduler.dispatch_all().unwrap();
 
-    assert_eq!(log.borrow().as_slice(), &[Message::System(SystemMessage::Stop), Message::User(42)]);
+    assert_eq!(
+      log.borrow().as_slice(),
+      &[Message::System(SystemMessage::Stop), Message::User(42)]
+    );
   }
 
   #[test]
@@ -236,9 +239,13 @@ mod tests {
     let log: Rc<RefCell<Vec<SystemMessage>>> = Rc::new(RefCell::new(Vec::new()));
     let log_clone = log.clone();
 
-    let actor_ref = scheduler.spawn_actor(NoopSupervisor, MailboxOptions::default(), move |_, msg: SystemMessage| {
-      log_clone.borrow_mut().push(msg.clone());
-    });
+    let actor_ref = scheduler.spawn_actor(
+      NoopSupervisor,
+      MailboxOptions::default(),
+      move |_, msg: SystemMessage| {
+        log_clone.borrow_mut().push(msg.clone());
+      },
+    );
 
     actor_ref.try_send_system(SystemMessage::Restart).unwrap();
     scheduler.dispatch_all().unwrap();

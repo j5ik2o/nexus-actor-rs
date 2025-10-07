@@ -65,6 +65,7 @@ pub struct MailboxOptions {
 - `ActorContext` は `spawn_child` / `spawn_control_child` を提供し、ハンドラ内から子アクターを生成できる。生成リクエストは `ChildSpawnSpec` として蓄積し、`PriorityScheduler` がディスパッチ後に `ActorCell` へ登録する。これにより子アクターの mailbox/supervisor/handler を共通処理でセットアップできる。
 - `SystemMessage` 列挙体と `PriorityEnvelope::from_system` を追加し、protoactor-go の制御メッセージ優先度表を Rust 側でも再現。`PriorityEnvelope::map` でユーザー定義メッセージ型へ容易に変換できる。
 - `PriorityActorRef<SystemMessage>` は `try_send_system` を提供し、Supervisor や Guardian から制御メッセージを送信する際にチャネル・優先度が自動で設定される。`PriorityScheduler` の回帰テストで protoactor-go と同様にシステムメッセージが先行処理されることを確認済み。
+- `Guardian<M, R, Strat>` を core に実装。protoactor-go の Guardian と同様に、子アクターの制御用 `PriorityActorRef<SystemMessage, R>` を保持し、`GuardianStrategy` の結果に応じて `try_send_system(SystemMessage::Restart|Stop)` を送出する。
 
 ## MailboxOptions と優先度 Mailbox の容量解釈
 - `MailboxOptions::capacity` は論理的な総容量。優先度 Mailbox では `QueueSize::Limited(total)` をレベル数で均等割り（切り上げ）し per-level capacity として利用。`QueueSize::Limitless` は per-level 0（= dynamic）として扱う。
