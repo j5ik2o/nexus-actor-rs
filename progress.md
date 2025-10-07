@@ -5,3 +5,20 @@
 2025-09-26 22:19 JST 再開: 残タスク（ディスパッチャ経路メトリクス整備・remote/cluster影響ドラフト）に着手。
 2025-09-26 22:40 JST 進捗: dispatcher メトリクス設計メモを追加し、actor_context_lock ベンチにキュー滞留計測処理を実装。remote 影響メモも更新済み。
 2025-09-26 22:42 JST 進捗: actor_context_lock ベンチを計測ランに通し、サンプルサイズを調整。cargo test --workspace で全クレートのテストを再確認。
+2025-10-06 14:30 JST 進捗: Mailbox 抽象を QueueMailbox + Flag で再構築。utils-core に Flag を追加し、actor-core の QueueMailbox が close/disconnect を graceful に処理できるよう修正。テスト queue_mailbox_handles_close_and_disconnect を追加。
+2025-10-06 14:45 JST 進捗: embedded_arc 向けに Embassy Signal を使う ArcMailbox を実装。actor-embedded のプレリュードへ再輸出し、cargo test --workspace を実行。
+2025-10-06 15:00 JST 進捗: Mailbox 関連ソースを local_mailbox / arc_mailbox / tokio_mailbox へリネームし、モジュール構成を整理。テスト再確認済み。
+2025-10-06 16:05 JST 進捗: Mailbox ランタイム抽象化の差分整理と設計メモ (docs/design/2025-10-06-mailbox-runtime-plan.md) を作成。std/embedded 共通化の段階的リファクタリング計画を策定。
+2025-10-06 17:20 JST 進捗: MailboxRuntime トレイトと MailboxOptions を actor-core に実装。Tokio/Embedded/Local Mailbox を新抽象へ移行し、Future ラッパや send ハンドラを共有化。LocalMailbox は LocalQueue で Rc backend を共有。cargo test --workspace および no_std arc 構成テストを実行。
+2025-10-06 17:45 JST 進捗: embedded_arc ビルド課題の整理、MailboxRuntime 呼び出し箇所と優先度付き Mailbox 拡張計画を設計メモに追記。
+2025-10-06 18:15 JST 進捗: ArcMailboxRuntime 用の SignalFuture 依存を除去し、ArcMpsc* キューに Clone 実装を追加。`cargo test -p nexus-actor-embedded-rs --features embedded_arc` を含む指定テスト群を再実行し全て成功。
+2025-10-07 10:03 JST 進捗: TokioPriorityMailbox を PriorityEnvelope ベースで再実装し、VecDeque 層の優先度制御と容量制御テストを追加。TokioMailbox の NotifySignal を公開範囲へ変更し、workspace 全体と embedded arc feature のテストを再実行。
+2025-10-07 10:26 JST 進捗: ArcPriorityMailboxRuntime を追加し embedded_arc feature 向けの優先度 Mailbox を提供。actor-core に ActorContext / Supervisor / PriorityScheduler を導入し、QueueMailbox からメッセージを排出後に優先度でソートする統合テストを整備。TestMailboxRuntime を用いたスケジューラ検証も実行し cargo test --workspace を再確認。
+2025-10-07 10:39 JST 進捗: 優先度付き Mailbox を制御キュー＋通常キューの二層構成へ拡張。Tokio/embedded 双方で新しい複合キュー実装を導入し、MailboxOptions に priority_capacity を追加。制御メッセージ優先処理と容量分離テスト（std/embedded）を整備し、全ワークスペーステストを再実行。
+2025-10-07 10:52 JST 進捗: PriorityEnvelope にチャネル種別を導入し、制御メッセージ API（send_control/try_send_control）を追加。ActorContext へ spawn_child / spawn_control_child を実装し、PriorityScheduler が生成された子アクターを次サイクルで処理できるよう更新。Supervisor テストを拡張し、全ターゲットのテストを再実行。
+2025-10-07 11:00 JST 進捗: SystemMessage 列挙と from_system ヘルパーを追加し、PriorityEnvelope::map でメッセージ型変換を簡素化。PriorityActorRef の動作テストに制御メッセージケースを組み込み、protoactor-go の SystemMessage 優先度が保持されることを確認。
+2025-10-07 11:10 JST 進捗: PriorityActorRef<SystemMessage> に try_send_system を追加し、scheduler の統合テストで制御メッセージ経路を検証。プロトアクターの SystemMessage 送出フローを模した回帰テストを整備。
+2025-10-07 11:35 JST 進捗: Guardian と PriorityScheduler を統合し、map_system クロージャ経由で SystemMessage を型付きメッセージへ橋渡し。ActorContext/ChildSpawnSpec に map_system を保持させ、panic 時の guardian 通知と Restart/Stop シナリオをテスト（std feature 付きで panic 捕捉、no_std は早期 return）。scheduler の優先度テストを Message enum ベースへ更新し、新規ガーディアン再起動テストを追加。`cargo test -p nexus-actor-core-rs` および `--features std` を実行。
+2025-10-07 12:20 JST 進捗: ActorId を共通モジュール化し、SystemMessage::Watch/Unwatch に監視者 ActorId を付与。ActorContext に watchers API を追加し、子生成時に親監視を自動登録。Guardian と PriorityScheduler を watcher 情報と連携させ、Watch/Unwatch を制御キュー経由で配信。さらに FailureInfo / SystemMessage::Failure, Escalate を導入し、Escalate 戦略時に FailureInfo を収集できるよう PriorityScheduler::take_escalations / on_escalation を実装。新規テスト (watcher 露出/エスカレーション記録/親 restart シナリオ) を含む `cargo test -p nexus-actor-core-rs` / `--features std` を実行。
+2025-10-07 12:45 JST 進捗: PriorityScheduler に parent_guardian を設定できる API を追加し、FailureInfo を親 Guardian へ `SystemMessage::Escalate` として中継。Escalation ハンドラ失敗時は再キューリングするリトライ機構を導入。親 Guardian 向けの統合テスト `scheduler_escalation_handler_delivers_to_parent` を追加。`cargo test -p nexus-actor-core-rs` と `--features std` を再実行し成功を確認。
+2025-10-07 13:05 JST 進捗: ActorPath を導入して FailureInfo に監督ツリーの経路を保持させ、子 Guardian から親 Guardian へエスカレーションする際に正しい ActorId を再評価できるようリファクタリング。ActorContext/ChildSpawnSpec/ActorCell が ActorPath を引き回すよう更新し、FailureInfo::escalate_to_parent で親視点の FailureInfo を生成できるようにした。`cargo test -p nexus-actor-core-rs` および `--features std` を再実行。

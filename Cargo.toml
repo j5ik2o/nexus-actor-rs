@@ -6,7 +6,9 @@ members = [
   "modules/utils-embedded",
   "modules/actor-core",
   "modules/actor-std",
-  "modules/actor-embedded"
+  "modules/actor-embedded",
+  "modules/remote-core",
+  "modules/cluster-core"
 ]
 
 [workspace.dependencies]
