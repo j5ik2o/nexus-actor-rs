@@ -48,52 +48,14 @@
   - `TypedActorRef::tell` でユーザーメッセージを型安全に送信し、SystemMessage は自動的に高優先度で処理される。
   - `PriorityActorRef` は priority-aware な低レベル API として現状の名前を維持し、`TypedActorRef` を高水準 API と位置付ける。（ドキュメント / プレリュードでレイヤの違いを明記する）
 
-## 非同期ディスパッチ API 方針（案）
-- 現状: `PriorityScheduler::dispatch_all()` が同期的にすべてのメッセージを処理する。Tokio / Embassy からは `dispatch_all()` を直接呼ぶため、`await` が登場しない。
-- 目標: 触れられるところから async 化し、`dispatch_next().await`（仮称）で利用者が「次のメッセージを await できる」ようにする。
-
-### 1. PriorityScheduler の async 化
-
-```rust
-impl<M, R, Strat> PriorityScheduler<M, R, Strat> {
-  pub async fn dispatch_next(&mut self) -> Result<(), QueueError<PriorityEnvelope<M>>> {
-    // 1) mailbox から一件取り出す（なければシグナルで待機）
-    // 2) 取り出した envelope を処理する（現状の dispatch_envelope を流用）
-    // 3) 追加の制御メッセージがあればループ継続
-  }
-
-  pub async fn run_forever(&mut self) -> Result<(), QueueError<PriorityEnvelope<M>>> {
-    loop {
-      self.dispatch_next().await?;
-    }
-  }
-}
-```
-
-- MailboxRuntime に async `wait_for_message()` を追加し、キューが空の場合は `NotifySignal::wait().await` で待機。メッセージ到着時に wake。
-- 既存の `dispatch_all()` は互換目的で残しつつ、内部では `block_on` 等を使って `dispatch_next()` をぐるぐる回す実装に変更する。
-
-### 2. ActorSystem / RootContext の async API
-
-- `RootContext` に `async fn dispatch_next(&mut self) -> Result<(), QueueError<PriorityEnvelope<M>>>` を追加。
-- `TypedRootContext` にも同様の async API を用意し、Tokio / Embassy から自然に使えるようにする。
-- `TypedActorSystem::run_until`（仮）など、エグゼキュータに合わせたラッパ関数を提供すると便利かもしれない。
-
-### 3. actor-std (Tokio) での統合
-
-- `TokioMailboxRuntime` は既に `NotifySignal` を持っているので、`dispatch_next().await` をそのまま利用できる。
-- `TokioActorSystem`（仮称）を追加し、Tokio タスクとして scheduler を `run_forever().await` させる設計を検討。
-- テストは `async fn` + `#[tokio::test]` で `.await` を伴う形に差し替え。
-
-### 4. actor-embedded (Embassy) での並行対応
-
-- Embassy executor 向けに `dispatch_next().await` を呼び出すタスクを作り、`Spawner` から spawn。
-- 既存の embedded 用テストも `.await` ベースに更新。
-
-### 5. 遷移期間における互換性
-
-- 同期 API (`dispatch_all`) をすぐには削除せず、内部的に `dispatch_next()` を同期ブロックで回す形に変更し、既存コードを壊さないよう配慮。
-- 段階的に async API を推奨し、非同期フローが安定したら同期 API を deprecated へ移行する。
+## 非同期ディスパッチ API ステータス（2025-10-07 更新）
+- [x] `PriorityScheduler` に `dispatch_next` / `drain_ready_cycle` / `process_waiting_actor` を導入し、シグナル待機で次メッセージを `await` できるようにした。同期系 `dispatch_all` も内部で同じ処理経路を利用する。
+- [x] `RootContext` / `TypedRootContext` / `TypedActorSystem` が `dispatch_next().await` を公開し、Tokio／embedded から非同期ディスパッチを直接呼び出せるようになった。
+- [x] actor-std のユニットテストを `dispatch_next().await` ベースへ移行。Tokio MailboxRuntime との整合性確認済み。
+- [x] actor-embedded テストで Condvar ベースの `block_on` を用意し、ローカルランタイムでもシグナル待機をスピン無しで駆動できるようにした。
+- [ ] Scheduler 向けの `run_forever()` / `blocking_dispatch_loop()` など高水準ランナを追加し、アプリケーションが簡単に常駐タスクを起動できるようにする。
+- [ ] actor-embedded については Embassy executor との統合ラッパ（例: `EmbassyActorSystem`）を整備し、`Spawner` から `dispatch_next` を起動するガイドを文書化する。
+- [ ] `dispatch_all` の将来的な非推奨化方針と移行手順（`dispatch_next` ループでの置換ガイド）を設計メモへ追加する。
 ## EscalationSink TODO リスト
 - [ ] `actor-core`: `SchedulerEscalationSink` をパブリック API として再編し、
       `trait EscalationSink`（handle 戻り値 `Result<(), FailureInfo>`）と具体実装
@@ -113,8 +75,7 @@ impl<M, R, Strat> PriorityScheduler<M, R, Strat> {
       カスタム EscalationSink が再試行を返した場合に scheduler が FailureInfo を再キューするケースを追加する。
 - [ ] `system_guardian` / `root_guardian`: ルート EscalationSink を定義し、最上位で FailureInfo を
       ログ／メトリクス／イベントストリームへ流すフックを整備する。
-- [ ] `FailureEventHub` を std 構成で実装し、`FailureEventListener` を複数購読者へ配信する仕組みを
-      `PriorityScheduler::set_root_event_listener` から利用できるようにする（実装済み）。
+- [x] `FailureEventHub` を std 構成で実装し、`PriorityScheduler::set_root_event_listener` から複数購読者へ配信できるようにした。
 
 ## Watch / Unwatch 親伝播設計草案
 
