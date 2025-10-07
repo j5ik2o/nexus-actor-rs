@@ -29,7 +29,7 @@ pub use escalation::{
   CompositeEscalationSink, CustomEscalationSink, EscalationSink, FailureEventHandler, FailureEventListener,
   ParentGuardianSink, RootEscalationSink,
 };
-pub use failure::{FailureEvent, FailureInfo, FailureMetadata};
+pub use failure::{EscalationStage, FailureEvent, FailureInfo, FailureMetadata};
 #[cfg(feature = "std")]
 pub use failure_event_stream::{FailureEventHub, FailureEventSubscription};
 pub use guardian::{AlwaysRestart, Guardian, GuardianStrategy};

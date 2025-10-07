@@ -21,6 +21,6 @@
 
 ## 今後の TODO
 
-- SystemMessage 列挙型の導入と `PriorityEnvelope` ヘルパーの連携。
-- 優先度値の標準テーブル化（Stop = +10 等）。
-- Supervisor 経由で送信する内部メッセージの一貫テスト。
+- [x] SystemMessage 列挙型の導入と `PriorityEnvelope` ヘルパーの連携。`modules/actor-core/src/mailbox.rs` に `SystemMessage` と `PriorityEnvelope::from_system` を追加済み。（2025-10-07）
+- [x] 優先度値の標準テーブル化（Stop = +10 等）。`SystemMessage::priority()` で protoactor-go ベースの優先度テーブルを提供。（2025-10-07）
+- [x] Supervisor 経由で送信する内部メッセージの一貫テスト。`scheduler::tests::scheduler_prioritizes_system_messages` などで制御メッセージ優先処理を検証済み。（2025-10-07）

@@ -50,6 +50,48 @@ impl Default for FailureMetadata {
   }
 }
 
+/// エスカレーションの段階。
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum EscalationStage {
+  /// 最初の障害発生地点。
+  Initial,
+  /// 親方向へ伝播中。`hops` は伝播回数。
+  Escalated { hops: u8 },
+}
+
+impl EscalationStage {
+  pub const fn initial() -> Self {
+    EscalationStage::Initial
+  }
+
+  pub fn hops(self) -> u8 {
+    match self {
+      EscalationStage::Initial => 0,
+      EscalationStage::Escalated { hops } => hops,
+    }
+  }
+
+  pub const fn is_initial(self) -> bool {
+    matches!(self, EscalationStage::Initial)
+  }
+
+  pub fn escalate(self) -> Self {
+    match self {
+      EscalationStage::Initial => EscalationStage::Escalated { hops: 1 },
+      EscalationStage::Escalated { hops } => {
+        let next = hops.saturating_add(1);
+        EscalationStage::Escalated { hops: next }
+      }
+    }
+  }
+}
+
+impl Default for EscalationStage {
+  fn default() -> Self {
+    EscalationStage::Initial
+  }
+}
+
 /// 障害情報。protoactor-go の Failure メッセージを簡略化した形で保持する。
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FailureInfo {
@@ -57,6 +99,7 @@ pub struct FailureInfo {
   pub path: ActorPath,
   pub reason: String,
   pub metadata: FailureMetadata,
+  pub stage: EscalationStage,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -75,11 +118,17 @@ impl FailureInfo {
       path,
       reason,
       metadata,
+      stage: EscalationStage::Initial,
     }
   }
 
   pub fn with_metadata(mut self, metadata: FailureMetadata) -> Self {
     self.metadata = metadata;
+    self
+  }
+
+  pub fn with_stage(mut self, stage: EscalationStage) -> Self {
+    self.stage = stage;
     self
   }
 
@@ -98,6 +147,7 @@ impl FailureInfo {
       path,
       reason: alloc::format!("{:?}", error),
       metadata,
+      stage: EscalationStage::Initial,
     }
   }
 
@@ -109,6 +159,35 @@ impl FailureInfo {
       path: parent_path,
       reason: self.reason.clone(),
       metadata: self.metadata.clone(),
+      stage: self.stage.escalate(),
     })
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::actor_id::ActorId;
+  use crate::actor_path::ActorPath;
+
+  #[test]
+  fn escalation_stage_increments_with_parent_hops() {
+    let root = ActorId(0);
+    let child = ActorId(1);
+    let grandchild = ActorId(2);
+
+    let path = ActorPath::new()
+      .push_child(root)
+      .push_child(child)
+      .push_child(grandchild);
+    let failure = FailureInfo::new(grandchild, path, "boom".into());
+    assert!(matches!(failure.stage, EscalationStage::Initial));
+
+    let parent_failure = failure.escalate_to_parent().expect("parent exists");
+    assert!(matches!(parent_failure.stage, EscalationStage::Escalated { hops: 1 }));
+
+    let root_failure = parent_failure.escalate_to_parent().expect("root exists");
+    assert!(matches!(root_failure.stage, EscalationStage::Escalated { hops: 2 }));
+    assert_eq!(root_failure.path.segments(), &[root]);
   }
 }

@@ -40,7 +40,7 @@
 - `ActorSystem<M, R>`: Scheduler を内包し、`root_context()` で `RootContext` を取得する。現在は `AlwaysRestart` のみサポート。
 - `RootContext`:
   - `spawn(props)` でアクターを起動し、`PriorityActorRef` を返す。
-  - `dispatch_all()` により Scheduler のディスパッチを進める。
+  - `dispatch_next().await` や `run_until()` を利用して非同期にディスパッチを進める。同期環境向けには `blocking_dispatch_loop()` を提供。
 - actor-std では `TokioFailureEventBridge` を通じて `FailureEventHub` を tokio broadcast に橋渡しできる。
 - typed DSL の第一段階として `TypedProps` / `TypedActorSystem` / `TypedActorRef` を導入済み。
   - `TypedProps::new` でユーザーメッセージハンドラを登録し、内部的に `MessageEnvelope<User>` を生成する。
@@ -53,15 +53,19 @@
 - [x] `RootContext` / `TypedRootContext` / `TypedActorSystem` が `dispatch_next().await` を公開し、Tokio／embedded から非同期ディスパッチを直接呼び出せるようになった。
 - [x] actor-std のユニットテストを `dispatch_next().await` ベースへ移行。Tokio MailboxRuntime との整合性確認済み。
 - [x] actor-embedded テストで Condvar ベースの `block_on` を用意し、ローカルランタイムでもシグナル待機をスピン無しで駆動できるようにした。
-- [ ] Scheduler 向けの `run_forever()` / `blocking_dispatch_loop()` など高水準ランナを追加し、アプリケーションが簡単に常駐タスクを起動できるようにする。
-- [ ] actor-embedded については Embassy executor との統合ラッパ（例: `EmbassyActorSystem`）を整備し、`Spawner` から `dispatch_next` を起動するガイドを文書化する。
+- [x] Scheduler 向けの `run_forever()` / `blocking_dispatch_loop()` など高水準ランナを追加し、アプリケーションが簡単に常駐タスクを起動できるようにする。`PriorityScheduler` に常駐向け API 群を実装し、`scheduler_blocking_dispatch_loop_stops_with_closure` などのテストで挙動を確認済み。（2025-10-07）
+- [x] actor-embedded については Embassy executor との統合ラッパ（例: `EmbassyActorSystem`）を整備し、`Spawner` から `dispatch_next` を起動するガイドを文書化する。`modules/actor-embedded/examples/embassy_run_forever.rs` と `docs/worknotes/2025-10-07-embassy-dispatcher.md` に手順をまとめた。（2025-10-07）
 - [x] `dispatch_all` の段階的非推奨戦略を整理し、`docs/design/2025-10-07-dispatch-transition.md` に移行手順をまとめた。
 ## EscalationSink TODO リスト
-- [ ] `actor-core`: `SchedulerEscalationSink` をパブリック API として再編し、
+- [x] `actor-core`: `SchedulerEscalationSink` をパブリック API として再編し、
       `trait EscalationSink`（handle 戻り値 `Result<(), FailureInfo>`）と具体実装
-      （親ガーディアン／カスタム／合成）を提供する。
-- [ ] `PriorityScheduler`: Builder もしくは設定 API で EscalationSink を注入可能にし、
+      （親ガーディアン／カスタム／合成）を提供する。`modules/actor-core/src/escalation.rs` に
+      `ParentGuardianSink` / `CustomEscalationSink` / `CompositeEscalationSink` / `RootEscalationSink` を実装し、
+      `lib.rs` から公開済み。（2025-10-07）
+- [x] `PriorityScheduler`: Builder もしくは設定 API で EscalationSink を注入可能にし、
       子スケジューラがルートに参加する際に同一ポリシーを共有できるようにする。
+      `PriorityScheduler::set_parent_guardian` / `on_escalation` / `set_root_escalation_handler` /
+      `set_root_event_listener` を導入し、テストで動作確認済み。（2025-10-07）
 - [ ] `Guardian`: `escalate_failure` の戻り値を拡張し、
       `SupervisorDirective::Stop`／`Restart` を返さなかったケースでも FailureInfo に
       サブタイプ（例: `EscalationStage`）を付与できるよう検討する。
@@ -73,8 +77,11 @@
       ユーザー定義イベントへマップする仕組みを提供し、テストで Escalate→typed DSL の通知経路を検証する。
 - [ ] `actor-core` テスト: 現状の `scheduler_escalation_chain_reaches_root` に加えて、
       カスタム EscalationSink が再試行を返した場合に scheduler が FailureInfo を再キューするケースを追加する。
-- [ ] `system_guardian` / `root_guardian`: ルート EscalationSink を定義し、最上位で FailureInfo を
+- [x] `system_guardian` / `root_guardian`: ルート EscalationSink を定義し、最上位で FailureInfo を
       ログ／メトリクス／イベントストリームへ流すフックを整備する。
+      `RootEscalationSink` が `tracing::error!`、`FailureEventHandler`、`FailureEventListener`
+      を経由してログ・イベント配信できるようになり、`scheduler_root_escalation_handler_invoked` /
+      `scheduler_root_event_listener_broadcasts` で検証。（2025-10-07）
 - [x] `FailureEventHub` を std 構成で実装し、`PriorityScheduler::set_root_event_listener` から複数購読者へ配信できるようにした。
 
 ## Watch / Unwatch 親伝播設計草案

@@ -225,9 +225,8 @@ where
       match parent.handle(info.clone(), handled) {
         Ok(()) => handled = true,
         Err(unhandled) => {
-          if !handled {
-            last_failure = unhandled;
-          }
+          last_failure = unhandled;
+          handled = false;
         }
       }
     }
@@ -236,16 +235,14 @@ where
       match custom.handle(info.clone(), handled) {
         Ok(()) => handled = true,
         Err(unhandled) => {
-          if !handled {
-            last_failure = unhandled;
-          }
+          last_failure = unhandled;
+          handled = false;
         }
       }
     }
 
     if let Some(root) = self.root.as_mut() {
       let _ = root.handle(last_failure.clone(), handled);
-      handled = true;
     }
 
     if handled {
