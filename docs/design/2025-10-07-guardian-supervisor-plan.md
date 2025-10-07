@@ -46,6 +46,7 @@
   - `TypedProps::new` でユーザーメッセージハンドラを登録し、内部的に `MessageEnvelope<User>` を生成する。
   - `TypedActorSystem::<U, _>::new(runtime)` で typed システムを構築し、`TypedRootContext::spawn` から typed アクターを起動できる。
   - `TypedActorRef::tell` でユーザーメッセージを型安全に送信し、SystemMessage は自動的に高優先度で処理される。
+  - `PriorityActorRef` は priority-aware な低レベル API として現状の名前を維持し、`TypedActorRef` を高水準 API と位置付ける。（ドキュメント / プレリュードでレイヤの違いを明記する）
 
 ## EscalationSink TODO リスト
 - [ ] `actor-core`: `SchedulerEscalationSink` をパブリック API として再編し、

@@ -31,10 +31,10 @@ pub use escalation::{
   ParentGuardianSink, RootEscalationSink,
 };
 pub use failure::{FailureEvent, FailureInfo, FailureMetadata};
-pub use mailbox::SystemMessage;
 #[cfg(feature = "std")]
 pub use failure_event_stream::{FailureEventHub, FailureEventSubscription};
 pub use guardian::{AlwaysRestart, Guardian, GuardianStrategy};
+pub use mailbox::SystemMessage;
 pub use mailbox::{
   Mailbox, MailboxOptions, MailboxPair, MailboxRuntime, MailboxSignal, PriorityEnvelope, QueueMailbox,
   QueueMailboxProducer, QueueMailboxRecv,

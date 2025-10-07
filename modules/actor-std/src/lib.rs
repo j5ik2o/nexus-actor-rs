@@ -23,9 +23,9 @@ pub mod prelude {
 mod tests {
   use super::*;
   use core::time::Duration;
+  use nexus_actor_core_rs::MailboxOptions;
   use nexus_actor_core_rs::{actor_loop, Spawn, StateCell, TypedActorSystem, TypedProps};
   use std::sync::{Arc, Mutex};
-  use nexus_actor_core_rs::MailboxOptions;
 
   #[tokio::test(flavor = "current_thread")]
   async fn test_actor_loop_updates_state() {
@@ -73,5 +73,4 @@ mod tests {
 
     assert_eq!(log.lock().unwrap().as_slice(), &[99]);
   }
-
 }
