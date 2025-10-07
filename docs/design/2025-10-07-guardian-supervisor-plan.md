@@ -55,7 +55,7 @@
 - [x] actor-embedded テストで Condvar ベースの `block_on` を用意し、ローカルランタイムでもシグナル待機をスピン無しで駆動できるようにした。
 - [ ] Scheduler 向けの `run_forever()` / `blocking_dispatch_loop()` など高水準ランナを追加し、アプリケーションが簡単に常駐タスクを起動できるようにする。
 - [ ] actor-embedded については Embassy executor との統合ラッパ（例: `EmbassyActorSystem`）を整備し、`Spawner` から `dispatch_next` を起動するガイドを文書化する。
-- [ ] `dispatch_all` の将来的な非推奨化方針と移行手順（`dispatch_next` ループでの置換ガイド）を設計メモへ追加する。
+- [x] `dispatch_all` の段階的非推奨戦略を整理し、`docs/design/2025-10-07-dispatch-transition.md` に移行手順をまとめた。
 ## EscalationSink TODO リスト
 - [ ] `actor-core`: `SchedulerEscalationSink` をパブリック API として再編し、
       `trait EscalationSink`（handle 戻り値 `Result<(), FailureInfo>`）と具体実装

@@ -14,6 +14,7 @@ default = ["alloc", "embedded_rc"]
 alloc = []
 embedded_rc = ["nexus-utils-embedded-rs/rc"]
 embedded_arc = ["nexus-utils-embedded-rs/arc", "dep:embassy-sync"]
+embassy_executor = ["dep:embassy-executor"]
 
 [dependencies]
 nexus-actor-core-rs = { path = "../actor-core", default-features = false, features = ["alloc"] }
@@ -25,6 +26,7 @@ panic-halt = { version = "0.2", optional = true }
 rp2040-hal = { version = "0.11", default-features = false, features = ["critical-section-impl"], optional = true }
 embedded-hal = { version = "0.2", optional = true }
 embassy-sync = { version = "0.7", default-features = false, optional = true }
+embassy-executor = { version = "0.9", default-features = false, optional = true }
 
 [dev-dependencies]
 critical-section = "1"

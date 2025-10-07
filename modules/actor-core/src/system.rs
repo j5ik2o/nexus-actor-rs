@@ -1,5 +1,6 @@
 use alloc::boxed::Box;
 use alloc::sync::Arc;
+use core::convert::Infallible;
 
 use crate::context::{ActorContext, PriorityActorRef};
 use crate::guardian::{AlwaysRestart, GuardianStrategy};
@@ -116,6 +117,28 @@ where
 {
   pub fn root_context(&mut self) -> RootContext<'_, M, R, Strat> {
     RootContext { system: self }
+  }
+
+  pub async fn run_until<F>(&mut self, should_continue: F) -> Result<(), QueueError<PriorityEnvelope<M>>>
+  where
+    F: FnMut() -> bool, {
+    self.scheduler.run_until(should_continue).await
+  }
+
+  pub async fn run_forever(&mut self) -> Result<Infallible, QueueError<PriorityEnvelope<M>>> {
+    self.scheduler.run_forever().await
+  }
+
+  #[cfg(feature = "std")]
+  pub fn blocking_dispatch_loop<F>(&mut self, should_continue: F) -> Result<(), QueueError<PriorityEnvelope<M>>>
+  where
+    F: FnMut() -> bool, {
+    self.scheduler.blocking_dispatch_loop(should_continue)
+  }
+
+  #[cfg(feature = "std")]
+  pub fn blocking_dispatch_forever(&mut self) -> Result<Infallible, QueueError<PriorityEnvelope<M>>> {
+    self.scheduler.blocking_dispatch_forever()
   }
 
   pub async fn dispatch_next(&mut self) -> Result<(), QueueError<PriorityEnvelope<M>>> {

@@ -6,6 +6,8 @@ extern crate alloc;
 mod arc_mailbox;
 #[cfg(feature = "embedded_arc")]
 mod arc_priority_mailbox;
+#[cfg(feature = "embassy_executor")]
+mod embassy_dispatcher;
 mod local_mailbox;
 mod spawn;
 mod timer;
@@ -14,6 +16,8 @@ mod timer;
 pub use arc_mailbox::{ArcMailbox, ArcMailboxRuntime, ArcMailboxSender};
 #[cfg(feature = "embedded_arc")]
 pub use arc_priority_mailbox::{ArcPriorityMailbox, ArcPriorityMailboxRuntime, ArcPriorityMailboxSender};
+#[cfg(feature = "embassy_executor")]
+pub use embassy_dispatcher::spawn_embassy_dispatcher;
 pub use local_mailbox::{LocalMailbox, LocalMailboxRuntime, LocalMailboxSender};
 #[cfg(feature = "embedded_arc")]
 pub use nexus_utils_embedded_rs::sync::{ArcCsStateCell, ArcLocalStateCell, ArcShared, ArcStateCell};

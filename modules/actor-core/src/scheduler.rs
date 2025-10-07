@@ -4,6 +4,7 @@ use alloc::string::String;
 use alloc::sync::Arc;
 use alloc::vec;
 use alloc::vec::Vec;
+use core::convert::Infallible;
 #[cfg(feature = "std")]
 use core::fmt;
 use core::marker::PhantomData;
@@ -115,9 +116,60 @@ where
     Ok(control_ref)
   }
 
+  /// レガシーな同期 API。内部的には `dispatch_next` と同じ経路を使用するが、
+  /// 新しいコードでは `run_until` / `dispatch_next` を推奨。
   pub fn dispatch_all(&mut self) -> Result<(), QueueError<PriorityEnvelope<M>>> {
+    #[cfg(feature = "std")]
+    {
+      use core::sync::atomic::{AtomicBool, Ordering};
+      static WARNED: AtomicBool = AtomicBool::new(false);
+      if !WARNED.swap(true, Ordering::Relaxed) {
+        tracing::warn!(
+          "PriorityScheduler::dispatch_all は今後廃止予定です。dispatch_next / run_until の利用を検討してください。"
+        );
+      }
+    }
     let _ = self.drain_ready_cycle()?;
     Ok(())
+  }
+
+  /// 条件が成立する限り `dispatch_next` を繰り返すヘルパ。ランタイム側で制御したい待機
+  /// ループをシンプルに構築できる。
+  pub async fn run_until<F>(&mut self, mut should_continue: F) -> Result<(), QueueError<PriorityEnvelope<M>>>
+  where
+    F: FnMut() -> bool, {
+    while should_continue() {
+      self.dispatch_next().await?;
+    }
+    Ok(())
+  }
+
+  /// スケジューラを非同期タスクとして常駐させる。`tokio::spawn(async move { scheduler.run_forever().await })`
+  /// のように利用でき、停止はエラー発生またはタスクキャンセルで行う。
+  pub async fn run_forever(&mut self) -> Result<Infallible, QueueError<PriorityEnvelope<M>>> {
+    loop {
+      self.dispatch_next().await?;
+    }
+  }
+
+  /// `std` 環境向け。`dispatch_next` をブロックしつつループし、アプリケーションが指定する
+  /// 条件で停止できる。
+  #[cfg(feature = "std")]
+  pub fn blocking_dispatch_loop<F>(&mut self, mut should_continue: F) -> Result<(), QueueError<PriorityEnvelope<M>>>
+  where
+    F: FnMut() -> bool, {
+    while should_continue() {
+      futures::executor::block_on(self.dispatch_next())?;
+    }
+    Ok(())
+  }
+
+  /// `dispatch_next` を無限にブロック実行する。明示的な停止条件が不要なシンプルな常駐用途向け。
+  #[cfg(feature = "std")]
+  pub fn blocking_dispatch_forever(&mut self) -> Result<Infallible, QueueError<PriorityEnvelope<M>>> {
+    loop {
+      futures::executor::block_on(self.dispatch_next())?;
+    }
   }
 
   pub async fn dispatch_next(&mut self) -> Result<(), QueueError<PriorityEnvelope<M>>> {
@@ -780,6 +832,79 @@ mod tests {
 
     assert_eq!(log.borrow().as_slice(), &[Message::System(SystemMessage::Restart)]);
     assert!(!should_panic.get());
+  }
+
+  #[cfg(feature = "std")]
+  #[test]
+  fn scheduler_run_until_processes_messages() {
+    let runtime = TestMailboxRuntime::unbounded();
+    let mut scheduler: PriorityScheduler<Message, _, AlwaysRestart> = PriorityScheduler::new(runtime);
+
+    let log: Rc<RefCell<Vec<Message>>> = Rc::new(RefCell::new(Vec::new()));
+    let log_clone = log.clone();
+
+    let actor_ref = scheduler
+      .spawn_actor(
+        NoopSupervisor,
+        MailboxOptions::default(),
+        Arc::new(|sys| Message::System(sys)),
+        move |_, msg: Message| match msg {
+          Message::User(value) => log_clone.borrow_mut().push(Message::User(value)),
+          Message::System(_) => {}
+        },
+      )
+      .unwrap();
+
+    actor_ref
+      .try_send_with_priority(Message::User(11), DEFAULT_PRIORITY)
+      .unwrap();
+
+    let mut loops = 0;
+    futures::executor::block_on(scheduler.run_until(|| {
+      let continue_loop = loops == 0;
+      loops += 1;
+      continue_loop
+    }))
+    .unwrap();
+
+    assert_eq!(log.borrow().as_slice(), &[Message::User(11)]);
+  }
+
+  #[cfg(feature = "std")]
+  #[test]
+  fn scheduler_blocking_dispatch_loop_stops_with_closure() {
+    let runtime = TestMailboxRuntime::unbounded();
+    let mut scheduler: PriorityScheduler<Message, _, AlwaysRestart> = PriorityScheduler::new(runtime);
+
+    let log: Rc<RefCell<Vec<Message>>> = Rc::new(RefCell::new(Vec::new()));
+    let log_clone = log.clone();
+
+    let actor_ref = scheduler
+      .spawn_actor(
+        NoopSupervisor,
+        MailboxOptions::default(),
+        Arc::new(|sys| Message::System(sys)),
+        move |_, msg: Message| match msg {
+          Message::User(value) => log_clone.borrow_mut().push(Message::User(value)),
+          Message::System(_) => {}
+        },
+      )
+      .unwrap();
+
+    actor_ref
+      .try_send_with_priority(Message::User(21), DEFAULT_PRIORITY)
+      .unwrap();
+
+    let mut loops = 0;
+    scheduler
+      .blocking_dispatch_loop(|| {
+        let continue_loop = loops == 0;
+        loops += 1;
+        continue_loop
+      })
+      .unwrap();
+
+    assert_eq!(log.borrow().as_slice(), &[Message::User(21)]);
   }
 
   #[cfg(feature = "std")]
