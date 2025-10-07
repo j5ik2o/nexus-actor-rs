@@ -55,7 +55,8 @@ where
   M: Element,
   R: MailboxRuntime + Clone,
   R::Queue<PriorityEnvelope<M>>: Clone,
-  R::Signal: Clone, {
+  R::Signal: Clone,
+{
   pub fn new(runtime: R) -> Self {
     Self {
       scheduler: PriorityScheduler::new(runtime),
@@ -79,7 +80,8 @@ where
   R: MailboxRuntime + Clone + 'static,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
-  Strat: GuardianStrategy<M, R>, {
+  Strat: GuardianStrategy<M, R>,
+{
   pub fn spawn(&mut self, props: Props<M, R>) -> Result<PriorityActorRef<M, R>, QueueError<PriorityEnvelope<M>>> {
     let Props {
       options,
@@ -106,7 +108,8 @@ where
   R: MailboxRuntime + Clone,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
-  Strat: GuardianStrategy<M, R>, {
+  Strat: GuardianStrategy<M, R>,
+{
   pub fn root_context(&mut self) -> RootContext<'_, M, R, Strat> {
     RootContext { system: self }
   }
@@ -142,10 +145,14 @@ mod tests {
 
     let mut root = system.root_context();
     let actor_ref = root
-      .spawn(Props::new(MailboxOptions::default(), map_system.clone(), move |_, msg: Message| match msg {
-        Message::User(value) => log_clone.borrow_mut().push(value),
-        Message::System(_) => {}
-      }))
+      .spawn(Props::new(
+        MailboxOptions::default(),
+        map_system.clone(),
+        move |_, msg: Message| match msg {
+          Message::User(value) => log_clone.borrow_mut().push(value),
+          Message::System(_) => {}
+        },
+      ))
       .expect("spawn actor");
 
     actor_ref

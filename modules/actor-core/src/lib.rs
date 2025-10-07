@@ -7,10 +7,10 @@ use core::time::Duration;
 
 mod actor_id;
 mod actor_path;
+mod actor_ref;
 mod context;
 mod escalation;
 mod failure;
-mod system;
 #[cfg(feature = "std")]
 mod failure_event_stream;
 mod guardian;
@@ -18,17 +18,18 @@ mod mailbox;
 mod scheduler;
 mod spawn;
 mod supervisor;
+mod system;
 mod timer;
 
 pub use actor_id::ActorId;
 pub use actor_path::ActorPath;
+pub use actor_ref::ActorRef;
 pub use context::{ActorContext, PriorityActorRef};
 pub use escalation::{
   CompositeEscalationSink, CustomEscalationSink, EscalationSink, FailureEventHandler, FailureEventListener,
   ParentGuardianSink, RootEscalationSink,
 };
 pub use failure::{FailureEvent, FailureInfo, FailureMetadata};
-pub use system::{ActorSystem, Props, RootContext};
 #[cfg(feature = "std")]
 pub use failure_event_stream::{FailureEventHub, FailureEventSubscription};
 pub use guardian::{AlwaysRestart, Guardian, GuardianStrategy};
@@ -40,6 +41,7 @@ pub use nexus_utils_core_rs::sync::{Shared, StateCell};
 pub use scheduler::PriorityScheduler;
 pub use spawn::Spawn;
 pub use supervisor::{NoopSupervisor, Supervisor, SupervisorDirective};
+pub use system::{ActorSystem, Props, RootContext};
 pub use timer::Timer;
 
 /// Minimal actor loop that waits for messages, handles them, and yields control.
