@@ -59,9 +59,9 @@ pub struct MailboxOptions {
 
 - `MailboxRuntime` を `actor-core` に配置し、std / embedded / local はそれぞれ `TokioRuntime`, `EmbassyRuntime`, `LocalRuntime` を実装。
 - `build_mailbox` を通じて `QueueMailbox` を生成すれば、各ランタイムの `Mailbox` 実装は薄いアダプタで済む。
-- `QueueMailboxRecv` を直接返す API も `actor-core` から公開済みなので、利用側では `type RecvFuture<'a> = QueueMailboxRecv<'a, Q, S, M>` をそのまま使える。
+- `QueueMailboxRecv` を直接返す API も `actor-core` から公開済みなので、利用側では `type RecvFuture<'a> = QueueMailboxRecv<'a, Q, S, M>` をそのまま使える。2025-10-07 現在は `Future<Output = Result<M, QueueError<M>>>` として実装されており、閉鎖・切断時には `Err(QueueError::Disconnected)` を即座に返す。利用側では `Ok` / `Err` の分岐で停止処理を行う。
 - 優先度付き Mailbox は **制御キュー（PriorityQueue）＋通常キュー（FIFO）** の二段構えに再編済み。制御メッセージは `priority > DEFAULT_PRIORITY` で判定し、排出時は制御キュー優先。その後 `PriorityScheduler` が余剰メッセージを優先度順に処理する。
-- `PriorityEnvelope` に `PriorityChannel::{Control, Regular}` を導入し、API (`control`, `is_control`, `*_control_with_priority`) から明示的に制御メッセージをマーキング可能にした。従来の `priority` 数値はスケジューラのソート指標として残しつつ、キューの振り分けはチャネル属性で判断する。
+- `PriorityEnvelope` に `PriorityChannel::{Control, Regular}` を導入し、API (`control`, `is_control`, `*_control_with_priority`) から明示的に制御メッセージをマーキング可能にした。従来の `priority` 数値はスケジューラのソート指標として残しつつ、キューの振り分けはチャネル属性で判断する。また mailbox の `close()` は制御シグナルを発火させ、待機している `recv` future に `Disconnected` エラーを返す実装となった。
 - `ActorContext` は `spawn_child` / `spawn_control_child` を提供し、ハンドラ内から子アクターを生成できる。生成リクエストは `ChildSpawnSpec` として蓄積し、`PriorityScheduler` がディスパッチ後に `ActorCell` へ登録する。これにより子アクターの mailbox/supervisor/handler を共通処理でセットアップできる。
 - `SystemMessage` 列挙体と `PriorityEnvelope::from_system` を追加し、protoactor-go の制御メッセージ優先度表を Rust 側でも再現。`PriorityEnvelope::map` でユーザー定義メッセージ型へ容易に変換できる。
 - `PriorityActorRef<SystemMessage>` は `try_send_system` を提供し、Supervisor や Guardian から制御メッセージを送信する際にチャネル・優先度が自動で設定される。`PriorityScheduler` の回帰テストで protoactor-go と同様にシステムメッセージが先行処理されることを確認済み。
