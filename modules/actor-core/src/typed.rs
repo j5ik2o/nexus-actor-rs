@@ -226,7 +226,9 @@ where
     Ok(TypedActorRef::new(actor_ref))
   }
 
+  #[deprecated(since = "3.1.0", note = "dispatch_next / run_until を使用してください")]
   pub fn dispatch_all(&mut self) -> Result<(), QueueError<PriorityEnvelope<MessageEnvelope<U>>>> {
+    #[allow(deprecated)]
     self.inner.dispatch_all()
   }
 
@@ -241,6 +243,7 @@ where
 
 #[cfg(test)]
 mod tests {
+  #![allow(deprecated)]
   use super::*;
   use crate::mailbox::test_support::TestMailboxRuntime;
   use alloc::rc::Rc;

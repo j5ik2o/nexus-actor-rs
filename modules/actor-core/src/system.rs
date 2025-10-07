@@ -98,7 +98,9 @@ where
       })
   }
 
+  #[deprecated(since = "3.1.0", note = "dispatch_next / run_until を使用してください")]
   pub fn dispatch_all(&mut self) -> Result<(), QueueError<PriorityEnvelope<M>>> {
+    #[allow(deprecated)]
     self.system.scheduler.dispatch_all()
   }
 
@@ -148,6 +150,7 @@ where
 
 #[cfg(test)]
 mod tests {
+  #![allow(deprecated)]
   use super::*;
   use crate::mailbox::test_support::TestMailboxRuntime;
   use crate::mailbox::{MailboxOptions, SystemMessage};

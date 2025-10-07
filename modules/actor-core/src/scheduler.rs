@@ -118,6 +118,7 @@ where
 
   /// レガシーな同期 API。内部的には `dispatch_next` と同じ経路を使用するが、
   /// 新しいコードでは `run_until` / `dispatch_next` を推奨。
+  #[deprecated(since = "3.1.0", note = "dispatch_next / run_until を使用してください")]
   pub fn dispatch_all(&mut self) -> Result<(), QueueError<PriorityEnvelope<M>>> {
     #[cfg(feature = "std")]
     {
@@ -569,6 +570,7 @@ impl fmt::Debug for PanicDebug<'_> {
 
 #[cfg(test)]
 mod tests {
+  #![allow(deprecated)]
   use super::*;
   use crate::actor_id::ActorId;
   use crate::mailbox::test_support::TestMailboxRuntime;
