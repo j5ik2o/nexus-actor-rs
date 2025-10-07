@@ -3,6 +3,7 @@ use alloc::sync::Arc;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 
+use crate::actor_id::ActorId;
 use crate::mailbox::SystemMessage;
 use crate::supervisor::Supervisor;
 use crate::{MailboxOptions, MailboxRuntime, PriorityEnvelope, QueueMailbox, QueueMailboxProducer};
@@ -84,6 +85,7 @@ where
   pub sender: QueueMailboxProducer<R::Queue<PriorityEnvelope<M>>, R::Signal>,
   pub supervisor: Box<dyn Supervisor<M>>,
   pub handler: Box<dyn for<'ctx> FnMut(&mut ActorContext<'ctx, M, R, dyn Supervisor<M>>, M) + 'static>,
+  pub watchers: Vec<ActorId>,
   pub map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
 }
 
@@ -98,6 +100,8 @@ where
   supervisor: &'a mut Sup,
   pending_spawns: &'a mut Vec<ChildSpawnSpec<M, R>>,
   map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
+  actor_id: ActorId,
+  watchers: &'a mut Vec<ActorId>,
   current_priority: Option<i8>,
   _marker: PhantomData<M>,
 }
@@ -114,6 +118,8 @@ where
     supervisor: &'a mut Sup,
     pending_spawns: &'a mut Vec<ChildSpawnSpec<M, R>>,
     map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
+    actor_id: ActorId,
+    watchers: &'a mut Vec<ActorId>,
   ) -> Self {
     Self {
       runtime,
@@ -121,6 +127,8 @@ where
       supervisor,
       pending_spawns,
       map_system,
+      actor_id,
+      watchers,
       current_priority: None,
       _marker: PhantomData,
     }
@@ -134,17 +142,40 @@ where
     self.supervisor
   }
 
+  pub fn actor_id(&self) -> ActorId {
+    self.actor_id
+  }
+
+  pub fn watchers(&self) -> &[ActorId] {
+    self.watchers.as_slice()
+  }
+
+  pub fn register_watcher(&mut self, watcher: ActorId) {
+    if !self.watchers.contains(&watcher) {
+      self.watchers.push(watcher);
+    }
+  }
+
+  pub fn unregister_watcher(&mut self, watcher: ActorId) {
+    if let Some(index) = self.watchers.iter().position(|w| *w == watcher) {
+      self.watchers.swap_remove(index);
+    }
+  }
+
   pub fn spawn_child<F, S>(&mut self, supervisor: S, options: MailboxOptions, handler: F) -> PriorityActorRef<M, R>
   where
     F: for<'ctx> FnMut(&mut ActorContext<'ctx, M, R, dyn Supervisor<M>>, M) + 'static,
     S: Supervisor<M> + 'static, {
     let (mailbox, sender) = self.runtime.build_mailbox::<PriorityEnvelope<M>>(options);
     let actor_ref = PriorityActorRef::new(sender.clone());
+    let mut watchers = Vec::new();
+    watchers.push(self.actor_id);
     self.pending_spawns.push(ChildSpawnSpec {
       mailbox,
       sender,
       supervisor: Box::new(supervisor),
       handler: Box::new(handler),
+      watchers,
       map_system: self.map_system.clone(),
     });
     actor_ref

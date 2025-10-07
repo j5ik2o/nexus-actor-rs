@@ -5,6 +5,7 @@ extern crate alloc;
 
 use core::time::Duration;
 
+mod actor_id;
 mod context;
 mod guardian;
 mod mailbox;
@@ -14,7 +15,7 @@ mod supervisor;
 mod timer;
 
 pub use context::{ActorContext, PriorityActorRef};
-pub use guardian::{ActorId, AlwaysRestart, Guardian, GuardianStrategy};
+pub use guardian::{AlwaysRestart, Guardian, GuardianStrategy};
 pub use mailbox::{
   Mailbox, MailboxOptions, MailboxPair, MailboxRuntime, MailboxSignal, PriorityEnvelope, QueueMailbox,
   QueueMailboxProducer, QueueMailboxRecv,
@@ -275,3 +276,4 @@ mod tests {
     RawWaker::new(ptr::null(), &VTABLE)
   }
 }
+pub use actor_id::ActorId;

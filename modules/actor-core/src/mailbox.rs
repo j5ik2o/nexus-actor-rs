@@ -6,6 +6,8 @@ use core::task::{Context, Poll};
 use nexus_utils_core_rs::sync::Flag;
 use nexus_utils_core_rs::{Element, PriorityMessage, QueueError, QueueRw, QueueSize, DEFAULT_PRIORITY};
 
+use crate::actor_id::ActorId;
+
 /// Mailbox abstraction that decouples message queue implementations from core logic.
 pub trait Mailbox<M> {
   type SendError;
@@ -53,8 +55,8 @@ pub enum PriorityChannel {
 /// フィールド構成は現段階の要件に絞り、必要に応じて拡張する。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SystemMessage {
-  Watch,
-  Unwatch,
+  Watch(ActorId),
+  Unwatch(ActorId),
   Stop,
   Failure,
   Restart,
@@ -66,7 +68,7 @@ impl SystemMessage {
   /// 推奨優先度。protoactor-go の優先度テーブルをベースに設定。
   pub fn priority(&self) -> i8 {
     match self {
-      SystemMessage::Watch | SystemMessage::Unwatch => DEFAULT_PRIORITY + 5,
+      SystemMessage::Watch(_) | SystemMessage::Unwatch(_) => DEFAULT_PRIORITY + 5,
       SystemMessage::Stop => DEFAULT_PRIORITY + 10,
       SystemMessage::Failure => DEFAULT_PRIORITY + 12,
       SystemMessage::Restart => DEFAULT_PRIORITY + 11,

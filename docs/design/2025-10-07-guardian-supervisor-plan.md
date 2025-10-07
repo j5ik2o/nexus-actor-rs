@@ -19,7 +19,7 @@
 - `GuardianStrategy` は protoactor-go の Strategy と同様に `decide` / `before_start` / `after_restart` を提供し、現状は `AlwaysRestart` のみ実装済み。
 
 ### 今後の拡張ポイント
-- `SystemMessage::Watch` / `Unwatch` など未実装の通知を `map_system` 経由で流せるようにする。
+- `SystemMessage::Watch` / `Unwatch` は 2025-10-07 実装済み。今後は、親コンテキスト側で通知を受け取り監視テーブルを更新する仕組み（`ActorContext` もしくは `Supervisor` へのフック）を整備する。
 - Escalate の送信先を multi-root（user/system guardian）で切り替えられるよう、`Guardian` にエスカレーション用アクタ参照を保持させる。
 - `map_system` を typed 層の DSL が差し替えられるよう、`TypedMailboxAdapter`（仮称）がクロージャ生成を担う。
 
@@ -30,9 +30,44 @@
 4. no_std 構成では panic を捕捉できないため、今後 `Result` ベースのエラーパスや `SystemMessage::Failure` API を追加する余地がある。
 
 ## SystemMessage フロー（今後の計画）
-1. `SystemMessage::Watch` / `Unwatch` を導入し、子登録時に Guardian から親へ通知する。
+1. Guardian が送出した `SystemMessage::Watch` / `Unwatch` を親アクターで経路制御する。具体的には、`ActorContext` が制御メッセージ受信時に `watchers` テーブルへ登録・解除する API を公開する。
 2. Escalate をサポートし、上位 Guardian へ転送する際も `map_system` クロージャを通じてメッセージ型を変換する。
 3. Typed 層が `map_system` を生成し、`SystemMessage` をユーザーの DSL に沿った挙動へマッピングできるようインターフェースを整備する。
+
+## Watch / Unwatch 親伝播設計草案
+
+### 要件
+- Guardian が子 mailbox に投入した `Watch` / `Unwatch` が親アクターにも届き、親側で監視対象リストを管理できること。
+- Terminated 通知を受け取った親が `Unwatch` 済みの相手を除外しつつ、必要に応じて追加の SystemMessage（例: `Terminate`）を生成できること。
+
+### 提案する変更
+1. `ActorContext` に `handle_system_message`（仮称）を追加し、`PriorityScheduler` が制御メッセージをディスパッチする前に事前処理できるようにする。
+2. `ActorContext` 内部に `WatchRegistry`（軽量な `BTreeSet<ActorId>` または `Shared<HashSet<_>>`）を保持し、`Watch` で insert、`Unwatch` で remove を実施する。
+3. 親から子への `watch` API を公開する際は、`PriorityActorRef::try_send_system(SystemMessage::Watch)` を包むヘルパーを提供し、Typed 層でも同一ハンドラを利用できるようにする。
+4. Terminated 受信時には `WatchRegistry` を参照して該当 watcher へ `SystemMessage::Terminated`（今後追加）を送出する経路を設計する。
+
+### Open Questions
+- `Watch` / `Unwatch` は ProtoActor では `PID` を payload に持つ。Rust 実装では `map_system` を通じてユーザー型へ変換する必要があるため、`SystemMessage` に watcher 情報を追加するか、別途 `WatchEvent` 型を envelope で運ぶか検討する。
+- 親通知用の SystemMessage を `ActorContext` レベルで消費するか、ユーザーにも透過するか（Akka Typed のように内部処理へ限定するか）を決める必要がある。
+- no_std 環境でも `WatchRegistry` を活用できるよう、`Vec` + 線形検索で十分か、あるいは `heapless::IndexSet` 等を利用するかを評価する。
+
+## Failure / Escalate 拡張方針
+
+### 追加するメッセージ
+- `SystemMessage::Failure(FailureInfo)`：子アクターから親へ障害情報を伝播。
+- `SystemMessage::Escalate(FailureInfo)`：Guardian が上位 Guardian へ障害をエスカレート。
+- `FailureInfo` には `actor_id`, `reason`, `restart_stats`, `last_message` のような protoactor-go に準じたフィールドを含める。
+
+### 予定する実装ステップ
+1. `FailureInfo` 構造体を `actor-core` に追加し、`PriorityEnvelope<FailureInfo>` を扱えるよう `Element` を実装。
+2. `GuardianStrategy::decide` が `SupervisorDirective::Escalate` を返した際、`Guardian` が `SystemMessage::Escalate` を生成し、親 Guardian もしくはルート戦略へ転送する。
+3. `Supervisor` 実装に Failure/Escalate を通知するため、`ActorContext` に `notify_failure` フックを追加する。
+4. テストシナリオ: (a) 子アクターが panic し再起動。Restart/Stop を確認。(b) 再起動回数上限を超えた場合 Escalate を返す戦略で Failure メッセージが親へ流れることを確認。
+
+### 留意点
+- Escalate の送信先は protoactor-go では GuardianProcess（system guardian）固定。Rust 版では `PriorityScheduler` が複数 Guardian を持てるようにし、`GuardianHandle` のような構造を介して上位に通知することを検討。
+- FailureInfo の payload サイズが大きくなる場合、`Shared<FailureInfo>` を用いてコピー回数を削減する。
+- `map_system` が Failure/Escalate の型変換も担うため、Typed 層では `TypedSystemEvent::Failure(FailureInfo)` のような enum へ写像する実装が必要。
 
 ## API スケッチ
 ```rust
@@ -60,7 +95,7 @@ where
 ```
 
 ## 今後の実装ステップ
-1. `SystemMessage::Watch` / `Unwatch` を追加し、Guardian が親子関係の登録解除を通知可能にする。
-2. Escalate ルートを設計し、Guardian が上位監督者へ Failure を伝搬できるよう抽象を拡張する。
-3. Typed Actor 層の `map_system` 生成 API を定義し、K型→SystemMessage→K型の変換ポリシーをテストで検証する。
+1. `ActorContext` に Watch/Unwatch を内部的に処理するフックを導入し、親側の監視レジストリ更新を実装する。
+2. `FailureInfo` / `SystemMessage::Failure` / `SystemMessage::Escalate` を追加し、Guardian と SupervisorStrategy 間のエラーフローを整備する。
+3. Typed Actor 層の `map_system` 生成 API を定義し、`Watch/Unwatch/Failure` を型安全に扱うアダプタを実装する。
 4. no_std 構成向けに panic 以外のエラー経路（`Result` 返却等）を guardian に伝える手段を検討する。

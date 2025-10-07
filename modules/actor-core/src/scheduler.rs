@@ -10,8 +10,9 @@ use core::marker::PhantomData;
 #[cfg(feature = "std")]
 use std::panic::{catch_unwind, AssertUnwindSafe};
 
+use crate::actor_id::ActorId;
 use crate::context::{ActorContext, ChildSpawnSpec, PriorityActorRef};
-use crate::guardian::{ActorId, AlwaysRestart, Guardian, GuardianStrategy};
+use crate::guardian::{AlwaysRestart, Guardian, GuardianStrategy};
 use crate::mailbox::SystemMessage;
 use crate::supervisor::Supervisor;
 use crate::{MailboxOptions, MailboxRuntime, PriorityEnvelope, QueueMailbox, QueueMailboxProducer};
@@ -70,7 +71,7 @@ where
     options: MailboxOptions,
     map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
     handler: F,
-  ) -> PriorityActorRef<M, R>
+  ) -> Result<PriorityActorRef<M, R>, QueueError<PriorityEnvelope<M>>>
   where
     F: for<'ctx> FnMut(&mut ActorContext<'ctx, M, R, dyn Supervisor<M>>, M) + 'static,
     Sup: Supervisor<M>, {
@@ -79,10 +80,14 @@ where
     let handler_box: Box<dyn for<'ctx> FnMut(&mut ActorContext<'ctx, M, R, dyn Supervisor<M>>, M) + 'static> =
       Box::new(handler);
     let control_ref = PriorityActorRef::new(actor_sender.clone());
-    let actor_id = self.guardian.register_child(control_ref.clone(), map_system.clone());
+    let mut watchers = Vec::new();
+    watchers.push(ActorId::ROOT);
+    let primary_watcher = watchers.first().copied();
+    let actor_id = self.guardian.register_child(control_ref.clone(), map_system.clone(), primary_watcher)?;
     let cell = ActorCell::new(
       actor_id,
       map_system,
+      watchers,
       self.runtime.clone(),
       mailbox,
       sender,
@@ -90,7 +95,7 @@ where
       handler_box,
     );
     self.actors.push(cell);
-    control_ref
+    Ok(control_ref)
   }
 
   pub fn dispatch_all(&mut self) -> Result<(), QueueError<PriorityEnvelope<M>>> {
@@ -119,6 +124,7 @@ where
   #[cfg_attr(not(feature = "std"), allow(dead_code))]
   actor_id: ActorId,
   map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
+  watchers: Vec<ActorId>,
   runtime: R,
   mailbox: QueueMailbox<R::Queue<PriorityEnvelope<M>>, R::Signal>,
   sender: QueueMailboxProducer<R::Queue<PriorityEnvelope<M>>, R::Signal>,
@@ -138,6 +144,7 @@ where
   fn new(
     actor_id: ActorId,
     map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
+    watchers: Vec<ActorId>,
     runtime: R,
     mailbox: QueueMailbox<R::Queue<PriorityEnvelope<M>>, R::Signal>,
     sender: QueueMailboxProducer<R::Queue<PriorityEnvelope<M>>, R::Signal>,
@@ -147,6 +154,7 @@ where
     Self {
       actor_id,
       map_system,
+      watchers,
       runtime,
       mailbox,
       sender,
@@ -194,6 +202,8 @@ where
         self.supervisor.as_mut(),
         &mut pending_specs,
         self.map_system.clone(),
+        self.actor_id,
+        &mut self.watchers,
       );
       ctx.enter_priority(priority);
       (self.handler)(&mut ctx, message);
@@ -208,6 +218,8 @@ where
         self.supervisor.as_mut(),
         &mut pending_specs,
         self.map_system.clone(),
+        self.actor_id,
+        &mut self.watchers,
       );
       ctx.enter_priority(priority);
       (self.handler)(&mut ctx, message);
@@ -250,14 +262,17 @@ where
       sender,
       supervisor,
       handler,
+      watchers,
       map_system,
     } = spec;
 
     let control_ref = PriorityActorRef::new(sender.clone());
-    let actor_id = guardian.register_child(control_ref, map_system.clone());
+    let primary_watcher = watchers.first().copied();
+    let actor_id = guardian.register_child(control_ref, map_system.clone(), primary_watcher)?;
     let cell = ActorCell::new(
       actor_id,
       map_system,
+      watchers,
       self.runtime.clone(),
       mailbox,
       sender,
@@ -302,6 +317,7 @@ mod tests {
   use crate::supervisor::NoopSupervisor;
   use alloc::rc::Rc;
   use alloc::sync::Arc;
+  use alloc::vec;
   use alloc::vec::Vec;
   #[cfg(feature = "std")]
   use core::cell::Cell;
@@ -317,6 +333,71 @@ mod tests {
   impl nexus_utils_core_rs::Element for Message {}
 
   #[test]
+  fn scheduler_delivers_watch_before_user_messages() {
+    let runtime = TestMailboxRuntime::unbounded();
+    let mut scheduler = PriorityScheduler::new(runtime);
+
+    let log: Rc<RefCell<Vec<Message>>> = Rc::new(RefCell::new(Vec::new()));
+    let log_clone = log.clone();
+
+    let _actor_ref = scheduler
+      .spawn_actor(
+        NoopSupervisor,
+        MailboxOptions::default(),
+        Arc::new(|sys| Message::System(sys)),
+        move |_, msg: Message| {
+          log_clone.borrow_mut().push(msg.clone());
+        },
+      )
+      .unwrap();
+
+    scheduler.dispatch_all().unwrap();
+
+    assert_eq!(
+      log.borrow().as_slice(),
+      &[Message::System(SystemMessage::Watch(ActorId::ROOT))]
+    );
+  }
+
+  #[test]
+  fn actor_context_exposes_parent_watcher() {
+    let runtime = TestMailboxRuntime::unbounded();
+    let mut scheduler = PriorityScheduler::new(runtime);
+
+    let watchers_log: Rc<RefCell<Vec<Vec<ActorId>>>> = Rc::new(RefCell::new(Vec::new()));
+    let watchers_clone = watchers_log.clone();
+
+    let actor_ref = scheduler
+      .spawn_actor(
+        NoopSupervisor,
+        MailboxOptions::default(),
+        Arc::new(|sys| Message::System(sys)),
+        move |ctx, msg: Message| {
+          let current_watchers = ctx.watchers().to_vec();
+          watchers_clone.borrow_mut().push(current_watchers);
+          match msg {
+            Message::User(_) => {}
+            Message::System(_) => {}
+          }
+        },
+      )
+      .unwrap();
+
+    scheduler.dispatch_all().unwrap();
+    assert_eq!(watchers_log.borrow().as_slice(), &[vec![ActorId::ROOT]]);
+
+    actor_ref
+      .try_send_with_priority(Message::User(1), DEFAULT_PRIORITY)
+      .unwrap();
+    scheduler.dispatch_all().unwrap();
+
+    assert_eq!(
+      watchers_log.borrow().as_slice(),
+      &[vec![ActorId::ROOT], vec![ActorId::ROOT]]
+    );
+  }
+
+  #[test]
   fn scheduler_dispatches_high_priority_first() {
     let runtime = TestMailboxRuntime::unbounded();
     let mut scheduler = PriorityScheduler::new(runtime);
@@ -324,32 +405,34 @@ mod tests {
     let log: Rc<RefCell<Vec<(u32, i8)>>> = Rc::new(RefCell::new(Vec::new()));
     let log_clone = log.clone();
 
-    let actor_ref = scheduler.spawn_actor(
-      NoopSupervisor,
-      MailboxOptions::default(),
-      Arc::new(|sys| Message::System(sys)),
-      move |ctx, msg: Message| match msg {
-        Message::User(value) => {
-          log_clone.borrow_mut().push((value, ctx.current_priority().unwrap()));
-          if value == 99 {
-            let child_log = log_clone.clone();
-            ctx
-              .spawn_child(
-                NoopSupervisor,
-                MailboxOptions::default(),
-                move |_, child_msg: Message| {
-                  if let Message::User(child_value) = child_msg {
-                    child_log.borrow_mut().push((child_value, 0));
-                  }
-                },
-              )
-              .try_send_with_priority(Message::User(7), 0)
-              .unwrap();
+    let actor_ref = scheduler
+      .spawn_actor(
+        NoopSupervisor,
+        MailboxOptions::default(),
+        Arc::new(|sys| Message::System(sys)),
+        move |ctx, msg: Message| match msg {
+          Message::User(value) => {
+            log_clone.borrow_mut().push((value, ctx.current_priority().unwrap()));
+            if value == 99 {
+              let child_log = log_clone.clone();
+              ctx
+                .spawn_child(
+                  NoopSupervisor,
+                  MailboxOptions::default(),
+                  move |_, child_msg: Message| {
+                    if let Message::User(child_value) = child_msg {
+                      child_log.borrow_mut().push((child_value, 0));
+                    }
+                  },
+                )
+                .try_send_with_priority(Message::User(7), 0)
+                .unwrap();
+            }
           }
-        }
-        Message::System(_) => {}
-      },
-    );
+          Message::System(_) => {}
+        },
+      )
+      .unwrap();
 
     actor_ref.try_send_with_priority(Message::User(10), 1).unwrap();
     actor_ref.try_send_with_priority(Message::User(99), 7).unwrap();
@@ -371,14 +454,16 @@ mod tests {
     let log: Rc<RefCell<Vec<Message>>> = Rc::new(RefCell::new(Vec::new()));
     let log_clone = log.clone();
 
-    let actor_ref = scheduler.spawn_actor(
-      NoopSupervisor,
-      MailboxOptions::default(),
-      Arc::new(|sys| Message::System(sys)),
-      move |_, msg: Message| {
-        log_clone.borrow_mut().push(msg.clone());
-      },
-    );
+    let actor_ref = scheduler
+      .spawn_actor(
+        NoopSupervisor,
+        MailboxOptions::default(),
+        Arc::new(|sys| Message::System(sys)),
+        move |_, msg: Message| {
+          log_clone.borrow_mut().push(msg.clone());
+        },
+      )
+      .unwrap();
 
     actor_ref
       .try_send_with_priority(Message::User(42), DEFAULT_PRIORITY)
@@ -391,7 +476,11 @@ mod tests {
 
     assert_eq!(
       log.borrow().as_slice(),
-      &[Message::System(SystemMessage::Stop), Message::User(42)]
+      &[
+        Message::System(SystemMessage::Stop),
+        Message::System(SystemMessage::Watch(ActorId::ROOT)),
+        Message::User(42),
+      ]
     );
   }
 
@@ -403,19 +492,24 @@ mod tests {
     let log: Rc<RefCell<Vec<SystemMessage>>> = Rc::new(RefCell::new(Vec::new()));
     let log_clone = log.clone();
 
-    let actor_ref = scheduler.spawn_actor(
-      NoopSupervisor,
-      MailboxOptions::default(),
-      Arc::new(|sys| sys),
-      move |_, msg: SystemMessage| {
-        log_clone.borrow_mut().push(msg.clone());
-      },
-    );
+    let actor_ref = scheduler
+      .spawn_actor(
+        NoopSupervisor,
+        MailboxOptions::default(),
+        Arc::new(|sys| sys),
+        move |_, msg: SystemMessage| {
+          log_clone.borrow_mut().push(msg.clone());
+        },
+      )
+      .unwrap();
 
     actor_ref.try_send_system(SystemMessage::Restart).unwrap();
     scheduler.dispatch_all().unwrap();
 
-    assert_eq!(log.borrow().as_slice(), &[SystemMessage::Restart]);
+    assert_eq!(
+      log.borrow().as_slice(),
+      &[SystemMessage::Restart, SystemMessage::Watch(ActorId::ROOT)]
+    );
   }
 
   #[cfg(feature = "std")]
@@ -429,19 +523,27 @@ mod tests {
     let should_panic = Rc::new(Cell::new(true));
     let panic_flag = should_panic.clone();
 
-    let actor_ref = scheduler.spawn_actor(
-      NoopSupervisor,
-      MailboxOptions::default(),
-      Arc::new(|sys| Message::System(sys)),
-      move |_, msg: Message| {
-        if panic_flag.get() {
-          panic_flag.set(false);
-          panic!("boom");
-        } else {
-          log_clone.borrow_mut().push(msg.clone());
-        }
-      },
-    );
+    let actor_ref = scheduler
+      .spawn_actor(
+        NoopSupervisor,
+        MailboxOptions::default(),
+        Arc::new(|sys| Message::System(sys)),
+        move |_, msg: Message| {
+          match msg {
+            Message::System(SystemMessage::Watch(_)) => {
+              // Watch メッセージは監視登録のみなのでログに残さない
+            }
+            Message::User(_) if panic_flag.get() => {
+              panic_flag.set(false);
+              panic!("boom");
+            }
+            _ => {
+              log_clone.borrow_mut().push(msg.clone());
+            }
+          }
+        },
+      )
+      .unwrap();
 
     actor_ref
       .try_send_with_priority(Message::User(1), DEFAULT_PRIORITY)

@@ -2,15 +2,12 @@ use alloc::collections::BTreeMap;
 use alloc::sync::Arc;
 use core::fmt;
 
+use crate::actor_id::ActorId;
 use crate::context::PriorityActorRef;
 use crate::mailbox::{PriorityEnvelope, SystemMessage};
 use crate::supervisor::SupervisorDirective;
 use crate::MailboxRuntime;
 use nexus_utils_core_rs::{Element, QueueError};
-
-/// 子アクター識別子。protoactor-go の ProcessId に相当する簡易 ID。
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ActorId(pub usize);
 
 /// Supervisor 戦略。protoactor-go の Strategy に相当する。
 pub trait GuardianStrategy<M, R>: Send + 'static
@@ -42,6 +39,7 @@ where
   R: MailboxRuntime, {
   control_ref: PriorityActorRef<M, R>,
   map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
+  watcher: Option<ActorId>,
 }
 
 /// Guardian: 子アクター群を監督し、SystemMessage を送出する。
@@ -73,27 +71,45 @@ where
     }
   }
 
-  pub fn register_child(
-    &mut self,
-    control_ref: PriorityActorRef<M, R>,
-    map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
-  ) -> ActorId {
-    let id = ActorId(self.next_id);
-    self.next_id += 1;
-    self.strategy.before_start(id);
-    self.children.insert(
-      id,
-      ChildRecord {
-        control_ref,
-        map_system,
-      },
-    );
-    id
+pub fn register_child(
+  &mut self,
+  control_ref: PriorityActorRef<M, R>,
+  map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
+  watcher: Option<ActorId>,
+) -> Result<ActorId, QueueError<PriorityEnvelope<M>>> {
+  let id = ActorId(self.next_id);
+  self.next_id += 1;
+  self.strategy.before_start(id);
+  self.children.insert(
+    id,
+    ChildRecord {
+      control_ref: control_ref.clone(),
+      map_system: map_system.clone(),
+      watcher,
+    },
+  );
+
+  if let Some(watcher_id) = watcher {
+    let map_clone = map_system.clone();
+    let envelope =
+      PriorityEnvelope::from_system(SystemMessage::Watch(watcher_id)).map(move |sys| (map_clone)(sys));
+    control_ref.sender().try_send(envelope)?;
   }
 
-  pub fn remove_child(&mut self, id: ActorId) -> Option<PriorityActorRef<M, R>> {
-    self.children.remove(&id).map(|record| record.control_ref)
-  }
+  Ok(id)
+}
+
+pub fn remove_child(&mut self, id: ActorId) -> Option<PriorityActorRef<M, R>> {
+  self.children.remove(&id).map(|record| {
+    if let Some(watcher_id) = record.watcher {
+      let map_clone = record.map_system.clone();
+      let envelope =
+        PriorityEnvelope::from_system(SystemMessage::Unwatch(watcher_id)).map(move |sys| (map_clone)(sys));
+      let _ = record.control_ref.sender().try_send(envelope);
+    }
+    record.control_ref
+  })
+}
 
   pub fn child_ref(&self, id: ActorId) -> Option<&PriorityActorRef<M, R>> {
     self.children.get(&id).map(|record| &record.control_ref)
@@ -135,6 +151,7 @@ where
 #[cfg(test)]
 mod tests {
   use super::*;
+  use crate::actor_id::ActorId;
   use crate::mailbox::test_support::TestMailboxRuntime;
   use crate::mailbox::{PriorityChannel, PriorityEnvelope};
   use nexus_utils_core_rs::DEFAULT_PRIORITY;
@@ -146,7 +163,13 @@ mod tests {
     let ref_control: PriorityActorRef<SystemMessage, TestMailboxRuntime> = PriorityActorRef::new(sender);
 
     let mut guardian: Guardian<SystemMessage, _, AlwaysRestart> = Guardian::new(AlwaysRestart);
-    let actor_id = guardian.register_child(ref_control.clone(), Arc::new(|sys| sys));
+    let parent_id = ActorId(1);
+    let actor_id = guardian
+      .register_child(ref_control.clone(), Arc::new(|sys| sys), Some(parent_id))
+      .unwrap();
+
+    let first_envelope = mailbox.queue().poll().unwrap().unwrap();
+    assert_eq!(first_envelope.into_parts().0, SystemMessage::Watch(parent_id));
 
     guardian.notify_failure(actor_id, &"panic").unwrap();
 
@@ -175,11 +198,38 @@ mod tests {
     let ref_control: PriorityActorRef<SystemMessage, TestMailboxRuntime> = PriorityActorRef::new(sender);
 
     let mut guardian: Guardian<SystemMessage, _, AlwaysStop> = Guardian::new(AlwaysStop);
-    let actor_id = guardian.register_child(ref_control.clone(), Arc::new(|sys| sys));
+    let parent_id = ActorId(7);
+    let actor_id = guardian
+      .register_child(ref_control.clone(), Arc::new(|sys| sys), Some(parent_id))
+      .unwrap();
+
+    let watch_envelope = mailbox.queue().poll().unwrap().unwrap();
+    assert_eq!(watch_envelope.into_parts().0, SystemMessage::Watch(parent_id));
 
     guardian.notify_failure(actor_id, &"panic").unwrap();
 
     let envelope = mailbox.queue().poll().unwrap().unwrap();
     assert_eq!(envelope.into_parts().0, SystemMessage::Stop);
+  }
+
+  #[test]
+  fn guardian_emits_unwatch_on_remove() {
+    let runtime = TestMailboxRuntime::unbounded();
+    let (mailbox, sender) = runtime.build_default_mailbox::<PriorityEnvelope<SystemMessage>>();
+    let ref_control: PriorityActorRef<SystemMessage, TestMailboxRuntime> = PriorityActorRef::new(sender);
+
+    let mut guardian: Guardian<SystemMessage, _, AlwaysRestart> = Guardian::new(AlwaysRestart);
+    let parent_id = ActorId(3);
+    let actor_id = guardian
+      .register_child(ref_control.clone(), Arc::new(|sys| sys), Some(parent_id))
+      .unwrap();
+
+    // consume watch message
+    let _ = mailbox.queue().poll().unwrap().unwrap();
+
+    let _ = guardian.remove_child(actor_id);
+
+    let envelope = mailbox.queue().poll().unwrap().unwrap();
+    assert_eq!(envelope.into_parts().0, SystemMessage::Unwatch(parent_id));
   }
 }
