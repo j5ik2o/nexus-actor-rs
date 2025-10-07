@@ -1,4 +1,5 @@
 use alloc::boxed::Box;
+use alloc::sync::Arc;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 
@@ -83,6 +84,7 @@ where
   pub sender: QueueMailboxProducer<R::Queue<PriorityEnvelope<M>>, R::Signal>,
   pub supervisor: Box<dyn Supervisor<M>>,
   pub handler: Box<dyn for<'ctx> FnMut(&mut ActorContext<'ctx, M, R, dyn Supervisor<M>>, M) + 'static>,
+  pub map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
 }
 
 /// アクターが自身や子アクターを操作するためのコンテキスト。
@@ -95,6 +97,7 @@ where
   sender: &'a QueueMailboxProducer<R::Queue<PriorityEnvelope<M>>, R::Signal>,
   supervisor: &'a mut Sup,
   pending_spawns: &'a mut Vec<ChildSpawnSpec<M, R>>,
+  map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
   current_priority: Option<i8>,
   _marker: PhantomData<M>,
 }
@@ -110,12 +113,14 @@ where
     sender: &'a QueueMailboxProducer<R::Queue<PriorityEnvelope<M>>, R::Signal>,
     supervisor: &'a mut Sup,
     pending_spawns: &'a mut Vec<ChildSpawnSpec<M, R>>,
+    map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
   ) -> Self {
     Self {
       runtime,
       sender,
       supervisor,
       pending_spawns,
+      map_system,
       current_priority: None,
       _marker: PhantomData,
     }
@@ -140,6 +145,7 @@ where
       sender,
       supervisor: Box::new(supervisor),
       handler: Box::new(handler),
+      map_system: self.map_system.clone(),
     });
     actor_ref
   }

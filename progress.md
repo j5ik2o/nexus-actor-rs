@@ -18,3 +18,4 @@
 2025-10-07 10:52 JST 進捗: PriorityEnvelope にチャネル種別を導入し、制御メッセージ API（send_control/try_send_control）を追加。ActorContext へ spawn_child / spawn_control_child を実装し、PriorityScheduler が生成された子アクターを次サイクルで処理できるよう更新。Supervisor テストを拡張し、全ターゲットのテストを再実行。
 2025-10-07 11:00 JST 進捗: SystemMessage 列挙と from_system ヘルパーを追加し、PriorityEnvelope::map でメッセージ型変換を簡素化。PriorityActorRef の動作テストに制御メッセージケースを組み込み、protoactor-go の SystemMessage 優先度が保持されることを確認。
 2025-10-07 11:10 JST 進捗: PriorityActorRef<SystemMessage> に try_send_system を追加し、scheduler の統合テストで制御メッセージ経路を検証。プロトアクターの SystemMessage 送出フローを模した回帰テストを整備。
+2025-10-07 11:35 JST 進捗: Guardian と PriorityScheduler を統合し、map_system クロージャ経由で SystemMessage を型付きメッセージへ橋渡し。ActorContext/ChildSpawnSpec に map_system を保持させ、panic 時の guardian 通知と Restart/Stop シナリオをテスト（std feature 付きで panic 捕捉、no_std は早期 return）。scheduler の優先度テストを Message enum ベースへ更新し、新規ガーディアン再起動テストを追加。`cargo test -p nexus-actor-core-rs` および `--features std` を実行。
