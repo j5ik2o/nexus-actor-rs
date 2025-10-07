@@ -42,6 +42,10 @@
   - `spawn(props)` でアクターを起動し、`PriorityActorRef` を返す。
   - `dispatch_all()` により Scheduler のディスパッチを進める。
 - actor-std では `TokioFailureEventBridge` を通じて `FailureEventHub` を tokio broadcast に橋渡しできる。
+- typed DSL の第一段階として `TypedProps` / `TypedActorSystem` / `TypedActorRef` を導入済み。
+  - `TypedProps::new` でユーザーメッセージハンドラを登録し、内部的に `MessageEnvelope<User>` を生成する。
+  - `TypedActorSystem::<U, _>::new(runtime)` で typed システムを構築し、`TypedRootContext::spawn` から typed アクターを起動できる。
+  - `TypedActorRef::tell` でユーザーメッセージを型安全に送信し、SystemMessage は自動的に高優先度で処理される。
 
 ## EscalationSink TODO リスト
 - [ ] `actor-core`: `SchedulerEscalationSink` をパブリック API として再編し、

@@ -20,6 +20,7 @@ mod spawn;
 mod supervisor;
 mod system;
 mod timer;
+mod typed;
 
 pub use actor_id::ActorId;
 pub use actor_path::ActorPath;
@@ -43,6 +44,7 @@ pub use spawn::Spawn;
 pub use supervisor::{NoopSupervisor, Supervisor, SupervisorDirective};
 pub use system::{ActorSystem, Props, RootContext};
 pub use timer::Timer;
+pub use typed::{MessageEnvelope, TypedActorRef, TypedActorSystem, TypedProps, TypedRootContext};
 
 /// Minimal actor loop that waits for messages, handles them, and yields control.
 ///

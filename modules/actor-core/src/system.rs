@@ -1,7 +1,8 @@
 use alloc::boxed::Box;
 use alloc::sync::Arc;
 
-use crate::context::{ActorContext, PriorityActorRef};
+use crate::actor_ref::ActorRef;
+use crate::context::ActorContext;
 use crate::guardian::{AlwaysRestart, GuardianStrategy};
 use crate::mailbox::SystemMessage;
 use crate::scheduler::PriorityScheduler;
@@ -82,7 +83,7 @@ where
   R::Signal: Clone,
   Strat: GuardianStrategy<M, R>,
 {
-  pub fn spawn(&mut self, props: Props<M, R>) -> Result<PriorityActorRef<M, R>, QueueError<PriorityEnvelope<M>>> {
+  pub fn spawn(&mut self, props: Props<M, R>) -> Result<ActorRef<M, R>, QueueError<PriorityEnvelope<M>>> {
     let Props {
       options,
       map_system,
@@ -129,7 +130,7 @@ mod tests {
   #[derive(Debug, Clone)]
   enum Message {
     User(u32),
-    System(SystemMessage),
+    System,
   }
 
   impl Element for Message {}
@@ -139,7 +140,7 @@ mod tests {
     let runtime = TestMailboxRuntime::unbounded();
     let mut system: ActorSystem<Message, _, AlwaysRestart> = ActorSystem::new(runtime);
 
-    let map_system = Arc::new(|sys: SystemMessage| Message::System(sys));
+    let map_system = Arc::new(|_: SystemMessage| Message::System);
     let log: Rc<RefCell<Vec<u32>>> = Rc::new(RefCell::new(Vec::new()));
     let log_clone = log.clone();
 
@@ -150,7 +151,7 @@ mod tests {
         map_system.clone(),
         move |_, msg: Message| match msg {
           Message::User(value) => log_clone.borrow_mut().push(value),
-          Message::System(_) => {}
+          Message::System => {}
         },
       ))
       .expect("spawn actor");
