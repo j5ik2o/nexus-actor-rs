@@ -35,6 +35,14 @@ where
   }
 }
 
+struct FailureReasonDebug<'a>(&'a str);
+
+impl fmt::Debug for FailureReasonDebug<'_> {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    f.write_str(self.0)
+  }
+}
+
 struct ChildRecord<M, R>
 where
   M: Element,
@@ -131,22 +139,7 @@ where
     };
     let failure = FailureInfo::from_error(actor, path, error);
     let directive = self.strategy.decide(actor, error);
-    match (directive, self.children.get(&actor)) {
-      (SupervisorDirective::Resume, _) => Ok(None),
-      (SupervisorDirective::Stop, Some(record)) => {
-        let envelope = PriorityEnvelope::from_system(SystemMessage::Stop).map(|sys| (record.map_system)(sys));
-        record.control_ref.sender().try_send(envelope)?;
-        Ok(None)
-      }
-      (SupervisorDirective::Restart, Some(record)) => {
-        let envelope = PriorityEnvelope::from_system(SystemMessage::Restart).map(|sys| (record.map_system)(sys));
-        record.control_ref.sender().try_send(envelope)?;
-        self.strategy.after_restart(actor);
-        Ok(None)
-      }
-      (SupervisorDirective::Escalate, _) => Ok(Some(failure)),
-      (_, None) => Ok(Some(failure)),
-    }
+    self.handle_directive(actor, failure, directive)
   }
 
   pub fn stop_child(&mut self, actor: ActorId) -> Result<(), QueueError<PriorityEnvelope<M>>> {
@@ -155,6 +148,62 @@ where
       record.control_ref.sender().try_send(envelope)
     } else {
       Ok(())
+    }
+  }
+
+  pub fn escalate_failure(
+    &mut self,
+    failure: FailureInfo,
+  ) -> Result<Option<FailureInfo>, QueueError<PriorityEnvelope<M>>> {
+    let actor = failure.actor;
+    let directive = self.strategy.decide(actor, &FailureReasonDebug(&failure.reason));
+    self.handle_directive(actor, failure, directive)
+  }
+
+  pub fn child_route(
+    &self,
+    actor: ActorId,
+  ) -> Option<(PriorityActorRef<M, R>, Arc<dyn Fn(SystemMessage) -> M + Send + Sync>)> {
+    self
+      .children
+      .get(&actor)
+      .map(|record| (record.control_ref.clone(), record.map_system.clone()))
+  }
+
+  fn handle_directive(
+    &mut self,
+    actor: ActorId,
+    failure: FailureInfo,
+    directive: SupervisorDirective,
+  ) -> Result<Option<FailureInfo>, QueueError<PriorityEnvelope<M>>> {
+    match directive {
+      SupervisorDirective::Resume => Ok(None),
+      SupervisorDirective::Stop => {
+        if let Some(record) = self.children.get(&actor) {
+          let envelope = PriorityEnvelope::from_system(SystemMessage::Stop).map(|sys| (record.map_system)(sys));
+          record.control_ref.sender().try_send(envelope)?;
+          Ok(None)
+        } else {
+          Ok(Some(failure))
+        }
+      }
+      SupervisorDirective::Restart => {
+        if let Some(record) = self.children.get(&actor) {
+          let envelope = PriorityEnvelope::from_system(SystemMessage::Restart).map(|sys| (record.map_system)(sys));
+          record.control_ref.sender().try_send(envelope)?;
+          self.strategy.after_restart(actor);
+          Ok(None)
+        } else {
+          Ok(Some(failure))
+        }
+      }
+      SupervisorDirective::Escalate => {
+        if let Some(parent_failure) = failure.escalate_to_parent() {
+          Ok(Some(parent_failure))
+        } else {
+          Ok(Some(failure))
+        }
+      }
     }
   }
 }

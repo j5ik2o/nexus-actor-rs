@@ -20,6 +20,104 @@ use crate::supervisor::Supervisor;
 use crate::{MailboxOptions, MailboxRuntime, PriorityEnvelope, QueueMailbox, QueueMailboxProducer};
 use nexus_utils_core_rs::{Element, QueueError, QueueRw};
 
+struct ParentGuardianRoute<M, R>
+where
+  M: Element,
+  R: MailboxRuntime,
+  R::Queue<PriorityEnvelope<M>>: Clone,
+  R::Signal: Clone, {
+  control_ref: PriorityActorRef<M, R>,
+  map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
+}
+
+struct SchedulerEscalationSink<M, R>
+where
+  M: Element,
+  R: MailboxRuntime,
+  R::Queue<PriorityEnvelope<M>>: Clone,
+  R::Signal: Clone, {
+  parent_guardian: Option<ParentGuardianRoute<M, R>>,
+  custom_handler: Option<Box<dyn FnMut(&FailureInfo) -> Result<(), QueueError<PriorityEnvelope<M>>> + 'static>>,
+}
+
+impl<M, R> SchedulerEscalationSink<M, R>
+where
+  M: Element,
+  R: MailboxRuntime,
+  R::Queue<PriorityEnvelope<M>>: Clone,
+  R::Signal: Clone,
+{
+  fn new() -> Self {
+    Self {
+      parent_guardian: None,
+      custom_handler: None,
+    }
+  }
+
+  fn handle<Strat>(&mut self, info: FailureInfo, guardian: &Guardian<M, R, Strat>) -> Result<(), FailureInfo>
+  where
+    Strat: GuardianStrategy<M, R>, {
+    let mut handled = false;
+
+    if let Some(parent_failure) = info.escalate_to_parent() {
+      if !parent_failure.path.is_empty() {
+        if let Some((parent_ref, map_system)) = guardian.child_route(parent_failure.actor) {
+          let envelope =
+            PriorityEnvelope::from_system(SystemMessage::Escalate(parent_failure.clone())).map(|sys| (map_system)(sys));
+          if parent_ref.sender().try_send(envelope).is_ok() {
+            handled = true;
+          }
+        }
+      }
+
+      if !handled {
+        if let Some(route) = self.parent_guardian.as_ref() {
+          let envelope = PriorityEnvelope::from_system(SystemMessage::Escalate(parent_failure.clone()))
+            .map(|sys| (route.map_system)(sys));
+          if route.control_ref.sender().try_send(envelope).is_ok() {
+            handled = true;
+          }
+        }
+      }
+    } else if let Some(route) = self.parent_guardian.as_ref() {
+      let envelope =
+        PriorityEnvelope::from_system(SystemMessage::Escalate(info.clone())).map(|sys| (route.map_system)(sys));
+      if route.control_ref.sender().try_send(envelope).is_ok() {
+        handled = true;
+      }
+    }
+
+    if let Some(handler) = self.custom_handler.as_mut() {
+      if handler(&info).is_ok() {
+        handled = true;
+      }
+    }
+
+    if handled {
+      Ok(())
+    } else {
+      Err(info)
+    }
+  }
+
+  fn set_parent_guardian(
+    &mut self,
+    control_ref: PriorityActorRef<M, R>,
+    map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
+  ) {
+    self.parent_guardian = Some(ParentGuardianRoute {
+      control_ref,
+      map_system,
+    });
+  }
+
+  fn set_custom_handler<F>(&mut self, handler: F)
+  where
+    F: FnMut(&FailureInfo) -> Result<(), QueueError<PriorityEnvelope<M>>> + 'static, {
+    self.custom_handler = Some(Box::new(handler));
+  }
+}
+
 /// 優先度付きメールボックスを前提とした単純なスケジューラ実装。
 pub struct PriorityScheduler<M, R, Strat = AlwaysRestart>
 where
@@ -32,8 +130,7 @@ where
   guardian: Guardian<M, R, Strat>,
   actors: Vec<ActorCell<M, R, Strat>>,
   escalations: Vec<FailureInfo>,
-  escalation_handler: Option<Box<dyn FnMut(&FailureInfo) -> Result<(), QueueError<PriorityEnvelope<M>>> + 'static>>,
-  parent_guardian: Option<(PriorityActorRef<M, R>, Arc<dyn Fn(SystemMessage) -> M + Send + Sync>)>,
+  escalation_sink: SchedulerEscalationSink<M, R>,
 }
 
 impl<M, R> PriorityScheduler<M, R, AlwaysRestart>
@@ -49,8 +146,7 @@ where
       guardian: Guardian::new(AlwaysRestart),
       actors: Vec::new(),
       escalations: Vec::new(),
-      escalation_handler: None,
-      parent_guardian: None,
+      escalation_sink: SchedulerEscalationSink::new(),
     }
   }
 
@@ -62,8 +158,7 @@ where
       guardian: Guardian::new(strategy),
       actors: Vec::new(),
       escalations: Vec::new(),
-      escalation_handler: None,
-      parent_guardian: None,
+      escalation_sink: SchedulerEscalationSink::new(),
     }
   }
 }
@@ -95,9 +190,10 @@ where
     watchers.push(ActorId::ROOT);
     let primary_watcher = watchers.first().copied();
     let parent_path = ActorPath::new();
-    let (actor_id, actor_path) = self
-      .guardian
-      .register_child(control_ref.clone(), map_system.clone(), primary_watcher, &parent_path)?;
+    let (actor_id, actor_path) =
+      self
+        .guardian
+        .register_child(control_ref.clone(), map_system.clone(), primary_watcher, &parent_path)?;
     let cell = ActorCell::new(
       actor_id,
       map_system,
@@ -124,27 +220,11 @@ where
 
     if !self.escalations.is_empty() {
       let mut remaining = Vec::new();
+      let guardian = &self.guardian;
       for info in self.escalations.drain(..) {
-        let mut handled = false;
-
-        if let Some((ref control_ref, ref map_system)) = self.parent_guardian {
-          if let Some(parent_info) = info.escalate_to_parent() {
-            let envelope =
-              PriorityEnvelope::from_system(SystemMessage::Escalate(parent_info)).map(|sys| (map_system)(sys));
-            if control_ref.sender().try_send(envelope).is_ok() {
-              handled = true;
-            }
-          }
-        }
-
-        if let Some(handler) = self.escalation_handler.as_mut() {
-          if handler(&info).is_ok() {
-            handled = true;
-          }
-        }
-
-        if !handled {
-          remaining.push(info);
+        match self.escalation_sink.handle(info, guardian) {
+          Ok(()) => {}
+          Err(unhandled) => remaining.push(unhandled),
         }
       }
       self.escalations.extend(remaining);
@@ -163,7 +243,7 @@ where
   pub fn on_escalation<F>(&mut self, handler: F)
   where
     F: FnMut(&FailureInfo) -> Result<(), QueueError<PriorityEnvelope<M>>> + 'static, {
-    self.escalation_handler = Some(Box::new(handler));
+    self.escalation_sink.set_custom_handler(handler);
   }
 
   pub fn set_parent_guardian(
@@ -171,7 +251,7 @@ where
     control_ref: PriorityActorRef<M, R>,
     map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
   ) {
-    self.parent_guardian = Some((control_ref, map_system));
+    self.escalation_sink.set_parent_guardian(control_ref, map_system);
   }
 }
 
@@ -257,8 +337,12 @@ where
     new_children: &mut Vec<ActorCell<M, R, Strat>>,
     escalations: &mut Vec<FailureInfo>,
   ) -> Result<(), QueueError<PriorityEnvelope<M>>> {
-    #[cfg(not(feature = "std"))]
-    let _ = escalations;
+    if let Some(SystemMessage::Escalate(failure)) = envelope.system_message().cloned() {
+      if let Some(next_failure) = guardian.escalate_failure(failure)? {
+        escalations.push(next_failure);
+      }
+      return Ok(());
+    }
 
     let (message, priority) = envelope.into_parts();
     self.supervisor.before_handle();
@@ -342,7 +426,8 @@ where
 
     let control_ref = PriorityActorRef::new(sender.clone());
     let primary_watcher = watchers.first().copied();
-    let (actor_id, actor_path) = guardian.register_child(control_ref, map_system.clone(), primary_watcher, &parent_path)?;
+    let (actor_id, actor_path) =
+      guardian.register_child(control_ref, map_system.clone(), primary_watcher, &parent_path)?;
     let cell = ActorCell::new(
       actor_id,
       map_system,
@@ -745,5 +830,105 @@ mod tests {
       }
       other => panic!("unexpected message: {:?}", other),
     }
+  }
+
+  #[cfg(feature = "std")]
+  #[test]
+  fn scheduler_escalation_chain_reaches_root() {
+    let runtime = TestMailboxRuntime::unbounded();
+    let mut scheduler: PriorityScheduler<Message, _, AlwaysEscalate> =
+      PriorityScheduler::with_strategy(runtime, AlwaysEscalate);
+
+    let collected: Rc<RefCell<Vec<FailureInfo>>> = Rc::new(RefCell::new(Vec::new()));
+    let collected_clone = collected.clone();
+    scheduler.on_escalation(move |info| {
+      collected_clone.borrow_mut().push(info.clone());
+      Ok(())
+    });
+
+    let parent_triggered = Rc::new(Cell::new(false));
+    let trigger_flag = parent_triggered.clone();
+    let child_panics = Rc::new(Cell::new(true));
+    let child_flag = child_panics.clone();
+
+    let parent_ref = scheduler
+      .spawn_actor(
+        NoopSupervisor,
+        MailboxOptions::default(),
+        Arc::new(|sys| Message::System(sys)),
+        move |ctx, msg: Message| match msg {
+          Message::System(_) => {}
+          Message::User(0) if !trigger_flag.get() => {
+            trigger_flag.set(true);
+            let panic_once = child_flag.clone();
+            ctx
+              .spawn_child(
+                NoopSupervisor,
+                MailboxOptions::default(),
+                move |_, child_msg: Message| match child_msg {
+                  Message::System(_) => {}
+                  Message::User(1) if panic_once.get() => {
+                    panic_once.set(false);
+                    panic!("child failure");
+                  }
+                  _ => {}
+                },
+              )
+              .try_send_with_priority(Message::User(1), DEFAULT_PRIORITY)
+              .unwrap();
+          }
+          _ => {}
+        },
+      )
+      .unwrap();
+
+    scheduler.dispatch_all().unwrap();
+
+    {
+      let snapshot = collected.borrow();
+      assert_eq!(snapshot.len(), 0);
+    }
+
+    parent_ref
+      .try_send_with_priority(Message::User(0), DEFAULT_PRIORITY)
+      .unwrap();
+
+    scheduler.dispatch_all().unwrap();
+    {
+      let snapshot = collected.borrow();
+      assert_eq!(snapshot.len(), 0);
+    }
+
+    scheduler.dispatch_all().unwrap();
+    {
+      let snapshot = collected.borrow();
+      assert_eq!(snapshot.len(), 1);
+    }
+    let child_failure = collected.borrow()[0].clone();
+    let parent_failure = child_failure
+      .escalate_to_parent()
+      .expect("parent failure info must exist");
+
+    let root_failure = scheduler
+      .guardian
+      .escalate_failure(parent_failure.clone())
+      .unwrap()
+      .expect("root failure should be produced");
+
+    assert_eq!(child_failure.path.segments().last().copied(), Some(child_failure.actor));
+
+    assert_eq!(
+      parent_failure.actor,
+      child_failure
+        .path
+        .segments()
+        .first()
+        .copied()
+        .unwrap_or(child_failure.actor)
+    );
+
+    assert_eq!(root_failure.actor, parent_failure.actor);
+    assert!(root_failure.path.is_empty());
+    assert_eq!(root_failure.reason, parent_failure.reason);
   }
 }

@@ -89,6 +89,7 @@ pub struct PriorityEnvelope<M> {
   message: M,
   priority: i8,
   channel: PriorityChannel,
+  system_message: Option<SystemMessage>,
 }
 
 #[allow(dead_code)]
@@ -102,6 +103,7 @@ impl<M> PriorityEnvelope<M> {
       message,
       priority,
       channel,
+      system_message: None,
     }
   }
 
@@ -125,6 +127,10 @@ impl<M> PriorityEnvelope<M> {
     matches!(self.channel, PriorityChannel::Control)
   }
 
+  pub fn system_message(&self) -> Option<&SystemMessage> {
+    self.system_message.as_ref()
+  }
+
   pub fn into_parts(self) -> (M, i8) {
     (self.message, self.priority)
   }
@@ -138,6 +144,7 @@ impl<M> PriorityEnvelope<M> {
       message: f(self.message),
       priority: self.priority,
       channel: self.channel,
+      system_message: self.system_message,
     }
   }
 
@@ -161,7 +168,10 @@ impl PriorityEnvelope<SystemMessage> {
   /// SystemMessage 用の Envelope ヘルパー。
   pub fn from_system(message: SystemMessage) -> Self {
     let priority = message.priority();
-    PriorityEnvelope::with_channel(message, priority, PriorityChannel::Control)
+    let system_clone = message.clone();
+    let mut envelope = PriorityEnvelope::with_channel(message, priority, PriorityChannel::Control);
+    envelope.system_message = Some(system_clone);
+    envelope
   }
 }
 
