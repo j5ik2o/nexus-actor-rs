@@ -63,9 +63,11 @@
 
 ### 予定する実装ステップ
 1. `FailureInfo` に Restart 統計や最終処理メッセージなどのメタ情報を追加し、SupervisorStrategy が条件判定に利用できるようにする。
-2. `GuardianStrategy::decide` で Escalate を返した際、`Guardian` が EscalationSink 経由で親アクターへ通知できるよう `PriorityScheduler::on_escalation` を活用する。
-3. `Supervisor` 実装に Failure/Escalate を通知するため、`ActorContext` に `notify_failure` フックを追加し、Typed 層でも `TypedSystemEvent::Failure` を処理できるようにする。
-4. テストシナリオ: (a) 子アクターが panic し再起動。Restart/Stop を確認。（済） (b) Escalate 戦略でハンドラが呼ばれることを検証。（済） (c) EscalationSink 経由で親 Guardian が FailureInfo を受け取り再処理する統合テストを追加。
+2. `GuardianStrategy::decide` で Escalate を返した際、`Guardian` が EscalationSink 経由で親アクターへ通知できるよう `PriorityScheduler::on_escalation` を活用する。（実装済み）
+3. 親ガーディアンが `SystemMessage::Escalate` を受け取った際に `Guardian::notify_failure` を再実行できるよう、EscalationSink を `Scheduler` / `ParentGuardian` で切り替える抽象を追加する。
+   - Sink では FailureInfo と再起動統計（今後導入）を保持し、親 strategy が Stop/Restart/Escalate を再評価できる。
+4. `Supervisor` 実装に Failure/Escalate を通知するため、`ActorContext` に `notify_failure` フックを追加し、Typed 層でも `TypedSystemEvent::Failure` を処理できるようにする。
+5. テストシナリオ: (a) 子アクター → 親 → ルートで Escalate が連鎖し、最終的に Stop 指示が届くケース。 (b) EscalationSink が親 Guardian の strategy によって Restart/Stop を再評価するケース。 (c) Escalate が system guardian 経由で最終処理へ到達する end-to-end テスト。
 
 ### 留意点
 - Escalate の送信先は protoactor-go では GuardianProcess（system guardian）固定。Rust 版では `PriorityScheduler` が複数 Guardian を持てるようにし、`GuardianHandle` のような構造を介して上位に通知することを検討。
