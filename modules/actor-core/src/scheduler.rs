@@ -13,110 +13,13 @@ use std::panic::{catch_unwind, AssertUnwindSafe};
 use crate::actor_id::ActorId;
 use crate::actor_path::ActorPath;
 use crate::context::{ActorContext, ChildSpawnSpec, PriorityActorRef};
+use crate::escalation::{CompositeEscalationSink, EscalationSink};
 use crate::failure::FailureInfo;
 use crate::guardian::{AlwaysRestart, Guardian, GuardianStrategy};
 use crate::mailbox::SystemMessage;
 use crate::supervisor::Supervisor;
 use crate::{MailboxOptions, MailboxRuntime, PriorityEnvelope, QueueMailbox, QueueMailboxProducer};
 use nexus_utils_core_rs::{Element, QueueError, QueueRw};
-
-struct ParentGuardianRoute<M, R>
-where
-  M: Element,
-  R: MailboxRuntime,
-  R::Queue<PriorityEnvelope<M>>: Clone,
-  R::Signal: Clone, {
-  control_ref: PriorityActorRef<M, R>,
-  map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
-}
-
-struct SchedulerEscalationSink<M, R>
-where
-  M: Element,
-  R: MailboxRuntime,
-  R::Queue<PriorityEnvelope<M>>: Clone,
-  R::Signal: Clone, {
-  parent_guardian: Option<ParentGuardianRoute<M, R>>,
-  custom_handler: Option<Box<dyn FnMut(&FailureInfo) -> Result<(), QueueError<PriorityEnvelope<M>>> + 'static>>,
-}
-
-impl<M, R> SchedulerEscalationSink<M, R>
-where
-  M: Element,
-  R: MailboxRuntime,
-  R::Queue<PriorityEnvelope<M>>: Clone,
-  R::Signal: Clone,
-{
-  fn new() -> Self {
-    Self {
-      parent_guardian: None,
-      custom_handler: None,
-    }
-  }
-
-  fn handle<Strat>(&mut self, info: FailureInfo, guardian: &Guardian<M, R, Strat>) -> Result<(), FailureInfo>
-  where
-    Strat: GuardianStrategy<M, R>, {
-    let mut handled = false;
-
-    if let Some(parent_failure) = info.escalate_to_parent() {
-      if !parent_failure.path.is_empty() {
-        if let Some((parent_ref, map_system)) = guardian.child_route(parent_failure.actor) {
-          let envelope =
-            PriorityEnvelope::from_system(SystemMessage::Escalate(parent_failure.clone())).map(|sys| (map_system)(sys));
-          if parent_ref.sender().try_send(envelope).is_ok() {
-            handled = true;
-          }
-        }
-      }
-
-      if !handled {
-        if let Some(route) = self.parent_guardian.as_ref() {
-          let envelope = PriorityEnvelope::from_system(SystemMessage::Escalate(parent_failure.clone()))
-            .map(|sys| (route.map_system)(sys));
-          if route.control_ref.sender().try_send(envelope).is_ok() {
-            handled = true;
-          }
-        }
-      }
-    } else if let Some(route) = self.parent_guardian.as_ref() {
-      let envelope =
-        PriorityEnvelope::from_system(SystemMessage::Escalate(info.clone())).map(|sys| (route.map_system)(sys));
-      if route.control_ref.sender().try_send(envelope).is_ok() {
-        handled = true;
-      }
-    }
-
-    if let Some(handler) = self.custom_handler.as_mut() {
-      if handler(&info).is_ok() {
-        handled = true;
-      }
-    }
-
-    if handled {
-      Ok(())
-    } else {
-      Err(info)
-    }
-  }
-
-  fn set_parent_guardian(
-    &mut self,
-    control_ref: PriorityActorRef<M, R>,
-    map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
-  ) {
-    self.parent_guardian = Some(ParentGuardianRoute {
-      control_ref,
-      map_system,
-    });
-  }
-
-  fn set_custom_handler<F>(&mut self, handler: F)
-  where
-    F: FnMut(&FailureInfo) -> Result<(), QueueError<PriorityEnvelope<M>>> + 'static, {
-    self.custom_handler = Some(Box::new(handler));
-  }
-}
 
 /// 優先度付きメールボックスを前提とした単純なスケジューラ実装。
 pub struct PriorityScheduler<M, R, Strat = AlwaysRestart>
@@ -130,7 +33,7 @@ where
   guardian: Guardian<M, R, Strat>,
   actors: Vec<ActorCell<M, R, Strat>>,
   escalations: Vec<FailureInfo>,
-  escalation_sink: SchedulerEscalationSink<M, R>,
+  escalation_sink: CompositeEscalationSink<M, R>,
 }
 
 impl<M, R> PriorityScheduler<M, R, AlwaysRestart>
@@ -146,7 +49,7 @@ where
       guardian: Guardian::new(AlwaysRestart),
       actors: Vec::new(),
       escalations: Vec::new(),
-      escalation_sink: SchedulerEscalationSink::new(),
+      escalation_sink: CompositeEscalationSink::new(),
     }
   }
 
@@ -158,7 +61,7 @@ where
       guardian: Guardian::new(strategy),
       actors: Vec::new(),
       escalations: Vec::new(),
-      escalation_sink: SchedulerEscalationSink::new(),
+      escalation_sink: CompositeEscalationSink::new(),
     }
   }
 }
@@ -219,15 +122,16 @@ where
     self.actors.extend(new_children.into_iter());
 
     if !self.escalations.is_empty() {
+      let pending = core::mem::take(&mut self.escalations);
       let mut remaining = Vec::new();
-      let guardian = &self.guardian;
-      for info in self.escalations.drain(..) {
-        match self.escalation_sink.handle(info, guardian) {
+      for info in pending.into_iter() {
+        let handled_locally = self.forward_to_local_parent(&info);
+        match self.escalation_sink.handle(info, handled_locally) {
           Ok(()) => {}
           Err(unhandled) => remaining.push(unhandled),
         }
       }
-      self.escalations.extend(remaining);
+      self.escalations = remaining;
     }
     Ok(())
   }
@@ -252,6 +156,24 @@ where
     map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
   ) {
     self.escalation_sink.set_parent_guardian(control_ref, map_system);
+  }
+
+  fn forward_to_local_parent(&self, info: &FailureInfo) -> bool {
+    if let Some(parent_info) = info.escalate_to_parent() {
+      if parent_info.path.is_empty() {
+        return false;
+      }
+
+      if let Some((parent_ref, map_system)) = self.guardian.child_route(parent_info.actor) {
+        let envelope =
+          PriorityEnvelope::from_system(SystemMessage::Escalate(parent_info.clone())).map(|sys| (map_system)(sys));
+        if parent_ref.sender().try_send(envelope).is_ok() {
+          return true;
+        }
+      }
+    }
+
+    false
   }
 }
 

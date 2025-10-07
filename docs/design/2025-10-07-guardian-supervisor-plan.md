@@ -35,6 +35,24 @@
 2. Escalate をサポートし、上位 Guardian へ転送する際も `map_system` クロージャを通じてメッセージ型を変換する。`PriorityScheduler::on_escalation` 経由で FailureInfo を受け取ったら、親 Guardian／system guardian へ `SystemMessage::Escalate` を送出する。
 3. Typed 層が `map_system` を生成し、`SystemMessage` をユーザーの DSL に沿った挙動へマッピングできるようインターフェースを整備する。
 
+## EscalationSink TODO リスト
+- [ ] `actor-core`: `SchedulerEscalationSink` をパブリック API として再編し、
+      `trait EscalationSink`（handle 戻り値 `Result<(), FailureInfo>`）と具体実装
+      （親ガーディアン／カスタム／合成）を提供する。
+- [ ] `PriorityScheduler`: Builder もしくは設定 API で EscalationSink を注入可能にし、
+      子スケジューラがルートに参加する際に同一ポリシーを共有できるようにする。
+- [ ] `Guardian`: `escalate_failure` の戻り値を拡張し、
+      `SupervisorDirective::Stop`／`Restart` を返さなかったケースでも FailureInfo に
+      サブタイプ（例: `EscalationStage`）を付与できるよう検討する。
+- [ ] `ActorContext` / `ChildSpawnSpec`: `map_system` だけでなく EscalationSink のフックを
+      親から子へ伝搬させ、Typed DSL で `SystemMessage::Escalate` を型安全に変換できるようにする。
+- [ ] `TypedMailboxAdapter`（予定）: `SystemMessage::Failure` と `SystemMessage::Escalate` を
+      ユーザー定義イベントへマップする仕組みを提供し、テストで Escalate→typed DSL の通知経路を検証する。
+- [ ] `actor-core` テスト: 現状の `scheduler_escalation_chain_reaches_root` に加えて、
+      カスタム EscalationSink が再試行を返した場合に scheduler が FailureInfo を再キューするケースを追加する。
+- [ ] `system_guardian` / `root_guardian`: ルート EscalationSink を定義し、最上位で FailureInfo を
+      ログ／メトリクス／イベントストリームへ流すフックを整備する。
+
 ## Watch / Unwatch 親伝播設計草案
 
 ### 要件
@@ -60,6 +78,33 @@
 - `SystemMessage::Failure(FailureInfo)`：Restart/Stop と同じチャネルで障害情報を保持（Escalate しない場合でもダンプ可能）。
 - `SystemMessage::Escalate(FailureInfo)`：GuardianStrategy が Escalate を返した際、上位層へ伝播するためのメッセージ。現状は `PriorityScheduler::take_escalations` で収集する。
 - `FailureInfo` には `actor: ActorId` と `reason: String` を保持。再起動統計などの拡張は今後追加予定。
+
+### EscalationSink の構成案
+
+```rust
+pub enum EscalationTarget<M, R> {
+  Scheduler,
+  ParentGuardian {
+    control_ref: PriorityActorRef<M, R>,
+    map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
+  },
+  Custom(Box<dyn FnMut(&FailureInfo) -> Result<(), QueueError<PriorityEnvelope<M>>> + 'static>),
+}
+
+pub trait EscalationSink<M, R> {
+  fn handle(&mut self, info: FailureInfo) -> Result<(), FailureInfo>;
+}
+```
+
+- `PriorityScheduler` は `EscalationSink` を保持し、FailureInfo を Sink に渡す。戻り値が `Err(FailureInfo)` の場合はバッファに戻し、後続サイクルで再試行する。
+- `EscalationTarget::ParentGuardian` は FailureInfo に含まれる `ActorPath` を `parent()` へ進め、親視点の FailureInfo を生成して `SystemMessage::Escalate` として親ガーディアンに送信する。
+- `Guardian` 側には `escalate_failure(&FailureInfo) -> Result<Option<FailureInfo>, QueueError<_>>` を追加し、FailureInfo を再度 `notify_failure` へ流した際の指示（Restart/Stop/Escalate）を返す。
+
+### ActorPath 仕様
+
+- `ActorPath` は root から該当アクターまでの `ActorId` を順に保持する。
+- `ActorPath::push_child` で子の ID を追加、`parent()` で親のパスを取得、`last()` で現在のアクター ID を求める。
+- FailureInfo は常に自分自身の `ActorId` と `ActorPath` を保持し、親側では `escalate_to_parent()` でパスと ID を更新する。
 
 ### 予定する実装ステップ
 1. `FailureInfo` に Restart 統計や最終処理メッセージなどのメタ情報を追加し、SupervisorStrategy が条件判定に利用できるようにする。
@@ -106,3 +151,17 @@ where
 2. `FailureInfo` / `SystemMessage::Failure` / `SystemMessage::Escalate` を追加し、Guardian と SupervisorStrategy 間のエラーフローを整備する。
 3. Typed Actor 層の `map_system` 生成 API を定義し、`Watch/Unwatch/Failure` を型安全に扱うアダプタを実装する。
 4. no_std 構成向けに panic 以外のエラー経路（`Result` 返却等）を guardian に伝える手段を検討する。
+
+## 旧実装からのメモ（remote / cluster の参考ポイント）
+- `modules/remote-core`: `RemoteRuntimeConfig` がトランスポート・シリアライザ・ブロックリストを束ねる。
+      `RemoteTransport` は `connect` / `serve` を非同期で実装する契約になっているため、
+      EscalationSink でリモート層へ渡す FailureInfo にはエンドポイント URI やトランスポート種別を
+      含められるようメタデータ拡張を検討する。
+- `modules/remote-std/src/endpoint_supervisor.rs`: `EndpointSupervisor` は writer / watcher のペアを生成し、
+      `OneForOneStrategy::new(...).with_decider(|_| Directive::Stop)` で再起動ではなく停止を指示する。
+      EscalationSink 導入後は endpoint の再生成・監視再登録ロジックを `SystemMessage::Escalate` に結び付け、
+      WatchRegistry と FailureInfo を結合させる。
+- `modules/cluster-std/src/cluster.rs`: `Cluster::ensure_remote` が `Remote` を起動し、
+      `ClusterActivationHandler` 経由で仮想アクターの PID を解決する。クラスタ層では EscalationSink を
+      利用して remote 失敗を `ClusterError::Provider` / `PartitionManagerError` などへ変換し、
+      メンバーシップ更新や再接続ポリシーと連携させる。

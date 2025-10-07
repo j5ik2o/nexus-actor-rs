@@ -1,0 +1,14 @@
+[package]
+name = "nexus-remote-core-rs"
+version = "0.1.0"
+edition = "2021"
+description = "Remote messaging core scaffolding"
+license = "MIT OR Apache-2.0"
+
+[features]
+default = ["std"]
+alloc = []
+std = ["alloc"]
+
+[dependencies]
+nexus-actor-core-rs = { path = "../actor-core", default-features = false, features = ["alloc"] }
