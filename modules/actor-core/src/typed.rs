@@ -1,7 +1,6 @@
 use alloc::sync::Arc;
 
-use crate::actor_ref::ActorRef;
-use crate::context::ActorContext;
+use crate::context::{ActorContext, PriorityActorRef};
 use crate::guardian::AlwaysRestart;
 use crate::mailbox::SystemMessage;
 use crate::supervisor::Supervisor;
@@ -83,7 +82,7 @@ where
   R: MailboxRuntime + Clone + 'static,
   R::Queue<PriorityEnvelope<MessageEnvelope<U>>>: Clone,
   R::Signal: Clone, {
-  inner: ActorRef<MessageEnvelope<U>, R>,
+  inner: PriorityActorRef<MessageEnvelope<U>, R>,
 }
 
 impl<U, R> TypedActorRef<U, R>
@@ -93,7 +92,7 @@ where
   R::Queue<PriorityEnvelope<MessageEnvelope<U>>>: Clone,
   R::Signal: Clone,
 {
-  pub fn new(inner: ActorRef<MessageEnvelope<U>, R>) -> Self {
+  pub fn new(inner: PriorityActorRef<MessageEnvelope<U>, R>) -> Self {
     Self { inner }
   }
 
@@ -120,7 +119,7 @@ where
       .try_send_control_with_priority(MessageEnvelope::System(message), priority)
   }
 
-  pub fn inner(&self) -> &ActorRef<MessageEnvelope<U>, R> {
+  pub fn inner(&self) -> &PriorityActorRef<MessageEnvelope<U>, R> {
     &self.inner
   }
 }

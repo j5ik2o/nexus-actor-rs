@@ -7,7 +7,6 @@ use core::time::Duration;
 
 mod actor_id;
 mod actor_path;
-mod actor_ref;
 mod context;
 mod escalation;
 mod failure;
@@ -24,7 +23,6 @@ mod typed;
 
 pub use actor_id::ActorId;
 pub use actor_path::ActorPath;
-pub use actor_ref::ActorRef;
 pub use context::{ActorContext, PriorityActorRef};
 pub use escalation::{
   CompositeEscalationSink, CustomEscalationSink, EscalationSink, FailureEventHandler, FailureEventListener,

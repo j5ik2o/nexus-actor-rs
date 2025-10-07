@@ -1,8 +1,7 @@
 use alloc::boxed::Box;
 use alloc::sync::Arc;
 
-use crate::actor_ref::ActorRef;
-use crate::context::ActorContext;
+use crate::context::{ActorContext, PriorityActorRef};
 use crate::guardian::{AlwaysRestart, GuardianStrategy};
 use crate::mailbox::SystemMessage;
 use crate::scheduler::PriorityScheduler;
@@ -83,7 +82,7 @@ where
   R::Signal: Clone,
   Strat: GuardianStrategy<M, R>,
 {
-  pub fn spawn(&mut self, props: Props<M, R>) -> Result<ActorRef<M, R>, QueueError<PriorityEnvelope<M>>> {
+  pub fn spawn(&mut self, props: Props<M, R>) -> Result<PriorityActorRef<M, R>, QueueError<PriorityEnvelope<M>>> {
     let Props {
       options,
       map_system,
