@@ -1,19 +1,23 @@
-use alloc::sync::Arc;
+use alloc::boxed::Box;
 
 use core::future::Future;
+use core::marker::PhantomData;
 use core::pin::Pin;
 use core::task::{Context, Poll};
 
 use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, RawMutex};
-use embassy_sync::signal::{Signal, SignalFuture};
+use embassy_sync::signal::Signal;
 
-use nexus_actor_core_rs::{Mailbox, MailboxSignal, QueueMailbox, QueueMailboxProducer, QueueMailboxRecv};
+use nexus_actor_core_rs::{
+  Mailbox, MailboxOptions, MailboxPair, MailboxRuntime, MailboxSignal, QueueMailbox, QueueMailboxProducer,
+  QueueMailboxRecv,
+};
 use nexus_utils_embedded_rs::collections::queue::mpsc::ArcMpscUnboundedQueue;
 use nexus_utils_embedded_rs::{Element, QueueError, QueueSize};
 
-use crate::sync::ArcShared;
+use nexus_utils_embedded_rs::sync::ArcShared;
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct ArcMailbox<M, RM = CriticalSectionRawMutex>
 where
   M: Element,
@@ -21,7 +25,7 @@ where
   inner: QueueMailbox<ArcMpscUnboundedQueue<M, RM>, ArcSignal<RM>>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct ArcMailboxSender<M, RM = CriticalSectionRawMutex>
 where
   M: Element,
@@ -29,11 +33,48 @@ where
   inner: QueueMailboxProducer<ArcMpscUnboundedQueue<M, RM>, ArcSignal<RM>>,
 }
 
-#[derive(Clone, Debug)]
-struct ArcSignal<RM>
+#[derive(Clone)]
+pub struct ArcMailboxRuntime<RM = CriticalSectionRawMutex>
+where
+  RM: RawMutex, {
+  _marker: PhantomData<RM>,
+}
+
+impl<RM> Default for ArcMailboxRuntime<RM>
+where
+  RM: RawMutex,
+{
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
+pub struct ArcSignal<RM>
 where
   RM: RawMutex, {
   signal: ArcShared<Signal<RM, ()>>,
+}
+
+impl<RM> Clone for ArcSignal<RM>
+where
+  RM: RawMutex,
+{
+  fn clone(&self) -> Self {
+    Self {
+      signal: self.signal.clone(),
+    }
+  }
+}
+
+impl<RM> Default for ArcSignal<RM>
+where
+  RM: RawMutex,
+{
+  fn default() -> Self {
+    Self {
+      signal: ArcShared::new(Signal::new()),
+    }
+  }
 }
 
 impl<RM> ArcSignal<RM>
@@ -41,9 +82,7 @@ where
   RM: RawMutex,
 {
   fn new() -> Self {
-    Self {
-      signal: ArcShared::new(Signal::new()),
-    }
+    Self::default()
   }
 }
 
@@ -52,7 +91,7 @@ where
   RM: RawMutex,
 {
   type WaitFuture<'a>
-    = SignalFuture<'a, RM, ()>
+    = ArcSignalWait<'a, RM>
   where
     Self: 'a;
 
@@ -61,7 +100,72 @@ where
   }
 
   fn wait(&self) -> Self::WaitFuture<'_> {
-    self.signal.wait()
+    ArcSignalWait {
+      future: Box::pin(self.signal.wait()),
+      _marker: PhantomData,
+    }
+  }
+}
+
+pub struct ArcSignalWait<'a, RM>
+where
+  RM: RawMutex, {
+  future: Pin<Box<dyn Future<Output = ()> + 'a>>,
+  _marker: PhantomData<RM>,
+}
+
+impl<'a, RM> Future for ArcSignalWait<'a, RM>
+where
+  RM: RawMutex,
+{
+  type Output = ();
+
+  fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+    let this = unsafe { self.get_unchecked_mut() };
+    this.future.as_mut().poll(cx)
+  }
+}
+
+impl<RM> ArcMailboxRuntime<RM>
+where
+  RM: RawMutex,
+{
+  pub const fn new() -> Self {
+    Self { _marker: PhantomData }
+  }
+
+  pub fn mailbox<M>(&self, options: MailboxOptions) -> (ArcMailbox<M, RM>, ArcMailboxSender<M, RM>)
+  where
+    M: Element, {
+    let (mailbox, sender) = self.build_mailbox::<M>(options);
+    (ArcMailbox { inner: mailbox }, ArcMailboxSender { inner: sender })
+  }
+
+  pub fn unbounded<M>(&self) -> (ArcMailbox<M, RM>, ArcMailboxSender<M, RM>)
+  where
+    M: Element, {
+    self.mailbox(MailboxOptions::unbounded())
+  }
+}
+
+impl<RM> MailboxRuntime for ArcMailboxRuntime<RM>
+where
+  RM: RawMutex,
+{
+  type Queue<M>
+    = ArcMpscUnboundedQueue<M, RM>
+  where
+    M: Element;
+  type Signal = ArcSignal<RM>;
+
+  fn build_mailbox<M>(&self, _options: MailboxOptions) -> MailboxPair<Self::Queue<M>, Self::Signal>
+  where
+    M: Element, {
+    let queue = ArcMpscUnboundedQueue::new();
+    let signal = ArcSignal::new();
+    let mailbox = QueueMailbox::new(queue, signal);
+    let sender = mailbox.producer();
+    (mailbox, sender)
   }
 }
 
@@ -71,56 +175,11 @@ where
   RM: RawMutex,
 {
   pub fn new() -> (Self, ArcMailboxSender<M, RM>) {
-    let queue = ArcMpscUnboundedQueue::new();
-    let signal = ArcSignal::new();
-    Self::with_parts(queue, signal)
+    ArcMailboxRuntime::<RM>::new().unbounded()
   }
 
-  fn with_parts(queue: ArcMpscUnboundedQueue<M, RM>, signal: ArcSignal<RM>) -> (Self, ArcMailboxSender<M, RM>) {
-    let mailbox = QueueMailbox::new(queue, signal);
-    let sender = ArcMailboxSender {
-      inner: mailbox.producer(),
-    };
-    (Self { inner: mailbox }, sender)
-  }
-
-  pub fn producer(&self) -> ArcMailboxSender<M, RM> {
-    ArcMailboxSender {
-      inner: self.inner.producer(),
-    }
-  }
-}
-
-impl<M, RM> ArcMailboxSender<M, RM>
-where
-  M: Element,
-  RM: RawMutex,
-{
-  pub fn try_send(&self, message: M) -> Result<(), QueueError<M>> {
-    self.inner.try_send(message)
-  }
-
-  pub async fn send(&self, message: M) -> Result<(), QueueError<M>> {
-    self.try_send(message)
-  }
-}
-
-pub struct ArcMailboxRecvFuture<'a, M, RM>
-where
-  M: Element,
-  RM: RawMutex, {
-  inner: QueueMailboxRecv<'a, ArcMpscUnboundedQueue<M, RM>, ArcSignal<RM>, M>,
-}
-
-impl<'a, M, RM> Future for ArcMailboxRecvFuture<'a, M, RM>
-where
-  M: Element,
-  RM: RawMutex,
-{
-  type Output = M;
-
-  fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-    unsafe { self.map_unchecked_mut(|this| &mut this.inner) }.poll(cx)
+  pub fn inner(&self) -> &QueueMailbox<ArcMpscUnboundedQueue<M, RM>, ArcSignal<RM>> {
+    &self.inner
   }
 }
 
@@ -128,9 +187,10 @@ impl<M, RM> Mailbox<M> for ArcMailbox<M, RM>
 where
   M: Element,
   RM: RawMutex,
+  ArcMpscUnboundedQueue<M, RM>: Clone,
 {
   type RecvFuture<'a>
-    = ArcMailboxRecvFuture<'a, M, RM>
+    = QueueMailboxRecv<'a, ArcMpscUnboundedQueue<M, RM>, ArcSignal<RM>, M>
   where
     Self: 'a;
   type SendError = QueueError<M>;
@@ -140,9 +200,7 @@ where
   }
 
   fn recv(&self) -> Self::RecvFuture<'_> {
-    ArcMailboxRecvFuture {
-      inner: self.inner.recv(),
-    }
+    self.inner.recv()
   }
 
   fn len(&self) -> QueueSize {
@@ -159,5 +217,24 @@ where
 
   fn is_closed(&self) -> bool {
     self.inner.is_closed()
+  }
+}
+
+impl<M, RM> ArcMailboxSender<M, RM>
+where
+  M: Element,
+  RM: RawMutex,
+  ArcMpscUnboundedQueue<M, RM>: Clone,
+{
+  pub fn try_send(&self, message: M) -> Result<(), QueueError<M>> {
+    self.inner.try_send(message)
+  }
+
+  pub async fn send(&self, message: M) -> Result<(), QueueError<M>> {
+    self.inner.send(message).await
+  }
+
+  pub fn inner(&self) -> &QueueMailboxProducer<ArcMpscUnboundedQueue<M, RM>, ArcSignal<RM>> {
+    &self.inner
   }
 }

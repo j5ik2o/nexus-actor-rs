@@ -2,27 +2,99 @@ use alloc::rc::Rc;
 use core::cell::RefCell;
 use core::fmt;
 use core::future::Future;
+use core::marker::PhantomData;
 use core::pin::Pin;
 use core::task::{Context, Poll, Waker};
 
-use nexus_actor_core_rs::{Mailbox, MailboxSignal, QueueMailbox, QueueMailboxProducer, QueueMailboxRecv};
+use nexus_actor_core_rs::{
+  Mailbox, MailboxOptions, MailboxPair, MailboxRuntime, MailboxSignal, QueueMailbox, QueueMailboxProducer,
+  QueueMailboxRecv,
+};
 use nexus_utils_embedded_rs::collections::queue::mpsc::RcMpscUnboundedQueue;
-use nexus_utils_embedded_rs::{Element, QueueError, QueueSize};
+use nexus_utils_embedded_rs::{Element, QueueBase, QueueError, QueueRw, QueueSize};
+
+#[derive(Debug)]
+pub struct LocalQueue<M>
+where
+  M: Element, {
+  inner: Rc<RcMpscUnboundedQueue<M>>,
+}
+
+impl<M> LocalQueue<M>
+where
+  M: Element,
+{
+  fn new() -> Self {
+    Self {
+      inner: Rc::new(RcMpscUnboundedQueue::new()),
+    }
+  }
+
+  fn as_ref(&self) -> &RcMpscUnboundedQueue<M> {
+    &self.inner
+  }
+}
+
+impl<M> Clone for LocalQueue<M>
+where
+  M: Element,
+{
+  fn clone(&self) -> Self {
+    Self {
+      inner: Rc::clone(&self.inner),
+    }
+  }
+}
+
+impl<M> QueueBase<M> for LocalQueue<M>
+where
+  M: Element,
+{
+  fn len(&self) -> QueueSize {
+    self.as_ref().len()
+  }
+
+  fn capacity(&self) -> QueueSize {
+    self.as_ref().capacity()
+  }
+}
+
+impl<M> QueueRw<M> for LocalQueue<M>
+where
+  M: Element,
+{
+  fn offer(&self, element: M) -> Result<(), QueueError<M>> {
+    self.as_ref().offer(element)
+  }
+
+  fn poll(&self) -> Result<Option<M>, QueueError<M>> {
+    self.as_ref().poll()
+  }
+
+  fn clean_up(&self) {
+    self.as_ref().clean_up();
+  }
+}
 
 pub struct LocalMailbox<M>
 where
   M: Element, {
-  inner: QueueMailbox<RcMpscUnboundedQueue<M>, LocalSignal>,
+  inner: QueueMailbox<LocalQueue<M>, LocalSignal>,
 }
 
 pub struct LocalMailboxSender<M>
 where
   M: Element, {
-  inner: QueueMailboxProducer<RcMpscUnboundedQueue<M>, LocalSignal>,
+  inner: QueueMailboxProducer<LocalQueue<M>, LocalSignal>,
 }
 
 #[derive(Clone, Debug, Default)]
-struct LocalSignal {
+pub struct LocalMailboxRuntime {
+  _marker: PhantomData<()>,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct LocalSignal {
   state: Rc<RefCell<SignalState>>,
 }
 
@@ -51,7 +123,7 @@ impl MailboxSignal for LocalSignal {
   }
 }
 
-struct LocalSignalWait {
+pub struct LocalSignalWait {
   signal: LocalSignal,
 }
 
@@ -70,69 +142,105 @@ impl Future for LocalSignalWait {
   }
 }
 
+impl LocalMailboxRuntime {
+  pub const fn new() -> Self {
+    Self { _marker: PhantomData }
+  }
+
+  pub fn mailbox<M>(&self, options: MailboxOptions) -> (LocalMailbox<M>, LocalMailboxSender<M>)
+  where
+    M: Element, {
+    let (mailbox, sender) = self.build_mailbox::<M>(options);
+    (LocalMailbox { inner: mailbox }, LocalMailboxSender { inner: sender })
+  }
+
+  pub fn unbounded<M>(&self) -> (LocalMailbox<M>, LocalMailboxSender<M>)
+  where
+    M: Element, {
+    self.mailbox(MailboxOptions::unbounded())
+  }
+}
+
+impl MailboxRuntime for LocalMailboxRuntime {
+  type Queue<M>
+    = LocalQueue<M>
+  where
+    M: Element;
+  type Signal = LocalSignal;
+
+  fn build_mailbox<M>(&self, _options: MailboxOptions) -> MailboxPair<Self::Queue<M>, Self::Signal>
+  where
+    M: Element, {
+    let queue = LocalQueue::new();
+    let signal = LocalSignal::default();
+    let mailbox = QueueMailbox::new(queue, signal);
+    let sender = mailbox.producer();
+    (mailbox, sender)
+  }
+}
+
 impl<M> LocalMailbox<M>
 where
   M: Element,
-  RcMpscUnboundedQueue<M>: Clone,
+  LocalQueue<M>: Clone,
 {
   pub fn new() -> (Self, LocalMailboxSender<M>) {
-    let queue = RcMpscUnboundedQueue::new();
-    let signal = LocalSignal::default();
-    Self::with_parts(queue, signal)
+    LocalMailboxRuntime::default().unbounded()
   }
 
-  pub fn producer(&self) -> LocalMailboxSender<M> {
+  pub fn producer(&self) -> LocalMailboxSender<M>
+  where
+    LocalSignal: Clone, {
     LocalMailboxSender {
       inner: self.inner.producer(),
     }
   }
 
-  fn with_parts(queue: RcMpscUnboundedQueue<M>, signal: LocalSignal) -> (Self, LocalMailboxSender<M>) {
-    let mailbox = QueueMailbox::new(queue, signal);
-    let sender = LocalMailboxSender {
-      inner: mailbox.producer(),
-    };
-    (Self { inner: mailbox }, sender)
+  pub fn inner(&self) -> &QueueMailbox<LocalQueue<M>, LocalSignal> {
+    &self.inner
   }
 }
 
-impl<M> LocalMailboxSender<M>
+impl<M> Mailbox<M> for LocalMailbox<M>
 where
   M: Element,
-  RcMpscUnboundedQueue<M>: Clone,
+  LocalQueue<M>: Clone,
 {
-  pub fn try_send(&self, message: M) -> Result<(), QueueError<M>> {
+  type RecvFuture<'a>
+    = QueueMailboxRecv<'a, LocalQueue<M>, LocalSignal, M>
+  where
+    Self: 'a;
+  type SendError = QueueError<M>;
+
+  fn try_send(&self, message: M) -> Result<(), Self::SendError> {
     self.inner.try_send(message)
   }
 
-  pub async fn send(&self, message: M) -> Result<(), QueueError<M>> {
-    self.try_send(message)
+  fn recv(&self) -> Self::RecvFuture<'_> {
+    self.inner.recv()
   }
-}
 
-pub struct LocalMailboxRecvFuture<'a, M>
-where
-  M: Element,
-  RcMpscUnboundedQueue<M>: Clone, {
-  inner: QueueMailboxRecv<'a, RcMpscUnboundedQueue<M>, LocalSignal, M>,
-}
+  fn len(&self) -> QueueSize {
+    self.inner.len()
+  }
 
-impl<'a, M> Future for LocalMailboxRecvFuture<'a, M>
-where
-  M: Element,
-  RcMpscUnboundedQueue<M>: Clone,
-{
-  type Output = M;
+  fn capacity(&self) -> QueueSize {
+    self.inner.capacity()
+  }
 
-  fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-    unsafe { self.map_unchecked_mut(|this| &mut this.inner) }.poll(cx)
+  fn close(&self) {
+    self.inner.close();
+  }
+
+  fn is_closed(&self) -> bool {
+    self.inner.is_closed()
   }
 }
 
 impl<M> Clone for LocalMailbox<M>
 where
   M: Element,
-  RcMpscUnboundedQueue<M>: Clone,
+  LocalQueue<M>: Clone,
 {
   fn clone(&self) -> Self {
     Self {
@@ -150,10 +258,28 @@ where
   }
 }
 
+impl<M> LocalMailboxSender<M>
+where
+  M: Element,
+  LocalQueue<M>: Clone,
+{
+  pub fn try_send(&self, message: M) -> Result<(), QueueError<M>> {
+    self.inner.try_send(message)
+  }
+
+  pub async fn send(&self, message: M) -> Result<(), QueueError<M>> {
+    self.inner.send(message).await
+  }
+
+  pub fn inner(&self) -> &QueueMailboxProducer<LocalQueue<M>, LocalSignal> {
+    &self.inner
+  }
+}
+
 impl<M> Clone for LocalMailboxSender<M>
 where
   M: Element,
-  RcMpscUnboundedQueue<M>: Clone,
+  LocalQueue<M>: Clone,
 {
   fn clone(&self) -> Self {
     Self {
@@ -168,44 +294,6 @@ where
 {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     f.debug_struct("LocalMailboxSender").finish()
-  }
-}
-
-impl<M> Mailbox<M> for LocalMailbox<M>
-where
-  M: Element,
-  RcMpscUnboundedQueue<M>: Clone,
-{
-  type RecvFuture<'a>
-    = LocalMailboxRecvFuture<'a, M>
-  where
-    Self: 'a;
-  type SendError = QueueError<M>;
-
-  fn try_send(&self, message: M) -> Result<(), Self::SendError> {
-    self.inner.try_send(message)
-  }
-
-  fn recv(&self) -> Self::RecvFuture<'_> {
-    LocalMailboxRecvFuture {
-      inner: self.inner.recv(),
-    }
-  }
-
-  fn len(&self) -> QueueSize {
-    self.inner.len()
-  }
-
-  fn capacity(&self) -> QueueSize {
-    self.inner.capacity()
-  }
-
-  fn close(&self) {
-    self.inner.close();
-  }
-
-  fn is_closed(&self) -> bool {
-    self.inner.is_closed()
   }
 }
 
@@ -283,5 +371,18 @@ mod tests {
 
     let value = pinned.poll(&mut cx);
     assert_eq!(value, Poll::Ready(7));
+  }
+
+  #[test]
+  fn runtime_builder_produces_working_mailbox() {
+    let runtime = LocalMailboxRuntime::new();
+    let (mailbox, sender) = runtime.unbounded::<u16>();
+
+    sender.try_send(11).unwrap();
+    let future = mailbox.recv();
+    let (poll, _) = pin_poll(future);
+    assert_eq!(poll, Poll::Ready(11));
+    assert!(mailbox.capacity().is_limitless());
+    assert_eq!(mailbox.len().to_usize(), 0);
   }
 }

@@ -12,6 +12,17 @@ where
   inner: MpscQueue<ArcShared<RingBufferBackend<ArcStateCell<MpscBuffer<E>, RM>>>, E>,
 }
 
+impl<E, RM> Clone for ArcMpscBoundedQueue<E, RM>
+where
+  RM: RawMutex,
+{
+  fn clone(&self) -> Self {
+    Self {
+      inner: self.inner.clone(),
+    }
+  }
+}
+
 pub type ArcLocalMpscBoundedQueue<E> = ArcMpscBoundedQueue<E, NoopRawMutex>;
 pub type ArcCsMpscBoundedQueue<E> = ArcMpscBoundedQueue<E, CriticalSectionRawMutex>;
 

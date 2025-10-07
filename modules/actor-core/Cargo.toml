@@ -13,8 +13,9 @@ repository = "https://github.com/j5ik2o/nexus-actor-rs"
 default = ["alloc"]
 alloc = []
 std = ["alloc"]
+test-support = []
 
 [dependencies]
-nexus-utils-core-rs = { path = "../utils-core", default-features = false }
+nexus-utils-core-rs = { path = "../utils-core", default-features = false, features = ["alloc"] }
 
 [dev-dependencies]

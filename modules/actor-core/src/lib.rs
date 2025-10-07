@@ -5,13 +5,22 @@ extern crate alloc;
 
 use core::time::Duration;
 
+mod context;
 mod mailbox;
+mod scheduler;
 mod spawn;
+mod supervisor;
 mod timer;
 
-pub use mailbox::{Mailbox, MailboxSignal, QueueMailbox, QueueMailboxProducer, QueueMailboxRecv};
+pub use context::{ActorContext, PriorityActorRef};
+pub use mailbox::{
+  Mailbox, MailboxOptions, MailboxPair, MailboxRuntime, MailboxSignal, PriorityEnvelope, QueueMailbox,
+  QueueMailboxProducer, QueueMailboxRecv,
+};
 pub use nexus_utils_core_rs::sync::{Shared, StateCell};
+pub use scheduler::PriorityScheduler;
 pub use spawn::Spawn;
+pub use supervisor::{NoopSupervisor, Supervisor, SupervisorDirective};
 pub use timer::Timer;
 
 /// Minimal actor loop that waits for messages, handles them, and yields control.
