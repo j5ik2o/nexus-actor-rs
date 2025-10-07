@@ -10,6 +10,8 @@ mod actor_path;
 mod context;
 mod escalation;
 mod failure;
+#[cfg(feature = "std")]
+mod failure_event_stream;
 mod guardian;
 mod mailbox;
 mod scheduler;
@@ -20,8 +22,13 @@ mod timer;
 pub use actor_id::ActorId;
 pub use actor_path::ActorPath;
 pub use context::{ActorContext, PriorityActorRef};
-pub use escalation::{CompositeEscalationSink, CustomEscalationSink, EscalationSink, ParentGuardianSink};
-pub use failure::FailureInfo;
+pub use escalation::{
+  CompositeEscalationSink, CustomEscalationSink, EscalationSink, FailureEventHandler, FailureEventListener,
+  ParentGuardianSink, RootEscalationSink,
+};
+pub use failure::{FailureEvent, FailureInfo, FailureMetadata};
+#[cfg(feature = "std")]
+pub use failure_event_stream::{FailureEventHub, FailureEventSubscription};
 pub use guardian::{AlwaysRestart, Guardian, GuardianStrategy};
 pub use mailbox::{
   Mailbox, MailboxOptions, MailboxPair, MailboxRuntime, MailboxSignal, PriorityEnvelope, QueueMailbox,

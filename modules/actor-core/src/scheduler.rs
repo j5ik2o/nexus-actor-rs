@@ -158,6 +158,14 @@ where
     self.escalation_sink.set_parent_guardian(control_ref, map_system);
   }
 
+  pub fn set_root_escalation_handler(&mut self, handler: Option<crate::FailureEventHandler>) {
+    self.escalation_sink.set_root_handler(handler);
+  }
+
+  pub fn set_root_event_listener(&mut self, listener: Option<crate::FailureEventListener>) {
+    self.escalation_sink.set_root_listener(listener);
+  }
+
   fn forward_to_local_parent(&self, info: &FailureInfo) -> bool {
     if let Some(parent_info) = info.escalate_to_parent() {
       if parent_info.path.is_empty() {
@@ -852,5 +860,104 @@ mod tests {
     assert_eq!(root_failure.actor, parent_failure.actor);
     assert!(root_failure.path.is_empty());
     assert_eq!(root_failure.reason, parent_failure.reason);
+  }
+
+  #[cfg(feature = "std")]
+  #[test]
+  fn scheduler_root_escalation_handler_invoked() {
+    use std::sync::{Arc as StdArc, Mutex};
+
+    let runtime = TestMailboxRuntime::unbounded();
+    let mut scheduler: PriorityScheduler<Message, _, AlwaysEscalate> =
+      PriorityScheduler::with_strategy(runtime, AlwaysEscalate);
+
+    let events: StdArc<Mutex<Vec<FailureInfo>>> = StdArc::new(Mutex::new(Vec::new()));
+    let events_clone = events.clone();
+
+    scheduler.set_root_escalation_handler(Some(Arc::new(move |info: &FailureInfo| {
+      events_clone.lock().unwrap().push(info.clone());
+    })));
+
+    let should_panic = Rc::new(Cell::new(true));
+    let panic_flag = should_panic.clone();
+
+    let actor_ref = scheduler
+      .spawn_actor(
+        NoopSupervisor,
+        MailboxOptions::default(),
+        Arc::new(|sys| Message::System(sys)),
+        move |_, msg: Message| match msg {
+          Message::System(SystemMessage::Watch(_)) => {}
+          Message::User(_) if panic_flag.get() => {
+            panic_flag.set(false);
+            panic!("root boom");
+          }
+          _ => {}
+        },
+      )
+      .unwrap();
+
+    actor_ref
+      .try_send_with_priority(Message::User(42), DEFAULT_PRIORITY)
+      .unwrap();
+
+    scheduler.dispatch_all().unwrap();
+    scheduler.dispatch_all().unwrap();
+
+    let events = events.lock().unwrap();
+    assert_eq!(events.len(), 1);
+    assert!(!events[0].reason.is_empty());
+  }
+
+  #[cfg(feature = "std")]
+  #[test]
+  fn scheduler_root_event_listener_broadcasts() {
+    use std::sync::{Arc as StdArc, Mutex};
+
+    let runtime = TestMailboxRuntime::unbounded();
+    let mut scheduler: PriorityScheduler<Message, _, AlwaysEscalate> =
+      PriorityScheduler::with_strategy(runtime, AlwaysEscalate);
+
+    let hub = crate::FailureEventHub::new();
+    let received: StdArc<Mutex<Vec<FailureInfo>>> = StdArc::new(Mutex::new(Vec::new()));
+    let received_clone = received.clone();
+
+    let _subscription = hub.subscribe(Arc::new(move |event| match event {
+      crate::FailureEvent::RootEscalated(info) => {
+        received_clone.lock().unwrap().push(info.clone());
+      }
+    }));
+
+    scheduler.set_root_event_listener(Some(hub.listener()));
+
+    let should_panic = Rc::new(Cell::new(true));
+    let panic_flag = should_panic.clone();
+
+    let actor_ref = scheduler
+      .spawn_actor(
+        NoopSupervisor,
+        MailboxOptions::default(),
+        Arc::new(|sys| Message::System(sys)),
+        move |_, msg: Message| match msg {
+          Message::System(SystemMessage::Watch(_)) => {}
+          Message::User(_) if panic_flag.get() => {
+            panic_flag.set(false);
+            panic!("hub boom");
+          }
+          _ => {}
+        },
+      )
+      .unwrap();
+
+    actor_ref
+      .try_send_with_priority(Message::User(7), DEFAULT_PRIORITY)
+      .unwrap();
+
+    scheduler.dispatch_all().unwrap();
+    scheduler.dispatch_all().unwrap();
+
+    let events = received.lock().unwrap();
+    assert_eq!(events.len(), 1);
+    assert!(!events[0].reason.is_empty());
   }
 }

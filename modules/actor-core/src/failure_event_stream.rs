@@ -1,7 +1,7 @@
 #![cfg(feature = "std")]
 
-use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
 
 use crate::escalation::FailureEventListener;
 use crate::failure::FailureEvent;
@@ -98,9 +98,12 @@ mod tests {
     }));
 
     let listener = hub.listener();
-    let event = FailureEvent::RootEscalated(
-      FailureInfo::new_with_metadata(ActorId(1), crate::ActorPath::new(), "boom".into(), FailureMetadata::default()),
-    );
+    let event = FailureEvent::RootEscalated(FailureInfo::new_with_metadata(
+      ActorId(1),
+      crate::ActorPath::new(),
+      "boom".into(),
+      FailureMetadata::default(),
+    ));
     listener(event.clone());
 
     let events = storage.lock().unwrap();

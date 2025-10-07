@@ -1,3 +1,5 @@
+#[cfg(feature = "std")]
+pub mod failure_event_bridge;
 mod spawn;
 mod timer;
 mod tokio_mailbox;

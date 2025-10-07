@@ -8,17 +8,18 @@ extern crate alloc;
 // This crate is a placeholder for future remote messaging logic.
 // Current goal: provide FailureEventHub integration points.
 
-use nexus_actor_core_rs::{FailureEventHub, FailureEventListener, FailureMetadata};
+use nexus_actor_core_rs::{FailureEvent, FailureEventHub, FailureEventListener, FailureInfo, FailureMetadata};
 
 #[cfg(feature = "std")]
 pub struct RemoteFailureNotifier {
   hub: FailureEventHub,
+  handler: Option<FailureEventListener>,
 }
 
 #[cfg(feature = "std")]
 impl RemoteFailureNotifier {
   pub fn new(hub: FailureEventHub) -> Self {
-    Self { hub }
+    Self { hub, handler: None }
   }
 
   pub fn listener(&self) -> FailureEventListener {
@@ -27,6 +28,25 @@ impl RemoteFailureNotifier {
 
   pub fn hub(&self) -> &FailureEventHub {
     &self.hub
+  }
+
+  pub fn handler(&self) -> Option<&FailureEventListener> {
+    self.handler.as_ref()
+  }
+
+  pub fn set_handler(&mut self, handler: FailureEventListener) {
+    self.handler = Some(handler);
+  }
+
+  pub fn dispatch(&self, info: FailureInfo) {
+    if let Some(handler) = self.handler.as_ref() {
+      handler(FailureEvent::RootEscalated(info.clone()));
+    }
+  }
+
+  pub fn emit(&self, info: FailureInfo) {
+    self.hub.listener()(FailureEvent::RootEscalated(info.clone()));
+    self.dispatch(info);
   }
 }
 

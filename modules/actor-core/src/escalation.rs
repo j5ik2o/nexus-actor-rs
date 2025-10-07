@@ -2,7 +2,7 @@ use alloc::boxed::Box;
 use alloc::sync::Arc;
 use core::marker::PhantomData;
 
-use crate::failure::FailureInfo;
+use crate::failure::{FailureEvent, FailureInfo};
 use crate::mailbox::{PriorityEnvelope, SystemMessage};
 use crate::{MailboxRuntime, PriorityActorRef};
 use nexus_utils_core_rs::{Element, QueueError};
@@ -128,6 +128,7 @@ where
   R::Signal: Clone, {
   parent_guardian: Option<ParentGuardianSink<M, R>>,
   custom: Option<CustomEscalationSink<M, R>>,
+  root: Option<RootEscalationSink<M, R>>,
 }
 
 impl<M, R> CompositeEscalationSink<M, R>
@@ -141,6 +142,7 @@ where
     Self {
       parent_guardian: None,
       custom: None,
+      root: Some(RootEscalationSink::default()),
     }
   }
 
@@ -173,6 +175,26 @@ where
 
   pub fn clear_custom_handler(&mut self) {
     self.custom = None;
+  }
+
+  pub fn set_root_handler(&mut self, handler: Option<FailureEventHandler>) {
+    if let Some(root) = self.root.as_mut() {
+      root.set_event_handler(handler);
+    } else {
+      let mut sink = RootEscalationSink::default();
+      sink.set_event_handler(handler);
+      self.root = Some(sink);
+    }
+  }
+
+  pub fn set_root_listener(&mut self, listener: Option<FailureEventListener>) {
+    if let Some(root) = self.root.as_mut() {
+      root.set_event_listener(listener);
+    } else if let Some(listener) = listener {
+      let mut sink = RootEscalationSink::default();
+      sink.set_event_listener(Some(listener));
+      self.root = Some(sink);
+    }
   }
 }
 
@@ -221,10 +243,91 @@ where
       }
     }
 
+    if let Some(root) = self.root.as_mut() {
+      let _ = root.handle(last_failure.clone(), handled);
+      handled = true;
+    }
+
     if handled {
       Ok(())
     } else {
       Err(last_failure)
     }
+  }
+}
+
+pub type FailureEventHandler = Arc<dyn Fn(&FailureInfo) + Send + Sync>;
+pub type FailureEventListener = Arc<dyn Fn(FailureEvent) + Send + Sync>;
+
+pub struct RootEscalationSink<M, R>
+where
+  M: Element,
+  R: MailboxRuntime,
+  R::Queue<PriorityEnvelope<M>>: Clone,
+  R::Signal: Clone, {
+  event_handler: Option<FailureEventHandler>,
+  event_listener: Option<FailureEventListener>,
+  _marker: PhantomData<(M, R)>,
+}
+
+impl<M, R> RootEscalationSink<M, R>
+where
+  M: Element,
+  R: MailboxRuntime,
+  R::Queue<PriorityEnvelope<M>>: Clone,
+  R::Signal: Clone,
+{
+  pub fn new() -> Self {
+    Self {
+      event_handler: None,
+      _marker: PhantomData,
+      event_listener: None,
+    }
+  }
+
+  pub fn set_event_handler(&mut self, handler: Option<FailureEventHandler>) {
+    self.event_handler = handler;
+  }
+
+  pub fn set_event_listener(&mut self, listener: Option<FailureEventListener>) {
+    self.event_listener = listener;
+  }
+}
+
+impl<M, R> Default for RootEscalationSink<M, R>
+where
+  M: Element,
+  R: MailboxRuntime,
+  R::Queue<PriorityEnvelope<M>>: Clone,
+  R::Signal: Clone,
+{
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
+impl<M, R> EscalationSink<M, R> for RootEscalationSink<M, R>
+where
+  M: Element,
+  R: MailboxRuntime,
+  R::Queue<PriorityEnvelope<M>>: Clone,
+  R::Signal: Clone,
+{
+  fn handle(&mut self, info: FailureInfo, _already_handled: bool) -> Result<(), FailureInfo> {
+    #[cfg(feature = "std")]
+    {
+      use tracing::error;
+      error!(actor = ?info.actor, reason = %info.reason, path = ?info.path.segments(), "actor escalation reached root guardian");
+    }
+
+    if let Some(handler) = self.event_handler.as_ref() {
+      handler(&info);
+    }
+
+    if let Some(listener) = self.event_listener.as_ref() {
+      listener(FailureEvent::RootEscalated(info.clone()));
+    }
+
+    Ok(())
   }
 }

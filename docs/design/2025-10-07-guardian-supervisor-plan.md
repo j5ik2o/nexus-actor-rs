@@ -52,6 +52,8 @@
       カスタム EscalationSink が再試行を返した場合に scheduler が FailureInfo を再キューするケースを追加する。
 - [ ] `system_guardian` / `root_guardian`: ルート EscalationSink を定義し、最上位で FailureInfo を
       ログ／メトリクス／イベントストリームへ流すフックを整備する。
+- [ ] `FailureEventHub` を std 構成で実装し、`FailureEventListener` を複数購読者へ配信する仕組みを
+      `PriorityScheduler::set_root_event_listener` から利用できるようにする（実装済み）。
 
 ## Watch / Unwatch 親伝播設計草案
 
@@ -165,3 +167,4 @@ where
       `ClusterActivationHandler` 経由で仮想アクターの PID を解決する。クラスタ層では EscalationSink を
       利用して remote 失敗を `ClusterError::Provider` / `PartitionManagerError` などへ変換し、
       メンバーシップ更新や再接続ポリシーと連携させる。
+      FailureEventHub を通じて cluster ハブが FailureEvent を購読し、監視ダッシュボードへ中継することを想定。

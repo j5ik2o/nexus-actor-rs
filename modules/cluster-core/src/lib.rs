@@ -6,7 +6,7 @@ extern crate alloc;
 // Cluster coordination scaffolding.
 // Provides placeholder API to wire FailureEventHub into future cluster services.
 
-use nexus_actor_core_rs::{FailureEventHub, FailureEventListener};
+use nexus_actor_core_rs::{FailureEvent, FailureEventHub, FailureEventListener};
 use nexus_remote_core_rs::RemoteFailureNotifier;
 
 #[cfg(feature = "std")]
@@ -27,5 +27,14 @@ impl ClusterFailureBridge {
 
   pub fn notifier(&self) -> &RemoteFailureNotifier {
     &self.remote_notifier
+  }
+
+  pub fn fan_out(&self, event: FailureEvent) {
+    match event {
+      FailureEvent::RootEscalated(info) => {
+        self.remote_notifier.dispatch(info.clone());
+      }
+    }
+    self.hub.listener()(event);
   }
 }
