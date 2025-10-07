@@ -6,6 +6,7 @@ extern crate alloc;
 use core::time::Duration;
 
 mod actor_id;
+mod actor_path;
 mod context;
 mod failure;
 mod guardian;
@@ -16,6 +17,7 @@ mod supervisor;
 mod timer;
 
 pub use actor_id::ActorId;
+pub use actor_path::ActorPath;
 pub use context::{ActorContext, PriorityActorRef};
 pub use failure::FailureInfo;
 pub use guardian::{AlwaysRestart, Guardian, GuardianStrategy};

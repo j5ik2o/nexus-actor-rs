@@ -4,6 +4,7 @@ use alloc::vec::Vec;
 use core::marker::PhantomData;
 
 use crate::actor_id::ActorId;
+use crate::actor_path::ActorPath;
 use crate::mailbox::SystemMessage;
 use crate::supervisor::Supervisor;
 use crate::{MailboxOptions, MailboxRuntime, PriorityEnvelope, QueueMailbox, QueueMailboxProducer};
@@ -87,6 +88,7 @@ where
   pub handler: Box<dyn for<'ctx> FnMut(&mut ActorContext<'ctx, M, R, dyn Supervisor<M>>, M) + 'static>,
   pub watchers: Vec<ActorId>,
   pub map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
+  pub parent_path: ActorPath,
 }
 
 /// アクターが自身や子アクターを操作するためのコンテキスト。
@@ -100,6 +102,7 @@ where
   supervisor: &'a mut Sup,
   pending_spawns: &'a mut Vec<ChildSpawnSpec<M, R>>,
   map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
+  actor_path: ActorPath,
   actor_id: ActorId,
   watchers: &'a mut Vec<ActorId>,
   current_priority: Option<i8>,
@@ -118,6 +121,7 @@ where
     supervisor: &'a mut Sup,
     pending_spawns: &'a mut Vec<ChildSpawnSpec<M, R>>,
     map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
+    actor_path: ActorPath,
     actor_id: ActorId,
     watchers: &'a mut Vec<ActorId>,
   ) -> Self {
@@ -127,6 +131,7 @@ where
       supervisor,
       pending_spawns,
       map_system,
+      actor_path,
       actor_id,
       watchers,
       current_priority: None,
@@ -144,6 +149,10 @@ where
 
   pub fn actor_id(&self) -> ActorId {
     self.actor_id
+  }
+
+  pub fn actor_path(&self) -> &ActorPath {
+    &self.actor_path
   }
 
   pub fn watchers(&self) -> &[ActorId] {
@@ -177,6 +186,7 @@ where
       handler: Box::new(handler),
       watchers,
       map_system: self.map_system.clone(),
+      parent_path: self.actor_path.clone(),
     });
     actor_ref
   }

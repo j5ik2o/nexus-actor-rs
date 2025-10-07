@@ -11,6 +11,7 @@ use core::marker::PhantomData;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 
 use crate::actor_id::ActorId;
+use crate::actor_path::ActorPath;
 use crate::context::{ActorContext, ChildSpawnSpec, PriorityActorRef};
 use crate::failure::FailureInfo;
 use crate::guardian::{AlwaysRestart, Guardian, GuardianStrategy};
@@ -93,13 +94,15 @@ where
     let mut watchers = Vec::new();
     watchers.push(ActorId::ROOT);
     let primary_watcher = watchers.first().copied();
-    let actor_id = self
+    let parent_path = ActorPath::new();
+    let (actor_id, actor_path) = self
       .guardian
-      .register_child(control_ref.clone(), map_system.clone(), primary_watcher)?;
+      .register_child(control_ref.clone(), map_system.clone(), primary_watcher, &parent_path)?;
     let cell = ActorCell::new(
       actor_id,
       map_system,
       watchers,
+      actor_path,
       self.runtime.clone(),
       mailbox,
       sender,
@@ -125,10 +128,12 @@ where
         let mut handled = false;
 
         if let Some((ref control_ref, ref map_system)) = self.parent_guardian {
-          let envelope =
-            PriorityEnvelope::from_system(SystemMessage::Escalate(info.clone())).map(|sys| (map_system)(sys));
-          if control_ref.sender().try_send(envelope).is_ok() {
-            handled = true;
+          if let Some(parent_info) = info.escalate_to_parent() {
+            let envelope =
+              PriorityEnvelope::from_system(SystemMessage::Escalate(parent_info)).map(|sys| (map_system)(sys));
+            if control_ref.sender().try_send(envelope).is_ok() {
+              handled = true;
+            }
           }
         }
 
@@ -181,6 +186,7 @@ where
   actor_id: ActorId,
   map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
   watchers: Vec<ActorId>,
+  actor_path: ActorPath,
   runtime: R,
   mailbox: QueueMailbox<R::Queue<PriorityEnvelope<M>>, R::Signal>,
   sender: QueueMailboxProducer<R::Queue<PriorityEnvelope<M>>, R::Signal>,
@@ -201,6 +207,7 @@ where
     actor_id: ActorId,
     map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
     watchers: Vec<ActorId>,
+    actor_path: ActorPath,
     runtime: R,
     mailbox: QueueMailbox<R::Queue<PriorityEnvelope<M>>, R::Signal>,
     sender: QueueMailboxProducer<R::Queue<PriorityEnvelope<M>>, R::Signal>,
@@ -211,6 +218,7 @@ where
       actor_id,
       map_system,
       watchers,
+      actor_path,
       runtime,
       mailbox,
       sender,
@@ -263,6 +271,7 @@ where
         self.supervisor.as_mut(),
         &mut pending_specs,
         self.map_system.clone(),
+        self.actor_path.clone(),
         self.actor_id,
         &mut self.watchers,
       );
@@ -279,6 +288,7 @@ where
         self.supervisor.as_mut(),
         &mut pending_specs,
         self.map_system.clone(),
+        self.actor_path.clone(),
         self.actor_id,
         &mut self.watchers,
       );
@@ -327,15 +337,17 @@ where
       handler,
       watchers,
       map_system,
+      parent_path,
     } = spec;
 
     let control_ref = PriorityActorRef::new(sender.clone());
     let primary_watcher = watchers.first().copied();
-    let actor_id = guardian.register_child(control_ref, map_system.clone(), primary_watcher)?;
+    let (actor_id, actor_path) = guardian.register_child(control_ref, map_system.clone(), primary_watcher, &parent_path)?;
     let cell = ActorCell::new(
       actor_id,
       map_system,
       watchers,
+      actor_path,
       self.runtime.clone(),
       mailbox,
       sender,

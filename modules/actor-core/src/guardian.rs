@@ -3,6 +3,7 @@ use alloc::sync::Arc;
 use core::fmt;
 
 use crate::actor_id::ActorId;
+use crate::actor_path::ActorPath;
 use crate::context::PriorityActorRef;
 use crate::failure::FailureInfo;
 use crate::mailbox::{PriorityEnvelope, SystemMessage};
@@ -41,6 +42,7 @@ where
   control_ref: PriorityActorRef<M, R>,
   map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
   watcher: Option<ActorId>,
+  path: ActorPath,
 }
 
 /// Guardian: 子アクター群を監督し、SystemMessage を送出する。
@@ -77,16 +79,19 @@ where
     control_ref: PriorityActorRef<M, R>,
     map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
     watcher: Option<ActorId>,
-  ) -> Result<ActorId, QueueError<PriorityEnvelope<M>>> {
+    parent_path: &ActorPath,
+  ) -> Result<(ActorId, ActorPath), QueueError<PriorityEnvelope<M>>> {
     let id = ActorId(self.next_id);
     self.next_id += 1;
     self.strategy.before_start(id);
+    let path = parent_path.push_child(id);
     self.children.insert(
       id,
       ChildRecord {
         control_ref: control_ref.clone(),
         map_system: map_system.clone(),
         watcher,
+        path: path.clone(),
       },
     );
 
@@ -96,7 +101,7 @@ where
       control_ref.sender().try_send(envelope)?;
     }
 
-    Ok(id)
+    Ok((id, path))
   }
 
   pub fn remove_child(&mut self, id: ActorId) -> Option<PriorityActorRef<M, R>> {
@@ -120,7 +125,11 @@ where
     actor: ActorId,
     error: &dyn fmt::Debug,
   ) -> Result<Option<FailureInfo>, QueueError<PriorityEnvelope<M>>> {
-    let failure = FailureInfo::from_error(actor, error);
+    let path = match self.children.get(&actor) {
+      Some(record) => record.path.clone(),
+      None => ActorPath::new().push_child(actor),
+    };
+    let failure = FailureInfo::from_error(actor, path, error);
     let directive = self.strategy.decide(actor, error);
     match (directive, self.children.get(&actor)) {
       (SupervisorDirective::Resume, _) => Ok(None),
@@ -166,8 +175,9 @@ mod tests {
 
     let mut guardian: Guardian<SystemMessage, _, AlwaysRestart> = Guardian::new(AlwaysRestart);
     let parent_id = ActorId(1);
-    let actor_id = guardian
-      .register_child(ref_control.clone(), Arc::new(|sys| sys), Some(parent_id))
+    let parent_path = ActorPath::new();
+    let (actor_id, _path) = guardian
+      .register_child(ref_control.clone(), Arc::new(|sys| sys), Some(parent_id), &parent_path)
       .unwrap();
 
     let first_envelope = mailbox.queue().poll().unwrap().unwrap();
@@ -201,8 +211,9 @@ mod tests {
 
     let mut guardian: Guardian<SystemMessage, _, AlwaysStop> = Guardian::new(AlwaysStop);
     let parent_id = ActorId(7);
-    let actor_id = guardian
-      .register_child(ref_control.clone(), Arc::new(|sys| sys), Some(parent_id))
+    let parent_path = ActorPath::new();
+    let (actor_id, _path) = guardian
+      .register_child(ref_control.clone(), Arc::new(|sys| sys), Some(parent_id), &parent_path)
       .unwrap();
 
     let watch_envelope = mailbox.queue().poll().unwrap().unwrap();
@@ -222,8 +233,9 @@ mod tests {
 
     let mut guardian: Guardian<SystemMessage, _, AlwaysRestart> = Guardian::new(AlwaysRestart);
     let parent_id = ActorId(3);
-    let actor_id = guardian
-      .register_child(ref_control.clone(), Arc::new(|sys| sys), Some(parent_id))
+    let parent_path = ActorPath::new();
+    let (actor_id, _path) = guardian
+      .register_child(ref_control.clone(), Arc::new(|sys| sys), Some(parent_id), &parent_path)
       .unwrap();
 
     // consume watch message
