@@ -177,8 +177,7 @@ where
     S: Supervisor<M> + 'static, {
     let (mailbox, sender) = self.runtime.build_mailbox::<PriorityEnvelope<M>>(options);
     let actor_ref = PriorityActorRef::new(sender.clone());
-    let mut watchers = Vec::new();
-    watchers.push(self.actor_id);
+    let watchers = vec![self.actor_id];
     self.pending_spawns.push(ChildSpawnSpec {
       mailbox,
       sender,

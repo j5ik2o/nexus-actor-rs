@@ -93,8 +93,7 @@ where
     let handler_box: Box<dyn for<'ctx> FnMut(&mut ActorContext<'ctx, M, R, dyn Supervisor<M>>, M) + 'static> =
       Box::new(handler);
     let control_ref = PriorityActorRef::new(actor_sender.clone());
-    let mut watchers = Vec::new();
-    watchers.push(ActorId::ROOT);
+    let watchers = vec![ActorId::ROOT];
     let primary_watcher = watchers.first().copied();
     let parent_path = ActorPath::new();
     let (actor_id, actor_path) =
@@ -377,7 +376,7 @@ where
       drained.push(envelope);
     }
     if drained.len() > 1 {
-      drained.sort_by(|a, b| b.priority().cmp(&a.priority()));
+      drained.sort_by_key(|b| core::cmp::Reverse(b.priority()));
     }
     Ok(drained)
   }
@@ -424,7 +423,7 @@ where
     let mut envelopes = vec![first];
     envelopes.extend(self.collect_envelopes()?);
     if envelopes.len() > 1 {
-      envelopes.sort_by(|a, b| b.priority().cmp(&a.priority()));
+      envelopes.sort_by_key(|b| core::cmp::Reverse(b.priority()));
     }
     self.process_envelopes(envelopes, guardian, new_children, escalations)
   }
@@ -486,7 +485,7 @@ where
       for spec in pending_specs.into_iter() {
         self.register_child_from_spec(spec, guardian, new_children)?;
       }
-      return Ok(());
+      Ok(())
     }
 
     #[cfg(feature = "std")]
