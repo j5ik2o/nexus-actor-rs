@@ -31,6 +31,7 @@ pub use escalation::{
   ParentGuardianSink, RootEscalationSink,
 };
 pub use failure::{FailureEvent, FailureInfo, FailureMetadata};
+pub use mailbox::SystemMessage;
 #[cfg(feature = "std")]
 pub use failure_event_stream::{FailureEventHub, FailureEventSubscription};
 pub use guardian::{AlwaysRestart, Guardian, GuardianStrategy};

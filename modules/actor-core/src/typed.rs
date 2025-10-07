@@ -36,7 +36,8 @@ where
 {
   pub fn new<F>(options: MailboxOptions, handler: F) -> Self
   where
-    F: FnMut(&mut ActorContext<'_, MessageEnvelope<U>, R, dyn Supervisor<MessageEnvelope<U>>>, U) + 'static, {
+    F: FnMut(&mut ActorContext<'_, MessageEnvelope<U>, R, dyn Supervisor<MessageEnvelope<U>>>, U) + 'static,
+  {
     Self::with_system_handler(
       options,
       handler,

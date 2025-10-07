@@ -23,8 +23,9 @@ pub mod prelude {
 mod tests {
   use super::*;
   use core::time::Duration;
-  use nexus_actor_core_rs::{actor_loop, Spawn, StateCell};
-  use std::sync::Arc;
+  use nexus_actor_core_rs::{actor_loop, Spawn, StateCell, TypedActorSystem, TypedProps};
+  use std::sync::{Arc, Mutex};
+  use nexus_actor_core_rs::MailboxOptions;
 
   #[tokio::test(flavor = "current_thread")]
   async fn test_actor_loop_updates_state() {
@@ -51,4 +52,26 @@ mod tests {
 
     assert_eq!(*state.borrow(), 4_u32);
   }
+
+  #[tokio::test(flavor = "current_thread")]
+  async fn typed_actor_system_handles_user_messages() {
+    let runtime = TokioMailboxRuntime::default();
+    let mut system: TypedActorSystem<u32, _> = TypedActorSystem::new(runtime);
+
+    let log: Arc<Mutex<Vec<u32>>> = Arc::new(Mutex::new(Vec::new()));
+    let log_clone = log.clone();
+
+    let props = TypedProps::new(MailboxOptions::default(), move |_, msg: u32| {
+      log_clone.lock().unwrap().push(msg);
+    });
+
+    let mut root = system.root_context();
+    let actor_ref = root.spawn(props).expect("spawn typed actor");
+
+    actor_ref.tell(99).expect("tell");
+    root.dispatch_all().expect("dispatch");
+
+    assert_eq!(log.lock().unwrap().as_slice(), &[99]);
+  }
+
 }
