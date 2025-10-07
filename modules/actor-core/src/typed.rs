@@ -249,6 +249,7 @@ mod tests {
   use alloc::rc::Rc;
   use alloc::vec::Vec;
   use core::cell::RefCell;
+  use futures::executor::block_on;
 
   #[test]
   fn typed_actor_system_handles_user_messages() {
@@ -265,7 +266,7 @@ mod tests {
     let mut root = system.root_context();
     let actor_ref = root.spawn(props).expect("spawn typed actor");
     actor_ref.tell(11).expect("tell");
-    root.dispatch_all().expect("dispatch");
+    block_on(root.dispatch_next()).expect("dispatch");
 
     assert_eq!(log.borrow().as_slice(), &[11]);
   }

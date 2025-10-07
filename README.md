@@ -63,6 +63,7 @@ Note: As versions may be updated regularly, it's recommended to check for the la
 - [レガシーサンプル一覧](docs/sources/nexus-actor-rs/docs/legacy_examples.md): 互換性維持のため `modules/actor-core/examples/legacy/` に隔離した旧サンプルの一覧です。
 - [Tokio 向けディスパッチループ例](docs/worknotes/2025-10-07-tokio-dispatcher.md): `run_until`/`run_forever` を活用した常駐タスクの起動方法と実行例。
 - [Embassy ブリッジメモ](docs/worknotes/2025-10-07-embassy-dispatcher.md): `spawn_embassy_dispatcher` で Embassy executor へ統合する手順。
+- `modules/actor-embedded/examples/embassy_run_forever.rs`: Embassy executor 上で `TypedActorSystem` を常駐させる最小サンプル。
 - [dispatch_all 非推奨ガイド](docs/design/2025-10-07-dispatch-transition.md): `dispatch_next` ベースへの移行ステップと TODO を整理しています。
 
 ## 最近の API 更新 (2025-10-07)

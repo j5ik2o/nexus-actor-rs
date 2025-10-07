@@ -589,6 +589,7 @@ mod tests {
   #[cfg(feature = "std")]
   use core::cell::Cell;
   use core::cell::RefCell;
+  use futures::executor::block_on;
   use nexus_utils_core_rs::DEFAULT_PRIORITY;
 
   #[cfg(feature = "std")]
@@ -633,7 +634,7 @@ mod tests {
       )
       .unwrap();
 
-    scheduler.dispatch_all().unwrap();
+    block_on(scheduler.dispatch_next()).unwrap();
 
     assert_eq!(
       log.borrow().as_slice(),
@@ -665,13 +666,13 @@ mod tests {
       )
       .unwrap();
 
-    scheduler.dispatch_all().unwrap();
+    block_on(scheduler.dispatch_next()).unwrap();
     assert_eq!(watchers_log.borrow().as_slice(), &[vec![ActorId::ROOT]]);
 
     actor_ref
       .try_send_with_priority(Message::User(1), DEFAULT_PRIORITY)
       .unwrap();
-    scheduler.dispatch_all().unwrap();
+    block_on(scheduler.dispatch_next()).unwrap();
 
     assert_eq!(
       watchers_log.borrow().as_slice(),
@@ -720,8 +721,8 @@ mod tests {
     actor_ref.try_send_with_priority(Message::User(99), 7).unwrap();
     actor_ref.try_send_with_priority(Message::User(20), 3).unwrap();
 
-    scheduler.dispatch_all().unwrap();
-    scheduler.dispatch_all().unwrap();
+    block_on(scheduler.dispatch_next()).unwrap();
+    block_on(scheduler.dispatch_next()).unwrap();
 
     assert_eq!(scheduler.actor_count(), 2);
 
@@ -754,7 +755,7 @@ mod tests {
     let control_envelope = PriorityEnvelope::from_system(SystemMessage::Stop).map(Message::System);
     actor_ref.try_send_envelope(control_envelope).unwrap();
 
-    scheduler.dispatch_all().unwrap();
+    block_on(scheduler.dispatch_next()).unwrap();
 
     assert_eq!(
       log.borrow().as_slice(),
@@ -786,7 +787,7 @@ mod tests {
       .unwrap();
 
     actor_ref.try_send_system(SystemMessage::Restart).unwrap();
-    scheduler.dispatch_all().unwrap();
+    block_on(scheduler.dispatch_next()).unwrap();
 
     assert_eq!(
       log.borrow().as_slice(),
@@ -831,10 +832,10 @@ mod tests {
       .try_send_with_priority(Message::User(1), DEFAULT_PRIORITY)
       .unwrap();
 
-    assert!(scheduler.dispatch_all().is_ok());
+    block_on(scheduler.dispatch_next()).unwrap();
     assert!(log.borrow().is_empty());
 
-    scheduler.dispatch_all().unwrap();
+    block_on(scheduler.dispatch_next()).unwrap();
 
     assert_eq!(log.borrow().as_slice(), &[Message::System(SystemMessage::Restart)]);
     assert!(!should_panic.get());
@@ -950,7 +951,7 @@ mod tests {
       .try_send_with_priority(Message::User(1), DEFAULT_PRIORITY)
       .unwrap();
 
-    assert!(scheduler.dispatch_all().is_ok());
+    block_on(scheduler.dispatch_next()).unwrap();
 
     let handler_data = sink.borrow();
     assert_eq!(handler_data.len(), 1);
@@ -995,7 +996,7 @@ mod tests {
       .try_send_with_priority(Message::User(1), DEFAULT_PRIORITY)
       .unwrap();
 
-    assert!(scheduler.dispatch_all().is_ok());
+    block_on(scheduler.dispatch_next()).unwrap();
 
     let envelope = parent_mailbox.queue().poll().unwrap().unwrap();
     let (msg, _, channel) = envelope.into_parts_with_channel();
@@ -1059,7 +1060,7 @@ mod tests {
       )
       .unwrap();
 
-    scheduler.dispatch_all().unwrap();
+    block_on(scheduler.dispatch_next()).unwrap();
 
     {
       let snapshot = collected.borrow();
@@ -1070,13 +1071,13 @@ mod tests {
       .try_send_with_priority(Message::User(0), DEFAULT_PRIORITY)
       .unwrap();
 
-    scheduler.dispatch_all().unwrap();
+    block_on(scheduler.dispatch_next()).unwrap();
     {
       let snapshot = collected.borrow();
       assert_eq!(snapshot.len(), 0);
     }
 
-    scheduler.dispatch_all().unwrap();
+    block_on(scheduler.dispatch_next()).unwrap();
     {
       let snapshot = collected.borrow();
       assert_eq!(snapshot.len(), 1);
@@ -1148,8 +1149,8 @@ mod tests {
       .try_send_with_priority(Message::User(42), DEFAULT_PRIORITY)
       .unwrap();
 
-    scheduler.dispatch_all().unwrap();
-    scheduler.dispatch_all().unwrap();
+    let events_ref = events.clone();
+    block_on(scheduler.run_until(|| events_ref.lock().unwrap().is_empty())).unwrap();
 
     let events = events.lock().unwrap();
     assert_eq!(events.len(), 1);
@@ -1200,8 +1201,8 @@ mod tests {
       .try_send_with_priority(Message::User(7), DEFAULT_PRIORITY)
       .unwrap();
 
-    scheduler.dispatch_all().unwrap();
-    scheduler.dispatch_all().unwrap();
+    let received_ref = received.clone();
+    block_on(scheduler.run_until(|| received_ref.lock().unwrap().is_empty())).unwrap();
 
     let events = received.lock().unwrap();
     assert_eq!(events.len(), 1);

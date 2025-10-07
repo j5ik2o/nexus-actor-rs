@@ -19,6 +19,11 @@
 4. 以降は通常どおり `root_context()` からアクターを起動すれば、Embassy タスクが自動的に `dispatch_next` を駆動する。
 
 ## サンプルコード
+
+リポジトリには `modules/actor-embedded/examples/embassy_run_forever.rs` を追加済み。`--features embassy_executor`
+でビルドすると、`StaticCell` に配置した `TypedActorSystem` を Embassy executor 上で常駐させ、送信したメッセージの
+合計値をグローバルな `AtomicU32` へ記録する最小サンプルとして動作する。
+
 ```rust
 use embassy_executor::Spawner;
 use static_cell::StaticCell;

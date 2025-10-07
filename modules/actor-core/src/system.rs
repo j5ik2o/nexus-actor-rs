@@ -158,6 +158,7 @@ mod tests {
   use alloc::sync::Arc;
   use alloc::vec::Vec;
   use core::cell::RefCell;
+  use futures::executor::block_on;
   use nexus_utils_core_rs::{Element, DEFAULT_PRIORITY};
 
   #[derive(Debug, Clone)]
@@ -193,7 +194,7 @@ mod tests {
       .try_send_with_priority(Message::User(7), DEFAULT_PRIORITY)
       .expect("send message");
 
-    root.dispatch_all().expect("dispatch");
+    block_on(root.dispatch_next()).expect("dispatch");
 
     assert_eq!(log.borrow().as_slice(), &[7]);
   }

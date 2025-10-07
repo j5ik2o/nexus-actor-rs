@@ -31,6 +31,7 @@ embassy-executor = { version = "0.9", default-features = false, optional = true 
 [dev-dependencies]
 critical-section = "1"
 futures = { version = "0.3", features = ["std"] }
+static_cell = { version = "2" }
 
 [target.'cfg(target_os = "none")'.dependencies]
 alloc-cortex-m = "0.4"
