@@ -32,6 +32,7 @@ where
   actors: Vec<ActorCell<M, R, Strat>>,
   escalations: Vec<FailureInfo>,
   escalation_handler: Option<Box<dyn FnMut(&FailureInfo) -> Result<(), QueueError<PriorityEnvelope<M>>> + 'static>>,
+  parent_guardian: Option<(PriorityActorRef<M, R>, Arc<dyn Fn(SystemMessage) -> M + Send + Sync>)>,
 }
 
 impl<M, R> PriorityScheduler<M, R, AlwaysRestart>
@@ -48,6 +49,7 @@ where
       actors: Vec::new(),
       escalations: Vec::new(),
       escalation_handler: None,
+      parent_guardian: None,
     }
   }
 
@@ -60,6 +62,7 @@ where
       actors: Vec::new(),
       escalations: Vec::new(),
       escalation_handler: None,
+      parent_guardian: None,
     }
   }
 }
@@ -117,16 +120,29 @@ where
     self.actors.extend(new_children.into_iter());
 
     if !self.escalations.is_empty() {
-      if let Some(handler) = self.escalation_handler.as_mut() {
-        let mut remaining = Vec::new();
-        for info in self.escalations.drain(..) {
-          match handler(&info) {
-            Ok(()) => {}
-            Err(_) => remaining.push(info.clone()),
+      let mut remaining = Vec::new();
+      for info in self.escalations.drain(..) {
+        let mut handled = false;
+
+        if let Some((ref control_ref, ref map_system)) = self.parent_guardian {
+          let envelope =
+            PriorityEnvelope::from_system(SystemMessage::Escalate(info.clone())).map(|sys| (map_system)(sys));
+          if control_ref.sender().try_send(envelope).is_ok() {
+            handled = true;
           }
         }
-        self.escalations.extend(remaining);
+
+        if let Some(handler) = self.escalation_handler.as_mut() {
+          if handler(&info).is_ok() {
+            handled = true;
+          }
+        }
+
+        if !handled {
+          remaining.push(info);
+        }
       }
+      self.escalations.extend(remaining);
     }
     Ok(())
   }
@@ -143,6 +159,14 @@ where
   where
     F: FnMut(&FailureInfo) -> Result<(), QueueError<PriorityEnvelope<M>>> + 'static, {
     self.escalation_handler = Some(Box::new(handler));
+  }
+
+  pub fn set_parent_guardian(
+    &mut self,
+    control_ref: PriorityActorRef<M, R>,
+    map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
+  ) {
+    self.parent_guardian = Some((control_ref, map_system));
   }
 }
 
@@ -672,12 +696,7 @@ mod tests {
 
     let (parent_mailbox, parent_sender) = runtime.build_default_mailbox::<PriorityEnvelope<Message>>();
     let parent_ref: PriorityActorRef<Message, TestMailboxRuntime> = PriorityActorRef::new(parent_sender);
-
-    scheduler.on_escalation(move |info| {
-      let envelope = PriorityEnvelope::from_system(SystemMessage::Escalate(info.clone())).map(Message::System);
-      parent_ref.try_send_envelope(envelope)?;
-      Ok(())
-    });
+    scheduler.set_parent_guardian(parent_ref, Arc::new(|sys| Message::System(sys)));
 
     let should_panic = Rc::new(Cell::new(true));
     let panic_flag = should_panic.clone();
