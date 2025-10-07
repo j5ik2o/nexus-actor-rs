@@ -61,3 +61,6 @@ Note: As versions may be updated regularly, it's recommended to check for the la
 - [ReceiveTimeout DelayQueue PoC](docs/sources/nexus-actor-rs/docs/benchmarks/receive_timeout_delayqueue.md): DelayQueue を用いた receive timeout の再アーム性能ベースラインと PoC コードの解説です。
 - [Actor トレイト統一リリースノート](docs/sources/nexus-actor-rs/docs/releases/2025-09-26-actor-trait-unification.md): BaseActor 廃止と `ActorSpawnerExt` 追加に関する移行ガイドです。
 - [レガシーサンプル一覧](docs/sources/nexus-actor-rs/docs/legacy_examples.md): 互換性維持のため `modules/actor-core/examples/legacy/` に隔離した旧サンプルの一覧です。
+- [Tokio 向けディスパッチループ例](docs/worknotes/2025-10-07-tokio-dispatcher.md): `run_until`/`run_forever` を活用した常駐タスクの起動方法と実行例。
+- [Embassy ブリッジメモ](docs/worknotes/2025-10-07-embassy-dispatcher.md): `spawn_embassy_dispatcher` で Embassy executor へ統合する手順。
+- [dispatch_all 非推奨ガイド](docs/design/2025-10-07-dispatch-transition.md): `dispatch_next` ベースへの移行ステップと TODO を整理しています。
