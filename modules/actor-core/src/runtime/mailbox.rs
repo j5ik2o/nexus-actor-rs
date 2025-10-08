@@ -10,4 +10,4 @@ mod traits;
 pub use messages::PriorityChannel;
 pub use messages::{PriorityEnvelope, SystemMessage};
 pub use queue_mailbox::{MailboxOptions, QueueMailbox, QueueMailboxProducer, QueueMailboxRecv};
-pub use traits::{Mailbox, MailboxPair, MailboxRuntime, MailboxSignal};
+pub use traits::{Mailbox, MailboxFactory, MailboxPair, MailboxSignal};

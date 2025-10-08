@@ -7,15 +7,17 @@ use nexus_utils_core_rs::{
 
 use crate::sync::RcShared;
 
+type RcRingStorage<E> = RcShared<RingStorageBackend<RcShared<RefCell<RingBuffer<E>>>>>;
+
 #[derive(Debug, Clone)]
 pub struct RcRingQueue<E> {
-  inner: RingQueue<RcShared<RingStorageBackend<RcShared<RefCell<RingBuffer<E>>>>>, E>,
+  inner: RingQueue<RcRingStorage<E>, E>,
 }
 
 impl<E> RcRingQueue<E> {
   pub fn new(capacity: usize) -> Self {
     let storage = RcShared::new(RefCell::new(RingBuffer::new(capacity)));
-    let backend = RcShared::new(RingStorageBackend::new(storage));
+    let backend: RcRingStorage<E> = RcShared::new(RingStorageBackend::new(storage));
     Self {
       inner: RingQueue::new(backend),
     }

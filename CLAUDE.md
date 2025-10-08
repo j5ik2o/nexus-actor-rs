@@ -12,6 +12,7 @@ MUST: 必ず日本語で応対すること
 - **実装方針**:
   - 既存の多くの実装を参考にして、一貫性のあるコードを書くこと
   - protoactor-go(@docs/sources/protoactor-go)の実装を参考にすること（Goの実装からRustイディオムに変換）
+- **ランタイム操作**: `ActorSystemRunner` と環境別ハンドル（例: `TokioSystemHandle`）を直接活用し、旧 `*ActorRuntime` ラッパを作り直さないこと
 - **後方互換性**: 後方互換は不要（破壊的変更を恐れずに最適な設計を追求すること） 
 - serena mcpを有効活用すること
 

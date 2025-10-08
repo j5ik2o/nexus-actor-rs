@@ -35,9 +35,8 @@ where
   }
 
   pub fn fan_out(&self, event: FailureEvent) {
-    if let FailureEvent::RootEscalated(info) = &event {
-      self.remote_notifier.dispatch(info.clone());
-    }
+    let FailureEvent::RootEscalated(info) = &event;
+    self.remote_notifier.dispatch(info.clone());
     self.hub.listener()(event);
   }
 }

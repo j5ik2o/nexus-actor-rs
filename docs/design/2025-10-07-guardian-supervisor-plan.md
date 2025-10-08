@@ -51,7 +51,7 @@
 ## 非同期ディスパッチ API ステータス（2025-10-07 更新）
 - [x] `PriorityScheduler` に `dispatch_next` / `drain_ready_cycle` / `process_waiting_actor` を導入し、シグナル待機で次メッセージを `await` できるようにした。同期系 `dispatch_all` も内部で同じ処理経路を利用する。
 - [x] `RootContext` / `TypedRootContext` / `TypedActorSystem` が `dispatch_next().await` を公開し、Tokio／embedded から非同期ディスパッチを直接呼び出せるようになった。
-- [x] actor-std のユニットテストを `dispatch_next().await` ベースへ移行。Tokio MailboxRuntime との整合性確認済み。
+- [x] actor-std のユニットテストを `dispatch_next().await` ベースへ移行。Tokio MailboxFactory との整合性確認済み。
 - [x] actor-embedded テストで Condvar ベースの `block_on` を用意し、ローカルランタイムでもシグナル待機をスピン無しで駆動できるようにした。
 - [x] Scheduler 向けの `run_forever()` / `blocking_dispatch_loop()` など高水準ランナを追加し、アプリケーションが簡単に常駐タスクを起動できるようにする。`PriorityScheduler` に常駐向け API 群を実装し、`scheduler_blocking_dispatch_loop_stops_with_closure` などのテストで挙動を確認済み。（2025-10-07）
 - [x] actor-embedded については Embassy executor との統合ラッパ（例: `EmbassyActorSystem`）を整備し、`Spawner` から `dispatch_next` を起動するガイドを文書化する。`modules/actor-embedded/examples/embassy_run_forever.rs` と `docs/worknotes/2025-10-07-embassy-dispatcher.md` に手順をまとめた。（2025-10-07）
@@ -166,7 +166,7 @@ pub trait SupervisorStrategy<M>: Send + 'static {
 
 pub struct Guardian<R>
 where
-  R: MailboxRuntime,
+  R: MailboxFactory,
 {
   children: HashMap<ActorId, PriorityActorRef<SystemMessage, R>>,
   strategy: Box<dyn SupervisorStrategy<Message>>, // protoactor-go の OneForOne 相当
@@ -174,7 +174,7 @@ where
 
 impl<R> Guardian<R>
 where
-  R: MailboxRuntime,
+  R: MailboxFactory,
 {
   pub fn add_child(&mut self, id: ActorId, control_ref: PriorityActorRef<SystemMessage, R>) { ... }
   pub fn stop_child(&mut self, id: ActorId) { control_ref.try_send_system(SystemMessage::Stop); }

@@ -38,7 +38,7 @@ mod tests {
 
   #[tokio::test]
   async fn cancel_prevents_execution() {
-    let runtime = crate::runtime::tokio_core_runtime();
+    let factory = crate::runtime::tokio_core_runtime();
     let scheduler = runtime.scheduler();
     let fired = Arc::new(AtomicBool::new(false));
     let fired_clone = fired.clone();
@@ -60,7 +60,7 @@ mod tests {
 
   #[tokio::test]
   async fn handle_fires_when_not_cancelled() {
-    let runtime = crate::runtime::tokio_core_runtime();
+    let factory = crate::runtime::tokio_core_runtime();
     let scheduler = runtime.scheduler();
     let fired = Arc::new(AtomicBool::new(false));
     let fired_clone = fired.clone();

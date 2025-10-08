@@ -3,16 +3,16 @@ mod sample {
   use core::sync::atomic::{AtomicU32, Ordering};
   use embassy_executor::Executor;
   use nexus_actor_core_rs::{ActorSystem, MailboxOptions, Props};
-  use nexus_actor_embedded_rs::{spawn_embassy_dispatcher, LocalMailboxRuntime};
+  use nexus_actor_embedded_rs::{spawn_embassy_dispatcher, LocalMailboxFactory};
   use static_cell::StaticCell;
 
   static EXECUTOR: StaticCell<Executor> = StaticCell::new();
-  static SYSTEM: StaticCell<ActorSystem<u32, LocalMailboxRuntime>> = StaticCell::new();
+  static SYSTEM: StaticCell<ActorSystem<u32, LocalMailboxFactory>> = StaticCell::new();
   pub static MESSAGE_SUM: AtomicU32 = AtomicU32::new(0);
 
   pub fn run() {
     let executor = EXECUTOR.init(Executor::new());
-    let system = SYSTEM.init_with(|| ActorSystem::new(LocalMailboxRuntime::default()));
+    let system = SYSTEM.init_with(|| ActorSystem::new(LocalMailboxFactory::default()));
 
     {
       let mut root = system.root_context();

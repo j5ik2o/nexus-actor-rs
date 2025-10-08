@@ -65,7 +65,7 @@ pub struct TypedActorRef<M> {
 ## 実装の分割
 1. `actor-core`
    - `Behavior<M>` 型（enum／builder）と `TypedContext` の抽象。
-   - typed → untyped 変換を担う `TypedMailboxRuntime<M, R>`（`PriorityEnvelope::map` を活用）。
+   - typed → untyped 変換を担う `TypedMailboxFactory<M, R>`（`PriorityEnvelope::map` を活用）。
 2. `actor-std` / `actor-embedded`
    - 実行環境ごとの typed API（`TypedProps`, `TypedActorSystem`）を提供。
    - `spawn_typed::<MyActor>()` など user-facing API を定義。

@@ -2,8 +2,10 @@ use alloc::boxed::Box;
 use core::marker::PhantomData;
 
 use crate::FailureInfo;
-use crate::{MailboxRuntime, PriorityEnvelope};
+use crate::{MailboxFactory, PriorityEnvelope};
 use nexus_utils_core_rs::{Element, QueueError};
+
+type FailureHandler<M> = dyn FnMut(&FailureInfo) -> Result<(), QueueError<PriorityEnvelope<M>>> + 'static;
 
 use super::EscalationSink;
 
@@ -11,17 +13,17 @@ use super::EscalationSink;
 pub(crate) struct CustomEscalationSink<M, R>
 where
   M: Element,
-  R: MailboxRuntime,
+  R: MailboxFactory,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone, {
-  handler: Box<dyn FnMut(&FailureInfo) -> Result<(), QueueError<PriorityEnvelope<M>>> + 'static>,
+  handler: Box<FailureHandler<M>>,
   _marker: PhantomData<R>,
 }
 
 impl<M, R> CustomEscalationSink<M, R>
 where
   M: Element,
-  R: MailboxRuntime,
+  R: MailboxFactory,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
 {
@@ -38,7 +40,7 @@ where
 impl<M, R> EscalationSink<M, R> for CustomEscalationSink<M, R>
 where
   M: Element,
-  R: MailboxRuntime,
+  R: MailboxFactory,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
 {

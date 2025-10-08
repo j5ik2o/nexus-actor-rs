@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use nexus_actor_core_rs::{
-  Mailbox, MailboxOptions, MailboxPair, MailboxRuntime, MailboxSignal, QueueMailbox, QueueMailboxProducer,
+  Mailbox, MailboxFactory, MailboxOptions, MailboxPair, MailboxSignal, QueueMailbox, QueueMailboxProducer,
   QueueMailboxRecv,
 };
 use nexus_utils_std_rs::{ArcMpscBoundedQueue, ArcMpscUnboundedQueue};
@@ -23,7 +23,7 @@ where
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct TokioMailboxRuntime;
+pub struct TokioMailboxFactory;
 
 #[derive(Clone, Debug)]
 pub struct NotifySignal {
@@ -142,7 +142,7 @@ where
   }
 }
 
-impl TokioMailboxRuntime {
+impl TokioMailboxFactory {
   pub fn mailbox<M>(&self, options: MailboxOptions) -> (TokioMailbox<M>, TokioMailboxSender<M>)
   where
     M: Element, {
@@ -163,7 +163,7 @@ impl TokioMailboxRuntime {
   }
 }
 
-impl MailboxRuntime for TokioMailboxRuntime {
+impl MailboxFactory for TokioMailboxFactory {
   type Queue<M>
     = TokioQueue<M>
   where
@@ -186,11 +186,11 @@ where
   M: Element,
 {
   pub fn new(capacity: usize) -> (Self, TokioMailboxSender<M>) {
-    TokioMailboxRuntime.with_capacity(capacity)
+    TokioMailboxFactory.with_capacity(capacity)
   }
 
   pub fn unbounded() -> (Self, TokioMailboxSender<M>) {
-    TokioMailboxRuntime.unbounded()
+    TokioMailboxFactory.unbounded()
   }
 
   pub fn producer(&self) -> TokioMailboxSender<M>
@@ -266,10 +266,9 @@ mod tests {
   use super::*;
   use nexus_utils_std_rs::QueueError;
 
-  #[tokio::test(flavor = "current_thread")]
-  async fn runtime_with_capacity_enforces_bounds() {
-    let runtime = TokioMailboxRuntime::default();
-    let (mailbox, sender) = runtime.with_capacity::<u32>(2);
+  async fn run_runtime_with_capacity_enforces_bounds() {
+    let factory = TokioMailboxFactory;
+    let (mailbox, sender) = factory.with_capacity::<u32>(2);
 
     sender.try_send(1).expect("first message accepted");
     sender.try_send(2).expect("second message accepted");
@@ -285,9 +284,18 @@ mod tests {
   }
 
   #[tokio::test(flavor = "current_thread")]
-  async fn runtime_unbounded_mailbox_accepts_multiple_messages() {
-    let runtime = TokioMailboxRuntime::default();
-    let (mailbox, sender) = runtime.unbounded::<u32>();
+  async fn runtime_with_capacity_enforces_bounds() {
+    run_runtime_with_capacity_enforces_bounds().await;
+  }
+
+  #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+  async fn runtime_with_capacity_enforces_bounds_multi_thread() {
+    run_runtime_with_capacity_enforces_bounds().await;
+  }
+
+  async fn run_runtime_unbounded_mailbox_accepts_multiple_messages() {
+    let factory = TokioMailboxFactory;
+    let (mailbox, sender) = factory.unbounded::<u32>();
 
     for value in 0..32_u32 {
       sender.send(value).await.expect("send succeeds");
@@ -301,5 +309,15 @@ mod tests {
     }
 
     assert_eq!(mailbox.len().to_usize(), 0);
+  }
+
+  #[tokio::test(flavor = "current_thread")]
+  async fn runtime_unbounded_mailbox_accepts_multiple_messages() {
+    run_runtime_unbounded_mailbox_accepts_multiple_messages().await;
+  }
+
+  #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+  async fn runtime_unbounded_mailbox_accepts_multiple_messages_multi_thread() {
+    run_runtime_unbounded_mailbox_accepts_multiple_messages().await;
   }
 }

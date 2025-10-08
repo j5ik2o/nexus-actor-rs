@@ -11,54 +11,55 @@ use core::marker::PhantomData;
 #[cfg(feature = "std")]
 use std::panic::{catch_unwind, AssertUnwindSafe};
 
-use crate::runtime::context::{ActorContext, ChildSpawnSpec, InternalActorRef};
+use crate::runtime::context::{ActorContext, ActorHandlerFn, ChildSpawnSpec, InternalActorRef, MapSystemFn};
 use crate::runtime::guardian::{Guardian, GuardianStrategy};
 use crate::ActorId;
 use crate::ActorPath;
 use crate::FailureInfo;
 use crate::Supervisor;
 use crate::{Mailbox, SystemMessage};
-use crate::{MailboxRuntime, PriorityEnvelope, QueueMailbox, QueueMailboxProducer};
+use crate::{MailboxFactory, PriorityEnvelope, QueueMailbox, QueueMailboxProducer};
 use nexus_utils_core_rs::{Element, QueueError, QueueRw};
 
 pub(crate) struct ActorCell<M, R, Strat>
 where
   M: Element,
-  R: MailboxRuntime + Clone,
+  R: MailboxFactory + Clone,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
   Strat: GuardianStrategy<M, R>, {
   #[cfg_attr(not(feature = "std"), allow(dead_code))]
   actor_id: ActorId,
-  map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
+  map_system: Arc<MapSystemFn<M>>,
   watchers: Vec<ActorId>,
   actor_path: ActorPath,
   runtime: R,
   mailbox: QueueMailbox<R::Queue<PriorityEnvelope<M>>, R::Signal>,
   sender: QueueMailboxProducer<R::Queue<PriorityEnvelope<M>>, R::Signal>,
   supervisor: Box<dyn Supervisor<M>>,
-  handler: Box<dyn for<'ctx> FnMut(&mut ActorContext<'ctx, M, R, dyn Supervisor<M>>, M) + 'static>,
+  handler: Box<ActorHandlerFn<M, R>>,
   _strategy: PhantomData<Strat>,
 }
 
 impl<M, R, Strat> ActorCell<M, R, Strat>
 where
   M: Element,
-  R: MailboxRuntime + Clone,
+  R: MailboxFactory + Clone,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
   Strat: GuardianStrategy<M, R>,
 {
+  #[allow(clippy::too_many_arguments)]
   pub(crate) fn new(
     actor_id: ActorId,
-    map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
+    map_system: Arc<MapSystemFn<M>>,
     watchers: Vec<ActorId>,
     actor_path: ActorPath,
     runtime: R,
     mailbox: QueueMailbox<R::Queue<PriorityEnvelope<M>>, R::Signal>,
     sender: QueueMailboxProducer<R::Queue<PriorityEnvelope<M>>, R::Signal>,
     supervisor: Box<dyn Supervisor<M>>,
-    handler: Box<dyn for<'ctx> FnMut(&mut ActorContext<'ctx, M, R, dyn Supervisor<M>>, M) + 'static>,
+    handler: Box<ActorHandlerFn<M, R>>,
   ) -> Self {
     Self {
       actor_id,

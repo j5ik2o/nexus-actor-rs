@@ -1,7 +1,7 @@
 use crate::runtime::context::ActorContext;
 use crate::ActorId;
 use crate::ActorPath;
-use crate::MailboxRuntime;
+use crate::MailboxFactory;
 use crate::PriorityEnvelope;
 use crate::Supervisor;
 use crate::SystemMessage;
@@ -15,7 +15,7 @@ use crate::api::messaging::MessageEnvelope;
 pub struct Context<'r, 'ctx, U, R>
 where
   U: Element,
-  R: MailboxRuntime + Clone + 'static,
+  R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<MessageEnvelope<U>>>: Clone,
   R::Signal: Clone, {
   inner: &'r mut ActorContext<'ctx, MessageEnvelope<U>, R, dyn Supervisor<MessageEnvelope<U>>>,
@@ -24,7 +24,7 @@ where
 impl<'r, 'ctx, U, R> Context<'r, 'ctx, U, R>
 where
   U: Element,
-  R: MailboxRuntime + Clone + 'static,
+  R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<MessageEnvelope<U>>>: Clone,
   R::Signal: Clone,
 {

@@ -262,7 +262,7 @@ async fn client_connection_backpressure_overflow() -> TestResult<()> {
 #[tokio::test]
 async fn remote_runtime_tracks_block_list_updates() -> TestResult<()> {
   let (remote_arc, _endpoint_reader) = setup_remote_with_manager().await?;
-  let runtime = remote_arc.runtime().await;
+  let factory = remote_arc.runtime().await;
 
   let block_list = runtime.block_list().expect("runtime exposes block list store");
   assert!(!block_list.is_blocked("node-x"));
@@ -285,7 +285,7 @@ async fn remote_runtime_applies_initial_blocked_members() -> TestResult<()> {
   ])
   .await?;
 
-  let runtime = remote_arc.runtime().await;
+  let factory = remote_arc.runtime().await;
   let block_list = runtime
     .block_list()
     .expect("runtime exposes block list store for initial members");

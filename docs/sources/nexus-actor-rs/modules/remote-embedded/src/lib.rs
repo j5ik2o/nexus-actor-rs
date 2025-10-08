@@ -175,7 +175,7 @@ mod tests {
     let block_list: Arc<dyn BlockListStore> = Arc::new(DummyBlockList);
     let metrics: Arc<dyn MetricsSink> = Arc::new(DummyMetrics);
 
-    let runtime = RemoteRuntime::new(
+    let factory = RemoteRuntime::new(
       RemoteRuntimeConfig::new(make_core_runtime(), transport.clone())
         .with_serializer(serializer.clone())
         .with_block_list(block_list.clone())

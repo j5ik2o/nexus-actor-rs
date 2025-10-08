@@ -6,7 +6,7 @@ use alloc::sync::Arc;
 use core::sync::atomic::{AtomicUsize, Ordering};
 use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, RawMutex};
 use embassy_sync::signal::Signal;
-use nexus_utils_core_rs::{BoxFuture, WaitGroup as CoreWaitGroup, WaitGroupBackend};
+use nexus_utils_core_rs::{async_trait, WaitGroup as CoreWaitGroup, WaitGroupBackend};
 
 pub struct ArcWaitGroupBackend<RM>
 where
@@ -27,15 +27,11 @@ where
   }
 }
 
+#[async_trait(?Send)]
 impl<RM> WaitGroupBackend for ArcWaitGroupBackend<RM>
 where
   RM: RawMutex + Send + Sync,
 {
-  type WaitFuture<'a>
-    = BoxFuture<'a, ()>
-  where
-    Self: 'a;
-
   fn new() -> Self {
     Self::with_count(0)
   }
@@ -59,17 +55,15 @@ where
     }
   }
 
-  fn wait(&self) -> Self::WaitFuture<'_> {
+  async fn wait(&self) {
     let count = self.count.clone();
     let signal = self.signal.clone();
-    Box::pin(async move {
-      loop {
-        if count.load(Ordering::SeqCst) == 0 {
-          return;
-        }
-        signal.wait().await;
+    loop {
+      if count.load(Ordering::SeqCst) == 0 {
+        return;
       }
-    })
+      signal.wait().await;
+    }
   }
 }
 

@@ -8,6 +8,8 @@ use nexus_utils_std_rs::{
   Element, QueueBase, QueueError, QueueReader, QueueRw, QueueSize, QueueWriter, DEFAULT_CAPACITY, PRIORITY_LEVELS,
 };
 
+type PriorityQueueError<M> = Box<QueueError<PriorityEnvelope<M>>>;
+
 use crate::tokio_mailbox::NotifySignal;
 
 struct TokioPriorityLevels<M> {
@@ -38,6 +40,7 @@ impl<M> TokioPriorityLevels<M> {
     priority.clamp(0, max) as usize
   }
 
+  #[allow(clippy::result_large_err)]
   fn offer(&self, envelope: PriorityEnvelope<M>) -> Result<(), QueueError<PriorityEnvelope<M>>> {
     let idx = Self::level_index(envelope.priority(), self.levels.len());
     let mut guard = self.levels[idx].lock().expect("priority queue poisoned");
@@ -49,6 +52,7 @@ impl<M> TokioPriorityLevels<M> {
     }
   }
 
+  #[allow(clippy::result_large_err)]
   fn poll(&self) -> Result<Option<PriorityEnvelope<M>>, QueueError<PriorityEnvelope<M>>> {
     for level in (0..self.levels.len()).rev() {
       let mut guard = self.levels[level].lock().expect("priority queue poisoned");
@@ -99,6 +103,7 @@ impl<M> TokioPriorityQueues<M> {
     }
   }
 
+  #[allow(clippy::result_large_err)]
   fn offer(&self, envelope: PriorityEnvelope<M>) -> Result<(), QueueError<PriorityEnvelope<M>>> {
     if envelope.is_control() {
       self.control.offer(envelope)
@@ -113,6 +118,7 @@ impl<M> TokioPriorityQueues<M> {
     }
   }
 
+  #[allow(clippy::result_large_err)]
   fn poll(&self) -> Result<Option<PriorityEnvelope<M>>, QueueError<PriorityEnvelope<M>>> {
     if let Some(envelope) = self.control.poll()? {
       return Ok(Some(envelope));
@@ -213,13 +219,13 @@ where
 }
 
 #[derive(Clone, Debug)]
-pub struct TokioPriorityMailboxRuntime {
+pub struct TokioPriorityMailboxFactory {
   control_capacity_per_level: usize,
   regular_capacity: usize,
   levels: usize,
 }
 
-impl Default for TokioPriorityMailboxRuntime {
+impl Default for TokioPriorityMailboxFactory {
   fn default() -> Self {
     Self {
       control_capacity_per_level: DEFAULT_CAPACITY,
@@ -229,7 +235,7 @@ impl Default for TokioPriorityMailboxRuntime {
   }
 }
 
-impl TokioPriorityMailboxRuntime {
+impl TokioPriorityMailboxFactory {
   pub fn new(control_capacity_per_level: usize) -> Self {
     Self {
       control_capacity_per_level,
@@ -283,7 +289,7 @@ where
   M: Element,
 {
   pub fn new(control_capacity_per_level: usize) -> (Self, TokioPriorityMailboxSender<M>) {
-    TokioPriorityMailboxRuntime::new(control_capacity_per_level).mailbox::<M>(MailboxOptions::default())
+    TokioPriorityMailboxFactory::new(control_capacity_per_level).mailbox::<M>(MailboxOptions::default())
   }
 
   pub fn inner(&self) -> &QueueMailbox<TokioPriorityQueues<M>, NotifySignal> {
@@ -299,10 +305,10 @@ where
     = QueueMailboxRecv<'a, TokioPriorityQueues<M>, NotifySignal, PriorityEnvelope<M>>
   where
     Self: 'a;
-  type SendError = QueueError<PriorityEnvelope<M>>;
+  type SendError = PriorityQueueError<M>;
 
   fn try_send(&self, message: PriorityEnvelope<M>) -> Result<(), Self::SendError> {
-    self.inner.try_send(message)
+    self.inner.try_send(message).map_err(Box::new)
   }
 
   fn recv(&self) -> Self::RecvFuture<'_> {
@@ -330,35 +336,27 @@ impl<M> TokioPriorityMailboxSender<M>
 where
   M: Element,
 {
-  pub fn try_send(&self, message: PriorityEnvelope<M>) -> Result<(), QueueError<PriorityEnvelope<M>>> {
-    self.inner.try_send(message)
+  pub fn try_send(&self, message: PriorityEnvelope<M>) -> Result<(), PriorityQueueError<M>> {
+    self.inner.try_send(message).map_err(Box::new)
   }
 
-  pub async fn send(&self, message: PriorityEnvelope<M>) -> Result<(), QueueError<PriorityEnvelope<M>>> {
-    self.inner.send(message).await
+  pub async fn send(&self, message: PriorityEnvelope<M>) -> Result<(), PriorityQueueError<M>> {
+    self.inner.send(message).await.map_err(Box::new)
   }
 
-  pub fn try_send_with_priority(&self, message: M, priority: i8) -> Result<(), QueueError<PriorityEnvelope<M>>> {
+  pub fn try_send_with_priority(&self, message: M, priority: i8) -> Result<(), PriorityQueueError<M>> {
     self.try_send(PriorityEnvelope::new(message, priority))
   }
 
-  pub async fn send_with_priority(&self, message: M, priority: i8) -> Result<(), QueueError<PriorityEnvelope<M>>> {
+  pub async fn send_with_priority(&self, message: M, priority: i8) -> Result<(), PriorityQueueError<M>> {
     self.send(PriorityEnvelope::new(message, priority)).await
   }
 
-  pub fn try_send_control_with_priority(
-    &self,
-    message: M,
-    priority: i8,
-  ) -> Result<(), QueueError<PriorityEnvelope<M>>> {
+  pub fn try_send_control_with_priority(&self, message: M, priority: i8) -> Result<(), PriorityQueueError<M>> {
     self.try_send(PriorityEnvelope::control(message, priority))
   }
 
-  pub async fn send_control_with_priority(
-    &self,
-    message: M,
-    priority: i8,
-  ) -> Result<(), QueueError<PriorityEnvelope<M>>> {
+  pub async fn send_control_with_priority(&self, message: M, priority: i8) -> Result<(), PriorityQueueError<M>> {
     self.send(PriorityEnvelope::control(message, priority)).await
   }
 
@@ -372,10 +370,9 @@ mod tests {
   use super::*;
   use nexus_utils_std_rs::{QueueSize, DEFAULT_PRIORITY};
 
-  #[tokio::test(flavor = "current_thread")]
-  async fn priority_runtime_orders_messages() {
-    let runtime = TokioPriorityMailboxRuntime::default();
-    let (mailbox, sender) = runtime.mailbox::<u32>(MailboxOptions::default());
+  async fn run_priority_runtime_orders_messages() {
+    let factory = TokioPriorityMailboxFactory::default();
+    let (mailbox, sender) = factory.mailbox::<u32>(MailboxOptions::default());
 
     sender
       .send_with_priority(10, DEFAULT_PRIORITY)
@@ -402,9 +399,18 @@ mod tests {
   }
 
   #[tokio::test(flavor = "current_thread")]
-  async fn priority_sender_defaults_work() {
-    let runtime = TokioPriorityMailboxRuntime::new(4).with_regular_capacity(4);
-    let (mailbox, sender) = runtime.mailbox::<u8>(MailboxOptions::default());
+  async fn priority_runtime_orders_messages() {
+    run_priority_runtime_orders_messages().await;
+  }
+
+  #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+  async fn priority_runtime_orders_messages_multi_thread() {
+    run_priority_runtime_orders_messages().await;
+  }
+
+  async fn run_priority_sender_defaults_work() {
+    let factory = TokioPriorityMailboxFactory::new(4).with_regular_capacity(4);
+    let (mailbox, sender) = factory.mailbox::<u8>(MailboxOptions::default());
 
     sender
       .send(PriorityEnvelope::with_default_priority(5))
@@ -417,9 +423,18 @@ mod tests {
   }
 
   #[tokio::test(flavor = "current_thread")]
-  async fn control_queue_preempts_regular_messages() {
-    let runtime = TokioPriorityMailboxRuntime::default();
-    let (mailbox, sender) = runtime.mailbox::<u32>(MailboxOptions::default());
+  async fn priority_sender_defaults_work() {
+    run_priority_sender_defaults_work().await;
+  }
+
+  #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+  async fn priority_sender_defaults_work_multi_thread() {
+    run_priority_sender_defaults_work().await;
+  }
+
+  async fn run_control_queue_preempts_regular_messages() {
+    let factory = TokioPriorityMailboxFactory::default();
+    let (mailbox, sender) = factory.mailbox::<u32>(MailboxOptions::default());
 
     sender
       .send_with_priority(1, DEFAULT_PRIORITY)
@@ -438,10 +453,19 @@ mod tests {
   }
 
   #[tokio::test(flavor = "current_thread")]
-  async fn priority_mailbox_capacity_split() {
-    let runtime = TokioPriorityMailboxRuntime::default();
+  async fn control_queue_preempts_regular_messages() {
+    run_control_queue_preempts_regular_messages().await;
+  }
+
+  #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+  async fn control_queue_preempts_regular_messages_multi_thread() {
+    run_control_queue_preempts_regular_messages().await;
+  }
+
+  async fn run_priority_mailbox_capacity_split() {
+    let factory = TokioPriorityMailboxFactory::default();
     let options = MailboxOptions::with_capacities(QueueSize::limited(2), QueueSize::limited(2));
-    let (mailbox, sender) = runtime.mailbox::<u8>(options);
+    let (mailbox, sender) = factory.mailbox::<u8>(options);
 
     assert!(!mailbox.capacity().is_limitless());
 
@@ -461,6 +485,16 @@ mod tests {
     let err = sender
       .try_send_with_priority(4, DEFAULT_PRIORITY)
       .expect_err("regular capacity reached");
-    assert!(matches!(err, QueueError::Full(_)));
+    assert!(matches!(&*err, QueueError::Full(_)));
+  }
+
+  #[tokio::test(flavor = "current_thread")]
+  async fn priority_mailbox_capacity_split() {
+    run_priority_mailbox_capacity_split().await;
+  }
+
+  #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+  async fn priority_mailbox_capacity_split_multi_thread() {
+    run_priority_mailbox_capacity_split().await;
   }
 }

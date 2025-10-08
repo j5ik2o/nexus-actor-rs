@@ -102,7 +102,7 @@ async fn run_dispatch_cycle(load: usize, process_delay: Duration) -> f64 {
 }
 
 fn dispatcher_queue_latency_bench(c: &mut Criterion) {
-  let runtime = Runtime::new().expect("tokio runtime");
+  let factory = Runtime::new().expect("tokio runtime");
   let mut group = c.benchmark_group("dispatcher_queue_latency");
   group.sample_size(10);
   group.warm_up_time(Duration::from_millis(500));

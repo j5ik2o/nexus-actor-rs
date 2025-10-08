@@ -292,7 +292,7 @@ impl RootContext {
     if let Some(existing) = self.metrics_sink.load_full() {
       return Some(existing);
     }
-    let runtime = self.metrics_runtime()?;
+    let factory = self.metrics_runtime()?;
     let sink = Arc::new(runtime.sink_without_actor());
     self.metrics_sink.store(Some(sink.clone()));
     match self.metrics_sink.load_full() {

@@ -6,7 +6,7 @@ use alloc::sync::Arc;
 use core::sync::atomic::{AtomicUsize, Ordering};
 use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, RawMutex};
 use embassy_sync::signal::Signal;
-use nexus_utils_core_rs::{AsyncBarrier as CoreAsyncBarrier, AsyncBarrierBackend, BoxFuture};
+use nexus_utils_core_rs::{async_trait, AsyncBarrier as CoreAsyncBarrier, AsyncBarrierBackend};
 
 pub struct ArcAsyncBarrierBackend<RM>
 where
@@ -29,15 +29,11 @@ where
   }
 }
 
+#[async_trait(?Send)]
 impl<RM> AsyncBarrierBackend for ArcAsyncBarrierBackend<RM>
 where
   RM: RawMutex + Send + Sync,
 {
-  type WaitFuture<'a>
-    = BoxFuture<'a, ()>
-  where
-    Self: 'a;
-
   fn new(count: usize) -> Self {
     assert!(count > 0, "AsyncBarrier must have positive count");
     Self {
@@ -47,25 +43,23 @@ where
     }
   }
 
-  fn wait(&self) -> Self::WaitFuture<'_> {
+  async fn wait(&self) {
     let remaining = self.remaining.clone();
     let signal = self.signal.clone();
     let initial = self.initial;
-    Box::pin(async move {
-      let prev = remaining.fetch_sub(1, Ordering::SeqCst);
-      assert!(prev > 0, "AsyncBarrier::wait called more times than count");
-      if prev == 1 {
-        remaining.store(initial, Ordering::SeqCst);
-        signal.signal(());
-      } else {
-        loop {
-          if remaining.load(Ordering::SeqCst) == initial {
-            break;
-          }
-          signal.wait().await;
+    let prev = remaining.fetch_sub(1, Ordering::SeqCst);
+    assert!(prev > 0, "AsyncBarrier::wait called more times than count");
+    if prev == 1 {
+      remaining.store(initial, Ordering::SeqCst);
+      signal.signal(());
+    } else {
+      loop {
+        if remaining.load(Ordering::SeqCst) == initial {
+          break;
         }
+        signal.wait().await;
       }
-    })
+    }
   }
 }
 

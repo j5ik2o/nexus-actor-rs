@@ -1,11 +1,10 @@
 use alloc::sync::Arc;
 use core::fmt;
 
-use crate::runtime::context::InternalActorRef;
+use crate::runtime::context::{InternalActorRef, MapSystemFn};
 use crate::ActorId;
 use crate::ActorPath;
-use crate::MailboxRuntime;
-use crate::SystemMessage;
+use crate::MailboxFactory;
 use nexus_utils_core_rs::Element;
 
 pub(crate) struct FailureReasonDebug<'a>(pub(super) &'a str);
@@ -20,9 +19,9 @@ impl fmt::Debug for FailureReasonDebug<'_> {
 pub(crate) struct ChildRecord<M, R>
 where
   M: Element,
-  R: MailboxRuntime, {
+  R: MailboxFactory, {
   pub(super) control_ref: InternalActorRef<M, R>,
-  pub(super) map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
+  pub(super) map_system: Arc<MapSystemFn<M>>,
   pub(super) watcher: Option<ActorId>,
   pub(super) path: ActorPath,
 }

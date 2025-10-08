@@ -4,14 +4,14 @@ use alloc::vec;
 use alloc::vec::Vec;
 use core::convert::Infallible;
 
-use crate::runtime::context::{ActorContext, InternalActorRef};
+use crate::runtime::context::{ActorContext, ActorHandlerFn, InternalActorRef, MapSystemFn};
 use crate::runtime::guardian::{AlwaysRestart, Guardian, GuardianStrategy};
 use crate::runtime::supervision::{CompositeEscalationSink, EscalationSink};
 use crate::ActorId;
 use crate::ActorPath;
 use crate::FailureInfo;
 use crate::Supervisor;
-use crate::{MailboxOptions, MailboxRuntime, PriorityEnvelope};
+use crate::{MailboxFactory, MailboxOptions, PriorityEnvelope};
 use crate::{MailboxSignal, SystemMessage};
 use futures::future::select_all;
 use futures::FutureExt;
@@ -23,7 +23,7 @@ use super::actor_cell::ActorCell;
 pub struct PriorityScheduler<M, R, Strat = AlwaysRestart>
 where
   M: Element,
-  R: MailboxRuntime + Clone,
+  R: MailboxFactory + Clone,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
   Strat: GuardianStrategy<M, R>, {
@@ -38,7 +38,7 @@ where
 impl<M, R> PriorityScheduler<M, R, AlwaysRestart>
 where
   M: Element,
-  R: MailboxRuntime + Clone,
+  R: MailboxFactory + Clone,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
 {
@@ -69,7 +69,7 @@ where
 impl<M, R, Strat> PriorityScheduler<M, R, Strat>
 where
   M: Element,
-  R: MailboxRuntime + Clone,
+  R: MailboxFactory + Clone,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
   Strat: GuardianStrategy<M, R>,
@@ -78,7 +78,7 @@ where
     &mut self,
     supervisor: Sup,
     options: MailboxOptions,
-    map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
+    map_system: Arc<MapSystemFn<M>>,
     handler: F,
   ) -> Result<InternalActorRef<M, R>, QueueError<PriorityEnvelope<M>>>
   where
@@ -86,8 +86,7 @@ where
     Sup: Supervisor<M>, {
     let (mailbox, sender) = self.runtime.build_mailbox::<PriorityEnvelope<M>>(options);
     let actor_sender = sender.clone();
-    let handler_box: Box<dyn for<'ctx> FnMut(&mut ActorContext<'ctx, M, R, dyn Supervisor<M>>, M) + 'static> =
-      Box::new(handler);
+    let handler_box: Box<ActorHandlerFn<M, R>> = Box::new(handler);
     let control_ref = InternalActorRef::new(actor_sender.clone());
     let watchers = vec![ActorId::ROOT];
     let primary_watcher = watchers.first().copied();
@@ -192,17 +191,18 @@ where
     core::mem::take(&mut self.escalations)
   }
 
+  /// Ready キューに存在するメッセージを 1 サイクル分処理する。処理が行われた場合は true。
+  pub fn drain_ready(&mut self) -> Result<bool, QueueError<PriorityEnvelope<M>>> {
+    self.drain_ready_cycle()
+  }
+
   pub fn on_escalation<F>(&mut self, handler: F)
   where
     F: FnMut(&FailureInfo) -> Result<(), QueueError<PriorityEnvelope<M>>> + 'static, {
     self.escalation_sink.set_custom_handler(handler);
   }
 
-  pub fn set_parent_guardian(
-    &mut self,
-    control_ref: InternalActorRef<M, R>,
-    map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
-  ) {
+  pub fn set_parent_guardian(&mut self, control_ref: InternalActorRef<M, R>, map_system: Arc<MapSystemFn<M>>) {
     self.escalation_sink.set_parent_guardian(control_ref, map_system);
   }
 

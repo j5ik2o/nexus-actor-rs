@@ -6,15 +6,17 @@ use nexus_utils_core_rs::{
 
 use crate::sync::RcShared;
 
+type RcStackStorage<T> = RcShared<StackStorageBackend<RcShared<RefCell<StackBuffer<T>>>>>;
+
 #[derive(Debug, Clone)]
 pub struct RcStack<T> {
-  inner: Stack<RcShared<StackStorageBackend<RcShared<RefCell<StackBuffer<T>>>>>, T>,
+  inner: Stack<RcStackStorage<T>, T>,
 }
 
 impl<T> RcStack<T> {
   pub fn new() -> Self {
     let storage = RcShared::new(RefCell::new(StackBuffer::new()));
-    let backend = RcShared::new(StackStorageBackend::new(storage));
+    let backend: RcStackStorage<T> = RcShared::new(StackStorageBackend::new(storage));
     Self {
       inner: Stack::new(backend),
     }

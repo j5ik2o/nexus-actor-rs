@@ -14,7 +14,7 @@
    ```toml
    nexus-actor-embedded-rs = { version = "*", features = ["embassy_executor"] }
    ```
-2. `StaticCell` などで `ActorSystem` を確保し、`LocalMailboxRuntime` など適切なランタイムを渡して初期化する。
+2. `StaticCell` などで `ActorSystem` を確保し、`LocalMailboxFactory` など適切なランタイムを渡して初期化する。
 3. 初期化した `ActorSystem` の可変参照を `spawn_embassy_dispatcher` に渡し、Embassy `Spawner` に常駐タスクとして登録する。
 4. 以降は通常どおり `root_context()` からアクターを起動すれば、Embassy タスクが自動的に `dispatch_next` を駆動する。
 
@@ -28,12 +28,12 @@
 use embassy_executor::Spawner;
 use static_cell::StaticCell;
 use nexus_actor_core_rs::{ActorSystem, MailboxOptions};
-use nexus_actor_embedded_rs::{LocalMailboxRuntime, spawn_embassy_dispatcher};
+use nexus_actor_embedded_rs::{LocalMailboxFactory, spawn_embassy_dispatcher};
 
-static SYSTEM: StaticCell<ActorSystem<MessageEnvelope<u32>, LocalMailboxRuntime>> = StaticCell::new();
+static SYSTEM: StaticCell<ActorSystem<MessageEnvelope<u32>, LocalMailboxFactory>> = StaticCell::new();
 
 pub fn start(spawner: &Spawner) {
-    let runtime = LocalMailboxRuntime::default();
+    let runtime = LocalMailboxFactory::default();
     let system = SYSTEM.init_with(|| ActorSystem::new(runtime));
 
     // Embassy タスクとしてディスパッチを起動

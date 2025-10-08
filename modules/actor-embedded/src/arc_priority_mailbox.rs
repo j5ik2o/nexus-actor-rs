@@ -178,7 +178,7 @@ where
 }
 
 #[derive(Clone, Debug)]
-pub struct ArcPriorityMailboxRuntime<RM = CriticalSectionRawMutex>
+pub struct ArcPriorityMailboxFactory<RM = CriticalSectionRawMutex>
 where
   RM: RawMutex, {
   control_capacity_per_level: usize,
@@ -187,7 +187,7 @@ where
   _marker: PhantomData<RM>,
 }
 
-impl<RM> Default for ArcPriorityMailboxRuntime<RM>
+impl<RM> Default for ArcPriorityMailboxFactory<RM>
 where
   RM: RawMutex,
 {
@@ -201,7 +201,7 @@ where
   }
 }
 
-impl<RM> ArcPriorityMailboxRuntime<RM>
+impl<RM> ArcPriorityMailboxFactory<RM>
 where
   RM: RawMutex,
 {
@@ -260,7 +260,7 @@ where
   RM: RawMutex,
 {
   pub fn new(control_capacity_per_level: usize) -> (Self, ArcPriorityMailboxSender<M, RM>) {
-    ArcPriorityMailboxRuntime::<RM>::new(control_capacity_per_level).mailbox(MailboxOptions::default())
+    ArcPriorityMailboxFactory::<RM>::new(control_capacity_per_level).mailbox(MailboxOptions::default())
   }
 
   pub fn inner(&self) -> &QueueMailbox<ArcPriorityQueues<M, RM>, ArcSignal<RM>> {
@@ -388,7 +388,7 @@ mod tests {
   #[test]
   fn priority_mailbox_orders_messages_by_priority() {
     prepare();
-    let runtime = ArcPriorityMailboxRuntime::<CriticalSectionRawMutex>::default();
+    let factory = ArcPriorityMailboxFactory::<CriticalSectionRawMutex>::default();
     let (mailbox, sender) = runtime.mailbox::<u8>(MailboxOptions::default());
 
     sender
@@ -413,7 +413,7 @@ mod tests {
   #[test]
   fn priority_mailbox_capacity_split() {
     prepare();
-    let runtime = ArcPriorityMailboxRuntime::<CriticalSectionRawMutex>::default();
+    let factory = ArcPriorityMailboxFactory::<CriticalSectionRawMutex>::default();
     let options = MailboxOptions::with_capacities(QueueSize::limited(2), QueueSize::limited(2));
     let (mailbox, sender) = runtime.mailbox::<u8>(options);
 
@@ -438,7 +438,7 @@ mod tests {
   #[test]
   fn control_queue_preempts_regular_messages() {
     prepare();
-    let runtime = ArcPriorityMailboxRuntime::<CriticalSectionRawMutex>::default();
+    let factory = ArcPriorityMailboxFactory::<CriticalSectionRawMutex>::default();
     let (mailbox, sender) = runtime.mailbox::<u32>(MailboxOptions::default());
 
     sender

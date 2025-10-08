@@ -159,7 +159,7 @@ fn bench_ring_queue(c: &mut Criterion) {
 }
 
 fn bench_async_queue(c: &mut Criterion) {
-  let runtime = Runtime::new().expect("tokio runtime");
+  let factory = Runtime::new().expect("tokio runtime");
   let mut group = c.benchmark_group("mpsc_queue_offer_poll");
   group.sample_size(10);
   group.warm_up_time(Duration::from_millis(200));

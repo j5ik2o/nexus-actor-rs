@@ -13,3 +13,6 @@ readme = "../../README.md"
 default = ["alloc"]
 alloc = []
 std = ["alloc"]
+
+[dependencies]
+async-trait = { version = "0.1.82", default-features = false }

@@ -10,7 +10,7 @@ pub use behavior::{ActorAdapter, Behavior};
 pub use context::Context;
 pub use props::Props;
 pub use root_context::RootContext;
-pub use system::ActorSystem;
+pub use system::{ActorSystem, ActorSystemRunner, ShutdownToken};
 
 #[cfg(test)]
 mod tests;

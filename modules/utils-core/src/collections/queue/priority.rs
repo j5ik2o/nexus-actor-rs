@@ -292,7 +292,7 @@ mod tests {
   #[test]
   fn shared_priority_queue_len_and_capacity() {
     let queue = PriorityQueue::new(sample_levels());
-    let expected = QueueSize::limited((super::PRIORITY_LEVELS * 4) as usize);
+    let expected = QueueSize::limited(super::PRIORITY_LEVELS * 4);
     assert_eq!(queue.capacity(), expected);
     queue.offer(3).unwrap();
     assert_eq!(queue.len(), QueueSize::limited(1));

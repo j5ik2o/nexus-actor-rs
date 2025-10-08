@@ -9,7 +9,7 @@
 | actor | `ActorRef`, `ActorSystem`, `Props`, `Behavior`, `TypedContext`(旧`Context`), `RootContext` | `modules/actor-core/src/api/actor/*.rs` | API 基本操作レイヤ（TypedContext は後日リネーム予定） |
 | messaging | `MessageEnvelope` | `modules/actor-core/src/api/messaging/message_envelope.rs` | ユーザーメッセージとシステムメッセージの橋渡し |
 | identity | `ActorId`, `ActorPath` | `modules/actor-core/src/api/identity/{actor_id.rs,actor_path.rs}` | ルーティング／名前解決用 ID 型 |
-| runtime | `Mailbox`, `MailboxRuntime`, `MailboxSignal`, `PriorityEnvelope`, `SystemMessage`, `Spawn`, `Timer` | `modules/actor-core/src/api/runtime.rs`（実体は `runtime/mailbox/*`, `spawn.rs`, `timer.rs`） | std/embedded 両対応の抽象境界 |
+| runtime | `Mailbox`, `MailboxFactory`, `MailboxSignal`, `PriorityEnvelope`, `SystemMessage`, `Spawn`, `Timer` | `modules/actor-core/src/api/runtime.rs`（実体は `runtime/mailbox/*`, `spawn.rs`, `timer.rs`） | std/embedded 両対応の抽象境界 |
 | supervision | `Supervisor`, `SupervisorDirective`, `NoopSupervisor`, `FailureEvent`, `EscalationStage`, `EscalationSink`, `FailureEventHandler`, `FailureEventListener`, `RootEscalationSink` | `modules/actor-core/src/api/supervision/*.rs` | ユーザー拡張ポイントとして公開する監督/失敗ハンドラ |
 | shared | `Shared`, `StateCell` | 外部クレート (`nexus_utils_core_rs`) を `api/shared.rs` で再エクスポート | 共有状態抽象 |
 | event_stream | `FailureEventStream` | `modules/actor-core/src/api/event_stream.rs` | 実装は `actor-std` / `actor-embedded` など外部クレート側で提供 |
@@ -35,7 +35,7 @@
 ## 公開可否ポリシー指針
 
 - API レイヤは `pub`、Runtime/Platform は原則 `pub(crate)` で閉じる。
-- Runtime の型を API が利用する場合は型 alias または専用 wrapper で公開する（例: `api::runtime::MailboxRuntime` は trait のみ公開し、具象型は内部）。
+- Runtime の型を API が利用する場合は型 alias または専用 wrapper で公開する（例: `api::runtime::MailboxFactory` は trait のみ公開し、具象型は内部）。
 - `SystemMessage` は外部に晒さず、ユーザーは `MessageEnvelope::system()` のようなヘルパー経由で扱う設計に改める。
 
 この分類を基準に、以降のステップでファイル配置と可視性を段階的に移行する。

@@ -36,7 +36,7 @@
 
 ## インターフェース案
 ```rust
-pub trait MailboxRuntime {
+pub trait MailboxFactory {
   type Signal: MailboxSignal;
 
   /// ランタイム固有のキュー型。
@@ -57,7 +57,7 @@ pub struct MailboxOptions {
 }
 ```
 
-- `MailboxRuntime` を `actor-core` に配置し、std / embedded / local はそれぞれ `TokioRuntime`, `EmbassyRuntime`, `LocalRuntime` を実装。
+- `MailboxFactory` を `actor-core` に配置し、std / embedded / local はそれぞれ `TokioRuntime`, `EmbassyRuntime`, `LocalRuntime` を実装。
 - `build_mailbox` を通じて `QueueMailbox` を生成すれば、各ランタイムの `Mailbox` 実装は薄いアダプタで済む。
 - `QueueMailboxRecv` を直接返す API も `actor-core` から公開済みなので、利用側では `type RecvFuture<'a> = QueueMailboxRecv<'a, Q, S, M>` をそのまま使える。2025-10-07 現在は `Future<Output = Result<M, QueueError<M>>>` として実装されており、閉鎖・切断時には `Err(QueueError::Disconnected)` を即座に返す。利用側では `Ok` / `Err` の分岐で停止処理を行う。
 - 優先度付き Mailbox は **制御キュー（PriorityQueue）＋通常キュー（FIFO）** の二段構えに再編済み。制御メッセージは `priority > DEFAULT_PRIORITY` で判定し、排出時は制御キュー優先。その後 `PriorityScheduler` が余剰メッセージを優先度順に処理する。
@@ -70,7 +70,7 @@ pub struct MailboxOptions {
 ## MailboxOptions と優先度 Mailbox の容量解釈
 - `MailboxOptions::capacity` は論理的な総容量。優先度 Mailbox では `QueueSize::Limited(total)` をレベル数で均等割り（切り上げ）し per-level capacity として利用。`QueueSize::Limitless` は per-level 0（= dynamic）として扱う。
 - Tokio / embedded 双方で同じポリシーを実装。embedded 側は `ArcPriorityQueue::set_dynamic(false)` を容量ありのケースに設定。
-- `PriorityScheduler` は Mailbox が FIFO でも優先度順を保証できるよう、`QueueRw::poll()` で排出した `PriorityEnvelope` を一時バッファに集約し、優先度降順でソート後に処理する。既存の TestMailboxRuntime でも優先度テストを実施可能。
+- `PriorityScheduler` は Mailbox が FIFO でも優先度順を保証できるよう、`QueueRw::poll()` で排出した `PriorityEnvelope` を一時バッファに集約し、優先度降順でソート後に処理する。既存の TestMailboxFactory でも優先度テストを実施可能。
 
 ## 次の検討事項
 1. `MailboxOptions` に RawMutex 選択など embedded 固有の情報をどう埋め込むか。
@@ -79,7 +79,7 @@ pub struct MailboxOptions {
 
 ## 段階的リファクタリング計画
 1. **ヘルパ導入 (actor-core)**
-   - `MailboxRuntime` トレイトと `MailboxOptions` を新設。
+   - `MailboxFactory` トレイトと `MailboxOptions` を新設。
    - 既存 `QueueMailbox` / `QueueMailboxProducer` を返す `build_mailbox` を追加し、API テストを作成。
 2. **std ランタイム移行**
    - `TokioMailbox` を `TokioRuntime` + 汎用 `MailboxHandle` に置換。
@@ -124,21 +124,21 @@ pub struct MailboxOptions {
   - `ArcMpscUnboundedQueue` / `ArcMpscBoundedQueue` に `Clone` 実装を追加。
   - `cargo test -p nexus-actor-embedded-rs --features embedded_arc` を含むテストが通過する状態を確認済み。
 
-## MailboxRuntime 利用レイヤ整理
+## MailboxFactory 利用レイヤ整理
 - 実装済み runtime
-  - `TokioMailboxRuntime` （std）
-  - `LocalMailboxRuntime` （Rc ベース）
-  - `ArcMailboxRuntime` （embedded_arc 用、現状はビルド未整備）
+  - `TokioMailboxFactory` （std）
+  - `LocalMailboxFactory` （Rc ベース）
+  - `ArcMailboxFactory` （embedded_arc 用、現状はビルド未整備）
 - 既存の呼び出しポイント
   - `modules/actor-std/src/lib.rs:24` などで mailbox を直接生成してから `actor_loop` に渡している。
 - 今後の設計方針
-  - `Context` / `Supervisor` / `Scheduler` を再設計する際、`MailboxRuntime` を初期化時に注入。アクター生成フローで `runtime.build_mailbox()` を呼び出す。
-  - テスト用にシンプルな runtime 実装（リングバッファ/モックキュー）を用意し、`MailboxRuntime` の trait オブジェクト化を検討。
+  - `Context` / `Supervisor` / `Scheduler` を再設計する際、`MailboxFactory` を初期化時に注入。アクター生成フローで `runtime.build_mailbox()` を呼び出す。
+  - テスト用にシンプルな runtime 実装（リングバッファ/モックキュー）を用意し、`MailboxFactory` の trait オブジェクト化を検討。
   - API スケッチ（案）:
     ```rust
     pub struct ActorSystem<R>
     where
-      R: MailboxRuntime,
+      R: MailboxFactory,
     {
       mailbox_rt: R,
       scheduler: Scheduler,
@@ -146,7 +146,7 @@ pub struct MailboxOptions {
 
     impl<R> ActorSystem<R>
     where
-      R: MailboxRuntime,
+      R: MailboxFactory,
     {
       pub fn spawn<M, A>(&self, actor: A) -> ActorRef<M>
       where
@@ -158,18 +158,18 @@ pub struct MailboxOptions {
       }
     }
     ```
-    - `Context`/`Supervisor` は `ActorRef` 経由で `MailboxRuntime` に触れる必要がない形を目指す。
-    - テスト時は `TestMailboxRuntime` を実装し、`VecDeque` ベースのキュー + 手動 wake を提供する想定。
+    - `Context`/`Supervisor` は `ActorRef` 経由で `MailboxFactory` に触れる必要がない形を目指す。
+    - テスト時は `TestMailboxFactory` を実装し、`VecDeque` ベースのキュー + 手動 wake を提供する想定。
 
 ## 優先度付き Mailbox 設計タスク
-1. `ArcPriorityQueue` / `RcPriorityQueue` の API を確認し、`QueueRw` と同等の操作性を持つラッパーを提供する。（TokioPriorityMailboxRuntime については VecDeque ベースのプロトタイプを実装済み。embedded 向けは未着手）
+1. `ArcPriorityQueue` / `RcPriorityQueue` の API を確認し、`QueueRw` と同等の操作性を持つラッパーを提供する。（TokioPriorityMailboxFactory については VecDeque ベースのプロトタイプを実装済み。embedded 向けは未着手）
 2. `MailboxOptions` に優先度ポリシーやキュー種別（FIFO / Priority）を受け取るフィールドを追加。
-3. `PriorityMailboxRuntime`（仮称）を actor-core に導入し、std / embedded でのラッパーを用意。
+3. `PriorityMailboxFactory`（仮称）を actor-core に導入し、std / embedded でのラッパーを用意。
 4. メッセージ `Envelope` に優先度メタデータを持たせ、スケジューラが優先度を参照できる設計を行う。
 5. 高優先度メッセージが先に処理されることを検証する unit/integration テストを用意。
 
 ## 追記履歴
 - 2025-10-06 16:05 メモ初稿
 - 2025-10-06 17:45 embedded_arc 課題 & runtime 呼び出し箇所整理、優先度付き Mailbox 設計案追記
-- 2025-10-07 10:00 TokioPriorityMailboxRuntime プロトタイプ（VecDeque + PriorityEnvelope）実装と容量制御テストの結果を反映
+- 2025-10-07 10:00 TokioPriorityMailboxFactory プロトタイプ（VecDeque + PriorityEnvelope）実装と容量制御テストの結果を反映
 - 2025-10-07 10:26 MailboxOptions 容量ポリシーと PriorityScheduler 実装メモを追加（優先度順ソート／テスト戦略含む）

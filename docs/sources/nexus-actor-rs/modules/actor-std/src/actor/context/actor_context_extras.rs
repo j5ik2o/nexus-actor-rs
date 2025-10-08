@@ -107,7 +107,7 @@ impl ActorContextExtras {
   }
 
   pub async fn restart_stats(&mut self) -> RestartStatistics {
-    let runtime = self
+    let factory = self
       .context
       .load_full()
       .and_then(|weak| weak.upgrade())
@@ -141,7 +141,7 @@ impl ActorContextExtras {
       timer.cancel();
     }
 
-    let runtime = {
+    let factory = {
       let ctx_guard = context.read().await;
       ctx_guard.actor_system().core_runtime()
     };

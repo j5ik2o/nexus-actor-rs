@@ -155,7 +155,7 @@ mod tests {
   #[tokio::test]
   async fn std_supervisor_context_now_reflects_failure_clock_progress() {
     let system = ActorSystem::new().await.expect("actor system");
-    let runtime = tokio_core_runtime();
+    let factory = tokio_core_runtime();
     let context = StdSupervisorContext::with_runtime(system.clone(), runtime);
 
     let before = context.now();

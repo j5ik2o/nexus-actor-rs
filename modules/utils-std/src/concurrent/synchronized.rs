@@ -1,5 +1,5 @@
 use nexus_utils_core_rs::{
-  BoxFuture, Synchronized as CoreSynchronized, SynchronizedMutexBackend, SynchronizedRw as CoreSynchronizedRw,
+  async_trait, Synchronized as CoreSynchronized, SynchronizedMutexBackend, SynchronizedRw as CoreSynchronizedRw,
   SynchronizedRwBackend,
 };
 use tokio::sync::{Mutex, MutexGuard, RwLock, RwLockReadGuard, RwLockWriteGuard};
@@ -14,16 +14,13 @@ impl<T> TokioMutexBackend<T> {
   }
 }
 
+#[async_trait(?Send)]
 impl<T> SynchronizedMutexBackend<T> for TokioMutexBackend<T>
 where
   T: Send,
 {
   type Guard<'a>
     = MutexGuard<'a, T>
-  where
-    Self: 'a;
-  type LockFuture<'a>
-    = BoxFuture<'a, MutexGuard<'a, T>>
   where
     Self: 'a;
 
@@ -35,8 +32,8 @@ where
     }
   }
 
-  fn lock(&self) -> Self::LockFuture<'_> {
-    Box::pin(self.inner.lock())
+  async fn lock(&self) -> Self::Guard<'_> {
+    self.inner.lock().await
   }
 }
 
@@ -50,20 +47,13 @@ impl<T> TokioRwLockBackend<T> {
   }
 }
 
+#[async_trait(?Send)]
 impl<T> SynchronizedRwBackend<T> for TokioRwLockBackend<T>
 where
   T: Send + Sync,
 {
-  type ReadFuture<'a>
-    = BoxFuture<'a, RwLockReadGuard<'a, T>>
-  where
-    Self: 'a;
   type ReadGuard<'a>
     = RwLockReadGuard<'a, T>
-  where
-    Self: 'a;
-  type WriteFuture<'a>
-    = BoxFuture<'a, RwLockWriteGuard<'a, T>>
   where
     Self: 'a;
   type WriteGuard<'a>
@@ -79,12 +69,12 @@ where
     }
   }
 
-  fn read(&self) -> Self::ReadFuture<'_> {
-    Box::pin(self.inner.read())
+  async fn read(&self) -> Self::ReadGuard<'_> {
+    self.inner.read().await
   }
 
-  fn write(&self) -> Self::WriteFuture<'_> {
-    Box::pin(self.inner.write())
+  async fn write(&self) -> Self::WriteGuard<'_> {
+    self.inner.write().await
   }
 }
 

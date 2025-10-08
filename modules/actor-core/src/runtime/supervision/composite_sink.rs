@@ -1,9 +1,8 @@
 use alloc::sync::Arc;
 
-use crate::runtime::context::InternalActorRef;
+use crate::runtime::context::{InternalActorRef, MapSystemFn};
 use crate::FailureInfo;
-use crate::SystemMessage;
-use crate::{MailboxRuntime, PriorityEnvelope};
+use crate::{MailboxFactory, PriorityEnvelope};
 use nexus_utils_core_rs::{Element, QueueError};
 
 use super::{
@@ -15,7 +14,7 @@ use super::{
 pub(crate) struct CompositeEscalationSink<M, R>
 where
   M: Element,
-  R: MailboxRuntime,
+  R: MailboxFactory,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone, {
   parent_guardian: Option<ParentGuardianSink<M, R>>,
@@ -26,7 +25,7 @@ where
 impl<M, R> CompositeEscalationSink<M, R>
 where
   M: Element,
-  R: MailboxRuntime,
+  R: MailboxFactory,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
 {
@@ -38,11 +37,7 @@ where
     }
   }
 
-  pub(crate) fn set_parent_guardian(
-    &mut self,
-    control_ref: InternalActorRef<M, R>,
-    map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
-  ) {
+  pub(crate) fn set_parent_guardian(&mut self, control_ref: InternalActorRef<M, R>, map_system: Arc<MapSystemFn<M>>) {
     self.parent_guardian = Some(ParentGuardianSink::new(control_ref, map_system));
   }
 
@@ -76,7 +71,7 @@ where
 impl<M, R> Default for CompositeEscalationSink<M, R>
 where
   M: Element,
-  R: MailboxRuntime,
+  R: MailboxFactory,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
 {
@@ -88,7 +83,7 @@ where
 impl<M, R> EscalationSink<M, R> for CompositeEscalationSink<M, R>
 where
   M: Element,
-  R: MailboxRuntime,
+  R: MailboxFactory,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
 {

@@ -16,7 +16,7 @@ fn make_pid(seq: usize) -> Pid {
 }
 
 fn bench_endpoint_watch_registry(c: &mut Criterion) {
-  let runtime = Runtime::new().expect("tokio runtime");
+  let factory = Runtime::new().expect("tokio runtime");
   let mut group = c.benchmark_group("endpoint_watch_registry");
   group.sample_size(15);
   group.warm_up_time(Duration::from_millis(300));

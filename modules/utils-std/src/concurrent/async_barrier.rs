@@ -1,7 +1,7 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
-use nexus_utils_core_rs::{AsyncBarrier as CoreAsyncBarrier, AsyncBarrierBackend, BoxFuture};
+use nexus_utils_core_rs::{async_trait, AsyncBarrier as CoreAsyncBarrier, AsyncBarrierBackend};
 use tokio::sync::Notify;
 
 #[derive(Clone)]
@@ -15,12 +15,8 @@ struct Inner {
   notify: Notify,
 }
 
+#[async_trait(?Send)]
 impl AsyncBarrierBackend for TokioAsyncBarrierBackend {
-  type WaitFuture<'a>
-    = BoxFuture<'a, ()>
-  where
-    Self: 'a;
-
   fn new(count: usize) -> Self {
     assert!(count > 0, "AsyncBarrier must have positive count");
     Self {
@@ -32,23 +28,21 @@ impl AsyncBarrierBackend for TokioAsyncBarrierBackend {
     }
   }
 
-  fn wait(&self) -> Self::WaitFuture<'_> {
+  async fn wait(&self) {
     let inner = self.inner.clone();
-    Box::pin(async move {
-      let prev = inner.remaining.fetch_sub(1, Ordering::SeqCst);
-      assert!(prev > 0, "AsyncBarrier::wait called more times than count");
-      if prev == 1 {
-        inner.remaining.store(inner.initial, Ordering::SeqCst);
-        inner.notify.notify_waiters();
-      } else {
-        loop {
-          if inner.remaining.load(Ordering::SeqCst) == inner.initial {
-            break;
-          }
-          inner.notify.notified().await;
+    let prev = inner.remaining.fetch_sub(1, Ordering::SeqCst);
+    assert!(prev > 0, "AsyncBarrier::wait called more times than count");
+    if prev == 1 {
+      inner.remaining.store(inner.initial, Ordering::SeqCst);
+      inner.notify.notify_waiters();
+    } else {
+      loop {
+        if inner.remaining.load(Ordering::SeqCst) == inner.initial {
+          break;
         }
+        inner.notify.notified().await;
       }
-    })
+    }
   }
 }
 

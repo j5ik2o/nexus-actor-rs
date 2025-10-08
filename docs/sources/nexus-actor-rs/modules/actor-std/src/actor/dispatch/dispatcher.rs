@@ -157,7 +157,7 @@ pub struct SingleWorkerDispatcher {
 
 impl SingleWorkerDispatcher {
   pub fn new() -> Result<Self, std::io::Error> {
-    let runtime = build_single_worker_runtime()?;
+    let factory = build_single_worker_runtime()?;
     Ok(Self {
       runtime: Some(runtime),
       throughput: 300,

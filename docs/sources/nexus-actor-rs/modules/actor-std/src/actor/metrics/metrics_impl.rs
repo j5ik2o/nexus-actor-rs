@@ -46,7 +46,7 @@ impl Metrics {
     let config = system.get_config();
     let metrics_provider = config.metrics_provider.clone();
     let poll_interval = config.mailbox_metrics_poll_interval;
-    let runtime = match metrics_provider {
+    let factory = match metrics_provider {
       Some(provider) => {
         let address = system.get_address().await;
         let proto_metrics = ProtoMetrics::new(provider.clone())?;
@@ -615,7 +615,7 @@ mod tests {
     let provider = SdkMeterProvider::builder().with_reader(reader).build();
     let metrics_provider = Arc::new(MetricsProvider::Sdk(provider.clone()));
     let proto_metrics = ProtoMetrics::new(metrics_provider).expect("metrics init");
-    let runtime = MetricsRuntime::new("test-system".to_string(), proto_metrics);
+    let factory = MetricsRuntime::new("test-system".to_string(), proto_metrics);
     let sink = runtime.sink_without_actor();
 
     sink.record_mailbox_queue_dwell_percentile("p50", 0.123, "user");
@@ -664,7 +664,7 @@ mod tests {
     let provider = SdkMeterProvider::builder().with_reader(reader).build();
     let metrics_provider = Arc::new(MetricsProvider::Sdk(provider.clone()));
     let proto_metrics = ProtoMetrics::new(metrics_provider).expect("metrics init");
-    let runtime = MetricsRuntime::new("test-system".to_string(), proto_metrics);
+    let factory = MetricsRuntime::new("test-system".to_string(), proto_metrics);
     let sink = runtime.sink_without_actor();
 
     sink.record_mailbox_queue_dwell_bucket_total("bucket_2", "system", 42);
@@ -713,7 +713,7 @@ mod tests {
     let provider = SdkMeterProvider::builder().with_reader(reader).build();
     let metrics_provider = Arc::new(MetricsProvider::Sdk(provider.clone()));
     let proto_metrics = ProtoMetrics::new(metrics_provider).expect("metrics init");
-    let runtime = MetricsRuntime::new("test-system".to_string(), proto_metrics);
+    let factory = MetricsRuntime::new("test-system".to_string(), proto_metrics);
     let sink = runtime.sink_without_actor();
 
     sink.increment_mailbox_suspension_resume(3);
@@ -777,7 +777,7 @@ mod tests {
     let provider = SdkMeterProvider::builder().with_reader(reader).build();
     let metrics_provider = Arc::new(MetricsProvider::Sdk(provider.clone()));
     let proto_metrics = ProtoMetrics::new(metrics_provider).expect("metrics init");
-    let runtime = MetricsRuntime::new("test-system".to_string(), proto_metrics);
+    let factory = MetricsRuntime::new("test-system".to_string(), proto_metrics);
     let sink = runtime.sink_without_actor();
 
     let event_labels = [

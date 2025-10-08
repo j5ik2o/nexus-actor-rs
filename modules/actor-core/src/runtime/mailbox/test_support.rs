@@ -9,14 +9,14 @@ use core::task::{Context, Poll};
 use nexus_utils_core_rs::{Element, MpscBuffer, MpscHandle, MpscQueue, QueueSize, RingBufferBackend, Shared};
 
 use super::queue_mailbox::{MailboxOptions, QueueMailbox};
-use super::traits::{MailboxPair, MailboxRuntime, MailboxSignal};
+use super::traits::{MailboxFactory, MailboxPair, MailboxSignal};
 
 #[derive(Clone, Debug, Default)]
-pub struct TestMailboxRuntime {
+pub struct TestMailboxFactory {
   capacity: Option<usize>,
 }
 
-impl TestMailboxRuntime {
+impl TestMailboxFactory {
   pub fn new(capacity: Option<usize>) -> Self {
     Self { capacity }
   }
@@ -132,7 +132,7 @@ impl<'a> Future for TestSignalWait<'a> {
   }
 }
 
-impl MailboxRuntime for TestMailboxRuntime {
+impl MailboxFactory for TestMailboxFactory {
   type Queue<M>
     = TestQueue<M>
   where
@@ -161,9 +161,8 @@ mod tests {
 
   #[test]
   fn test_mailbox_runtime_delivers_fifo() {
-    let runtime = TestMailboxRuntime::with_capacity_per_queue(2);
-    let _ = TestMailboxRuntime::unbounded();
-    let (mailbox, sender) = runtime.build_default_mailbox::<u32>();
+    let factory = TestMailboxFactory::with_capacity_per_queue(2);
+    let (mailbox, sender) = factory.build_default_mailbox::<u32>();
 
     sender.try_send(1).unwrap();
     sender.try_send(2).unwrap();
