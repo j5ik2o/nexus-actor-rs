@@ -13,104 +13,27 @@
 | スポーナー | `TokioSpawner` | `ImmediateSpawner` (`spawn` は同期実行) |
 | タイマー | `TokioTimer` | `ImmediateTimer` (即時完了) |
 | メールボックス | `TokioMailbox*` | `LocalMailbox` / `ArcMailbox` |
-| 高レベル API | `ActorSystem` を Tokio ランタイム上で手動起動 | `ActorSystem` を手動で `dispatch_next` |
+| 高レベル API | `ActorSystemRunner` + `TokioSystemHandle` | `ActorSystemRunner` / `run_until_idle()` |
+| Deprecated ラッパ | `TokioActorRuntime` | `EmbeddedActorRuntime` |
 
-- どちらも `ActorSystem` の抽象は共有できているが、ユーザー側から見るとスケジューラの駆動を意識する必要がある。
-- `actor-std` テストでは `TokioSpawner` を直接使用。`actor-embedded` テストでは `block_on` を自前実装して `dispatch_next` を手動呼び出し。
+- すべての利用コードを `ActorSystem` + `ShutdownToken` + 専用ハンドルで統一する段階。旧ラッパは互換性のため公開するが、警告を確認できるよう非推奨のまま残す。
+- std 環境では `TokioSystemHandle::start_local(runner)` を通じて scheduler 常駐タスクを起動し、`spawn_ctrl_c_listener()` で SIGINT/SIGTERM（現状は ctrl-c）を監視して `ShutdownToken::trigger()` を呼ぶ。
+- embedded 環境では `run_until_idle()` をアプリ側のメインループから呼び出し、停止トークンを監視して安全に停止する。
 
 ## 提案アーキテクチャ
 
-```
-ActorRuntimeDriver (trait)
-  ├─ TokioRuntimeDriver      (actor-std)
-  ├─ ImmediateRuntimeDriver  (actor-embedded, 単発タスク向け)
-  └─ EmbassyRuntimeDriver    (actor-embedded, embassy-executor 連携)
+1. **ActorSystemRunner + SystemHandle** を中核に据える。
+   - `ActorSystem::from_runtime_components` で `ActorSystem` を構築し、`into_runner()` で常駐用ランナーを取得する。
+   - std 向けには `TokioSystemHandle::start_local(runner)` を提供し、`tokio::task::spawn_local` により scheduler を常駐させる。`ShutdownToken` は `ctrl_c` 監視経由でトリガーする。
+   - embedded 向けには runner を直接扱い、アプリ側メインループが `run_until_idle()` + `shutdown_token()` を組み合わせて制御する。
 
-ActorRuntimeDriver::spawn_actor_loop(...)  // actor_loop を内部で起動
-ActorRuntimeDriver::pump()                 // 必要ならメインループに統合
+2. **Deprecated Runtime ラッパの段階的撤去**。
+   - `TokioActorRuntime` / `EmbeddedActorRuntime` は互換性のため残しつつ非推奨とし、新 API を使用したテスト・サンプルを整備済み。
+   - 今後はライブラリ外部利用箇所の移行状況を監視し、適切なメジャー更新で削除する。
 
-ActorSystemFacade<R, Driver>
-  -> 内部で ActorSystem<R, Driver::MailboxRuntime> を所有
-  -> 外部 API: spawn, tell, stop, run_until_idle など
-```
-
-- `ActorRuntimeDriver` は `Spawn` と `Timer` を注入し、`ActorSystem` をラップする責務を負う。
-- Embedded 向けには 2 実装を想定：
-  - `ImmediateRuntimeDriver`: `ImmediateSpawner`/`ImmediateTimer` を使い、`pump()` 呼び出し毎にメッセージを 1 件処理する。
-  - `EmbassyRuntimeDriver`: `embassy_executor` へタスク登録し、ハードウェアタイマや割り込みに乗せる。
-- std/embedded 共通で `ActorSystemFacade`（仮称）を導入し、以下を提供：
-  - `fn new(driver: Driver) -> Self`
-  - `fn spawn<P>(&mut self, props: Props<...>) -> ActorRef`（背後で driver が必要なランタイムを起動）
-  - `fn tell<A>(&self, actor: &ActorRef<A>, msg: A)`（既存の ActorRef API を継承）
-  - `fn run_once(&mut self)` / `fn run_until_idle(&mut self)`（`ImmediateRuntimeDriver` 用）
-
-### ActorRuntimeDriver trait 草案
-
-```rust
-pub trait ActorRuntimeDriver<M>
-where
-  M: Element,
-{
-  type Runtime: MailboxRuntime;
-  type Spawn: Spawn;
-  type Timer: Timer;
-  type EventStream: FailureEventStream;
-
-  /// ActorSystem 構築に必要な構成要素を取り出す。
-  fn into_parts(self) -> (Self::Runtime, Self::Spawn, Self::Timer, Self::EventStream);
-
-  /// 手動駆動が必要なランタイム向け。Tokio 等では `DriverState::Idle` を戻すだけでよい。
-  fn pump(&mut self) -> DriverState;
-}
-
-pub enum DriverState {
-  Busy,
-  Idle,
-}
-```
-
-- `M`（メッセージ型）に対してジェネリックなドライバを提供し、`ActorSystem<M, _>` を内部で生成できる設計。
-- `Spawn`/`Timer`/`FailureEventStream` の関連型は、std/embedded で異なる実装を差し込む想定。
-- `pump` 実装が不要な場合（Tokio など）は `DriverState::Idle` を返せば足りる。
-
-### ActorSystemFacade スケルトン（案）
-
-```rust
-pub struct ActorRuntimeFacade<D, M>
-where
-  D: ActorRuntimeDriver<M>,
-  M: Element,
-{
-  driver: D,
-  system: ActorSystem<M, D::Runtime>,
-}
-
-impl<D, M> ActorRuntimeFacade<D, M>
-where
-  D: ActorRuntimeDriver<M>,
-  M: Element,
-{
-  pub fn new(driver: D) -> Self {
-    let (runtime, spawner, timer, stream) = driver.into_parts();
-    let system = ActorSystem::with_components(runtime, spawner, timer, stream);
-    Self { driver, system }
-  }
-
-  pub fn spawn<P>(&mut self, props: P) -> Result<ActorRef<M>, SpawnError>
-  where
-    P: Into<Props<M, D::Runtime>>,
-  {
-    self.system.root_context().spawn(props.into())
-  }
-
-  pub fn run_until_idle(&mut self) {
-    while matches!(self.driver.pump(), DriverState::Busy) {}
-  }
-}
-```
-
-- `ActorSystem::with_components` は既存 `ActorSystem::new(runtime)` の拡張として追加が必要。
-- `Props` まわりの型合わせは概念図。実装時に `Spawn` ・ `Timer` 連携の API 整備が必要。
+3. **CoordinatedShutdown の整理**。
+   - Tok io: `TokioSystemHandle::spawn_ctrl_c_listener()` でシグナルを監視。将来的には `tokio::signal::unix::signal` 等を使い SIGTERM/SIGINT を追加対応する。
+   - Embedded: 停止要求を外部から受け取れるよう `ShutdownToken` を公開し、`run_until_idle()` が early return できる仕組みをガイドラインに記載する。
 
 ## 実装ステップ
 
