@@ -3,8 +3,7 @@ use std::sync::{Arc, Mutex};
 use nexus_actor_core_rs::{ActorSystem, MailboxOptions, Props, RuntimeComponents};
 use nexus_actor_std_rs::{FailureEventHub, TokioMailboxRuntime, TokioSpawner, TokioSystemHandle, TokioTimer};
 
-#[tokio::test(flavor = "current_thread")]
-async fn tokio_actor_runtime_processes_messages() {
+async fn run_tokio_actor_runtime_processes_messages() {
   let components = RuntimeComponents::new(
     TokioMailboxRuntime::default(),
     TokioSpawner,
@@ -30,7 +29,16 @@ async fn tokio_actor_runtime_processes_messages() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn tokio_system_handle_can_be_aborted() {
+async fn tokio_actor_runtime_processes_messages() {
+  run_tokio_actor_runtime_processes_messages().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn tokio_actor_runtime_processes_messages_multi_thread() {
+  run_tokio_actor_runtime_processes_messages().await;
+}
+
+async fn run_tokio_system_handle_can_be_aborted() {
   tokio::task::LocalSet::new()
     .run_until(async move {
       let components = RuntimeComponents::new(
@@ -46,4 +54,14 @@ async fn tokio_system_handle_can_be_aborted() {
       listener.abort();
     })
     .await;
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn tokio_system_handle_can_be_aborted() {
+  run_tokio_system_handle_can_be_aborted().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn tokio_system_handle_can_be_aborted_multi_thread() {
+  run_tokio_system_handle_can_be_aborted().await;
 }
