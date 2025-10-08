@@ -13,6 +13,9 @@ use nexus_utils_core_rs::{Element, QueueError, QueueSize};
 
 use super::{ChildSpawnSpec, InternalActorRef};
 
+pub type ActorHandlerFn<M, R> = dyn for<'ctx> FnMut(&mut ActorContext<'ctx, M, R, dyn Supervisor<M>>, M) + 'static;
+pub type MapSystemFn<M> = dyn Fn(SystemMessage) -> M + Send + Sync;
+
 /// アクターが自身や子アクターを操作するためのコンテキスト。
 pub struct ActorContext<'a, M, R, Sup>
 where
@@ -25,7 +28,7 @@ where
   #[allow(dead_code)]
   pending_spawns: &'a mut Vec<ChildSpawnSpec<M, R>>,
   #[allow(dead_code)]
-  map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
+  map_system: Arc<MapSystemFn<M>>,
   actor_path: ActorPath,
   actor_id: ActorId,
   watchers: &'a mut Vec<ActorId>,
@@ -39,12 +42,13 @@ where
   R: MailboxRuntime,
   Sup: Supervisor<M> + ?Sized,
 {
+  #[allow(clippy::too_many_arguments)]
   pub fn new(
     runtime: &'a R,
     sender: &'a QueueMailboxProducer<R::Queue<PriorityEnvelope<M>>, R::Signal>,
     supervisor: &'a mut Sup,
     pending_spawns: &'a mut Vec<ChildSpawnSpec<M, R>>,
-    map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
+    map_system: Arc<MapSystemFn<M>>,
     actor_path: ActorPath,
     actor_id: ActorId,
     watchers: &'a mut Vec<ActorId>,

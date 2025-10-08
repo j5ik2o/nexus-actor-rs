@@ -5,11 +5,10 @@ use alloc::vec::Vec;
 use crate::ActorId;
 use crate::ActorPath;
 use crate::Supervisor;
-use crate::SystemMessage;
 use crate::{MailboxRuntime, PriorityEnvelope, QueueMailbox, QueueMailboxProducer};
 use nexus_utils_core_rs::Element;
 
-use super::ActorContext;
+use super::{ActorHandlerFn, MapSystemFn};
 
 /// 子アクター生成時に必要となる情報。
 pub struct ChildSpawnSpec<M, R>
@@ -19,8 +18,8 @@ where
   pub mailbox: QueueMailbox<R::Queue<PriorityEnvelope<M>>, R::Signal>,
   pub sender: QueueMailboxProducer<R::Queue<PriorityEnvelope<M>>, R::Signal>,
   pub supervisor: Box<dyn Supervisor<M>>,
-  pub handler: Box<dyn for<'ctx> FnMut(&mut ActorContext<'ctx, M, R, dyn Supervisor<M>>, M) + 'static>,
+  pub handler: Box<ActorHandlerFn<M, R>>,
   pub watchers: Vec<ActorId>,
-  pub map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
+  pub map_system: Arc<MapSystemFn<M>>,
   pub parent_path: ActorPath,
 }

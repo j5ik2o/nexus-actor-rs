@@ -1,6 +1,5 @@
 use alloc::sync::Arc;
 use core::convert::Infallible;
-use core::future::Future;
 use core::sync::atomic::{AtomicBool, Ordering};
 
 use super::root_context::RootContext;
@@ -150,10 +149,8 @@ where
     self.system.run_forever().await
   }
 
-  pub fn into_future(
-    self,
-  ) -> impl Future<Output = Result<Infallible, QueueError<PriorityEnvelope<MessageEnvelope<U>>>>> {
-    async move { self.run_forever().await }
+  pub async fn into_future(self) -> Result<Infallible, QueueError<PriorityEnvelope<MessageEnvelope<U>>>> {
+    self.run_forever().await
   }
 
   pub fn into_inner(self) -> ActorSystem<U, R, Strat> {

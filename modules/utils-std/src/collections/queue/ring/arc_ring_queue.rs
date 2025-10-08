@@ -1,6 +1,8 @@
 use std::sync::Mutex;
 
 use crate::sync::ArcShared;
+
+type ArcRingStorage<E> = ArcShared<RingStorageBackend<ArcShared<Mutex<RingBuffer<E>>>>>;
 use nexus_utils_core_rs::{
   QueueBase, QueueError, QueueReader, QueueRw, QueueSize, QueueWriter, RingBuffer, RingQueue, RingStorageBackend,
   DEFAULT_CAPACITY,
@@ -8,13 +10,13 @@ use nexus_utils_core_rs::{
 
 #[derive(Debug, Clone)]
 pub struct ArcRingQueue<E> {
-  inner: RingQueue<ArcShared<RingStorageBackend<ArcShared<Mutex<RingBuffer<E>>>>>, E>,
+  inner: RingQueue<ArcRingStorage<E>, E>,
 }
 
 impl<E> ArcRingQueue<E> {
   pub fn new(capacity: usize) -> Self {
     let storage = ArcShared::new(Mutex::new(RingBuffer::new(capacity)));
-    let backend = ArcShared::new(RingStorageBackend::new(storage));
+    let backend: ArcRingStorage<E> = ArcShared::new(RingStorageBackend::new(storage));
     Self {
       inner: RingQueue::new(backend),
     }

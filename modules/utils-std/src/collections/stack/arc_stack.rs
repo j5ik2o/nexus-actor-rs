@@ -5,15 +5,17 @@ use nexus_utils_core_rs::{
   QueueSize, Stack, StackBase, StackBuffer, StackError, StackMut, StackStorage, StackStorageBackend,
 };
 
+type ArcStackStorage<T> = ArcShared<StackStorageBackend<ArcShared<Mutex<StackBuffer<T>>>>>;
+
 #[derive(Debug, Clone)]
 pub struct ArcStack<T> {
-  inner: Stack<ArcShared<StackStorageBackend<ArcShared<Mutex<StackBuffer<T>>>>>, T>,
+  inner: Stack<ArcStackStorage<T>, T>,
 }
 
 impl<T> ArcStack<T> {
   pub fn new() -> Self {
     let storage = ArcShared::new(Mutex::new(StackBuffer::new()));
-    let backend = ArcShared::new(StackStorageBackend::new(storage));
+    let backend: ArcStackStorage<T> = ArcShared::new(StackStorageBackend::new(storage));
     Self {
       inner: Stack::new(backend),
     }

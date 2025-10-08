@@ -7,8 +7,8 @@ use crate::ActorPath;
 use crate::MailboxRuntime;
 use crate::SupervisorDirective;
 use crate::{PriorityEnvelope, SystemMessage};
+use ::core::fmt;
 use alloc::sync::Arc;
-use core::fmt;
 use nexus_utils_core_rs::{Element, DEFAULT_PRIORITY};
 
 #[test]

@@ -2,7 +2,7 @@ use alloc::collections::BTreeMap;
 use alloc::sync::Arc;
 use core::fmt;
 
-use crate::runtime::context::InternalActorRef;
+use crate::runtime::context::{InternalActorRef, MapSystemFn};
 use crate::ActorId;
 use crate::ActorPath;
 use crate::FailureInfo;
@@ -12,6 +12,8 @@ use crate::{PriorityEnvelope, SystemMessage};
 use nexus_utils_core_rs::{Element, QueueError};
 
 use super::{ChildRecord, FailureReasonDebug, GuardianStrategy};
+
+type ChildRoute<M, R> = (InternalActorRef<M, R>, Arc<MapSystemFn<M>>);
 
 /// Guardian: 子アクター群を監督し、SystemMessage を送出する。
 pub struct Guardian<M, R, Strat>
@@ -46,7 +48,7 @@ where
   pub fn register_child(
     &mut self,
     control_ref: InternalActorRef<M, R>,
-    map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
+    map_system: Arc<MapSystemFn<M>>,
     watcher: Option<ActorId>,
     parent_path: &ActorPath,
   ) -> Result<(ActorId, ActorPath), QueueError<PriorityEnvelope<M>>> {
@@ -121,10 +123,7 @@ where
     self.handle_directive(actor, failure, directive)
   }
 
-  pub fn child_route(
-    &self,
-    actor: ActorId,
-  ) -> Option<(InternalActorRef<M, R>, Arc<dyn Fn(SystemMessage) -> M + Send + Sync>)> {
+  pub fn child_route(&self, actor: ActorId) -> Option<ChildRoute<M, R>> {
     self
       .children
       .get(&actor)

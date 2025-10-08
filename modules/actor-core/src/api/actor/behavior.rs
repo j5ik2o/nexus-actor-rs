@@ -2,7 +2,7 @@ use alloc::boxed::Box;
 use alloc::sync::Arc;
 
 use crate::api::messaging::MessageEnvelope;
-use crate::runtime::context::ActorContext;
+use crate::runtime::context::{ActorContext, MapSystemFn};
 use crate::MailboxRuntime;
 use crate::PriorityEnvelope;
 use crate::Supervisor;
@@ -11,6 +11,10 @@ use nexus_utils_core_rs::Element;
 
 use super::Context;
 
+type BehaviorFn<U, R> = dyn for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, U) + 'static;
+type SystemHandlerFn<U, R> = dyn for<'ctx> FnMut(&mut ActorContext<'ctx, MessageEnvelope<U>, R, dyn Supervisor<MessageEnvelope<U>>>, SystemMessage)
+  + 'static;
+
 /// Minimal typed behavior abstraction.
 pub struct Behavior<U, R>
 where
@@ -18,7 +22,7 @@ where
   R: MailboxRuntime + Clone + 'static,
   R::Queue<PriorityEnvelope<MessageEnvelope<U>>>: Clone,
   R::Signal: Clone, {
-  pub(super) handler: Box<dyn for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, U) + 'static>,
+  pub(super) handler: Box<BehaviorFn<U, R>>,
 }
 
 impl<U, R> Behavior<U, R>
@@ -45,14 +49,7 @@ where
   R::Queue<PriorityEnvelope<MessageEnvelope<U>>>: Clone,
   R::Signal: Clone, {
   pub(super) behavior: Behavior<U, R>,
-  pub(super) system_handler: Option<
-    Box<
-      dyn for<'ctx> FnMut(
-          &mut ActorContext<'ctx, MessageEnvelope<U>, R, dyn Supervisor<MessageEnvelope<U>>>,
-          SystemMessage,
-        ) + 'static,
-    >,
-  >,
+  pub(super) system_handler: Option<Box<SystemHandlerFn<U, R>>>,
 }
 
 impl<U, R> ActorAdapter<U, R>
@@ -68,15 +65,7 @@ where
       + 'static, {
     Self {
       behavior,
-      system_handler: system_handler.map(|h| {
-        Box::new(h)
-          as Box<
-            dyn for<'ctx> FnMut(
-                &mut ActorContext<'ctx, MessageEnvelope<U>, R, dyn Supervisor<MessageEnvelope<U>>>,
-                SystemMessage,
-              ) + 'static,
-          >
-      }),
+      system_handler: system_handler.map(|h| Box::new(h) as Box<SystemHandlerFn<U, R>>),
     }
   }
 
@@ -102,7 +91,7 @@ where
   /// Creates map_system closure for Guardian/Scheduler integration.
   /// Current implementation wraps SystemMessage in MessageEnvelope::System.
   /// Future extension point: allow user-defined enum mapping.
-  pub fn create_map_system() -> Arc<dyn Fn(SystemMessage) -> MessageEnvelope<U> + Send + Sync> {
-    Arc::new(|sys: SystemMessage| MessageEnvelope::System(sys))
+  pub fn create_map_system() -> Arc<MapSystemFn<MessageEnvelope<U>>> {
+    Arc::new(MessageEnvelope::System)
   }
 }

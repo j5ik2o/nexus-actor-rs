@@ -59,7 +59,7 @@ fn scheduler_delivers_watch_before_user_messages() {
     .spawn_actor(
       NoopSupervisor,
       MailboxOptions::default(),
-      Arc::new(|sys| Message::System(sys)),
+      Arc::new(Message::System),
       move |_, msg: Message| {
         log_clone.borrow_mut().push(msg.clone());
       },
@@ -87,7 +87,7 @@ fn actor_context_exposes_parent_watcher() {
     .spawn_actor(
       NoopSupervisor,
       MailboxOptions::default(),
-      Arc::new(|sys| Message::System(sys)),
+      Arc::new(Message::System),
       move |ctx, msg: Message| {
         let current_watchers = ctx.watchers().to_vec();
         watchers_clone.borrow_mut().push(current_watchers);
@@ -126,7 +126,7 @@ fn scheduler_dispatches_high_priority_first() {
     .spawn_actor(
       NoopSupervisor,
       MailboxOptions::default(),
-      Arc::new(|sys| Message::System(sys)),
+      Arc::new(Message::System),
       move |ctx, msg: Message| match msg {
         Message::User(value) => {
           log_clone.borrow_mut().push((value, ctx.current_priority().unwrap()));
@@ -176,7 +176,7 @@ fn scheduler_prioritizes_system_messages() {
     .spawn_actor(
       NoopSupervisor,
       MailboxOptions::default(),
-      Arc::new(|sys| Message::System(sys)),
+      Arc::new(Message::System),
       move |_, msg: Message| {
         log_clone.borrow_mut().push(msg.clone());
       },
@@ -246,7 +246,7 @@ fn scheduler_notifies_guardian_and_restarts_on_panic() {
     .spawn_actor(
       NoopSupervisor,
       MailboxOptions::default(),
-      Arc::new(|sys| Message::System(sys)),
+      Arc::new(Message::System),
       move |_, msg: Message| {
         match msg {
           Message::System(SystemMessage::Watch(_)) => {
@@ -290,7 +290,7 @@ fn scheduler_run_until_processes_messages() {
     .spawn_actor(
       NoopSupervisor,
       MailboxOptions::default(),
-      Arc::new(|sys| Message::System(sys)),
+      Arc::new(Message::System),
       move |_, msg: Message| match msg {
         Message::User(value) => log_clone.borrow_mut().push(Message::User(value)),
         Message::System(_) => {}
@@ -326,7 +326,7 @@ fn scheduler_blocking_dispatch_loop_stops_with_closure() {
     .spawn_actor(
       NoopSupervisor,
       MailboxOptions::default(),
-      Arc::new(|sys| Message::System(sys)),
+      Arc::new(Message::System),
       move |_, msg: Message| match msg {
         Message::User(value) => log_clone.borrow_mut().push(Message::User(value)),
         Message::System(_) => {}
@@ -371,7 +371,7 @@ fn scheduler_records_escalations() {
     .spawn_actor(
       NoopSupervisor,
       MailboxOptions::default(),
-      Arc::new(|sys| Message::System(sys)),
+      Arc::new(Message::System),
       move |_, msg: Message| match msg {
         Message::System(SystemMessage::Watch(_)) => {}
         Message::User(_) if panic_flag.get() => {
@@ -407,7 +407,7 @@ fn scheduler_escalation_handler_delivers_to_parent() {
 
   let (parent_mailbox, parent_sender) = runtime.build_default_mailbox::<PriorityEnvelope<Message>>();
   let parent_ref: InternalActorRef<Message, TestMailboxRuntime> = InternalActorRef::new(parent_sender);
-  scheduler.set_parent_guardian(parent_ref, Arc::new(|sys| Message::System(sys)));
+  scheduler.set_parent_guardian(parent_ref, Arc::new(Message::System));
 
   let should_panic = Rc::new(Cell::new(true));
   let panic_flag = should_panic.clone();
@@ -416,7 +416,7 @@ fn scheduler_escalation_handler_delivers_to_parent() {
     .spawn_actor(
       NoopSupervisor,
       MailboxOptions::default(),
-      Arc::new(|sys| Message::System(sys)),
+      Arc::new(Message::System),
       move |_, msg: Message| match msg {
         Message::System(SystemMessage::Watch(_)) => {}
         Message::User(_) if panic_flag.get() => {
@@ -469,7 +469,7 @@ fn scheduler_escalation_chain_reaches_root() {
     .spawn_actor(
       NoopSupervisor,
       MailboxOptions::default(),
-      Arc::new(|sys| Message::System(sys)),
+      Arc::new(Message::System),
       move |ctx, msg: Message| match msg {
         Message::System(_) => {}
         Message::User(0) if !trigger_flag.get() => {
@@ -582,7 +582,7 @@ fn scheduler_root_escalation_handler_invoked() {
     .spawn_actor(
       NoopSupervisor,
       MailboxOptions::default(),
-      Arc::new(|sys| Message::System(sys)),
+      Arc::new(Message::System),
       move |_, msg: Message| match msg {
         Message::System(SystemMessage::Watch(_)) => {}
         Message::User(_) if panic_flag.get() => {
@@ -638,7 +638,7 @@ fn scheduler_requeues_failed_custom_escalation() {
     .spawn_actor(
       NoopSupervisor,
       MailboxOptions::default(),
-      Arc::new(|sys| Message::System(sys)),
+      Arc::new(Message::System),
       move |_, msg: Message| match msg {
         Message::System(_) => {}
         Message::User(_) if panic_once.get() => {
@@ -697,7 +697,7 @@ fn scheduler_root_event_listener_broadcasts() {
     .spawn_actor(
       NoopSupervisor,
       MailboxOptions::default(),
-      Arc::new(|sys| Message::System(sys)),
+      Arc::new(Message::System),
       move |_, msg: Message| match msg {
         Message::System(SystemMessage::Watch(_)) => {}
         Message::User(_) if panic_flag.get() => {

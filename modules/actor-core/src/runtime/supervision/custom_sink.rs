@@ -5,6 +5,8 @@ use crate::FailureInfo;
 use crate::{MailboxRuntime, PriorityEnvelope};
 use nexus_utils_core_rs::{Element, QueueError};
 
+type FailureHandler<M> = dyn FnMut(&FailureInfo) -> Result<(), QueueError<PriorityEnvelope<M>>> + 'static;
+
 use super::EscalationSink;
 
 /// カスタムハンドラをベースにしたシンク。
@@ -14,7 +16,7 @@ where
   R: MailboxRuntime,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone, {
-  handler: Box<dyn FnMut(&FailureInfo) -> Result<(), QueueError<PriorityEnvelope<M>>> + 'static>,
+  handler: Box<FailureHandler<M>>,
   _marker: PhantomData<R>,
 }
 

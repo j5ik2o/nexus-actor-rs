@@ -4,7 +4,7 @@ use alloc::vec;
 use alloc::vec::Vec;
 use core::convert::Infallible;
 
-use crate::runtime::context::{ActorContext, InternalActorRef};
+use crate::runtime::context::{ActorContext, ActorHandlerFn, InternalActorRef, MapSystemFn};
 use crate::runtime::guardian::{AlwaysRestart, Guardian, GuardianStrategy};
 use crate::runtime::supervision::{CompositeEscalationSink, EscalationSink};
 use crate::ActorId;
@@ -78,7 +78,7 @@ where
     &mut self,
     supervisor: Sup,
     options: MailboxOptions,
-    map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
+    map_system: Arc<MapSystemFn<M>>,
     handler: F,
   ) -> Result<InternalActorRef<M, R>, QueueError<PriorityEnvelope<M>>>
   where
@@ -86,8 +86,7 @@ where
     Sup: Supervisor<M>, {
     let (mailbox, sender) = self.runtime.build_mailbox::<PriorityEnvelope<M>>(options);
     let actor_sender = sender.clone();
-    let handler_box: Box<dyn for<'ctx> FnMut(&mut ActorContext<'ctx, M, R, dyn Supervisor<M>>, M) + 'static> =
-      Box::new(handler);
+    let handler_box: Box<ActorHandlerFn<M, R>> = Box::new(handler);
     let control_ref = InternalActorRef::new(actor_sender.clone());
     let watchers = vec![ActorId::ROOT];
     let primary_watcher = watchers.first().copied();
@@ -203,11 +202,7 @@ where
     self.escalation_sink.set_custom_handler(handler);
   }
 
-  pub fn set_parent_guardian(
-    &mut self,
-    control_ref: InternalActorRef<M, R>,
-    map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
-  ) {
+  pub fn set_parent_guardian(&mut self, control_ref: InternalActorRef<M, R>, map_system: Arc<MapSystemFn<M>>) {
     self.escalation_sink.set_parent_guardian(control_ref, map_system);
   }
 
