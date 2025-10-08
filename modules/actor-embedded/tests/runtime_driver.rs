@@ -5,8 +5,6 @@ use alloc::rc::Rc;
 use alloc::vec::Vec;
 use core::cell::RefCell;
 
-use futures::executor::block_on;
-
 use std::sync::Arc;
 
 use nexus_actor_core_rs::{ActorId, ActorPath, FailureEvent, FailureInfo, FailureMetadata};
@@ -28,9 +26,7 @@ fn embedded_actor_runtime_dispatches_message() {
 
   actor_ref.tell(11).expect("tell message");
 
-  block_on(async {
-    runtime.dispatch_next().await.expect("dispatch next");
-  });
+  runtime.run_until_idle().expect("run until idle");
 
   assert_eq!(log.borrow().as_slice(), &[11]);
 }

@@ -3,7 +3,9 @@ use alloc::vec::Vec;
 
 use spin::Mutex;
 
-use nexus_actor_core_rs::{ActorRef, ActorSystem, MessageEnvelope, PriorityEnvelope, Props, RuntimeComponents};
+use nexus_actor_core_rs::{
+  ActorRef, ActorSystem, ActorSystemRunner, MessageEnvelope, PriorityEnvelope, Props, RuntimeComponents, ShutdownToken,
+};
 use nexus_utils_embedded_rs::{Element, QueueError};
 
 use crate::{ImmediateSpawner, ImmediateTimer, LocalMailboxRuntime};
@@ -79,10 +81,12 @@ impl Drop for EmbeddedFailureEventSubscription {
 }
 
 /// Embedded ランタイムのランタイムドライバ。
+#[deprecated(since = "0.1.0", note = "Use ActorSystemRunner and ShutdownToken directly")]
 pub struct EmbeddedActorRuntime<U>
 where
   U: Element, {
   system: ActorSystem<U, LocalMailboxRuntime>,
+  shutdown: ShutdownToken,
   spawner: ImmediateSpawner,
   timer: ImmediateTimer,
   events: EmbeddedFailureEventHub,
@@ -107,9 +111,11 @@ where
     );
 
     let (system, handles) = ActorSystem::from_runtime_components(components);
+    let shutdown = system.shutdown_token();
 
     Self {
       system,
+      shutdown,
       spawner: handles.spawner,
       timer: handles.timer,
       events: handles.event_stream,
@@ -129,6 +135,7 @@ where
   }
 
   pub fn pump(&mut self) -> DriverState {
+    let _ = self.system.run_until_idle();
     DriverState::Idle
   }
 
@@ -142,5 +149,17 @@ where
 
   pub fn timer(&self) -> &ImmediateTimer {
     &self.timer
+  }
+
+  pub fn run_until_idle(&mut self) -> Result<(), QueueError<PriorityEnvelope<MessageEnvelope<U>>>> {
+    self.system.run_until_idle()
+  }
+
+  pub fn shutdown_token(&self) -> ShutdownToken {
+    self.shutdown.clone()
+  }
+
+  pub fn into_runner(self) -> ActorSystemRunner<U, LocalMailboxRuntime> {
+    self.system.into_runner()
   }
 }
