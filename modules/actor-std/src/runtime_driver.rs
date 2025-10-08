@@ -1,4 +1,4 @@
-use nexus_actor_core_rs::{ActorSystem, RuntimeComponents};
+use nexus_actor_core_rs::{ActorSystem, ActorSystemRunner, RuntimeComponents, ShutdownToken};
 
 use crate::{FailureEventHub, TokioMailboxRuntime, TokioSpawner, TokioTimer};
 use nexus_actor_core_rs::{ActorRef, MessageEnvelope, PriorityEnvelope, Props};
@@ -9,6 +9,7 @@ pub struct TokioActorRuntime<U>
 where
   U: nexus_utils_std_rs::Element, {
   system: ActorSystem<U, TokioMailboxRuntime>,
+  shutdown: ShutdownToken,
   spawner: TokioSpawner,
   timer: TokioTimer,
   events: FailureEventHub,
@@ -32,9 +33,11 @@ where
       FailureEventHub::new(),
     );
     let (system, handles) = ActorSystem::from_runtime_components(components);
+    let shutdown = system.shutdown_token();
 
     Self {
       system,
+      shutdown,
       spawner: handles.spawner,
       timer: handles.timer,
       events: handles.event_stream,
@@ -58,7 +61,7 @@ where
     &self.events
   }
 
-  /// Tokio 実装ではポーリング不要のため常に Idle を返す想定。
+  /// Tokio 実装では scheduler を内部タスクで駆動するため、このメソッドは常に Idle を返す。
   pub fn pump(&mut self) -> DriverState {
     DriverState::Idle
   }
@@ -73,6 +76,18 @@ where
 
   pub async fn dispatch_next(&mut self) -> Result<(), QueueError<PriorityEnvelope<MessageEnvelope<U>>>> {
     self.system.dispatch_next().await
+  }
+
+  pub fn run_until_idle(&mut self) -> Result<(), QueueError<PriorityEnvelope<MessageEnvelope<U>>>> {
+    self.system.run_until_idle()
+  }
+
+  pub fn shutdown_token(&self) -> ShutdownToken {
+    self.shutdown.clone()
+  }
+
+  pub fn into_runner(self) -> ActorSystemRunner<U, TokioMailboxRuntime> {
+    self.system.into_runner()
   }
 }
 

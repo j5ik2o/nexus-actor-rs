@@ -18,7 +18,7 @@ async fn tokio_actor_runtime_processes_messages() {
   let actor_ref = runtime.spawn_actor(props).expect("spawn typed actor");
 
   actor_ref.tell(7).expect("tell");
-  runtime.dispatch_next().await.expect("dispatch next");
+  runtime.run_until_idle().expect("run until idle");
 
   assert_eq!(state.lock().unwrap().as_slice(), &[7]);
 }

@@ -28,8 +28,7 @@ where
   R: MailboxRuntime + Clone + 'static,
   R::Queue<PriorityEnvelope<MessageEnvelope<U>>>: Clone,
   R::Signal: Clone,
-  Strat: crate::api::guardian::GuardianStrategy<MessageEnvelope<U>, R>,
-{
+  Strat: crate::api::guardian::GuardianStrategy<MessageEnvelope<U>, R>, {
   system: ActorSystem<U, R, Strat>,
 }
 
@@ -63,7 +62,6 @@ where
     system.set_failure_event_listener(Some(handles.event_stream.listener()));
     (system, handles)
   }
-
 }
 
 impl<U, R, Strat> ActorSystem<U, R, Strat>
@@ -170,7 +168,9 @@ pub struct ShutdownToken {
 
 impl ShutdownToken {
   pub fn new() -> Self {
-    Self { inner: Arc::new(AtomicBool::new(false)) }
+    Self {
+      inner: Arc::new(AtomicBool::new(false)),
+    }
   }
 
   pub fn trigger(&self) {
