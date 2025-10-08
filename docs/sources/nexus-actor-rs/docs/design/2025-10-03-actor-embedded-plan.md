@@ -24,8 +24,7 @@
 
 ## タスク（優先度順）
 1. **MUST** `EmbeddedRwLock` の API 設計: actor-core が要求する read/write 操作（複数 read + 単一 write）を満たすか検証し、性能面の懸念があれば actor-core 側の利用箇所を要調整として洗い出す。→ 2025-10-04 時点で `embassy_sync::rwlock::RwLock` ベースの `EmbeddedRwLock` を実装し、複数 read / 単一 write のユニットテストを追加済み。
-2. ~~**MUST** `CoreSpawn` 抽象~~ → `modules/actor-core/src/api/actor/system_support.rs` で提供されている `Spawn` トレイトが既に runtime 非依存のタスク起動を抽象化しており、Tokio 実装（`TokioSpawner`）と Embassy 実装（`ImmediateSpawner` など）で利用されている。追加の CoreSpawn は不要のため、当項目はクローズ。
-3. **MUST** `CoreScheduler` 再設計: Embassy でのタイマー駆動タスクを成立させる API（`schedule_once`/`schedule_repeated`）の内部実装案をまとめ、Tokio 側との差分と API 互換性を確認。
+2. **MUST** `CoreScheduler` 再設計: Embassy でのタイマー駆動タスクを成立させる API（`schedule_once`/`schedule_repeated`）の内部実装案をまとめ、Tokio 側との差分と API 互換性を確認。
 4. **SHOULD** ロギング Hook: `actor-core` で `CoreLogger`（仮称）を定義し、std/embedded で `tracing`/`defmt` を注入できる仕組みを検討。
 5. **SHOULD** 一貫性テスト: `actor-embedded` の Mutex/RwLock/Notify を使った簡易ユニットテストを整備し、`cargo test -p nexus-utils-embedded-rs --no-default-features --features embassy` が通るまで整備。
 6. **COULD** Embassy ベンチ: `examples/embedded_blink.rs` 等を用意し、`embassy_executor::run` + actor シナリオを動作確認する。
