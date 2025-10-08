@@ -1,4 +1,5 @@
 use alloc::vec::Vec;
+use core::fmt;
 
 use crate::ActorId;
 
@@ -44,5 +45,18 @@ impl ActorPath {
 impl Default for ActorPath {
   fn default() -> Self {
     Self::new()
+  }
+}
+
+impl fmt::Display for ActorPath {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    if self.segments.is_empty() {
+      return f.write_str("/");
+    }
+
+    for segment in &self.segments {
+      write!(f, "/{}", segment)?;
+    }
+    Ok(())
   }
 }

@@ -28,14 +28,17 @@ async fn main() {
       Behaviors::receive(move |ctx, msg: Command| match msg {
         Command::Greet(name) => {
           greeted += 1;
+          ctx.log().info(|| format!("received greeting for {name}"));
           println!("actor {:?} says: Hello, {}!", ctx.actor_id(), name);
           Behaviors::same()
         }
         Command::Report => {
+          ctx.log().debug(|| format!("reporting {greeted} greetings"));
           println!("actor {:?} greeted {} people", ctx.actor_id(), greeted);
           Behaviors::same()
         }
         Command::Stop => {
+          ctx.log().warn(|| format!("stopping after {greeted} greetings"));
           println!("actor {:?} is stopping after {} greetings", ctx.actor_id(), greeted);
           Behaviors::transition(Behaviors::stopped())
         }
