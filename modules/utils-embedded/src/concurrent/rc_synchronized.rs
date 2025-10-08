@@ -5,7 +5,7 @@ use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::mutex::{Mutex, MutexGuard};
 use embassy_sync::rwlock::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use nexus_utils_core_rs::{
-  BoxFuture, Synchronized as CoreSynchronized, SynchronizedMutexBackend, SynchronizedRw as CoreSynchronizedRw,
+  async_trait, Synchronized as CoreSynchronized, SynchronizedMutexBackend, SynchronizedRw as CoreSynchronizedRw,
   SynchronizedRwBackend,
 };
 
@@ -14,16 +14,13 @@ pub struct RcMutexBackend<T> {
   inner: Rc<Mutex<NoopRawMutex, T>>,
 }
 
+#[async_trait(?Send)]
 impl<T> SynchronizedMutexBackend<T> for RcMutexBackend<T>
 where
   T: 'static,
 {
   type Guard<'a>
     = MutexGuard<'a, NoopRawMutex, T>
-  where
-    Self: 'a;
-  type LockFuture<'a>
-    = BoxFuture<'a, MutexGuard<'a, NoopRawMutex, T>>
   where
     Self: 'a;
 
@@ -35,8 +32,8 @@ where
     }
   }
 
-  fn lock(&self) -> Self::LockFuture<'_> {
-    Box::pin(self.inner.lock())
+  async fn lock(&self) -> Self::Guard<'_> {
+    self.inner.lock().await
   }
 }
 
@@ -45,20 +42,13 @@ pub struct RcRwLockBackend<T> {
   inner: Rc<RwLock<NoopRawMutex, T>>,
 }
 
+#[async_trait(?Send)]
 impl<T> SynchronizedRwBackend<T> for RcRwLockBackend<T>
 where
   T: 'static,
 {
-  type ReadFuture<'a>
-    = BoxFuture<'a, RwLockReadGuard<'a, NoopRawMutex, T>>
-  where
-    Self: 'a;
   type ReadGuard<'a>
     = RwLockReadGuard<'a, NoopRawMutex, T>
-  where
-    Self: 'a;
-  type WriteFuture<'a>
-    = BoxFuture<'a, RwLockWriteGuard<'a, NoopRawMutex, T>>
   where
     Self: 'a;
   type WriteGuard<'a>
@@ -74,12 +64,12 @@ where
     }
   }
 
-  fn read(&self) -> Self::ReadFuture<'_> {
-    Box::pin(self.inner.read())
+  async fn read(&self) -> Self::ReadGuard<'_> {
+    self.inner.read().await
   }
 
-  fn write(&self) -> Self::WriteFuture<'_> {
-    Box::pin(self.inner.write())
+  async fn write(&self) -> Self::WriteGuard<'_> {
+    self.inner.write().await
   }
 }
 

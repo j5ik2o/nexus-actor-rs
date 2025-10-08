@@ -1,11 +1,7 @@
 use alloc::boxed::Box;
-use core::future::Future;
+use async_trait::async_trait;
 use core::marker::PhantomData;
 use core::ops::{Deref, DerefMut};
-use core::pin::Pin;
-
-/// Heap-allocated future type alias used by synchronized helpers.
-pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a>>;
 
 #[derive(Debug)]
 pub struct GuardHandle<G> {
@@ -40,12 +36,9 @@ where
 }
 
 /// Backend trait for async mutex-like primitives.
+#[async_trait(?Send)]
 pub trait SynchronizedMutexBackend<T: ?Sized> {
   type Guard<'a>: Deref<Target = T> + DerefMut + 'a
-  where
-    Self: 'a;
-
-  type LockFuture<'a>: Future<Output = Self::Guard<'a>> + 'a
   where
     Self: 'a;
 
@@ -53,10 +46,11 @@ pub trait SynchronizedMutexBackend<T: ?Sized> {
   where
     T: Sized;
 
-  fn lock(&self) -> Self::LockFuture<'_>;
+  async fn lock(&self) -> Self::Guard<'_>;
 }
 
 /// Backend trait for async read/write lock primitives.
+#[async_trait(?Send)]
 pub trait SynchronizedRwBackend<T: ?Sized> {
   type ReadGuard<'a>: Deref<Target = T> + 'a
   where
@@ -66,21 +60,13 @@ pub trait SynchronizedRwBackend<T: ?Sized> {
   where
     Self: 'a;
 
-  type ReadFuture<'a>: Future<Output = Self::ReadGuard<'a>> + 'a
-  where
-    Self: 'a;
-
-  type WriteFuture<'a>: Future<Output = Self::WriteGuard<'a>> + 'a
-  where
-    Self: 'a;
-
   fn new(value: T) -> Self
   where
     T: Sized;
 
-  fn read(&self) -> Self::ReadFuture<'_>;
+  async fn read(&self) -> Self::ReadGuard<'_>;
 
-  fn write(&self) -> Self::WriteFuture<'_>;
+  async fn write(&self) -> Self::WriteGuard<'_>;
 }
 
 #[derive(Debug)]

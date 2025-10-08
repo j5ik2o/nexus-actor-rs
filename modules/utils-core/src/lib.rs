@@ -16,7 +16,7 @@ pub use collections::{
   DEFAULT_PRIORITY, PRIORITY_LEVELS,
 };
 pub use concurrent::{
-  AsyncBarrier, AsyncBarrierBackend, BoxFuture, CountDownLatch, CountDownLatchBackend, GuardHandle, Synchronized,
+  AsyncBarrier, AsyncBarrierBackend, CountDownLatch, CountDownLatchBackend, GuardHandle, Synchronized,
   SynchronizedMutexBackend, SynchronizedRw, SynchronizedRwBackend, WaitGroup, WaitGroupBackend,
 };
 pub use sync::{Flag, Shared, StateCell};
