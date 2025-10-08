@@ -276,6 +276,7 @@ where
   R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
   R::Signal: Clone, {
+  behavior_factory: Arc<dyn Fn() -> Behavior<U, R> + 'static>,
   pub(super) behavior: Behavior<U, R>,
   pub(super) system_handler: Option<Box<SystemHandlerFn<U, R>>>,
 }
@@ -287,10 +288,12 @@ where
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
   R::Signal: Clone,
 {
-  pub fn new<S>(behavior: Behavior<U, R>, system_handler: Option<S>) -> Self
+  pub fn new<S>(behavior_factory: Arc<dyn Fn() -> Behavior<U, R> + 'static>, system_handler: Option<S>) -> Self
   where
     S: for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, SystemMessage) + 'static, {
+    let behavior = behavior_factory();
     Self {
+      behavior_factory,
       behavior,
       system_handler: system_handler.map(|h| Box::new(h) as Box<SystemHandlerFn<U, R>>),
     }
@@ -316,6 +319,8 @@ where
   pub fn handle_system(&mut self, ctx: &mut Context<'_, '_, U, R>, message: SystemMessage) {
     if matches!(message, SystemMessage::Stop) {
       self.behavior = Behavior::stopped();
+    } else if matches!(message, SystemMessage::Restart) {
+      self.behavior = (self.behavior_factory)();
     }
     if let Some(handler) = self.system_handler.as_mut() {
       handler(ctx, message);
