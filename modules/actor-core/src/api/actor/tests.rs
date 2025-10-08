@@ -1,7 +1,5 @@
 use super::ask::create_ask_handles;
 use super::{ask_with_timeout, AskError};
-use crate::api::MessageEnvelope;
-use crate::runtime::message::DynMessage;
 use core::future::Future;
 use core::pin::Pin;
 use core::task::{Context, Poll, RawWaker, RawWakerVTable, Waker};
@@ -40,9 +38,7 @@ where
 #[test]
 fn ask_future_completes_successfully() {
   let (future, responder) = create_ask_handles::<u32>();
-  responder
-    .dispatch_default(DynMessage::new(MessageEnvelope::user(7_u32)))
-    .expect("dispatch succeeds");
+  responder.dispatch_user(7_u32).expect("dispatch succeeds");
 
   let result = resolve(future);
   assert_eq!(result.expect("ask result"), 7);

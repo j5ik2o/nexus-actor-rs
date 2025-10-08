@@ -14,7 +14,7 @@ use nexus_utils_core_rs::{Element, QueueError, DEFAULT_PRIORITY};
 use super::{
   ask::create_ask_handles, ask_with_timeout, ActorRef, AskError, AskFuture, AskResult, AskTimeoutFuture, Props,
 };
-use crate::api::{MessageDispatcher, MessageEnvelope, MessageMetadata};
+use crate::api::{InternalMessageDispatcher, MessageEnvelope, MessageMetadata};
 
 /// Typed actor execution context wrapper.
 /// 'r: lifetime of the mutable reference to ActorContext
@@ -103,11 +103,11 @@ where
     self.inner.current_metadata()
   }
 
-  fn self_dispatcher(&self) -> MessageDispatcher
+  fn self_dispatcher(&self) -> InternalMessageDispatcher
   where
     R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
     R::Signal: Clone + Send + Sync + 'static, {
-    MessageDispatcher::from_internal_ref(self.inner.self_ref())
+    InternalMessageDispatcher::from_internal_ref(self.inner.self_ref())
   }
 
   pub fn request<V>(
@@ -172,7 +172,7 @@ where
     R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
     R::Signal: Clone + Send + Sync + 'static, {
     let (future, responder) = create_ask_handles::<Resp>();
-    let metadata = MessageMetadata::new(Some(self.self_dispatcher()), Some(responder));
+    let metadata = MessageMetadata::new(Some(self.self_dispatcher()), Some(responder.into_internal()));
     target.tell_with_metadata(message, metadata)?;
     Ok(future)
   }
@@ -191,7 +191,7 @@ where
     R::Signal: Clone + Send + Sync + 'static, {
     let mut timeout = Some(timeout);
     let (future, responder) = create_ask_handles::<Resp>();
-    let metadata = MessageMetadata::new(Some(self.self_dispatcher()), Some(responder));
+    let metadata = MessageMetadata::new(Some(self.self_dispatcher()), Some(responder.into_internal()));
     match target.tell_with_metadata(message, metadata) {
       Ok(()) => Ok(ask_with_timeout(future, timeout.take().unwrap())),
       Err(err) => Err(AskError::from(err)),
