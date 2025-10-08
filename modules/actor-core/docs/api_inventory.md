@@ -6,7 +6,7 @@
 
 | カテゴリ | シンボル | 実配置 | 備考 |
 | --- | --- | --- | --- |
-| actor | `ActorRef`, `ActorSystem`, `Props`, `Behavior`, `TypedContext`(旧`Context`), `RootContext` | `modules/actor-core/src/api/actor/*.rs` | API 基本操作レイヤ（TypedContext は後日リネーム予定） |
+| actor | `ActorRef`, `ActorSystem`, `Props`, `Behavior`, `Behaviors`, `SupervisorStrategy`, `MessageAdapterRef`, `TypedContext`(旧`Context`), `RootContext` | `modules/actor-core/src/api/actor/*.rs` | Typed DSL（`receive`/`supervise`/`message_adapter`）と基本操作レイヤ（TypedContext は後日リネーム予定） |
 | messaging | `MessageEnvelope` | `modules/actor-core/src/api/messaging/message_envelope.rs` | ユーザーメッセージとシステムメッセージの橋渡し |
 | identity | `ActorId`, `ActorPath` | `modules/actor-core/src/api/identity/{actor_id.rs,actor_path.rs}` | ルーティング／名前解決用 ID 型 |
 | system-support | `Mailbox`, `MailboxFactory`, `MailboxSignal`, `PriorityEnvelope`, `SystemMessage`, `Spawn`, `Timer`, `ActorSystemParts`, `ActorSystemHandles` | `modules/actor-core/src/api/actor/system_support.rs`（実体は `runtime/mailbox/*` など） | std/embedded 両対応の抽象境界 |

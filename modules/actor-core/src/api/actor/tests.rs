@@ -8,6 +8,7 @@ use crate::runtime::mailbox::test_support::TestMailboxFactory;
 use crate::ActorId;
 use crate::MailboxOptions;
 use crate::SystemMessage;
+use nexus_utils_core_rs::QueueError;
 use alloc::rc::Rc;
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -40,6 +41,57 @@ fn test_supervise_builder_sets_strategy() {
     supervisor_cfg,
     SupervisorStrategyConfig::from_strategy(SupervisorStrategy::Restart)
   );
+}
+
+#[test]
+fn test_supervise_stop_on_failure() {
+  let factory = TestMailboxFactory::unbounded();
+  let mut system: ActorSystem<u32, _, AlwaysRestart> = ActorSystem::new(factory);
+
+  let behavior = Behaviors::supervise(Behaviors::receive(|_, _: u32| {
+    panic!("boom");
+  }))
+  .with_strategy(SupervisorStrategy::Stop);
+
+  let props = Props::with_behavior(MailboxOptions::default(), behavior);
+  let mut root = system.root_context();
+  let actor_ref = root.spawn(props).expect("spawn actor");
+
+  actor_ref.tell(1).expect("send message");
+  block_on(root.dispatch_next()).expect("process panic");
+
+  let result = actor_ref.tell(2);
+  assert!(matches!(result, Err(QueueError::Closed(_)) | Err(QueueError::Disconnected)));
+}
+
+#[test]
+fn test_supervise_resume_on_failure() {
+  let factory = TestMailboxFactory::unbounded();
+  let mut system: ActorSystem<u32, _, AlwaysRestart> = ActorSystem::new(factory);
+
+  let log: Rc<RefCell<Vec<u32>>> = Rc::new(RefCell::new(Vec::new()));
+  let log_clone = log.clone();
+
+  let behavior = Behaviors::supervise(Behaviors::receive(move |_, msg: u32| {
+    if msg == 0 {
+      panic!("fail once");
+    }
+    log_clone.borrow_mut().push(msg);
+    Behaviors::same()
+  }))
+  .with_strategy(SupervisorStrategy::Resume);
+
+  let props = Props::with_behavior(MailboxOptions::default(), behavior);
+  let mut root = system.root_context();
+  let actor_ref = root.spawn(props).expect("spawn actor");
+
+  actor_ref.tell(0).expect("send failure message");
+  block_on(root.dispatch_next()).expect("process failure");
+
+  actor_ref.tell(42).expect("send second message");
+  block_on(root.dispatch_next()).expect("process resume");
+
+  assert_eq!(log.borrow().as_slice(), &[42]);
 }
 
 #[test]
