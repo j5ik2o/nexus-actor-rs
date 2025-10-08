@@ -8,12 +8,18 @@ use core::cell::RefCell;
 use std::sync::Arc;
 
 use nexus_actor_core_rs::{ActorId, ActorPath, FailureEvent, FailureInfo, FailureMetadata};
-use nexus_actor_core_rs::{FailureEventStream, MailboxOptions, Props};
-use nexus_actor_embedded_rs::EmbeddedActorRuntime;
+use nexus_actor_core_rs::{ActorSystem, FailureEventStream, MailboxOptions, Props, RuntimeComponents};
+use nexus_actor_embedded_rs::{EmbeddedFailureEventHub, ImmediateSpawner, ImmediateTimer, LocalMailboxRuntime};
 
 #[test]
 fn embedded_actor_runtime_dispatches_message() {
-  let mut runtime: EmbeddedActorRuntime<u32> = EmbeddedActorRuntime::new();
+  let components = RuntimeComponents::new(
+    LocalMailboxRuntime::default(),
+    ImmediateSpawner,
+    ImmediateTimer,
+    EmbeddedFailureEventHub::new(),
+  );
+  let (mut system, _) = ActorSystem::from_runtime_components(components);
 
   let log: Rc<RefCell<Vec<u32>>> = Rc::new(RefCell::new(Vec::new()));
   let log_clone = log.clone();
@@ -22,19 +28,18 @@ fn embedded_actor_runtime_dispatches_message() {
     log_clone.borrow_mut().push(msg);
   });
 
-  let actor_ref = runtime.spawn_actor(props).expect("spawn typed actor");
+  let mut root = system.root_context();
+  let actor_ref = root.spawn(props).expect("spawn typed actor");
 
   actor_ref.tell(11).expect("tell message");
-
-  runtime.run_until_idle().expect("run until idle");
+  system.run_until_idle().expect("run until idle");
 
   assert_eq!(log.borrow().as_slice(), &[11]);
 }
 
 #[test]
 fn embedded_failure_event_hub_broadcasts() {
-  let runtime: EmbeddedActorRuntime<u32> = EmbeddedActorRuntime::new();
-  let hub = runtime.event_stream().clone();
+  let hub = EmbeddedFailureEventHub::new();
 
   let received = Arc::new(std::sync::Mutex::new(Vec::<FailureEvent>::new()));
   let received_clone = received.clone();

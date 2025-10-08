@@ -95,13 +95,11 @@ where
     self.system.into_runner()
   }
 
+  #[deprecated(since = "0.1.0", note = "Use TokioSystemHandle::start_local with ActorSystemRunner")]
   pub fn start_local(self) -> TokioSystemHandle<U>
   where
     U: nexus_utils_std_rs::Element + 'static, {
-    let runner = self.into_runner();
-    let shutdown = runner.shutdown_token();
-    let join = tokio::task::spawn_local(async move { runner.run_forever().await });
-    TokioSystemHandle { join, shutdown }
+    TokioSystemHandle::start_local(self.into_runner())
   }
 }
 
@@ -125,6 +123,14 @@ impl<U> TokioSystemHandle<U>
 where
   U: nexus_utils_std_rs::Element,
 {
+  pub fn start_local(runner: ActorSystemRunner<U, TokioMailboxRuntime>) -> Self
+  where
+    U: nexus_utils_std_rs::Element + 'static, {
+    let shutdown = runner.shutdown_token();
+    let join = tokio::task::spawn_local(async move { runner.run_forever().await });
+    Self { join, shutdown }
+  }
+
   pub fn shutdown_token(&self) -> ShutdownToken {
     self.shutdown.clone()
   }
