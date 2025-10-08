@@ -6,7 +6,7 @@ use crate::MailboxFactory;
 use crate::PriorityEnvelope;
 use crate::Supervisor;
 use crate::SystemMessage;
-use alloc::{boxed::Box, sync::Arc};
+use alloc::{boxed::Box, string::String, sync::Arc};
 use core::future::Future;
 use core::marker::PhantomData;
 use nexus_utils_core_rs::{Element, QueueError, DEFAULT_PRIORITY};
@@ -30,6 +30,120 @@ where
 }
 
 pub type SetupContext<'ctx, U, R> = Context<'ctx, 'ctx, U, R>;
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ContextLogLevel {
+  Trace,
+  Debug,
+  Info,
+  Warn,
+  Error,
+}
+
+#[derive(Clone)]
+pub struct ContextLogger {
+  actor_id: ActorId,
+  actor_path: ActorPath,
+}
+
+impl ContextLogger {
+  pub(crate) fn new(actor_id: ActorId, actor_path: &ActorPath) -> Self {
+    Self {
+      actor_id,
+      actor_path: actor_path.clone(),
+    }
+  }
+
+  pub fn actor_id(&self) -> ActorId {
+    self.actor_id
+  }
+
+  pub fn actor_path(&self) -> &ActorPath {
+    &self.actor_path
+  }
+
+  pub fn trace<F>(&self, message: F)
+  where
+    F: FnOnce() -> String, {
+    self.emit(ContextLogLevel::Trace, message);
+  }
+
+  pub fn debug<F>(&self, message: F)
+  where
+    F: FnOnce() -> String, {
+    self.emit(ContextLogLevel::Debug, message);
+  }
+
+  pub fn info<F>(&self, message: F)
+  where
+    F: FnOnce() -> String, {
+    self.emit(ContextLogLevel::Info, message);
+  }
+
+  pub fn warn<F>(&self, message: F)
+  where
+    F: FnOnce() -> String, {
+    self.emit(ContextLogLevel::Warn, message);
+  }
+
+  pub fn error<F>(&self, message: F)
+  where
+    F: FnOnce() -> String, {
+    self.emit(ContextLogLevel::Error, message);
+  }
+
+  fn emit<F>(&self, level: ContextLogLevel, message: F)
+  where
+    F: FnOnce() -> String, {
+    #[cfg(feature = "tracing")]
+    {
+      let text = message();
+      match level {
+        ContextLogLevel::Trace => tracing::event!(
+          target: "nexus::actor",
+          tracing::Level::TRACE,
+          actor_id = %self.actor_id,
+          actor_path = %self.actor_path,
+          message = %text
+        ),
+        ContextLogLevel::Debug => tracing::event!(
+          target: "nexus::actor",
+          tracing::Level::DEBUG,
+          actor_id = %self.actor_id,
+          actor_path = %self.actor_path,
+          message = %text
+        ),
+        ContextLogLevel::Info => tracing::event!(
+          target: "nexus::actor",
+          tracing::Level::INFO,
+          actor_id = %self.actor_id,
+          actor_path = %self.actor_path,
+          message = %text
+        ),
+        ContextLogLevel::Warn => tracing::event!(
+          target: "nexus::actor",
+          tracing::Level::WARN,
+          actor_id = %self.actor_id,
+          actor_path = %self.actor_path,
+          message = %text
+        ),
+        ContextLogLevel::Error => tracing::event!(
+          target: "nexus::actor",
+          tracing::Level::ERROR,
+          actor_id = %self.actor_id,
+          actor_path = %self.actor_path,
+          message = %text
+        ),
+      }
+    }
+
+    #[cfg(not(feature = "tracing"))]
+    {
+      let _ = level;
+      let _ = message;
+    }
+  }
+}
 
 impl<'r, 'ctx, U, R> Context<'r, 'ctx, U, R>
 where
@@ -63,6 +177,10 @@ where
 
   pub fn watchers(&self) -> &[ActorId] {
     self.inner.watchers()
+  }
+
+  pub fn log(&self) -> ContextLogger {
+    ContextLogger::new(self.actor_id(), self.actor_path())
   }
 
   pub fn send_to_self(&self, message: U) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> {

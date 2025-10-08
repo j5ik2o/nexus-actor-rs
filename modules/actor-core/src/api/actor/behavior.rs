@@ -203,6 +203,12 @@ where
     ))
   }
 
+  pub fn receive_message<F>(mut handler: F) -> Self
+  where
+    F: FnMut(U) -> BehaviorDirective<U, R> + 'static, {
+    Self::receive(move |_, msg| handler(msg))
+  }
+
   pub fn stopped() -> Self {
     Self::Stopped
   }
@@ -266,6 +272,16 @@ impl Behaviors {
     BehaviorDirective::Same
   }
 
+  pub fn receive_message<U, R, F>(handler: F) -> Behavior<U, R>
+  where
+    U: Element,
+    R: MailboxFactory + Clone + 'static,
+    R::Queue<PriorityEnvelope<DynMessage>>: Clone,
+    R::Signal: Clone,
+    F: FnMut(U) -> BehaviorDirective<U, R> + 'static, {
+    Behavior::receive_message(handler)
+  }
+
   pub fn transition<U, R>(behavior: Behavior<U, R>) -> BehaviorDirective<U, R>
   where
     U: Element,
@@ -275,13 +291,13 @@ impl Behaviors {
     BehaviorDirective::Become(behavior)
   }
 
-  pub fn stopped<U, R>() -> Behavior<U, R>
+  pub fn stopped<U, R>() -> BehaviorDirective<U, R>
   where
     U: Element,
     R: MailboxFactory + Clone + 'static,
     R::Queue<PriorityEnvelope<DynMessage>>: Clone,
     R::Signal: Clone, {
-    Behavior::stopped()
+    BehaviorDirective::Become(Behavior::stopped())
   }
 
   pub fn supervise<U, R>(behavior: Behavior<U, R>) -> SuperviseBuilder<U, R>
