@@ -3,15 +3,7 @@ use alloc::vec::Vec;
 
 use spin::Mutex;
 
-use nexus_actor_core_rs::{
-  ActorRef, ActorSystem, ActorSystemRunner, MessageEnvelope, PriorityEnvelope, Props, RuntimeComponents, ShutdownToken,
-};
-use nexus_utils_embedded_rs::{Element, QueueError};
-
-use crate::{ImmediateSpawner, ImmediateTimer, LocalMailboxRuntime};
-
-use nexus_actor_core_rs::FailureEvent;
-use nexus_actor_core_rs::{FailureEventListener, FailureEventStream};
+use nexus_actor_core_rs::{FailureEvent, FailureEventListener, FailureEventStream};
 
 /// Embedded 環境向けの簡易 FailureEventHub 実装。
 #[derive(Clone, Default)]
@@ -77,89 +69,5 @@ impl Drop for EmbeddedFailureEventSubscription {
     if let Some(pos) = state.listeners.iter().position(|(entry_id, _)| *entry_id == self.id) {
       state.listeners.swap_remove(pos);
     }
-  }
-}
-
-/// Embedded ランタイムのランタイムドライバ。
-#[deprecated(since = "0.1.0", note = "Use ActorSystemRunner and ShutdownToken directly")]
-pub struct EmbeddedActorRuntime<U>
-where
-  U: Element, {
-  system: ActorSystem<U, LocalMailboxRuntime>,
-  shutdown: ShutdownToken,
-  spawner: ImmediateSpawner,
-  timer: ImmediateTimer,
-  events: EmbeddedFailureEventHub,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DriverState {
-  Busy,
-  Idle,
-}
-
-impl<U> EmbeddedActorRuntime<U>
-where
-  U: Element,
-{
-  pub fn new() -> Self {
-    let components = RuntimeComponents::new(
-      LocalMailboxRuntime::default(),
-      ImmediateSpawner,
-      ImmediateTimer,
-      EmbeddedFailureEventHub::new(),
-    );
-
-    let (system, handles) = ActorSystem::from_runtime_components(components);
-    let shutdown = system.shutdown_token();
-
-    Self {
-      system,
-      shutdown,
-      spawner: handles.spawner,
-      timer: handles.timer,
-      events: handles.event_stream,
-    }
-  }
-
-  pub fn spawn_actor(
-    &mut self,
-    props: Props<U, LocalMailboxRuntime>,
-  ) -> Result<ActorRef<U, LocalMailboxRuntime>, QueueError<PriorityEnvelope<MessageEnvelope<U>>>> {
-    let mut root = self.system.root_context();
-    root.spawn(props)
-  }
-
-  pub async fn dispatch_next(&mut self) -> Result<(), QueueError<PriorityEnvelope<MessageEnvelope<U>>>> {
-    self.system.dispatch_next().await
-  }
-
-  pub fn pump(&mut self) -> DriverState {
-    let _ = self.system.run_until_idle();
-    DriverState::Idle
-  }
-
-  pub fn event_stream(&self) -> &EmbeddedFailureEventHub {
-    &self.events
-  }
-
-  pub fn spawner(&self) -> &ImmediateSpawner {
-    &self.spawner
-  }
-
-  pub fn timer(&self) -> &ImmediateTimer {
-    &self.timer
-  }
-
-  pub fn run_until_idle(&mut self) -> Result<(), QueueError<PriorityEnvelope<MessageEnvelope<U>>>> {
-    self.system.run_until_idle()
-  }
-
-  pub fn shutdown_token(&self) -> ShutdownToken {
-    self.shutdown.clone()
-  }
-
-  pub fn into_runner(self) -> ActorSystemRunner<U, LocalMailboxRuntime> {
-    self.system.into_runner()
   }
 }

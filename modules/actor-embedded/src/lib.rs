@@ -24,7 +24,7 @@ pub use local_mailbox::{LocalMailbox, LocalMailboxRuntime, LocalMailboxSender};
 pub use nexus_utils_embedded_rs::{ArcCsStateCell, ArcLocalStateCell, ArcShared, ArcStateCell};
 #[cfg(feature = "embedded_rc")]
 pub use nexus_utils_embedded_rs::{RcShared, RcStateCell};
-pub use runtime_driver::{DriverState, EmbeddedActorRuntime, EmbeddedFailureEventHub};
+pub use runtime_driver::EmbeddedFailureEventHub;
 pub use spawn::ImmediateSpawner;
 pub use timer::ImmediateTimer;
 
