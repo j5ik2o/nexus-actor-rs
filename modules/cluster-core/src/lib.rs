@@ -36,3 +36,6 @@ impl ClusterFailureBridge {
     self.hub.listener()(event);
   }
 }
+
+#[cfg(test)]
+mod tests;
