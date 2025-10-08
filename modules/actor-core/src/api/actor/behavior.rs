@@ -1,8 +1,8 @@
 use alloc::boxed::Box;
 use alloc::sync::Arc;
 
-use crate::api::messaging::MessageEnvelope;
 use crate::api::supervision::{NoopSupervisor, Supervisor, SupervisorDirective};
+use crate::api::MessageEnvelope;
 use crate::runtime::context::MapSystemFn;
 use crate::runtime::message::DynMessage;
 use crate::MailboxFactory;

@@ -12,6 +12,24 @@ where
   sender: QueueMailboxProducer<R::Queue<PriorityEnvelope<M>>, R::Signal>,
 }
 
+unsafe impl<M, R> Send for InternalActorRef<M, R>
+where
+  M: Element,
+  R: MailboxFactory,
+  R::Queue<PriorityEnvelope<M>>: Clone + Send + Sync,
+  R::Signal: Clone + Send + Sync,
+{
+}
+
+unsafe impl<M, R> Sync for InternalActorRef<M, R>
+where
+  M: Element,
+  R: MailboxFactory,
+  R::Queue<PriorityEnvelope<M>>: Clone + Send + Sync,
+  R::Signal: Clone + Send + Sync,
+{
+}
+
 impl<M, R> Clone for InternalActorRef<M, R>
 where
   M: Element,

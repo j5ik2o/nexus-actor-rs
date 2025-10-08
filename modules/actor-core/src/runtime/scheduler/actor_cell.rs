@@ -182,9 +182,11 @@ where
         self.actor_id,
         &mut self.watchers,
       );
+      ctx.clear_metadata();
       ctx.enter_priority(priority);
       (self.handler)(&mut ctx, message);
       ctx.exit_priority();
+      ctx.clear_metadata();
     }));
 
     #[cfg(not(feature = "std"))]
@@ -199,9 +201,11 @@ where
         self.actor_id,
         &mut self.watchers,
       );
+      ctx.clear_metadata();
       ctx.enter_priority(priority);
       (self.handler)(&mut ctx, message);
       ctx.exit_priority();
+      ctx.clear_metadata();
       self.supervisor.after_handle();
       for spec in pending_specs.into_iter() {
         self.register_child_from_spec(spec, guardian, new_children)?;

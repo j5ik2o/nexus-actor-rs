@@ -11,7 +11,7 @@ use nexus_utils_core_rs::Element;
 
 use super::behavior::SupervisorStrategyConfig;
 use super::{ActorAdapter, Behavior, Context};
-use crate::api::messaging::MessageEnvelope;
+use crate::api::MessageEnvelope;
 use core::cell::RefCell;
 use core::marker::PhantomData;
 
@@ -92,8 +92,9 @@ where
         panic!("unexpected message type delivered to typed handler");
       };
       match envelope {
-        MessageEnvelope::User(message) => {
-          let mut typed_ctx = Context::new(ctx);
+        MessageEnvelope::User(user) => {
+          let (message, metadata) = user.into_parts();
+          let mut typed_ctx = Context::with_metadata(ctx, metadata);
           adapter.handle_user(&mut typed_ctx, message);
         }
         MessageEnvelope::System(message) => {

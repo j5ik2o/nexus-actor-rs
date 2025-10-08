@@ -2,8 +2,11 @@ use crate::runtime::message::DynMessage;
 use crate::runtime::system::InternalRootContext;
 use crate::{ActorRef, MailboxFactory, PriorityEnvelope, Props};
 use alloc::boxed::Box;
+use core::future::Future;
 use core::marker::PhantomData;
 use nexus_utils_core_rs::{Element, QueueError};
+
+use super::{ask_with_timeout, AskFuture, AskResult, AskTimeoutFuture};
 
 pub struct RootContext<'a, U, R, Strat>
 where
@@ -30,6 +33,27 @@ where
       .inner
       .spawn_with_supervisor(Box::new(supervisor_cfg.into_supervisor()), internal_props)?;
     Ok(ActorRef::new(actor_ref))
+  }
+
+  pub fn request_future<V, Resp>(&self, target: &ActorRef<V, R>, message: V) -> AskResult<AskFuture<Resp>>
+  where
+    V: Element,
+    Resp: Element, {
+    target.request_future(message)
+  }
+
+  pub fn request_future_with_timeout<V, Resp, TFut>(
+    &self,
+    target: &ActorRef<V, R>,
+    message: V,
+    timeout: TFut,
+  ) -> AskResult<AskTimeoutFuture<Resp, TFut>>
+  where
+    V: Element,
+    Resp: Element,
+    TFut: Future<Output = ()> + Unpin, {
+    let future = target.request_future(message)?;
+    Ok(ask_with_timeout(future, timeout))
   }
 
   #[deprecated(since = "3.1.0", note = "dispatch_next / run_until を使用してください")]

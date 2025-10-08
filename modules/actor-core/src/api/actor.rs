@@ -1,13 +1,17 @@
 mod actor_ref;
+mod ask;
 mod behavior;
 mod context;
 mod props;
 mod root_context;
 mod system;
 mod system_support;
+#[cfg(test)]
+mod tests;
 
 pub use crate::runtime::message::DynMessage as RuntimeMessage;
 pub use actor_ref::ActorRef;
+pub use ask::{ask_with_timeout, AskError, AskFuture, AskResult, AskTimeoutFuture};
 pub use behavior::{ActorAdapter, Behavior, BehaviorDirective, Behaviors, SupervisorStrategy};
 pub use context::{Context, MessageAdapterRef, SetupContext};
 pub use props::Props;
@@ -17,6 +21,3 @@ pub use system_support::{
   ActorSystemHandles, ActorSystemParts, Mailbox, MailboxFactory, MailboxOptions, MailboxPair, MailboxSignal,
   PriorityEnvelope, QueueMailbox, QueueMailboxProducer, QueueMailboxRecv, Spawn, SystemMessage, Timer,
 };
-
-#[cfg(test)]
-mod tests;

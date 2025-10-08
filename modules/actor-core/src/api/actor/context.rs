@@ -7,11 +7,14 @@ use crate::PriorityEnvelope;
 use crate::Supervisor;
 use crate::SystemMessage;
 use alloc::{boxed::Box, sync::Arc};
+use core::future::Future;
 use core::marker::PhantomData;
 use nexus_utils_core_rs::{Element, QueueError, DEFAULT_PRIORITY};
 
-use super::{ActorRef, Props};
-use crate::api::messaging::MessageEnvelope;
+use super::{
+  ask::create_ask_handles, ask_with_timeout, ActorRef, AskError, AskFuture, AskResult, AskTimeoutFuture, Props,
+};
+use crate::api::{MessageDispatcher, MessageEnvelope, MessageMetadata};
 
 /// Typed actor execution context wrapper.
 /// 'r: lifetime of the mutable reference to ActorContext
@@ -42,6 +45,14 @@ where
     }
   }
 
+  pub(super) fn with_metadata(
+    inner: &'r mut ActorContext<'ctx, DynMessage, R, dyn Supervisor<DynMessage>>,
+    metadata: MessageMetadata,
+  ) -> Self {
+    inner.enter_metadata(metadata);
+    Self::new(inner)
+  }
+
   pub fn actor_id(&self) -> ActorId {
     self.inner.actor_id()
   }
@@ -55,7 +66,7 @@ where
   }
 
   pub fn send_to_self(&self, message: U) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> {
-    let dyn_message = DynMessage::new(MessageEnvelope::User(message));
+    let dyn_message = DynMessage::new(MessageEnvelope::user(message));
     self.inner.send_to_self_with_priority(dyn_message, DEFAULT_PRIORITY)
   }
 
@@ -86,6 +97,105 @@ where
 
   pub fn inner(&mut self) -> &mut ActorContext<'ctx, DynMessage, R, dyn Supervisor<DynMessage>> {
     self.inner
+  }
+
+  pub fn message_metadata(&self) -> Option<&MessageMetadata> {
+    self.inner.current_metadata()
+  }
+
+  fn self_dispatcher(&self) -> MessageDispatcher
+  where
+    R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
+    R::Signal: Clone + Send + Sync + 'static, {
+    MessageDispatcher::from_internal_ref(self.inner.self_ref())
+  }
+
+  pub fn request<V>(
+    &mut self,
+    target: &ActorRef<V, R>,
+    message: V,
+  ) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>>
+  where
+    V: Element,
+    R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
+    R::Signal: Clone + Send + Sync + 'static, {
+    let metadata = MessageMetadata::new(Some(self.self_dispatcher()), None);
+    target.tell_with_metadata(message, metadata)
+  }
+
+  pub fn request_with_sender<V, S>(
+    &mut self,
+    target: &ActorRef<V, R>,
+    message: V,
+    sender: &ActorRef<S, R>,
+  ) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>>
+  where
+    V: Element,
+    S: Element,
+    R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
+    R::Signal: Clone + Send + Sync + 'static, {
+    let metadata = MessageMetadata::new(Some(sender.to_dispatcher()), None);
+    target.tell_with_metadata(message, metadata)
+  }
+
+  pub fn forward<V>(
+    &mut self,
+    target: &ActorRef<V, R>,
+    message: V,
+  ) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>>
+  where
+    V: Element, {
+    let metadata = self.message_metadata().cloned().unwrap_or_default();
+    target.tell_with_metadata(message, metadata)
+  }
+
+  pub fn respond<Resp>(&mut self, message: Resp) -> AskResult<()>
+  where
+    Resp: Element,
+    R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
+    R::Signal: Clone + Send + Sync + 'static, {
+    let metadata = self.message_metadata().ok_or(AskError::MissingResponder)?;
+    let target = metadata
+      .responder_cloned()
+      .or_else(|| metadata.sender_cloned())
+      .ok_or(AskError::MissingResponder)?;
+    let dispatch_metadata = MessageMetadata::new(Some(self.self_dispatcher()), None);
+    let dyn_message = DynMessage::new(MessageEnvelope::user_with_metadata(message, dispatch_metadata));
+    target.dispatch_default(dyn_message).map_err(AskError::from)?;
+    Ok(())
+  }
+
+  pub fn request_future<V, Resp>(&mut self, target: &ActorRef<V, R>, message: V) -> AskResult<AskFuture<Resp>>
+  where
+    V: Element,
+    Resp: Element,
+    R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
+    R::Signal: Clone + Send + Sync + 'static, {
+    let (future, responder) = create_ask_handles::<Resp>();
+    let metadata = MessageMetadata::new(Some(self.self_dispatcher()), Some(responder));
+    target.tell_with_metadata(message, metadata)?;
+    Ok(future)
+  }
+
+  pub fn request_future_with_timeout<V, Resp, TFut>(
+    &mut self,
+    target: &ActorRef<V, R>,
+    message: V,
+    timeout: TFut,
+  ) -> AskResult<AskTimeoutFuture<Resp, TFut>>
+  where
+    V: Element,
+    Resp: Element,
+    TFut: Future<Output = ()> + Unpin,
+    R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
+    R::Signal: Clone + Send + Sync + 'static, {
+    let mut timeout = Some(timeout);
+    let (future, responder) = create_ask_handles::<Resp>();
+    let metadata = MessageMetadata::new(Some(self.self_dispatcher()), Some(responder));
+    match target.tell_with_metadata(message, metadata) {
+      Ok(()) => Ok(ask_with_timeout(future, timeout.take().unwrap())),
+      Err(err) => Err(AskError::from(err)),
+    }
   }
 
   /// 子アクターを生成し、`ActorRef` を返す。
