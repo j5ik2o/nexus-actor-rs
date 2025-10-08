@@ -26,6 +26,8 @@ where
   _marker: PhantomData<U>,
 }
 
+pub type SetupContext<'ctx, U, R> = Context<'ctx, 'ctx, U, R>;
+
 impl<'r, 'ctx, U, R> Context<'r, 'ctx, U, R>
 where
   U: Element,

@@ -435,3 +435,43 @@ fn test_parent_actor_spawns_child() {
 
   assert_eq!(child_log.borrow().as_slice(), &[6]);
 }
+
+#[test]
+fn test_behaviors_setup_spawns_named_child() {
+  let factory = TestMailboxFactory::unbounded();
+  let mut system: ActorSystem<String, _, AlwaysRestart> = ActorSystem::new(factory);
+
+  let child_log: Rc<RefCell<Vec<String>>> = Rc::new(RefCell::new(Vec::new()));
+
+  let props = Props::with_behavior(MailboxOptions::default(), {
+    let child_log_factory = child_log.clone();
+    move || {
+      let child_log_parent = child_log_factory.clone();
+      Behaviors::setup(move |ctx: &mut SetupContext<String, _>| {
+        let child_props = Props::with_behavior(MailboxOptions::default(), {
+          let child_log_clone = child_log_parent.clone();
+          move || {
+            let log_ref = child_log_clone.clone();
+            Behavior::stateless(move |_, msg: String| {
+              log_ref.borrow_mut().push(msg);
+            })
+          }
+        });
+        let greeter = ctx.spawn_child(child_props);
+        Behaviors::receive(move |_, msg: String| {
+          greeter.tell(format!("hello {msg}")).expect("forward to child");
+          Behaviors::same()
+        })
+      })
+    }
+  });
+
+  let mut root = system.root_context();
+  let actor_ref = root.spawn(props).expect("spawn actor");
+
+  actor_ref.tell("world".to_string()).expect("tell message");
+  block_on(root.dispatch_next()).expect("dispatch setup+message");
+  block_on(root.dispatch_next()).expect("dispatch child");
+
+  assert_eq!(child_log.borrow().as_slice(), &["hello world".to_string()]);
+}

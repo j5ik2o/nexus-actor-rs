@@ -14,6 +14,7 @@ use super::Context;
 
 type ReceiveFn<U, R> = dyn for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, U) -> BehaviorDirective<U, R> + 'static;
 type SystemHandlerFn<U, R> = dyn for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, SystemMessage) + 'static;
+type SetupFn<U, R> = dyn for<'r, 'ctx> Fn(&mut Context<'r, 'ctx, U, R>) -> Behavior<U, R> + 'static;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum SupervisorStrategyConfig {
@@ -151,6 +152,7 @@ where
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
   R::Signal: Clone, {
   Receive(BehaviorState<U, R>),
+  Setup(Arc<SetupFn<U, R>>),
   Stopped,
 }
 
@@ -186,10 +188,16 @@ where
     Self::Stopped
   }
 
+  pub fn setup<F>(init: F) -> Self
+  where
+    F: for<'r, 'ctx> Fn(&mut Context<'r, 'ctx, U, R>) -> Behavior<U, R> + 'static, {
+    Self::Setup(Arc::new(init))
+  }
+
   pub(crate) fn supervisor_config(&self) -> SupervisorStrategyConfig {
     match self {
       Behavior::Receive(state) => state.supervisor.clone(),
-      Behavior::Stopped => SupervisorStrategyConfig::default(),
+      Behavior::Setup(_) | Behavior::Stopped => SupervisorStrategyConfig::default(),
     }
   }
 }
@@ -242,6 +250,16 @@ impl Behaviors {
     R::Queue<PriorityEnvelope<DynMessage>>: Clone,
     R::Signal: Clone, {
     SuperviseBuilder { behavior }
+  }
+
+  pub fn setup<U, R, F>(init: F) -> Behavior<U, R>
+  where
+    U: Element,
+    R: MailboxFactory + Clone + 'static,
+    R::Queue<PriorityEnvelope<DynMessage>>: Clone,
+    R::Signal: Clone,
+    F: for<'r, 'ctx> Fn(&mut Context<'r, 'ctx, U, R>) -> Behavior<U, R> + 'static, {
+    Behavior::setup(init)
   }
 }
 
@@ -300,6 +318,7 @@ where
   }
 
   pub fn handle_user(&mut self, ctx: &mut Context<'_, '_, U, R>, message: U) {
+    self.ensure_initialized(ctx);
     match &mut self.behavior {
       Behavior::Receive(state) => {
         let handler = state.handler.as_mut();
@@ -313,14 +332,17 @@ where
       Behavior::Stopped => {
         // ignore further user messages
       }
+      Behavior::Setup(_) => unreachable!(),
     }
   }
 
   pub fn handle_system(&mut self, ctx: &mut Context<'_, '_, U, R>, message: SystemMessage) {
+    self.ensure_initialized(ctx);
     if matches!(message, SystemMessage::Stop) {
       self.behavior = Behavior::stopped();
     } else if matches!(message, SystemMessage::Restart) {
       self.behavior = (self.behavior_factory)();
+      self.ensure_initialized(ctx);
     }
     if let Some(handler) = self.system_handler.as_mut() {
       handler(ctx, message);
@@ -334,5 +356,17 @@ where
 
   pub(crate) fn supervisor_config(&self) -> SupervisorStrategyConfig {
     self.behavior.supervisor_config()
+  }
+
+  fn ensure_initialized(&mut self, ctx: &mut Context<'_, '_, U, R>) {
+    loop {
+      match &self.behavior {
+        Behavior::Setup(init) => {
+          let init = init.clone();
+          self.behavior = init(ctx);
+        }
+        _ => break,
+      }
+    }
   }
 }
