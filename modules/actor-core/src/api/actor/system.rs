@@ -3,9 +3,9 @@ use core::convert::Infallible;
 use core::sync::atomic::{AtomicBool, Ordering};
 
 use super::root_context::RootContext;
+use super::{ActorSystemHandles, ActorSystemParts, Spawn, Timer};
 use crate::api::guardian::AlwaysRestart;
 use crate::api::messaging::MessageEnvelope;
-use crate::api::runtime::{RuntimeComponentHandles, RuntimeComponents, Spawn, Timer};
 use crate::runtime::system::InternalActorSystem;
 use crate::{FailureEventListener, FailureEventStream, MailboxFactory, PriorityEnvelope};
 use nexus_utils_core_rs::{Element, QueueError};
@@ -38,9 +38,9 @@ where
   R::Queue<PriorityEnvelope<MessageEnvelope<U>>>: Clone,
   R::Signal: Clone,
 {
-  pub fn new(runtime: R) -> Self {
+  pub fn new(mailbox_factory: R) -> Self {
     Self {
-      inner: InternalActorSystem::new(runtime),
+      inner: InternalActorSystem::new(mailbox_factory),
       shutdown: ShutdownToken::default(),
     }
   }
@@ -49,15 +49,13 @@ where
     self.inner.set_root_event_listener(listener);
   }
 
-  pub fn from_runtime_components<S, T, E>(
-    components: RuntimeComponents<R, S, T, E>,
-  ) -> (Self, RuntimeComponentHandles<S, T, E>)
+  pub fn from_parts<S, T, E>(parts: ActorSystemParts<R, S, T, E>) -> (Self, ActorSystemHandles<S, T, E>)
   where
     S: Spawn,
     T: Timer,
     E: FailureEventStream, {
-    let (runtime, handles) = components.split();
-    let mut system = Self::new(runtime);
+    let (mailbox_factory, handles) = parts.split();
+    let mut system = Self::new(mailbox_factory);
     system.set_failure_event_listener(Some(handles.event_stream.listener()));
     (system, handles)
   }
@@ -120,16 +118,8 @@ where
   /// Ready キューに溜まったメッセージを同期的に処理し、空になるまで繰り返す。
   /// 新たにメッセージが到着するまで待機は行わない。
   pub fn run_until_idle(&mut self) -> Result<(), QueueError<PriorityEnvelope<MessageEnvelope<U>>>> {
-    loop {
-      if self.shutdown.is_triggered() {
-        break;
-      }
-      let processed = self.inner.drain_ready()?;
-      if !processed {
-        break;
-      }
-    }
-    Ok(())
+    let shutdown = self.shutdown.clone();
+    self.inner.run_until_idle(|| !shutdown.is_triggered())
   }
 }
 

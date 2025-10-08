@@ -24,9 +24,9 @@ where
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
 {
-  pub fn new(runtime: R) -> Self {
+  pub fn new(mailbox_factory: R) -> Self {
     Self {
-      scheduler: PriorityScheduler::new(runtime),
+      scheduler: PriorityScheduler::new(mailbox_factory),
     }
   }
 }
@@ -75,5 +75,17 @@ where
 
   pub fn drain_ready(&mut self) -> Result<bool, QueueError<PriorityEnvelope<M>>> {
     self.scheduler.drain_ready()
+  }
+
+  pub fn run_until_idle<F>(&mut self, mut should_continue: F) -> Result<(), QueueError<PriorityEnvelope<M>>>
+  where
+    F: FnMut() -> bool, {
+    while should_continue() {
+      let processed = self.drain_ready()?;
+      if !processed {
+        break;
+      }
+    }
+    Ok(())
   }
 }

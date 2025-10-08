@@ -8,18 +8,18 @@ use core::cell::RefCell;
 use std::sync::Arc;
 
 use nexus_actor_core_rs::{ActorId, ActorPath, FailureEvent, FailureInfo, FailureMetadata};
-use nexus_actor_core_rs::{ActorSystem, FailureEventStream, MailboxOptions, Props, RuntimeComponents};
+use nexus_actor_core_rs::{ActorSystem, ActorSystemParts, FailureEventStream, MailboxOptions, Props};
 use nexus_actor_embedded_rs::{EmbeddedFailureEventHub, ImmediateSpawner, ImmediateTimer, LocalMailboxFactory};
 
 #[test]
 fn embedded_actor_runtime_dispatches_message() {
-  let components = RuntimeComponents::new(
+  let components = ActorSystemParts::new(
     LocalMailboxFactory::default(),
     ImmediateSpawner,
     ImmediateTimer,
     EmbeddedFailureEventHub::new(),
   );
-  let (mut system, _) = ActorSystem::from_runtime_components(components);
+  let (mut system, _) = ActorSystem::from_parts(components);
 
   let log: Rc<RefCell<Vec<u32>>> = Rc::new(RefCell::new(Vec::new()));
   let log_clone = log.clone();

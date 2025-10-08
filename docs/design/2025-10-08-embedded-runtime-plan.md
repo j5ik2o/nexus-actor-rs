@@ -23,7 +23,7 @@
 ## 提案アーキテクチャ
 
 1. **ActorSystemRunner + SystemHandle** を中核に据える。
-   - `ActorSystem::from_runtime_components` で `ActorSystem` を構築し、`into_runner()` で常駐用ランナーを取得する。
+   - `ActorSystem::from_parts` で `ActorSystem` を構築し、`into_runner()` で常駐用ランナーを取得する。
    - std 向けには `TokioSystemHandle::start_local(runner)` を提供し、`tokio::task::spawn_local` により scheduler を常駐させる。`ShutdownToken` は `ctrl_c` 監視経由でトリガーする。
    - embedded 向けには runner を直接扱い、アプリ側メインループが `run_until_idle()` + `shutdown_token()` を組み合わせて制御する。
 
