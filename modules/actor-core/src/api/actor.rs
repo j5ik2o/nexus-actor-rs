@@ -6,8 +6,9 @@ mod root_context;
 mod system;
 mod system_support;
 
+pub use crate::runtime::message::DynMessage as RuntimeMessage;
 pub use actor_ref::ActorRef;
-pub use behavior::{ActorAdapter, Behavior};
+pub use behavior::{ActorAdapter, Behavior, BehaviorDirective, Behaviors};
 pub use context::Context;
 pub use props::Props;
 pub use root_context::RootContext;

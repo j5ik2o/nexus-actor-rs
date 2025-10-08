@@ -3,11 +3,9 @@
 
 use super::*;
 use crate::api::guardian::AlwaysRestart;
-use crate::runtime::context::ActorContext;
 use crate::runtime::mailbox::test_support::TestMailboxFactory;
 use crate::ActorId;
 use crate::MailboxOptions;
-use crate::MessageEnvelope;
 use crate::SystemMessage;
 use alloc::rc::Rc;
 use alloc::vec::Vec;
@@ -42,7 +40,7 @@ fn test_typed_actor_handles_system_stop() {
   let stopped: Rc<RefCell<bool>> = Rc::new(RefCell::new(false));
   let stopped_clone = stopped.clone();
 
-  let system_handler = move |_: &mut ActorContext<'_, MessageEnvelope<u32>, _, _>, sys_msg: SystemMessage| {
+  let system_handler = move |_: &mut Context<'_, '_, u32, _>, sys_msg: SystemMessage| {
     if matches!(sys_msg, SystemMessage::Stop) {
       *stopped_clone.borrow_mut() = true;
     }
@@ -71,7 +69,7 @@ fn test_typed_actor_handles_watch_unwatch() {
   });
 
   let system_handler = Some(
-    |ctx: &mut ActorContext<'_, _, _, _>, sys_msg: SystemMessage| match sys_msg {
+    |ctx: &mut Context<'_, '_, u32, _>, sys_msg: SystemMessage| match sys_msg {
       SystemMessage::Watch(watcher) => {
         ctx.register_watcher(watcher);
       }
@@ -139,7 +137,7 @@ fn test_typed_actor_stateful_behavior_with_system_message() {
   });
 
   let failures_clone = failures.clone();
-  let system_handler = move |_ctx: &mut ActorContext<'_, MessageEnvelope<u32>, _, _>, sys_msg: SystemMessage| {
+  let system_handler = move |_ctx: &mut Context<'_, '_, u32, _>, sys_msg: SystemMessage| {
     if matches!(sys_msg, SystemMessage::Suspend) {
       *failures_clone.borrow_mut() += 1;
     }
@@ -164,6 +162,35 @@ fn test_typed_actor_stateful_behavior_with_system_message() {
   // Verify stateful behavior updated correctly
   assert_eq!(*count.borrow(), 15, "State should accumulate user messages");
   assert_eq!(*failures.borrow(), 1, "State should track system messages");
+}
+
+#[test]
+fn test_behaviors_receive_self_loop() {
+  let factory = TestMailboxFactory::unbounded();
+  let mut system: ActorSystem<u32, _, AlwaysRestart> = ActorSystem::new(factory);
+
+  let log: Rc<RefCell<Vec<u32>>> = Rc::new(RefCell::new(Vec::new()));
+  let log_clone = log.clone();
+
+  let behavior = Behaviors::receive(move |ctx: &mut Context<'_, '_, u32, _>, msg: u32| {
+    log_clone.borrow_mut().push(msg);
+    if msg < 2 {
+      ctx.self_ref().tell(msg + 1).expect("self tell");
+    }
+    Behaviors::same()
+  });
+
+  let props = Props::with_behavior(MailboxOptions::default(), behavior);
+
+  let mut root = system.root_context();
+  let actor_ref = root.spawn(props).expect("spawn actor");
+
+  actor_ref.tell(0).expect("tell initial");
+  block_on(root.dispatch_next()).expect("process 0");
+  block_on(root.dispatch_next()).expect("process 1");
+  block_on(root.dispatch_next()).expect("process 2");
+
+  assert_eq!(log.borrow().as_slice(), &[0, 1, 2]);
 }
 
 #[test]

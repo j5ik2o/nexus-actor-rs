@@ -100,6 +100,13 @@ where
     }
   }
 
+  pub(crate) fn self_ref(&self) -> InternalActorRef<M, R>
+  where
+    R::Queue<PriorityEnvelope<M>>: Clone,
+    R::Signal: Clone, {
+    InternalActorRef::new(self.sender.clone())
+  }
+
   #[allow(dead_code)]
   fn enqueue_spawn(
     &mut self,
@@ -146,8 +153,7 @@ where
     props: InternalProps<M, R>,
   ) -> InternalActorRef<M, R>
   where
-    R: MailboxFactory + Clone + 'static,
-  {
+    R: MailboxFactory + Clone + 'static, {
     let InternalProps {
       options,
       map_system,

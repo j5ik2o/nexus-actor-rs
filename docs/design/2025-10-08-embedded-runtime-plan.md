@@ -93,13 +93,13 @@ where
 
   fn event_stream(&self) -> &Self::EventStream;
   fn spawn_actor(&mut self, props: Props<U, Self::Runtime>)
-    -> Result<ActorRef<U, Self::Runtime>, QueueError<PriorityEnvelope<MessageEnvelope<U>>>>;
+    -> Result<ActorRef<U, Self::Runtime>, QueueError<PriorityEnvelope<RuntimeMessage>>>;
   fn dispatch_next(
     &mut self,
-  ) -> impl Future<Output = Result<(), QueueError<PriorityEnvelope<MessageEnvelope<U>>>>> + Send;
+  ) -> impl Future<Output = Result<(), QueueError<PriorityEnvelope<RuntimeMessage>>>> + Send;
   fn pump(&mut self) -> DriverState;
 
-  fn run_until_idle(&mut self) -> impl Future<Output = Result<(), QueueError<PriorityEnvelope<MessageEnvelope<U>>>>> + Send
+  fn run_until_idle(&mut self) -> impl Future<Output = Result<(), QueueError<PriorityEnvelope<RuntimeMessage>>>> + Send
   where
     Self: Sized,
   {

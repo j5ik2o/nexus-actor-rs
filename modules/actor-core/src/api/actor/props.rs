@@ -1,4 +1,5 @@
 use crate::runtime::context::ActorContext;
+use crate::runtime::message::DynMessage;
 use crate::runtime::system::InternalProps;
 use crate::Supervisor;
 use crate::SystemMessage;
@@ -7,59 +8,40 @@ use nexus_utils_core_rs::Element;
 
 use super::{ActorAdapter, Behavior, Context};
 use crate::api::messaging::MessageEnvelope;
+use core::marker::PhantomData;
 
 pub struct Props<U, R>
 where
   U: Element,
   R: MailboxFactory + Clone + 'static,
-  R::Queue<PriorityEnvelope<MessageEnvelope<U>>>: Clone,
+  R::Queue<PriorityEnvelope<DynMessage>>: Clone,
   R::Signal: Clone, {
-  inner: InternalProps<MessageEnvelope<U>, R>,
+  inner: InternalProps<DynMessage, R>,
+  _marker: PhantomData<U>,
 }
 
 impl<U, R> Props<U, R>
 where
   U: Element,
   R: MailboxFactory + Clone + 'static,
-  R::Queue<PriorityEnvelope<MessageEnvelope<U>>>: Clone,
+  R::Queue<PriorityEnvelope<DynMessage>>: Clone,
   R::Signal: Clone,
 {
   pub fn new<F>(options: MailboxOptions, handler: F) -> Self
   where
-    F: FnMut(&mut ActorContext<'_, MessageEnvelope<U>, R, dyn Supervisor<MessageEnvelope<U>>>, U) + 'static, {
-    Self::with_system_handler(
-      options,
-      handler,
-      Option::<
-        fn(
-          &mut ActorContext<'_, MessageEnvelope<U>, R, dyn Supervisor<MessageEnvelope<U>>>,
-          SystemMessage,
-        ),
-      >::None,
-    )
-  }
-
-  pub fn from_typed_handler<G>(options: MailboxOptions, handler: G) -> Self
-  where
-    G: for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, U) + 'static, {
+    F: for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, U) + 'static, {
     Self::with_behavior(options, Behavior::stateless(handler))
   }
 
   pub fn with_behavior(options: MailboxOptions, behavior: Behavior<U, R>) -> Self {
-    Self::with_behavior_and_system::<
-      fn(&mut ActorContext<'_, MessageEnvelope<U>, R, dyn Supervisor<MessageEnvelope<U>>>, SystemMessage),
-    >(options, behavior, None)
+    Self::with_behavior_and_system::<fn(&mut Context<'_, '_, U, R>, SystemMessage)>(options, behavior, None)
   }
 
   pub fn with_system_handler<F, G>(options: MailboxOptions, user_handler: F, system_handler: Option<G>) -> Self
   where
-    F: FnMut(&mut ActorContext<'_, MessageEnvelope<U>, R, dyn Supervisor<MessageEnvelope<U>>>, U) + 'static,
-    G: for<'ctx> FnMut(&mut ActorContext<'ctx, MessageEnvelope<U>, R, dyn Supervisor<MessageEnvelope<U>>>, SystemMessage)
-      + 'static, {
-    let mut user_handler = user_handler;
-    let behavior = Behavior::stateless(move |ctx: &mut Context<'_, '_, U, R>, message| {
-      user_handler(ctx.inner(), message);
-    });
+    F: for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, U) + 'static,
+    G: for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, SystemMessage) + 'static, {
+    let behavior = Behavior::stateless(user_handler);
     Self::with_behavior_and_system(options, behavior, system_handler)
   }
 
@@ -69,28 +51,34 @@ where
     system_handler: Option<S>,
   ) -> Self
   where
-    S: for<'ctx> FnMut(&mut ActorContext<'ctx, MessageEnvelope<U>, R, dyn Supervisor<MessageEnvelope<U>>>, SystemMessage)
-      + 'static, {
+    S: for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, SystemMessage) + 'static, {
     let mut adapter = ActorAdapter::new(behavior, system_handler);
     let map_system = ActorAdapter::<U, R>::create_map_system();
 
-    let handler = move |ctx: &mut ActorContext<'_, MessageEnvelope<U>, R, dyn Supervisor<MessageEnvelope<U>>>,
-                        envelope: MessageEnvelope<U>| {
+    let handler = move |ctx: &mut ActorContext<'_, DynMessage, R, dyn Supervisor<DynMessage>>, message: DynMessage| {
+      let Ok(envelope) = message.downcast::<MessageEnvelope<U>>() else {
+        panic!("unexpected message type delivered to typed handler");
+      };
       match envelope {
         MessageEnvelope::User(message) => {
-          adapter.handle_user(ctx, message);
+          let mut typed_ctx = Context::new(ctx);
+          adapter.handle_user(&mut typed_ctx, message);
         }
         MessageEnvelope::System(message) => {
-          adapter.handle_system(ctx, message);
+          let mut typed_ctx = Context::new(ctx);
+          adapter.handle_system(&mut typed_ctx, message);
         }
       }
     };
 
     let inner = InternalProps::new(options, map_system, handler);
-    Self { inner }
+    Self {
+      inner,
+      _marker: PhantomData,
+    }
   }
 
-  pub(crate) fn into_inner(self) -> InternalProps<MessageEnvelope<U>, R> {
+  pub(crate) fn into_inner(self) -> InternalProps<DynMessage, R> {
     self.inner
   }
 }

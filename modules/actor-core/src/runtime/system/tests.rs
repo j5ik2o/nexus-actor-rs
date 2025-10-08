@@ -3,6 +3,7 @@
 use super::*;
 use crate::runtime::guardian::AlwaysRestart;
 use crate::runtime::mailbox::test_support::TestMailboxFactory;
+use crate::runtime::message::DynMessage;
 use crate::{MailboxOptions, SystemMessage};
 use alloc::rc::Rc;
 use alloc::sync::Arc;
@@ -27,9 +28,9 @@ impl Element for Message {}
 #[test]
 fn actor_system_spawns_and_processes_messages() {
   let factory = TestMailboxFactory::unbounded();
-  let mut system: InternalActorSystem<Message, _, AlwaysRestart> = InternalActorSystem::new(factory);
+  let mut system: InternalActorSystem<DynMessage, _, AlwaysRestart> = InternalActorSystem::new(factory);
 
-  let map_system = Arc::new(|_: SystemMessage| Message::System);
+  let map_system = Arc::new(|_: SystemMessage| DynMessage::new(Message::System));
   let log: Rc<RefCell<Vec<u32>>> = Rc::new(RefCell::new(Vec::new()));
   let log_clone = log.clone();
 
@@ -38,15 +39,20 @@ fn actor_system_spawns_and_processes_messages() {
     .spawn(InternalProps::new(
       MailboxOptions::default(),
       map_system.clone(),
-      move |_, msg: Message| match msg {
-        Message::User(value) => log_clone.borrow_mut().push(value),
-        Message::System => {}
+      move |_, msg: DynMessage| {
+        let Ok(message) = msg.downcast::<Message>() else {
+          panic!("unexpected message type");
+        };
+        match message {
+          Message::User(value) => log_clone.borrow_mut().push(value),
+          Message::System => {}
+        }
       },
     ))
     .expect("spawn actor");
 
   actor_ref
-    .try_send_with_priority(Message::User(7), DEFAULT_PRIORITY)
+    .try_send_with_priority(DynMessage::new(Message::User(7)), DEFAULT_PRIORITY)
     .expect("send message");
 
   block_on(root.dispatch_next()).expect("dispatch");

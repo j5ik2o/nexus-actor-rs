@@ -1,4 +1,5 @@
 use crate::runtime::context::ActorContext;
+use crate::runtime::message::DynMessage;
 use crate::ActorId;
 use crate::ActorPath;
 use crate::MailboxFactory;
@@ -7,6 +8,7 @@ use crate::PriorityEnvelope;
 use crate::Supervisor;
 use crate::SystemMessage;
 use alloc::boxed::Box;
+use core::marker::PhantomData;
 use nexus_utils_core_rs::{Element, QueueError, DEFAULT_PRIORITY};
 
 use super::{ActorRef, Props};
@@ -19,22 +21,24 @@ pub struct Context<'r, 'ctx, U, R>
 where
   U: Element,
   R: MailboxFactory + Clone + 'static,
-  R::Queue<PriorityEnvelope<MessageEnvelope<U>>>: Clone,
+  R::Queue<PriorityEnvelope<DynMessage>>: Clone,
   R::Signal: Clone, {
-  inner: &'r mut ActorContext<'ctx, MessageEnvelope<U>, R, dyn Supervisor<MessageEnvelope<U>>>,
+  inner: &'r mut ActorContext<'ctx, DynMessage, R, dyn Supervisor<DynMessage>>,
+  _marker: PhantomData<U>,
 }
 
 impl<'r, 'ctx, U, R> Context<'r, 'ctx, U, R>
 where
   U: Element,
   R: MailboxFactory + Clone + 'static,
-  R::Queue<PriorityEnvelope<MessageEnvelope<U>>>: Clone,
+  R::Queue<PriorityEnvelope<DynMessage>>: Clone,
   R::Signal: Clone,
 {
-  pub(super) fn new(
-    inner: &'r mut ActorContext<'ctx, MessageEnvelope<U>, R, dyn Supervisor<MessageEnvelope<U>>>,
-  ) -> Self {
-    Self { inner }
+  pub(super) fn new(inner: &'r mut ActorContext<'ctx, DynMessage, R, dyn Supervisor<DynMessage>>) -> Self {
+    Self {
+      inner,
+      _marker: PhantomData,
+    }
   }
 
   pub fn actor_id(&self) -> ActorId {
@@ -49,23 +53,30 @@ where
     self.inner.watchers()
   }
 
-  pub fn send_to_self(&self, message: U) -> Result<(), QueueError<PriorityEnvelope<MessageEnvelope<U>>>> {
-    self
-      .inner
-      .send_to_self_with_priority(MessageEnvelope::User(message), DEFAULT_PRIORITY)
+  pub fn send_to_self(&self, message: U) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> {
+    let dyn_message = DynMessage::new(MessageEnvelope::User(message));
+    self.inner.send_to_self_with_priority(dyn_message, DEFAULT_PRIORITY)
   }
 
-  pub fn send_system_to_self(
-    &self,
-    message: SystemMessage,
-  ) -> Result<(), QueueError<PriorityEnvelope<MessageEnvelope<U>>>> {
-    let priority = message.priority();
-    self
-      .inner
-      .send_control_to_self(MessageEnvelope::System(message), priority)
+  pub fn send_system_to_self(&self, message: SystemMessage) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> {
+    let envelope =
+      PriorityEnvelope::from_system(message.clone()).map(|sys| DynMessage::new(MessageEnvelope::<U>::System(sys)));
+    self.inner.send_envelope_to_self(envelope)
   }
 
-  pub fn inner(&mut self) -> &mut ActorContext<'ctx, MessageEnvelope<U>, R, dyn Supervisor<MessageEnvelope<U>>> {
+  pub fn self_ref(&self) -> ActorRef<U, R> {
+    ActorRef::new(self.inner.self_ref())
+  }
+
+  pub fn register_watcher(&mut self, watcher: ActorId) {
+    self.inner.register_watcher(watcher);
+  }
+
+  pub fn unregister_watcher(&mut self, watcher: ActorId) {
+    self.inner.unregister_watcher(watcher);
+  }
+
+  pub fn inner(&mut self) -> &mut ActorContext<'ctx, DynMessage, R, dyn Supervisor<DynMessage>> {
     self.inner
   }
 
