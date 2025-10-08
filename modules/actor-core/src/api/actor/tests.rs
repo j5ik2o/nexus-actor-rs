@@ -16,7 +16,7 @@ use alloc::vec::Vec;
 use core::cell::RefCell;
 use core::future::Future;
 use core::pin::Pin;
-use core::task::{Context, Poll, RawWaker, RawWakerVTable, Waker};
+use core::task::{Context as TaskContext, Poll, RawWaker, RawWakerVTable, Waker};
 use nexus_utils_core_rs::Element;
 use nexus_utils_core_rs::QueueError;
 use std::panic::{catch_unwind, AssertUnwindSafe};
@@ -538,7 +538,7 @@ where
   F: Future + Unpin, {
   let waker = noop_waker();
   let mut future = Pin::new(&mut future);
-  let mut cx = Context::from_waker(&waker);
+  let mut cx = TaskContext::from_waker(&waker);
   loop {
     match future.as_mut().poll(&mut cx) {
       Poll::Ready(value) => return value,
