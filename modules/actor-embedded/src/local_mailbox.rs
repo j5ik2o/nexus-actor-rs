@@ -318,9 +318,9 @@ mod tests {
     core::task::Waker::from(Arc::new(NoopWake))
   }
 
-  fn pin_poll<F: Future>(mut fut: F) -> (Poll<F::Output>, F)
+  fn pin_poll<F>(mut fut: F) -> (Poll<F::Output>, F)
   where
-    F: Unpin, {
+    F: Future + Unpin, {
     let waker = noop_waker();
     let mut cx = Context::from_waker(&waker);
     let poll = Pin::new(&mut fut).poll(&mut cx);
