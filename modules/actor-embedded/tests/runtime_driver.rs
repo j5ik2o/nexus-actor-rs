@@ -1,4 +1,5 @@
 extern crate alloc;
+extern crate std;
 
 use alloc::rc::Rc;
 use alloc::vec::Vec;
@@ -6,7 +7,10 @@ use core::cell::RefCell;
 
 use futures::executor::block_on;
 
-use nexus_actor_core_rs::{MailboxOptions, Props};
+use std::sync::Arc;
+
+use nexus_actor_core_rs::{ActorId, ActorPath, FailureEvent, FailureInfo, FailureMetadata};
+use nexus_actor_core_rs::{FailureEventStream, MailboxOptions, Props};
 use nexus_actor_embedded_rs::EmbeddedActorRuntime;
 
 #[test]
@@ -29,4 +33,29 @@ fn embedded_actor_runtime_dispatches_message() {
   });
 
   assert_eq!(log.borrow().as_slice(), &[11]);
+}
+
+#[test]
+fn embedded_failure_event_hub_broadcasts() {
+  let runtime: EmbeddedActorRuntime<u32> = EmbeddedActorRuntime::new();
+  let hub = runtime.event_stream().clone();
+
+  let received = Arc::new(std::sync::Mutex::new(Vec::<FailureEvent>::new()));
+  let received_clone = received.clone();
+
+  let _subscription = hub.subscribe(Arc::new(move |event| {
+    received_clone.lock().unwrap().push(event);
+  }));
+
+  let listener = hub.listener();
+  let info = FailureInfo::new_with_metadata(ActorId(1), ActorPath::new(), "boom".into(), FailureMetadata::default());
+
+  listener(FailureEvent::RootEscalated(info.clone()));
+
+  assert_eq!(received.lock().unwrap().len(), 1);
+  let guard = received.lock().unwrap();
+  let FailureEvent::RootEscalated(recorded) = &guard[0] else {
+    panic!("expected RootEscalated");
+  };
+  assert_eq!(recorded.actor, info.actor);
 }
