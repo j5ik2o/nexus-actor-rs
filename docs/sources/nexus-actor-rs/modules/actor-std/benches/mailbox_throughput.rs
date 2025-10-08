@@ -32,7 +32,7 @@ impl MessageInvoker for CountingInvoker {
 }
 
 fn bench_mailbox_process(c: &mut Criterion) {
-  let runtime = Runtime::new().expect("tokio runtime");
+  let factory = Runtime::new().expect("tokio runtime");
   let mut group = c.benchmark_group("mailbox_process");
   group.sample_size(10);
   group.warm_up_time(Duration::from_millis(200));

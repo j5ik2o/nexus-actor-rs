@@ -26,8 +26,8 @@ impl Element for Message {}
 #[cfg(feature = "std")]
 #[test]
 fn actor_system_spawns_and_processes_messages() {
-  let runtime = TestMailboxFactory::unbounded();
-  let mut system: InternalActorSystem<Message, _, AlwaysRestart> = InternalActorSystem::new(runtime);
+  let factory = TestMailboxFactory::unbounded();
+  let mut system: InternalActorSystem<Message, _, AlwaysRestart> = InternalActorSystem::new(factory);
 
   let map_system = Arc::new(|_: SystemMessage| Message::System);
   let log: Rc<RefCell<Vec<u32>>> = Rc::new(RefCell::new(Vec::new()));

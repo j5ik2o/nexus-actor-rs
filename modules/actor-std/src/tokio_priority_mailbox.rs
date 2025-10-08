@@ -371,8 +371,8 @@ mod tests {
   use nexus_utils_std_rs::{QueueSize, DEFAULT_PRIORITY};
 
   async fn run_priority_runtime_orders_messages() {
-    let runtime = TokioPriorityMailboxFactory::default();
-    let (mailbox, sender) = runtime.mailbox::<u32>(MailboxOptions::default());
+    let factory = TokioPriorityMailboxFactory::default();
+    let (mailbox, sender) = factory.mailbox::<u32>(MailboxOptions::default());
 
     sender
       .send_with_priority(10, DEFAULT_PRIORITY)
@@ -409,8 +409,8 @@ mod tests {
   }
 
   async fn run_priority_sender_defaults_work() {
-    let runtime = TokioPriorityMailboxFactory::new(4).with_regular_capacity(4);
-    let (mailbox, sender) = runtime.mailbox::<u8>(MailboxOptions::default());
+    let factory = TokioPriorityMailboxFactory::new(4).with_regular_capacity(4);
+    let (mailbox, sender) = factory.mailbox::<u8>(MailboxOptions::default());
 
     sender
       .send(PriorityEnvelope::with_default_priority(5))
@@ -433,8 +433,8 @@ mod tests {
   }
 
   async fn run_control_queue_preempts_regular_messages() {
-    let runtime = TokioPriorityMailboxFactory::default();
-    let (mailbox, sender) = runtime.mailbox::<u32>(MailboxOptions::default());
+    let factory = TokioPriorityMailboxFactory::default();
+    let (mailbox, sender) = factory.mailbox::<u32>(MailboxOptions::default());
 
     sender
       .send_with_priority(1, DEFAULT_PRIORITY)
@@ -463,9 +463,9 @@ mod tests {
   }
 
   async fn run_priority_mailbox_capacity_split() {
-    let runtime = TokioPriorityMailboxFactory::default();
+    let factory = TokioPriorityMailboxFactory::default();
     let options = MailboxOptions::with_capacities(QueueSize::limited(2), QueueSize::limited(2));
-    let (mailbox, sender) = runtime.mailbox::<u8>(options);
+    let (mailbox, sender) = factory.mailbox::<u8>(options);
 
     assert!(!mailbox.capacity().is_limitless());
 

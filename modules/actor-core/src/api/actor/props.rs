@@ -2,7 +2,7 @@ use crate::runtime::context::ActorContext;
 use crate::runtime::system::InternalProps;
 use crate::Supervisor;
 use crate::SystemMessage;
-use crate::{MailboxOptions, MailboxFactory, PriorityEnvelope};
+use crate::{MailboxFactory, MailboxOptions, PriorityEnvelope};
 use nexus_utils_core_rs::Element;
 
 use super::{ActorAdapter, Behavior, Context};

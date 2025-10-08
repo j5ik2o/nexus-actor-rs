@@ -210,7 +210,7 @@ async fn run_scenario(total_requests: usize, concurrency: usize, failure_ratio: 
 
 fn reentrancy_benchmark(c: &mut Criterion) {
   let mut group = c.benchmark_group("reentrancy");
-  let runtime = Builder::new_multi_thread().enable_all().build().expect("runtime");
+  let factory = Builder::new_multi_thread().enable_all().build().expect("runtime");
   let total_requests = 2_000;
   let concurrency = 64;
   let failure_ratio = 0.5;
@@ -252,7 +252,7 @@ async fn run_context_borrow_scenario(total_requests: usize) {
 
 fn context_borrow_benchmark(c: &mut Criterion) {
   let mut group = c.benchmark_group("context_borrow");
-  let runtime = Builder::new_multi_thread().enable_all().build().expect("runtime");
+  let factory = Builder::new_multi_thread().enable_all().build().expect("runtime");
   let total_requests = 2_000;
 
   #[cfg(feature = "lock-metrics")]

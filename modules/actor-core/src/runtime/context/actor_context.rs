@@ -8,7 +8,7 @@ use crate::ActorId;
 use crate::ActorPath;
 use crate::Supervisor;
 use crate::SystemMessage;
-use crate::{MailboxOptions, MailboxFactory, PriorityEnvelope, QueueMailboxProducer};
+use crate::{MailboxFactory, MailboxOptions, PriorityEnvelope, QueueMailboxProducer};
 use nexus_utils_core_rs::{Element, QueueError, QueueSize};
 
 use super::{ChildSpawnSpec, InternalActorRef};

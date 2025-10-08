@@ -92,8 +92,8 @@ mod tests {
 
   #[test]
   fn typed_actor_system_dispatch_next_processes_message() {
-    let runtime = LocalMailboxFactory::default();
-    let mut system: ActorSystem<u32, _> = ActorSystem::new(runtime);
+    let factory = LocalMailboxFactory::default();
+    let mut system: ActorSystem<u32, _> = ActorSystem::new(factory);
 
     let log: Rc<RefCell<Vec<u32>>> = Rc::new(RefCell::new(Vec::new()));
     let log_clone = log.clone();

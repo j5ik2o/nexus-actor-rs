@@ -154,7 +154,7 @@ where
       .ok_or_else(|| ActorError::of_receive_error(ErrorReason::from("virtual actor not initialized")))?;
 
     let actor = self.ensure_actor(&ctx).await?;
-    let runtime = VirtualActorRuntime::new(&ctx, &context);
+    let factory = VirtualActorRuntime::new(&ctx, &context);
     actor.handle(message, runtime).await
   }
 

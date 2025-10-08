@@ -16,8 +16,8 @@ use core::cell::RefCell;
 use futures::executor::block_on;
 #[test]
 fn typed_actor_system_handles_user_messages() {
-  let runtime = TestMailboxFactory::unbounded();
-  let mut system: ActorSystem<u32, _, AlwaysRestart> = ActorSystem::new(runtime);
+  let factory = TestMailboxFactory::unbounded();
+  let mut system: ActorSystem<u32, _, AlwaysRestart> = ActorSystem::new(factory);
 
   let log: Rc<RefCell<Vec<u32>>> = Rc::new(RefCell::new(Vec::new()));
   let log_clone = log.clone();
@@ -36,8 +36,8 @@ fn typed_actor_system_handles_user_messages() {
 
 #[test]
 fn test_typed_actor_handles_system_stop() {
-  let runtime = TestMailboxFactory::unbounded();
-  let mut system: ActorSystem<u32, _, AlwaysRestart> = ActorSystem::new(runtime);
+  let factory = TestMailboxFactory::unbounded();
+  let mut system: ActorSystem<u32, _, AlwaysRestart> = ActorSystem::new(factory);
 
   let stopped: Rc<RefCell<bool>> = Rc::new(RefCell::new(false));
   let stopped_clone = stopped.clone();
@@ -60,8 +60,8 @@ fn test_typed_actor_handles_system_stop() {
 
 #[test]
 fn test_typed_actor_handles_watch_unwatch() {
-  let runtime = TestMailboxFactory::unbounded();
-  let mut system: ActorSystem<u32, _, AlwaysRestart> = ActorSystem::new(runtime);
+  let factory = TestMailboxFactory::unbounded();
+  let mut system: ActorSystem<u32, _, AlwaysRestart> = ActorSystem::new(factory);
 
   let watchers_count: Rc<RefCell<usize>> = Rc::new(RefCell::new(0));
   let watchers_count_clone = watchers_count.clone();
@@ -126,8 +126,8 @@ fn test_typed_actor_handles_watch_unwatch() {
 #[cfg(feature = "std")]
 #[test]
 fn test_typed_actor_stateful_behavior_with_system_message() {
-  let runtime = TestMailboxFactory::unbounded();
-  let mut system: ActorSystem<u32, _, AlwaysRestart> = ActorSystem::new(runtime);
+  let factory = TestMailboxFactory::unbounded();
+  let mut system: ActorSystem<u32, _, AlwaysRestart> = ActorSystem::new(factory);
 
   // Stateful behavior: count user messages and track system messages
   let count = Rc::new(RefCell::new(0u32));

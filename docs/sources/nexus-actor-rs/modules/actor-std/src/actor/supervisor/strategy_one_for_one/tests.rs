@@ -306,7 +306,7 @@ mod test {
       .try_init();
 
     let (actor_system, supervisor, mock_supervisor, child, _rs) = setup_test_environment().await;
-    let runtime = tokio_core_runtime();
+    let factory = tokio_core_runtime();
     let stats = RestartStatistics::with_runtime(&runtime);
     let strategy = OneForOneStrategy::new(1, Duration::from_millis(40)).with_decider(|_| async { Directive::Restart });
 

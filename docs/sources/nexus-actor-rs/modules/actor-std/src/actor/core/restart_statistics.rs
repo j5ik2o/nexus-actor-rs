@@ -185,7 +185,7 @@ mod tests {
 
   #[tokio::test]
   async fn with_runtime_uses_injected_failure_clock() {
-    let runtime = tokio_core_runtime();
+    let factory = tokio_core_runtime();
     let mut stats = RestartStatistics::with_runtime(&runtime);
 
     stats.fail().await;

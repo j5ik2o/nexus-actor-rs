@@ -67,8 +67,8 @@ mod tests {
   }
 
   async fn run_typed_actor_system_handles_user_messages() {
-    let runtime = TokioMailboxFactory;
-    let mut system: ActorSystem<u32, _> = ActorSystem::new(runtime);
+    let factory = TokioMailboxFactory;
+    let mut system: ActorSystem<u32, _> = ActorSystem::new(factory);
 
     let log: Arc<Mutex<Vec<u32>>> = Arc::new(Mutex::new(Vec::new()));
     let log_clone = log.clone();

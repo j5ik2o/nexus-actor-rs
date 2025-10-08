@@ -341,7 +341,7 @@ mod tests {
   }
 
   fn make_runtime() -> Arc<MetricsRuntime> {
-    let runtime = Runtime::new().expect("tokio runtime");
+    let factory = Runtime::new().expect("tokio runtime");
     runtime.block_on(async {
       let provider = Arc::new(MetricsProvider::Sdk(SdkMeterProvider::default()));
       let system = ActorSystem::new_config_options([ConfigOption::SetMetricsProvider(provider)])

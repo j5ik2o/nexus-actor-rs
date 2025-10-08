@@ -375,8 +375,8 @@ mod tests {
 
   #[test]
   fn runtime_builder_produces_working_mailbox() {
-    let runtime = LocalMailboxFactory::new();
-    let (mailbox, sender) = runtime.unbounded::<u16>();
+    let factory = LocalMailboxFactory::new();
+    let (mailbox, sender) = factory.unbounded::<u16>();
 
     sender.try_send(11).unwrap();
     let future = mailbox.recv();

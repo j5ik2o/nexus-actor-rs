@@ -161,9 +161,8 @@ mod tests {
 
   #[test]
   fn test_mailbox_runtime_delivers_fifo() {
-    let runtime = TestMailboxFactory::with_capacity_per_queue(2);
-    let _ = TestMailboxFactory::unbounded();
-    let (mailbox, sender) = runtime.build_default_mailbox::<u32>();
+    let factory = TestMailboxFactory::with_capacity_per_queue(2);
+    let (mailbox, sender) = factory.build_default_mailbox::<u32>();
 
     sender.try_send(1).unwrap();
     sender.try_send(2).unwrap();

@@ -3,7 +3,7 @@ use alloc::sync::Arc;
 
 use crate::runtime::context::{ActorContext, ActorHandlerFn, MapSystemFn};
 use crate::Supervisor;
-use crate::{MailboxOptions, MailboxFactory, PriorityEnvelope};
+use crate::{MailboxFactory, MailboxOptions, PriorityEnvelope};
 use nexus_utils_core_rs::Element;
 
 pub(crate) struct InternalProps<M, R>

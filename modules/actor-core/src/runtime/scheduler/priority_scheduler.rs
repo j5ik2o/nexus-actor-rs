@@ -11,7 +11,7 @@ use crate::ActorId;
 use crate::ActorPath;
 use crate::FailureInfo;
 use crate::Supervisor;
-use crate::{MailboxOptions, MailboxFactory, PriorityEnvelope};
+use crate::{MailboxFactory, MailboxOptions, PriorityEnvelope};
 use crate::{MailboxSignal, SystemMessage};
 use futures::future::select_all;
 use futures::FutureExt;

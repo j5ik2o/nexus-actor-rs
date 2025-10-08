@@ -79,7 +79,7 @@ async fn run_enq_deq_cycle(load: usize, process_delay: Duration) -> f64 {
 }
 
 fn actor_context_lock_bench(c: &mut Criterion) {
-  let runtime = Runtime::new().expect("tokio runtime");
+  let factory = Runtime::new().expect("tokio runtime");
   let mut group = c.benchmark_group("actor_dispatch_queue");
   group.sample_size(10);
   group.warm_up_time(Duration::from_millis(500));
