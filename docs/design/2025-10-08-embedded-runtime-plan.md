@@ -239,3 +239,26 @@ where
   - 第一段階では、std 環境で SIGTERM/SIGINT を受け取った際に `ActorSystemShutdown::trigger()`（仮）を呼び、Tokio タスクを `abort()` して終了ログを出力する簡易実装を目指す。
   - Embedded 環境では `pump()` が `DriverState::Idle` を返したタイミングで停止可能。将来的な拡張として、外部から停止要求を受けて `run_until_idle()` が完了した時点でメインループを抜ける設計にする。
   - 本格的な「段階的シャットダウン」（クラスタ協調や永続ストア flush 等）は次フェーズで検討し、現段階では「安全に停止するフックを提供する」ことをゴールとする。
+
+### SystemDriver 抽象の導入案
+
+- `actor-core` 側に以下のような trait を追加し、`ActorSystem` から委譲する。
+
+```rust
+pub trait SystemDriver<U, R>
+where
+  U: Element,
+  R: MailboxRuntime + Clone + 'static,
+{
+  type Handle;
+
+  fn start(self) -> Self::Handle;
+  fn shutdown(handle: &Self::Handle, token: &ShutdownToken);
+}
+```
+
+- `ActorSystem::into_runner()` で driver に渡す前提の構造体を取得し、std/embedded で個別に `SystemDriver` を実装する。
+- `ShutdownToken` は `actor-core` が提供し、driver 側が `trigger()` や `is_triggered()` を監視する。
+- `TokioSystemDriver`（`actor-std`）は `tokio::spawn` に `ActorSystemRunner::run_forever()` を渡し `JoinHandle` を保持、SIGTERM/SIGINT を `tokio::signal::ctrl_c()` で拾って `ShutdownToken::trigger()` を呼ぶ。
+- Embedded 側は driver を持たず、アプリのメインループが `run_until_idle()`／`pump()` を直接呼ぶ形でも問題ないため、driver trait 実装はオプション扱いとする。
+- これにより `ActorSystem` 自体は tokio を知らず、std 側／embedded 側で適切な driver を提供する設計に切り替える。
