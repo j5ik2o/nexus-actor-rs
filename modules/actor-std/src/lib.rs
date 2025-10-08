@@ -1,6 +1,7 @@
 #[cfg(any(feature = "rt-multi-thread", feature = "rt-current-thread"))]
 pub mod failure_event_bridge;
 mod failure_event_hub;
+mod runtime_driver;
 mod spawn;
 mod timer;
 mod tokio_mailbox;
@@ -8,6 +9,7 @@ mod tokio_priority_mailbox;
 
 pub use failure_event_hub::{FailureEventHub, FailureEventSubscription};
 pub use nexus_utils_std_rs::{ArcShared, ArcStateCell};
+pub use runtime_driver::{DriverState, TokioActorRuntime};
 pub use spawn::TokioSpawner;
 pub use timer::TokioTimer;
 pub use tokio_mailbox::{TokioMailbox, TokioMailboxRuntime, TokioMailboxSender};
