@@ -1,6 +1,7 @@
 use crate::runtime::message::DynMessage;
 use crate::runtime::system::InternalRootContext;
 use crate::{ActorRef, MailboxFactory, PriorityEnvelope, Props};
+use alloc::boxed::Box;
 use core::marker::PhantomData;
 use nexus_utils_core_rs::{Element, QueueError};
 
@@ -24,7 +25,10 @@ where
   Strat: crate::api::guardian::GuardianStrategy<DynMessage, R>,
 {
   pub fn spawn(&mut self, props: Props<U, R>) -> Result<ActorRef<U, R>, QueueError<PriorityEnvelope<DynMessage>>> {
-    let actor_ref = self.inner.spawn(props.into_inner())?;
+    let (internal_props, supervisor_cfg) = props.into_parts();
+    let actor_ref = self
+      .inner
+      .spawn_with_supervisor(Box::new(supervisor_cfg.into_supervisor()), internal_props)?;
     Ok(ActorRef::new(actor_ref))
   }
 

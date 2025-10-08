@@ -3,12 +3,10 @@ use crate::runtime::message::DynMessage;
 use crate::ActorId;
 use crate::ActorPath;
 use crate::MailboxFactory;
-use crate::NoopSupervisor;
 use crate::PriorityEnvelope;
 use crate::Supervisor;
 use crate::SystemMessage;
-use alloc::boxed::Box;
-use alloc::sync::Arc;
+use alloc::{boxed::Box, sync::Arc};
 use core::marker::PhantomData;
 use nexus_utils_core_rs::{Element, QueueError, DEFAULT_PRIORITY};
 
@@ -92,10 +90,10 @@ where
   pub fn spawn_child<V>(&mut self, props: Props<V, R>) -> ActorRef<V, R>
   where
     V: Element, {
-    let internal_props = props.into_inner();
+    let (internal_props, supervisor_cfg) = props.into_parts();
     let actor_ref = self
       .inner
-      .spawn_child_from_props(Box::new(NoopSupervisor), internal_props);
+      .spawn_child_from_props(Box::new(supervisor_cfg.into_supervisor()), internal_props);
     ActorRef::new(actor_ref)
   }
 }

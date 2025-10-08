@@ -1,7 +1,9 @@
+use alloc::boxed::Box;
+
 use crate::runtime::context::InternalActorRef;
 use crate::runtime::guardian::GuardianStrategy;
 use crate::NoopSupervisor;
-use crate::{MailboxFactory, PriorityEnvelope};
+use crate::{MailboxFactory, PriorityEnvelope, Supervisor};
 use nexus_utils_core_rs::{Element, QueueError};
 
 use super::{InternalActorSystem, InternalProps};
@@ -28,6 +30,14 @@ where
     &mut self,
     props: InternalProps<M, R>,
   ) -> Result<InternalActorRef<M, R>, QueueError<PriorityEnvelope<M>>> {
+    self.spawn_with_supervisor(Box::new(NoopSupervisor), props)
+  }
+
+  pub fn spawn_with_supervisor(
+    &mut self,
+    supervisor: Box<dyn Supervisor<M>>,
+    props: InternalProps<M, R>,
+  ) -> Result<InternalActorRef<M, R>, QueueError<PriorityEnvelope<M>>> {
     let InternalProps {
       options,
       map_system,
@@ -37,7 +47,7 @@ where
     self
       .system
       .scheduler
-      .spawn_actor(NoopSupervisor, options, map_system, move |ctx, msg| {
+      .spawn_actor(supervisor, options, map_system, move |ctx, msg| {
         handler(ctx, msg);
       })
   }

@@ -1,6 +1,7 @@
 #![cfg(feature = "std")]
 #![allow(deprecated)]
 
+use super::behavior::SupervisorStrategyConfig;
 use super::*;
 use crate::api::guardian::AlwaysRestart;
 use crate::runtime::mailbox::test_support::TestMailboxFactory;
@@ -25,6 +26,22 @@ impl Element for ParentMessage {}
 impl Element for ChildMessage {}
 
 use futures::executor::block_on;
+
+#[test]
+fn test_supervise_builder_sets_strategy() {
+  let behavior = Behaviors::supervise(Behavior::stateless(
+    |_: &mut Context<'_, '_, u32, TestMailboxFactory>, _: u32| {},
+  ))
+  .with_strategy(SupervisorStrategy::Restart);
+
+  let props = Props::with_behavior(MailboxOptions::default(), behavior);
+  let (_, supervisor_cfg) = props.into_parts();
+  assert_eq!(
+    supervisor_cfg,
+    SupervisorStrategyConfig::from_strategy(SupervisorStrategy::Restart)
+  );
+}
+
 #[test]
 fn typed_actor_system_handles_user_messages() {
   let factory = TestMailboxFactory::unbounded();

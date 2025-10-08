@@ -6,6 +6,7 @@ use crate::SystemMessage;
 use crate::{MailboxFactory, MailboxOptions, PriorityEnvelope};
 use nexus_utils_core_rs::Element;
 
+use super::behavior::SupervisorStrategyConfig;
 use super::{ActorAdapter, Behavior, Context};
 use crate::api::messaging::MessageEnvelope;
 use core::marker::PhantomData;
@@ -18,6 +19,7 @@ where
   R::Signal: Clone, {
   inner: InternalProps<DynMessage, R>,
   _marker: PhantomData<U>,
+  supervisor: SupervisorStrategyConfig,
 }
 
 impl<U, R> Props<U, R>
@@ -54,6 +56,7 @@ where
     S: for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, SystemMessage) + 'static, {
     let mut adapter = ActorAdapter::new(behavior, system_handler);
     let map_system = ActorAdapter::<U, R>::create_map_system();
+    let supervisor = adapter.supervisor_config();
 
     let handler = move |ctx: &mut ActorContext<'_, DynMessage, R, dyn Supervisor<DynMessage>>, message: DynMessage| {
       let Ok(envelope) = message.downcast::<MessageEnvelope<U>>() else {
@@ -75,10 +78,11 @@ where
     Self {
       inner,
       _marker: PhantomData,
+      supervisor,
     }
   }
 
-  pub(crate) fn into_inner(self) -> InternalProps<DynMessage, R> {
-    self.inner
+  pub(crate) fn into_parts(self) -> (InternalProps<DynMessage, R>, SupervisorStrategyConfig) {
+    (self.inner, self.supervisor)
   }
 }
