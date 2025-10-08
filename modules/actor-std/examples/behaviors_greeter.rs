@@ -22,24 +22,26 @@ async fn main() {
   let mut root = system.root_context();
 
   let greeter_props = Props::with_behavior(MailboxOptions::default(), || {
-    Behaviors::setup(|_| {
+    Behaviors::setup(move |ctx| {
       let mut greeted = 0usize;
+      let logger = ctx.log();
+      let actor_id = ctx.actor_id();
 
-      Behaviors::receive(move |ctx, msg: Command| match msg {
+      Behaviors::receive_message(move |msg: Command| match msg {
         Command::Greet(name) => {
           greeted += 1;
-          ctx.log().info(|| format!("received greeting for {name}"));
-          println!("actor {:?} says: Hello, {}!", ctx.actor_id(), name);
+          logger.info(|| format!("received greeting for {name}"));
+          println!("actor {:?} says: Hello, {}!", actor_id, name);
           Behaviors::same()
         }
         Command::Report => {
-          ctx.log().debug(|| format!("reporting {greeted} greetings"));
-          println!("actor {:?} greeted {} people", ctx.actor_id(), greeted);
+          logger.debug(|| format!("reporting {greeted} greetings"));
+          println!("actor {:?} greeted {} people", actor_id, greeted);
           Behaviors::same()
         }
         Command::Stop => {
-          ctx.log().warn(|| format!("stopping after {greeted} greetings"));
-          println!("actor {:?} is stopping after {} greetings", ctx.actor_id(), greeted);
+          logger.warn(|| format!("stopping after {greeted} greetings"));
+          println!("actor {:?} is stopping after {} greetings", actor_id, greeted);
           Behaviors::stopped()
         }
       })

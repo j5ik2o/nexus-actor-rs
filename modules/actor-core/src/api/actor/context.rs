@@ -31,7 +31,7 @@ where
 
 pub type SetupContext<'ctx, U, R> = Context<'ctx, 'ctx, U, R>;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ContextLogLevel {
   Trace,
   Debug,
@@ -40,23 +40,26 @@ pub enum ContextLogLevel {
   Error,
 }
 
-#[derive(Clone, Copy)]
-pub struct ContextLogger<'a> {
+#[derive(Clone)]
+pub struct ContextLogger {
   actor_id: ActorId,
-  actor_path: &'a ActorPath,
+  actor_path: ActorPath,
 }
 
-impl<'a> ContextLogger<'a> {
-  pub(crate) fn new(actor_id: ActorId, actor_path: &'a ActorPath) -> Self {
-    Self { actor_id, actor_path }
+impl ContextLogger {
+  pub(crate) fn new(actor_id: ActorId, actor_path: &ActorPath) -> Self {
+    Self {
+      actor_id,
+      actor_path: actor_path.clone(),
+    }
   }
 
   pub fn actor_id(&self) -> ActorId {
     self.actor_id
   }
 
-  pub fn actor_path(&self) -> &'a ActorPath {
-    self.actor_path
+  pub fn actor_path(&self) -> &ActorPath {
+    &self.actor_path
   }
 
   pub fn trace<F>(&self, message: F)
@@ -176,7 +179,7 @@ where
     self.inner.watchers()
   }
 
-  pub fn log(&self) -> ContextLogger<'_> {
+  pub fn log(&self) -> ContextLogger {
     ContextLogger::new(self.actor_id(), self.actor_path())
   }
 
