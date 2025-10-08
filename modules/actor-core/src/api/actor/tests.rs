@@ -475,3 +475,36 @@ fn test_behaviors_setup_spawns_named_child() {
 
   assert_eq!(child_log.borrow().as_slice(), &["hello world".to_string()]);
 }
+
+#[test]
+fn test_receive_signal_post_stop() {
+  let factory = TestMailboxFactory::unbounded();
+  let mut system: ActorSystem<u32, _, AlwaysRestart> = ActorSystem::new(factory);
+
+  let signals: Rc<RefCell<Vec<&'static str>>> = Rc::new(RefCell::new(Vec::new()));
+  let signals_clone = signals.clone();
+
+  let props = Props::with_behavior(MailboxOptions::default(), move || {
+    Behaviors::receive(|_, msg: u32| {
+      if msg == 0 {
+        Behaviors::stopped()
+      } else {
+        Behaviors::same()
+      }
+    })
+    .receive_signal(move |_, signal| {
+      if let Signal::PostStop = signal {
+        signals_clone.borrow_mut().push("post_stop");
+      }
+      Behaviors::same()
+    })
+  });
+
+  let mut root = system.root_context();
+  let actor_ref = root.spawn(props).expect("spawn actor");
+
+  actor_ref.send_system(SystemMessage::Stop).expect("send stop");
+  block_on(root.dispatch_next()).expect("dispatch stop");
+
+  assert_eq!(signals.borrow().as_slice(), &["post_stop"]);
+}

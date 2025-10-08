@@ -14,7 +14,13 @@ use super::Context;
 
 type ReceiveFn<U, R> = dyn for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, U) -> BehaviorDirective<U, R> + 'static;
 type SystemHandlerFn<U, R> = dyn for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, SystemMessage) + 'static;
+type SignalFn<U, R> = dyn for<'r, 'ctx> Fn(&mut Context<'r, 'ctx, U, R>, Signal) -> BehaviorDirective<U, R> + 'static;
 type SetupFn<U, R> = dyn for<'r, 'ctx> Fn(&mut Context<'r, 'ctx, U, R>) -> Behavior<U, R> + 'static;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Signal {
+  PostStop,
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum SupervisorStrategyConfig {
@@ -130,6 +136,7 @@ where
   R::Signal: Clone, {
   handler: Box<ReceiveFn<U, R>>,
   supervisor: SupervisorStrategyConfig,
+  signal_handler: Option<Arc<SignalFn<U, R>>>,
 }
 
 impl<U, R> BehaviorState<U, R>
@@ -140,7 +147,19 @@ where
   R::Signal: Clone,
 {
   fn new(handler: Box<ReceiveFn<U, R>>, supervisor: SupervisorStrategyConfig) -> Self {
-    Self { handler, supervisor }
+    Self {
+      handler,
+      supervisor,
+      signal_handler: None,
+    }
+  }
+
+  fn signal_handler(&self) -> Option<Arc<SignalFn<U, R>>> {
+    self.signal_handler.clone()
+  }
+
+  fn set_signal_handler(&mut self, handler: Arc<SignalFn<U, R>>) {
+    self.signal_handler = Some(handler);
   }
 }
 
@@ -152,7 +171,7 @@ where
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
   R::Signal: Clone, {
   Receive(BehaviorState<U, R>),
-  Setup(Arc<SetupFn<U, R>>),
+  Setup(Arc<SetupFn<U, R>>, Option<Arc<SignalFn<U, R>>>),
   Stopped,
 }
 
@@ -191,14 +210,36 @@ where
   pub fn setup<F>(init: F) -> Self
   where
     F: for<'r, 'ctx> Fn(&mut Context<'r, 'ctx, U, R>) -> Behavior<U, R> + 'static, {
-    Self::Setup(Arc::new(init))
+    Self::Setup(Arc::new(init), None)
   }
 
   pub(crate) fn supervisor_config(&self) -> SupervisorStrategyConfig {
     match self {
       Behavior::Receive(state) => state.supervisor.clone(),
-      Behavior::Setup(_) | Behavior::Stopped => SupervisorStrategyConfig::default(),
+      Behavior::Setup(_, _) | Behavior::Stopped => SupervisorStrategyConfig::default(),
     }
+  }
+
+  pub fn receive_signal<F>(self, handler: F) -> Self
+  where
+    F: for<'r, 'ctx> Fn(&mut Context<'r, 'ctx, U, R>, Signal) -> BehaviorDirective<U, R> + 'static, {
+    let handler = Arc::new(handler) as Arc<SignalFn<U, R>>;
+    self.attach_signal_arc(Some(handler))
+  }
+
+  fn attach_signal_arc(mut self, handler: Option<Arc<SignalFn<U, R>>>) -> Self {
+    if let Some(handler) = handler {
+      match &mut self {
+        Behavior::Receive(state) => {
+          state.set_signal_handler(handler);
+        }
+        Behavior::Setup(_, slot) => {
+          *slot = Some(handler);
+        }
+        Behavior::Stopped => {}
+      }
+    }
+    self
   }
 }
 
@@ -324,22 +365,20 @@ where
         let handler = state.handler.as_mut();
         match handler(ctx, message) {
           BehaviorDirective::Same => {}
-          BehaviorDirective::Become(next) => {
-            self.behavior = next;
-          }
+          BehaviorDirective::Become(next) => self.transition(next, ctx),
         }
       }
       Behavior::Stopped => {
         // ignore further user messages
       }
-      Behavior::Setup(_) => unreachable!(),
+      Behavior::Setup(_, _) => unreachable!(),
     }
   }
 
   pub fn handle_system(&mut self, ctx: &mut Context<'_, '_, U, R>, message: SystemMessage) {
     self.ensure_initialized(ctx);
     if matches!(message, SystemMessage::Stop) {
-      self.behavior = Behavior::stopped();
+      self.transition(Behavior::stopped(), ctx);
     } else if matches!(message, SystemMessage::Restart) {
       self.behavior = (self.behavior_factory)();
       self.ensure_initialized(ctx);
@@ -361,12 +400,39 @@ where
   fn ensure_initialized(&mut self, ctx: &mut Context<'_, '_, U, R>) {
     loop {
       match &self.behavior {
-        Behavior::Setup(init) => {
+        Behavior::Setup(init, signal_slot) => {
           let init = init.clone();
-          self.behavior = init(ctx);
+          let signal = signal_slot.clone();
+          let behavior = init(ctx);
+          self.behavior = behavior.attach_signal_arc(signal);
         }
         _ => break,
       }
+    }
+  }
+
+  fn current_signal_handler(&self) -> Option<Arc<SignalFn<U, R>>> {
+    match &self.behavior {
+      Behavior::Receive(state) => state.signal_handler(),
+      Behavior::Setup(_, handler) => handler.clone(),
+      Behavior::Stopped => None,
+    }
+  }
+
+  fn handle_signal(&mut self, ctx: &mut Context<'_, '_, U, R>, signal: Signal) {
+    if let Some(handler) = self.current_signal_handler() {
+      match handler(ctx, signal) {
+        BehaviorDirective::Same => {}
+        BehaviorDirective::Become(next) => self.transition(next, ctx),
+      }
+    }
+  }
+
+  fn transition(&mut self, next: Behavior<U, R>, ctx: &mut Context<'_, '_, U, R>) {
+    self.behavior = next;
+    self.ensure_initialized(ctx);
+    if matches!(self.behavior, Behavior::Stopped) {
+      self.handle_signal(ctx, Signal::PostStop);
     }
   }
 }
