@@ -49,7 +49,7 @@ mod tests {
   use core::pin::Pin;
   use core::task::{Context, Poll};
   use futures::task::{waker, ArcWake};
-  use nexus_actor_core_rs::{MailboxOptions, TypedActorSystem, TypedProps};
+  use nexus_actor_core_rs::{ActorSystem, MailboxOptions, Props};
   use std::sync::{Arc, Condvar, Mutex};
 
   fn block_on<F: Future>(mut future: F) -> F::Output {
@@ -91,12 +91,12 @@ mod tests {
   #[test]
   fn typed_actor_system_dispatch_next_processes_message() {
     let runtime = LocalMailboxRuntime::default();
-    let mut system: TypedActorSystem<u32, _> = TypedActorSystem::new(runtime);
+    let mut system: ActorSystem<u32, _> = ActorSystem::new(runtime);
 
     let log: Rc<RefCell<Vec<u32>>> = Rc::new(RefCell::new(Vec::new()));
     let log_clone = log.clone();
 
-    let props = TypedProps::new(MailboxOptions::default(), move |_, msg: u32| {
+    let props = Props::new(MailboxOptions::default(), move |_, msg: u32| {
       log_clone.borrow_mut().push(msg);
     });
 

@@ -6,19 +6,24 @@ extern crate alloc;
 // Remote messaging core scaffolding.
 //
 // This crate is a placeholder for future remote messaging logic.
-// Current goal: provide FailureEventHub integration points.
+// Current goal: provide FailureEventStream integration points.
 
-use nexus_actor_core_rs::{FailureEvent, FailureEventHub, FailureEventListener, FailureInfo, FailureMetadata};
+use nexus_actor_core_rs::{FailureEvent, FailureEventListener, FailureEventStream, FailureInfo, FailureMetadata};
 
 #[cfg(feature = "std")]
-pub struct RemoteFailureNotifier {
-  hub: FailureEventHub,
+pub struct RemoteFailureNotifier<E>
+where
+  E: FailureEventStream, {
+  hub: E,
   handler: Option<FailureEventListener>,
 }
 
 #[cfg(feature = "std")]
-impl RemoteFailureNotifier {
-  pub fn new(hub: FailureEventHub) -> Self {
+impl<E> RemoteFailureNotifier<E>
+where
+  E: FailureEventStream,
+{
+  pub fn new(hub: E) -> Self {
     Self { hub, handler: None }
   }
 
@@ -26,7 +31,7 @@ impl RemoteFailureNotifier {
     self.hub.listener()
   }
 
-  pub fn hub(&self) -> &FailureEventHub {
+  pub fn hub(&self) -> &E {
     &self.hub
   }
 

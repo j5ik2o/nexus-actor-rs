@@ -1,19 +1,19 @@
-//! Tokio 上で `TypedActorSystem::run_until` を起動する最小サンプル。
+//! Tokio 上で `ActorSystem::run_until` を起動する最小サンプル。
 
-use nexus_actor_core_rs::{MailboxOptions, TypedActorSystem, TypedProps};
+use nexus_actor_core_rs::{ActorSystem, MailboxOptions, Props};
 use nexus_actor_std_rs::TokioMailboxRuntime;
 use std::sync::{Arc, Mutex};
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
   let runtime = TokioMailboxRuntime::default();
-  let mut system: TypedActorSystem<u32, _> = TypedActorSystem::new(runtime);
+  let mut system: ActorSystem<u32, _> = ActorSystem::new(runtime);
   let mut root = system.root_context();
 
   let log = Arc::new(Mutex::new(Vec::new()));
   let log_clone = log.clone();
 
-  let props = TypedProps::new(MailboxOptions::default(), move |_, msg: u32| {
+  let props = Props::new(MailboxOptions::default(), move |_, msg: u32| {
     log_clone.lock().unwrap().push(msg);
   });
 

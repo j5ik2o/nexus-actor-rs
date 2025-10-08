@@ -1,10 +1,12 @@
 #[cfg(any(feature = "rt-multi-thread", feature = "rt-current-thread"))]
 pub mod failure_event_bridge;
+mod failure_event_hub;
 mod spawn;
 mod timer;
 mod tokio_mailbox;
 mod tokio_priority_mailbox;
 
+pub use failure_event_hub::{FailureEventHub, FailureEventSubscription};
 pub use nexus_utils_std_rs::{ArcShared, ArcStateCell};
 pub use spawn::TokioSpawner;
 pub use timer::TokioTimer;
@@ -24,7 +26,7 @@ mod tests {
   use super::*;
   use core::time::Duration;
   use nexus_actor_core_rs::MailboxOptions;
-  use nexus_actor_core_rs::{actor_loop, Spawn, StateCell, TypedActorSystem, TypedProps};
+  use nexus_actor_core_rs::{actor_loop, ActorSystem, Props, Spawn, StateCell};
   use std::sync::{Arc, Mutex};
 
   #[tokio::test(flavor = "current_thread")]
@@ -56,12 +58,12 @@ mod tests {
   #[tokio::test(flavor = "current_thread")]
   async fn typed_actor_system_handles_user_messages() {
     let runtime = TokioMailboxRuntime::default();
-    let mut system: TypedActorSystem<u32, _> = TypedActorSystem::new(runtime);
+    let mut system: ActorSystem<u32, _> = ActorSystem::new(runtime);
 
     let log: Arc<Mutex<Vec<u32>>> = Arc::new(Mutex::new(Vec::new()));
     let log_clone = log.clone();
 
-    let props = TypedProps::new(MailboxOptions::default(), move |_, msg: u32| {
+    let props = Props::new(MailboxOptions::default(), move |_, msg: u32| {
       log_clone.lock().unwrap().push(msg);
     });
 

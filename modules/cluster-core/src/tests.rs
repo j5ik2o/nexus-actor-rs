@@ -1,7 +1,8 @@
 #[cfg(test)]
 mod tests {
   use crate::ClusterFailureBridge;
-  use nexus_actor_core_rs::{ActorId, ActorPath, FailureEvent, FailureEventHub, FailureInfo};
+  use nexus_actor_core_rs::{ActorId, ActorPath, FailureEvent, FailureEventStream, FailureInfo};
+  use nexus_actor_std_rs::FailureEventHub;
   use nexus_remote_core_rs::RemoteFailureNotifier;
   use std::sync::{Arc, Mutex};
 

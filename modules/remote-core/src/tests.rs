@@ -1,7 +1,8 @@
 #[cfg(test)]
 mod tests {
   use crate::{placeholder_metadata, RemoteFailureNotifier};
-  use nexus_actor_core_rs::{ActorId, ActorPath, FailureEvent, FailureEventHub, FailureInfo};
+  use nexus_actor_core_rs::{ActorId, ActorPath, FailureEvent, FailureEventStream, FailureInfo};
+  use nexus_actor_std_rs::FailureEventHub;
   use std::sync::{Arc, Mutex};
 
   #[test]
