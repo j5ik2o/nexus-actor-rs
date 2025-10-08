@@ -4,7 +4,7 @@ use alloc::rc::Rc;
 use core::cell::RefCell;
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::signal::Signal;
-use nexus_utils_core_rs::concurrent::{BoxFuture, WaitGroup as CoreWaitGroup, WaitGroupBackend};
+use nexus_utils_core_rs::{BoxFuture, WaitGroup as CoreWaitGroup, WaitGroupBackend};
 
 #[derive(Clone)]
 pub struct RcWaitGroupBackend {

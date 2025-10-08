@@ -39,7 +39,7 @@ pub use mailbox::{
   Mailbox, MailboxOptions, MailboxPair, MailboxRuntime, MailboxSignal, PriorityEnvelope, QueueMailbox,
   QueueMailboxProducer, QueueMailboxRecv,
 };
-pub use nexus_utils_core_rs::sync::{Shared, StateCell};
+pub use nexus_utils_core_rs::{Shared, StateCell};
 pub use scheduler::PriorityScheduler;
 pub use spawn::Spawn;
 pub use supervisor::{NoopSupervisor, Supervisor, SupervisorDirective};
@@ -78,10 +78,7 @@ mod tests {
   use core::pin::Pin;
   use core::ptr;
   use core::task::{Context, Poll, RawWaker, RawWakerVTable, Waker};
-  use nexus_utils_core_rs::collections::queue::mpsc::MpscHandle;
-  use nexus_utils_core_rs::collections::queue::mpsc::{MpscBuffer, MpscQueue, RingBufferBackend};
-  use nexus_utils_core_rs::sync::Shared;
-  use nexus_utils_core_rs::QueueError;
+  use nexus_utils_core_rs::{MpscBuffer, MpscHandle, MpscQueue, QueueError, RingBufferBackend, Shared, StateCell};
 
   struct TestStateCell<T>(Rc<RefCell<T>>);
 

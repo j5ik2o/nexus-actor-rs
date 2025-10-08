@@ -4,7 +4,7 @@ use nexus_actor_core_rs::{
   Mailbox, MailboxOptions, MailboxPair, MailboxRuntime, MailboxSignal, QueueMailbox, QueueMailboxProducer,
   QueueMailboxRecv,
 };
-use nexus_utils_std_rs::collections::queue::mpsc::{ArcMpscBoundedQueue, ArcMpscUnboundedQueue};
+use nexus_utils_std_rs::{ArcMpscBoundedQueue, ArcMpscUnboundedQueue};
 use nexus_utils_std_rs::{Element, QueueBase, QueueError, QueueRw, QueueSize};
 use tokio::sync::{futures::Notified, Notify};
 

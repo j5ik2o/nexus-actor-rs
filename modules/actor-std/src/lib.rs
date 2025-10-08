@@ -5,7 +5,7 @@ mod timer;
 mod tokio_mailbox;
 mod tokio_priority_mailbox;
 
-pub use nexus_utils_std_rs::sync::{ArcShared, ArcStateCell};
+pub use nexus_utils_std_rs::{ArcShared, ArcStateCell};
 pub use spawn::TokioSpawner;
 pub use timer::TokioTimer;
 pub use tokio_mailbox::{TokioMailbox, TokioMailboxRuntime, TokioMailboxSender};

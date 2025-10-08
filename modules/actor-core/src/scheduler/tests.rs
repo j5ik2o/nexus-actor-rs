@@ -7,9 +7,9 @@ use crate::guardian::{AlwaysRestart, GuardianStrategy};
 use crate::mailbox::test_support::TestMailboxRuntime;
 use crate::mailbox::{MailboxOptions, SystemMessage};
 use crate::supervisor::NoopSupervisor;
-use crate::{MailboxRuntime, PriorityEnvelope};
 #[cfg(feature = "std")]
 use crate::SupervisorDirective;
+use crate::{MailboxRuntime, PriorityEnvelope};
 use alloc::rc::Rc;
 use alloc::sync::Arc;
 use alloc::vec;

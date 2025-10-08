@@ -6,7 +6,7 @@ use alloc::sync::Arc;
 use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, RawMutex};
 use embassy_sync::mutex::{Mutex, MutexGuard};
 use embassy_sync::rwlock::{RwLock, RwLockReadGuard, RwLockWriteGuard};
-use nexus_utils_core_rs::concurrent::{
+use nexus_utils_core_rs::{
   BoxFuture, Synchronized as CoreSynchronized, SynchronizedMutexBackend, SynchronizedRw as CoreSynchronizedRw,
   SynchronizedRwBackend,
 };

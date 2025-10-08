@@ -1,10 +1,10 @@
-mod traits;
 mod messages;
 mod queue_mailbox;
+mod traits;
 
-pub use traits::{Mailbox, MailboxPair, MailboxRuntime, MailboxSignal};
 pub use messages::{PriorityChannel, PriorityEnvelope, SystemMessage};
 pub use queue_mailbox::{MailboxOptions, QueueMailbox, QueueMailboxProducer, QueueMailboxRecv};
+pub use traits::{Mailbox, MailboxPair, MailboxRuntime, MailboxSignal};
 
 #[cfg(test)]
 mod tests;

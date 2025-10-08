@@ -3,7 +3,7 @@ use core::marker::PhantomData;
 use core::pin::Pin;
 use core::task::{Context, Poll};
 
-use nexus_utils_core_rs::sync::Flag;
+use nexus_utils_core_rs::Flag;
 use nexus_utils_core_rs::{Element, QueueError, QueueRw, QueueSize};
 
 use super::traits::{Mailbox, MailboxSignal};

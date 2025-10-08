@@ -2,10 +2,10 @@ use alloc::rc::Rc;
 use core::cell::{Ref, RefCell, RefMut};
 use core::ops::Deref;
 
-use nexus_utils_core_rs::sync::{Shared, StateCell};
 use nexus_utils_core_rs::{
   MpscBackend, MpscHandle, QueueHandle, QueueStorage, RingBackend, RingHandle, StackBackend, StackHandle,
 };
+use nexus_utils_core_rs::{Shared, StateCell};
 
 #[derive(Debug)]
 pub struct RcShared<T>(Rc<T>);

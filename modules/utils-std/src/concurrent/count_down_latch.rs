@@ -1,7 +1,7 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
-use nexus_utils_core_rs::concurrent::{BoxFuture, CountDownLatch as CoreCountDownLatch, CountDownLatchBackend};
+use nexus_utils_core_rs::{BoxFuture, CountDownLatch as CoreCountDownLatch, CountDownLatchBackend};
 use tokio::sync::Notify;
 
 #[derive(Clone)]

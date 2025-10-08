@@ -1,4 +1,4 @@
-use super::{
+use crate::collections::{
   element::Element,
   queue::{QueueBase, QueueError, QueueReader, QueueRw, QueueSize, QueueWriter},
 };
@@ -168,7 +168,7 @@ where
 #[cfg(test)]
 mod tests {
   extern crate alloc;
-  use crate::collections::priority::Vec;
+  use crate::collections::queue::priority::Vec;
   use alloc::rc::Rc;
   use core::cell::RefCell;
 

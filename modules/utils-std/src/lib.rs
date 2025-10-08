@@ -1,6 +1,6 @@
-pub mod collections;
-pub mod concurrent;
-pub mod sync;
+pub(crate) mod collections;
+pub(crate) mod concurrent;
+pub(crate) mod sync;
 
 pub use nexus_utils_core_rs::{
   Element, MpscHandle, PriorityMessage, QueueBase, QueueError, QueueHandle, QueueReader, QueueRw, QueueRwHandle,

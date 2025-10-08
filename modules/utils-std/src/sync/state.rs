@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex, MutexGuard};
 
-use nexus_utils_core_rs::sync::StateCell;
+use nexus_utils_core_rs::StateCell;
 
 #[derive(Debug)]
 pub struct ArcStateCell<T>(Arc<Mutex<T>>);

@@ -6,7 +6,7 @@ use alloc::sync::Arc;
 use core::sync::atomic::{AtomicUsize, Ordering};
 use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, RawMutex};
 use embassy_sync::signal::Signal;
-use nexus_utils_core_rs::concurrent::{BoxFuture, WaitGroup as CoreWaitGroup, WaitGroupBackend};
+use nexus_utils_core_rs::{BoxFuture, WaitGroup as CoreWaitGroup, WaitGroupBackend};
 
 pub struct ArcWaitGroupBackend<RM>
 where

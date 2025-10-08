@@ -1,6 +1,5 @@
 use nexus_utils_core_rs::{
-    PriorityMessage, QueueBase, QueueError, QueueReader, QueueRw, QueueSize, QueueWriter, PriorityQueue,
-    PRIORITY_LEVELS,
+  PriorityMessage, PriorityQueue, QueueBase, QueueError, QueueReader, QueueRw, QueueSize, QueueWriter, PRIORITY_LEVELS,
 };
 
 use crate::RcRingQueue;

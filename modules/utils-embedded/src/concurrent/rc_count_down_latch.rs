@@ -4,7 +4,7 @@ use alloc::rc::Rc;
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::mutex::Mutex;
 use embassy_sync::signal::Signal;
-use nexus_utils_core_rs::concurrent::{BoxFuture, CountDownLatch as CoreCountDownLatch, CountDownLatchBackend};
+use nexus_utils_core_rs::{BoxFuture, CountDownLatch as CoreCountDownLatch, CountDownLatchBackend};
 
 #[derive(Clone)]
 pub struct RcCountDownLatchBackend {

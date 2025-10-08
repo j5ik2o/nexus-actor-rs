@@ -2,16 +2,16 @@
 
 extern crate alloc;
 
-pub mod collections;
-pub mod concurrent;
-pub mod sync;
+pub(crate) mod collections;
+pub(crate) mod concurrent;
+pub(crate) mod sync;
 
 pub use collections::{
-  Element, MpscBackend, MpscBuffer, MpscHandle, MpscQueue, PriorityMessage, QueueBase, QueueError, QueueHandle,
-  QueueReader, QueueRw, QueueRwHandle, QueueSize, QueueStorage, QueueWriter, RingBackend, RingBuffer,
-  RingBufferBackend, RingBufferStorage, RingHandle, RingQueue, RingStorageBackend, PriorityQueue, Stack,
-  StackBackend, StackBase, StackBuffer, StackError, StackHandle, StackMut, StackStorage, StackStorageBackend,
-  DEFAULT_CAPACITY, DEFAULT_PRIORITY, PRIORITY_LEVELS,
+  Element, MpscBackend, MpscBuffer, MpscHandle, MpscQueue, PriorityMessage, PriorityQueue, QueueBase, QueueError,
+  QueueHandle, QueueReader, QueueRw, QueueRwHandle, QueueSize, QueueStorage, QueueWriter, RingBackend, RingBuffer,
+  RingBufferBackend, RingBufferStorage, RingHandle, RingQueue, RingStorageBackend, Stack, StackBackend, StackBase,
+  StackBuffer, StackError, StackHandle, StackMut, StackStorage, StackStorageBackend, DEFAULT_CAPACITY,
+  DEFAULT_PRIORITY, PRIORITY_LEVELS,
 };
 pub use concurrent::{
   AsyncBarrier, AsyncBarrierBackend, BoxFuture, CountDownLatch, CountDownLatchBackend, GuardHandle, Synchronized,

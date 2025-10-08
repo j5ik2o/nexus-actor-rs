@@ -2,11 +2,11 @@ use alloc::sync::Arc;
 
 use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex, RawMutex};
 use embassy_sync::mutex::{Mutex, MutexGuard};
-use nexus_utils_core_rs::sync::{Shared, StateCell};
 use nexus_utils_core_rs::{
   MpscBackend, MpscBuffer, MpscHandle, QueueHandle, QueueStorage, RingBackend, RingBuffer, RingBufferStorage,
   RingHandle, StackBackend, StackHandle,
 };
+use nexus_utils_core_rs::{Shared, StateCell};
 
 pub struct ArcShared<T: ?Sized>(Arc<T>);
 
