@@ -108,6 +108,20 @@ pub struct QueueMailboxProducer<Q, S> {
   closed: Flag,
 }
 
+unsafe impl<Q, S> Send for QueueMailboxProducer<Q, S>
+where
+  Q: Send + Sync,
+  S: Send + Sync,
+{
+}
+
+unsafe impl<Q, S> Sync for QueueMailboxProducer<Q, S>
+where
+  Q: Send + Sync,
+  S: Send + Sync,
+{
+}
+
 impl<Q, S> QueueMailboxProducer<Q, S> {
   pub fn try_send<M>(&self, message: M) -> Result<(), QueueError<M>>
   where

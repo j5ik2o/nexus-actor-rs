@@ -4,6 +4,7 @@ use alloc::string::String;
 use alloc::sync::Arc;
 use alloc::vec;
 use alloc::vec::Vec;
+use core::any::TypeId;
 #[cfg(feature = "std")]
 use core::fmt;
 use core::marker::PhantomData;
@@ -13,6 +14,7 @@ use std::panic::{catch_unwind, AssertUnwindSafe};
 
 use crate::runtime::context::{ActorContext, ActorHandlerFn, ChildSpawnSpec, InternalActorRef, MapSystemFn};
 use crate::runtime::guardian::{Guardian, GuardianStrategy};
+use crate::runtime::message::DynMessage;
 use crate::ActorId;
 use crate::ActorPath;
 use crate::FailureInfo;
@@ -39,6 +41,7 @@ where
   supervisor: Box<dyn Supervisor<M>>,
   handler: Box<ActorHandlerFn<M, R>>,
   _strategy: PhantomData<Strat>,
+  stopped: bool,
 }
 
 impl<M, R, Strat> ActorCell<M, R, Strat>
@@ -72,6 +75,7 @@ where
       supervisor,
       handler,
       _strategy: PhantomData,
+      stopped: false,
     }
   }
 
@@ -107,6 +111,9 @@ where
     new_children: &mut Vec<ActorCell<M, R, Strat>>,
     escalations: &mut Vec<FailureInfo>,
   ) -> Result<usize, QueueError<PriorityEnvelope<M>>> {
+    if self.stopped {
+      return Ok(0);
+    }
     let envelopes = self.collect_envelopes()?;
     if envelopes.is_empty() {
       return Ok(0);
@@ -120,6 +127,9 @@ where
     new_children: &mut Vec<ActorCell<M, R, Strat>>,
     escalations: &mut Vec<FailureInfo>,
   ) -> Result<usize, QueueError<PriorityEnvelope<M>>> {
+    if self.stopped {
+      return Ok(0);
+    }
     let first = match self.mailbox.recv().await {
       Ok(message) => message,
       Err(QueueError::Disconnected) => return Ok(0),
@@ -144,6 +154,12 @@ where
     new_children: &mut Vec<ActorCell<M, R, Strat>>,
     escalations: &mut Vec<FailureInfo>,
   ) -> Result<(), QueueError<PriorityEnvelope<M>>> {
+    if self.stopped {
+      return Ok(());
+    }
+
+    let should_stop =
+      matches!(envelope.system_message(), Some(SystemMessage::Stop)) && Self::should_mark_stop_for_message();
     if let Some(SystemMessage::Escalate(failure)) = envelope.system_message().cloned() {
       if let Some(next_failure) = guardian.escalate_failure(failure)? {
         escalations.push(next_failure);
@@ -166,9 +182,11 @@ where
         self.actor_id,
         &mut self.watchers,
       );
+      ctx.clear_metadata();
       ctx.enter_priority(priority);
       (self.handler)(&mut ctx, message);
       ctx.exit_priority();
+      ctx.clear_metadata();
     }));
 
     #[cfg(not(feature = "std"))]
@@ -183,12 +201,17 @@ where
         self.actor_id,
         &mut self.watchers,
       );
+      ctx.clear_metadata();
       ctx.enter_priority(priority);
       (self.handler)(&mut ctx, message);
       ctx.exit_priority();
+      ctx.clear_metadata();
       self.supervisor.after_handle();
       for spec in pending_specs.into_iter() {
         self.register_child_from_spec(spec, guardian, new_children)?;
+      }
+      if should_stop {
+        self.mark_stopped(guardian);
       }
       Ok(())
     }
@@ -202,6 +225,9 @@ where
           for spec in pending_specs.into_iter() {
             self.register_child_from_spec(spec, guardian, new_children)?;
           }
+          if should_stop {
+            self.mark_stopped(guardian);
+          }
           Ok(())
         }
         Err(payload) => {
@@ -213,6 +239,25 @@ where
         }
       }
     }
+  }
+
+  pub(crate) fn is_stopped(&self) -> bool {
+    self.stopped
+  }
+
+  fn mark_stopped(&mut self, guardian: &mut Guardian<M, R, Strat>) {
+    if self.stopped {
+      return;
+    }
+
+    self.stopped = true;
+    self.mailbox.close();
+    let _ = guardian.remove_child(self.actor_id);
+    self.watchers.clear();
+  }
+
+  fn should_mark_stop_for_message() -> bool {
+    TypeId::of::<M>() == TypeId::of::<DynMessage>()
   }
 
   fn register_child_from_spec(

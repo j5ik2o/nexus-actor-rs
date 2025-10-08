@@ -74,16 +74,15 @@ where
   R::Signal: Clone,
   Strat: GuardianStrategy<M, R>,
 {
-  pub fn spawn_actor<F, Sup>(
+  pub fn spawn_actor<F>(
     &mut self,
-    supervisor: Sup,
+    supervisor: Box<dyn Supervisor<M>>,
     options: MailboxOptions,
     map_system: Arc<MapSystemFn<M>>,
     handler: F,
   ) -> Result<InternalActorRef<M, R>, QueueError<PriorityEnvelope<M>>>
   where
-    F: for<'ctx> FnMut(&mut ActorContext<'ctx, M, R, dyn Supervisor<M>>, M) + 'static,
-    Sup: Supervisor<M>, {
+    F: for<'ctx> FnMut(&mut ActorContext<'ctx, M, R, dyn Supervisor<M>>, M) + 'static, {
     let (mailbox, sender) = self.runtime.build_mailbox::<PriorityEnvelope<M>>(options);
     let actor_sender = sender.clone();
     let handler_box: Box<ActorHandlerFn<M, R>> = Box::new(handler);
@@ -103,7 +102,7 @@ where
       self.runtime.clone(),
       mailbox,
       sender,
-      Box::new(supervisor),
+      supervisor,
       handler_box,
     );
     self.actors.push(cell);
@@ -291,7 +290,8 @@ where
     }
 
     let handled = self.handle_escalations()?;
-    Ok(processed_any || handled)
+    let removed = self.prune_stopped();
+    Ok(processed_any || handled || removed)
   }
 
   fn forward_to_local_parent(&self, info: &FailureInfo) -> bool {
@@ -310,5 +310,11 @@ where
     }
 
     false
+  }
+
+  fn prune_stopped(&mut self) -> bool {
+    let before = self.actors.len();
+    self.actors.retain(|cell| !cell.is_stopped());
+    before != self.actors.len()
   }
 }

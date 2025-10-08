@@ -57,7 +57,7 @@ fn scheduler_delivers_watch_before_user_messages() {
 
   let _actor_ref = scheduler
     .spawn_actor(
-      NoopSupervisor,
+      Box::new(NoopSupervisor),
       MailboxOptions::default(),
       Arc::new(Message::System),
       move |_, msg: Message| {
@@ -85,7 +85,7 @@ fn actor_context_exposes_parent_watcher() {
 
   let actor_ref = scheduler
     .spawn_actor(
-      NoopSupervisor,
+      Box::new(NoopSupervisor),
       MailboxOptions::default(),
       Arc::new(Message::System),
       move |ctx, msg: Message| {
@@ -124,7 +124,7 @@ fn scheduler_dispatches_high_priority_first() {
 
   let actor_ref = scheduler
     .spawn_actor(
-      NoopSupervisor,
+      Box::new(NoopSupervisor),
       MailboxOptions::default(),
       Arc::new(Message::System),
       move |ctx, msg: Message| match msg {
@@ -174,7 +174,7 @@ fn scheduler_prioritizes_system_messages() {
 
   let actor_ref = scheduler
     .spawn_actor(
-      NoopSupervisor,
+      Box::new(NoopSupervisor),
       MailboxOptions::default(),
       Arc::new(Message::System),
       move |_, msg: Message| {
@@ -213,7 +213,7 @@ fn priority_actor_ref_sends_system_messages() {
 
   let actor_ref = scheduler
     .spawn_actor(
-      NoopSupervisor,
+      Box::new(NoopSupervisor),
       MailboxOptions::default(),
       Arc::new(|sys| sys),
       move |_, msg: SystemMessage| {
@@ -244,7 +244,7 @@ fn scheduler_notifies_guardian_and_restarts_on_panic() {
 
   let actor_ref = scheduler
     .spawn_actor(
-      NoopSupervisor,
+      Box::new(NoopSupervisor),
       MailboxOptions::default(),
       Arc::new(Message::System),
       move |_, msg: Message| {
@@ -288,7 +288,7 @@ fn scheduler_run_until_processes_messages() {
 
   let actor_ref = scheduler
     .spawn_actor(
-      NoopSupervisor,
+      Box::new(NoopSupervisor),
       MailboxOptions::default(),
       Arc::new(Message::System),
       move |_, msg: Message| match msg {
@@ -324,7 +324,7 @@ fn scheduler_blocking_dispatch_loop_stops_with_closure() {
 
   let actor_ref = scheduler
     .spawn_actor(
-      NoopSupervisor,
+      Box::new(NoopSupervisor),
       MailboxOptions::default(),
       Arc::new(Message::System),
       move |_, msg: Message| match msg {
@@ -369,7 +369,7 @@ fn scheduler_records_escalations() {
 
   let actor_ref = scheduler
     .spawn_actor(
-      NoopSupervisor,
+      Box::new(NoopSupervisor),
       MailboxOptions::default(),
       Arc::new(Message::System),
       move |_, msg: Message| match msg {
@@ -414,7 +414,7 @@ fn scheduler_escalation_handler_delivers_to_parent() {
 
   let actor_ref = scheduler
     .spawn_actor(
-      NoopSupervisor,
+      Box::new(NoopSupervisor),
       MailboxOptions::default(),
       Arc::new(Message::System),
       move |_, msg: Message| match msg {
@@ -467,7 +467,7 @@ fn scheduler_escalation_chain_reaches_root() {
 
   let parent_ref = scheduler
     .spawn_actor(
-      NoopSupervisor,
+      Box::new(NoopSupervisor),
       MailboxOptions::default(),
       Arc::new(Message::System),
       move |ctx, msg: Message| match msg {
@@ -580,7 +580,7 @@ fn scheduler_root_escalation_handler_invoked() {
 
   let actor_ref = scheduler
     .spawn_actor(
-      NoopSupervisor,
+      Box::new(NoopSupervisor),
       MailboxOptions::default(),
       Arc::new(Message::System),
       move |_, msg: Message| match msg {
@@ -636,7 +636,7 @@ fn scheduler_requeues_failed_custom_escalation() {
 
   let actor_ref = scheduler
     .spawn_actor(
-      NoopSupervisor,
+      Box::new(NoopSupervisor),
       MailboxOptions::default(),
       Arc::new(Message::System),
       move |_, msg: Message| match msg {
@@ -695,7 +695,7 @@ fn scheduler_root_event_listener_broadcasts() {
 
   let actor_ref = scheduler
     .spawn_actor(
-      NoopSupervisor,
+      Box::new(NoopSupervisor),
       MailboxOptions::default(),
       Arc::new(Message::System),
       move |_, msg: Message| match msg {

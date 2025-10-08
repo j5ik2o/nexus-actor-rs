@@ -33,11 +33,9 @@
 
 ### 追加課題（MUST → SHOULD の順）
 1. **RwLock 代替**: Embassy には RwLock が無いため、`AsyncRwLock` の内部実装を mutex + reader カウンタで代替するか、actor-core 側の読み書き要求を再設計する選択肢を比較する。
-2. **Spawner 抽象**: `CoreScheduler` だけでは executor 起動が隠蔽できないため、`CoreSpawn`（仮称）トレイトを追加し、Tokio/Embassy 双方でタスク起動を統一する。
-3. **Feature 設計**: `actor-embedded`（仮）クレートを追加し、`embassy-time`・`embassy-sync`・`embassy-executor` をオプション依存に設定。CI で `--no-default-features --features alloc,embedded` のビルドを検証する。
-4. **ロギング方針**: actor-core にはロギング抽象が無いため、`tracing` / `defmt` などを注入するための Hook を定義し、std/embedded での実装方法をガイドとして整理する。
+2. **Feature 設計**: `actor-embedded`（仮）クレートを追加し、`embassy-time`・`embassy-sync`・`embassy-executor` をオプション依存に設定。CI で `--no-default-features --features alloc,embedded` のビルドを検証する。
+3. **ロギング方針**: actor-core にはロギング抽象が無いため、`tracing` / `defmt` などを注入するための Hook を定義し、std/embedded での実装方法をガイドとして整理する。
 
 ### 次アクション（2025-10 スプリント）
 1. 抽象一覧と Embassy 写像の検証結果を `actor-embedded` 設計メモ（新規）へ落とし込み、RwLock 代替案の PoC 方針を決定する。
 2. `actor-embedded` クレートの Cargo 雛形と feature 設計ドラフトを作成し、CoreRuntimeConfig に組み込むための API 変更案を提示する。
-3. `actor-core` の公開 API への `CoreSpawn` 追加可否を検討し、必要に応じて RFC を起票する。

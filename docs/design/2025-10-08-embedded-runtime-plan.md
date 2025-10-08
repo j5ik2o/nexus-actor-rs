@@ -13,7 +13,7 @@
 | スポーナー | `TokioSpawner` | `ImmediateSpawner` (`spawn` は同期実行) |
 | タイマー | `TokioTimer` | `ImmediateTimer` (即時完了) |
 | メールボックス | `TokioMailbox*` | `LocalMailbox` / `ArcMailbox` |
-| 高レベル API | `ActorSystemRunner` + `TokioSystemHandle` | `ActorSystemRunner` / `run_until_idle()` |
+| 高レベル API | `ActorSystemRunner` + `TokioSystemHandle` | `ActorSystemRunner` / `run_until_idle()` + `Behaviors` DSL |
 | Deprecated ラッパ | なし（`TokioActorRuntime` は撤去済み） | なし（`EmbeddedActorRuntime` は撤去済み） |
 
 - すべての利用コードを `ActorSystem` + `ShutdownToken` + SystemHandle で統一済み。旧ラッパは 2025-10-08 のクリーンアップで削除済み。
@@ -23,7 +23,7 @@
 ## 提案アーキテクチャ
 
 1. **ActorSystemRunner + SystemHandle** を中核に据える。
-   - `ActorSystem::from_runtime_components` で `ActorSystem` を構築し、`into_runner()` で常駐用ランナーを取得する。
+   - `ActorSystem::from_parts` で `ActorSystem` を構築し、`Behaviors` DSL（`supervise`, `message_adapter` など）でアクターを定義してから `into_runner()` で常駐用ランナーを取得する。
    - std 向けには `TokioSystemHandle::start_local(runner)` を提供し、`tokio::task::spawn_local` により scheduler を常駐させる。`ShutdownToken` は `ctrl_c` 監視経由でトリガーする。
    - embedded 向けには runner を直接扱い、アプリ側メインループが `run_until_idle()` + `shutdown_token()` を組み合わせて制御する。
 
@@ -93,13 +93,13 @@ where
 
   fn event_stream(&self) -> &Self::EventStream;
   fn spawn_actor(&mut self, props: Props<U, Self::Runtime>)
-    -> Result<ActorRef<U, Self::Runtime>, QueueError<PriorityEnvelope<MessageEnvelope<U>>>>;
+    -> Result<ActorRef<U, Self::Runtime>, QueueError<PriorityEnvelope<RuntimeMessage>>>;
   fn dispatch_next(
     &mut self,
-  ) -> impl Future<Output = Result<(), QueueError<PriorityEnvelope<MessageEnvelope<U>>>>> + Send;
+  ) -> impl Future<Output = Result<(), QueueError<PriorityEnvelope<RuntimeMessage>>>> + Send;
   fn pump(&mut self) -> DriverState;
 
-  fn run_until_idle(&mut self) -> impl Future<Output = Result<(), QueueError<PriorityEnvelope<MessageEnvelope<U>>>>> + Send
+  fn run_until_idle(&mut self) -> impl Future<Output = Result<(), QueueError<PriorityEnvelope<RuntimeMessage>>>> + Send
   where
     Self: Sized,
   {
