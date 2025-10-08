@@ -1,10 +1,9 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
-use crate::runtime::supervision::FailureEventListener;
-use crate::FailureEvent;
+use nexus_actor_core_rs::{FailureEvent, FailureEventListener, FailureEventStream};
 
-/// ルート EscalationSink からの FailureEvent を複数購読者へ配信するヘルパ。
+/// std 向けの FailureEventStream 実装。
 #[derive(Clone, Default)]
 pub struct FailureEventHub {
   inner: Arc<FailureEventHubInner>,
@@ -29,22 +28,32 @@ impl FailureEventHub {
     Self::default()
   }
 
-  /// EscalationSink へ渡す FailureEventListener を生成する。
-  pub fn listener(&self) -> FailureEventListener {
-    let inner = self.inner.clone();
-    Arc::new(move |event: FailureEvent| {
-      let snapshot: Vec<FailureEventListener> = {
-        let guard = inner.listeners.lock().unwrap();
-        guard.iter().map(|(_, l)| Arc::clone(l)).collect()
-      };
-      for listener in snapshot.into_iter() {
-        listener(event.clone());
-      }
-    })
+  fn notify_listeners(&self, event: FailureEvent) {
+    let snapshot: Vec<FailureEventListener> = {
+      let guard = self.inner.listeners.lock().unwrap();
+      guard.iter().map(|(_, listener)| listener.clone()).collect()
+    };
+    for listener in snapshot.into_iter() {
+      listener(event.clone());
+    }
   }
 
-  /// 新しい購読者を登録し、ドロップ時に自動解除される Subscription を返す。
-  pub fn subscribe(&self, listener: FailureEventListener) -> FailureEventSubscription {
+  #[cfg(test)]
+  pub(crate) fn listener_count(&self) -> usize {
+    let guard = self.inner.listeners.lock().unwrap();
+    guard.len()
+  }
+}
+
+impl FailureEventStream for FailureEventHub {
+  type Subscription = FailureEventSubscription;
+
+  fn listener(&self) -> FailureEventListener {
+    let inner = self.clone();
+    Arc::new(move |event: FailureEvent| inner.notify_listeners(event))
+  }
+
+  fn subscribe(&self, listener: FailureEventListener) -> Self::Subscription {
     let id = self.inner.next_id.fetch_add(1, Ordering::Relaxed);
     {
       let mut guard = self.inner.listeners.lock().unwrap();
@@ -55,11 +64,6 @@ impl FailureEventHub {
       inner: self.inner.clone(),
       id,
     }
-  }
-
-  pub fn listener_count(&self) -> usize {
-    let guard = self.inner.listeners.lock().unwrap();
-    guard.len()
   }
 }
 
@@ -81,24 +85,24 @@ impl Drop for FailureEventSubscription {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::ActorId;
-  use crate::{FailureInfo, FailureMetadata};
+  use nexus_actor_core_rs::{ActorId, ActorPath, FailureEvent, FailureEventListener, FailureInfo, FailureMetadata};
+  use std::sync::Arc as StdArc;
   use std::sync::Mutex as StdMutex;
 
   #[test]
   fn hub_forwards_events_to_subscribers() {
     let hub = FailureEventHub::new();
-    let storage = Arc::new(StdMutex::new(Vec::new()));
+    let storage: StdArc<StdMutex<Vec<FailureEvent>>> = StdArc::new(StdMutex::new(Vec::new()));
     let storage_clone = storage.clone();
 
-    let _sub = hub.subscribe(Arc::new(move |event: FailureEvent| {
+    let _sub = hub.subscribe(StdArc::new(move |event: FailureEvent| {
       storage_clone.lock().unwrap().push(event);
-    }));
+    }) as FailureEventListener);
 
     let listener = hub.listener();
     let event = FailureEvent::RootEscalated(FailureInfo::new_with_metadata(
       ActorId(1),
-      crate::ActorPath::new(),
+      ActorPath::new(),
       "boom".into(),
       FailureMetadata::default(),
     ));
@@ -109,5 +113,15 @@ mod tests {
     match &events[0] {
       FailureEvent::RootEscalated(info) => assert_eq!(info.reason, "boom"),
     }
+  }
+
+  #[test]
+  fn subscription_drop_removes_listener() {
+    let hub = FailureEventHub::new();
+    assert_eq!(hub.listener_count(), 0);
+    let subscription = hub.subscribe(Arc::new(|_| {}));
+    assert_eq!(hub.listener_count(), 1);
+    drop(subscription);
+    assert_eq!(hub.listener_count(), 0);
   }
 }

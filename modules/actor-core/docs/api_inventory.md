@@ -12,7 +12,7 @@
 | runtime | `Mailbox`, `MailboxRuntime`, `MailboxSignal`, `PriorityEnvelope`, `SystemMessage`, `Spawn`, `Timer` | `modules/actor-core/src/api/runtime.rs`（実体は `runtime/mailbox/*`, `spawn.rs`, `timer.rs`） | std/embedded 両対応の抽象境界 |
 | supervision | `Supervisor`, `SupervisorDirective`, `NoopSupervisor`, `FailureEvent`, `EscalationStage`, `EscalationSink`, `FailureEventHandler`, `FailureEventListener`, `RootEscalationSink` | `modules/actor-core/src/api/supervision/*.rs` | ユーザー拡張ポイントとして公開する監督/失敗ハンドラ |
 | shared | `Shared`, `StateCell` | 外部クレート (`nexus_utils_core_rs`) を `api/shared.rs` で再エクスポート | 共有状態抽象 |
-| platform(std) | `FailureEventHub`, `FailureEventSubscription`, `ActorSystem::blocking_dispatch_*` | `modules/actor-core/src/platform/std/{failure_event_stream.rs, ...}` | `feature = "std"` 限定 API |
+| event_stream | `FailureEventStream` | `modules/actor-core/src/api/event_stream.rs` | 実装は `actor-std` / `actor-embedded` など外部クレート側で提供 |
 
 ## Runtime レイヤ（内部実装・pub(crate)）
 
@@ -29,7 +29,7 @@
 
 | feature | シンボル | 実配置 | 備考 |
 | --- | --- | --- | --- |
-| `std` | `FailureEventHub`, `FailureEventSubscription`, `ActorSystem::blocking_dispatch_*` | `modules/actor-core/src/platform/std/{failure_event_stream.rs, ...}` | std ランタイム限定機能を集約。API からは `cfg(feature="std")` で re-export |
+| `std` | `ActorSystem::blocking_dispatch_*` | `modules/actor-core/src/runtime/system/internal_actor_system.rs` | std ランタイム限定 API。イベントストリーム実装は外部クレートに移設 |
 | `alloc` | なし（共通化済み） | - | 現時点では共通コードで提供 |
 
 ## 公開可否ポリシー指針

@@ -7,9 +7,6 @@ extern crate alloc;
 use core::time::Duration;
 use nexus_utils_core_rs::QueueError;
 
-#[cfg(feature = "std")]
-mod platform;
-
 mod api;
 mod runtime;
 

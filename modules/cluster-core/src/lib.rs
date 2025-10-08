@@ -4,20 +4,25 @@
 extern crate alloc;
 
 // Cluster coordination scaffolding.
-// Provides placeholder API to wire FailureEventHub into future cluster services.
+// Provides placeholder API to wire FailureEventStream into future cluster services.
 
-use nexus_actor_core_rs::{FailureEvent, FailureEventHub, FailureEventListener};
+use nexus_actor_core_rs::{FailureEvent, FailureEventListener, FailureEventStream};
 use nexus_remote_core_rs::RemoteFailureNotifier;
 
 #[cfg(feature = "std")]
-pub struct ClusterFailureBridge {
-  hub: FailureEventHub,
-  remote_notifier: RemoteFailureNotifier,
+pub struct ClusterFailureBridge<E>
+where
+  E: FailureEventStream, {
+  hub: E,
+  remote_notifier: RemoteFailureNotifier<E>,
 }
 
 #[cfg(feature = "std")]
-impl ClusterFailureBridge {
-  pub fn new(hub: FailureEventHub, remote_notifier: RemoteFailureNotifier) -> Self {
+impl<E> ClusterFailureBridge<E>
+where
+  E: FailureEventStream,
+{
+  pub fn new(hub: E, remote_notifier: RemoteFailureNotifier<E>) -> Self {
     Self { hub, remote_notifier }
   }
 
@@ -25,7 +30,7 @@ impl ClusterFailureBridge {
     self.hub.listener()
   }
 
-  pub fn notifier(&self) -> &RemoteFailureNotifier {
+  pub fn notifier(&self) -> &RemoteFailureNotifier<E> {
     &self.remote_notifier
   }
 

@@ -670,13 +670,15 @@ fn scheduler_requeues_failed_custom_escalation() {
 #[cfg(feature = "std")]
 #[test]
 fn scheduler_root_event_listener_broadcasts() {
+  use crate::api::tests::TestFailureEventStream;
+  use crate::FailureEventStream;
   use std::sync::{Arc as StdArc, Mutex};
 
   let runtime = TestMailboxRuntime::unbounded();
   let mut scheduler: PriorityScheduler<Message, _, AlwaysEscalate> =
     PriorityScheduler::with_strategy(runtime, AlwaysEscalate);
 
-  let hub = crate::FailureEventHub::new();
+  let hub = TestFailureEventStream::default();
   let received: StdArc<Mutex<Vec<FailureInfo>>> = StdArc::new(Mutex::new(Vec::new()));
   let received_clone = received.clone();
 

@@ -1,5 +1,4 @@
 pub(crate) mod actor;
-#[cfg(feature = "std")]
 mod event_stream;
 mod guardian;
 pub(crate) mod identity;
@@ -9,7 +8,6 @@ mod shared;
 mod supervision;
 
 pub use actor::*;
-#[cfg(feature = "std")]
 pub use event_stream::*;
 pub use guardian::*;
 pub use identity::*;
