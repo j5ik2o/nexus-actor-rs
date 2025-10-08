@@ -99,6 +99,76 @@ where
   }
 }
 
+/// Adapter bridging Behavior and ActorContext, managing map_system generation.
+pub struct TypedActorAdapter<U, R>
+where
+  U: Element,
+  R: MailboxRuntime + Clone + 'static,
+  R::Queue<PriorityEnvelope<MessageEnvelope<U>>>: Clone,
+  R::Signal: Clone, {
+  behavior: Behavior<U, R>,
+  system_handler: Option<
+    Box<
+      dyn for<'ctx> FnMut(
+          &mut ActorContext<'ctx, MessageEnvelope<U>, R, dyn Supervisor<MessageEnvelope<U>>>,
+          SystemMessage,
+        ) + 'static,
+    >,
+  >,
+}
+
+impl<U, R> TypedActorAdapter<U, R>
+where
+  U: Element,
+  R: MailboxRuntime + Clone + 'static,
+  R::Queue<PriorityEnvelope<MessageEnvelope<U>>>: Clone,
+  R::Signal: Clone,
+{
+  pub fn new<S>(behavior: Behavior<U, R>, system_handler: Option<S>) -> Self
+  where
+    S: for<'ctx> FnMut(&mut ActorContext<'ctx, MessageEnvelope<U>, R, dyn Supervisor<MessageEnvelope<U>>>, SystemMessage)
+      + 'static, {
+    Self {
+      behavior,
+      system_handler: system_handler.map(|h| {
+        Box::new(h)
+          as Box<
+            dyn for<'ctx> FnMut(
+                &mut ActorContext<'ctx, MessageEnvelope<U>, R, dyn Supervisor<MessageEnvelope<U>>>,
+                SystemMessage,
+              ) + 'static,
+          >
+      }),
+    }
+  }
+
+  pub fn handle_user(
+    &mut self,
+    ctx: &mut ActorContext<'_, MessageEnvelope<U>, R, dyn Supervisor<MessageEnvelope<U>>>,
+    message: U,
+  ) {
+    let mut typed_ctx = TypedContext { inner: ctx };
+    (self.behavior.handler)(&mut typed_ctx, message);
+  }
+
+  pub fn handle_system(
+    &mut self,
+    ctx: &mut ActorContext<'_, MessageEnvelope<U>, R, dyn Supervisor<MessageEnvelope<U>>>,
+    message: SystemMessage,
+  ) {
+    if let Some(handler) = self.system_handler.as_mut() {
+      handler(ctx, message);
+    }
+  }
+
+  /// Creates map_system closure for Guardian/Scheduler integration.
+  /// Current implementation wraps SystemMessage in MessageEnvelope::System.
+  /// Future extension point: allow user-defined enum mapping.
+  pub fn create_map_system() -> Arc<dyn Fn(SystemMessage) -> MessageEnvelope<U> + Send + Sync> {
+    Arc::new(|sys: SystemMessage| MessageEnvelope::System(sys))
+  }
+}
+
 pub struct TypedProps<U, R>
 where
   U: Element,
@@ -156,25 +226,23 @@ where
 
   pub fn with_behavior_and_system<S>(
     options: MailboxOptions,
-    mut behavior: Behavior<U, R>,
-    mut system_handler: Option<S>,
+    behavior: Behavior<U, R>,
+    system_handler: Option<S>,
   ) -> Self
   where
     S: for<'ctx> FnMut(&mut ActorContext<'ctx, MessageEnvelope<U>, R, dyn Supervisor<MessageEnvelope<U>>>, SystemMessage)
       + 'static, {
-    let map_system = Arc::new(|sys: SystemMessage| MessageEnvelope::System(sys));
+    let mut adapter = TypedActorAdapter::new(behavior, system_handler);
+    let map_system = TypedActorAdapter::<U, R>::create_map_system();
+
     let handler = move |ctx: &mut ActorContext<'_, MessageEnvelope<U>, R, dyn Supervisor<MessageEnvelope<U>>>,
                         envelope: MessageEnvelope<U>| {
       match envelope {
         MessageEnvelope::User(message) => {
-          // Inline behavior.handle to avoid lifetime issues in closure
-          let mut typed_ctx = TypedContext { inner: ctx };
-          (behavior.handler)(&mut typed_ctx, message);
+          adapter.handle_user(ctx, message);
         }
         MessageEnvelope::System(message) => {
-          if let Some(handler) = system_handler.as_mut() {
-            handler(ctx, message);
-          }
+          adapter.handle_system(ctx, message);
         }
       }
     };
@@ -381,5 +449,151 @@ mod tests {
     block_on(root.dispatch_next()).expect("dispatch");
 
     assert_eq!(log.borrow().as_slice(), &[11]);
+  }
+
+  #[test]
+  fn test_typed_actor_handles_system_stop() {
+    let runtime = TestMailboxRuntime::unbounded();
+    let mut system: TypedActorSystem<u32, _, AlwaysRestart> = TypedActorSystem::new(runtime);
+
+    let stopped: Rc<RefCell<bool>> = Rc::new(RefCell::new(false));
+    let stopped_clone = stopped.clone();
+
+    let system_handler = move |_: &mut ActorContext<'_, MessageEnvelope<u32>, _, _>, sys_msg: SystemMessage| {
+      if matches!(sys_msg, SystemMessage::Stop) {
+        *stopped_clone.borrow_mut() = true;
+      }
+    };
+
+    let props = TypedProps::with_system_handler(
+      MailboxOptions::default(),
+      move |_, _msg: u32| {},
+      Some(system_handler),
+    );
+
+    let mut root = system.root_context();
+    let actor_ref = root.spawn(props).expect("spawn typed actor");
+    actor_ref.send_system(SystemMessage::Stop).expect("send stop");
+    block_on(root.dispatch_next()).expect("dispatch");
+
+    assert!(*stopped.borrow(), "SystemMessage::Stop should be handled");
+  }
+
+  #[test]
+  fn test_typed_actor_handles_watch_unwatch() {
+    let runtime = TestMailboxRuntime::unbounded();
+    let mut system: TypedActorSystem<u32, _, AlwaysRestart> = TypedActorSystem::new(runtime);
+
+    let watchers_count: Rc<RefCell<usize>> = Rc::new(RefCell::new(0));
+    let watchers_count_clone = watchers_count.clone();
+
+    let behavior = Behavior::stateless(move |ctx: &mut TypedContext<'_, '_, u32, _>, _msg: u32| {
+      *watchers_count_clone.borrow_mut() = ctx.watchers().len();
+    });
+
+    let system_handler = Some(
+      |ctx: &mut ActorContext<'_, _, _, _>, sys_msg: SystemMessage| match sys_msg {
+        SystemMessage::Watch(watcher) => {
+          ctx.register_watcher(watcher);
+        }
+        SystemMessage::Unwatch(watcher) => {
+          ctx.unregister_watcher(watcher);
+        }
+        _ => {}
+      },
+    );
+
+    let props = TypedProps::with_behavior_and_system(MailboxOptions::default(), behavior, system_handler);
+
+    let mut root = system.root_context();
+    let actor_ref = root.spawn(props).expect("spawn typed actor");
+
+    // Get initial watcher count (parent is automatically registered)
+    actor_ref.tell(1).expect("tell");
+    block_on(root.dispatch_next()).expect("dispatch initial");
+    let initial_count = *watchers_count.borrow();
+
+    let watcher_id = ActorId(999);
+    actor_ref
+      .send_system(SystemMessage::Watch(watcher_id))
+      .expect("send watch");
+    block_on(root.dispatch_next()).expect("dispatch watch");
+
+    actor_ref.tell(2).expect("tell");
+    block_on(root.dispatch_next()).expect("dispatch user message");
+
+    let after_watch_count = *watchers_count.borrow();
+    assert_eq!(
+      after_watch_count,
+      initial_count + 1,
+      "Watcher count should increase by 1"
+    );
+
+    actor_ref
+      .send_system(SystemMessage::Unwatch(watcher_id))
+      .expect("send unwatch");
+    block_on(root.dispatch_next()).expect("dispatch unwatch");
+
+    actor_ref.tell(3).expect("tell");
+    block_on(root.dispatch_next()).expect("dispatch user message");
+
+    let after_unwatch_count = *watchers_count.borrow();
+    assert_eq!(
+      after_unwatch_count, initial_count,
+      "Watcher count should return to initial"
+    );
+  }
+
+  #[test]
+  fn test_typed_actor_stateful_behavior_with_system_message() {
+    let runtime = TestMailboxRuntime::unbounded();
+    let mut system: TypedActorSystem<u32, _, AlwaysRestart> = TypedActorSystem::new(runtime);
+
+    // Stateful behavior: count user messages and track system messages
+    let count = Rc::new(RefCell::new(0u32));
+    let failures = Rc::new(RefCell::new(0u32));
+
+    let count_clone = count.clone();
+    let behavior = Behavior::stateless(move |_ctx: &mut TypedContext<'_, '_, u32, _>, msg: u32| {
+      *count_clone.borrow_mut() += msg;
+    });
+
+    let failures_clone = failures.clone();
+    let system_handler =
+      move |_ctx: &mut ActorContext<'_, MessageEnvelope<u32>, _, _>, sys_msg: SystemMessage| {
+        if matches!(sys_msg, SystemMessage::Suspend) {
+          *failures_clone.borrow_mut() += 1;
+        }
+      };
+
+    let props = TypedProps::with_behavior_and_system(MailboxOptions::default(), behavior, Some(system_handler));
+
+    let mut root = system.root_context();
+    let actor_ref = root.spawn(props).expect("spawn typed actor");
+
+    // Send user messages
+    actor_ref.tell(10).expect("tell 10");
+    block_on(root.dispatch_next()).expect("dispatch user 1");
+
+    actor_ref.tell(5).expect("tell 5");
+    block_on(root.dispatch_next()).expect("dispatch user 2");
+
+    // Send system message (Suspend doesn't stop the actor)
+    actor_ref
+      .send_system(SystemMessage::Suspend)
+      .expect("send suspend");
+    block_on(root.dispatch_next()).expect("dispatch system");
+
+    // Verify stateful behavior updated correctly
+    assert_eq!(
+      *count.borrow(),
+      15,
+      "State should accumulate user messages"
+    );
+    assert_eq!(
+      *failures.borrow(),
+      1,
+      "State should track system messages"
+    );
   }
 }
