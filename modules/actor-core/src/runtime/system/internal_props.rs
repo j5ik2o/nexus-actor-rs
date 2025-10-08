@@ -2,7 +2,7 @@ use alloc::boxed::Box;
 use alloc::sync::Arc;
 
 use crate::runtime::context::ActorContext;
-use crate::supervisor::Supervisor;
+use crate::Supervisor;
 use crate::SystemMessage;
 use crate::{MailboxOptions, MailboxRuntime, PriorityEnvelope};
 use nexus_utils_core_rs::Element;

@@ -3,9 +3,9 @@ use alloc::sync::Arc;
 
 use crate::api::messaging::MessageEnvelope;
 use crate::runtime::context::ActorContext;
-use crate::supervisor::Supervisor;
 use crate::MailboxRuntime;
 use crate::PriorityEnvelope;
+use crate::Supervisor;
 use crate::SystemMessage;
 use nexus_utils_core_rs::Element;
 

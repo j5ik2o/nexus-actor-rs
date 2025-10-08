@@ -2,12 +2,12 @@ use alloc::collections::BTreeMap;
 use alloc::sync::Arc;
 use core::fmt;
 
-use crate::failure::FailureInfo;
 use crate::runtime::context::InternalActorRef;
-use crate::supervisor::SupervisorDirective;
 use crate::ActorId;
 use crate::ActorPath;
+use crate::FailureInfo;
 use crate::MailboxRuntime;
+use crate::SupervisorDirective;
 use crate::{PriorityEnvelope, SystemMessage};
 use nexus_utils_core_rs::{Element, QueueError};
 

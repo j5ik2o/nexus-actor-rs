@@ -4,9 +4,9 @@ use alloc::vec;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 
-use crate::supervisor::Supervisor;
 use crate::ActorId;
 use crate::ActorPath;
+use crate::Supervisor;
 use crate::SystemMessage;
 use crate::{MailboxOptions, MailboxRuntime, PriorityEnvelope, QueueMailboxProducer};
 use nexus_utils_core_rs::{Element, QueueError, QueueSize};

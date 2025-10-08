@@ -1,8 +1,8 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
-use crate::failure::FailureEvent;
 use crate::runtime::supervision::FailureEventListener;
+use crate::FailureEvent;
 
 /// ルート EscalationSink からの FailureEvent を複数購読者へ配信するヘルパ。
 #[derive(Clone, Default)]
@@ -81,8 +81,8 @@ impl Drop for FailureEventSubscription {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::failure::{FailureInfo, FailureMetadata};
   use crate::ActorId;
+  use crate::{FailureInfo, FailureMetadata};
   use std::sync::Mutex as StdMutex;
 
   #[test]

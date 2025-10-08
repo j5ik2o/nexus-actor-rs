@@ -1,7 +1,7 @@
 use nexus_utils_core_rs::{Element, PriorityMessage, DEFAULT_PRIORITY};
 
-use crate::failure::FailureInfo;
 use crate::ActorId;
+use crate::FailureInfo;
 
 /// 制御メッセージかどうかを区別するチャネル種別。
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

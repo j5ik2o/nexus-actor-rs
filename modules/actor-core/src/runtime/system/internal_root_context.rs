@@ -1,6 +1,6 @@
 use crate::runtime::context::InternalActorRef;
 use crate::runtime::guardian::GuardianStrategy;
-use crate::supervisor::NoopSupervisor;
+use crate::NoopSupervisor;
 use crate::{MailboxRuntime, PriorityEnvelope};
 use nexus_utils_core_rs::{Element, QueueError};
 

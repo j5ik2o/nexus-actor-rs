@@ -1,8 +1,8 @@
 use core::fmt;
 
-use crate::supervisor::SupervisorDirective;
 use crate::ActorId;
 use crate::MailboxRuntime;
+use crate::SupervisorDirective;
 use nexus_utils_core_rs::Element;
 
 /// Supervisor 戦略。protoactor-go の Strategy に相当する。

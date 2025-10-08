@@ -2,9 +2,9 @@ use alloc::boxed::Box;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 
-use crate::supervisor::Supervisor;
 use crate::ActorId;
 use crate::ActorPath;
+use crate::Supervisor;
 use crate::SystemMessage;
 use crate::{MailboxRuntime, PriorityEnvelope, QueueMailbox, QueueMailboxProducer};
 use nexus_utils_core_rs::Element;

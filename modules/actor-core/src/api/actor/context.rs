@@ -1,9 +1,9 @@
 use crate::runtime::context::ActorContext;
-use crate::supervisor::Supervisor;
 use crate::ActorId;
 use crate::ActorPath;
 use crate::MailboxRuntime;
 use crate::PriorityEnvelope;
+use crate::Supervisor;
 use crate::SystemMessage;
 use nexus_utils_core_rs::{Element, QueueError, DEFAULT_PRIORITY};
 

@@ -4,13 +4,13 @@ use alloc::vec;
 use alloc::vec::Vec;
 use core::convert::Infallible;
 
-use crate::failure::FailureInfo;
 use crate::runtime::context::{ActorContext, InternalActorRef};
 use crate::runtime::guardian::{AlwaysRestart, Guardian, GuardianStrategy};
 use crate::runtime::supervision::{CompositeEscalationSink, EscalationSink};
-use crate::supervisor::Supervisor;
 use crate::ActorId;
 use crate::ActorPath;
+use crate::FailureInfo;
+use crate::Supervisor;
 use crate::{MailboxOptions, MailboxRuntime, PriorityEnvelope};
 use crate::{MailboxSignal, SystemMessage};
 use futures::future::select_all;

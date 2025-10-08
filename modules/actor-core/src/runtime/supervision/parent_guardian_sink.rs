@@ -1,7 +1,7 @@
 use alloc::sync::Arc;
 
-use crate::failure::FailureInfo;
 use crate::runtime::context::InternalActorRef;
+use crate::FailureInfo;
 use crate::MailboxRuntime;
 use crate::{PriorityEnvelope, SystemMessage};
 use nexus_utils_core_rs::Element;

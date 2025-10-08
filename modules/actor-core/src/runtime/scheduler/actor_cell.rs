@@ -11,12 +11,12 @@ use core::marker::PhantomData;
 #[cfg(feature = "std")]
 use std::panic::{catch_unwind, AssertUnwindSafe};
 
-use crate::failure::FailureInfo;
 use crate::runtime::context::{ActorContext, ChildSpawnSpec, InternalActorRef};
 use crate::runtime::guardian::{Guardian, GuardianStrategy};
-use crate::supervisor::Supervisor;
 use crate::ActorId;
 use crate::ActorPath;
+use crate::FailureInfo;
+use crate::Supervisor;
 use crate::{Mailbox, SystemMessage};
 use crate::{MailboxRuntime, PriorityEnvelope, QueueMailbox, QueueMailboxProducer};
 use nexus_utils_core_rs::{Element, QueueError, QueueRw};

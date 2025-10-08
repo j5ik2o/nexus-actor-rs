@@ -7,11 +7,6 @@ extern crate alloc;
 use core::time::Duration;
 use nexus_utils_core_rs::QueueError;
 
-mod failure;
-mod spawn;
-mod supervisor;
-mod timer;
-
 #[cfg(feature = "std")]
 mod platform;
 

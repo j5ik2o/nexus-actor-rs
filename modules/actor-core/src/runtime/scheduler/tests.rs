@@ -1,11 +1,11 @@
 #![allow(deprecated, unused_imports)]
 use super::*;
-use crate::failure::FailureInfo;
 use crate::runtime::context::InternalActorRef;
 use crate::runtime::guardian::{AlwaysRestart, GuardianStrategy};
 use crate::runtime::mailbox::test_support::TestMailboxRuntime;
-use crate::supervisor::NoopSupervisor;
 use crate::ActorId;
+use crate::FailureInfo;
+use crate::NoopSupervisor;
 #[cfg(feature = "std")]
 use crate::SupervisorDirective;
 use crate::{MailboxOptions, SystemMessage};

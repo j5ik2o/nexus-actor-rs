@@ -1,7 +1,7 @@
 use alloc::sync::Arc;
 use core::marker::PhantomData;
 
-use crate::failure::{FailureEvent, FailureInfo};
+use crate::{FailureEvent, FailureInfo};
 use crate::{MailboxRuntime, PriorityEnvelope};
 use nexus_utils_core_rs::Element;
 

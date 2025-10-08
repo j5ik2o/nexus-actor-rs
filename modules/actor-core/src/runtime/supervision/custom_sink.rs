@@ -1,7 +1,7 @@
 use alloc::boxed::Box;
 use core::marker::PhantomData;
 
-use crate::failure::FailureInfo;
+use crate::FailureInfo;
 use crate::{MailboxRuntime, PriorityEnvelope};
 use nexus_utils_core_rs::{Element, QueueError};
 
