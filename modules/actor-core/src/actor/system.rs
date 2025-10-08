@@ -1,7 +1,7 @@
 use core::convert::Infallible;
 
 use crate::guardian::AlwaysRestart;
-use crate::system::{ActorSystem as InternalActorSystem, RootContext as InternalRootContext};
+use crate::system::{InternalActorSystem, InternalRootContext};
 use crate::{MailboxRuntime, PriorityEnvelope};
 use nexus_utils_core_rs::{Element, QueueError};
 

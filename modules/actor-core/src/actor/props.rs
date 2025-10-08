@@ -1,7 +1,7 @@
 use crate::context::ActorContext;
 use crate::mailbox::SystemMessage;
 use crate::supervisor::Supervisor;
-use crate::system::Props as InternalProps;
+use crate::system::InternalProps;
 use crate::{MailboxOptions, MailboxRuntime, PriorityEnvelope};
 use nexus_utils_core_rs::Element;
 

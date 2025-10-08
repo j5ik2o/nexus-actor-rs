@@ -7,7 +7,7 @@ use crate::supervisor::Supervisor;
 use crate::{MailboxOptions, MailboxRuntime, PriorityEnvelope};
 use nexus_utils_core_rs::Element;
 
-pub struct Props<M, R>
+pub struct InternalProps<M, R>
 where
   M: Element + 'static,
   R: MailboxRuntime + Clone + 'static,
@@ -19,7 +19,7 @@ where
   pub handler: Box<dyn for<'ctx> FnMut(&mut ActorContext<'ctx, M, R, dyn Supervisor<M>>, M) + 'static>,
 }
 
-impl<M, R> Props<M, R>
+impl<M, R> InternalProps<M, R>
 where
   M: Element,
   R: MailboxRuntime + Clone,

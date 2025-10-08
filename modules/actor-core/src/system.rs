@@ -2,9 +2,9 @@ mod actor_system;
 mod props;
 mod root_context;
 
-pub use actor_system::ActorSystem;
-pub use props::Props;
-pub use root_context::RootContext;
+pub(crate) use actor_system::InternalActorSystem;
+pub(crate) use props::InternalProps;
+pub(crate) use root_context::InternalRootContext;
 
 #[cfg(test)]
 mod tests;

@@ -44,7 +44,6 @@ pub use nexus_utils_core_rs::{Shared, StateCell};
 pub use scheduler::PriorityScheduler;
 pub use spawn::Spawn;
 pub use supervisor::{NoopSupervisor, Supervisor, SupervisorDirective};
-pub use system::{ActorSystem as InternalActorSystem, Props as InternalProps, RootContext as InternalRootContext};
 pub use timer::Timer;
 
 /// Minimal actor loop that waits for messages, handles them, and yields control.

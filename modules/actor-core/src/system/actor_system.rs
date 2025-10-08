@@ -5,9 +5,9 @@ use crate::scheduler::PriorityScheduler;
 use crate::{MailboxRuntime, PriorityEnvelope};
 use nexus_utils_core_rs::{Element, QueueError};
 
-use super::RootContext;
+use super::InternalRootContext;
 
-pub struct ActorSystem<M, R, Strat = AlwaysRestart>
+pub struct InternalActorSystem<M, R, Strat = AlwaysRestart>
 where
   M: Element + 'static,
   R: MailboxRuntime + Clone + 'static,
@@ -18,7 +18,7 @@ where
   pub(super) scheduler: PriorityScheduler<M, R, Strat>,
 }
 
-impl<M, R> ActorSystem<M, R, AlwaysRestart>
+impl<M, R> InternalActorSystem<M, R, AlwaysRestart>
 where
   M: Element,
   R: MailboxRuntime + Clone,
@@ -32,7 +32,7 @@ where
   }
 }
 
-impl<M, R, Strat> ActorSystem<M, R, Strat>
+impl<M, R, Strat> InternalActorSystem<M, R, Strat>
 where
   M: Element,
   R: MailboxRuntime + Clone,
@@ -40,8 +40,8 @@ where
   R::Signal: Clone,
   Strat: GuardianStrategy<M, R>,
 {
-  pub fn root_context(&mut self) -> RootContext<'_, M, R, Strat> {
-    RootContext { system: self }
+  pub fn root_context(&mut self) -> InternalRootContext<'_, M, R, Strat> {
+    InternalRootContext { system: self }
   }
 
   pub async fn run_until<F>(&mut self, should_continue: F) -> Result<(), QueueError<PriorityEnvelope<M>>>

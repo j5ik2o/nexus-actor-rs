@@ -4,9 +4,9 @@ use crate::supervisor::NoopSupervisor;
 use crate::{MailboxRuntime, PriorityEnvelope};
 use nexus_utils_core_rs::{Element, QueueError};
 
-use super::{ActorSystem, Props};
+use super::{InternalActorSystem, InternalProps};
 
-pub struct RootContext<'a, M, R, Strat>
+pub struct InternalRootContext<'a, M, R, Strat>
 where
   M: Element + 'static,
   R: MailboxRuntime + Clone + 'static,
@@ -14,10 +14,10 @@ where
   R::Signal: Clone,
   Strat: GuardianStrategy<M, R>,
 {
-  pub(super) system: &'a mut ActorSystem<M, R, Strat>,
+  pub(super) system: &'a mut InternalActorSystem<M, R, Strat>,
 }
 
-impl<'a, M, R, Strat> RootContext<'a, M, R, Strat>
+impl<'a, M, R, Strat> InternalRootContext<'a, M, R, Strat>
 where
   M: Element + 'static,
   R: MailboxRuntime + Clone + 'static,
@@ -25,8 +25,11 @@ where
   R::Signal: Clone,
   Strat: GuardianStrategy<M, R>,
 {
-  pub fn spawn(&mut self, props: Props<M, R>) -> Result<InternalActorRef<M, R>, QueueError<PriorityEnvelope<M>>> {
-    let Props {
+  pub fn spawn(
+    &mut self,
+    props: InternalProps<M, R>,
+  ) -> Result<InternalActorRef<M, R>, QueueError<PriorityEnvelope<M>>> {
+    let InternalProps {
       options,
       map_system,
       mut handler,
