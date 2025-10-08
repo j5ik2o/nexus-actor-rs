@@ -315,6 +315,36 @@ fn test_behaviors_receive_self_loop() {
 }
 
 #[test]
+fn test_behaviors_receive_message_without_context() {
+  let factory = TestMailboxFactory::unbounded();
+  let mut system: ActorSystem<u32, _, AlwaysRestart> = ActorSystem::new(factory);
+
+  let log: Rc<RefCell<Vec<u32>>> = Rc::new(RefCell::new(Vec::new()));
+
+  let props = Props::with_behavior(MailboxOptions::default(), {
+    let log_clone = log.clone();
+    move || {
+      let log_inner = log_clone.clone();
+      Behaviors::receive_message(move |msg: u32| {
+        log_inner.borrow_mut().push(msg);
+        Behaviors::same()
+      })
+    }
+  });
+
+  let mut root = system.root_context();
+  let actor_ref = root.spawn(props).expect("spawn actor");
+
+  actor_ref.tell(7).expect("tell first");
+  block_on(root.dispatch_next()).expect("process first");
+
+  actor_ref.tell(8).expect("tell second");
+  block_on(root.dispatch_next()).expect("process second");
+
+  assert_eq!(log.borrow().as_slice(), &[7, 8]);
+}
+
+#[test]
 fn test_parent_spawns_child_with_distinct_message_type() {
   let factory = TestMailboxFactory::unbounded();
   let mut system: ActorSystem<ParentMessage, _, AlwaysRestart> = ActorSystem::new(factory);
