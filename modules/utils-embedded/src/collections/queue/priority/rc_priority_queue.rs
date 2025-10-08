@@ -1,13 +1,13 @@
 use nexus_utils_core_rs::{
-  PriorityMessage, QueueBase, QueueError, QueueReader, QueueRw, QueueSize, QueueWriter, SharedPriorityQueue,
-  PRIORITY_LEVELS,
+    PriorityMessage, QueueBase, QueueError, QueueReader, QueueRw, QueueSize, QueueWriter, PriorityQueue,
+    PRIORITY_LEVELS,
 };
 
 use crate::RcRingQueue;
 
 #[derive(Debug, Clone)]
 pub struct RcPriorityQueue<E> {
-  inner: SharedPriorityQueue<RcRingQueue<E>, E>,
+  inner: PriorityQueue<RcRingQueue<E>, E>,
 }
 
 impl<E> RcPriorityQueue<E> {
@@ -16,7 +16,7 @@ impl<E> RcPriorityQueue<E> {
       .map(|_| RcRingQueue::new(capacity_per_level))
       .collect();
     Self {
-      inner: SharedPriorityQueue::new(levels),
+      inner: PriorityQueue::new(levels),
     }
   }
 
@@ -39,7 +39,7 @@ impl<E> RcPriorityQueue<E> {
     self.inner.levels_mut()
   }
 
-  pub fn inner(&self) -> &SharedPriorityQueue<RcRingQueue<E>, E> {
+  pub fn inner(&self) -> &PriorityQueue<RcRingQueue<E>, E> {
     &self.inner
   }
 }

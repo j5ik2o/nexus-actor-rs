@@ -9,7 +9,7 @@ pub mod sync;
 pub use collections::{
   Element, MpscBackend, MpscBuffer, MpscHandle, MpscQueue, PriorityMessage, QueueBase, QueueError, QueueHandle,
   QueueReader, QueueRw, QueueRwHandle, QueueSize, QueueStorage, QueueWriter, RingBackend, RingBuffer,
-  RingBufferBackend, RingBufferStorage, RingHandle, RingQueue, RingStorageBackend, SharedPriorityQueue, Stack,
+  RingBufferBackend, RingBufferStorage, RingHandle, RingQueue, RingStorageBackend, PriorityQueue, Stack,
   StackBackend, StackBase, StackBuffer, StackError, StackHandle, StackMut, StackStorage, StackStorageBackend,
   DEFAULT_CAPACITY, DEFAULT_PRIORITY, PRIORITY_LEVELS,
 };

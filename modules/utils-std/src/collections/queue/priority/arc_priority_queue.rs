@@ -1,12 +1,12 @@
 use crate::ArcRingQueue;
 use nexus_utils_core_rs::{
-  PriorityMessage, QueueBase, QueueError, QueueReader, QueueRw, QueueSize, QueueWriter, SharedPriorityQueue,
-  PRIORITY_LEVELS,
+    PriorityMessage, QueueBase, QueueError, QueueReader, QueueRw, QueueSize, QueueWriter, PriorityQueue,
+    PRIORITY_LEVELS,
 };
 
 #[derive(Debug, Clone)]
 pub struct ArcPriorityQueue<E> {
-  inner: SharedPriorityQueue<ArcRingQueue<E>, E>,
+  inner: PriorityQueue<ArcRingQueue<E>, E>,
 }
 
 impl<E> ArcPriorityQueue<E> {
@@ -15,7 +15,7 @@ impl<E> ArcPriorityQueue<E> {
       .map(|_| ArcRingQueue::new(capacity_per_level))
       .collect();
     Self {
-      inner: SharedPriorityQueue::new(levels),
+      inner: PriorityQueue::new(levels),
     }
   }
 
@@ -27,11 +27,11 @@ impl<E> ArcPriorityQueue<E> {
     self.inner.levels_mut()
   }
 
-  pub fn inner(&self) -> &SharedPriorityQueue<ArcRingQueue<E>, E> {
+  pub fn inner(&self) -> &PriorityQueue<ArcRingQueue<E>, E> {
     &self.inner
   }
 
-  pub fn inner_mut(&mut self) -> &mut SharedPriorityQueue<ArcRingQueue<E>, E> {
+  pub fn inner_mut(&mut self) -> &mut PriorityQueue<ArcRingQueue<E>, E> {
     &mut self.inner
   }
 }
