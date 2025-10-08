@@ -158,6 +158,8 @@ mod tests {
   use alloc::sync::Arc;
   use alloc::vec::Vec;
   use core::cell::RefCell;
+
+  #[cfg(feature = "std")]
   use futures::executor::block_on;
   use nexus_utils_core_rs::{Element, DEFAULT_PRIORITY};
 
@@ -169,6 +171,7 @@ mod tests {
 
   impl Element for Message {}
 
+  #[cfg(feature = "std")]
   #[test]
   fn actor_system_spawns_and_processes_messages() {
     let runtime = TestMailboxRuntime::unbounded();

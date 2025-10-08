@@ -44,6 +44,7 @@ enum Message {
 
 impl nexus_utils_core_rs::Element for Message {}
 
+#[cfg(feature = "std")]
 #[test]
 fn scheduler_delivers_watch_before_user_messages() {
   let runtime = TestMailboxRuntime::unbounded();
@@ -71,6 +72,7 @@ fn scheduler_delivers_watch_before_user_messages() {
   );
 }
 
+#[cfg(feature = "std")]
 #[test]
 fn actor_context_exposes_parent_watcher() {
   let runtime = TestMailboxRuntime::unbounded();
@@ -109,6 +111,7 @@ fn actor_context_exposes_parent_watcher() {
   );
 }
 
+#[cfg(feature = "std")]
 #[test]
 fn scheduler_dispatches_high_priority_first() {
   let runtime = TestMailboxRuntime::unbounded();
@@ -158,6 +161,7 @@ fn scheduler_dispatches_high_priority_first() {
   assert_eq!(log.borrow().as_slice(), &[(99, 7), (20, 3), (10, 1), (7, 0)]);
 }
 
+#[cfg(feature = "std")]
 #[test]
 fn scheduler_prioritizes_system_messages() {
   let runtime = TestMailboxRuntime::unbounded();
@@ -196,6 +200,7 @@ fn scheduler_prioritizes_system_messages() {
   );
 }
 
+#[cfg(feature = "std")]
 #[test]
 fn priority_actor_ref_sends_system_messages() {
   let runtime = TestMailboxRuntime::unbounded();
