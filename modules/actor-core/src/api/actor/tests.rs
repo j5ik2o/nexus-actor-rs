@@ -165,3 +165,41 @@ fn test_typed_actor_stateful_behavior_with_system_message() {
   assert_eq!(*count.borrow(), 15, "State should accumulate user messages");
   assert_eq!(*failures.borrow(), 1, "State should track system messages");
 }
+
+#[test]
+fn test_parent_actor_spawns_child() {
+  let factory = TestMailboxFactory::unbounded();
+  let mut system: ActorSystem<u32, _, AlwaysRestart> = ActorSystem::new(factory);
+
+  let child_log: Rc<RefCell<Vec<u32>>> = Rc::new(RefCell::new(Vec::new()));
+  let child_log_for_parent = child_log.clone();
+  let child_ref_holder: Rc<RefCell<Option<ActorRef<u32, _>>>> = Rc::new(RefCell::new(None));
+  let child_ref_holder_clone = child_ref_holder.clone();
+
+  let parent_behavior = Behavior::stateless(move |ctx: &mut Context<'_, '_, u32, _>, msg: u32| {
+    if child_ref_holder_clone.borrow().is_none() {
+      let child_log_for_child = child_log_for_parent.clone();
+      let child_props = Props::new(MailboxOptions::default(), move |_, child_msg: u32| {
+        child_log_for_child.borrow_mut().push(child_msg);
+      });
+      let child_ref = ctx.spawn_child(child_props);
+      child_ref_holder_clone.borrow_mut().replace(child_ref);
+    }
+
+    let maybe_child = { child_ref_holder_clone.borrow().clone() };
+    if let Some(child_ref) = maybe_child {
+      child_ref.tell(msg * 2).expect("tell child");
+    }
+  });
+
+  let props = Props::with_behavior(MailboxOptions::default(), parent_behavior);
+
+  let mut root = system.root_context();
+  let parent_ref = root.spawn(props).expect("spawn parent actor");
+
+  parent_ref.tell(3).expect("tell parent");
+  block_on(root.dispatch_next()).expect("dispatch parent");
+  block_on(root.dispatch_next()).expect("dispatch child");
+
+  assert_eq!(child_log.borrow().as_slice(), &[6]);
+}

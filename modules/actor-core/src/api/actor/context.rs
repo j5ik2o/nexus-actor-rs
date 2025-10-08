@@ -2,11 +2,14 @@ use crate::runtime::context::ActorContext;
 use crate::ActorId;
 use crate::ActorPath;
 use crate::MailboxFactory;
+use crate::NoopSupervisor;
 use crate::PriorityEnvelope;
 use crate::Supervisor;
 use crate::SystemMessage;
+use alloc::boxed::Box;
 use nexus_utils_core_rs::{Element, QueueError, DEFAULT_PRIORITY};
 
+use super::{ActorRef, Props};
 use crate::api::messaging::MessageEnvelope;
 
 /// Typed actor execution context wrapper.
@@ -64,5 +67,14 @@ where
 
   pub fn inner(&mut self) -> &mut ActorContext<'ctx, MessageEnvelope<U>, R, dyn Supervisor<MessageEnvelope<U>>> {
     self.inner
+  }
+
+  /// 子アクターを生成し、`ActorRef` を返す。
+  pub fn spawn_child(&mut self, props: Props<U, R>) -> ActorRef<U, R> {
+    let internal_props = props.into_inner();
+    let actor_ref = self
+      .inner
+      .spawn_child_from_props(Box::new(NoopSupervisor), internal_props);
+    ActorRef::new(actor_ref)
   }
 }

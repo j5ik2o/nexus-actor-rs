@@ -12,6 +12,7 @@ use crate::{MailboxFactory, MailboxOptions, PriorityEnvelope, QueueMailboxProduc
 use nexus_utils_core_rs::{Element, QueueError, QueueSize};
 
 use super::{ChildSpawnSpec, InternalActorRef};
+use crate::runtime::system::InternalProps;
 
 pub type ActorHandlerFn<M, R> = dyn for<'ctx> FnMut(&mut ActorContext<'ctx, M, R, dyn Supervisor<M>>, M) + 'static;
 pub type MapSystemFn<M> = dyn Fn(SystemMessage) -> M + Send + Sync;
@@ -100,6 +101,28 @@ where
   }
 
   #[allow(dead_code)]
+  fn enqueue_spawn(
+    &mut self,
+    supervisor: Box<dyn Supervisor<M>>,
+    options: MailboxOptions,
+    map_system: Arc<MapSystemFn<M>>,
+    handler: Box<ActorHandlerFn<M, R>>,
+  ) -> InternalActorRef<M, R> {
+    let (mailbox, sender) = self.runtime.build_mailbox::<PriorityEnvelope<M>>(options);
+    let actor_ref = InternalActorRef::new(sender.clone());
+    let watchers = vec![self.actor_id];
+    self.pending_spawns.push(ChildSpawnSpec {
+      mailbox,
+      sender,
+      supervisor,
+      handler,
+      watchers,
+      map_system,
+      parent_path: self.actor_path.clone(),
+    });
+    actor_ref
+  }
+
   pub(crate) fn spawn_child<F, S>(
     &mut self,
     supervisor: S,
@@ -109,19 +132,28 @@ where
   where
     F: for<'ctx> FnMut(&mut ActorContext<'ctx, M, R, dyn Supervisor<M>>, M) + 'static,
     S: Supervisor<M> + 'static, {
-    let (mailbox, sender) = self.runtime.build_mailbox::<PriorityEnvelope<M>>(options);
-    let actor_ref = InternalActorRef::new(sender.clone());
-    let watchers = vec![self.actor_id];
-    self.pending_spawns.push(ChildSpawnSpec {
-      mailbox,
-      sender,
-      supervisor: Box::new(supervisor),
-      handler: Box::new(handler),
-      watchers,
-      map_system: self.map_system.clone(),
-      parent_path: self.actor_path.clone(),
-    });
-    actor_ref
+    self.enqueue_spawn(
+      Box::new(supervisor),
+      options,
+      self.map_system.clone(),
+      Box::new(handler),
+    )
+  }
+
+  pub(crate) fn spawn_child_from_props(
+    &mut self,
+    supervisor: Box<dyn Supervisor<M>>,
+    props: InternalProps<M, R>,
+  ) -> InternalActorRef<M, R>
+  where
+    R: MailboxFactory + Clone + 'static,
+  {
+    let InternalProps {
+      options,
+      map_system,
+      handler,
+    } = props;
+    self.enqueue_spawn(supervisor, options, map_system, handler)
   }
 
   #[allow(dead_code)]
