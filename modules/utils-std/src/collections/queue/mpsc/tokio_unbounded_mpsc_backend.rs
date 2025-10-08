@@ -11,9 +11,9 @@ pub struct TokioUnboundedMpscBackend<T> {
 }
 
 impl<T> Default for TokioUnboundedMpscBackend<T> {
-    fn default() -> Self {
-        Self::new()
-    }
+  fn default() -> Self {
+    Self::new()
+  }
 }
 
 impl<T> TokioUnboundedMpscBackend<T> {

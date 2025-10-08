@@ -51,8 +51,7 @@ impl Default for FailureMetadata {
 }
 
 /// エスカレーションの段階。
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum EscalationStage {
   /// 最初の障害発生地点。
   #[default]
@@ -87,7 +86,6 @@ impl EscalationStage {
     }
   }
 }
-
 
 /// 障害情報。protoactor-go の Failure メッセージを簡略化した形で保持する。
 #[derive(Clone, Debug, PartialEq, Eq)]
