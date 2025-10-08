@@ -1,7 +1,7 @@
 #![cfg(feature = "std")]
 #![allow(deprecated)]
 
-use super::behavior::SupervisorStrategyConfig;
+use super::behavior::{Signal, SupervisorStrategyConfig};
 use super::*;
 use crate::api::guardian::AlwaysRestart;
 use crate::runtime::mailbox::test_support::TestMailboxFactory;
@@ -447,7 +447,7 @@ fn test_behaviors_setup_spawns_named_child() {
     let child_log_factory = child_log.clone();
     move || {
       let child_log_parent = child_log_factory.clone();
-      Behaviors::setup(move |ctx: &mut SetupContext<String, _>| {
+      Behaviors::setup(move |ctx| {
         let child_props = Props::with_behavior(MailboxOptions::default(), {
           let child_log_clone = child_log_parent.clone();
           move || {
@@ -485,16 +485,17 @@ fn test_receive_signal_post_stop() {
   let signals_clone = signals.clone();
 
   let props = Props::with_behavior(MailboxOptions::default(), move || {
+    let signals_cell = signals_clone.clone();
     Behaviors::receive(|_, msg: u32| {
       if msg == 0 {
-        Behaviors::stopped()
+        Behaviors::transition(Behaviors::stopped())
       } else {
         Behaviors::same()
       }
     })
     .receive_signal(move |_, signal| {
-      if let Signal::PostStop = signal {
-        signals_clone.borrow_mut().push("post_stop");
+      match signal {
+        Signal::PostStop => signals_cell.borrow_mut().push("post_stop"),
       }
       Behaviors::same()
     })
@@ -505,6 +506,7 @@ fn test_receive_signal_post_stop() {
 
   actor_ref.send_system(SystemMessage::Stop).expect("send stop");
   block_on(root.dispatch_next()).expect("dispatch stop");
+  let _ = block_on(root.dispatch_next());
 
   assert_eq!(signals.borrow().as_slice(), &["post_stop"]);
 }

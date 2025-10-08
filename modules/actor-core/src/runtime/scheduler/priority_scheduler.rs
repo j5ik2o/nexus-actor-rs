@@ -290,7 +290,8 @@ where
     }
 
     let handled = self.handle_escalations()?;
-    Ok(processed_any || handled)
+    let removed = self.prune_stopped();
+    Ok(processed_any || handled || removed)
   }
 
   fn forward_to_local_parent(&self, info: &FailureInfo) -> bool {
@@ -309,5 +310,11 @@ where
     }
 
     false
+  }
+
+  fn prune_stopped(&mut self) -> bool {
+    let before = self.actors.len();
+    self.actors.retain(|cell| !cell.is_stopped());
+    before != self.actors.len()
   }
 }

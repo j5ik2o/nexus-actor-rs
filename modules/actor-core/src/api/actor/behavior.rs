@@ -429,10 +429,20 @@ where
   }
 
   fn transition(&mut self, next: Behavior<U, R>, ctx: &mut Context<'_, '_, U, R>) {
+    let previous_handler = self.current_signal_handler();
     self.behavior = next;
     self.ensure_initialized(ctx);
     if matches!(self.behavior, Behavior::Stopped) {
-      self.handle_signal(ctx, Signal::PostStop);
+      let mut handler = self.current_signal_handler();
+      if handler.is_none() {
+        handler = previous_handler;
+      }
+      if let Some(handler) = handler {
+        match handler(ctx, Signal::PostStop) {
+          BehaviorDirective::Same => {}
+          BehaviorDirective::Become(next) => self.transition(next, ctx),
+        }
+      }
     }
   }
 }
