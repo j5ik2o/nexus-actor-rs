@@ -30,18 +30,15 @@ async fn main() {
       Behaviors::receive_message(move |msg: Command| match msg {
         Command::Greet(name) => {
           greeted += 1;
-          logger.info(|| format!("received greeting for {name}"));
-          println!("actor {:?} says: Hello, {}!", actor_id, name);
+          logger.info(|| format!("actor {:?} says: Hello, {}!", actor_id, name));
           Behaviors::same()
         }
         Command::Report => {
-          logger.debug(|| format!("reporting {greeted} greetings"));
-          println!("actor {:?} greeted {} people", actor_id, greeted);
+          logger.info(|| format!("actor {:?} greeted {} people", actor_id, greeted));
           Behaviors::same()
         }
         Command::Stop => {
-          logger.warn(|| format!("stopping after {greeted} greetings"));
-          println!("actor {:?} is stopping after {} greetings", actor_id, greeted);
+          logger.warn(|| format!("actor {:?} is stopping after {} greetings", actor_id, greeted));
           Behaviors::stopped()
         }
       })
