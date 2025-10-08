@@ -8,8 +8,21 @@ use crate::ActorId;
 use crate::MailboxOptions;
 use crate::SystemMessage;
 use alloc::rc::Rc;
+use alloc::string::String;
 use alloc::vec::Vec;
 use core::cell::RefCell;
+use nexus_utils_core_rs::Element;
+
+#[derive(Clone, Debug)]
+struct ParentMessage(String);
+
+#[derive(Clone, Debug)]
+struct ChildMessage {
+  text: String,
+}
+
+impl Element for ParentMessage {}
+impl Element for ChildMessage {}
 
 use futures::executor::block_on;
 #[test]
@@ -191,6 +204,79 @@ fn test_behaviors_receive_self_loop() {
   block_on(root.dispatch_next()).expect("process 2");
 
   assert_eq!(log.borrow().as_slice(), &[0, 1, 2]);
+}
+
+#[test]
+fn test_parent_spawns_child_with_distinct_message_type() {
+  let factory = TestMailboxFactory::unbounded();
+  let mut system: ActorSystem<ParentMessage, _, AlwaysRestart> = ActorSystem::new(factory);
+
+  let child_log: Rc<RefCell<Vec<String>>> = Rc::new(RefCell::new(Vec::new()));
+  let child_log_for_parent = child_log.clone();
+
+  let parent_behavior = Behaviors::receive(move |ctx: &mut Context<'_, '_, ParentMessage, _>, msg: ParentMessage| {
+    let name = msg.0;
+    let child_log_for_child = child_log_for_parent.clone();
+    let child_behavior = Behaviors::receive(
+      move |_child_ctx: &mut Context<'_, '_, ChildMessage, _>, child_msg: ChildMessage| {
+        child_log_for_child.borrow_mut().push(child_msg.text.clone());
+        Behaviors::same()
+      },
+    );
+    let child_props = Props::with_behavior(MailboxOptions::default(), child_behavior);
+    let child_ref = ctx.spawn_child(child_props);
+    child_ref
+      .tell(ChildMessage {
+        text: format!("hello {name}"),
+      })
+      .expect("tell child");
+    Behaviors::same()
+  });
+
+  let props = Props::with_behavior(MailboxOptions::default(), parent_behavior);
+  let mut root = system.root_context();
+  let parent_ref = root.spawn(props).expect("spawn parent");
+
+  parent_ref
+    .tell(ParentMessage("world".to_string()))
+    .expect("tell parent");
+  block_on(root.dispatch_next()).expect("dispatch parent");
+  block_on(root.dispatch_next()).expect("dispatch child");
+
+  assert_eq!(child_log.borrow().as_slice(), &["hello world".to_string()]);
+}
+
+#[test]
+fn test_message_adapter_converts_external_message() {
+  let factory = TestMailboxFactory::unbounded();
+  let mut system: ActorSystem<u32, _, AlwaysRestart> = ActorSystem::new(factory);
+
+  let log: Rc<RefCell<Vec<u32>>> = Rc::new(RefCell::new(Vec::new()));
+  let log_clone = log.clone();
+  let adapter_slot: Rc<RefCell<Option<MessageAdapterRef<String, u32, _>>>> = Rc::new(RefCell::new(None));
+  let adapter_slot_clone = adapter_slot.clone();
+
+  let behavior = Behaviors::receive(move |ctx: &mut Context<'_, '_, u32, _>, msg: u32| {
+    log_clone.borrow_mut().push(msg);
+    if adapter_slot_clone.borrow().is_none() {
+      let adapter = ctx.message_adapter(|text: String| text.len() as u32);
+      adapter_slot_clone.borrow_mut().replace(adapter);
+    }
+    Behaviors::same()
+  });
+
+  let props = Props::with_behavior(MailboxOptions::default(), behavior);
+  let mut root = system.root_context();
+  let actor_ref = root.spawn(props).expect("spawn actor");
+
+  actor_ref.tell(1).expect("initial message");
+  block_on(root.dispatch_next()).expect("dispatch primary");
+
+  let adapter = adapter_slot.borrow().as_ref().cloned().expect("adapter must exist");
+  adapter.tell("abcd".to_string()).expect("adapter tell");
+  block_on(root.dispatch_next()).expect("dispatch adapted");
+
+  assert_eq!(log.borrow().as_slice(), &[1, 4]);
 }
 
 #[test]

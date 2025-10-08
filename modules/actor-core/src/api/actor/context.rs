@@ -8,6 +8,7 @@ use crate::PriorityEnvelope;
 use crate::Supervisor;
 use crate::SystemMessage;
 use alloc::boxed::Box;
+use alloc::sync::Arc;
 use core::marker::PhantomData;
 use nexus_utils_core_rs::{Element, QueueError, DEFAULT_PRIORITY};
 
@@ -68,6 +69,13 @@ where
     ActorRef::new(self.inner.self_ref())
   }
 
+  pub fn message_adapter<Ext, F>(&self, f: F) -> MessageAdapterRef<Ext, U, R>
+  where
+    Ext: Element,
+    F: Fn(Ext) -> U + Send + Sync + 'static, {
+    MessageAdapterRef::new(self.self_ref(), Arc::new(f))
+  }
+
   pub fn register_watcher(&mut self, watcher: ActorId) {
     self.inner.register_watcher(watcher);
   }
@@ -81,11 +89,52 @@ where
   }
 
   /// 子アクターを生成し、`ActorRef` を返す。
-  pub fn spawn_child(&mut self, props: Props<U, R>) -> ActorRef<U, R> {
+  pub fn spawn_child<V>(&mut self, props: Props<V, R>) -> ActorRef<V, R>
+  where
+    V: Element, {
     let internal_props = props.into_inner();
     let actor_ref = self
       .inner
       .spawn_child_from_props(Box::new(NoopSupervisor), internal_props);
     ActorRef::new(actor_ref)
+  }
+}
+
+#[derive(Clone)]
+pub struct MessageAdapterRef<Ext, U, R>
+where
+  Ext: Element,
+  U: Element,
+  R: MailboxFactory + Clone + 'static,
+  R::Queue<PriorityEnvelope<DynMessage>>: Clone,
+  R::Signal: Clone, {
+  target: ActorRef<U, R>,
+  adapter: Arc<dyn Fn(Ext) -> U + Send + Sync>,
+}
+
+impl<Ext, U, R> MessageAdapterRef<Ext, U, R>
+where
+  Ext: Element,
+  U: Element,
+  R: MailboxFactory + Clone + 'static,
+  R::Queue<PriorityEnvelope<DynMessage>>: Clone,
+  R::Signal: Clone,
+{
+  pub(crate) fn new(target: ActorRef<U, R>, adapter: Arc<dyn Fn(Ext) -> U + Send + Sync>) -> Self {
+    Self { target, adapter }
+  }
+
+  pub fn tell(&self, message: Ext) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> {
+    let mapped = (self.adapter)(message);
+    self.target.tell(mapped)
+  }
+
+  pub fn tell_with_priority(&self, message: Ext, priority: i8) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> {
+    let mapped = (self.adapter)(message);
+    self.target.tell_with_priority(mapped, priority)
+  }
+
+  pub fn target(&self) -> &ActorRef<U, R> {
+    &self.target
   }
 }
