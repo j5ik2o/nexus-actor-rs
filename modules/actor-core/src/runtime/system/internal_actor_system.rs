@@ -2,7 +2,7 @@ use core::convert::Infallible;
 
 use crate::runtime::guardian::{AlwaysRestart, GuardianStrategy};
 use crate::runtime::scheduler::PriorityScheduler;
-use crate::{MailboxRuntime, PriorityEnvelope};
+use crate::{FailureEventListener, MailboxRuntime, PriorityEnvelope};
 use nexus_utils_core_rs::{Element, QueueError};
 
 use super::InternalRootContext;
@@ -67,5 +67,9 @@ where
 
   pub async fn dispatch_next(&mut self) -> Result<(), QueueError<PriorityEnvelope<M>>> {
     self.scheduler.dispatch_next().await
+  }
+
+  pub fn set_root_event_listener(&mut self, listener: Option<FailureEventListener>) {
+    self.scheduler.set_root_event_listener(listener);
   }
 }

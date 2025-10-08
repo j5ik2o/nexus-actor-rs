@@ -1,6 +1,8 @@
-use nexus_actor_core_rs::ActorSystem;
+use nexus_actor_core_rs::{ActorSystem, RuntimeComponents};
 
 use crate::{FailureEventHub, TokioMailboxRuntime, TokioSpawner, TokioTimer};
+use nexus_actor_core_rs::{ActorRef, MessageEnvelope, PriorityEnvelope, Props};
+use nexus_utils_std_rs::QueueError;
 
 /// ランタイム差し替え抽象のスパイク用スケルトン。
 pub struct TokioActorRuntime<U>
@@ -23,11 +25,19 @@ where
   U: nexus_utils_std_rs::Element,
 {
   pub fn new() -> Self {
+    let components = RuntimeComponents::new(
+      TokioMailboxRuntime::default(),
+      TokioSpawner,
+      TokioTimer,
+      FailureEventHub::new(),
+    );
+    let (system, handles) = ActorSystem::from_runtime_components(components);
+
     Self {
-      system: ActorSystem::new(TokioMailboxRuntime::default()),
-      spawner: TokioSpawner,
-      timer: TokioTimer,
-      events: FailureEventHub::new(),
+      system,
+      spawner: handles.spawner,
+      timer: handles.timer,
+      events: handles.event_stream,
     }
   }
 
@@ -51,6 +61,18 @@ where
   /// Tokio 実装ではポーリング不要のため常に Idle を返す想定。
   pub fn pump(&mut self) -> DriverState {
     DriverState::Idle
+  }
+
+  pub fn spawn_actor(
+    &mut self,
+    props: Props<U, TokioMailboxRuntime>,
+  ) -> Result<ActorRef<U, TokioMailboxRuntime>, QueueError<PriorityEnvelope<MessageEnvelope<U>>>> {
+    let mut root = self.system.root_context();
+    root.spawn(props)
+  }
+
+  pub async fn dispatch_next(&mut self) -> Result<(), QueueError<PriorityEnvelope<MessageEnvelope<U>>>> {
+    self.system.dispatch_next().await
   }
 }
 
