@@ -8,6 +8,8 @@ use nexus_utils_std_rs::{
   Element, QueueBase, QueueError, QueueReader, QueueRw, QueueSize, QueueWriter, DEFAULT_CAPACITY, PRIORITY_LEVELS,
 };
 
+type PriorityQueueError<M> = Box<QueueError<PriorityEnvelope<M>>>;
+
 use crate::tokio_mailbox::NotifySignal;
 
 struct TokioPriorityLevels<M> {
@@ -38,6 +40,7 @@ impl<M> TokioPriorityLevels<M> {
     priority.clamp(0, max) as usize
   }
 
+  #[allow(clippy::result_large_err)]
   fn offer(&self, envelope: PriorityEnvelope<M>) -> Result<(), QueueError<PriorityEnvelope<M>>> {
     let idx = Self::level_index(envelope.priority(), self.levels.len());
     let mut guard = self.levels[idx].lock().expect("priority queue poisoned");
@@ -49,6 +52,7 @@ impl<M> TokioPriorityLevels<M> {
     }
   }
 
+  #[allow(clippy::result_large_err)]
   fn poll(&self) -> Result<Option<PriorityEnvelope<M>>, QueueError<PriorityEnvelope<M>>> {
     for level in (0..self.levels.len()).rev() {
       let mut guard = self.levels[level].lock().expect("priority queue poisoned");
@@ -99,6 +103,7 @@ impl<M> TokioPriorityQueues<M> {
     }
   }
 
+  #[allow(clippy::result_large_err)]
   fn offer(&self, envelope: PriorityEnvelope<M>) -> Result<(), QueueError<PriorityEnvelope<M>>> {
     if envelope.is_control() {
       self.control.offer(envelope)
@@ -113,6 +118,7 @@ impl<M> TokioPriorityQueues<M> {
     }
   }
 
+  #[allow(clippy::result_large_err)]
   fn poll(&self) -> Result<Option<PriorityEnvelope<M>>, QueueError<PriorityEnvelope<M>>> {
     if let Some(envelope) = self.control.poll()? {
       return Ok(Some(envelope));
@@ -299,10 +305,10 @@ where
     = QueueMailboxRecv<'a, TokioPriorityQueues<M>, NotifySignal, PriorityEnvelope<M>>
   where
     Self: 'a;
-  type SendError = QueueError<PriorityEnvelope<M>>;
+  type SendError = PriorityQueueError<M>;
 
   fn try_send(&self, message: PriorityEnvelope<M>) -> Result<(), Self::SendError> {
-    self.inner.try_send(message)
+    self.inner.try_send(message).map_err(Box::new)
   }
 
   fn recv(&self) -> Self::RecvFuture<'_> {
@@ -330,35 +336,27 @@ impl<M> TokioPriorityMailboxSender<M>
 where
   M: Element,
 {
-  pub fn try_send(&self, message: PriorityEnvelope<M>) -> Result<(), QueueError<PriorityEnvelope<M>>> {
-    self.inner.try_send(message)
+  pub fn try_send(&self, message: PriorityEnvelope<M>) -> Result<(), PriorityQueueError<M>> {
+    self.inner.try_send(message).map_err(Box::new)
   }
 
-  pub async fn send(&self, message: PriorityEnvelope<M>) -> Result<(), QueueError<PriorityEnvelope<M>>> {
-    self.inner.send(message).await
+  pub async fn send(&self, message: PriorityEnvelope<M>) -> Result<(), PriorityQueueError<M>> {
+    self.inner.send(message).await.map_err(Box::new)
   }
 
-  pub fn try_send_with_priority(&self, message: M, priority: i8) -> Result<(), QueueError<PriorityEnvelope<M>>> {
+  pub fn try_send_with_priority(&self, message: M, priority: i8) -> Result<(), PriorityQueueError<M>> {
     self.try_send(PriorityEnvelope::new(message, priority))
   }
 
-  pub async fn send_with_priority(&self, message: M, priority: i8) -> Result<(), QueueError<PriorityEnvelope<M>>> {
+  pub async fn send_with_priority(&self, message: M, priority: i8) -> Result<(), PriorityQueueError<M>> {
     self.send(PriorityEnvelope::new(message, priority)).await
   }
 
-  pub fn try_send_control_with_priority(
-    &self,
-    message: M,
-    priority: i8,
-  ) -> Result<(), QueueError<PriorityEnvelope<M>>> {
+  pub fn try_send_control_with_priority(&self, message: M, priority: i8) -> Result<(), PriorityQueueError<M>> {
     self.try_send(PriorityEnvelope::control(message, priority))
   }
 
-  pub async fn send_control_with_priority(
-    &self,
-    message: M,
-    priority: i8,
-  ) -> Result<(), QueueError<PriorityEnvelope<M>>> {
+  pub async fn send_control_with_priority(&self, message: M, priority: i8) -> Result<(), PriorityQueueError<M>> {
     self.send(PriorityEnvelope::control(message, priority)).await
   }
 
@@ -487,7 +485,7 @@ mod tests {
     let err = sender
       .try_send_with_priority(4, DEFAULT_PRIORITY)
       .expect_err("regular capacity reached");
-    assert!(matches!(err, QueueError::Full(_)));
+    assert!(matches!(&*err, QueueError::Full(_)));
   }
 
   #[tokio::test(flavor = "current_thread")]
