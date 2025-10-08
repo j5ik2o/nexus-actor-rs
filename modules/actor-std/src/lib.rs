@@ -31,8 +31,7 @@ mod tests {
   use nexus_actor_core_rs::{actor_loop, ActorSystem, Props, Spawn, StateCell};
   use std::sync::{Arc, Mutex};
 
-  #[tokio::test(flavor = "current_thread")]
-  async fn test_actor_loop_updates_state() {
+  async fn run_test_actor_loop_updates_state() {
     let (mailbox, sender) = TokioMailbox::new(8);
     let mailbox = Arc::new(mailbox);
     let state = ArcStateCell::new(0_u32);
@@ -58,8 +57,17 @@ mod tests {
   }
 
   #[tokio::test(flavor = "current_thread")]
-  async fn typed_actor_system_handles_user_messages() {
-    let runtime = TokioMailboxRuntime::default();
+  async fn test_actor_loop_updates_state() {
+    run_test_actor_loop_updates_state().await;
+  }
+
+  #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+  async fn test_actor_loop_updates_state_multi_thread() {
+    run_test_actor_loop_updates_state().await;
+  }
+
+  async fn run_typed_actor_system_handles_user_messages() {
+    let runtime = TokioMailboxRuntime;
     let mut system: ActorSystem<u32, _> = ActorSystem::new(runtime);
 
     let log: Arc<Mutex<Vec<u32>>> = Arc::new(Mutex::new(Vec::new()));
@@ -76,5 +84,15 @@ mod tests {
     root.dispatch_next().await.expect("dispatch next");
 
     assert_eq!(log.lock().unwrap().as_slice(), &[99]);
+  }
+
+  #[tokio::test(flavor = "current_thread")]
+  async fn typed_actor_system_handles_user_messages() {
+    run_typed_actor_system_handles_user_messages().await;
+  }
+
+  #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+  async fn typed_actor_system_handles_user_messages_multi_thread() {
+    run_typed_actor_system_handles_user_messages().await;
   }
 }

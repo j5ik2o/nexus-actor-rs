@@ -266,9 +266,8 @@ mod tests {
   use super::*;
   use nexus_utils_std_rs::QueueError;
 
-  #[tokio::test(flavor = "current_thread")]
-  async fn runtime_with_capacity_enforces_bounds() {
-    let runtime = TokioMailboxRuntime::default();
+  async fn run_runtime_with_capacity_enforces_bounds() {
+    let runtime = TokioMailboxRuntime;
     let (mailbox, sender) = runtime.with_capacity::<u32>(2);
 
     sender.try_send(1).expect("first message accepted");
@@ -285,8 +284,17 @@ mod tests {
   }
 
   #[tokio::test(flavor = "current_thread")]
-  async fn runtime_unbounded_mailbox_accepts_multiple_messages() {
-    let runtime = TokioMailboxRuntime::default();
+  async fn runtime_with_capacity_enforces_bounds() {
+    run_runtime_with_capacity_enforces_bounds().await;
+  }
+
+  #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+  async fn runtime_with_capacity_enforces_bounds_multi_thread() {
+    run_runtime_with_capacity_enforces_bounds().await;
+  }
+
+  async fn run_runtime_unbounded_mailbox_accepts_multiple_messages() {
+    let runtime = TokioMailboxRuntime;
     let (mailbox, sender) = runtime.unbounded::<u32>();
 
     for value in 0..32_u32 {
@@ -301,5 +309,15 @@ mod tests {
     }
 
     assert_eq!(mailbox.len().to_usize(), 0);
+  }
+
+  #[tokio::test(flavor = "current_thread")]
+  async fn runtime_unbounded_mailbox_accepts_multiple_messages() {
+    run_runtime_unbounded_mailbox_accepts_multiple_messages().await;
+  }
+
+  #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+  async fn runtime_unbounded_mailbox_accepts_multiple_messages_multi_thread() {
+    run_runtime_unbounded_mailbox_accepts_multiple_messages().await;
   }
 }

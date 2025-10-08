@@ -372,8 +372,7 @@ mod tests {
   use super::*;
   use nexus_utils_std_rs::{QueueSize, DEFAULT_PRIORITY};
 
-  #[tokio::test(flavor = "current_thread")]
-  async fn priority_runtime_orders_messages() {
+  async fn run_priority_runtime_orders_messages() {
     let runtime = TokioPriorityMailboxRuntime::default();
     let (mailbox, sender) = runtime.mailbox::<u32>(MailboxOptions::default());
 
@@ -402,7 +401,16 @@ mod tests {
   }
 
   #[tokio::test(flavor = "current_thread")]
-  async fn priority_sender_defaults_work() {
+  async fn priority_runtime_orders_messages() {
+    run_priority_runtime_orders_messages().await;
+  }
+
+  #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+  async fn priority_runtime_orders_messages_multi_thread() {
+    run_priority_runtime_orders_messages().await;
+  }
+
+  async fn run_priority_sender_defaults_work() {
     let runtime = TokioPriorityMailboxRuntime::new(4).with_regular_capacity(4);
     let (mailbox, sender) = runtime.mailbox::<u8>(MailboxOptions::default());
 
@@ -417,7 +425,16 @@ mod tests {
   }
 
   #[tokio::test(flavor = "current_thread")]
-  async fn control_queue_preempts_regular_messages() {
+  async fn priority_sender_defaults_work() {
+    run_priority_sender_defaults_work().await;
+  }
+
+  #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+  async fn priority_sender_defaults_work_multi_thread() {
+    run_priority_sender_defaults_work().await;
+  }
+
+  async fn run_control_queue_preempts_regular_messages() {
     let runtime = TokioPriorityMailboxRuntime::default();
     let (mailbox, sender) = runtime.mailbox::<u32>(MailboxOptions::default());
 
@@ -438,7 +455,16 @@ mod tests {
   }
 
   #[tokio::test(flavor = "current_thread")]
-  async fn priority_mailbox_capacity_split() {
+  async fn control_queue_preempts_regular_messages() {
+    run_control_queue_preempts_regular_messages().await;
+  }
+
+  #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+  async fn control_queue_preempts_regular_messages_multi_thread() {
+    run_control_queue_preempts_regular_messages().await;
+  }
+
+  async fn run_priority_mailbox_capacity_split() {
     let runtime = TokioPriorityMailboxRuntime::default();
     let options = MailboxOptions::with_capacities(QueueSize::limited(2), QueueSize::limited(2));
     let (mailbox, sender) = runtime.mailbox::<u8>(options);
@@ -462,5 +488,15 @@ mod tests {
       .try_send_with_priority(4, DEFAULT_PRIORITY)
       .expect_err("regular capacity reached");
     assert!(matches!(err, QueueError::Full(_)));
+  }
+
+  #[tokio::test(flavor = "current_thread")]
+  async fn priority_mailbox_capacity_split() {
+    run_priority_mailbox_capacity_split().await;
+  }
+
+  #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+  async fn priority_mailbox_capacity_split_multi_thread() {
+    run_priority_mailbox_capacity_split().await;
   }
 }
