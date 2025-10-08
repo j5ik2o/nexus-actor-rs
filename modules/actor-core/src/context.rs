@@ -1,7 +1,7 @@
 mod actor_context;
-mod actor_ref;
 mod child_spawn_spec;
+mod internal_actor_ref;
 
 pub use actor_context::ActorContext;
-pub use actor_ref::InternalActorRef;
 pub use child_spawn_spec::ChildSpawnSpec;
+pub(crate) use internal_actor_ref::InternalActorRef;

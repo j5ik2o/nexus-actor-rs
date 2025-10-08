@@ -7,7 +7,7 @@ use nexus_utils_core_rs::{Element, QueueError};
 
 use super::InternalRootContext;
 
-pub struct InternalActorSystem<M, R, Strat = AlwaysRestart>
+pub(crate) struct InternalActorSystem<M, R, Strat = AlwaysRestart>
 where
   M: Element + 'static,
   R: MailboxRuntime + Clone + 'static,

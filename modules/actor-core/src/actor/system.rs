@@ -1,11 +1,11 @@
 use core::convert::Infallible;
 
+use super::MessageEnvelope;
+use crate::actor::root_context::RootContext;
 use crate::guardian::AlwaysRestart;
 use crate::system::InternalActorSystem;
 use crate::{MailboxRuntime, PriorityEnvelope};
 use nexus_utils_core_rs::{Element, QueueError};
-use crate::actor::root_context::RootContext;
-use super::MessageEnvelope;
 
 pub struct ActorSystem<U, R, Strat = AlwaysRestart>
 where

@@ -1,6 +1,6 @@
-use nexus_utils_core_rs::{Element, QueueError};
-use crate::{ActorRef, MailboxRuntime, MessageEnvelope, PriorityEnvelope, Props};
 use crate::system::InternalRootContext;
+use crate::{ActorRef, MailboxRuntime, MessageEnvelope, PriorityEnvelope, Props};
+use nexus_utils_core_rs::{Element, QueueError};
 
 pub struct RootContext<'a, U, R, Strat>
 where

@@ -26,7 +26,7 @@ mod timer;
 pub use actor::{ActorAdapter, ActorRef, ActorSystem, Behavior, Context, MessageEnvelope, Props, RootContext};
 pub use actor_id::ActorId;
 pub use actor_path::ActorPath;
-pub use context::{ActorContext, InternalActorRef};
+pub(crate) use context::{ActorContext, InternalActorRef};
 pub use escalation::{
   CompositeEscalationSink, CustomEscalationSink, EscalationSink, FailureEventHandler, FailureEventListener,
   ParentGuardianSink, RootEscalationSink,

@@ -1,10 +1,10 @@
-mod actor_system;
-mod props;
-mod root_context;
+mod internal_actor_system;
+mod internal_props;
+mod internal_root_context;
 
-pub(crate) use actor_system::InternalActorSystem;
-pub(crate) use props::InternalProps;
-pub(crate) use root_context::InternalRootContext;
+pub(crate) use internal_actor_system::InternalActorSystem;
+pub(crate) use internal_props::InternalProps;
+pub(crate) use internal_root_context::InternalRootContext;
 
 #[cfg(test)]
 mod tests;

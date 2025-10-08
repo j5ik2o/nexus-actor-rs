@@ -7,7 +7,7 @@ use crate::supervisor::Supervisor;
 use crate::{MailboxOptions, MailboxRuntime, PriorityEnvelope};
 use nexus_utils_core_rs::Element;
 
-pub struct InternalProps<M, R>
+pub(crate) struct InternalProps<M, R>
 where
   M: Element + 'static,
   R: MailboxRuntime + Clone + 'static,

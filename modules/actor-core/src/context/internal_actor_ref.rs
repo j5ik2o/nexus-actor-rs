@@ -3,7 +3,7 @@ use crate::{MailboxRuntime, PriorityEnvelope, QueueMailboxProducer};
 use nexus_utils_core_rs::{Element, QueueError};
 
 /// アクター参照。QueueMailboxProducer をラップし、メッセージ送信 API を提供する。
-pub struct InternalActorRef<M, R>
+pub(crate) struct InternalActorRef<M, R>
 where
   M: Element,
   R: MailboxRuntime,
