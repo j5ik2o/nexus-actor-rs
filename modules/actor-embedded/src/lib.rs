@@ -9,6 +9,7 @@ mod arc_priority_mailbox;
 #[cfg(feature = "embassy_executor")]
 mod embassy_dispatcher;
 mod local_mailbox;
+mod runtime_driver;
 mod spawn;
 mod timer;
 
@@ -23,6 +24,7 @@ pub use local_mailbox::{LocalMailbox, LocalMailboxRuntime, LocalMailboxSender};
 pub use nexus_utils_embedded_rs::{ArcCsStateCell, ArcLocalStateCell, ArcShared, ArcStateCell};
 #[cfg(feature = "embedded_rc")]
 pub use nexus_utils_embedded_rs::{RcShared, RcStateCell};
+pub use runtime_driver::{DriverState, EmbeddedActorRuntime, EmbeddedFailureEventHub};
 pub use spawn::ImmediateSpawner;
 pub use timer::ImmediateTimer;
 
