@@ -1,6 +1,6 @@
 use crate::runtime::context::InternalActorRef;
 use crate::SystemMessage;
-use crate::{MailboxRuntime, PriorityEnvelope};
+use crate::{MailboxFactory, PriorityEnvelope};
 use nexus_utils_core_rs::{Element, QueueError, DEFAULT_PRIORITY};
 
 use crate::api::messaging::MessageEnvelope;
@@ -9,7 +9,7 @@ use crate::api::messaging::MessageEnvelope;
 pub struct ActorRef<U, R>
 where
   U: Element,
-  R: MailboxRuntime + Clone + 'static,
+  R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<MessageEnvelope<U>>>: Clone,
   R::Signal: Clone, {
   inner: InternalActorRef<MessageEnvelope<U>, R>,
@@ -18,7 +18,7 @@ where
 impl<U, R> ActorRef<U, R>
 where
   U: Element,
-  R: MailboxRuntime + Clone + 'static,
+  R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<MessageEnvelope<U>>>: Clone,
   R::Signal: Clone,
 {

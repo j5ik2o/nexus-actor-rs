@@ -46,7 +46,7 @@ pub trait MailboxSignal: Clone {
   fn wait(&self) -> Self::WaitFuture<'_>;
 }
 
-pub trait MailboxRuntime {
+pub trait MailboxFactory {
   type Signal: MailboxSignal;
 
   type Queue<M>: QueueRw<M> + Clone

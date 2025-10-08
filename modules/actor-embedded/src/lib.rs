@@ -14,12 +14,12 @@ mod spawn;
 mod timer;
 
 #[cfg(feature = "embedded_arc")]
-pub use arc_mailbox::{ArcMailbox, ArcMailboxRuntime, ArcMailboxSender};
+pub use arc_mailbox::{ArcMailbox, ArcMailboxFactory, ArcMailboxSender};
 #[cfg(feature = "embedded_arc")]
-pub use arc_priority_mailbox::{ArcPriorityMailbox, ArcPriorityMailboxRuntime, ArcPriorityMailboxSender};
+pub use arc_priority_mailbox::{ArcPriorityMailbox, ArcPriorityMailboxFactory, ArcPriorityMailboxSender};
 #[cfg(feature = "embassy_executor")]
 pub use embassy_dispatcher::spawn_embassy_dispatcher;
-pub use local_mailbox::{LocalMailbox, LocalMailboxRuntime, LocalMailboxSender};
+pub use local_mailbox::{LocalMailbox, LocalMailboxFactory, LocalMailboxSender};
 #[cfg(feature = "embedded_arc")]
 pub use nexus_utils_embedded_rs::{ArcCsStateCell, ArcLocalStateCell, ArcShared, ArcStateCell};
 #[cfg(feature = "embedded_rc")]
@@ -31,10 +31,10 @@ pub use timer::ImmediateTimer;
 pub mod prelude {
   #[cfg(feature = "embedded_arc")]
   pub use super::{
-    ArcCsStateCell, ArcLocalStateCell, ArcMailbox, ArcMailboxRuntime, ArcMailboxSender, ArcPriorityMailbox,
-    ArcPriorityMailboxRuntime, ArcPriorityMailboxSender, ArcShared, ArcStateCell,
+    ArcCsStateCell, ArcLocalStateCell, ArcMailbox, ArcMailboxFactory, ArcMailboxSender, ArcPriorityMailbox,
+    ArcPriorityMailboxFactory, ArcPriorityMailboxSender, ArcShared, ArcStateCell,
   };
-  pub use super::{ImmediateSpawner, ImmediateTimer, LocalMailbox, LocalMailboxRuntime, LocalMailboxSender};
+  pub use super::{ImmediateSpawner, ImmediateTimer, LocalMailbox, LocalMailboxFactory, LocalMailboxSender};
   #[cfg(feature = "embedded_rc")]
   pub use super::{RcShared, RcStateCell};
 }
@@ -43,7 +43,7 @@ pub mod prelude {
 mod tests {
   extern crate std;
 
-  use super::LocalMailboxRuntime;
+  use super::LocalMailboxFactory;
   use alloc::rc::Rc;
   use alloc::vec::Vec;
   use core::cell::RefCell;
@@ -92,7 +92,7 @@ mod tests {
 
   #[test]
   fn typed_actor_system_dispatch_next_processes_message() {
-    let runtime = LocalMailboxRuntime::default();
+    let runtime = LocalMailboxFactory::default();
     let mut system: ActorSystem<u32, _> = ActorSystem::new(runtime);
 
     let log: Rc<RefCell<Vec<u32>>> = Rc::new(RefCell::new(Vec::new()));

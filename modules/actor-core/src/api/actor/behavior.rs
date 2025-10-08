@@ -3,7 +3,7 @@ use alloc::sync::Arc;
 
 use crate::api::messaging::MessageEnvelope;
 use crate::runtime::context::{ActorContext, MapSystemFn};
-use crate::MailboxRuntime;
+use crate::MailboxFactory;
 use crate::PriorityEnvelope;
 use crate::Supervisor;
 use crate::SystemMessage;
@@ -19,7 +19,7 @@ type SystemHandlerFn<U, R> = dyn for<'ctx> FnMut(&mut ActorContext<'ctx, Message
 pub struct Behavior<U, R>
 where
   U: Element,
-  R: MailboxRuntime + Clone + 'static,
+  R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<MessageEnvelope<U>>>: Clone,
   R::Signal: Clone, {
   pub(super) handler: Box<BehaviorFn<U, R>>,
@@ -28,7 +28,7 @@ where
 impl<U, R> Behavior<U, R>
 where
   U: Element,
-  R: MailboxRuntime + Clone + 'static,
+  R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<MessageEnvelope<U>>>: Clone,
   R::Signal: Clone,
 {
@@ -45,7 +45,7 @@ where
 pub struct ActorAdapter<U, R>
 where
   U: Element,
-  R: MailboxRuntime + Clone + 'static,
+  R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<MessageEnvelope<U>>>: Clone,
   R::Signal: Clone, {
   pub(super) behavior: Behavior<U, R>,
@@ -55,7 +55,7 @@ where
 impl<U, R> ActorAdapter<U, R>
 where
   U: Element,
-  R: MailboxRuntime + Clone + 'static,
+  R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<MessageEnvelope<U>>>: Clone,
   R::Signal: Clone,
 {

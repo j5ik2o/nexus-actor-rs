@@ -1,12 +1,12 @@
 use crate::FailureInfo;
-use crate::{MailboxRuntime, PriorityEnvelope};
+use crate::{MailboxFactory, PriorityEnvelope};
 use nexus_utils_core_rs::Element;
 
 /// FailureInfo をどのように上位へ伝達するかを制御するためのシンク。
 pub trait EscalationSink<M, R>
 where
   M: Element,
-  R: MailboxRuntime,
+  R: MailboxFactory,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone, {
   /// `already_handled` が true の場合はローカルで処理済みであることを示す。

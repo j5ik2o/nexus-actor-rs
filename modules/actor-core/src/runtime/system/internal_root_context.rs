@@ -1,7 +1,7 @@
 use crate::runtime::context::InternalActorRef;
 use crate::runtime::guardian::GuardianStrategy;
 use crate::NoopSupervisor;
-use crate::{MailboxRuntime, PriorityEnvelope};
+use crate::{MailboxFactory, PriorityEnvelope};
 use nexus_utils_core_rs::{Element, QueueError};
 
 use super::{InternalActorSystem, InternalProps};
@@ -9,7 +9,7 @@ use super::{InternalActorSystem, InternalProps};
 pub(crate) struct InternalRootContext<'a, M, R, Strat>
 where
   M: Element + 'static,
-  R: MailboxRuntime + Clone + 'static,
+  R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
   Strat: GuardianStrategy<M, R>, {
@@ -19,7 +19,7 @@ where
 impl<'a, M, R, Strat> InternalRootContext<'a, M, R, Strat>
 where
   M: Element + 'static,
-  R: MailboxRuntime + Clone + 'static,
+  R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
   Strat: GuardianStrategy<M, R>,

@@ -2,7 +2,7 @@ use alloc::sync::Arc;
 
 use crate::runtime::context::{InternalActorRef, MapSystemFn};
 use crate::FailureInfo;
-use crate::{MailboxRuntime, PriorityEnvelope};
+use crate::{MailboxFactory, PriorityEnvelope};
 use nexus_utils_core_rs::{Element, QueueError};
 
 use super::{
@@ -14,7 +14,7 @@ use super::{
 pub(crate) struct CompositeEscalationSink<M, R>
 where
   M: Element,
-  R: MailboxRuntime,
+  R: MailboxFactory,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone, {
   parent_guardian: Option<ParentGuardianSink<M, R>>,
@@ -25,7 +25,7 @@ where
 impl<M, R> CompositeEscalationSink<M, R>
 where
   M: Element,
-  R: MailboxRuntime,
+  R: MailboxFactory,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
 {
@@ -71,7 +71,7 @@ where
 impl<M, R> Default for CompositeEscalationSink<M, R>
 where
   M: Element,
-  R: MailboxRuntime,
+  R: MailboxFactory,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
 {
@@ -83,7 +83,7 @@ where
 impl<M, R> EscalationSink<M, R> for CompositeEscalationSink<M, R>
 where
   M: Element,
-  R: MailboxRuntime,
+  R: MailboxFactory,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
 {

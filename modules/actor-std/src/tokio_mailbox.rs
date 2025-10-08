@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use nexus_actor_core_rs::{
-  Mailbox, MailboxOptions, MailboxPair, MailboxRuntime, MailboxSignal, QueueMailbox, QueueMailboxProducer,
+  Mailbox, MailboxOptions, MailboxPair, MailboxFactory, MailboxSignal, QueueMailbox, QueueMailboxProducer,
   QueueMailboxRecv,
 };
 use nexus_utils_std_rs::{ArcMpscBoundedQueue, ArcMpscUnboundedQueue};
@@ -23,7 +23,7 @@ where
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct TokioMailboxRuntime;
+pub struct TokioMailboxFactory;
 
 #[derive(Clone, Debug)]
 pub struct NotifySignal {
@@ -142,7 +142,7 @@ where
   }
 }
 
-impl TokioMailboxRuntime {
+impl TokioMailboxFactory {
   pub fn mailbox<M>(&self, options: MailboxOptions) -> (TokioMailbox<M>, TokioMailboxSender<M>)
   where
     M: Element, {
@@ -163,7 +163,7 @@ impl TokioMailboxRuntime {
   }
 }
 
-impl MailboxRuntime for TokioMailboxRuntime {
+impl MailboxFactory for TokioMailboxFactory {
   type Queue<M>
     = TokioQueue<M>
   where
@@ -186,11 +186,11 @@ where
   M: Element,
 {
   pub fn new(capacity: usize) -> (Self, TokioMailboxSender<M>) {
-    TokioMailboxRuntime.with_capacity(capacity)
+    TokioMailboxFactory.with_capacity(capacity)
   }
 
   pub fn unbounded() -> (Self, TokioMailboxSender<M>) {
-    TokioMailboxRuntime.unbounded()
+    TokioMailboxFactory.unbounded()
   }
 
   pub fn producer(&self) -> TokioMailboxSender<M>
@@ -267,7 +267,7 @@ mod tests {
   use nexus_utils_std_rs::QueueError;
 
   async fn run_runtime_with_capacity_enforces_bounds() {
-    let runtime = TokioMailboxRuntime;
+    let runtime = TokioMailboxFactory;
     let (mailbox, sender) = runtime.with_capacity::<u32>(2);
 
     sender.try_send(1).expect("first message accepted");
@@ -294,7 +294,7 @@ mod tests {
   }
 
   async fn run_runtime_unbounded_mailbox_accepts_multiple_messages() {
-    let runtime = TokioMailboxRuntime;
+    let runtime = TokioMailboxFactory;
     let (mailbox, sender) = runtime.unbounded::<u32>();
 
     for value in 0..32_u32 {

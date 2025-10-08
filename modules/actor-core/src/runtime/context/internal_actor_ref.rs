@@ -1,12 +1,12 @@
 use crate::SystemMessage;
-use crate::{MailboxRuntime, PriorityEnvelope, QueueMailboxProducer};
+use crate::{MailboxFactory, PriorityEnvelope, QueueMailboxProducer};
 use nexus_utils_core_rs::{Element, QueueError};
 
 /// アクター参照。QueueMailboxProducer をラップし、メッセージ送信 API を提供する。
 pub(crate) struct InternalActorRef<M, R>
 where
   M: Element,
-  R: MailboxRuntime,
+  R: MailboxFactory,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone, {
   sender: QueueMailboxProducer<R::Queue<PriorityEnvelope<M>>, R::Signal>,
@@ -15,7 +15,7 @@ where
 impl<M, R> Clone for InternalActorRef<M, R>
 where
   M: Element,
-  R: MailboxRuntime,
+  R: MailboxFactory,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
 {
@@ -29,7 +29,7 @@ where
 impl<M, R> InternalActorRef<M, R>
 where
   M: Element,
-  R: MailboxRuntime,
+  R: MailboxFactory,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
 {
@@ -61,7 +61,7 @@ where
 
 impl<R> InternalActorRef<SystemMessage, R>
 where
-  R: MailboxRuntime,
+  R: MailboxFactory,
   R::Queue<PriorityEnvelope<SystemMessage>>: Clone,
   R::Signal: Clone,
 {

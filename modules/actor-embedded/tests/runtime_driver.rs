@@ -9,12 +9,12 @@ use std::sync::Arc;
 
 use nexus_actor_core_rs::{ActorId, ActorPath, FailureEvent, FailureInfo, FailureMetadata};
 use nexus_actor_core_rs::{ActorSystem, FailureEventStream, MailboxOptions, Props, RuntimeComponents};
-use nexus_actor_embedded_rs::{EmbeddedFailureEventHub, ImmediateSpawner, ImmediateTimer, LocalMailboxRuntime};
+use nexus_actor_embedded_rs::{EmbeddedFailureEventHub, ImmediateSpawner, ImmediateTimer, LocalMailboxFactory};
 
 #[test]
 fn embedded_actor_runtime_dispatches_message() {
   let components = RuntimeComponents::new(
-    LocalMailboxRuntime::default(),
+    LocalMailboxFactory::default(),
     ImmediateSpawner,
     ImmediateTimer,
     EmbeddedFailureEventHub::new(),

@@ -1,11 +1,11 @@
 use crate::runtime::system::InternalRootContext;
-use crate::{ActorRef, MailboxRuntime, MessageEnvelope, PriorityEnvelope, Props};
+use crate::{ActorRef, MailboxFactory, MessageEnvelope, PriorityEnvelope, Props};
 use nexus_utils_core_rs::{Element, QueueError};
 
 pub struct RootContext<'a, U, R, Strat>
 where
   U: Element,
-  R: MailboxRuntime + Clone + 'static,
+  R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<MessageEnvelope<U>>>: Clone,
   R::Signal: Clone,
   Strat: crate::api::guardian::GuardianStrategy<MessageEnvelope<U>, R>, {
@@ -15,7 +15,7 @@ where
 impl<'a, U, R, Strat> RootContext<'a, U, R, Strat>
 where
   U: Element,
-  R: MailboxRuntime + Clone,
+  R: MailboxFactory + Clone,
   R::Queue<PriorityEnvelope<MessageEnvelope<U>>>: Clone,
   R::Signal: Clone,
   Strat: crate::api::guardian::GuardianStrategy<MessageEnvelope<U>, R>,

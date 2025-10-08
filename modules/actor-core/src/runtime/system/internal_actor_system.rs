@@ -2,7 +2,7 @@ use core::convert::Infallible;
 
 use crate::runtime::guardian::{AlwaysRestart, GuardianStrategy};
 use crate::runtime::scheduler::PriorityScheduler;
-use crate::{FailureEventListener, MailboxRuntime, PriorityEnvelope};
+use crate::{FailureEventListener, MailboxFactory, PriorityEnvelope};
 use nexus_utils_core_rs::{Element, QueueError};
 
 use super::InternalRootContext;
@@ -10,7 +10,7 @@ use super::InternalRootContext;
 pub(crate) struct InternalActorSystem<M, R, Strat = AlwaysRestart>
 where
   M: Element + 'static,
-  R: MailboxRuntime + Clone + 'static,
+  R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
   Strat: GuardianStrategy<M, R>, {
@@ -20,7 +20,7 @@ where
 impl<M, R> InternalActorSystem<M, R, AlwaysRestart>
 where
   M: Element,
-  R: MailboxRuntime + Clone,
+  R: MailboxFactory + Clone,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
 {
@@ -34,7 +34,7 @@ where
 impl<M, R, Strat> InternalActorSystem<M, R, Strat>
 where
   M: Element,
-  R: MailboxRuntime + Clone,
+  R: MailboxFactory + Clone,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
   Strat: GuardianStrategy<M, R>,

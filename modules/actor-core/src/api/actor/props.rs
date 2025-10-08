@@ -2,7 +2,7 @@ use crate::runtime::context::ActorContext;
 use crate::runtime::system::InternalProps;
 use crate::Supervisor;
 use crate::SystemMessage;
-use crate::{MailboxOptions, MailboxRuntime, PriorityEnvelope};
+use crate::{MailboxOptions, MailboxFactory, PriorityEnvelope};
 use nexus_utils_core_rs::Element;
 
 use super::{ActorAdapter, Behavior, Context};
@@ -11,7 +11,7 @@ use crate::api::messaging::MessageEnvelope;
 pub struct Props<U, R>
 where
   U: Element,
-  R: MailboxRuntime + Clone + 'static,
+  R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<MessageEnvelope<U>>>: Clone,
   R::Signal: Clone, {
   inner: InternalProps<MessageEnvelope<U>, R>,
@@ -20,7 +20,7 @@ where
 impl<U, R> Props<U, R>
 where
   U: Element,
-  R: MailboxRuntime + Clone + 'static,
+  R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<MessageEnvelope<U>>>: Clone,
   R::Signal: Clone,
 {

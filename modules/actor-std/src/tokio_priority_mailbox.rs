@@ -219,13 +219,13 @@ where
 }
 
 #[derive(Clone, Debug)]
-pub struct TokioPriorityMailboxRuntime {
+pub struct TokioPriorityMailboxFactory {
   control_capacity_per_level: usize,
   regular_capacity: usize,
   levels: usize,
 }
 
-impl Default for TokioPriorityMailboxRuntime {
+impl Default for TokioPriorityMailboxFactory {
   fn default() -> Self {
     Self {
       control_capacity_per_level: DEFAULT_CAPACITY,
@@ -235,7 +235,7 @@ impl Default for TokioPriorityMailboxRuntime {
   }
 }
 
-impl TokioPriorityMailboxRuntime {
+impl TokioPriorityMailboxFactory {
   pub fn new(control_capacity_per_level: usize) -> Self {
     Self {
       control_capacity_per_level,
@@ -289,7 +289,7 @@ where
   M: Element,
 {
   pub fn new(control_capacity_per_level: usize) -> (Self, TokioPriorityMailboxSender<M>) {
-    TokioPriorityMailboxRuntime::new(control_capacity_per_level).mailbox::<M>(MailboxOptions::default())
+    TokioPriorityMailboxFactory::new(control_capacity_per_level).mailbox::<M>(MailboxOptions::default())
   }
 
   pub fn inner(&self) -> &QueueMailbox<TokioPriorityQueues<M>, NotifySignal> {
@@ -371,7 +371,7 @@ mod tests {
   use nexus_utils_std_rs::{QueueSize, DEFAULT_PRIORITY};
 
   async fn run_priority_runtime_orders_messages() {
-    let runtime = TokioPriorityMailboxRuntime::default();
+    let runtime = TokioPriorityMailboxFactory::default();
     let (mailbox, sender) = runtime.mailbox::<u32>(MailboxOptions::default());
 
     sender
@@ -409,7 +409,7 @@ mod tests {
   }
 
   async fn run_priority_sender_defaults_work() {
-    let runtime = TokioPriorityMailboxRuntime::new(4).with_regular_capacity(4);
+    let runtime = TokioPriorityMailboxFactory::new(4).with_regular_capacity(4);
     let (mailbox, sender) = runtime.mailbox::<u8>(MailboxOptions::default());
 
     sender
@@ -433,7 +433,7 @@ mod tests {
   }
 
   async fn run_control_queue_preempts_regular_messages() {
-    let runtime = TokioPriorityMailboxRuntime::default();
+    let runtime = TokioPriorityMailboxFactory::default();
     let (mailbox, sender) = runtime.mailbox::<u32>(MailboxOptions::default());
 
     sender
@@ -463,7 +463,7 @@ mod tests {
   }
 
   async fn run_priority_mailbox_capacity_split() {
-    let runtime = TokioPriorityMailboxRuntime::default();
+    let runtime = TokioPriorityMailboxFactory::default();
     let options = MailboxOptions::with_capacities(QueueSize::limited(2), QueueSize::limited(2));
     let (mailbox, sender) = runtime.mailbox::<u8>(options);
 

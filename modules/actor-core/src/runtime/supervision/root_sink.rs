@@ -2,7 +2,7 @@ use alloc::sync::Arc;
 use core::marker::PhantomData;
 
 use crate::{FailureEvent, FailureInfo};
-use crate::{MailboxRuntime, PriorityEnvelope};
+use crate::{MailboxFactory, PriorityEnvelope};
 use nexus_utils_core_rs::Element;
 
 use super::EscalationSink;
@@ -13,7 +13,7 @@ pub type FailureEventListener = Arc<dyn Fn(FailureEvent) + Send + Sync>;
 pub struct RootEscalationSink<M, R>
 where
   M: Element,
-  R: MailboxRuntime,
+  R: MailboxFactory,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone, {
   event_handler: Option<FailureEventHandler>,
@@ -24,7 +24,7 @@ where
 impl<M, R> RootEscalationSink<M, R>
 where
   M: Element,
-  R: MailboxRuntime,
+  R: MailboxFactory,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
 {
@@ -48,7 +48,7 @@ where
 impl<M, R> Default for RootEscalationSink<M, R>
 where
   M: Element,
-  R: MailboxRuntime,
+  R: MailboxFactory,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
 {
@@ -60,7 +60,7 @@ where
 impl<M, R> EscalationSink<M, R> for RootEscalationSink<M, R>
 where
   M: Element,
-  R: MailboxRuntime,
+  R: MailboxFactory,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
 {

@@ -3,7 +3,7 @@
 ## 目的
 
 - `actor-std` と同等の「`tell` だけでディスパッチャが駆動される」ユーザー体験を `actor-embedded` でも提供する。
-- ランタイム差し替え可能な共通抽象 (`FailureEventStream`, `MailboxRuntime`, `Timer`, `Spawn`) を活かし、std/embedded を同一コードパスで利用できる高レベル API を設計する。
+- ランタイム差し替え可能な共通抽象 (`FailureEventStream`, `MailboxFactory`, `Timer`, `Spawn`) を活かし、std/embedded を同一コードパスで利用できる高レベル API を設計する。
 - 既存のローレベルテストを内部契約検証に残しつつ、高レベル API 経由の統合テストを整備する。
 
 ## 現状整理
@@ -73,7 +73,7 @@
 
 ### Embedded Runner 運用メモ
 
-- **Mailbox / Timer / Spawner**: デフォルト構成は `LocalMailboxRuntime` + `ImmediateSpawner` + `ImmediateTimer`。`embedded_arc` feature 有効時は `ArcMailboxRuntime` も選択可能。
+- **Mailbox / Timer / Spawner**: デフォルト構成は `LocalMailboxFactory` + `ImmediateSpawner` + `ImmediateTimer`。`embedded_arc` feature 有効時は `ArcMailboxFactory` も選択可能。
 - **FailureEventHub**: 軽量な `EmbeddedFailureEventHub` を維持し、`FailureEventStream` を利用するコードと Runner を直接接続する。
 - **運用モデル**: アプリケーションは `ActorSystemRunner::run_until_idle()` を周期的に呼び出し、`ShutdownToken` を監視して安全に停止する。旧来の `pump()` ベース API は廃止済み。
 - **テスト**: `actor-embedded/tests/runtime_driver.rs` で Runner ベースの統合テストを継続し、`tell` → `run_until_idle` → 状態検証の流れを確保する。
@@ -145,7 +145,7 @@ where
 pub trait SystemDriver<U, R>
 where
   U: Element,
-  R: MailboxRuntime + Clone + 'static,
+  R: MailboxFactory + Clone + 'static,
 {
   type Handle;
 

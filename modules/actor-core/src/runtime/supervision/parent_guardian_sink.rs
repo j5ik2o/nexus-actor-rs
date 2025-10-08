@@ -2,7 +2,7 @@ use alloc::sync::Arc;
 
 use crate::runtime::context::{InternalActorRef, MapSystemFn};
 use crate::FailureInfo;
-use crate::MailboxRuntime;
+use crate::MailboxFactory;
 use crate::{PriorityEnvelope, SystemMessage};
 use nexus_utils_core_rs::Element;
 
@@ -12,7 +12,7 @@ use super::EscalationSink;
 pub(crate) struct ParentGuardianSink<M, R>
 where
   M: Element,
-  R: MailboxRuntime,
+  R: MailboxFactory,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone, {
   control_ref: InternalActorRef<M, R>,
@@ -22,7 +22,7 @@ where
 impl<M, R> ParentGuardianSink<M, R>
 where
   M: Element,
-  R: MailboxRuntime,
+  R: MailboxFactory,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
 {
@@ -37,7 +37,7 @@ where
 impl<M, R> EscalationSink<M, R> for ParentGuardianSink<M, R>
 where
   M: Element,
-  R: MailboxRuntime,
+  R: MailboxFactory,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
 {

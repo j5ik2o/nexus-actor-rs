@@ -5,7 +5,7 @@ use alloc::vec::Vec;
 use crate::ActorId;
 use crate::ActorPath;
 use crate::Supervisor;
-use crate::{MailboxRuntime, PriorityEnvelope, QueueMailbox, QueueMailboxProducer};
+use crate::{MailboxFactory, PriorityEnvelope, QueueMailbox, QueueMailboxProducer};
 use nexus_utils_core_rs::Element;
 
 use super::{ActorHandlerFn, MapSystemFn};
@@ -14,7 +14,7 @@ use super::{ActorHandlerFn, MapSystemFn};
 pub struct ChildSpawnSpec<M, R>
 where
   M: Element,
-  R: MailboxRuntime, {
+  R: MailboxFactory, {
   pub mailbox: QueueMailbox<R::Queue<PriorityEnvelope<M>>, R::Signal>,
   pub sender: QueueMailboxProducer<R::Queue<PriorityEnvelope<M>>, R::Signal>,
   pub supervisor: Box<dyn Supervisor<M>>,

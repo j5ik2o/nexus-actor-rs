@@ -11,7 +11,7 @@ use crate::ActorId;
 use crate::ActorPath;
 use crate::FailureInfo;
 use crate::Supervisor;
-use crate::{MailboxOptions, MailboxRuntime, PriorityEnvelope};
+use crate::{MailboxOptions, MailboxFactory, PriorityEnvelope};
 use crate::{MailboxSignal, SystemMessage};
 use futures::future::select_all;
 use futures::FutureExt;
@@ -23,7 +23,7 @@ use super::actor_cell::ActorCell;
 pub struct PriorityScheduler<M, R, Strat = AlwaysRestart>
 where
   M: Element,
-  R: MailboxRuntime + Clone,
+  R: MailboxFactory + Clone,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
   Strat: GuardianStrategy<M, R>, {
@@ -38,7 +38,7 @@ where
 impl<M, R> PriorityScheduler<M, R, AlwaysRestart>
 where
   M: Element,
-  R: MailboxRuntime + Clone,
+  R: MailboxFactory + Clone,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
 {
@@ -69,7 +69,7 @@ where
 impl<M, R, Strat> PriorityScheduler<M, R, Strat>
 where
   M: Element,
-  R: MailboxRuntime + Clone,
+  R: MailboxFactory + Clone,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
   Strat: GuardianStrategy<M, R>,

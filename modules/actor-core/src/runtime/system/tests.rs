@@ -2,7 +2,7 @@
 
 use super::*;
 use crate::runtime::guardian::AlwaysRestart;
-use crate::runtime::mailbox::test_support::TestMailboxRuntime;
+use crate::runtime::mailbox::test_support::TestMailboxFactory;
 use crate::{MailboxOptions, SystemMessage};
 use alloc::rc::Rc;
 use alloc::sync::Arc;
@@ -26,7 +26,7 @@ impl Element for Message {}
 #[cfg(feature = "std")]
 #[test]
 fn actor_system_spawns_and_processes_messages() {
-  let runtime = TestMailboxRuntime::unbounded();
+  let runtime = TestMailboxFactory::unbounded();
   let mut system: InternalActorSystem<Message, _, AlwaysRestart> = InternalActorSystem::new(runtime);
 
   let map_system = Arc::new(|_: SystemMessage| Message::System);

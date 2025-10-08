@@ -7,13 +7,13 @@ use crate::api::guardian::AlwaysRestart;
 use crate::api::messaging::MessageEnvelope;
 use crate::api::runtime::{RuntimeComponentHandles, RuntimeComponents, Spawn, Timer};
 use crate::runtime::system::InternalActorSystem;
-use crate::{FailureEventListener, FailureEventStream, MailboxRuntime, PriorityEnvelope};
+use crate::{FailureEventListener, FailureEventStream, MailboxFactory, PriorityEnvelope};
 use nexus_utils_core_rs::{Element, QueueError};
 
 pub struct ActorSystem<U, R, Strat = AlwaysRestart>
 where
   U: Element,
-  R: MailboxRuntime + Clone + 'static,
+  R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<MessageEnvelope<U>>>: Clone,
   R::Signal: Clone,
   Strat: crate::api::guardian::GuardianStrategy<MessageEnvelope<U>, R>, {
@@ -24,7 +24,7 @@ where
 pub struct ActorSystemRunner<U, R, Strat = AlwaysRestart>
 where
   U: Element,
-  R: MailboxRuntime + Clone + 'static,
+  R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<MessageEnvelope<U>>>: Clone,
   R::Signal: Clone,
   Strat: crate::api::guardian::GuardianStrategy<MessageEnvelope<U>, R>, {
@@ -34,7 +34,7 @@ where
 impl<U, R> ActorSystem<U, R>
 where
   U: Element,
-  R: MailboxRuntime + Clone + 'static,
+  R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<MessageEnvelope<U>>>: Clone,
   R::Signal: Clone,
 {
@@ -66,7 +66,7 @@ where
 impl<U, R, Strat> ActorSystem<U, R, Strat>
 where
   U: Element,
-  R: MailboxRuntime + Clone + 'static,
+  R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<MessageEnvelope<U>>>: Clone,
   R::Signal: Clone,
   Strat: crate::api::guardian::GuardianStrategy<MessageEnvelope<U>, R>,
@@ -136,7 +136,7 @@ where
 impl<U, R, Strat> ActorSystemRunner<U, R, Strat>
 where
   U: Element,
-  R: MailboxRuntime + Clone + 'static,
+  R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<MessageEnvelope<U>>>: Clone,
   R::Signal: Clone,
   Strat: crate::api::guardian::GuardianStrategy<MessageEnvelope<U>, R>,

@@ -9,7 +9,7 @@ use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, RawMutex};
 use embassy_sync::signal::Signal;
 
 use nexus_actor_core_rs::{
-  Mailbox, MailboxOptions, MailboxPair, MailboxRuntime, MailboxSignal, QueueMailbox, QueueMailboxProducer,
+  Mailbox, MailboxFactory, MailboxOptions, MailboxPair, MailboxSignal, QueueMailbox, QueueMailboxProducer,
   QueueMailboxRecv,
 };
 use nexus_utils_embedded_rs::collections::queue::mpsc::ArcMpscUnboundedQueue;
@@ -34,13 +34,13 @@ where
 }
 
 #[derive(Clone)]
-pub struct ArcMailboxRuntime<RM = CriticalSectionRawMutex>
+pub struct ArcMailboxFactory<RM = CriticalSectionRawMutex>
 where
   RM: RawMutex, {
   _marker: PhantomData<RM>,
 }
 
-impl<RM> Default for ArcMailboxRuntime<RM>
+impl<RM> Default for ArcMailboxFactory<RM>
 where
   RM: RawMutex,
 {
@@ -126,7 +126,7 @@ where
   }
 }
 
-impl<RM> ArcMailboxRuntime<RM>
+impl<RM> ArcMailboxFactory<RM>
 where
   RM: RawMutex,
 {
@@ -148,7 +148,7 @@ where
   }
 }
 
-impl<RM> MailboxRuntime for ArcMailboxRuntime<RM>
+impl<RM> MailboxFactory for ArcMailboxFactory<RM>
 where
   RM: RawMutex,
 {
@@ -175,7 +175,7 @@ where
   RM: RawMutex,
 {
   pub fn new() -> (Self, ArcMailboxSender<M, RM>) {
-    ArcMailboxRuntime::<RM>::new().unbounded()
+    ArcMailboxFactory::<RM>::new().unbounded()
   }
 
   pub fn inner(&self) -> &QueueMailbox<ArcMpscUnboundedQueue<M, RM>, ArcSignal<RM>> {

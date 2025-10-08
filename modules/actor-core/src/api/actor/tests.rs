@@ -4,7 +4,7 @@
 use super::*;
 use crate::api::guardian::AlwaysRestart;
 use crate::runtime::context::ActorContext;
-use crate::runtime::mailbox::test_support::TestMailboxRuntime;
+use crate::runtime::mailbox::test_support::TestMailboxFactory;
 use crate::ActorId;
 use crate::MailboxOptions;
 use crate::MessageEnvelope;
@@ -16,7 +16,7 @@ use core::cell::RefCell;
 use futures::executor::block_on;
 #[test]
 fn typed_actor_system_handles_user_messages() {
-  let runtime = TestMailboxRuntime::unbounded();
+  let runtime = TestMailboxFactory::unbounded();
   let mut system: ActorSystem<u32, _, AlwaysRestart> = ActorSystem::new(runtime);
 
   let log: Rc<RefCell<Vec<u32>>> = Rc::new(RefCell::new(Vec::new()));
@@ -36,7 +36,7 @@ fn typed_actor_system_handles_user_messages() {
 
 #[test]
 fn test_typed_actor_handles_system_stop() {
-  let runtime = TestMailboxRuntime::unbounded();
+  let runtime = TestMailboxFactory::unbounded();
   let mut system: ActorSystem<u32, _, AlwaysRestart> = ActorSystem::new(runtime);
 
   let stopped: Rc<RefCell<bool>> = Rc::new(RefCell::new(false));
@@ -60,7 +60,7 @@ fn test_typed_actor_handles_system_stop() {
 
 #[test]
 fn test_typed_actor_handles_watch_unwatch() {
-  let runtime = TestMailboxRuntime::unbounded();
+  let runtime = TestMailboxFactory::unbounded();
   let mut system: ActorSystem<u32, _, AlwaysRestart> = ActorSystem::new(runtime);
 
   let watchers_count: Rc<RefCell<usize>> = Rc::new(RefCell::new(0));
@@ -126,7 +126,7 @@ fn test_typed_actor_handles_watch_unwatch() {
 #[cfg(feature = "std")]
 #[test]
 fn test_typed_actor_stateful_behavior_with_system_message() {
-  let runtime = TestMailboxRuntime::unbounded();
+  let runtime = TestMailboxFactory::unbounded();
   let mut system: ActorSystem<u32, _, AlwaysRestart> = ActorSystem::new(runtime);
 
   // Stateful behavior: count user messages and track system messages

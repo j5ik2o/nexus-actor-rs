@@ -12,13 +12,13 @@ pub use nexus_utils_std_rs::{ArcShared, ArcStateCell};
 pub use runtime_driver::TokioSystemHandle;
 pub use spawn::TokioSpawner;
 pub use timer::TokioTimer;
-pub use tokio_mailbox::{TokioMailbox, TokioMailboxRuntime, TokioMailboxSender};
-pub use tokio_priority_mailbox::{TokioPriorityMailbox, TokioPriorityMailboxRuntime, TokioPriorityMailboxSender};
+pub use tokio_mailbox::{TokioMailbox, TokioMailboxFactory, TokioMailboxSender};
+pub use tokio_priority_mailbox::{TokioPriorityMailbox, TokioPriorityMailboxFactory, TokioPriorityMailboxSender};
 
 pub mod prelude {
   pub use super::{
-    ArcShared, ArcStateCell, TokioMailbox, TokioMailboxRuntime, TokioMailboxSender, TokioPriorityMailbox,
-    TokioPriorityMailboxRuntime, TokioPriorityMailboxSender, TokioSpawner, TokioSystemHandle, TokioTimer,
+    ArcShared, ArcStateCell, TokioMailbox, TokioMailboxFactory, TokioMailboxSender, TokioPriorityMailbox,
+    TokioPriorityMailboxFactory, TokioPriorityMailboxSender, TokioSpawner, TokioSystemHandle, TokioTimer,
   };
   pub use nexus_actor_core_rs::actor_loop;
 }
@@ -67,7 +67,7 @@ mod tests {
   }
 
   async fn run_typed_actor_system_handles_user_messages() {
-    let runtime = TokioMailboxRuntime;
+    let runtime = TokioMailboxFactory;
     let mut system: ActorSystem<u32, _> = ActorSystem::new(runtime);
 
     let log: Arc<Mutex<Vec<u32>>> = Arc::new(Mutex::new(Vec::new()));

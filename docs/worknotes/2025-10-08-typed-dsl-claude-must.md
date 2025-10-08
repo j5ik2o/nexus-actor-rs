@@ -41,7 +41,7 @@
    - `test_typed_actor_notifies_watchers`（仮称）: 書き換えた `map_system` が `SystemMessage::Watch` を typed イベントへ変換し、watchers が `ActorContext::register_watcher` を通じて反映されること。
    - `test_typed_actor_stateful_behavior`（仮称）: `Behavior` が stateful で `SystemMessage::Failure` などを受け、内部状態を更新するケース。
 2. テスト内では [`PriorityActorRef::try_send_control_with_priority`](modules/actor-core/src/context.rs:52) を利用し、制御メッセージが適切な優先度で処理されることを確認。
-3. 可能であれば `TestMailboxRuntime` を使った end-to-end シナリオで `Escalate` → 親 Guardian 経路を検証。
+3. 可能であれば `TestMailboxFactory` を使った end-to-end シナリオで `Escalate` → 親 Guardian 経路を検証。
 
 ## 実装メモ
 - `TypedActorAdapter` が `Arc` や `Box` を保持する際、`Send + Sync` 制約を維持すること。mailbox runtime は `Clone` を要求する点に注意。

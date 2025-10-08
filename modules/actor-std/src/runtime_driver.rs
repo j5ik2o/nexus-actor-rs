@@ -4,7 +4,7 @@ use nexus_actor_core_rs::{ActorSystemRunner, ShutdownToken};
 use tokio::signal;
 use tokio::task::JoinHandle;
 
-use crate::TokioMailboxRuntime;
+use crate::TokioMailboxFactory;
 use nexus_actor_core_rs::{MessageEnvelope, PriorityEnvelope};
 use nexus_utils_std_rs::QueueError;
 
@@ -19,7 +19,7 @@ impl<U> TokioSystemHandle<U>
 where
   U: nexus_utils_std_rs::Element,
 {
-  pub fn start_local(runner: ActorSystemRunner<U, TokioMailboxRuntime>) -> Self
+  pub fn start_local(runner: ActorSystemRunner<U, TokioMailboxFactory>) -> Self
   where
     U: nexus_utils_std_rs::Element + 'static, {
     let shutdown = runner.shutdown_token();

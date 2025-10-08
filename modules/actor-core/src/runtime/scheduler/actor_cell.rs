@@ -18,13 +18,13 @@ use crate::ActorPath;
 use crate::FailureInfo;
 use crate::Supervisor;
 use crate::{Mailbox, SystemMessage};
-use crate::{MailboxRuntime, PriorityEnvelope, QueueMailbox, QueueMailboxProducer};
+use crate::{MailboxFactory, PriorityEnvelope, QueueMailbox, QueueMailboxProducer};
 use nexus_utils_core_rs::{Element, QueueError, QueueRw};
 
 pub(crate) struct ActorCell<M, R, Strat>
 where
   M: Element,
-  R: MailboxRuntime + Clone,
+  R: MailboxFactory + Clone,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
   Strat: GuardianStrategy<M, R>, {
@@ -44,7 +44,7 @@ where
 impl<M, R, Strat> ActorCell<M, R, Strat>
 where
   M: Element,
-  R: MailboxRuntime + Clone,
+  R: MailboxFactory + Clone,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
   Strat: GuardianStrategy<M, R>,

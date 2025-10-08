@@ -7,7 +7,7 @@ use core::pin::Pin;
 use core::task::{Context, Poll, Waker};
 
 use nexus_actor_core_rs::{
-  Mailbox, MailboxOptions, MailboxPair, MailboxRuntime, MailboxSignal, QueueMailbox, QueueMailboxProducer,
+  Mailbox, MailboxFactory, MailboxOptions, MailboxPair, MailboxSignal, QueueMailbox, QueueMailboxProducer,
   QueueMailboxRecv,
 };
 use nexus_utils_embedded_rs::RcMpscUnboundedQueue;
@@ -89,7 +89,7 @@ where
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct LocalMailboxRuntime {
+pub struct LocalMailboxFactory {
   _marker: PhantomData<()>,
 }
 
@@ -142,7 +142,7 @@ impl Future for LocalSignalWait {
   }
 }
 
-impl LocalMailboxRuntime {
+impl LocalMailboxFactory {
   pub const fn new() -> Self {
     Self { _marker: PhantomData }
   }
@@ -161,7 +161,7 @@ impl LocalMailboxRuntime {
   }
 }
 
-impl MailboxRuntime for LocalMailboxRuntime {
+impl MailboxFactory for LocalMailboxFactory {
   type Queue<M>
     = LocalQueue<M>
   where
@@ -185,7 +185,7 @@ where
   LocalQueue<M>: Clone,
 {
   pub fn new() -> (Self, LocalMailboxSender<M>) {
-    LocalMailboxRuntime::default().unbounded()
+    LocalMailboxFactory::default().unbounded()
   }
 
   pub fn producer(&self) -> LocalMailboxSender<M>
@@ -375,7 +375,7 @@ mod tests {
 
   #[test]
   fn runtime_builder_produces_working_mailbox() {
-    let runtime = LocalMailboxRuntime::new();
+    let runtime = LocalMailboxFactory::new();
     let (mailbox, sender) = runtime.unbounded::<u16>();
 
     sender.try_send(11).unwrap();

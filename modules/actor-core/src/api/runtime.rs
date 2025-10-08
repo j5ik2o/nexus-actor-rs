@@ -3,7 +3,7 @@ mod spawn;
 mod timer;
 
 pub use crate::runtime::mailbox::{
-  Mailbox, MailboxOptions, MailboxPair, MailboxRuntime, MailboxSignal, PriorityEnvelope, QueueMailbox,
+  Mailbox, MailboxOptions, MailboxPair, MailboxFactory, MailboxSignal, PriorityEnvelope, QueueMailbox,
   QueueMailboxProducer, QueueMailboxRecv, SystemMessage,
 };
 pub use components::{RuntimeComponentHandles, RuntimeComponents};

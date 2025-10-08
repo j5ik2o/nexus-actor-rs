@@ -8,7 +8,7 @@ use crate::ActorId;
 use crate::ActorPath;
 use crate::Supervisor;
 use crate::SystemMessage;
-use crate::{MailboxOptions, MailboxRuntime, PriorityEnvelope, QueueMailboxProducer};
+use crate::{MailboxOptions, MailboxFactory, PriorityEnvelope, QueueMailboxProducer};
 use nexus_utils_core_rs::{Element, QueueError, QueueSize};
 
 use super::{ChildSpawnSpec, InternalActorRef};
@@ -20,7 +20,7 @@ pub type MapSystemFn<M> = dyn Fn(SystemMessage) -> M + Send + Sync;
 pub struct ActorContext<'a, M, R, Sup>
 where
   M: Element,
-  R: MailboxRuntime,
+  R: MailboxFactory,
   Sup: Supervisor<M> + ?Sized, {
   runtime: &'a R,
   sender: &'a QueueMailboxProducer<R::Queue<PriorityEnvelope<M>>, R::Signal>,
@@ -39,7 +39,7 @@ where
 impl<'a, M, R, Sup> ActorContext<'a, M, R, Sup>
 where
   M: Element,
-  R: MailboxRuntime,
+  R: MailboxFactory,
   Sup: Supervisor<M> + ?Sized,
 {
   #[allow(clippy::too_many_arguments)]
