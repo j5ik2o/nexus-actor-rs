@@ -4,7 +4,7 @@ use alloc::rc::Rc;
 use core::cell::RefCell;
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::signal::Signal;
-use nexus_utils_core_rs::{BoxFuture, WaitGroup as CoreWaitGroup, WaitGroupBackend};
+use nexus_utils_core_rs::{async_trait, WaitGroup as CoreWaitGroup, WaitGroupBackend};
 
 #[derive(Clone)]
 pub struct RcWaitGroupBackend {
@@ -12,12 +12,8 @@ pub struct RcWaitGroupBackend {
   signal: Rc<Signal<NoopRawMutex, ()>>,
 }
 
+#[async_trait(?Send)]
 impl WaitGroupBackend for RcWaitGroupBackend {
-  type WaitFuture<'a>
-    = BoxFuture<'a, ()>
-  where
-    Self: 'a;
-
   fn new() -> Self {
     Self::with_count(0)
   }
@@ -42,17 +38,15 @@ impl WaitGroupBackend for RcWaitGroupBackend {
     }
   }
 
-  fn wait(&self) -> Self::WaitFuture<'_> {
+  async fn wait(&self) {
     let count = self.count.clone();
     let signal = self.signal.clone();
-    Box::pin(async move {
-      loop {
-        if *count.borrow() == 0 {
-          return;
-        }
-        signal.wait().await;
+    loop {
+      if *count.borrow() == 0 {
+        return;
       }
-    })
+      signal.wait().await;
+    }
   }
 }
 

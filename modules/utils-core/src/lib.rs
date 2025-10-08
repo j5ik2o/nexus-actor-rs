@@ -6,6 +6,8 @@ pub(crate) mod collections;
 pub(crate) mod concurrent;
 pub(crate) mod sync;
 
+pub use async_trait::async_trait;
+
 pub use collections::{
   Element, MpscBackend, MpscBuffer, MpscHandle, MpscQueue, PriorityMessage, PriorityQueue, QueueBase, QueueError,
   QueueHandle, QueueReader, QueueRw, QueueRwHandle, QueueSize, QueueStorage, QueueWriter, RingBackend, RingBuffer,

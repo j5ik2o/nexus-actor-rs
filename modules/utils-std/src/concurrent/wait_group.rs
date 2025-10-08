@@ -1,7 +1,7 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
-use nexus_utils_core_rs::{BoxFuture, WaitGroup as CoreWaitGroup, WaitGroupBackend};
+use nexus_utils_core_rs::{async_trait, WaitGroup as CoreWaitGroup, WaitGroupBackend};
 use tokio::sync::Notify;
 
 #[derive(Clone)]
@@ -14,12 +14,8 @@ struct Inner {
   notify: Notify,
 }
 
+#[async_trait(?Send)]
 impl WaitGroupBackend for TokioWaitGroupBackend {
-  type WaitFuture<'a>
-    = BoxFuture<'a, ()>
-  where
-    Self: 'a;
-
   fn new() -> Self {
     Self::with_count(0)
   }
@@ -45,16 +41,14 @@ impl WaitGroupBackend for TokioWaitGroupBackend {
     }
   }
 
-  fn wait(&self) -> Self::WaitFuture<'_> {
+  async fn wait(&self) {
     let inner = self.inner.clone();
-    Box::pin(async move {
-      loop {
-        if inner.count.load(Ordering::SeqCst) == 0 {
-          return;
-        }
-        inner.notify.notified().await;
+    loop {
+      if inner.count.load(Ordering::SeqCst) == 0 {
+        return;
       }
-    })
+      inner.notify.notified().await;
+    }
   }
 }
 

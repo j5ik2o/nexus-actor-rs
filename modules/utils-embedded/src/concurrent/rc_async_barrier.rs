@@ -4,7 +4,7 @@ use alloc::rc::Rc;
 use core::cell::RefCell;
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::signal::Signal;
-use nexus_utils_core_rs::{AsyncBarrier as CoreAsyncBarrier, AsyncBarrierBackend, BoxFuture};
+use nexus_utils_core_rs::{async_trait, AsyncBarrier as CoreAsyncBarrier, AsyncBarrierBackend};
 
 #[derive(Clone)]
 pub struct RcAsyncBarrierBackend {
@@ -13,12 +13,8 @@ pub struct RcAsyncBarrierBackend {
   signal: Rc<Signal<NoopRawMutex, ()>>,
 }
 
+#[async_trait(?Send)]
 impl AsyncBarrierBackend for RcAsyncBarrierBackend {
-  type WaitFuture<'a>
-    = BoxFuture<'a, ()>
-  where
-    Self: 'a;
-
   fn new(count: usize) -> Self {
     assert!(count > 0, "AsyncBarrier must have positive count");
     Self {
@@ -28,29 +24,27 @@ impl AsyncBarrierBackend for RcAsyncBarrierBackend {
     }
   }
 
-  fn wait(&self) -> Self::WaitFuture<'_> {
+  async fn wait(&self) {
     let remaining = self.remaining.clone();
     let signal = self.signal.clone();
     let initial = self.initial;
-    Box::pin(async move {
-      {
-        let mut rem = remaining.borrow_mut();
-        assert!(*rem > 0, "AsyncBarrier::wait called more times than count");
-        *rem -= 1;
-        if *rem == 0 {
-          *rem = initial;
-          signal.signal(());
-          return;
-        }
+    {
+      let mut rem = remaining.borrow_mut();
+      assert!(*rem > 0, "AsyncBarrier::wait called more times than count");
+      *rem -= 1;
+      if *rem == 0 {
+        *rem = initial;
+        signal.signal(());
+        return;
       }
+    }
 
-      loop {
-        signal.wait().await;
-        if *remaining.borrow() == initial {
-          break;
-        }
+    loop {
+      signal.wait().await;
+      if *remaining.borrow() == initial {
+        break;
       }
-    })
+    }
   }
 }
 

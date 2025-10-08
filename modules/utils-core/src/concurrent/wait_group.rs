@@ -1,18 +1,13 @@
 use alloc::boxed::Box;
-use core::future::Future;
-use core::pin::Pin;
+use async_trait::async_trait;
 
-pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a>>;
-
+#[async_trait(?Send)]
 pub trait WaitGroupBackend: Clone {
   fn new() -> Self;
   fn with_count(count: usize) -> Self;
   fn add(&self, n: usize);
   fn done(&self);
-  type WaitFuture<'a>: Future<Output = ()> + 'a
-  where
-    Self: 'a;
-  fn wait(&self) -> Self::WaitFuture<'_>;
+  async fn wait(&self);
 }
 
 #[derive(Clone, Debug)]
