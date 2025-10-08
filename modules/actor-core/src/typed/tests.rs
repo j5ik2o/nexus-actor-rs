@@ -50,8 +50,7 @@ fn test_typed_actor_handles_system_stop() {
     }
   };
 
-  let props =
-    TypedProps::with_system_handler(MailboxOptions::default(), move |_, _msg: u32| {}, Some(system_handler));
+  let props = TypedProps::with_system_handler(MailboxOptions::default(), move |_, _msg: u32| {}, Some(system_handler));
 
   let mut root = system.root_context();
   let actor_ref = root.spawn(props).expect("spawn typed actor");
