@@ -192,6 +192,11 @@ where
     core::mem::take(&mut self.escalations)
   }
 
+  /// Ready キューに存在するメッセージを 1 サイクル分処理する。処理が行われた場合は true。
+  pub fn drain_ready(&mut self) -> Result<bool, QueueError<PriorityEnvelope<M>>> {
+    self.drain_ready_cycle()
+  }
+
   pub fn on_escalation<F>(&mut self, handler: F)
   where
     F: FnMut(&FailureInfo) -> Result<(), QueueError<PriorityEnvelope<M>>> + 'static, {

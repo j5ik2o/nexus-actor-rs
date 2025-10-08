@@ -54,8 +54,6 @@ fn embedded_failure_event_hub_broadcasts() {
 
   assert_eq!(received.lock().unwrap().len(), 1);
   let guard = received.lock().unwrap();
-  let FailureEvent::RootEscalated(recorded) = &guard[0] else {
-    panic!("expected RootEscalated");
-  };
+  let FailureEvent::RootEscalated(recorded) = &guard[0];
   assert_eq!(recorded.actor, info.actor);
 }

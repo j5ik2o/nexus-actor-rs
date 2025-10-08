@@ -94,4 +94,16 @@ where
   pub async fn dispatch_next(&mut self) -> Result<(), QueueError<PriorityEnvelope<MessageEnvelope<U>>>> {
     self.inner.dispatch_next().await
   }
+
+  /// Ready キューに溜まったメッセージを同期的に処理し、空になるまで繰り返す。
+  /// 新たにメッセージが到着するまで待機は行わない。
+  pub fn run_until_idle(&mut self) -> Result<(), QueueError<PriorityEnvelope<MessageEnvelope<U>>>> {
+    loop {
+      let processed = self.inner.drain_ready()?;
+      if !processed {
+        break;
+      }
+    }
+    Ok(())
+  }
 }

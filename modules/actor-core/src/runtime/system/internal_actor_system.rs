@@ -72,4 +72,8 @@ where
   pub fn set_root_event_listener(&mut self, listener: Option<FailureEventListener>) {
     self.scheduler.set_root_event_listener(listener);
   }
+
+  pub fn drain_ready(&mut self) -> Result<bool, QueueError<PriorityEnvelope<M>>> {
+    self.scheduler.drain_ready()
+  }
 }

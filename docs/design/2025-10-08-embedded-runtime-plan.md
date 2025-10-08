@@ -179,3 +179,47 @@ where
 3. `spawn_actor` / `dispatch_next` / `run_until_idle` / `pump` を提供し、`ImmediateSpawner` では未処理タスクをキューに蓄え、`pump` で順次実行する仕組みを導入。
 4. `modules/actor-embedded/tests/runtime_driver.rs` を作成し、`tell` → `run_until_idle` の正常系、`pump` の単体挙動、`FailureEventStream` の配信確認などを盛り込む。
 5. `docs/design/2025-10-08-embedded-runtime-plan.md` に embassy 連携と `run_until_idle` API 設計の詳細を追記し、PoC 後の発展タスクを整理する。
+
+### ActorRuntimeFacade Trait 案
+
+共通の高レベル API を提供するため、以下のようなファサード trait を導入する計画。
+
+```rust
+pub trait ActorRuntimeFacade<U>
+where
+  U: Element,
+{
+  type Runtime;
+  type EventStream: FailureEventStream;
+
+  fn event_stream(&self) -> &Self::EventStream;
+  fn spawn_actor(&mut self, props: Props<U, Self::Runtime>)
+    -> Result<ActorRef<U, Self::Runtime>, QueueError<PriorityEnvelope<MessageEnvelope<U>>>>;
+  fn dispatch_next(
+    &mut self,
+  ) -> impl Future<Output = Result<(), QueueError<PriorityEnvelope<MessageEnvelope<U>>>>> + Send;
+  fn pump(&mut self) -> DriverState;
+
+  fn run_until_idle(&mut self) -> impl Future<Output = Result<(), QueueError<PriorityEnvelope<MessageEnvelope<U>>>>> + Send
+  where
+    Self: Sized,
+  {
+    async move {
+      while matches!(self.pump(), DriverState::Busy) {
+        self.dispatch_next().await?;
+      }
+      Ok(())
+    }
+  }
+}
+```
+
+- `TokioActorRuntime` では `dispatch_next` が単に `ActorSystem::dispatch_next()` を呼び、`pump` は常に `DriverState::Idle`。
+- `EmbeddedActorRuntime` は `pump` で未処理タスクの存在を返し、`run_until_idle` でメインループ相当の処理を表現できる。
+- この抽象により、アプリケーションは `ActorRuntimeFacade` をジェネリック引数として受け取り、std/embedded の切り替えを透過化できる。例: `fn drive<F: ActorRuntimeFacade<U>>(mut facade: F) { facade.run_until_idle().await; }`
+
+今後のタスク:
+
+1. `ActorRuntimeFacade` trait を専用モジュール（`actor-core` もしくは `actor-runtime` 新クレート）に追加し、共有ユーティリティを提供する。
+2. `TokioActorRuntime` と `EmbeddedActorRuntime` に対し trait 実装を追加し、テストを trait ベースにリファクタリングする。
+3. `pump` の意味付けと `ImmediateSpawner` の動作を整理し、埋め込み向けに「忙しい状態」を判定できるよう実装を拡張する。
