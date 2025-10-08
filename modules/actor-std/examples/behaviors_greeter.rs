@@ -6,6 +6,7 @@
 use nexus_actor_core_rs::{ActorSystem, Behaviors, MailboxOptions, Props};
 use nexus_actor_std_rs::TokioMailboxFactory;
 use nexus_utils_std_rs::Element;
+use tracing_subscriber::FmtSubscriber;
 
 #[derive(Clone, Debug)]
 enum Command {
@@ -18,6 +19,11 @@ impl Element for Command {}
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
+  // tracing サブスクライバを初期化（既に設定済みなら無視）
+  let _ = FmtSubscriber::builder()
+    .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+    .try_init();
+
   let mut system: ActorSystem<Command, _> = ActorSystem::new(TokioMailboxFactory);
   let mut root = system.root_context();
 
