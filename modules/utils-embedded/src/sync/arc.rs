@@ -52,8 +52,7 @@ impl<T: ?Sized> core::ops::Deref for ArcShared<T> {
 impl<T: ?Sized> Shared<T> for ArcShared<T> {
   fn try_unwrap(self) -> Result<T, Self>
   where
-    T: Sized,
-  {
+    T: Sized, {
     Arc::try_unwrap(self.0).map_err(ArcShared)
   }
 }
@@ -105,8 +104,7 @@ where
 #[derive(Debug)]
 pub struct ArcStateCell<T, RM = NoopRawMutex>
 where
-  RM: RawMutex,
-{
+  RM: RawMutex, {
   inner: Arc<Mutex<RM, T>>,
 }
 
@@ -167,8 +165,7 @@ where
 
   fn new(value: T) -> Self
   where
-    Self: Sized,
-  {
+    Self: Sized, {
     ArcStateCell::new(value)
   }
 

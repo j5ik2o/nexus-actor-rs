@@ -10,8 +10,7 @@ use nexus_utils_core_rs::{BoxFuture, WaitGroup as CoreWaitGroup, WaitGroupBacken
 
 pub struct ArcWaitGroupBackend<RM>
 where
-  RM: RawMutex,
-{
+  RM: RawMutex, {
   count: Arc<AtomicUsize>,
   signal: Arc<Signal<RM, ()>>,
 }

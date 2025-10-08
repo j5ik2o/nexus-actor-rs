@@ -13,8 +13,7 @@ where
   R: MailboxRuntime + Clone + 'static,
   R::Queue<PriorityEnvelope<MessageEnvelope<U>>>: Clone,
   R::Signal: Clone,
-  Strat: crate::guardian::GuardianStrategy<MessageEnvelope<U>, R>,
-{
+  Strat: crate::guardian::GuardianStrategy<MessageEnvelope<U>, R>, {
   inner: InternalActorSystem<MessageEnvelope<U>, R, Strat>,
 }
 
@@ -55,8 +54,7 @@ where
     should_continue: F,
   ) -> Result<(), QueueError<PriorityEnvelope<MessageEnvelope<U>>>>
   where
-    F: FnMut() -> bool,
-  {
+    F: FnMut() -> bool, {
     self.inner.run_until(should_continue).await
   }
 
@@ -70,8 +68,7 @@ where
     should_continue: F,
   ) -> Result<(), QueueError<PriorityEnvelope<MessageEnvelope<U>>>>
   where
-    F: FnMut() -> bool,
-  {
+    F: FnMut() -> bool, {
     self.inner.blocking_dispatch_loop(should_continue)
   }
 
@@ -91,8 +88,7 @@ where
   R: MailboxRuntime + Clone + 'static,
   R::Queue<PriorityEnvelope<MessageEnvelope<U>>>: Clone,
   R::Signal: Clone,
-  Strat: crate::guardian::GuardianStrategy<MessageEnvelope<U>, R>,
-{
+  Strat: crate::guardian::GuardianStrategy<MessageEnvelope<U>, R>, {
   inner: InternalRootContext<'a, MessageEnvelope<U>, R, Strat>,
 }
 

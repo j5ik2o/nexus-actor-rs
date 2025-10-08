@@ -19,8 +19,7 @@ impl fmt::Debug for FailureReasonDebug<'_> {
 pub(crate) struct ChildRecord<M, R>
 where
   M: Element,
-  R: MailboxRuntime,
-{
+  R: MailboxRuntime, {
   pub(super) control_ref: InternalActorRef<M, R>,
   pub(super) map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
   pub(super) watcher: Option<ActorId>,

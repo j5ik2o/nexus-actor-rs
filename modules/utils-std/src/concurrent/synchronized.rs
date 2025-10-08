@@ -29,8 +29,7 @@ where
 
   fn new(value: T) -> Self
   where
-    T: Sized,
-  {
+    T: Sized, {
     Self {
       inner: Mutex::new(value),
     }
@@ -74,8 +73,7 @@ where
 
   fn new(value: T) -> Self
   where
-    T: Sized,
-  {
+    T: Sized, {
     Self {
       inner: RwLock::new(value),
     }

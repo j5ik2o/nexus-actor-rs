@@ -13,8 +13,7 @@ where
   M: Element,
   R: MailboxRuntime,
   R::Queue<PriorityEnvelope<M>>: Clone,
-  R::Signal: Clone,
-{
+  R::Signal: Clone, {
   control_ref: InternalActorRef<M, R>,
   map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
 }

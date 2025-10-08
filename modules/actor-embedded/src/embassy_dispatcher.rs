@@ -25,8 +25,7 @@ where
   R: MailboxRuntime + Clone + 'static,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
-  Strat: GuardianStrategy<M, R> + 'static,
-{
+  Strat: GuardianStrategy<M, R> + 'static, {
   spawner.spawn(async move {
     match system.run_forever().await {
       Ok(_) => unreachable!("run_forever must not resolve with Ok"),

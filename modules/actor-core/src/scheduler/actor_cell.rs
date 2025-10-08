@@ -27,8 +27,7 @@ where
   R: MailboxRuntime + Clone,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
-  Strat: GuardianStrategy<M, R>,
-{
+  Strat: GuardianStrategy<M, R>, {
   #[cfg_attr(not(feature = "std"), allow(dead_code))]
   actor_id: ActorId,
   map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,

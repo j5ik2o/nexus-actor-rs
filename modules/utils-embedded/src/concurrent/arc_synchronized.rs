@@ -14,8 +14,7 @@ use nexus_utils_core_rs::{
 #[derive(Clone, Debug)]
 pub struct ArcMutexBackend<RM, T>
 where
-  RM: RawMutex,
-{
+  RM: RawMutex, {
   inner: Arc<Mutex<RM, T>>,
 }
 
@@ -35,8 +34,7 @@ where
 
   fn new(value: T) -> Self
   where
-    T: Sized,
-  {
+    T: Sized, {
     Self {
       inner: Arc::new(Mutex::new(value)),
     }
@@ -50,8 +48,7 @@ where
 #[derive(Clone, Debug)]
 pub struct ArcRwLockBackend<RM, T>
 where
-  RM: RawMutex,
-{
+  RM: RawMutex, {
   inner: Arc<RwLock<RM, T>>,
 }
 
@@ -79,8 +76,7 @@ where
 
   fn new(value: T) -> Self
   where
-    T: Sized,
-  {
+    T: Sized, {
     Self {
       inner: Arc::new(RwLock::new(value)),
     }

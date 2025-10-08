@@ -5,8 +5,7 @@ use crate::collections::{QueueBase, QueueError, QueueReader, QueueRw, QueueSize,
 #[derive(Debug)]
 pub struct MpscQueue<S, T>
 where
-  S: MpscHandle<T>,
-{
+  S: MpscHandle<T>, {
   storage: S,
   _marker: core::marker::PhantomData<T>,
 }

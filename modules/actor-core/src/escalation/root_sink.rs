@@ -15,8 +15,7 @@ where
   M: Element,
   R: MailboxRuntime,
   R::Queue<PriorityEnvelope<M>>: Clone,
-  R::Signal: Clone,
-{
+  R::Signal: Clone, {
   event_handler: Option<FailureEventHandler>,
   event_listener: Option<FailureEventListener>,
   _marker: PhantomData<(M, R)>,

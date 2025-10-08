@@ -44,8 +44,7 @@ impl<T: ?Sized> Deref for ArcShared<T> {
 impl<T: ?Sized> Shared<T> for ArcShared<T> {
   fn try_unwrap(self) -> Result<T, Self>
   where
-    T: Sized,
-  {
+    T: Sized, {
     Arc::try_unwrap(self.0).map_err(ArcShared)
   }
 }

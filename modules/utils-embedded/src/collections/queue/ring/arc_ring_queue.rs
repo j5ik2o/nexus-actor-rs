@@ -9,8 +9,7 @@ use crate::sync::{ArcShared, ArcStateCell};
 #[derive(Debug)]
 pub struct ArcRingQueue<E, RM = NoopRawMutex>
 where
-  RM: RawMutex,
-{
+  RM: RawMutex, {
   inner: RingQueue<ArcShared<RingStorageBackend<ArcShared<ArcStateCell<RingBuffer<E>, RM>>>>, E>,
 }
 

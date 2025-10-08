@@ -12,8 +12,7 @@ where
   U: Element,
   R: MailboxRuntime + Clone + 'static,
   R::Queue<PriorityEnvelope<MessageEnvelope<U>>>: Clone,
-  R::Signal: Clone,
-{
+  R::Signal: Clone, {
   inner: InternalProps<MessageEnvelope<U>, R>,
 }
 
@@ -26,8 +25,7 @@ where
 {
   pub fn new<F>(options: MailboxOptions, handler: F) -> Self
   where
-    F: FnMut(&mut ActorContext<'_, MessageEnvelope<U>, R, dyn Supervisor<MessageEnvelope<U>>>, U) + 'static,
-  {
+    F: FnMut(&mut ActorContext<'_, MessageEnvelope<U>, R, dyn Supervisor<MessageEnvelope<U>>>, U) + 'static, {
     Self::with_system_handler(
       options,
       handler,
@@ -42,8 +40,7 @@ where
 
   pub fn from_typed_handler<G>(options: MailboxOptions, handler: G) -> Self
   where
-    G: for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, U) + 'static,
-  {
+    G: for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, U) + 'static, {
     Self::with_behavior(options, Behavior::stateless(handler))
   }
 
@@ -57,8 +54,7 @@ where
   where
     F: FnMut(&mut ActorContext<'_, MessageEnvelope<U>, R, dyn Supervisor<MessageEnvelope<U>>>, U) + 'static,
     G: for<'ctx> FnMut(&mut ActorContext<'ctx, MessageEnvelope<U>, R, dyn Supervisor<MessageEnvelope<U>>>, SystemMessage)
-      + 'static,
-  {
+      + 'static, {
     let mut user_handler = user_handler;
     let behavior = Behavior::stateless(move |ctx: &mut Context<'_, '_, U, R>, message| {
       user_handler(ctx.inner(), message);
@@ -73,8 +69,7 @@ where
   ) -> Self
   where
     S: for<'ctx> FnMut(&mut ActorContext<'ctx, MessageEnvelope<U>, R, dyn Supervisor<MessageEnvelope<U>>>, SystemMessage)
-      + 'static,
-  {
+      + 'static, {
     let mut adapter = ActorAdapter::new(behavior, system_handler);
     let map_system = ActorAdapter::<U, R>::create_map_system();
 

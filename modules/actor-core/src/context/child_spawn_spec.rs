@@ -15,8 +15,7 @@ use super::ActorContext;
 pub struct ChildSpawnSpec<M, R>
 where
   M: Element,
-  R: MailboxRuntime,
-{
+  R: MailboxRuntime, {
   pub mailbox: QueueMailbox<R::Queue<PriorityEnvelope<M>>, R::Signal>,
   pub sender: QueueMailboxProducer<R::Queue<PriorityEnvelope<M>>, R::Signal>,
   pub supervisor: Box<dyn Supervisor<M>>,

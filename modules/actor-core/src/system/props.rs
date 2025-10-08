@@ -12,8 +12,7 @@ where
   M: Element + 'static,
   R: MailboxRuntime + Clone + 'static,
   R::Queue<PriorityEnvelope<M>>: Clone,
-  R::Signal: Clone,
-{
+  R::Signal: Clone, {
   pub options: MailboxOptions,
   pub map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
   pub handler: Box<dyn for<'ctx> FnMut(&mut ActorContext<'ctx, M, R, dyn Supervisor<M>>, M) + 'static>,

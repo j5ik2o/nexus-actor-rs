@@ -18,8 +18,7 @@ pub struct Guardian<M, R, Strat>
 where
   M: Element,
   R: MailboxRuntime,
-  Strat: GuardianStrategy<M, R>,
-{
+  Strat: GuardianStrategy<M, R>, {
   next_id: usize,
   pub(crate) children: BTreeMap<ActorId, ChildRecord<M, R>>,
   strategy: Strat,

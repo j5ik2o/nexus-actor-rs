@@ -17,8 +17,7 @@ pub trait AsyncBarrierBackend: Clone {
 #[derive(Clone, Debug)]
 pub struct AsyncBarrier<B>
 where
-  B: AsyncBarrierBackend,
-{
+  B: AsyncBarrierBackend, {
   backend: B,
 }
 

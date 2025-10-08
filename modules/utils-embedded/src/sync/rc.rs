@@ -41,8 +41,7 @@ impl<T> Deref for RcShared<T> {
 impl<T> Shared<T> for RcShared<T> {
   fn try_unwrap(self) -> Result<T, Self>
   where
-    T: Sized,
-  {
+    T: Sized, {
     Rc::try_unwrap(self.0).map_err(RcShared)
   }
 }
@@ -128,8 +127,7 @@ impl<T> StateCell<T> for RcStateCell<T> {
 
   fn new(value: T) -> Self
   where
-    Self: Sized,
-  {
+    Self: Sized, {
     Self(Rc::new(RefCell::new(value)))
   }
 

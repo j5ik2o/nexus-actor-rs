@@ -16,8 +16,7 @@ where
   U: Element,
   R: MailboxRuntime + Clone + 'static,
   R::Queue<PriorityEnvelope<MessageEnvelope<U>>>: Clone,
-  R::Signal: Clone,
-{
+  R::Signal: Clone, {
   pub(super) handler: Box<dyn for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, U) + 'static>,
 }
 
@@ -30,8 +29,7 @@ where
 {
   pub fn stateless<F>(handler: F) -> Self
   where
-    F: for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, U) + 'static,
-  {
+    F: for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, U) + 'static, {
     Self {
       handler: Box::new(handler),
     }
@@ -44,8 +42,7 @@ where
   U: Element,
   R: MailboxRuntime + Clone + 'static,
   R::Queue<PriorityEnvelope<MessageEnvelope<U>>>: Clone,
-  R::Signal: Clone,
-{
+  R::Signal: Clone, {
   pub(super) behavior: Behavior<U, R>,
   pub(super) system_handler: Option<
     Box<
@@ -67,8 +64,7 @@ where
   pub fn new<S>(behavior: Behavior<U, R>, system_handler: Option<S>) -> Self
   where
     S: for<'ctx> FnMut(&mut ActorContext<'ctx, MessageEnvelope<U>, R, dyn Supervisor<MessageEnvelope<U>>>, SystemMessage)
-      + 'static,
-  {
+      + 'static, {
     Self {
       behavior,
       system_handler: system_handler.map(|h| {

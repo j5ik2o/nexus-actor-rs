@@ -9,8 +9,7 @@ use nexus_utils_core_rs::Element;
 pub trait GuardianStrategy<M, R>: Send + 'static
 where
   M: Element,
-  R: MailboxRuntime,
-{
+  R: MailboxRuntime, {
   fn decide(&mut self, actor: ActorId, error: &dyn fmt::Debug) -> SupervisorDirective;
   fn before_start(&mut self, _actor: ActorId) {}
   fn after_restart(&mut self, _actor: ActorId) {}

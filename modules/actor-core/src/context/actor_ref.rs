@@ -8,8 +8,7 @@ where
   M: Element,
   R: MailboxRuntime,
   R::Queue<PriorityEnvelope<M>>: Clone,
-  R::Signal: Clone,
-{
+  R::Signal: Clone, {
   sender: QueueMailboxProducer<R::Queue<PriorityEnvelope<M>>, R::Signal>,
 }
 

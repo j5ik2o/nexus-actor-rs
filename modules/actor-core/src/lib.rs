@@ -53,8 +53,7 @@ pub async fn actor_loop<M, MB, T, F>(mailbox: &MB, timer: &T, mut handler: F)
 where
   MB: Mailbox<M>,
   T: Timer,
-  F: FnMut(M),
-{
+  F: FnMut(M), {
   loop {
     match mailbox.recv().await {
       Ok(message) => handler(message),
@@ -108,8 +107,7 @@ mod tests {
 
     fn new(value: T) -> Self
     where
-      Self: Sized,
-    {
+      Self: Sized, {
       TestStateCell::new(value)
     }
 
@@ -276,8 +274,7 @@ mod tests {
 
   fn poll_once<F>(future: &mut F) -> Poll<F::Output>
   where
-    F: Future + ?Sized,
-  {
+    F: Future + ?Sized, {
     let waker = noop_waker();
     let mut context = Context::from_waker(&waker);
     unsafe { Pin::new_unchecked(future) }.poll(&mut context)

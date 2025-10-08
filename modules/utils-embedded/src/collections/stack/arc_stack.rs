@@ -8,8 +8,7 @@ use crate::sync::{ArcShared, ArcStateCell};
 #[derive(Debug)]
 pub struct ArcStack<T, RM = NoopRawMutex>
 where
-  RM: RawMutex,
-{
+  RM: RawMutex, {
   inner: Stack<ArcShared<StackStorageBackend<ArcShared<ArcStateCell<StackBuffer<T>, RM>>>>, T>,
 }
 
@@ -48,8 +47,7 @@ where
 
   pub fn peek(&self) -> Option<T>
   where
-    T: Clone,
-  {
+    T: Clone, {
     self.inner.peek()
   }
 
@@ -117,8 +115,7 @@ where
 
   fn peek(&self) -> Option<T>
   where
-    T: Clone,
-  {
+    T: Clone, {
     self.inner.peek()
   }
 }

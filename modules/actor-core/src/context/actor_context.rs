@@ -18,8 +18,7 @@ pub struct ActorContext<'a, M, R, Sup>
 where
   M: Element,
   R: MailboxRuntime,
-  Sup: Supervisor<M> + ?Sized,
-{
+  Sup: Supervisor<M> + ?Sized, {
   runtime: &'a R,
   sender: &'a QueueMailboxProducer<R::Queue<PriorityEnvelope<M>>, R::Signal>,
   supervisor: &'a mut Sup,
@@ -97,8 +96,7 @@ where
   pub fn spawn_child<F, S>(&mut self, supervisor: S, options: MailboxOptions, handler: F) -> InternalActorRef<M, R>
   where
     F: for<'ctx> FnMut(&mut ActorContext<'ctx, M, R, dyn Supervisor<M>>, M) + 'static,
-    S: Supervisor<M> + 'static,
-  {
+    S: Supervisor<M> + 'static, {
     let (mailbox, sender) = self.runtime.build_mailbox::<PriorityEnvelope<M>>(options);
     let actor_ref = InternalActorRef::new(sender.clone());
     let watchers = vec![self.actor_id];
@@ -117,8 +115,7 @@ where
   pub fn spawn_control_child<F, S>(&mut self, supervisor: S, handler: F) -> InternalActorRef<M, R>
   where
     F: for<'ctx> FnMut(&mut ActorContext<'ctx, M, R, dyn Supervisor<M>>, M) + 'static,
-    S: Supervisor<M> + 'static,
-  {
+    S: Supervisor<M> + 'static, {
     let options = MailboxOptions::default().with_priority_capacity(QueueSize::limitless());
     self.spawn_child(supervisor, options, handler)
   }

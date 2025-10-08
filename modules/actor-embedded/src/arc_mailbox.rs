@@ -21,8 +21,7 @@ use nexus_utils_embedded_rs::sync::ArcShared;
 pub struct ArcMailbox<M, RM = CriticalSectionRawMutex>
 where
   M: Element,
-  RM: RawMutex,
-{
+  RM: RawMutex, {
   inner: QueueMailbox<ArcMpscUnboundedQueue<M, RM>, ArcSignal<RM>>,
 }
 
@@ -30,16 +29,14 @@ where
 pub struct ArcMailboxSender<M, RM = CriticalSectionRawMutex>
 where
   M: Element,
-  RM: RawMutex,
-{
+  RM: RawMutex, {
   inner: QueueMailboxProducer<ArcMpscUnboundedQueue<M, RM>, ArcSignal<RM>>,
 }
 
 #[derive(Clone)]
 pub struct ArcMailboxRuntime<RM = CriticalSectionRawMutex>
 where
-  RM: RawMutex,
-{
+  RM: RawMutex, {
   _marker: PhantomData<RM>,
 }
 
@@ -54,8 +51,7 @@ where
 
 pub struct ArcSignal<RM>
 where
-  RM: RawMutex,
-{
+  RM: RawMutex, {
   signal: ArcShared<Signal<RM, ()>>,
 }
 
@@ -113,8 +109,7 @@ where
 
 pub struct ArcSignalWait<'a, RM>
 where
-  RM: RawMutex,
-{
+  RM: RawMutex, {
   future: Pin<Box<dyn Future<Output = ()> + 'a>>,
   _marker: PhantomData<RM>,
 }
@@ -141,16 +136,14 @@ where
 
   pub fn mailbox<M>(&self, options: MailboxOptions) -> (ArcMailbox<M, RM>, ArcMailboxSender<M, RM>)
   where
-    M: Element,
-  {
+    M: Element, {
     let (mailbox, sender) = self.build_mailbox::<M>(options);
     (ArcMailbox { inner: mailbox }, ArcMailboxSender { inner: sender })
   }
 
   pub fn unbounded<M>(&self) -> (ArcMailbox<M, RM>, ArcMailboxSender<M, RM>)
   where
-    M: Element,
-  {
+    M: Element, {
     self.mailbox(MailboxOptions::unbounded())
   }
 }
@@ -167,8 +160,7 @@ where
 
   fn build_mailbox<M>(&self, _options: MailboxOptions) -> MailboxPair<Self::Queue<M>, Self::Signal>
   where
-    M: Element,
-  {
+    M: Element, {
     let queue = ArcMpscUnboundedQueue::new();
     let signal = ArcSignal::new();
     let mailbox = QueueMailbox::new(queue, signal);

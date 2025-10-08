@@ -141,8 +141,7 @@ impl MailboxRuntime for TestMailboxRuntime {
 
   fn build_mailbox<M>(&self, options: MailboxOptions) -> MailboxPair<Self::Queue<M>, Self::Signal>
   where
-    M: Element,
-  {
+    M: Element, {
     let capacity = self.resolve_capacity(options);
     let queue = MpscQueue::new(RcBackendHandle::new(capacity));
     let signal = TestSignal::default();
