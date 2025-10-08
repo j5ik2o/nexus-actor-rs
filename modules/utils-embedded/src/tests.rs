@@ -1,5 +1,3 @@
-#![cfg(test)]
-
 #[cfg(feature = "arc")]
 mod critical_section {
   use core::sync::atomic::{AtomicBool, Ordering};

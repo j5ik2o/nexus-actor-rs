@@ -31,12 +31,7 @@ where
   U: nexus_utils_std_rs::Element,
 {
   pub fn new() -> Self {
-    let components = RuntimeComponents::new(
-      TokioMailboxRuntime::default(),
-      TokioSpawner,
-      TokioTimer,
-      FailureEventHub::new(),
-    );
+    let components = RuntimeComponents::new(TokioMailboxRuntime, TokioSpawner, TokioTimer, FailureEventHub::new());
     let (system, handles) = ActorSystem::from_runtime_components(components);
     let shutdown = system.shutdown_token();
 

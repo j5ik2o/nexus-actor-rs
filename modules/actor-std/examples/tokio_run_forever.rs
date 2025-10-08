@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
-  let runtime = TokioMailboxRuntime::default();
+  let runtime = TokioMailboxRuntime;
   let mut system: ActorSystem<u32, _> = ActorSystem::new(runtime);
   let mut root = system.root_context();
 
