@@ -21,7 +21,9 @@
       "mcp__serena__find_symbol",
       "mcp__serena__list_dir",
       "mcp__serena__search_for_pattern",
-      "mcp__serena__list_memories"
+      "mcp__serena__list_memories",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nrefactor: split context.rs into modular structure\n\nSplit context.rs (226 lines) into logical modules following Rust 2018 patterns:\n- context/actor_ref.rs - PriorityActorRef implementation\n- context/child_spawn_spec.rs - ChildSpawnSpec definition\n- context/actor_context.rs - ActorContext implementation\n- context.rs - Entry point with re-exports\n\nAll 29 tests passing\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
     ],
     "deny": []
   },
