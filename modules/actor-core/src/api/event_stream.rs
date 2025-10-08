@@ -1,1 +1,1 @@
-pub use crate::failure_event_stream::{FailureEventHub, FailureEventSubscription};
+pub use crate::platform::std::{FailureEventHub, FailureEventSubscription};

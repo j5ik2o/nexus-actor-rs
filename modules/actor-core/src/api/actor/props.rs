@@ -1,11 +1,12 @@
-use crate::context::ActorContext;
-use crate::mailbox::SystemMessage;
+use crate::runtime::context::ActorContext;
+use crate::runtime::system::InternalProps;
 use crate::supervisor::Supervisor;
-use crate::system::InternalProps;
+use crate::SystemMessage;
 use crate::{MailboxOptions, MailboxRuntime, PriorityEnvelope};
 use nexus_utils_core_rs::Element;
 
-use super::{ActorAdapter, Behavior, Context, MessageEnvelope};
+use super::{ActorAdapter, Behavior, Context};
+use crate::api::messaging::MessageEnvelope;
 
 pub struct Props<U, R>
 where

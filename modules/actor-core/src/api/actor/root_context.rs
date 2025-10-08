@@ -1,4 +1,4 @@
-use crate::system::InternalRootContext;
+use crate::runtime::system::InternalRootContext;
 use crate::{ActorRef, MailboxRuntime, MessageEnvelope, PriorityEnvelope, Props};
 use nexus_utils_core_rs::{Element, QueueError};
 
@@ -8,7 +8,7 @@ where
   R: MailboxRuntime + Clone + 'static,
   R::Queue<PriorityEnvelope<MessageEnvelope<U>>>: Clone,
   R::Signal: Clone,
-  Strat: crate::guardian::GuardianStrategy<MessageEnvelope<U>, R>, {
+  Strat: crate::api::guardian::GuardianStrategy<MessageEnvelope<U>, R>, {
   pub(crate) inner: InternalRootContext<'a, MessageEnvelope<U>, R, Strat>,
 }
 
@@ -18,7 +18,7 @@ where
   R: MailboxRuntime + Clone,
   R::Queue<PriorityEnvelope<MessageEnvelope<U>>>: Clone,
   R::Signal: Clone,
-  Strat: crate::guardian::GuardianStrategy<MessageEnvelope<U>, R>,
+  Strat: crate::api::guardian::GuardianStrategy<MessageEnvelope<U>, R>,
 {
   pub fn spawn(
     &mut self,
@@ -36,9 +36,5 @@ where
 
   pub async fn dispatch_next(&mut self) -> Result<(), QueueError<PriorityEnvelope<MessageEnvelope<U>>>> {
     self.inner.dispatch_next().await
-  }
-
-  pub fn raw(&mut self) -> &mut InternalRootContext<'a, MessageEnvelope<U>, R, Strat> {
-    &mut self.inner
   }
 }

@@ -1,9 +1,9 @@
 use core::convert::Infallible;
 
 use super::root_context::RootContext;
-use super::MessageEnvelope;
-use crate::guardian::AlwaysRestart;
-use crate::system::InternalActorSystem;
+use crate::api::guardian::AlwaysRestart;
+use crate::api::messaging::MessageEnvelope;
+use crate::runtime::system::InternalActorSystem;
 use crate::{MailboxRuntime, PriorityEnvelope};
 use nexus_utils_core_rs::{Element, QueueError};
 
@@ -13,7 +13,7 @@ where
   R: MailboxRuntime + Clone + 'static,
   R::Queue<PriorityEnvelope<MessageEnvelope<U>>>: Clone,
   R::Signal: Clone,
-  Strat: crate::guardian::GuardianStrategy<MessageEnvelope<U>, R>, {
+  Strat: crate::api::guardian::GuardianStrategy<MessageEnvelope<U>, R>, {
   inner: InternalActorSystem<MessageEnvelope<U>, R, Strat>,
 }
 
@@ -37,16 +37,12 @@ where
   R: MailboxRuntime + Clone + 'static,
   R::Queue<PriorityEnvelope<MessageEnvelope<U>>>: Clone,
   R::Signal: Clone,
-  Strat: crate::guardian::GuardianStrategy<MessageEnvelope<U>, R>,
+  Strat: crate::api::guardian::GuardianStrategy<MessageEnvelope<U>, R>,
 {
   pub fn root_context(&mut self) -> RootContext<'_, U, R, Strat> {
     RootContext {
       inner: self.inner.root_context(),
     }
-  }
-
-  pub fn inner(&mut self) -> &mut InternalActorSystem<MessageEnvelope<U>, R, Strat> {
-    &mut self.inner
   }
 
   pub async fn run_until<F>(

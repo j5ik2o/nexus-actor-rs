@@ -1,20 +1,19 @@
+#![cfg(feature = "std")]
 #![allow(deprecated)]
 
 use super::*;
-use crate::actor_id::ActorId;
-use crate::context::ActorContext;
-use crate::guardian::AlwaysRestart;
-use crate::mailbox::test_support::TestMailboxRuntime;
-use crate::mailbox::SystemMessage;
+use crate::api::guardian::AlwaysRestart;
+use crate::runtime::context::ActorContext;
+use crate::runtime::mailbox::test_support::TestMailboxRuntime;
+use crate::ActorId;
 use crate::MailboxOptions;
+use crate::MessageEnvelope;
+use crate::SystemMessage;
 use alloc::rc::Rc;
 use alloc::vec::Vec;
 use core::cell::RefCell;
 
-#[cfg(feature = "std")]
 use futures::executor::block_on;
-
-#[cfg(feature = "std")]
 #[test]
 fn typed_actor_system_handles_user_messages() {
   let runtime = TestMailboxRuntime::unbounded();
@@ -35,7 +34,6 @@ fn typed_actor_system_handles_user_messages() {
   assert_eq!(log.borrow().as_slice(), &[11]);
 }
 
-#[cfg(feature = "std")]
 #[test]
 fn test_typed_actor_handles_system_stop() {
   let runtime = TestMailboxRuntime::unbounded();
@@ -60,7 +58,6 @@ fn test_typed_actor_handles_system_stop() {
   assert!(*stopped.borrow(), "SystemMessage::Stop should be handled");
 }
 
-#[cfg(feature = "std")]
 #[test]
 fn test_typed_actor_handles_watch_unwatch() {
   let runtime = TestMailboxRuntime::unbounded();

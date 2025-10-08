@@ -1,13 +1,13 @@
-use crate::actor_id::ActorId;
-use crate::actor_path::ActorPath;
-use crate::context::ActorContext;
-use crate::mailbox::SystemMessage;
+use crate::runtime::context::ActorContext;
 use crate::supervisor::Supervisor;
+use crate::ActorId;
+use crate::ActorPath;
 use crate::MailboxRuntime;
 use crate::PriorityEnvelope;
+use crate::SystemMessage;
 use nexus_utils_core_rs::{Element, QueueError, DEFAULT_PRIORITY};
 
-use super::MessageEnvelope;
+use crate::api::messaging::MessageEnvelope;
 
 /// Typed actor execution context wrapper.
 /// 'r: lifetime of the mutable reference to ActorContext

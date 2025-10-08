@@ -1,5 +1,5 @@
-use crate::actor_id::ActorId;
-use crate::actor_path::ActorPath;
+use crate::ActorId;
+use crate::ActorPath;
 
 use super::{EscalationStage, FailureMetadata};
 

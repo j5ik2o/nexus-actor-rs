@@ -1,3 +1,7 @@
-pub(crate) type ActorContext<'a, M, R, Sup> = crate::context::ActorContext<'a, M, R, Sup>;
-pub(crate) type ChildSpawnSpec<M, R> = crate::context::ChildSpawnSpec<M, R>;
-pub(crate) type InternalActorRef<M, R> = crate::context::InternalActorRef<M, R>;
+mod actor_context;
+mod child_spawn_spec;
+mod internal_actor_ref;
+
+pub(crate) use actor_context::ActorContext;
+pub(crate) use child_spawn_spec::ChildSpawnSpec;
+pub(crate) use internal_actor_ref::InternalActorRef;

@@ -1,14 +1,15 @@
 use alloc::boxed::Box;
 use alloc::sync::Arc;
 
-use crate::context::ActorContext;
-use crate::mailbox::SystemMessage;
+use crate::api::messaging::MessageEnvelope;
+use crate::runtime::context::ActorContext;
 use crate::supervisor::Supervisor;
 use crate::MailboxRuntime;
 use crate::PriorityEnvelope;
+use crate::SystemMessage;
 use nexus_utils_core_rs::Element;
 
-use super::{Context, MessageEnvelope};
+use super::Context;
 
 /// Minimal typed behavior abstraction.
 pub struct Behavior<U, R>

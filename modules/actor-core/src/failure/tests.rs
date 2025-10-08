@@ -1,6 +1,6 @@
 use super::*;
-use crate::actor_id::ActorId;
-use crate::actor_path::ActorPath;
+use crate::ActorId;
+use crate::ActorPath;
 
 #[test]
 fn escalation_stage_increments_with_parent_hops() {
