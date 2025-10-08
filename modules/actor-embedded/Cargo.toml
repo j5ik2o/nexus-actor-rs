@@ -20,7 +20,7 @@ embassy_executor = ["dep:embassy-executor"]
 nexus-actor-core-rs = { path = "../actor-core", default-features = false, features = ["alloc"] }
 nexus-utils-embedded-rs = { path = "../utils-embedded", default-features = false }
 critical-section = { version = "1", default-features = false }
-spin = { version = "0.9", default-features = false, features = ["mutex", "use_ticket_mutex"] }
+spin = { version = "0.10", default-features = false, features = ["mutex", "use_ticket_mutex"] }
 alloc-cortex-m = { version = "0.4", optional = true }
 cortex-m = { version = "0.7", optional = true }
 cortex-m-rt = { version = "0.7", optional = true }
