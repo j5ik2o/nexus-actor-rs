@@ -25,7 +25,7 @@ impl Element for Message {}
 #[test]
 fn actor_system_spawns_and_processes_messages() {
   let runtime = TestMailboxRuntime::unbounded();
-  let mut system: ActorSystem<Message, _, AlwaysRestart> = ActorSystem::new(runtime);
+  let mut system: InternalActorSystem<Message, _, AlwaysRestart> = InternalActorSystem::new(runtime);
 
   let map_system = Arc::new(|_: SystemMessage| Message::System);
   let log: Rc<RefCell<Vec<u32>>> = Rc::new(RefCell::new(Vec::new()));
@@ -33,7 +33,7 @@ fn actor_system_spawns_and_processes_messages() {
 
   let mut root = system.root_context();
   let actor_ref = root
-    .spawn(Props::new(
+    .spawn(InternalProps::new(
       MailboxOptions::default(),
       map_system.clone(),
       move |_, msg: Message| match msg {
