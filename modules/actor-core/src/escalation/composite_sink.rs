@@ -2,7 +2,7 @@ use alloc::sync::Arc;
 
 use crate::failure::FailureInfo;
 use crate::mailbox::SystemMessage;
-use crate::{MailboxRuntime, PriorityActorRef, PriorityEnvelope};
+use crate::{InternalActorRef, MailboxRuntime, PriorityEnvelope};
 use nexus_utils_core_rs::{Element, QueueError};
 
 use super::{
@@ -16,7 +16,8 @@ where
   M: Element,
   R: MailboxRuntime,
   R::Queue<PriorityEnvelope<M>>: Clone,
-  R::Signal: Clone, {
+  R::Signal: Clone,
+{
   parent_guardian: Option<ParentGuardianSink<M, R>>,
   custom: Option<CustomEscalationSink<M, R>>,
   root: Option<RootEscalationSink<M, R>>,
@@ -38,7 +39,7 @@ where
   }
 
   pub fn with_parent_guardian(
-    control_ref: PriorityActorRef<M, R>,
+    control_ref: InternalActorRef<M, R>,
     map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
   ) -> Self {
     let mut sink = Self::new();
@@ -48,7 +49,7 @@ where
 
   pub fn set_parent_guardian(
     &mut self,
-    control_ref: PriorityActorRef<M, R>,
+    control_ref: InternalActorRef<M, R>,
     map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
   ) {
     self.parent_guardian = Some(ParentGuardianSink::new(control_ref, map_system));
@@ -60,7 +61,8 @@ where
 
   pub fn set_custom_handler<F>(&mut self, handler: F)
   where
-    F: FnMut(&FailureInfo) -> Result<(), QueueError<PriorityEnvelope<M>>> + 'static, {
+    F: FnMut(&FailureInfo) -> Result<(), QueueError<PriorityEnvelope<M>>> + 'static,
+  {
     self.custom = Some(CustomEscalationSink::new(handler));
   }
 

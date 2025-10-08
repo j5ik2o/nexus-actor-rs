@@ -8,7 +8,7 @@ use crate::MailboxRuntime;
 use crate::PriorityEnvelope;
 use nexus_utils_core_rs::Element;
 
-use super::{MessageEnvelope, TypedContext};
+use super::{Context, MessageEnvelope};
 
 /// Minimal typed behavior abstraction.
 pub struct Behavior<U, R>
@@ -16,8 +16,9 @@ where
   U: Element,
   R: MailboxRuntime + Clone + 'static,
   R::Queue<PriorityEnvelope<MessageEnvelope<U>>>: Clone,
-  R::Signal: Clone, {
-  pub(super) handler: Box<dyn for<'r, 'ctx> FnMut(&mut TypedContext<'r, 'ctx, U, R>, U) + 'static>,
+  R::Signal: Clone,
+{
+  pub(super) handler: Box<dyn for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, U) + 'static>,
 }
 
 impl<U, R> Behavior<U, R>
@@ -29,7 +30,8 @@ where
 {
   pub fn stateless<F>(handler: F) -> Self
   where
-    F: for<'r, 'ctx> FnMut(&mut TypedContext<'r, 'ctx, U, R>, U) + 'static, {
+    F: for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, U) + 'static,
+  {
     Self {
       handler: Box::new(handler),
     }
@@ -37,12 +39,13 @@ where
 }
 
 /// Adapter bridging Behavior and ActorContext, managing map_system generation.
-pub struct TypedActorAdapter<U, R>
+pub struct ActorAdapter<U, R>
 where
   U: Element,
   R: MailboxRuntime + Clone + 'static,
   R::Queue<PriorityEnvelope<MessageEnvelope<U>>>: Clone,
-  R::Signal: Clone, {
+  R::Signal: Clone,
+{
   pub(super) behavior: Behavior<U, R>,
   pub(super) system_handler: Option<
     Box<
@@ -54,7 +57,7 @@ where
   >,
 }
 
-impl<U, R> TypedActorAdapter<U, R>
+impl<U, R> ActorAdapter<U, R>
 where
   U: Element,
   R: MailboxRuntime + Clone + 'static,
@@ -64,7 +67,8 @@ where
   pub fn new<S>(behavior: Behavior<U, R>, system_handler: Option<S>) -> Self
   where
     S: for<'ctx> FnMut(&mut ActorContext<'ctx, MessageEnvelope<U>, R, dyn Supervisor<MessageEnvelope<U>>>, SystemMessage)
-      + 'static, {
+      + 'static,
+  {
     Self {
       behavior,
       system_handler: system_handler.map(|h| {
@@ -84,7 +88,7 @@ where
     ctx: &mut ActorContext<'_, MessageEnvelope<U>, R, dyn Supervisor<MessageEnvelope<U>>>,
     message: U,
   ) {
-    let mut typed_ctx = TypedContext::new(ctx);
+    let mut typed_ctx = Context::new(ctx);
     (self.behavior.handler)(&mut typed_ctx, message);
   }
 

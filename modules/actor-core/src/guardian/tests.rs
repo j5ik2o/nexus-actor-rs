@@ -1,7 +1,7 @@
 use super::*;
 use crate::actor_id::ActorId;
 use crate::actor_path::ActorPath;
-use crate::context::PriorityActorRef;
+use crate::context::InternalActorRef;
 use crate::mailbox::test_support::TestMailboxRuntime;
 use crate::mailbox::{PriorityChannel, PriorityEnvelope, SystemMessage};
 use crate::supervisor::SupervisorDirective;
@@ -14,7 +14,7 @@ use nexus_utils_core_rs::{Element, DEFAULT_PRIORITY};
 fn guardian_sends_restart_message() {
   let runtime = TestMailboxRuntime::unbounded();
   let (mailbox, sender) = runtime.build_default_mailbox::<PriorityEnvelope<SystemMessage>>();
-  let ref_control: PriorityActorRef<SystemMessage, TestMailboxRuntime> = PriorityActorRef::new(sender);
+  let ref_control: InternalActorRef<SystemMessage, TestMailboxRuntime> = InternalActorRef::new(sender);
 
   let mut guardian: Guardian<SystemMessage, _, AlwaysRestart> = Guardian::new(AlwaysRestart);
   let parent_id = ActorId(1);
@@ -50,7 +50,7 @@ fn guardian_sends_stop_message() {
 
   let runtime = TestMailboxRuntime::unbounded();
   let (mailbox, sender) = runtime.build_default_mailbox::<PriorityEnvelope<SystemMessage>>();
-  let ref_control: PriorityActorRef<SystemMessage, TestMailboxRuntime> = PriorityActorRef::new(sender);
+  let ref_control: InternalActorRef<SystemMessage, TestMailboxRuntime> = InternalActorRef::new(sender);
 
   let mut guardian: Guardian<SystemMessage, _, AlwaysStop> = Guardian::new(AlwaysStop);
   let parent_id = ActorId(7);
@@ -72,7 +72,7 @@ fn guardian_sends_stop_message() {
 fn guardian_emits_unwatch_on_remove() {
   let runtime = TestMailboxRuntime::unbounded();
   let (mailbox, sender) = runtime.build_default_mailbox::<PriorityEnvelope<SystemMessage>>();
-  let ref_control: PriorityActorRef<SystemMessage, TestMailboxRuntime> = PriorityActorRef::new(sender);
+  let ref_control: InternalActorRef<SystemMessage, TestMailboxRuntime> = InternalActorRef::new(sender);
 
   let mut guardian: Guardian<SystemMessage, _, AlwaysRestart> = Guardian::new(AlwaysRestart);
   let parent_id = ActorId(3);

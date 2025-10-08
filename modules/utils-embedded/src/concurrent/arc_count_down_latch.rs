@@ -10,7 +10,8 @@ use nexus_utils_core_rs::{BoxFuture, CountDownLatch as CoreCountDownLatch, Count
 
 pub struct ArcCountDownLatchBackend<RM>
 where
-  RM: RawMutex, {
+  RM: RawMutex,
+{
   count: Arc<Mutex<RM, usize>>,
   signal: Arc<Signal<RM, ()>>,
 }

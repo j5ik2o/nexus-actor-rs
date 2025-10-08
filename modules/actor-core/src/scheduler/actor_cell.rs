@@ -13,7 +13,7 @@ use std::panic::{catch_unwind, AssertUnwindSafe};
 
 use crate::actor_id::ActorId;
 use crate::actor_path::ActorPath;
-use crate::context::{ActorContext, ChildSpawnSpec, PriorityActorRef};
+use crate::context::{ActorContext, ChildSpawnSpec, InternalActorRef};
 use crate::failure::FailureInfo;
 use crate::guardian::{Guardian, GuardianStrategy};
 use crate::mailbox::{Mailbox, SystemMessage};
@@ -27,7 +27,8 @@ where
   R: MailboxRuntime + Clone,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
-  Strat: GuardianStrategy<M, R>, {
+  Strat: GuardianStrategy<M, R>,
+{
   #[cfg_attr(not(feature = "std"), allow(dead_code))]
   actor_id: ActorId,
   map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
@@ -230,7 +231,7 @@ where
       parent_path,
     } = spec;
 
-    let control_ref = PriorityActorRef::new(sender.clone());
+    let control_ref = InternalActorRef::new(sender.clone());
     let primary_watcher = watchers.first().copied();
     let (actor_id, actor_path) =
       guardian.register_child(control_ref, map_system.clone(), primary_watcher, &parent_path)?;

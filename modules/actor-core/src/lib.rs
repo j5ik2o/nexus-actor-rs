@@ -7,6 +7,7 @@ extern crate alloc;
 use core::time::Duration;
 use nexus_utils_core_rs::QueueError;
 
+mod actor;
 mod actor_id;
 mod actor_path;
 mod context;
@@ -21,11 +22,11 @@ mod spawn;
 mod supervisor;
 mod system;
 mod timer;
-mod typed;
 
+pub use actor::{ActorAdapter, ActorRef, ActorSystem, Behavior, Context, MessageEnvelope, Props, RootContext};
 pub use actor_id::ActorId;
 pub use actor_path::ActorPath;
-pub use context::{ActorContext, PriorityActorRef};
+pub use context::{ActorContext, InternalActorRef};
 pub use escalation::{
   CompositeEscalationSink, CustomEscalationSink, EscalationSink, FailureEventHandler, FailureEventListener,
   ParentGuardianSink, RootEscalationSink,
@@ -43,9 +44,8 @@ pub use nexus_utils_core_rs::{Shared, StateCell};
 pub use scheduler::PriorityScheduler;
 pub use spawn::Spawn;
 pub use supervisor::{NoopSupervisor, Supervisor, SupervisorDirective};
-pub use system::{ActorSystem, Props, RootContext};
+pub use system::{ActorSystem as InternalActorSystem, Props as InternalProps, RootContext as InternalRootContext};
 pub use timer::Timer;
-pub use typed::{MessageEnvelope, TypedActorRef, TypedActorSystem, TypedProps, TypedRootContext};
 
 /// Minimal actor loop that waits for messages, handles them, and yields control.
 ///
@@ -54,7 +54,8 @@ pub async fn actor_loop<M, MB, T, F>(mailbox: &MB, timer: &T, mut handler: F)
 where
   MB: Mailbox<M>,
   T: Timer,
-  F: FnMut(M), {
+  F: FnMut(M),
+{
   loop {
     match mailbox.recv().await {
       Ok(message) => handler(message),
@@ -108,7 +109,8 @@ mod tests {
 
     fn new(value: T) -> Self
     where
-      Self: Sized, {
+      Self: Sized,
+    {
       TestStateCell::new(value)
     }
 
@@ -275,7 +277,8 @@ mod tests {
 
   fn poll_once<F>(future: &mut F) -> Poll<F::Output>
   where
-    F: Future + ?Sized, {
+    F: Future + ?Sized,
+  {
     let waker = noop_waker();
     let mut context = Context::from_waker(&waker);
     unsafe { Pin::new_unchecked(future) }.poll(&mut context)

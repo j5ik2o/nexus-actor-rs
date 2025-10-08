@@ -202,13 +202,15 @@ impl<M> QueueRw<PriorityEnvelope<M>> for TokioPriorityQueues<M> {
 
 pub struct TokioPriorityMailbox<M>
 where
-  M: Element, {
+  M: Element,
+{
   inner: QueueMailbox<TokioPriorityQueues<M>, NotifySignal>,
 }
 
 pub struct TokioPriorityMailboxSender<M>
 where
-  M: Element, {
+  M: Element,
+{
   inner: QueueMailboxProducer<TokioPriorityQueues<M>, NotifySignal>,
 }
 
@@ -250,7 +252,8 @@ impl TokioPriorityMailboxRuntime {
 
   pub fn mailbox<M>(&self, options: MailboxOptions) -> (TokioPriorityMailbox<M>, TokioPriorityMailboxSender<M>)
   where
-    M: Element, {
+    M: Element,
+  {
     let control_per_level = self.resolve_control_capacity(options.priority_capacity);
     let regular_capacity = self.resolve_regular_capacity(options.capacity);
     let queue = TokioPriorityQueues::<M>::new(self.levels, control_per_level, regular_capacity);

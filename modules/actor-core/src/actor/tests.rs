@@ -18,12 +18,12 @@ use futures::executor::block_on;
 #[test]
 fn typed_actor_system_handles_user_messages() {
   let runtime = TestMailboxRuntime::unbounded();
-  let mut system: TypedActorSystem<u32, _, AlwaysRestart> = TypedActorSystem::new(runtime);
+  let mut system: ActorSystem<u32, _, AlwaysRestart> = ActorSystem::new(runtime);
 
   let log: Rc<RefCell<Vec<u32>>> = Rc::new(RefCell::new(Vec::new()));
   let log_clone = log.clone();
 
-  let props = TypedProps::new(MailboxOptions::default(), move |_, msg: u32| {
+  let props = Props::new(MailboxOptions::default(), move |_, msg: u32| {
     log_clone.borrow_mut().push(msg);
   });
 
@@ -39,7 +39,7 @@ fn typed_actor_system_handles_user_messages() {
 #[test]
 fn test_typed_actor_handles_system_stop() {
   let runtime = TestMailboxRuntime::unbounded();
-  let mut system: TypedActorSystem<u32, _, AlwaysRestart> = TypedActorSystem::new(runtime);
+  let mut system: ActorSystem<u32, _, AlwaysRestart> = ActorSystem::new(runtime);
 
   let stopped: Rc<RefCell<bool>> = Rc::new(RefCell::new(false));
   let stopped_clone = stopped.clone();
@@ -50,7 +50,7 @@ fn test_typed_actor_handles_system_stop() {
     }
   };
 
-  let props = TypedProps::with_system_handler(MailboxOptions::default(), move |_, _msg: u32| {}, Some(system_handler));
+  let props = Props::with_system_handler(MailboxOptions::default(), move |_, _msg: u32| {}, Some(system_handler));
 
   let mut root = system.root_context();
   let actor_ref = root.spawn(props).expect("spawn typed actor");
@@ -64,12 +64,12 @@ fn test_typed_actor_handles_system_stop() {
 #[test]
 fn test_typed_actor_handles_watch_unwatch() {
   let runtime = TestMailboxRuntime::unbounded();
-  let mut system: TypedActorSystem<u32, _, AlwaysRestart> = TypedActorSystem::new(runtime);
+  let mut system: ActorSystem<u32, _, AlwaysRestart> = ActorSystem::new(runtime);
 
   let watchers_count: Rc<RefCell<usize>> = Rc::new(RefCell::new(0));
   let watchers_count_clone = watchers_count.clone();
 
-  let behavior = Behavior::stateless(move |ctx: &mut TypedContext<'_, '_, u32, _>, _msg: u32| {
+  let behavior = Behavior::stateless(move |ctx: &mut Context<'_, '_, u32, _>, _msg: u32| {
     *watchers_count_clone.borrow_mut() = ctx.watchers().len();
   });
 
@@ -85,7 +85,7 @@ fn test_typed_actor_handles_watch_unwatch() {
     },
   );
 
-  let props = TypedProps::with_behavior_and_system(MailboxOptions::default(), behavior, system_handler);
+  let props = Props::with_behavior_and_system(MailboxOptions::default(), behavior, system_handler);
 
   let mut root = system.root_context();
   let actor_ref = root.spawn(props).expect("spawn typed actor");
@@ -130,14 +130,14 @@ fn test_typed_actor_handles_watch_unwatch() {
 #[test]
 fn test_typed_actor_stateful_behavior_with_system_message() {
   let runtime = TestMailboxRuntime::unbounded();
-  let mut system: TypedActorSystem<u32, _, AlwaysRestart> = TypedActorSystem::new(runtime);
+  let mut system: ActorSystem<u32, _, AlwaysRestart> = ActorSystem::new(runtime);
 
   // Stateful behavior: count user messages and track system messages
   let count = Rc::new(RefCell::new(0u32));
   let failures = Rc::new(RefCell::new(0u32));
 
   let count_clone = count.clone();
-  let behavior = Behavior::stateless(move |_ctx: &mut TypedContext<'_, '_, u32, _>, msg: u32| {
+  let behavior = Behavior::stateless(move |_ctx: &mut Context<'_, '_, u32, _>, msg: u32| {
     *count_clone.borrow_mut() += msg;
   });
 
@@ -148,7 +148,7 @@ fn test_typed_actor_stateful_behavior_with_system_message() {
     }
   };
 
-  let props = TypedProps::with_behavior_and_system(MailboxOptions::default(), behavior, Some(system_handler));
+  let props = Props::with_behavior_and_system(MailboxOptions::default(), behavior, Some(system_handler));
 
   let mut root = system.root_context();
   let actor_ref = root.spawn(props).expect("spawn typed actor");

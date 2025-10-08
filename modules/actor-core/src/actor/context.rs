@@ -12,16 +12,17 @@ use super::MessageEnvelope;
 /// Typed actor execution context wrapper.
 /// 'r: lifetime of the mutable reference to ActorContext
 /// 'ctx: lifetime parameter of ActorContext itself
-pub struct TypedContext<'r, 'ctx, U, R>
+pub struct Context<'r, 'ctx, U, R>
 where
   U: Element,
   R: MailboxRuntime + Clone + 'static,
   R::Queue<PriorityEnvelope<MessageEnvelope<U>>>: Clone,
-  R::Signal: Clone, {
+  R::Signal: Clone,
+{
   inner: &'r mut ActorContext<'ctx, MessageEnvelope<U>, R, dyn Supervisor<MessageEnvelope<U>>>,
 }
 
-impl<'r, 'ctx, U, R> TypedContext<'r, 'ctx, U, R>
+impl<'r, 'ctx, U, R> Context<'r, 'ctx, U, R>
 where
   U: Element,
   R: MailboxRuntime + Clone + 'static,

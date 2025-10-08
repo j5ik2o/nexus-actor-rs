@@ -2,7 +2,7 @@ use alloc::sync::Arc;
 
 use crate::failure::FailureInfo;
 use crate::mailbox::{PriorityEnvelope, SystemMessage};
-use crate::{MailboxRuntime, PriorityActorRef};
+use crate::{InternalActorRef, MailboxRuntime};
 use nexus_utils_core_rs::Element;
 
 use super::EscalationSink;
@@ -13,8 +13,9 @@ where
   M: Element,
   R: MailboxRuntime,
   R::Queue<PriorityEnvelope<M>>: Clone,
-  R::Signal: Clone, {
-  control_ref: PriorityActorRef<M, R>,
+  R::Signal: Clone,
+{
+  control_ref: InternalActorRef<M, R>,
   map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
 }
 
@@ -25,7 +26,7 @@ where
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
 {
-  pub fn new(control_ref: PriorityActorRef<M, R>, map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>) -> Self {
+  pub fn new(control_ref: InternalActorRef<M, R>, map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>) -> Self {
     Self {
       control_ref,
       map_system,

@@ -1,4 +1,4 @@
-use crate::context::PriorityActorRef;
+use crate::context::InternalActorRef;
 use crate::mailbox::SystemMessage;
 use crate::{MailboxRuntime, PriorityEnvelope};
 use nexus_utils_core_rs::{Element, QueueError, DEFAULT_PRIORITY};
@@ -6,23 +6,24 @@ use nexus_utils_core_rs::{Element, QueueError, DEFAULT_PRIORITY};
 use super::MessageEnvelope;
 
 #[derive(Clone)]
-pub struct TypedActorRef<U, R>
-where
-  U: Element,
-  R: MailboxRuntime + Clone + 'static,
-  R::Queue<PriorityEnvelope<MessageEnvelope<U>>>: Clone,
-  R::Signal: Clone, {
-  inner: PriorityActorRef<MessageEnvelope<U>, R>,
-}
-
-impl<U, R> TypedActorRef<U, R>
+pub struct ActorRef<U, R>
 where
   U: Element,
   R: MailboxRuntime + Clone + 'static,
   R::Queue<PriorityEnvelope<MessageEnvelope<U>>>: Clone,
   R::Signal: Clone,
 {
-  pub fn new(inner: PriorityActorRef<MessageEnvelope<U>, R>) -> Self {
+  inner: InternalActorRef<MessageEnvelope<U>, R>,
+}
+
+impl<U, R> ActorRef<U, R>
+where
+  U: Element,
+  R: MailboxRuntime + Clone + 'static,
+  R::Queue<PriorityEnvelope<MessageEnvelope<U>>>: Clone,
+  R::Signal: Clone,
+{
+  pub fn new(inner: InternalActorRef<MessageEnvelope<U>, R>) -> Self {
     Self { inner }
   }
 
@@ -49,7 +50,7 @@ where
       .try_send_control_with_priority(MessageEnvelope::System(message), priority)
   }
 
-  pub fn inner(&self) -> &PriorityActorRef<MessageEnvelope<U>, R> {
+  pub fn inner(&self) -> &InternalActorRef<MessageEnvelope<U>, R> {
     &self.inner
   }
 }

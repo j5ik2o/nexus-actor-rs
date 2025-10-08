@@ -6,7 +6,7 @@ use core::convert::Infallible;
 
 use crate::actor_id::ActorId;
 use crate::actor_path::ActorPath;
-use crate::context::{ActorContext, PriorityActorRef};
+use crate::context::{ActorContext, InternalActorRef};
 use crate::escalation::{CompositeEscalationSink, EscalationSink};
 use crate::failure::FailureInfo;
 use crate::guardian::{AlwaysRestart, Guardian, GuardianStrategy};
@@ -26,7 +26,8 @@ where
   R: MailboxRuntime + Clone,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
-  Strat: GuardianStrategy<M, R>, {
+  Strat: GuardianStrategy<M, R>,
+{
   runtime: R,
   pub(super) guardian: Guardian<M, R, Strat>,
   actors: Vec<ActorCell<M, R, Strat>>,
@@ -53,7 +54,8 @@ where
 
   pub fn with_strategy<Strat>(runtime: R, strategy: Strat) -> PriorityScheduler<M, R, Strat>
   where
-    Strat: GuardianStrategy<M, R>, {
+    Strat: GuardianStrategy<M, R>,
+  {
     PriorityScheduler {
       runtime,
       guardian: Guardian::new(strategy),
@@ -78,15 +80,16 @@ where
     options: MailboxOptions,
     map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
     handler: F,
-  ) -> Result<PriorityActorRef<M, R>, QueueError<PriorityEnvelope<M>>>
+  ) -> Result<InternalActorRef<M, R>, QueueError<PriorityEnvelope<M>>>
   where
     F: for<'ctx> FnMut(&mut ActorContext<'ctx, M, R, dyn Supervisor<M>>, M) + 'static,
-    Sup: Supervisor<M>, {
+    Sup: Supervisor<M>,
+  {
     let (mailbox, sender) = self.runtime.build_mailbox::<PriorityEnvelope<M>>(options);
     let actor_sender = sender.clone();
     let handler_box: Box<dyn for<'ctx> FnMut(&mut ActorContext<'ctx, M, R, dyn Supervisor<M>>, M) + 'static> =
       Box::new(handler);
-    let control_ref = PriorityActorRef::new(actor_sender.clone());
+    let control_ref = InternalActorRef::new(actor_sender.clone());
     let watchers = vec![ActorId::ROOT];
     let primary_watcher = watchers.first().copied();
     let parent_path = ActorPath::new();
@@ -131,7 +134,8 @@ where
   /// ループをシンプルに構築できる。
   pub async fn run_until<F>(&mut self, mut should_continue: F) -> Result<(), QueueError<PriorityEnvelope<M>>>
   where
-    F: FnMut() -> bool, {
+    F: FnMut() -> bool,
+  {
     while should_continue() {
       self.dispatch_next().await?;
     }
@@ -151,7 +155,8 @@ where
   #[cfg(feature = "std")]
   pub fn blocking_dispatch_loop<F>(&mut self, mut should_continue: F) -> Result<(), QueueError<PriorityEnvelope<M>>>
   where
-    F: FnMut() -> bool, {
+    F: FnMut() -> bool,
+  {
     while should_continue() {
       futures::executor::block_on(self.dispatch_next())?;
     }
@@ -192,13 +197,14 @@ where
 
   pub fn on_escalation<F>(&mut self, handler: F)
   where
-    F: FnMut(&FailureInfo) -> Result<(), QueueError<PriorityEnvelope<M>>> + 'static, {
+    F: FnMut(&FailureInfo) -> Result<(), QueueError<PriorityEnvelope<M>>> + 'static,
+  {
     self.escalation_sink.set_custom_handler(handler);
   }
 
   pub fn set_parent_guardian(
     &mut self,
-    control_ref: PriorityActorRef<M, R>,
+    control_ref: InternalActorRef<M, R>,
     map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
   ) {
     self.escalation_sink.set_parent_guardian(control_ref, map_system);

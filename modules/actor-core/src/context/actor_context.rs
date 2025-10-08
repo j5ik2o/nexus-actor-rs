@@ -11,14 +11,15 @@ use crate::supervisor::Supervisor;
 use crate::{MailboxOptions, MailboxRuntime, PriorityEnvelope, QueueMailboxProducer};
 use nexus_utils_core_rs::{Element, QueueError, QueueSize};
 
-use super::{ChildSpawnSpec, PriorityActorRef};
+use super::{ChildSpawnSpec, InternalActorRef};
 
 /// アクターが自身や子アクターを操作するためのコンテキスト。
 pub struct ActorContext<'a, M, R, Sup>
 where
   M: Element,
   R: MailboxRuntime,
-  Sup: Supervisor<M> + ?Sized, {
+  Sup: Supervisor<M> + ?Sized,
+{
   runtime: &'a R,
   sender: &'a QueueMailboxProducer<R::Queue<PriorityEnvelope<M>>, R::Signal>,
   supervisor: &'a mut Sup,
@@ -93,12 +94,13 @@ where
     }
   }
 
-  pub fn spawn_child<F, S>(&mut self, supervisor: S, options: MailboxOptions, handler: F) -> PriorityActorRef<M, R>
+  pub fn spawn_child<F, S>(&mut self, supervisor: S, options: MailboxOptions, handler: F) -> InternalActorRef<M, R>
   where
     F: for<'ctx> FnMut(&mut ActorContext<'ctx, M, R, dyn Supervisor<M>>, M) + 'static,
-    S: Supervisor<M> + 'static, {
+    S: Supervisor<M> + 'static,
+  {
     let (mailbox, sender) = self.runtime.build_mailbox::<PriorityEnvelope<M>>(options);
-    let actor_ref = PriorityActorRef::new(sender.clone());
+    let actor_ref = InternalActorRef::new(sender.clone());
     let watchers = vec![self.actor_id];
     self.pending_spawns.push(ChildSpawnSpec {
       mailbox,
@@ -112,10 +114,11 @@ where
     actor_ref
   }
 
-  pub fn spawn_control_child<F, S>(&mut self, supervisor: S, handler: F) -> PriorityActorRef<M, R>
+  pub fn spawn_control_child<F, S>(&mut self, supervisor: S, handler: F) -> InternalActorRef<M, R>
   where
     F: for<'ctx> FnMut(&mut ActorContext<'ctx, M, R, dyn Supervisor<M>>, M) + 'static,
-    S: Supervisor<M> + 'static, {
+    S: Supervisor<M> + 'static,
+  {
     let options = MailboxOptions::default().with_priority_capacity(QueueSize::limitless());
     self.spawn_child(supervisor, options, handler)
   }

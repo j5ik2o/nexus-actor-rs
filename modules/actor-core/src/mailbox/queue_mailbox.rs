@@ -77,7 +77,8 @@ impl<Q, S> QueueMailbox<Q, S> {
   pub fn producer(&self) -> QueueMailboxProducer<Q, S>
   where
     Q: Clone,
-    S: Clone, {
+    S: Clone,
+  {
     QueueMailboxProducer {
       queue: self.queue.clone(),
       signal: self.signal.clone(),
@@ -113,7 +114,8 @@ impl<Q, S> QueueMailboxProducer<Q, S> {
   where
     Q: QueueRw<M>,
     S: MailboxSignal,
-    M: Element, {
+    M: Element,
+  {
     if self.closed.get() {
       return Err(QueueError::Disconnected);
     }
@@ -135,7 +137,8 @@ impl<Q, S> QueueMailboxProducer<Q, S> {
   where
     Q: QueueRw<M>,
     S: MailboxSignal,
-    M: Element, {
+    M: Element,
+  {
     self.try_send(message)
   }
 }
@@ -197,7 +200,8 @@ pub struct QueueMailboxRecv<'a, Q, S, M>
 where
   Q: QueueRw<M>,
   S: MailboxSignal,
-  M: Element, {
+  M: Element,
+{
   mailbox: &'a QueueMailbox<Q, S>,
   wait: Option<S::WaitFuture<'a>>,
   marker: PhantomData<M>,

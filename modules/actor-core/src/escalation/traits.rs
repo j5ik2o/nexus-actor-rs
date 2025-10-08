@@ -8,7 +8,8 @@ where
   M: Element,
   R: MailboxRuntime,
   R::Queue<PriorityEnvelope<M>>: Clone,
-  R::Signal: Clone, {
+  R::Signal: Clone,
+{
   /// `already_handled` が true の場合はローカルで処理済みであることを示す。
   /// 追加の通知だけ行いたい場合は、戻り値を `Ok(())` にする。
   fn handle(&mut self, info: FailureInfo, already_handled: bool) -> Result<(), FailureInfo>;

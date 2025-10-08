@@ -1,7 +1,7 @@
 #![allow(deprecated)]
 use super::*;
 use crate::actor_id::ActorId;
-use crate::context::PriorityActorRef;
+use crate::context::InternalActorRef;
 use crate::failure::FailureInfo;
 use crate::guardian::{AlwaysRestart, GuardianStrategy};
 use crate::mailbox::test_support::TestMailboxRuntime;
@@ -404,7 +404,7 @@ fn scheduler_escalation_handler_delivers_to_parent() {
     PriorityScheduler::with_strategy(runtime.clone(), AlwaysEscalate);
 
   let (parent_mailbox, parent_sender) = runtime.build_default_mailbox::<PriorityEnvelope<Message>>();
-  let parent_ref: PriorityActorRef<Message, TestMailboxRuntime> = PriorityActorRef::new(parent_sender);
+  let parent_ref: InternalActorRef<Message, TestMailboxRuntime> = InternalActorRef::new(parent_sender);
   scheduler.set_parent_guardian(parent_ref, Arc::new(|sys| Message::System(sys)));
 
   let should_panic = Rc::new(Cell::new(true));

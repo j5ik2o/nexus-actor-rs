@@ -37,7 +37,8 @@ where
 
   fn from_backend<B>(backend: B) -> Self
   where
-    B: MpscBackend<E> + Send + Sync + 'static, {
+    B: MpscBackend<E> + Send + Sync + 'static,
+  {
     let arc_backend: Arc<dyn MpscBackend<E> + Send + Sync> = Arc::new(backend);
     let storage = ArcShared::from_arc(arc_backend);
     Self {

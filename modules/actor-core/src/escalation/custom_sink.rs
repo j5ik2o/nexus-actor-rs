@@ -13,7 +13,8 @@ where
   M: Element,
   R: MailboxRuntime,
   R::Queue<PriorityEnvelope<M>>: Clone,
-  R::Signal: Clone, {
+  R::Signal: Clone,
+{
   handler: Box<dyn FnMut(&FailureInfo) -> Result<(), QueueError<PriorityEnvelope<M>>> + 'static>,
   _marker: PhantomData<R>,
 }
@@ -27,7 +28,8 @@ where
 {
   pub fn new<F>(handler: F) -> Self
   where
-    F: FnMut(&FailureInfo) -> Result<(), QueueError<PriorityEnvelope<M>>> + 'static, {
+    F: FnMut(&FailureInfo) -> Result<(), QueueError<PriorityEnvelope<M>>> + 'static,
+  {
     Self {
       handler: Box::new(handler),
       _marker: PhantomData,

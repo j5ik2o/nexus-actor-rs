@@ -3,7 +3,7 @@ use core::fmt;
 
 use crate::actor_id::ActorId;
 use crate::actor_path::ActorPath;
-use crate::context::PriorityActorRef;
+use crate::context::InternalActorRef;
 use crate::mailbox::SystemMessage;
 use crate::MailboxRuntime;
 use nexus_utils_core_rs::Element;
@@ -19,8 +19,9 @@ impl fmt::Debug for FailureReasonDebug<'_> {
 pub(crate) struct ChildRecord<M, R>
 where
   M: Element,
-  R: MailboxRuntime, {
-  pub(super) control_ref: PriorityActorRef<M, R>,
+  R: MailboxRuntime,
+{
+  pub(super) control_ref: InternalActorRef<M, R>,
   pub(super) map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
   pub(super) watcher: Option<ActorId>,
   pub(super) path: ActorPath,

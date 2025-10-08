@@ -4,7 +4,7 @@ use core::fmt;
 
 use crate::actor_id::ActorId;
 use crate::actor_path::ActorPath;
-use crate::context::PriorityActorRef;
+use crate::context::InternalActorRef;
 use crate::failure::FailureInfo;
 use crate::mailbox::{PriorityEnvelope, SystemMessage};
 use crate::supervisor::SupervisorDirective;
@@ -18,7 +18,8 @@ pub struct Guardian<M, R, Strat>
 where
   M: Element,
   R: MailboxRuntime,
-  Strat: GuardianStrategy<M, R>, {
+  Strat: GuardianStrategy<M, R>,
+{
   next_id: usize,
   pub(crate) children: BTreeMap<ActorId, ChildRecord<M, R>>,
   strategy: Strat,
@@ -44,7 +45,7 @@ where
 
   pub fn register_child(
     &mut self,
-    control_ref: PriorityActorRef<M, R>,
+    control_ref: InternalActorRef<M, R>,
     map_system: Arc<dyn Fn(SystemMessage) -> M + Send + Sync>,
     watcher: Option<ActorId>,
     parent_path: &ActorPath,
@@ -72,7 +73,7 @@ where
     Ok((id, path))
   }
 
-  pub fn remove_child(&mut self, id: ActorId) -> Option<PriorityActorRef<M, R>> {
+  pub fn remove_child(&mut self, id: ActorId) -> Option<InternalActorRef<M, R>> {
     self.children.remove(&id).map(|record| {
       if let Some(watcher_id) = record.watcher {
         let map_clone = record.map_system.clone();
@@ -84,7 +85,7 @@ where
     })
   }
 
-  pub fn child_ref(&self, id: ActorId) -> Option<&PriorityActorRef<M, R>> {
+  pub fn child_ref(&self, id: ActorId) -> Option<&InternalActorRef<M, R>> {
     self.children.get(&id).map(|record| &record.control_ref)
   }
 
@@ -123,7 +124,7 @@ where
   pub fn child_route(
     &self,
     actor: ActorId,
-  ) -> Option<(PriorityActorRef<M, R>, Arc<dyn Fn(SystemMessage) -> M + Send + Sync>)> {
+  ) -> Option<(InternalActorRef<M, R>, Arc<dyn Fn(SystemMessage) -> M + Send + Sync>)> {
     self
       .children
       .get(&actor)

@@ -7,7 +7,8 @@ use super::StackError;
 #[derive(Debug)]
 pub struct Stack<H, T>
 where
-  H: StackHandle<T>, {
+  H: StackHandle<T>,
+{
   backend: H,
   _marker: core::marker::PhantomData<T>,
 }
@@ -45,7 +46,8 @@ where
 
   pub fn peek(&self) -> Option<T>
   where
-    T: Clone, {
+    T: Clone,
+  {
     self.backend.backend().peek()
   }
 
@@ -105,7 +107,8 @@ where
 
   fn peek(&self) -> Option<T>
   where
-    T: Clone, {
+    T: Clone,
+  {
     self.backend.backend().peek()
   }
 }

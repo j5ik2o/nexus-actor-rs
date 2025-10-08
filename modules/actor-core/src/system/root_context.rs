@@ -1,4 +1,4 @@
-use crate::context::PriorityActorRef;
+use crate::context::InternalActorRef;
 use crate::guardian::GuardianStrategy;
 use crate::supervisor::NoopSupervisor;
 use crate::{MailboxRuntime, PriorityEnvelope};
@@ -12,7 +12,8 @@ where
   R: MailboxRuntime + Clone + 'static,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
-  Strat: GuardianStrategy<M, R>, {
+  Strat: GuardianStrategy<M, R>,
+{
   pub(super) system: &'a mut ActorSystem<M, R, Strat>,
 }
 
@@ -24,7 +25,7 @@ where
   R::Signal: Clone,
   Strat: GuardianStrategy<M, R>,
 {
-  pub fn spawn(&mut self, props: Props<M, R>) -> Result<PriorityActorRef<M, R>, QueueError<PriorityEnvelope<M>>> {
+  pub fn spawn(&mut self, props: Props<M, R>) -> Result<InternalActorRef<M, R>, QueueError<PriorityEnvelope<M>>> {
     let Props {
       options,
       map_system,

@@ -8,7 +8,8 @@ use nexus_utils_core_rs::{
 #[derive(Debug)]
 pub struct ArcMpscUnboundedQueue<E, RM = NoopRawMutex>
 where
-  RM: RawMutex, {
+  RM: RawMutex,
+{
   inner: MpscQueue<ArcShared<RingBufferBackend<ArcStateCell<MpscBuffer<E>, RM>>>, E>,
 }
 
