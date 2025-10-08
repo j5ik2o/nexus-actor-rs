@@ -32,8 +32,8 @@
    - 今後はライブラリ外部利用箇所の移行状況を監視し、適切なメジャー更新で削除する。
 
 3. **CoordinatedShutdown の整理**。
-   - Tok io: `TokioSystemHandle::spawn_ctrl_c_listener()` でシグナルを監視。将来的には `tokio::signal::unix::signal` 等を使い SIGTERM/SIGINT を追加対応する。
-   - Embedded: 停止要求を外部から受け取れるよう `ShutdownToken` を公開し、`run_until_idle()` が early return できる仕組みをガイドラインに記載する。
+  - Tok io: `TokioSystemHandle::start_local(runner)` を公開済み。今後 `start(runner)`（`tokio::spawn` ベースで `Send` ランナーを扱う）を追加し、`tokio::signal::unix::signal` を使って SIGTERM/SIGINT に段階的に対応する。`spawn_ctrl_c_listener()` は最小構成として残しつつ、Graceful Stop → Timeout → Abort のフローを検討する。
+  - Embedded: アプリケーションのメインループで `run_until_idle()` を呼び出し、外部からの停止トリガを `ShutdownToken` で受け取るサンプルを README/CLAUDE.md に掲載する。必要に応じて `EmbeddedSystemHandle`（仮）のような helper を用意し、停止フラグと `run_until_idle` を統合する。
 
 ## 実装ステップ
 
