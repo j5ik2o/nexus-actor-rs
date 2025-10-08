@@ -13,6 +13,10 @@ pub trait MpscBackend<T> {
     let _ = capacity;
     false
   }
+
+  fn is_empty(&self) -> bool {
+    self.len() == QueueSize::Limited(0)
+  }
 }
 
 /// Shared handle that exposes a [`MpscBackend`].

@@ -10,6 +10,12 @@ pub struct TokioUnboundedMpscBackend<T> {
   receiver: Mutex<mpsc::UnboundedReceiver<T>>,
 }
 
+impl<T> Default for TokioUnboundedMpscBackend<T> {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
 impl<T> TokioUnboundedMpscBackend<T> {
   pub fn new() -> Self {
     let (sender, receiver) = mpsc::unbounded_channel();

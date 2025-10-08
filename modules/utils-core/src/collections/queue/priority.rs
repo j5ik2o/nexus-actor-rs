@@ -1,4 +1,4 @@
-use super::{
+use crate::collections::{
   element::Element,
   queue::{QueueBase, QueueError, QueueReader, QueueRw, QueueSize, QueueWriter},
 };
@@ -14,19 +14,19 @@ pub trait PriorityMessage: Element {
 
 /// Shared priority queue facade that distributes messages across per-level queues.
 #[derive(Debug)]
-pub struct SharedPriorityQueue<Q, E>
+pub struct PriorityQueue<Q, E>
 where
   Q: QueueRw<E>, {
   levels: Vec<Q>,
   _marker: PhantomData<E>,
 }
 
-impl<Q, E> SharedPriorityQueue<Q, E>
+impl<Q, E> PriorityQueue<Q, E>
 where
   Q: QueueRw<E>,
 {
   pub fn new(levels: Vec<Q>) -> Self {
-    assert!(!levels.is_empty(), "SharedPriorityQueue requires at least one level");
+    assert!(!levels.is_empty(), "PriorityQueue requires at least one level");
     Self {
       levels,
       _marker: PhantomData,
@@ -97,7 +97,7 @@ where
   }
 }
 
-impl<Q, E> Clone for SharedPriorityQueue<Q, E>
+impl<Q, E> Clone for PriorityQueue<Q, E>
 where
   Q: QueueRw<E> + Clone,
 {
@@ -109,7 +109,7 @@ where
   }
 }
 
-impl<Q, E> QueueBase<E> for SharedPriorityQueue<Q, E>
+impl<Q, E> QueueBase<E> for PriorityQueue<Q, E>
 where
   Q: QueueRw<E>,
   E: PriorityMessage,
@@ -123,7 +123,7 @@ where
   }
 }
 
-impl<Q, E> QueueWriter<E> for SharedPriorityQueue<Q, E>
+impl<Q, E> QueueWriter<E> for PriorityQueue<Q, E>
 where
   Q: QueueRw<E>,
   E: PriorityMessage,
@@ -133,7 +133,7 @@ where
   }
 }
 
-impl<Q, E> QueueReader<E> for SharedPriorityQueue<Q, E>
+impl<Q, E> QueueReader<E> for PriorityQueue<Q, E>
 where
   Q: QueueRw<E>,
   E: PriorityMessage,
@@ -147,7 +147,7 @@ where
   }
 }
 
-impl<Q, E> QueueRw<E> for SharedPriorityQueue<Q, E>
+impl<Q, E> QueueRw<E> for PriorityQueue<Q, E>
 where
   Q: QueueRw<E>,
   E: PriorityMessage,
@@ -168,11 +168,11 @@ where
 #[cfg(test)]
 mod tests {
   extern crate alloc;
-  use crate::collections::priority::Vec;
+  use crate::collections::queue::priority::Vec;
   use alloc::rc::Rc;
   use core::cell::RefCell;
 
-  use super::{PriorityMessage, SharedPriorityQueue};
+  use super::{PriorityMessage, PriorityQueue};
   use crate::collections::queue::mpsc::{MpscBuffer, MpscHandle, MpscQueue, RingBufferBackend};
   use crate::collections::queue::{QueueBase, QueueReader, QueueRw, QueueWriter};
   use crate::collections::{QueueError, QueueSize};
@@ -278,7 +278,7 @@ mod tests {
 
   #[test]
   fn shared_priority_queue_orders_by_priority() {
-    let queue = SharedPriorityQueue::new(sample_levels());
+    let queue = PriorityQueue::new(sample_levels());
     queue.offer(1).unwrap();
     queue.offer(15).unwrap();
     queue.offer(7).unwrap();
@@ -291,7 +291,7 @@ mod tests {
 
   #[test]
   fn shared_priority_queue_len_and_capacity() {
-    let queue = SharedPriorityQueue::new(sample_levels());
+    let queue = PriorityQueue::new(sample_levels());
     let expected = QueueSize::limited((super::PRIORITY_LEVELS * 4) as usize);
     assert_eq!(queue.capacity(), expected);
     queue.offer(3).unwrap();
@@ -303,7 +303,7 @@ mod tests {
   #[test]
   fn shared_priority_queue_unbounded_capacity() {
     let levels = (0..super::PRIORITY_LEVELS).map(|_| TestQueue::unbounded()).collect();
-    let queue = SharedPriorityQueue::new(levels);
+    let queue = PriorityQueue::new(levels);
     assert!(queue.capacity().is_limitless());
   }
 }

@@ -66,17 +66,22 @@
       子スケジューラがルートに参加する際に同一ポリシーを共有できるようにする。
       `PriorityScheduler::set_parent_guardian` / `on_escalation` / `set_root_escalation_handler` /
       `set_root_event_listener` を導入し、テストで動作確認済み。（2025-10-07）
-- [ ] `Guardian`: `escalate_failure` の戻り値を拡張し、
+- [x] `Guardian`: `escalate_failure` の戻り値を拡張し、
       `SupervisorDirective::Stop`／`Restart` を返さなかったケースでも FailureInfo に
       サブタイプ（例: `EscalationStage`）を付与できるよう検討する。
+      `FailureInfo` に `EscalationStage` を追加し、`escalate_to_parent()` が段数をインクリメントすることで
+      Guardian／Scheduler 経由の伝播段数を追跡可能にした。（2025-10-07）
 - [x] `Props` / `ActorSystem` / `RootContext` 高水準 API を actor-core に追加し、Scheduler への直接依存なしに
       アクターを起動・メッセージ送信できるようにする。
-- [ ] `ActorContext` / `ChildSpawnSpec`: `map_system` だけでなく EscalationSink のフックを
+- [x] `ActorContext` / `ChildSpawnSpec`: `map_system` だけでなく EscalationSink のフックを
       親から子へ伝搬させ、Typed DSL で `SystemMessage::Escalate` を型安全に変換できるようにする。
+      `ChildSpawnSpec` が親の `map_system` を保持し、`Guardian::child_route` + `forward_to_local_parent`
+      が `SystemMessage::Escalate` を親のユーザーメッセージ型へ写像することで typed DSL へ橋渡しできることを確認。（2025-10-07）
 - [ ] `TypedMailboxAdapter`（予定）: `SystemMessage::Failure` と `SystemMessage::Escalate` を
       ユーザー定義イベントへマップする仕組みを提供し、テストで Escalate→typed DSL の通知経路を検証する。
-- [ ] `actor-core` テスト: 現状の `scheduler_escalation_chain_reaches_root` に加えて、
+- [x] `actor-core` テスト: 現状の `scheduler_escalation_chain_reaches_root` に加えて、
       カスタム EscalationSink が再試行を返した場合に scheduler が FailureInfo を再キューするケースを追加する。
+      `scheduler_requeues_failed_custom_escalation` で EscalationSink が `Err` を返した際の再試行パスを検証。（2025-10-07）
 - [x] `system_guardian` / `root_guardian`: ルート EscalationSink を定義し、最上位で FailureInfo を
       ログ／メトリクス／イベントストリームへ流すフックを整備する。
       `RootEscalationSink` が `tracing::error!`、`FailureEventHandler`、`FailureEventListener`

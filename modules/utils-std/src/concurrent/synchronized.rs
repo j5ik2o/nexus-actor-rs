@@ -1,4 +1,4 @@
-use nexus_utils_core_rs::concurrent::{
+use nexus_utils_core_rs::{
   BoxFuture, Synchronized as CoreSynchronized, SynchronizedMutexBackend, SynchronizedRw as CoreSynchronizedRw,
   SynchronizedRwBackend,
 };

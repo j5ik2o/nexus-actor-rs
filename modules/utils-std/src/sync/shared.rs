@@ -1,7 +1,7 @@
 use std::ops::Deref;
 use std::sync::Arc;
 
-use nexus_utils_core_rs::sync::Shared;
+use nexus_utils_core_rs::Shared;
 use nexus_utils_core_rs::{
   MpscBackend, MpscHandle, QueueHandle, QueueStorage, RingBackend, RingHandle, StackBackend, StackHandle,
 };

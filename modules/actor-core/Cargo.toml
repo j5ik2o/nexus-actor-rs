@@ -12,7 +12,7 @@ repository = "https://github.com/j5ik2o/nexus-actor-rs"
 [features]
 default = ["alloc"]
 alloc = []
-std = ["alloc", "tracing", "futures/std"]
+std = ["alloc", "tracing", "futures/std", "futures/executor"]
 test-support = []
 
 [dependencies]

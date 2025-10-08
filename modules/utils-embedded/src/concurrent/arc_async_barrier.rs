@@ -6,7 +6,7 @@ use alloc::sync::Arc;
 use core::sync::atomic::{AtomicUsize, Ordering};
 use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, RawMutex};
 use embassy_sync::signal::Signal;
-use nexus_utils_core_rs::concurrent::{AsyncBarrier as CoreAsyncBarrier, AsyncBarrierBackend, BoxFuture};
+use nexus_utils_core_rs::{AsyncBarrier as CoreAsyncBarrier, AsyncBarrierBackend, BoxFuture};
 
 pub struct ArcAsyncBarrierBackend<RM>
 where

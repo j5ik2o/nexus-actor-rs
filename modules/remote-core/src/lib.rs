@@ -53,3 +53,6 @@ impl RemoteFailureNotifier {
 pub fn placeholder_metadata(endpoint: &str) -> FailureMetadata {
   FailureMetadata::new().with_endpoint(endpoint.to_owned())
 }
+
+#[cfg(test)]
+mod tests;

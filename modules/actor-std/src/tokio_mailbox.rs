@@ -4,7 +4,7 @@ use nexus_actor_core_rs::{
   Mailbox, MailboxOptions, MailboxPair, MailboxRuntime, MailboxSignal, QueueMailbox, QueueMailboxProducer,
   QueueMailboxRecv,
 };
-use nexus_utils_std_rs::collections::queue::mpsc::{ArcMpscBoundedQueue, ArcMpscUnboundedQueue};
+use nexus_utils_std_rs::{ArcMpscBoundedQueue, ArcMpscUnboundedQueue};
 use nexus_utils_std_rs::{Element, QueueBase, QueueError, QueueRw, QueueSize};
 use tokio::sync::{futures::Notified, Notify};
 
@@ -186,11 +186,11 @@ where
   M: Element,
 {
   pub fn new(capacity: usize) -> (Self, TokioMailboxSender<M>) {
-    TokioMailboxRuntime::default().with_capacity(capacity)
+    TokioMailboxRuntime.with_capacity(capacity)
   }
 
   pub fn unbounded() -> (Self, TokioMailboxSender<M>) {
-    TokioMailboxRuntime::default().unbounded()
+    TokioMailboxRuntime.unbounded()
   }
 
   pub fn producer(&self) -> TokioMailboxSender<M>

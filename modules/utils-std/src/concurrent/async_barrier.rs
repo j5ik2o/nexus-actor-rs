@@ -1,7 +1,7 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
-use nexus_utils_core_rs::concurrent::{AsyncBarrier as CoreAsyncBarrier, AsyncBarrierBackend, BoxFuture};
+use nexus_utils_core_rs::{AsyncBarrier as CoreAsyncBarrier, AsyncBarrierBackend, BoxFuture};
 use tokio::sync::Notify;
 
 #[derive(Clone)]

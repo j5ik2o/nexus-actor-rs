@@ -1,7 +1,7 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
-use nexus_utils_core_rs::concurrent::{BoxFuture, WaitGroup as CoreWaitGroup, WaitGroupBackend};
+use nexus_utils_core_rs::{BoxFuture, WaitGroup as CoreWaitGroup, WaitGroupBackend};
 use tokio::sync::Notify;
 
 #[derive(Clone)]

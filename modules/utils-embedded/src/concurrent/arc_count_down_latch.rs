@@ -6,7 +6,7 @@ use alloc::sync::Arc;
 use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, RawMutex};
 use embassy_sync::mutex::Mutex;
 use embassy_sync::signal::Signal;
-use nexus_utils_core_rs::concurrent::{BoxFuture, CountDownLatch as CoreCountDownLatch, CountDownLatchBackend};
+use nexus_utils_core_rs::{BoxFuture, CountDownLatch as CoreCountDownLatch, CountDownLatchBackend};
 
 pub struct ArcCountDownLatchBackend<RM>
 where

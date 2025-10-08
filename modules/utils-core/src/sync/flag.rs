@@ -48,7 +48,7 @@ impl Flag {
   pub fn get(&self) -> bool {
     #[cfg(feature = "alloc")]
     {
-      return self.inner.load(Ordering::SeqCst);
+      self.inner.load(Ordering::SeqCst)
     }
 
     #[cfg(not(feature = "alloc"))]

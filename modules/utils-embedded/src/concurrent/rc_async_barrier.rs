@@ -1,12 +1,10 @@
-#![cfg(feature = "rc")]
-
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 
 use core::cell::RefCell;
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::signal::Signal;
-use nexus_utils_core_rs::concurrent::{AsyncBarrier as CoreAsyncBarrier, AsyncBarrierBackend, BoxFuture};
+use nexus_utils_core_rs::{AsyncBarrier as CoreAsyncBarrier, AsyncBarrierBackend, BoxFuture};
 
 #[derive(Clone)]
 pub struct RcAsyncBarrierBackend {

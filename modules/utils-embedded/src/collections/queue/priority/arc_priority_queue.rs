@@ -1,7 +1,6 @@
 use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex, RawMutex};
 use nexus_utils_core_rs::{
-  PriorityMessage, QueueBase, QueueError, QueueReader, QueueRw, QueueSize, QueueWriter, SharedPriorityQueue,
-  PRIORITY_LEVELS,
+  PriorityMessage, PriorityQueue, QueueBase, QueueError, QueueReader, QueueRw, QueueSize, QueueWriter, PRIORITY_LEVELS,
 };
 
 use crate::collections::queue::ring::ArcRingQueue;
@@ -13,7 +12,7 @@ pub type ArcCsPriorityQueue<E> = ArcPriorityQueue<E, CriticalSectionRawMutex>;
 pub struct ArcPriorityQueue<E, RM = NoopRawMutex>
 where
   RM: RawMutex, {
-  inner: SharedPriorityQueue<ArcRingQueue<E, RM>, E>,
+  inner: PriorityQueue<ArcRingQueue<E, RM>, E>,
 }
 
 impl<E, RM> Clone for ArcPriorityQueue<E, RM>
@@ -36,7 +35,7 @@ where
       .map(|_| ArcRingQueue::new(capacity_per_level))
       .collect();
     Self {
-      inner: SharedPriorityQueue::new(levels),
+      inner: PriorityQueue::new(levels),
     }
   }
 
@@ -59,7 +58,7 @@ where
     self.inner.levels_mut()
   }
 
-  pub fn inner(&self) -> &SharedPriorityQueue<ArcRingQueue<E, RM>, E> {
+  pub fn inner(&self) -> &PriorityQueue<ArcRingQueue<E, RM>, E> {
     &self.inner
   }
 }

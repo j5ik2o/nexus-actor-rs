@@ -8,7 +8,7 @@ license = "MIT OR Apache-2.0"
 [features]
 default = ["std"]
 alloc = []
-std = ["alloc"]
+std = ["alloc", "nexus-actor-core-rs/std", "nexus-remote-core-rs/std"]
 
 [dependencies]
 nexus-actor-core-rs = { path = "../actor-core", default-features = false, features = ["alloc"] }
