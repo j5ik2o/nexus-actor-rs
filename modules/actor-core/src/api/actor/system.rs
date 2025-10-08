@@ -1,7 +1,7 @@
 use core::convert::Infallible;
 
+use super::root_context::RootContext;
 use super::MessageEnvelope;
-use crate::actor::root_context::RootContext;
 use crate::guardian::AlwaysRestart;
 use crate::system::InternalActorSystem;
 use crate::{MailboxRuntime, PriorityEnvelope};

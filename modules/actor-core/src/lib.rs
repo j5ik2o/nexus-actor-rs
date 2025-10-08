@@ -7,7 +7,6 @@ extern crate alloc;
 use core::time::Duration;
 use nexus_utils_core_rs::QueueError;
 
-mod actor;
 mod actor_id;
 mod actor_path;
 mod context;
@@ -23,28 +22,11 @@ mod supervisor;
 mod system;
 mod timer;
 
-pub use actor::{ActorAdapter, ActorRef, ActorSystem, Behavior, Context, MessageEnvelope, Props, RootContext};
-pub use actor_id::ActorId;
-pub use actor_path::ActorPath;
-pub(crate) use context::{ActorContext, InternalActorRef};
-pub use escalation::{
-  CompositeEscalationSink, CustomEscalationSink, EscalationSink, FailureEventHandler, FailureEventListener,
-  ParentGuardianSink, RootEscalationSink,
-};
-pub use failure::{EscalationStage, FailureEvent, FailureInfo, FailureMetadata};
-#[cfg(feature = "std")]
-pub use failure_event_stream::{FailureEventHub, FailureEventSubscription};
-pub use guardian::{AlwaysRestart, Guardian, GuardianStrategy};
-pub use mailbox::SystemMessage;
-pub use mailbox::{
-  Mailbox, MailboxOptions, MailboxPair, MailboxRuntime, MailboxSignal, PriorityEnvelope, QueueMailbox,
-  QueueMailboxProducer, QueueMailboxRecv,
-};
-pub use nexus_utils_core_rs::{Shared, StateCell};
-pub use scheduler::PriorityScheduler;
-pub use spawn::Spawn;
-pub use supervisor::{NoopSupervisor, Supervisor, SupervisorDirective};
-pub use timer::Timer;
+mod api;
+mod runtime;
+
+pub use api::*;
+pub(crate) use runtime::context::InternalActorRef;
 
 /// Minimal actor loop that waits for messages, handles them, and yields control.
 ///
