@@ -275,13 +275,13 @@ impl Behaviors {
     BehaviorDirective::Become(behavior)
   }
 
-  pub fn stopped<U, R>() -> Behavior<U, R>
+  pub fn stopped<U, R>() -> BehaviorDirective<U, R>
   where
     U: Element,
     R: MailboxFactory + Clone + 'static,
     R::Queue<PriorityEnvelope<DynMessage>>: Clone,
     R::Signal: Clone, {
-    Behavior::stopped()
+    BehaviorDirective::Become(Behavior::stopped())
   }
 
   pub fn supervise<U, R>(behavior: Behavior<U, R>) -> SuperviseBuilder<U, R>

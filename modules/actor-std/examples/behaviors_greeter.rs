@@ -40,7 +40,7 @@ async fn main() {
         Command::Stop => {
           ctx.log().warn(|| format!("stopping after {greeted} greetings"));
           println!("actor {:?} is stopping after {} greetings", ctx.actor_id(), greeted);
-          Behaviors::transition(Behaviors::stopped())
+          Behaviors::stopped()
         }
       })
     })

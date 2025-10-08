@@ -494,7 +494,7 @@ fn test_receive_signal_post_stop() {
     let signals_cell = signals_clone.clone();
     Behaviors::receive(|_, msg: u32| {
       if msg == 0 {
-        Behaviors::transition(Behaviors::stopped())
+        Behaviors::stopped()
       } else {
         Behaviors::same()
       }
