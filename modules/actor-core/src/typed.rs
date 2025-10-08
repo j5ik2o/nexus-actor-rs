@@ -465,11 +465,8 @@ mod tests {
       }
     };
 
-    let props = TypedProps::with_system_handler(
-      MailboxOptions::default(),
-      move |_, _msg: u32| {},
-      Some(system_handler),
-    );
+    let props =
+      TypedProps::with_system_handler(MailboxOptions::default(), move |_, _msg: u32| {}, Some(system_handler));
 
     let mut root = system.root_context();
     let actor_ref = root.spawn(props).expect("spawn typed actor");
@@ -559,12 +556,11 @@ mod tests {
     });
 
     let failures_clone = failures.clone();
-    let system_handler =
-      move |_ctx: &mut ActorContext<'_, MessageEnvelope<u32>, _, _>, sys_msg: SystemMessage| {
-        if matches!(sys_msg, SystemMessage::Suspend) {
-          *failures_clone.borrow_mut() += 1;
-        }
-      };
+    let system_handler = move |_ctx: &mut ActorContext<'_, MessageEnvelope<u32>, _, _>, sys_msg: SystemMessage| {
+      if matches!(sys_msg, SystemMessage::Suspend) {
+        *failures_clone.borrow_mut() += 1;
+      }
+    };
 
     let props = TypedProps::with_behavior_and_system(MailboxOptions::default(), behavior, Some(system_handler));
 
@@ -579,21 +575,11 @@ mod tests {
     block_on(root.dispatch_next()).expect("dispatch user 2");
 
     // Send system message (Suspend doesn't stop the actor)
-    actor_ref
-      .send_system(SystemMessage::Suspend)
-      .expect("send suspend");
+    actor_ref.send_system(SystemMessage::Suspend).expect("send suspend");
     block_on(root.dispatch_next()).expect("dispatch system");
 
     // Verify stateful behavior updated correctly
-    assert_eq!(
-      *count.borrow(),
-      15,
-      "State should accumulate user messages"
-    );
-    assert_eq!(
-      *failures.borrow(),
-      1,
-      "State should track system messages"
-    );
+    assert_eq!(*count.borrow(), 15, "State should accumulate user messages");
+    assert_eq!(*failures.borrow(), 1, "State should track system messages");
   }
 }
