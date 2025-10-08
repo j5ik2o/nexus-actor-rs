@@ -20,9 +20,9 @@ pub use arc_priority_mailbox::{ArcPriorityMailbox, ArcPriorityMailboxRuntime, Ar
 pub use embassy_dispatcher::spawn_embassy_dispatcher;
 pub use local_mailbox::{LocalMailbox, LocalMailboxRuntime, LocalMailboxSender};
 #[cfg(feature = "embedded_arc")]
-pub use nexus_utils_embedded_rs::sync::{ArcCsStateCell, ArcLocalStateCell, ArcShared, ArcStateCell};
+pub use nexus_utils_embedded_rs::{ArcCsStateCell, ArcLocalStateCell, ArcShared, ArcStateCell};
 #[cfg(feature = "embedded_rc")]
-pub use nexus_utils_embedded_rs::sync::{RcShared, RcStateCell};
+pub use nexus_utils_embedded_rs::{RcShared, RcStateCell};
 pub use spawn::ImmediateSpawner;
 pub use timer::ImmediateTimer;
 

@@ -10,7 +10,7 @@ use nexus_actor_core_rs::{
   Mailbox, MailboxOptions, MailboxPair, MailboxRuntime, MailboxSignal, QueueMailbox, QueueMailboxProducer,
   QueueMailboxRecv,
 };
-use nexus_utils_embedded_rs::collections::queue::mpsc::RcMpscUnboundedQueue;
+use nexus_utils_embedded_rs::RcMpscUnboundedQueue;
 use nexus_utils_embedded_rs::{Element, QueueBase, QueueError, QueueRw, QueueSize};
 
 #[derive(Debug)]
