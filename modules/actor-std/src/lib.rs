@@ -9,7 +9,7 @@ mod tokio_priority_mailbox;
 
 pub use failure_event_hub::{FailureEventHub, FailureEventSubscription};
 pub use nexus_utils_std_rs::{ArcShared, ArcStateCell};
-pub use runtime_driver::{DriverState, TokioActorRuntime};
+pub use runtime_driver::{DriverState, TokioActorRuntime, TokioSystemHandle};
 pub use spawn::TokioSpawner;
 pub use timer::TokioTimer;
 pub use tokio_mailbox::{TokioMailbox, TokioMailboxRuntime, TokioMailboxSender};
@@ -18,7 +18,7 @@ pub use tokio_priority_mailbox::{TokioPriorityMailbox, TokioPriorityMailboxRunti
 pub mod prelude {
   pub use super::{
     ArcShared, ArcStateCell, TokioMailbox, TokioMailboxRuntime, TokioMailboxSender, TokioPriorityMailbox,
-    TokioPriorityMailboxRuntime, TokioPriorityMailboxSender, TokioSpawner, TokioTimer,
+    TokioPriorityMailboxRuntime, TokioPriorityMailboxSender, TokioSpawner, TokioSystemHandle, TokioTimer,
   };
   pub use nexus_actor_core_rs::actor_loop;
 }

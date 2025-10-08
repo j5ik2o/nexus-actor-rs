@@ -18,7 +18,7 @@ rt-current-thread = ["tokio/rt"]
 nexus-actor-core-rs = { path = "../actor-core", default-features = false, features = ["alloc", "std"] }
 nexus-utils-std-rs = { path = "../utils-std" }
 futures = "0.3"
-tokio = { version = "1.37.0", default-features = false, features = ["macros", "sync", "time"] }
+tokio = { version = "1.37.0", default-features = false, features = ["macros", "sync", "time", "signal"] }
 
 [dev-dependencies]
-tokio = { version = "1.37.0", default-features = false, features = ["macros", "rt-multi-thread", "sync", "time"] }
+tokio = { version = "1.37.0", default-features = false, features = ["macros", "rt-multi-thread", "sync", "time", "signal"] }
