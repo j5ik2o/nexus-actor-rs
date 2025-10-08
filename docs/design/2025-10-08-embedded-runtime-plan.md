@@ -223,3 +223,19 @@ where
 1. `ActorRuntimeFacade` trait を専用モジュール（`actor-core` もしくは `actor-runtime` 新クレート）に追加し、共有ユーティリティを提供する。
 2. `TokioActorRuntime` と `EmbeddedActorRuntime` に対し trait 実装を追加し、テストを trait ベースにリファクタリングする。
 3. `pump` の意味付けと `ImmediateSpawner` の動作を整理し、埋め込み向けに「忙しい状態」を判定できるよう実装を拡張する。
+
+### ActorSystem 常駐タスクと CoordinatedShutdown 検討メモ
+
+- **Tokio 環境**
+  - `ActorSystem::start()`（仮）を追加し、内部で `tokio::spawn(async move { system.run_forever().await })` を実行する。
+  - 返り値として `JoinHandle<()>` と停止トークン（例: `ActorSystemShutdown`）を保持し、`CoordinatedShutdown` 初期実装では `handle.abort()` で強制停止、将来的には Graceful に移行。
+  - `Dispatcher` への登録は `Spawner` を通すのではなく、`ActorSystem` が自ら常駐する形にするため、既存 `TokioSpawner` はユーザーアクター用タスク向けに限定し、スケジューラ本体は `start()` で確実に Tokio スケジューラへ載せる。
+
+- **Embedded 環境**
+  - `EmbeddedActorRuntime::run_until_idle()` をアプリケーションのメインループ（割り込み駆動 or cooperative loop）から呼び、`pump()` の戻り値で終了条件を判断できるようにする。
+  - 将来的に `CoordinatedShutdown` と連携するため、`run_until_idle()` が停止フラグ（例: `AtomicBool`) を参照して早期リターンできる構造を検討。
+
+- **CoordinatedShutdown の初期方針**
+  - 第一段階では、std 環境で SIGTERM/SIGINT を受け取った際に `ActorSystemShutdown::trigger()`（仮）を呼び、Tokio タスクを `abort()` して終了ログを出力する簡易実装を目指す。
+  - Embedded 環境では `pump()` が `DriverState::Idle` を返したタイミングで停止可能。将来的な拡張として、外部から停止要求を受けて `run_until_idle()` が完了した時点でメインループを抜ける設計にする。
+  - 本格的な「段階的シャットダウン」（クラスタ協調や永続ストア flush 等）は次フェーズで検討し、現段階では「安全に停止するフックを提供する」ことをゴールとする。
