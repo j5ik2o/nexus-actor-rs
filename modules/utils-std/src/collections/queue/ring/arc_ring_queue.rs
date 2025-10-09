@@ -20,11 +20,11 @@ pub struct ArcRingQueue<E> {
 impl<E> ArcRingQueue<E> {
   /// 指定された容量で新しいリングキューを作成します
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `capacity` - リングバッファの初期容量
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 新しいリングキューインスタンス
   pub fn new(capacity: usize) -> Self {
@@ -37,11 +37,11 @@ impl<E> ArcRingQueue<E> {
 
   /// 動的拡張モードを設定してキューを返します(ビルダーパターン)
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `dynamic` - `true`の場合、容量超過時に自動拡張します
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 設定が適用されたキューインスタンス(self)
   pub fn with_dynamic(mut self, dynamic: bool) -> Self {
@@ -51,7 +51,7 @@ impl<E> ArcRingQueue<E> {
 
   /// 動的拡張モードを設定します
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `dynamic` - `true`の場合、容量超過時に自動拡張します
   pub fn set_dynamic(&self, dynamic: bool) {

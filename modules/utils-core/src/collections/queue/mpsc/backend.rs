@@ -15,11 +15,11 @@ pub struct RingBufferBackend<S> {
 impl<S> RingBufferBackend<S> {
   /// 指定されたストレージを使用して新しい`RingBufferBackend`を作成します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `storage` - バックエンドが使用するリングバッファストレージ
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 新しい`RingBufferBackend`インスタンス
   pub const fn new(storage: S) -> Self {
@@ -28,7 +28,7 @@ impl<S> RingBufferBackend<S> {
 
   /// 内部ストレージへの不変参照を返します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// ストレージへの参照
   pub fn storage(&self) -> &S {
@@ -39,7 +39,7 @@ impl<S> RingBufferBackend<S> {
   ///
   /// このメソッドはバックエンドを消費し、内部ストレージを返します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 内部ストレージの所有権
   pub fn into_storage(self) -> S {
@@ -56,11 +56,11 @@ where
   /// このメソッドはブロッキングせずに要素をキューに追加しようとします。
   /// キューが満杯の場合やクローズされている場合はエラーを返します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `element` - キューに追加する要素
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// * `Ok(())` - 要素が正常にキューに追加された場合
   /// * `Err(QueueError<T>)` - キューが満杯またはクローズされている場合
@@ -73,7 +73,7 @@ where
   /// このメソッドはブロッキングせずにキューから要素を取得しようとします。
   /// キューが空の場合は`None`を返します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// * `Ok(Some(T))` - 要素が正常に取得された場合
   /// * `Ok(None)` - キューが空の場合
@@ -92,7 +92,7 @@ where
 
   /// キュー内の現在の要素数を返します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// キュー内の要素数を表す[`QueueSize`]
   fn len(&self) -> QueueSize {
@@ -101,7 +101,7 @@ where
 
   /// キューの容量を返します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// キューの容量を表す[`QueueSize`]（無制限の場合は`QueueSize::Unbounded`）
   fn capacity(&self) -> QueueSize {
@@ -110,7 +110,7 @@ where
 
   /// キューがクローズされているかどうかを確認します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// * `true` - キューがクローズされている場合
   /// * `false` - キューがオープンしている場合
@@ -122,11 +122,11 @@ where
   ///
   /// このメソッドはキューの最大容量を変更します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `capacity` - 新しい容量（`None`の場合は無制限）
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// * `true` - 容量が正常に設定された場合
   fn set_capacity(&self, capacity: Option<usize>) -> bool {

@@ -25,7 +25,7 @@ impl MailboxOptions {
   ///
   /// 優先度付きメッセージキューは無制限になります。
   ///
-  /// # 引数
+  /// # Arguments
   /// - `capacity`: 通常のメッセージキューの容量
   pub const fn with_capacity(capacity: usize) -> Self {
     Self {
@@ -36,7 +36,7 @@ impl MailboxOptions {
 
   /// 通常と優先度付きの両方の容量を指定してメールボックスオプションを作成します。
   ///
-  /// # 引数
+  /// # Arguments
   /// - `capacity`: 通常のメッセージキューの容量
   /// - `priority_capacity`: 優先度付きメッセージキューの容量
   pub const fn with_capacities(capacity: QueueSize, priority_capacity: QueueSize) -> Self {
@@ -48,7 +48,7 @@ impl MailboxOptions {
 
   /// 優先度付きメッセージキューの容量を設定します。
   ///
-  /// # 引数
+  /// # Arguments
   /// - `priority_capacity`: 優先度付きメッセージキューの容量
   pub const fn with_priority_capacity(mut self, priority_capacity: QueueSize) -> Self {
     self.priority_capacity = priority_capacity;
@@ -88,7 +88,7 @@ pub struct QueueMailbox<Q, S> {
 impl<Q, S> QueueMailbox<Q, S> {
   /// 新しいキューメールボックスを作成します。
   ///
-  /// # 引数
+  /// # Arguments
   /// - `queue`: メッセージキューの実装
   /// - `signal`: 通知シグナルの実装
   pub fn new(queue: Q, signal: S) -> Self {
@@ -172,13 +172,13 @@ impl<Q, S> QueueMailboxProducer<Q, S> {
   ///
   /// キューが満杯の場合は即座にエラーを返します。
   ///
-  /// # 引数
+  /// # Arguments
   /// - `message`: 送信するメッセージ
   ///
-  /// # 戻り値
+  /// # Returns
   /// 成功時は `Ok(())`、失敗時は `Err(QueueError)`
   ///
-  /// # エラー
+  /// # Errors
   /// - `QueueError::Disconnected`: メールボックスが閉じられている
   /// - `QueueError::Full`: キューが満杯
   pub fn try_send<M>(&self, message: M) -> Result<(), QueueError<M>>
@@ -208,10 +208,10 @@ impl<Q, S> QueueMailboxProducer<Q, S> {
   /// 現在の実装では `try_send` を呼び出すだけですが、
   /// 将来的にバックプレッシャー対応などの拡張が可能です。
   ///
-  /// # 引数
+  /// # Arguments
   /// - `message`: 送信するメッセージ
   ///
-  /// # 戻り値
+  /// # Returns
   /// 成功時は `Ok(())`、失敗時は `Err(QueueError)`
   pub async fn send<M>(&self, message: M) -> Result<(), QueueError<M>>
   where

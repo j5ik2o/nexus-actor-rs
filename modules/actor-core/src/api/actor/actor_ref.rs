@@ -33,7 +33,7 @@ where
 {
   /// 内部参照から新しい `ActorRef` を生成する。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `inner` - 内部アクター参照
   pub(crate) fn new(inner: InternalActorRef<DynMessage, R>) -> Self {
     Self {
@@ -44,7 +44,7 @@ where
 
   /// ユーザーメッセージを動的メッセージへラップする。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `message` - ラップするユーザーメッセージ
   pub(crate) fn wrap_user(message: U) -> DynMessage {
     DynMessage::new(MessageEnvelope::user(message))
@@ -52,7 +52,7 @@ where
 
   /// メタデータ付きのユーザーメッセージを動的メッセージへラップする。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `message` - ラップするユーザーメッセージ
   /// * `metadata` - メッセージに付随するメタデータ
   pub(crate) fn wrap_user_with_metadata(message: U, metadata: MessageMetadata) -> DynMessage {
@@ -61,7 +61,7 @@ where
 
   /// 既にラップ済みのメッセージを優先度付きで送信する。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `dyn_message` - 動的メッセージ
   /// * `priority` - メッセージの優先度
   fn send_envelope(
@@ -74,7 +74,7 @@ where
 
   /// メタデータ付きでメッセージを送信する（内部API）。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `message` - 送信するメッセージ
   /// * `metadata` - メッセージに付随するメタデータ
   pub(crate) fn tell_with_metadata(
@@ -88,10 +88,10 @@ where
 
   /// メッセージを送信する（Fire-and-Forget）。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `message` - 送信するメッセージ
   ///
-  /// # 戻り値
+  /// # Returns
   /// 送信成功時は`Ok(())`、失敗時はエラー
   pub fn tell(&self, message: U) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> {
     self
@@ -101,11 +101,11 @@ where
 
   /// 優先度を指定してメッセージを送信する。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `message` - 送信するメッセージ
   /// * `priority` - メッセージの優先度（値が小さいほど高優先度）
   ///
-  /// # 戻り値
+  /// # Returns
   /// 送信成功時は`Ok(())`、失敗時はエラー
   pub fn tell_with_priority(&self, message: U, priority: i8) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> {
     self.inner.try_send_with_priority(Self::wrap_user(message), priority)
@@ -113,10 +113,10 @@ where
 
   /// システムメッセージを送信する。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `message` - 送信するシステムメッセージ
   ///
-  /// # 戻り値
+  /// # Returns
   /// 送信成功時は`Ok(())`、失敗時はエラー
   pub fn send_system(&self, message: SystemMessage) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> {
     let envelope =
@@ -126,7 +126,7 @@ where
 
   /// このアクター参照をメッセージディスパッチャに変換する。
   ///
-  /// # 戻り値
+  /// # Returns
   /// メッセージ送信用のディスパッチャ
   pub fn to_dispatcher(&self) -> MessageSender<U>
   where
@@ -138,7 +138,7 @@ where
 
   /// 送信元アクターを指定してリクエストを送信する（内部API）。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `message` - 送信するメッセージ
   /// * `sender` - 送信元アクターの参照
   #[allow(dead_code)]
@@ -156,7 +156,7 @@ where
 
   /// ディスパッチャを指定してリクエストを送信する（内部API）。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `message` - 送信するメッセージ
   /// * `sender` - 送信元ディスパッチャ
   #[allow(dead_code)]
@@ -173,10 +173,10 @@ where
 
   /// 応答チャネルを内部で生成し、`message` を送って `AskFuture` を返す（内部API）。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `message` - 送信するメッセージ
   ///
-  /// # 戻り値
+  /// # Returns
   /// 応答を待ち受ける`AskFuture`
   pub(crate) fn request_future<Resp>(&self, message: U) -> AskResult<AskFuture<Resp>>
   where
@@ -189,7 +189,7 @@ where
 
   /// 送信元のアクター参照を指定して `ask` を発行する（内部API）。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `message` - 送信するメッセージ
   /// * `sender` - 送信元アクターの参照
   #[allow(dead_code)]
@@ -204,7 +204,7 @@ where
 
   /// 任意のディスパッチャを送信元として `ask` を発行する（内部API）。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `message` - 送信するメッセージ
   /// * `sender` - 送信元ディスパッチャ
   #[allow(dead_code)]
@@ -224,7 +224,7 @@ where
 
   /// タイムアウト付きで`ask`を発行する（内部API）。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `message` - 送信するメッセージ
   /// * `timeout` - タイムアウト制御用のFuture
   #[allow(dead_code)]
@@ -249,7 +249,7 @@ where
 
   /// 送信元を指定してタイムアウト付き`ask`を発行する（内部API）。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `message` - 送信するメッセージ
   /// * `sender` - 送信元アクターの参照
   /// * `timeout` - タイムアウト制御用のFuture
@@ -271,7 +271,7 @@ where
 
   /// ディスパッチャを指定してタイムアウト付き`ask`を発行する（内部API）。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `message` - 送信するメッセージ
   /// * `sender` - 送信元ディスパッチャ
   /// * `timeout` - タイムアウト制御用のFuture
@@ -301,10 +301,10 @@ where
   ///
   /// 応答用のディスパッチャをファクトリに渡してメッセージを構築できる。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `factory` - 応答用ディスパッチャを受け取りメッセージを生成する関数
   ///
-  /// # 戻り値
+  /// # Returns
   /// 応答を待ち受ける`AskFuture`
   pub fn ask_with<Resp, F>(&self, factory: F) -> AskResult<AskFuture<Resp>>
   where
@@ -320,11 +320,11 @@ where
 
   /// タイムアウト付きでファクトリ関数を使って`ask`を発行する。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `factory` - 応答用ディスパッチャを受け取りメッセージを生成する関数
   /// * `timeout` - タイムアウト制御用のFuture
   ///
-  /// # 戻り値
+  /// # Returns
   /// タイムアウト制御付きの`AskTimeoutFuture`
   pub fn ask_with_timeout<Resp, F, TFut>(&self, factory: F, timeout: TFut) -> AskResult<AskTimeoutFuture<Resp, TFut>>
   where

@@ -15,11 +15,11 @@ pub struct ArcPriorityQueue<E> {
 impl<E> ArcPriorityQueue<E> {
   /// 優先度レベルごとに指定された容量で新しい優先度キューを作成します
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `capacity_per_level` - 各優先度レベルのキュー容量
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 新しい優先度キューインスタンス
   pub fn new(capacity_per_level: usize) -> Self {
@@ -33,7 +33,7 @@ impl<E> ArcPriorityQueue<E> {
 
   /// 優先度レベル配列への不変参照を取得します
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 優先度レベルキューのスライス
   pub fn levels(&self) -> &[ArcRingQueue<E>] {
@@ -42,7 +42,7 @@ impl<E> ArcPriorityQueue<E> {
 
   /// 優先度レベル配列への可変参照を取得します
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 優先度レベルキューの可変スライス
   pub fn levels_mut(&mut self) -> &mut [ArcRingQueue<E>] {
@@ -51,7 +51,7 @@ impl<E> ArcPriorityQueue<E> {
 
   /// 内部優先度キューへの不変参照を取得します
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 内部優先度キューへの参照
   pub fn inner(&self) -> &PriorityQueue<ArcRingQueue<E>, E> {
@@ -60,7 +60,7 @@ impl<E> ArcPriorityQueue<E> {
 
   /// 内部優先度キューへの可変参照を取得します
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 内部優先度キューへの可変参照
   pub fn inner_mut(&mut self) -> &mut PriorityQueue<ArcRingQueue<E>, E> {
@@ -74,11 +74,11 @@ where
 {
   /// 要素を優先度に基づいてキューに追加します
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `element` - キューに追加する要素
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 成功時は`Ok(())`、キューが満杯の場合は`Err(QueueError::Full)`
   pub fn offer(&self, element: E) -> Result<(), QueueError<E>> {
@@ -87,7 +87,7 @@ where
 
   /// 最も優先度の高い要素をキューから取り出します
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 成功時は`Ok(Some(E))`、キューが空の場合は`Ok(None)`
   pub fn poll(&self) -> Result<Option<E>, QueueError<E>> {

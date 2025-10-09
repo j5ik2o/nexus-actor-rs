@@ -95,7 +95,7 @@ pub type MapSystemFn<M> = dyn Fn(SystemMessage) -> M + Send + Sync;
 /// メッセージを受信し、ハンドラに渡して処理する。
 /// stdとembeddedランタイムの両方で共有される参照実装。
 ///
-/// # 引数
+/// # Arguments
 /// * `mailbox` - メッセージを受信するメールボックス
 /// * `timer` - 待機に使用するタイマー
 /// * `handler` - メッセージを処理するハンドラ関数

@@ -38,7 +38,7 @@ where
 {
   /// メッセージハンドラを指定して新しい`Props`を作成する。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `options` - メールボックスオプション
   /// * `handler` - ユーザーメッセージを処理するハンドラ関数
   pub fn new<F>(options: MailboxOptions, handler: F) -> Self
@@ -58,7 +58,7 @@ where
 
   /// Behaviorファクトリを指定して新しい`Props`を作成する。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `options` - メールボックスオプション
   /// * `behavior_factory` - アクターの振る舞いを生成するファクトリ関数
   pub fn with_behavior<F>(options: MailboxOptions, behavior_factory: F) -> Self
@@ -69,7 +69,7 @@ where
 
   /// ユーザーメッセージハンドラとシステムメッセージハンドラを指定して新しい`Props`を作成する。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `options` - メールボックスオプション
   /// * `user_handler` - ユーザーメッセージを処理するハンドラ関数
   /// * `system_handler` - システムメッセージを処理するハンドラ関数（オプション）
@@ -97,7 +97,7 @@ where
   ///
   /// 最も柔軟な`Props`作成方法で、振る舞いとシステムメッセージハンドラの両方を指定できる。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `options` - メールボックスオプション
   /// * `behavior_factory` - アクターの振る舞いを生成するファクトリ関数
   /// * `system_handler` - システムメッセージを処理するハンドラ関数（オプション）
@@ -142,7 +142,7 @@ where
 
   /// 内部プロパティとスーパーバイザー設定に分解する（内部API）。
   ///
-  /// # 戻り値
+  /// # Returns
   /// `(InternalProps, SupervisorStrategyConfig)`のタプル
   pub(crate) fn into_parts(self) -> (InternalProps<DynMessage, R>, SupervisorStrategyConfig) {
     (self.inner, self.supervisor)

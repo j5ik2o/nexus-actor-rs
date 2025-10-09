@@ -20,14 +20,14 @@ pub trait WaitGroupBackend: Clone {
 
   /// 指定されたカウント値で新しいバックエンドインスタンスを作成
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `count` - 初期カウント値
   fn with_count(count: usize) -> Self;
 
   /// カウンタに指定された数を加算
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `n` - 加算する値
   fn add(&self, n: usize);
@@ -89,7 +89,7 @@ where
   ///
   /// カウンタは0で初期化されます。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 新しいWaitGroupインスタンス
   pub fn new() -> Self {
@@ -98,11 +98,11 @@ where
 
   /// 指定されたカウント値で新しいWaitGroupを作成
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `count` - 初期カウント値（待機するタスク数）
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 指定されたカウント値で初期化されたWaitGroupインスタンス
   pub fn with_count(count: usize) -> Self {
@@ -115,7 +115,7 @@ where
   ///
   /// 新たに開始するタスクの数だけカウンタを増やします。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `n` - 加算する値（開始するタスクの数）
   pub fn add(&self, n: usize) {
@@ -140,7 +140,7 @@ where
 
   /// バックエンドへの参照を取得
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// バックエンドインスタンスへの不変参照
   pub fn backend(&self) -> &B {

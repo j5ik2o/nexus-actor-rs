@@ -154,10 +154,10 @@ where
 impl TokioMailboxFactory {
   /// 指定されたオプションでメールボックスを生成する
   ///
-  /// # 引数
+  /// # Arguments
   /// * `options` - メールボックスの設定オプション
   ///
-  /// # 戻り値
+  /// # Returns
   /// メールボックスと送信側ハンドルのペア
   pub fn mailbox<M>(&self, options: MailboxOptions) -> (TokioMailbox<M>, TokioMailboxSender<M>)
   where
@@ -168,10 +168,10 @@ impl TokioMailboxFactory {
 
   /// 指定された容量の有界メールボックスを生成する
   ///
-  /// # 引数
+  /// # Arguments
   /// * `capacity` - メールボックスの最大容量
   ///
-  /// # 戻り値
+  /// # Returns
   /// メールボックスと送信側ハンドルのペア
   pub fn with_capacity<M>(&self, capacity: usize) -> (TokioMailbox<M>, TokioMailboxSender<M>)
   where
@@ -181,7 +181,7 @@ impl TokioMailboxFactory {
 
   /// 無界メールボックスを生成する
   ///
-  /// # 戻り値
+  /// # Returns
   /// メールボックスと送信側ハンドルのペア
   pub fn unbounded<M>(&self) -> (TokioMailbox<M>, TokioMailboxSender<M>)
   where
@@ -214,10 +214,10 @@ where
 {
   /// 指定容量のメールボックスを生成する
   ///
-  /// # 引数
+  /// # Arguments
   /// * `capacity` - メールボックスの最大容量
   ///
-  /// # 戻り値
+  /// # Returns
   /// メールボックスと送信側ハンドルのペア
   pub fn new(capacity: usize) -> (Self, TokioMailboxSender<M>) {
     TokioMailboxFactory.with_capacity(capacity)
@@ -225,7 +225,7 @@ where
 
   /// 無界メールボックスを生成する
   ///
-  /// # 戻り値
+  /// # Returns
   /// メールボックスと送信側ハンドルのペア
   pub fn unbounded() -> (Self, TokioMailboxSender<M>) {
     TokioMailboxFactory.unbounded()
@@ -233,7 +233,7 @@ where
 
   /// 新しい送信側ハンドルを生成する
   ///
-  /// # 戻り値
+  /// # Returns
   /// メッセージ送信用の`TokioMailboxSender`
   pub fn producer(&self) -> TokioMailboxSender<M>
   where
@@ -246,7 +246,7 @@ where
 
   /// 内部のキューメールボックスへの参照を取得する
   ///
-  /// # 戻り値
+  /// # Returns
   /// 内部メールボックスへの不変参照
   pub fn inner(&self) -> &QueueMailbox<TokioQueue<M>, NotifySignal> {
     &self.inner
@@ -296,13 +296,13 @@ where
 {
   /// メッセージの送信を試みる（ブロックしない）
   ///
-  /// # 引数
+  /// # Arguments
   /// * `message` - 送信するメッセージ
   ///
-  /// # 戻り値
+  /// # Returns
   /// 成功時は`Ok(())`、失敗時はエラーとメッセージを返す
   ///
-  /// # エラー
+  /// # Errors
   /// キューが満杯の場合、`QueueError::Full`を返す
   pub fn try_send(&self, message: M) -> Result<(), QueueError<M>> {
     self.inner.try_send(message)
@@ -310,13 +310,13 @@ where
 
   /// メッセージを非同期で送信する
   ///
-  /// # 引数
+  /// # Arguments
   /// * `message` - 送信するメッセージ
   ///
-  /// # 戻り値
+  /// # Returns
   /// 成功時は`Ok(())`、失敗時はエラーとメッセージを返す
   ///
-  /// # エラー
+  /// # Errors
   /// メールボックスが閉じられている場合、`QueueError::Closed`を返す
   pub async fn send(&self, message: M) -> Result<(), QueueError<M>> {
     self.inner.send(message).await
@@ -324,7 +324,7 @@ where
 
   /// 内部のキューメールボックスプロデューサーへの参照を取得する
   ///
-  /// # 戻り値
+  /// # Returns
   /// 内部プロデューサーへの不変参照
   pub fn inner(&self) -> &QueueMailboxProducer<TokioQueue<M>, NotifySignal> {
     &self.inner

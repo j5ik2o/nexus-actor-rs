@@ -39,7 +39,7 @@ pub struct RcAsyncBarrierBackend {
 impl AsyncBarrierBackend for RcAsyncBarrierBackend {
   /// 指定されたカウントで新しいバリアバックエンドを作成します。
   ///
-  /// # パニック
+  /// # Panics
   ///
   /// `count` が 0 の場合はパニックします。
   fn new(count: usize) -> Self {
@@ -56,7 +56,7 @@ impl AsyncBarrierBackend for RcAsyncBarrierBackend {
   /// すべての参加者（`count`個のタスク）が `wait()` を呼び出すまでブロックします。
   /// 最後のタスクがバリアに到達すると、全てのタスクが同時に解放されます。
   ///
-  /// # パニック
+  /// # Panics
   ///
   /// `wait` が `count` 回を超えて呼び出された場合はパニックします。
   async fn wait(&self) {

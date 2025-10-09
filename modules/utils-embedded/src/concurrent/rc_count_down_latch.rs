@@ -44,7 +44,7 @@ pub struct RcCountDownLatchBackend {
 impl CountDownLatchBackend for RcCountDownLatchBackend {
   /// 指定されたカウントで新しいラッチバックエンドを作成します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `count` - 初期カウント値（0も許可）
   fn new(count: usize) -> Self {
@@ -58,7 +58,7 @@ impl CountDownLatchBackend for RcCountDownLatchBackend {
   ///
   /// カウントが 0 になると、待機中のすべてのタスクがシグナルを受け取り解放されます。
   ///
-  /// # パニック
+  /// # Panics
   ///
   /// カウントが既に 0 の状態で呼び出された場合はパニックします。
   async fn count_down(&self) {

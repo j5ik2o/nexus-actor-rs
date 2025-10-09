@@ -12,11 +12,11 @@ pub struct ArcStateCell<T>(Arc<Mutex<T>>);
 impl<T> ArcStateCell<T> {
   /// 値から新しい`ArcStateCell`を作成します
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `value` - 初期値
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 新しい`ArcStateCell`インスタンス
   pub fn new(value: T) -> Self {
@@ -25,11 +25,11 @@ impl<T> ArcStateCell<T> {
 
   /// 既存の`Arc<Mutex<T>>`から`ArcStateCell`を作成します
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `inner` - `Arc<Mutex<T>>`インスタンス
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// `Arc<Mutex<T>>`をラップした`ArcStateCell`インスタンス
   pub fn from_arc(inner: Arc<Mutex<T>>) -> Self {
@@ -38,7 +38,7 @@ impl<T> ArcStateCell<T> {
 
   /// `ArcStateCell`を内部の`Arc<Mutex<T>>`に変換します
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 内部の`Arc<Mutex<T>>`インスタンス
   pub fn into_arc(self) -> Arc<Mutex<T>> {

@@ -33,11 +33,11 @@ where
 {
   /// 指定されたプロパティを使用して新しいアクターを生成します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `props` - アクターの生成に使用するプロパティ
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 生成されたアクターへの参照、またはメールボックスエラー
   pub fn spawn(&mut self, props: Props<U, R>) -> Result<ActorRef<U, R>, QueueError<PriorityEnvelope<DynMessage>>> {
@@ -50,12 +50,12 @@ where
 
   /// 指定されたアクターにメッセージを送信し、応答を待つ Future を返します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `target` - メッセージの送信先アクター
   /// * `message` - 送信するメッセージ
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 応答を受け取るための Future、またはエラー
   pub fn request_future<V, Resp>(&self, target: &ActorRef<V, R>, message: V) -> AskResult<AskFuture<Resp>>
@@ -67,13 +67,13 @@ where
 
   /// 指定されたアクターにメッセージを送信し、タイムアウト付きで応答を待つ Future を返します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `target` - メッセージの送信先アクター
   /// * `message` - 送信するメッセージ
   /// * `timeout` - タイムアウトを示す Future
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// タイムアウト付きで応答を受け取るための Future、またはエラー
   pub fn request_future_with_timeout<V, Resp, TFut>(
@@ -92,7 +92,7 @@ where
 
   /// すべてのメッセージをディスパッチします。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 成功した場合は `Ok(())`、メールボックスエラーが発生した場合は `Err`
   ///
@@ -107,7 +107,7 @@ where
 
   /// 次のメッセージを1つディスパッチします。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 成功した場合は `Ok(())`、メールボックスエラーが発生した場合は `Err`
   pub async fn dispatch_next(&mut self) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> {

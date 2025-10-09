@@ -14,7 +14,7 @@ pub enum EscalationStage {
 impl EscalationStage {
   /// 初期段階を返す。
   ///
-  /// # 戻り値
+  /// # Returns
   /// `EscalationStage::Initial`インスタンス
   pub const fn initial() -> Self {
     EscalationStage::Initial
@@ -22,7 +22,7 @@ impl EscalationStage {
 
   /// エスカレーションの伝播回数を返す。
   ///
-  /// # 戻り値
+  /// # Returns
   /// 伝播回数。`Initial`の場合は0を返す。
   pub fn hops(self) -> u8 {
     match self {
@@ -33,7 +33,7 @@ impl EscalationStage {
 
   /// 初期段階かどうかを判定する。
   ///
-  /// # 戻り値
+  /// # Returns
   /// 初期段階の場合は`true`、それ以外は`false`
   pub const fn is_initial(self) -> bool {
     matches!(self, EscalationStage::Initial)
@@ -41,7 +41,7 @@ impl EscalationStage {
 
   /// 次のエスカレーション段階を返す。
   ///
-  /// # 戻り値
+  /// # Returns
   /// エスカレートされた新しい`EscalationStage`インスタンス。
   /// `Initial`の場合は`Escalated { hops: 1 }`、
   /// `Escalated`の場合は`hops`を1増やした新しいインスタンスを返す。

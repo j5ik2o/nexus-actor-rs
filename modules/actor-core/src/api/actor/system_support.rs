@@ -20,7 +20,7 @@ pub struct ActorSystemParts<MF, S, T, E> {
 impl<MF, S, T, E> ActorSystemParts<MF, S, T, E> {
   /// 新しい `ActorSystemParts` を作成します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `mailbox_factory` - メールボックスファクトリ
   /// * `spawner` - タスクスポーナー
@@ -54,7 +54,7 @@ where
 {
   /// `ActorSystemParts` をメールボックスファクトリとハンドル群に分割します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// メールボックスファクトリと `ActorSystemHandles` のタプル
   pub fn split(self) -> (MF, ActorSystemHandles<S, T, E>) {
@@ -81,7 +81,7 @@ where
 pub trait Spawn {
   /// 新しい非同期タスクを生成します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `fut` - 実行する非同期タスク
   fn spawn(&self, fut: impl Future<Output = ()> + Send + 'static);
@@ -98,7 +98,7 @@ pub trait Timer {
 
   /// 指定された時間だけスリープする Future を返します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `duration` - スリープする時間
   fn sleep(&self, duration: Duration) -> Self::SleepFuture<'_>;

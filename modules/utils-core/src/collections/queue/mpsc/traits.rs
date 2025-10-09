@@ -8,11 +8,11 @@ use crate::sync::Shared;
 pub trait MpscBackend<T> {
   /// 要素をキューに送信を試みます（ノンブロッキング）。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `element` - キューに追加する要素
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// * `Ok(())` - 要素が正常に追加された場合
   /// * `Err(QueueError)` - キューが満杯、クローズ済み、またはその他のエラーが発生した場合
@@ -20,7 +20,7 @@ pub trait MpscBackend<T> {
 
   /// キューから要素を受信を試みます（ノンブロッキング）。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// * `Ok(Some(element))` - 要素が正常に受信された場合
   /// * `Ok(None)` - キューが空の場合
@@ -35,21 +35,21 @@ pub trait MpscBackend<T> {
 
   /// キューに現在格納されている要素数を取得します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 要素数を表す `QueueSize`（有界または無界）
   fn len(&self) -> QueueSize;
 
   /// キューの容量を取得します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 容量を表す `QueueSize`（有界または無界）
   fn capacity(&self) -> QueueSize;
 
   /// キューがクローズされているかどうかを確認します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// * `true` - キューがクローズされている場合
   /// * `false` - キューがオープン状態の場合
@@ -60,11 +60,11 @@ pub trait MpscBackend<T> {
   /// デフォルト実装では何も行わず、`false` を返します。
   /// バックエンド実装によってはこのメソッドをオーバーライドして動的な容量変更をサポートできます。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `capacity` - 新しい容量。`None` の場合は無制限
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// * `true` - 容量の設定が成功した場合
   /// * `false` - 容量の設定がサポートされていない、または失敗した場合
@@ -75,7 +75,7 @@ pub trait MpscBackend<T> {
 
   /// キューが空かどうかを確認します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// * `true` - キューが空の場合
   /// * `false` - キューに1つ以上の要素がある場合
@@ -97,7 +97,7 @@ pub trait MpscHandle<T>: Shared<Self::Backend> + Clone {
 
   /// このハンドルが管理するバックエンドへの参照を取得します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// バックエンドへの参照
   fn backend(&self) -> &Self::Backend;

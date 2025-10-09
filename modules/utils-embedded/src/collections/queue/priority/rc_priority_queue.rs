@@ -66,7 +66,7 @@ pub struct RcPriorityQueue<E> {
 impl<E> RcPriorityQueue<E> {
   /// 各優先度レベルに対して指定された容量で新しい優先度付きキューを作成します
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `capacity_per_level` - 各優先度レベルのキューに格納できる最大要素数
   ///
@@ -89,7 +89,7 @@ impl<E> RcPriorityQueue<E> {
 
   /// キューの動的拡張モードを設定します
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `dynamic` - `true`の場合、容量が不足すると自動的に拡張されます。
   ///               `false`の場合、容量制限が厳密に適用されます。
@@ -110,7 +110,7 @@ impl<E> RcPriorityQueue<E> {
 
   /// 動的拡張モードを設定して自身を返します（ビルダーパターン）
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `dynamic` - `true`の場合、容量が不足すると自動的に拡張されます
   ///
@@ -129,7 +129,7 @@ impl<E> RcPriorityQueue<E> {
 
   /// 内部の優先度レベル別キューへの不変参照を返します
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 8つの優先度レベルキューの配列への参照
   pub fn levels(&self) -> &[RcRingQueue<E>] {
@@ -138,7 +138,7 @@ impl<E> RcPriorityQueue<E> {
 
   /// 内部の優先度レベル別キューへの可変参照を返します
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 8つの優先度レベルキューの配列への可変参照
   pub fn levels_mut(&mut self) -> &mut [RcRingQueue<E>] {
@@ -147,7 +147,7 @@ impl<E> RcPriorityQueue<E> {
 
   /// 内部の`PriorityQueue`への不変参照を返します
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 内部の`PriorityQueue`インスタンスへの参照
   pub fn inner(&self) -> &PriorityQueue<RcRingQueue<E>, E> {

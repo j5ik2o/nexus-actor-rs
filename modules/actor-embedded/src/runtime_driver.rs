@@ -25,7 +25,7 @@ pub struct EmbeddedFailureEventSubscription {
 impl EmbeddedFailureEventHub {
   /// 新しい`EmbeddedFailureEventHub`を作成します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 新しいイベントハブインスタンス
   pub fn new() -> Self {

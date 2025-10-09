@@ -250,11 +250,11 @@ impl Default for TokioPriorityMailboxFactory {
 impl TokioPriorityMailboxFactory {
   /// 新しいファクトリインスタンスを作成する
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `control_capacity_per_level` - コントロールキューの各優先度レベルごとの容量
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// デフォルトの通常キュー容量とデフォルトの優先度レベル数で初期化されたファクトリ
   pub fn new(control_capacity_per_level: usize) -> Self {
@@ -267,11 +267,11 @@ impl TokioPriorityMailboxFactory {
 
   /// 優先度レベル数を設定する（ビルダーパターン）
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `levels` - 設定する優先度レベル数（最小値は1）
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 設定を更新したファクトリインスタンス
   pub fn with_levels(mut self, levels: usize) -> Self {
@@ -281,11 +281,11 @@ impl TokioPriorityMailboxFactory {
 
   /// 通常キューの容量を設定する（ビルダーパターン）
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `capacity` - 通常メッセージキューの容量
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 設定を更新したファクトリインスタンス
   pub fn with_regular_capacity(mut self, capacity: usize) -> Self {
@@ -295,11 +295,11 @@ impl TokioPriorityMailboxFactory {
 
   /// メールボックスと送信ハンドルのペアを生成する
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `options` - メールボックスの容量オプション
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// `(TokioPriorityMailbox<M>, TokioPriorityMailboxSender<M>)` - メールボックスと送信ハンドルのタプル
   pub fn mailbox<M>(&self, options: MailboxOptions) -> (TokioPriorityMailbox<M>, TokioPriorityMailboxSender<M>)
@@ -338,11 +338,11 @@ where
 {
   /// 新しい優先度付きメールボックスを作成する
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `control_capacity_per_level` - コントロールキューの各優先度レベルごとの容量
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// `(TokioPriorityMailbox<M>, TokioPriorityMailboxSender<M>)` - メールボックスと送信ハンドルのタプル
   pub fn new(control_capacity_per_level: usize) -> (Self, TokioPriorityMailboxSender<M>) {
@@ -351,7 +351,7 @@ where
 
   /// 内部の`QueueMailbox`への参照を取得する
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 内部メールボックスへの不変参照
   pub fn inner(&self) -> &QueueMailbox<TokioPriorityQueues<M>, NotifySignal> {
@@ -400,15 +400,15 @@ where
 {
   /// メッセージを非ブロッキングで送信する
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `message` - 送信する優先度付きエンベロープ
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// メッセージが正常にキューに追加された場合は`Ok(())`、キューが満杯の場合は`Err`
   ///
-  /// # エラー
+  /// # Errors
   ///
   /// キューが満杯の場合、または送信に失敗した場合
   pub fn try_send(&self, message: PriorityEnvelope<M>) -> Result<(), PriorityQueueError<M>> {
@@ -419,15 +419,15 @@ where
   ///
   /// キューに空きができるまで待機します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `message` - 送信する優先度付きエンベロープ
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// メッセージが正常に送信された場合は`Ok(())`、失敗した場合は`Err`
   ///
-  /// # エラー
+  /// # Errors
   ///
   /// 送信に失敗した場合
   pub async fn send(&self, message: PriorityEnvelope<M>) -> Result<(), PriorityQueueError<M>> {
@@ -436,16 +436,16 @@ where
 
   /// 優先度を指定してメッセージを非ブロッキングで送信する
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `message` - 送信するメッセージ
   /// * `priority` - メッセージの優先度
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// メッセージが正常にキューに追加された場合は`Ok(())`、失敗した場合は`Err`
   ///
-  /// # エラー
+  /// # Errors
   ///
   /// キューが満杯の場合、または送信に失敗した場合
   pub fn try_send_with_priority(&self, message: M, priority: i8) -> Result<(), PriorityQueueError<M>> {
@@ -454,16 +454,16 @@ where
 
   /// 優先度を指定してメッセージを非同期で送信する
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `message` - 送信するメッセージ
   /// * `priority` - メッセージの優先度
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// メッセージが正常に送信された場合は`Ok(())`、失敗した場合は`Err`
   ///
-  /// # エラー
+  /// # Errors
   ///
   /// 送信に失敗した場合
   pub async fn send_with_priority(&self, message: M, priority: i8) -> Result<(), PriorityQueueError<M>> {
@@ -474,16 +474,16 @@ where
   ///
   /// コントロールメッセージは通常メッセージより優先的に処理されます。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `message` - 送信するメッセージ
   /// * `priority` - メッセージの優先度
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// メッセージが正常にキューに追加された場合は`Ok(())`、失敗した場合は`Err`
   ///
-  /// # エラー
+  /// # Errors
   ///
   /// キューが満杯の場合、または送信に失敗した場合
   pub fn try_send_control_with_priority(&self, message: M, priority: i8) -> Result<(), PriorityQueueError<M>> {
@@ -494,16 +494,16 @@ where
   ///
   /// コントロールメッセージは通常メッセージより優先的に処理されます。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `message` - 送信するメッセージ
   /// * `priority` - メッセージの優先度
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// メッセージが正常に送信された場合は`Ok(())`、失敗した場合は`Err`
   ///
-  /// # エラー
+  /// # Errors
   ///
   /// 送信に失敗した場合
   pub async fn send_control_with_priority(&self, message: M, priority: i8) -> Result<(), PriorityQueueError<M>> {
@@ -512,7 +512,7 @@ where
 
   /// 内部の`QueueMailboxProducer`への参照を取得する
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 内部プロデューサーへの不変参照
   pub fn inner(&self) -> &QueueMailboxProducer<TokioPriorityQueues<M>, NotifySignal> {

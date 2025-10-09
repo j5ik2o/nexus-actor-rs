@@ -49,7 +49,7 @@ impl WaitGroupBackend for RcWaitGroupBackend {
 
   /// 指定されたカウントで新しい待機グループバックエンドを作成します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `count` - 初期カウント値
   fn with_count(count: usize) -> Self {
@@ -61,7 +61,7 @@ impl WaitGroupBackend for RcWaitGroupBackend {
 
   /// カウントを指定された数だけ増やします。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `n` - 追加するカウント数
   fn add(&self, n: usize) {
@@ -72,7 +72,7 @@ impl WaitGroupBackend for RcWaitGroupBackend {
   ///
   /// カウントが 0 になると、待機中のすべてのタスクがシグナルを受け取り解放されます。
   ///
-  /// # パニック
+  /// # Panics
   ///
   /// カウントが既に 0 の状態で呼び出された場合はパニックします。
   fn done(&self) {

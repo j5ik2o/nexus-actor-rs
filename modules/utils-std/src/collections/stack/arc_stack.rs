@@ -19,7 +19,7 @@ pub struct ArcStack<T> {
 impl<T> ArcStack<T> {
   /// 新しい`ArcStack`を作成します
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 空の`ArcStack`インスタンス
   pub fn new() -> Self {
@@ -32,11 +32,11 @@ impl<T> ArcStack<T> {
 
   /// 指定された容量を持つ`ArcStack`を作成します
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `capacity` - スタックの最大容量
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 指定された容量を持つ空の`ArcStack`インスタンス
   pub fn with_capacity(capacity: usize) -> Self {
@@ -47,7 +47,7 @@ impl<T> ArcStack<T> {
 
   /// スタックの容量を設定します
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `capacity` - スタックの最大容量。`None`の場合は無制限
   pub fn set_capacity(&self, capacity: Option<usize>) {
@@ -56,15 +56,15 @@ impl<T> ArcStack<T> {
 
   /// スタックに値をプッシュします
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `value` - プッシュする値
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 成功時は`Ok(())`、容量制限を超える場合は`Err(StackError)`
   ///
-  /// # エラー
+  /// # Errors
   ///
   /// スタックが容量制限に達している場合、`StackError`を返します
   pub fn push(&self, value: T) -> Result<(), StackError<T>> {
@@ -73,7 +73,7 @@ impl<T> ArcStack<T> {
 
   /// スタックから値をポップします
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// スタックが空でない場合は`Some(T)`、空の場合は`None`
   pub fn pop(&self) -> Option<T> {
@@ -82,7 +82,7 @@ impl<T> ArcStack<T> {
 
   /// スタックの先頭要素を削除せずに取得します
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// スタックが空でない場合は先頭要素のクローン`Some(T)`、空の場合は`None`
   pub fn peek(&self) -> Option<T>
@@ -98,7 +98,7 @@ impl<T> ArcStack<T> {
 
   /// スタック内の要素数を取得します
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 現在のスタック内の要素数
   pub fn len(&self) -> QueueSize {
@@ -107,7 +107,7 @@ impl<T> ArcStack<T> {
 
   /// スタックの容量を取得します
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// スタックの最大容量。無制限の場合は`QueueSize::Unlimited`
   pub fn capacity(&self) -> QueueSize {

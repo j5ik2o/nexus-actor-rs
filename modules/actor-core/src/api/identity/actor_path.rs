@@ -21,7 +21,7 @@ impl ActorPath {
 
   /// パスのセグメント列を取得します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// `ActorId` のスライス
   pub fn segments(&self) -> &[ActorId] {
@@ -30,11 +30,11 @@ impl ActorPath {
 
   /// 子アクターのIDを追加した新しいパスを作成します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `id` - 追加する子アクターのID
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 子アクターを含む新しい `ActorPath`
   pub fn push_child(&self, id: ActorId) -> Self {
@@ -45,7 +45,7 @@ impl ActorPath {
 
   /// 親アクターのパスを取得します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 親パスが存在する場合は `Some(ActorPath)`、ルートの場合は `None`
   pub fn parent(&self) -> Option<Self> {
@@ -60,7 +60,7 @@ impl ActorPath {
 
   /// パスの最後のセグメント（アクターID）を取得します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 最後の `ActorId`、または空の場合は `None`
   pub fn last(&self) -> Option<ActorId> {
@@ -69,7 +69,7 @@ impl ActorPath {
 
   /// パスが空（ルート）かどうかを判定します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 空の場合は `true`、そうでなければ `false`
   pub fn is_empty(&self) -> bool {

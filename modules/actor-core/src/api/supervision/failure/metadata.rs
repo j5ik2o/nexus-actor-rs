@@ -17,7 +17,7 @@ pub struct FailureMetadata {
 impl FailureMetadata {
   /// 新しい空のメタデータを作成する。
   ///
-  /// # 戻り値
+  /// # Returns
   /// 新しい`FailureMetadata`インスタンス
   pub fn new() -> Self {
     Self {
@@ -30,10 +30,10 @@ impl FailureMetadata {
 
   /// コンポーネント名を設定する。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `component` - コンポーネント名
   ///
-  /// # 戻り値
+  /// # Returns
   /// コンポーネント名が設定された`FailureMetadata`インスタンス
   pub fn with_component(mut self, component: impl Into<String>) -> Self {
     self.component = Some(component.into());
@@ -42,10 +42,10 @@ impl FailureMetadata {
 
   /// エンドポイントを設定する。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `endpoint` - エンドポイント
   ///
-  /// # 戻り値
+  /// # Returns
   /// エンドポイントが設定された`FailureMetadata`インスタンス
   pub fn with_endpoint(mut self, endpoint: impl Into<String>) -> Self {
     self.endpoint = Some(endpoint.into());
@@ -54,10 +54,10 @@ impl FailureMetadata {
 
   /// トランスポートを設定する。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `transport` - トランスポート
   ///
-  /// # 戻り値
+  /// # Returns
   /// トランスポートが設定された`FailureMetadata`インスタンス
   pub fn with_transport(mut self, transport: impl Into<String>) -> Self {
     self.transport = Some(transport.into());
@@ -66,11 +66,11 @@ impl FailureMetadata {
 
   /// タグを追加する。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `key` - タグのキー
   /// * `value` - タグの値
   ///
-  /// # 戻り値
+  /// # Returns
   /// タグが追加された`FailureMetadata`インスタンス
   pub fn insert_tag(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
     self.tags.insert(key.into(), value.into());

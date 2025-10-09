@@ -12,22 +12,22 @@ use super::{mpsc::MpscBuffer, ring::RingBuffer};
 pub trait QueueStorage<E> {
   /// リングバッファへの不変参照を使用してクロージャを実行します
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `f` - リングバッファの不変参照を受け取るクロージャ
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// クロージャの実行結果
   fn with_read<R>(&self, f: impl FnOnce(&RingBuffer<E>) -> R) -> R;
 
   /// リングバッファへの可変参照を使用してクロージャを実行します
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `f` - リングバッファの可変参照を受け取るクロージャ
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// クロージャの実行結果
   fn with_write<R>(&self, f: impl FnOnce(&mut RingBuffer<E>) -> R) -> R;
@@ -45,22 +45,22 @@ pub trait QueueStorage<E> {
 pub trait RingBufferStorage<T> {
   /// MPSCバッファへの不変参照を使用してクロージャを実行します
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `f` - MPSCバッファの不変参照を受け取るクロージャ
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// クロージャの実行結果
   fn with_read<R>(&self, f: impl FnOnce(&MpscBuffer<T>) -> R) -> R;
 
   /// MPSCバッファへの可変参照を使用してクロージャを実行します
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `f` - MPSCバッファの可変参照を受け取るクロージャ
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// クロージャの実行結果
   fn with_write<R>(&self, f: impl FnOnce(&mut MpscBuffer<T>) -> R) -> R;

@@ -46,7 +46,7 @@ pub enum SystemMessage {
 impl SystemMessage {
   /// 推奨優先度を取得します。protoactor-go の優先度テーブルをベースに設定。
   ///
-  /// # 戻り値
+  /// # Returns
   /// メッセージの優先度（値が大きいほど高優先度）
   ///
   /// # 優先度の序列
@@ -89,7 +89,7 @@ pub struct PriorityEnvelope<M> {
 impl<M> PriorityEnvelope<M> {
   /// 指定された優先度で通常チャネルのエンベロープを作成します。
   ///
-  /// # 引数
+  /// # Arguments
   /// - `message`: ラップするメッセージ
   /// - `priority`: メッセージの優先度
   pub fn new(message: M, priority: i8) -> Self {
@@ -98,7 +98,7 @@ impl<M> PriorityEnvelope<M> {
 
   /// 指定されたチャネルと優先度でエンベロープを作成します。
   ///
-  /// # 引数
+  /// # Arguments
   /// - `message`: ラップするメッセージ
   /// - `priority`: メッセージの優先度
   /// - `channel`: メッセージのチャネル種別
@@ -113,7 +113,7 @@ impl<M> PriorityEnvelope<M> {
 
   /// 制御チャネルのエンベロープを作成します。
   ///
-  /// # 引数
+  /// # Arguments
   /// - `message`: ラップするメッセージ
   /// - `priority`: メッセージの優先度
   pub fn control(message: M, priority: i8) -> Self {
@@ -137,7 +137,7 @@ impl<M> PriorityEnvelope<M> {
 
   /// 制御メッセージかどうかを判定します。
   ///
-  /// # 戻り値
+  /// # Returns
   /// 制御チャネルの場合は `true`、通常チャネルの場合は `false`
   pub fn is_control(&self) -> bool {
     matches!(self.channel, PriorityChannel::Control)
@@ -150,7 +150,7 @@ impl<M> PriorityEnvelope<M> {
 
   /// エンベロープを分解してメッセージと優先度を取得します。
   ///
-  /// # 戻り値
+  /// # Returns
   /// `(メッセージ, 優先度)` のタプル
   pub fn into_parts(self) -> (M, i8) {
     (self.message, self.priority)
@@ -158,7 +158,7 @@ impl<M> PriorityEnvelope<M> {
 
   /// エンベロープを分解してメッセージ、優先度、チャネルを取得します。
   ///
-  /// # 戻り値
+  /// # Returns
   /// `(メッセージ, 優先度, チャネル)` のタプル
   pub fn into_parts_with_channel(self) -> (M, i8, PriorityChannel) {
     (self.message, self.priority, self.channel)
@@ -168,7 +168,7 @@ impl<M> PriorityEnvelope<M> {
   ///
   /// 優先度とチャネル情報は保持されます。
   ///
-  /// # 引数
+  /// # Arguments
   /// - `f`: メッセージを変換する関数
   pub fn map<N>(self, f: impl FnOnce(M) -> N) -> PriorityEnvelope<N> {
     PriorityEnvelope {
@@ -181,7 +181,7 @@ impl<M> PriorityEnvelope<M> {
 
   /// 優先度に関数を適用して変更します。
   ///
-  /// # 引数
+  /// # Arguments
   /// - `f`: 優先度を変換する関数
   pub fn map_priority(mut self, f: impl FnOnce(i8) -> i8) -> Self {
     self.priority = f(self.priority);
@@ -196,7 +196,7 @@ where
 {
   /// デフォルト優先度で通常チャネルのエンベロープを作成します。
   ///
-  /// # 引数
+  /// # Arguments
   /// - `message`: ラップするメッセージ
   pub fn with_default_priority(message: M) -> Self {
     Self::new(message, DEFAULT_PRIORITY)
@@ -208,7 +208,7 @@ impl PriorityEnvelope<SystemMessage> {
   ///
   /// システムメッセージを自動的に適切な優先度と制御チャネルでラップします。
   ///
-  /// # 引数
+  /// # Arguments
   /// - `message`: ラップするシステムメッセージ
   pub fn from_system(message: SystemMessage) -> Self {
     let priority = message.priority();

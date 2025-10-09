@@ -50,7 +50,7 @@ where
 {
   /// メールボックスファクトリを指定して新しいアクターシステムを作成する。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `mailbox_factory` - メールボックスを生成するファクトリ
   pub fn new(mailbox_factory: R) -> Self {
     Self {
@@ -62,7 +62,7 @@ where
 
   /// 障害イベントリスナーを設定する。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `listener` - 障害イベントを受信するリスナー（オプション）
   pub fn set_failure_event_listener(&mut self, listener: Option<FailureEventListener>) {
     self.inner.set_root_event_listener(listener);
@@ -70,10 +70,10 @@ where
 
   /// パーツからアクターシステムとハンドルを構築する。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `parts` - アクターシステムのパーツ
   ///
-  /// # 戻り値
+  /// # Returns
   /// `(ActorSystem, ActorSystemHandles)`のタプル
   pub fn from_parts<S, T, E>(parts: ActorSystemParts<R, S, T, E>) -> (Self, ActorSystemHandles<S, T, E>)
   where
@@ -97,7 +97,7 @@ where
 {
   /// シャットダウントークンを取得する。
   ///
-  /// # 戻り値
+  /// # Returns
   /// シャットダウントークンのクローン
   pub fn shutdown_token(&self) -> ShutdownToken {
     self.shutdown.clone()
@@ -107,7 +107,7 @@ where
   ///
   /// ランナーは非同期ランタイムでの実行に適したインターフェースを提供する。
   ///
-  /// # 戻り値
+  /// # Returns
   /// アクターシステムランナー
   pub fn into_runner(self) -> ActorSystemRunner<U, R, Strat> {
     ActorSystemRunner {
@@ -118,7 +118,7 @@ where
 
   /// 受信タイムアウトスケジューラーファクトリを設定する。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `factory` - 受信タイムアウトスケジューラーを生成するファクトリ（オプション）
   pub fn set_receive_timeout_scheduler_factory(
     &mut self,
@@ -131,7 +131,7 @@ where
   ///
   /// ルートコンテキストはアクターシステムのトップレベルでアクターを生成するために使用される。
   ///
-  /// # 戻り値
+  /// # Returns
   /// ルートコンテキストへの可変参照
   pub fn root_context(&mut self) -> RootContext<'_, U, R, Strat> {
     RootContext {
@@ -142,10 +142,10 @@ where
 
   /// 指定された条件が満たされるまでメッセージディスパッチを実行する。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `should_continue` - 継続条件を判定するクロージャ。`true`を返す限り実行を続ける
   ///
-  /// # 戻り値
+  /// # Returns
   /// 正常終了時は`Ok(())`、キューエラー時は`Err`
   pub async fn run_until<F>(&mut self, should_continue: F) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>>
   where
@@ -157,7 +157,7 @@ where
   ///
   /// この関数は正常には終了しない。エラー発生時のみ返る。
   ///
-  /// # 戻り値
+  /// # Returns
   /// `Infallible`（正常終了しない）またはキューエラー
   pub async fn run_forever(&mut self) -> Result<Infallible, QueueError<PriorityEnvelope<DynMessage>>> {
     self.inner.run_forever().await
@@ -167,10 +167,10 @@ where
   ///
   /// この関数は標準ライブラリが有効な場合のみ使用可能。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `should_continue` - 継続条件を判定するクロージャ。`true`を返す限り実行を続ける
   ///
-  /// # 戻り値
+  /// # Returns
   /// 正常終了時は`Ok(())`、キューエラー時は`Err`
   #[cfg(feature = "std")]
   pub fn blocking_dispatch_loop<F>(
@@ -186,7 +186,7 @@ where
   ///
   /// この関数は標準ライブラリが有効な場合のみ使用可能。正常には終了しない。
   ///
-  /// # 戻り値
+  /// # Returns
   /// `Infallible`（正常終了しない）またはキューエラー
   #[cfg(feature = "std")]
   pub fn blocking_dispatch_forever(&mut self) -> Result<Infallible, QueueError<PriorityEnvelope<DynMessage>>> {
@@ -197,7 +197,7 @@ where
   ///
   /// キューが空の場合は新しいメッセージが到着するまで待機する。
   ///
-  /// # 戻り値
+  /// # Returns
   /// 正常終了時は`Ok(())`、キューエラー時は`Err`
   pub async fn dispatch_next(&mut self) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> {
     self.inner.dispatch_next().await
@@ -221,7 +221,7 @@ where
 {
   /// シャットダウントークンを取得する。
   ///
-  /// # 戻り値
+  /// # Returns
   /// シャットダウントークンのクローン
   pub fn shutdown_token(&self) -> ShutdownToken {
     self.system.shutdown.clone()
@@ -231,7 +231,7 @@ where
   ///
   /// この関数は正常には終了しない。エラー発生時のみ返る。
   ///
-  /// # 戻り値
+  /// # Returns
   /// `Infallible`（正常終了しない）またはキューエラー
   pub async fn run_forever(mut self) -> Result<Infallible, QueueError<PriorityEnvelope<DynMessage>>> {
     self.system.run_forever().await
@@ -241,7 +241,7 @@ where
   ///
   /// `run_forever`のエイリアス。非同期ランタイムでの実行に適した名前を提供する。
   ///
-  /// # 戻り値
+  /// # Returns
   /// `Infallible`（正常終了しない）またはキューエラー
   pub async fn into_future(self) -> Result<Infallible, QueueError<PriorityEnvelope<DynMessage>>> {
     self.run_forever().await
@@ -249,7 +249,7 @@ where
 
   /// ランナーから内部のアクターシステムを取り出す。
   ///
-  /// # 戻り値
+  /// # Returns
   /// 内部のアクターシステム
   pub fn into_inner(self) -> ActorSystem<U, R, Strat> {
     self.system
@@ -269,7 +269,7 @@ impl ShutdownToken {
   ///
   /// 初期状態ではシャットダウンはトリガーされていない。
   ///
-  /// # 戻り値
+  /// # Returns
   /// 新しいシャットダウントークン
   pub fn new() -> Self {
     Self {
@@ -287,7 +287,7 @@ impl ShutdownToken {
 
   /// シャットダウンがトリガーされているかどうかを確認する。
   ///
-  /// # 戻り値
+  /// # Returns
   /// シャットダウンがトリガーされている場合は`true`、そうでない場合は`false`
   pub fn is_triggered(&self) -> bool {
     self.inner.load(Ordering::SeqCst)

@@ -76,7 +76,7 @@ where
 {
   /// 新しい`RemoteFailureNotifier`を作成します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `hub` - 障害イベントを配信するためのストリーム
   pub fn new(hub: E) -> Self {
@@ -85,7 +85,7 @@ where
 
   /// イベントストリームのリスナーを取得します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// `FailureEventListener`のインスタンス
   pub fn listener(&self) -> FailureEventListener {
@@ -94,7 +94,7 @@ where
 
   /// イベントハブへの参照を取得します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// `FailureEventStream`への参照
   pub fn hub(&self) -> &E {
@@ -103,7 +103,7 @@ where
 
   /// 設定されているカスタムハンドラを取得します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// ハンドラが設定されている場合は`Some(&FailureEventListener)`、そうでない場合は`None`
   pub fn handler(&self) -> Option<&FailureEventListener> {
@@ -112,7 +112,7 @@ where
 
   /// カスタムハンドラを設定します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `handler` - 障害イベントを処理するハンドラ
   pub fn set_handler(&mut self, handler: FailureEventListener) {
@@ -121,7 +121,7 @@ where
 
   /// カスタムハンドラが設定されている場合、障害情報をディスパッチします。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `info` - 障害情報
   pub fn dispatch(&self, info: FailureInfo) {
@@ -132,7 +132,7 @@ where
 
   /// 障害情報をイベントハブとカスタムハンドラの両方に送信します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `info` - 障害情報
   pub fn emit(&self, info: FailureInfo) {
@@ -143,11 +143,11 @@ where
 
 /// エンドポイント情報を持つプレースホルダーのメタデータを作成します。
 ///
-/// # 引数
+/// # Arguments
 ///
 /// * `endpoint` - エンドポイント名
 ///
-/// # 戻り値
+/// # Returns
 ///
 /// エンドポイント情報が設定された`FailureMetadata`
 pub fn placeholder_metadata(endpoint: &str) -> FailureMetadata {

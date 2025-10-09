@@ -14,11 +14,11 @@ pub struct TokioMutexBackend<T> {
 impl<T> TokioMutexBackend<T> {
   /// 既存のTokio Mutexから新しいバックエンドインスタンスを作成します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `inner` - ラップするTokio Mutex
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 新しい`TokioMutexBackend`インスタンス
   pub fn new_with_mutex(inner: Mutex<T>) -> Self {
@@ -59,11 +59,11 @@ pub struct TokioRwLockBackend<T> {
 impl<T> TokioRwLockBackend<T> {
   /// 既存のTokio RwLockから新しいバックエンドインスタンスを作成します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `inner` - ラップするTokio RwLock
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 新しい`TokioRwLockBackend`インスタンス
   pub fn new_with_rwlock(inner: RwLock<T>) -> Self {

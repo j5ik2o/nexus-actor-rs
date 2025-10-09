@@ -31,11 +31,11 @@ pub trait Supervisor<M>: Send + 'static {
 
   /// 障害に対する処理方針を決定します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `_error` - 発生したエラー情報
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 実行すべき `SupervisorDirective`
   fn decide(&mut self, _error: &dyn fmt::Debug) -> SupervisorDirective {

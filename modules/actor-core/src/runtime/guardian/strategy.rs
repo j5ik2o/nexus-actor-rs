@@ -19,11 +19,11 @@ where
   R: MailboxFactory, {
   /// アクターに障害が発生した際の処理方針を決定します。
   ///
-  /// # 引数
+  /// # Arguments
   /// - `actor`: 障害が発生したアクターのID
   /// - `error`: 発生したエラーの詳細情報
   ///
-  /// # 戻り値
+  /// # Returns
   /// スーパーバイザーディレクティブ（Restart、Stop、Resume、Escalateなど）
   fn decide(&mut self, actor: ActorId, error: &dyn fmt::Debug) -> SupervisorDirective;
 
@@ -31,7 +31,7 @@ where
   ///
   /// デフォルト実装は何もしません。必要に応じてオーバーライドしてください。
   ///
-  /// # 引数
+  /// # Arguments
   /// - `_actor`: 起動するアクターのID
   fn before_start(&mut self, _actor: ActorId) {}
 
@@ -39,7 +39,7 @@ where
   ///
   /// デフォルト実装は何もしません。必要に応じてオーバーライドしてください。
   ///
-  /// # 引数
+  /// # Arguments
   /// - `_actor`: 再起動したアクターのID
   fn after_restart(&mut self, _actor: ActorId) {}
 }

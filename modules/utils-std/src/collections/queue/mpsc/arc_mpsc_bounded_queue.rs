@@ -28,11 +28,11 @@ where
 {
   /// 指定された容量で新しいキューを作成します(Tokioバックエンド使用)
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `capacity` - キューの最大容量
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// Tokioチャネルバックエンドを使用する新しいキューインスタンス
   pub fn new(capacity: usize) -> Self {
@@ -41,11 +41,11 @@ where
 
   /// Tokioチャネルバックエンドを使用するキューを作成します
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `capacity` - キューの最大容量
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// Tokioチャネルバックエンドを使用する新しいキューインスタンス
   pub fn with_tokio(capacity: usize) -> Self {
@@ -54,11 +54,11 @@ where
 
   /// リングバッファバックエンドを使用するキューを作成します
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `capacity` - キューの最大容量
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// リングバッファバックエンドを使用する新しいキューインスタンス
   pub fn with_ring_buffer(capacity: usize) -> Self {

@@ -32,11 +32,11 @@ pub struct MpscBuffer<T> {
 impl<T> MpscBuffer<T> {
   /// 新しい`MpscBuffer`を作成します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `capacity` - バッファの容量。`None`の場合は無制限。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 新しい`MpscBuffer`インスタンス。
   ///
@@ -61,7 +61,7 @@ impl<T> MpscBuffer<T> {
 
   /// バッファ内の現在の要素数を返します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 現在の要素数を表す`QueueSize`。
   ///
@@ -81,7 +81,7 @@ impl<T> MpscBuffer<T> {
 
   /// バッファの容量を返します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// バッファの容量を表す`QueueSize`。無制限の場合は`QueueSize::limitless()`。
   ///
@@ -107,7 +107,7 @@ impl<T> MpscBuffer<T> {
   ///
   /// 新しい容量が現在のバッファサイズより小さい場合、バッファは切り詰められます。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `capacity` - 新しい容量。`None`の場合は無制限。
   ///
@@ -138,11 +138,11 @@ impl<T> MpscBuffer<T> {
   ///
   /// バッファがクローズされている場合や容量が満杯の場合はエラーを返します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `element` - 追加する要素。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// * `Ok(())` - 要素の追加に成功。
   /// * `Err(QueueError::Closed(element))` - バッファがクローズされている。
@@ -176,7 +176,7 @@ impl<T> MpscBuffer<T> {
   ///
   /// バッファが空でクローズされている場合は`Disconnected`エラーを返します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// * `Ok(Some(element))` - 要素の取り出しに成功。
   /// * `Ok(None)` - バッファが空（まだクローズされていない）。
@@ -232,7 +232,7 @@ impl<T> MpscBuffer<T> {
 
   /// バッファがクローズされているかどうかを返します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// バッファがクローズされている場合は`true`、それ以外は`false`。
   ///

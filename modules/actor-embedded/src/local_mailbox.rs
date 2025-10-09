@@ -154,7 +154,7 @@ impl Future for LocalSignalWait {
 impl LocalMailboxFactory {
   /// 新しい`LocalMailboxFactory`を作成します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 新しいファクトリインスタンス
   pub const fn new() -> Self {
@@ -163,11 +163,11 @@ impl LocalMailboxFactory {
 
   /// 指定されたオプションでメールボックスペアを生成します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `options` - メールボックスの設定オプション
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// (受信側メールボックス, 送信側ハンドル)のタプル
   pub fn mailbox<M>(&self, options: MailboxOptions) -> (LocalMailbox<M>, LocalMailboxSender<M>)
@@ -179,7 +179,7 @@ impl LocalMailboxFactory {
 
   /// 無制限容量のメールボックスペアを生成します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// (受信側メールボックス, 送信側ハンドル)のタプル
   pub fn unbounded<M>(&self) -> (LocalMailbox<M>, LocalMailboxSender<M>)
@@ -214,7 +214,7 @@ where
 {
   /// デフォルト設定で新しいメールボックスペアを作成します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// (受信側メールボックス, 送信側ハンドル)のタプル
   pub fn new() -> (Self, LocalMailboxSender<M>) {
@@ -223,7 +223,7 @@ where
 
   /// 新しい送信者ハンドルを生成します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// メールボックスへの新しい送信者
   pub fn producer(&self) -> LocalMailboxSender<M>
@@ -236,7 +236,7 @@ where
 
   /// 内部のキューメールボックスへの参照を取得します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// `QueueMailbox`への参照
   pub fn inner(&self) -> &QueueMailbox<LocalQueue<M>, LocalSignal> {
@@ -308,11 +308,11 @@ where
 {
   /// メッセージを即座に送信します(ブロックしない)。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `message` - 送信するメッセージ
   ///
-  /// # エラー
+  /// # Errors
   ///
   /// キューがフルまたはクローズされている場合は`QueueError`を返します
   pub fn try_send(&self, message: M) -> Result<(), QueueError<M>> {
@@ -321,11 +321,11 @@ where
 
   /// メッセージを非同期に送信します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `message` - 送信するメッセージ
   ///
-  /// # エラー
+  /// # Errors
   ///
   /// キューがクローズされている場合は`QueueError`を返します
   pub async fn send(&self, message: M) -> Result<(), QueueError<M>> {
@@ -334,7 +334,7 @@ where
 
   /// 内部のメールボックスプロデューサーへの参照を取得します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// `QueueMailboxProducer`への参照
   pub fn inner(&self) -> &QueueMailboxProducer<LocalQueue<M>, LocalSignal> {

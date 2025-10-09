@@ -43,7 +43,7 @@ pub struct RcMpscBoundedQueue<E> {
 impl<E> RcMpscBoundedQueue<E> {
   /// 指定された容量で新しい有界MPSCキューを作成します
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `capacity` - キューに格納できる最大要素数
   ///

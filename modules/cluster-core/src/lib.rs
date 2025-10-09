@@ -76,7 +76,7 @@ where
 {
   /// 新しい`ClusterFailureBridge`を作成します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `hub` - ローカル障害イベントハブ
   /// * `remote_notifier` - リモートノードへの通知ハンドラ
@@ -86,7 +86,7 @@ where
 
   /// 障害イベントリスナーを登録します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// `FailureEventListener`のインスタンス
   pub fn register(&self) -> FailureEventListener {
@@ -95,7 +95,7 @@ where
 
   /// リモート障害通知ハンドラへの参照を取得します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// `RemoteFailureNotifier`への参照
   pub fn notifier(&self) -> &RemoteFailureNotifier<E> {
@@ -104,7 +104,7 @@ where
 
   /// 障害イベントをローカルとリモートの両方に配信します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `event` - 配信する障害イベント
   pub fn fan_out(&self, event: FailureEvent) {

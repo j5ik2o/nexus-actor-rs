@@ -26,7 +26,7 @@ impl core::fmt::Debug for InternalMessageSender {
 impl InternalMessageSender {
   /// 送信関数を指定して新しい`InternalMessageSender`を作成する。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `inner` - メッセージ送信を実行する関数
   pub fn new(inner: Arc<SendFn>) -> Self {
     Self { inner, drop_hook: None }
@@ -34,7 +34,7 @@ impl InternalMessageSender {
 
   /// ドロップフックを持つ`InternalMessageSender`を作成する（内部API）。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `inner` - メッセージ送信を実行する関数
   /// * `drop_hook` - ドロップ時に実行されるフック関数
   pub(crate) fn with_drop_hook(inner: Arc<SendFn>, drop_hook: Arc<dyn Fn() + Send + Sync>) -> Self {
@@ -46,10 +46,10 @@ impl InternalMessageSender {
 
   /// デフォルト優先度でメッセージを送信する。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `message` - 送信するメッセージ
   ///
-  /// # 戻り値
+  /// # Returns
   /// 送信成功時は`Ok(())`、失敗時はキューエラー
   pub fn send_default(&self, message: DynMessage) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> {
     self.send_with_priority(message, DEFAULT_PRIORITY)
@@ -57,11 +57,11 @@ impl InternalMessageSender {
 
   /// 指定された優先度でメッセージを送信する。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `message` - 送信するメッセージ
   /// * `priority` - メッセージの優先度
   ///
-  /// # 戻り値
+  /// # Returns
   /// 送信成功時は`Ok(())`、失敗時はキューエラー
   pub fn send_with_priority(
     &self,
@@ -73,7 +73,7 @@ impl InternalMessageSender {
 
   /// 内部アクター参照から`InternalMessageSender`を作成する（内部API）。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `actor_ref` - 送信先のアクター参照
   pub(crate) fn from_internal_ref<R>(actor_ref: InternalActorRef<DynMessage, R>) -> Self
   where
@@ -119,7 +119,7 @@ where
 {
   /// 内部センダーから型付き`MessageSender`を作成する（内部API）。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `inner` - 内部メッセージセンダー
   pub(crate) fn new(inner: InternalMessageSender) -> Self {
     Self {
@@ -130,7 +130,7 @@ where
 
   /// 内部センダーから型付き`MessageSender`を作成する。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `inner` - 内部メッセージセンダー
   pub fn from_internal(inner: InternalMessageSender) -> Self {
     Self::new(inner)
@@ -138,10 +138,10 @@ where
 
   /// ユーザーメッセージをディスパッチする。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `message` - 送信するユーザーメッセージ
   ///
-  /// # 戻り値
+  /// # Returns
   /// 送信成功時は`Ok(())`、失敗時はキューエラー
   pub fn dispatch_user(&self, message: M) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> {
     self.dispatch_envelope(MessageEnvelope::user(message))
@@ -149,10 +149,10 @@ where
 
   /// メッセージエンベロープをディスパッチする。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `envelope` - 送信するメッセージエンベロープ
   ///
-  /// # 戻り値
+  /// # Returns
   /// 送信成功時は`Ok(())`、失敗時はキューエラー
   pub fn dispatch_envelope(
     &self,
@@ -164,11 +164,11 @@ where
 
   /// 指定された優先度でメッセージエンベロープをディスパッチする。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `envelope` - 送信するメッセージエンベロープ
   /// * `priority` - メッセージの優先度
   ///
-  /// # 戻り値
+  /// # Returns
   /// 送信成功時は`Ok(())`、失敗時はキューエラー
   pub fn dispatch_with_priority(
     &self,
@@ -181,7 +181,7 @@ where
 
   /// 内部センダーのクローンを取得する。
   ///
-  /// # 戻り値
+  /// # Returns
   /// 内部メッセージセンダーのクローン
   pub fn internal(&self) -> InternalMessageSender {
     self.inner.clone()
@@ -189,7 +189,7 @@ where
 
   /// 内部センダーに変換し、所有権を移動する。
   ///
-  /// # 戻り値
+  /// # Returns
   /// 内部メッセージセンダー
   pub fn into_internal(self) -> InternalMessageSender {
     self.inner
@@ -206,7 +206,7 @@ pub struct InternalMessageMetadata {
 impl InternalMessageMetadata {
   /// 送信者と応答者を指定して新しいメタデータを作成する。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `sender` - 送信者のセンダー（オプション）
   /// * `responder` - 応答者のセンダー（オプション）
   pub fn new(sender: Option<InternalMessageSender>, responder: Option<InternalMessageSender>) -> Self {
@@ -215,7 +215,7 @@ impl InternalMessageMetadata {
 
   /// 送信者のセンダーへの参照を取得する。
   ///
-  /// # 戻り値
+  /// # Returns
   /// 送信者が存在する場合は`Some(&InternalMessageSender)`、存在しない場合は`None`
   pub fn sender(&self) -> Option<&InternalMessageSender> {
     self.sender.as_ref()
@@ -223,7 +223,7 @@ impl InternalMessageMetadata {
 
   /// 送信者のセンダーのクローンを取得する。
   ///
-  /// # 戻り値
+  /// # Returns
   /// 送信者が存在する場合は`Some(InternalMessageSender)`、存在しない場合は`None`
   pub fn sender_cloned(&self) -> Option<InternalMessageSender> {
     self.sender.clone()
@@ -231,7 +231,7 @@ impl InternalMessageMetadata {
 
   /// 応答者のセンダーへの参照を取得する。
   ///
-  /// # 戻り値
+  /// # Returns
   /// 応答者が存在する場合は`Some(&InternalMessageSender)`、存在しない場合は`None`
   pub fn responder(&self) -> Option<&InternalMessageSender> {
     self.responder.as_ref()
@@ -239,7 +239,7 @@ impl InternalMessageMetadata {
 
   /// 応答者のセンダーのクローンを取得する。
   ///
-  /// # 戻り値
+  /// # Returns
   /// 応答者が存在する場合は`Some(InternalMessageSender)`、存在しない場合は`None`
   pub fn responder_cloned(&self) -> Option<InternalMessageSender> {
     self.responder.clone()
@@ -247,7 +247,7 @@ impl InternalMessageMetadata {
 
   /// 送信者を設定して自身を返す（ビルダーパターン）。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `sender` - 設定する送信者のセンダー
   pub fn with_sender(mut self, sender: Option<InternalMessageSender>) -> Self {
     self.sender = sender;
@@ -256,7 +256,7 @@ impl InternalMessageMetadata {
 
   /// 応答者を設定して自身を返す（ビルダーパターン）。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `responder` - 設定する応答者のセンダー
   pub fn with_responder(mut self, responder: Option<InternalMessageSender>) -> Self {
     self.responder = responder;
@@ -278,7 +278,7 @@ impl MessageMetadata {
 
   /// 送信者を設定して自身を返す（ビルダーパターン）。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `sender` - 設定する送信者のセンダー
   pub fn with_sender<U>(mut self, sender: MessageSender<U>) -> Self
   where
@@ -289,7 +289,7 @@ impl MessageMetadata {
 
   /// 応答者を設定して自身を返す（ビルダーパターン）。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `responder` - 設定する応答者のセンダー
   pub fn with_responder<U>(mut self, responder: MessageSender<U>) -> Self
   where
@@ -300,7 +300,7 @@ impl MessageMetadata {
 
   /// 指定された型の送信者センダーを取得する。
   ///
-  /// # 戻り値
+  /// # Returns
   /// 送信者が存在する場合は`Some(MessageSender<U>)`、存在しない場合は`None`
   pub fn sender_as<U>(&self) -> Option<MessageSender<U>>
   where
@@ -310,7 +310,7 @@ impl MessageMetadata {
 
   /// 指定された型の応答者センダーを取得する。
   ///
-  /// # 戻り値
+  /// # Returns
   /// 応答者が存在する場合は`Some(MessageSender<U>)`、存在しない場合は`None`
   pub fn responder_as<U>(&self) -> Option<MessageSender<U>>
   where
@@ -322,7 +322,7 @@ impl MessageMetadata {
   ///
   /// 応答者が存在する場合はそれを返し、存在しない場合は送信者を返す。
   ///
-  /// # 戻り値
+  /// # Returns
   /// ディスパッチャーが存在する場合は`Some(MessageSender<U>)`、存在しない場合は`None`
   pub fn dispatcher_for<U>(&self) -> Option<MessageSender<U>>
   where
@@ -332,7 +332,7 @@ impl MessageMetadata {
 
   /// メタデータが空かどうかを判定する。
   ///
-  /// # 戻り値
+  /// # Returns
   /// 送信者も応答者も存在しない場合は`true`、それ以外は`false`
   pub fn is_empty(&self) -> bool {
     self.inner.sender.is_none() && self.inner.responder.is_none()
@@ -349,7 +349,7 @@ pub struct UserMessage<U> {
 impl<U> UserMessage<U> {
   /// メッセージのみを持つ新しい`UserMessage`を作成する。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `message` - ユーザーメッセージ
   pub fn new(message: U) -> Self {
     Self {
@@ -362,7 +362,7 @@ impl<U> UserMessage<U> {
   ///
   /// メタデータが空の場合は、メタデータなしで作成される。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `message` - ユーザーメッセージ
   /// * `metadata` - メッセージメタデータ
   pub fn with_metadata(message: U, metadata: MessageMetadata) -> Self {
@@ -379,7 +379,7 @@ impl<U> UserMessage<U> {
 
   /// メッセージへの参照を取得する。
   ///
-  /// # 戻り値
+  /// # Returns
   /// ユーザーメッセージへの参照
   pub fn message(&self) -> &U {
     &*self.message
@@ -387,7 +387,7 @@ impl<U> UserMessage<U> {
 
   /// メタデータキーを取得する。
   ///
-  /// # 戻り値
+  /// # Returns
   /// メタデータが存在する場合は`Some(MetadataKey)`、存在しない場合は`None`
   pub fn metadata_key(&self) -> Option<MetadataKey> {
     self.metadata_key
@@ -395,7 +395,7 @@ impl<U> UserMessage<U> {
 
   /// メッセージとメタデータキーに分解する。
   ///
-  /// # 戻り値
+  /// # Returns
   /// `(メッセージ, メタデータキー)`のタプル
   pub fn into_parts(mut self) -> (U, Option<MetadataKey>) {
     let key = self.metadata_key.take();
@@ -437,7 +437,7 @@ where
 {
   /// ユーザーメッセージのエンベロープを作成する。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `message` - ユーザーメッセージ
   pub fn user(message: U) -> Self {
     MessageEnvelope::User(UserMessage::new(message))
@@ -445,7 +445,7 @@ where
 
   /// メタデータ付きユーザーメッセージのエンベロープを作成する。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `message` - ユーザーメッセージ
   /// * `metadata` - メッセージメタデータ
   pub fn user_with_metadata(message: U, metadata: MessageMetadata) -> Self {

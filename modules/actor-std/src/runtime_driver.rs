@@ -26,10 +26,10 @@ where
 {
   /// アクターシステムをローカルタスクとして起動する
   ///
-  /// # 引数
+  /// # Arguments
   /// * `runner` - 起動するアクターシステムのランナー
   ///
-  /// # 戻り値
+  /// # Returns
   /// アクターシステムを管理する新しい`TokioSystemHandle`
   pub fn start_local(runner: ActorSystemRunner<U, TokioMailboxFactory>) -> Self
   where
@@ -45,7 +45,7 @@ where
 
   /// システムのシャットダウントークンを取得する
   ///
-  /// # 戻り値
+  /// # Returns
   /// シャットダウンを制御するための`ShutdownToken`
   pub fn shutdown_token(&self) -> ShutdownToken {
     self.shutdown.clone()
@@ -62,7 +62,7 @@ where
   ///
   /// システムが完全に停止するまで非同期で待機します。
   ///
-  /// # 戻り値
+  /// # Returns
   /// システム実行の結果。外側の`Result`はタスクの結合エラー、
   /// 内側の`Result`はシステムの実行エラーを示します。
   pub async fn await_terminated(
@@ -80,7 +80,7 @@ where
 
   /// Ctrl+Cシグナルを監視し、受信時にシャットダウンをトリガーするタスクを起動する
   ///
-  /// # 戻り値
+  /// # Returns
   /// リスナータスクの`JoinHandle`
   pub fn spawn_ctrl_c_listener(&self) -> JoinHandle<()>
   where

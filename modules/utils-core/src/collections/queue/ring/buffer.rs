@@ -43,7 +43,7 @@ impl<T> RingBuffer<T> {
   ///
   /// * `capacity` - 初期容量（0より大きい値を指定する必要があります）
   ///
-  /// # パニック
+  /// # Panics
   ///
   /// * `capacity`が0の場合にパニックします
   ///
@@ -97,7 +97,7 @@ impl<T> RingBuffer<T> {
   ///
   /// * `capacity` - 割り当てる容量
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 未初期化メモリを含むボックス化されたスライス
   fn alloc_buffer(capacity: usize) -> Box<[MaybeUninit<T>]> {
@@ -111,7 +111,7 @@ impl<T> RingBuffer<T> {
   /// 既存の要素をすべて取り出し、新しいバッファに再挿入します。
   /// この操作中に既存の要素は保持されます。
   ///
-  /// # パニック
+  /// # Panics
   ///
   /// 再挿入時に容量不足が発生した場合にパニックします
   /// （通常は発生しないはずです）
@@ -139,7 +139,7 @@ impl<T> RingBuffer<T> {
 impl<T> QueueBase<T> for RingBuffer<T> {
   /// バッファ内の現在の要素数を返します
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 要素数を表す`QueueSize::limited`
   fn len(&self) -> QueueSize {
@@ -148,7 +148,7 @@ impl<T> QueueBase<T> for RingBuffer<T> {
 
   /// バッファの容量を返します
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// * `dynamic = true`の場合: `QueueSize::limitless()`（無制限）
   /// * `dynamic = false`の場合: `QueueSize::limited(capacity)`（制限あり）
@@ -172,7 +172,7 @@ impl<T> QueueWriter<T> for RingBuffer<T> {
   ///
   /// * `item` - 追加する要素
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// * `Ok(())` - 追加に成功した場合
   /// * `Err(QueueError::Full(item))` - バッファが満杯で動的拡張が無効な場合
@@ -205,7 +205,7 @@ impl<T> QueueWriter<T> for RingBuffer<T> {
 impl<T> QueueReader<T> for RingBuffer<T> {
   /// バッファから要素を取り出します（FIFO順）
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// * `Ok(Some(item))` - 要素が取り出された場合
   /// * `Ok(None)` - バッファが空の場合

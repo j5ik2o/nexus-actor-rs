@@ -35,7 +35,7 @@ use async_trait::async_trait;
 pub trait CountDownLatchBackend: Clone {
   /// 指定されたカウント値でバックエンドを初期化します
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `count` - 初期カウント値。0になるまでカウントダウンされます
   fn new(count: usize) -> Self;
@@ -94,7 +94,7 @@ where
 {
   /// 指定されたカウント値で新しい`CountDownLatch`を作成します
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `count` - 初期カウント値。0になるまで`count_down`が呼び出される必要があります
   ///
@@ -138,7 +138,7 @@ where
 
   /// 内部バックエンドへの参照を取得します
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// バックエンド実装への不変参照
   pub fn backend(&self) -> &B {

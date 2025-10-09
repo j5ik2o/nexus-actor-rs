@@ -14,11 +14,11 @@ use crate::sync::Shared;
 pub trait RingBackend<E> {
   /// キューに要素を追加します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `element` - キューに追加する要素
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// * `Ok(())` - 要素の追加が成功した場合
   /// * `Err(QueueError<E>)` - キューが満杯の場合やその他のエラーが発生した場合
@@ -26,7 +26,7 @@ pub trait RingBackend<E> {
 
   /// キューから要素を取り出します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// * `Ok(Some(E))` - 要素が正常に取り出された場合
   /// * `Ok(None)` - キューが空の場合
@@ -41,28 +41,28 @@ pub trait RingBackend<E> {
 
   /// キューに現在格納されている要素の数を返します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// キューのサイズ（`QueueSize::Limited(n)` または `QueueSize::Unlimited`）
   fn len(&self) -> QueueSize;
 
   /// キューの容量（最大格納可能数）を返します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// キューの容量（`QueueSize::Limited(n)` または `QueueSize::Unlimited`）
   fn capacity(&self) -> QueueSize;
 
   /// キューの動的サイズ変更機能を有効または無効にします。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `dynamic` - `true`の場合、動的サイズ変更を有効化。`false`の場合、無効化。
   fn set_dynamic(&self, dynamic: bool);
 
   /// キューが空かどうかを判定します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// * `true` - キューが空の場合
   /// * `false` - キューに1つ以上の要素がある場合
@@ -88,7 +88,7 @@ pub trait RingHandle<E>: Shared<Self::Backend> + Clone {
 
   /// バックエンドへの参照を取得します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// バックエンドへの不変参照
   fn backend(&self) -> &Self::Backend;
@@ -112,11 +112,11 @@ pub struct RingStorageBackend<S> {
 impl<S> RingStorageBackend<S> {
   /// 新しい`RingStorageBackend`を作成します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `storage` - 使用するストレージハンドル
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 新しい`RingStorageBackend`インスタンス
   pub const fn new(storage: S) -> Self {
@@ -125,7 +125,7 @@ impl<S> RingStorageBackend<S> {
 
   /// ストレージハンドルへの参照を取得します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// ストレージハンドルへの不変参照
   pub fn storage(&self) -> &S {
@@ -134,7 +134,7 @@ impl<S> RingStorageBackend<S> {
 
   /// このバックエンドを消費し、内部のストレージハンドルを返します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 内部のストレージハンドル
   pub fn into_storage(self) -> S {

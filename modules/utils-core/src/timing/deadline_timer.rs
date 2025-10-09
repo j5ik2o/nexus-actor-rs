@@ -37,7 +37,7 @@ impl DeadlineTimerKey {
 
   /// キーが有効か判定する。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// キーが有効（0以外）であれば`true`、無効（0）であれば`false`を返します。
   #[inline]
@@ -49,7 +49,7 @@ impl DeadlineTimerKey {
   ///
   /// キーの内部的な64ビット整数表現を取得します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// キーの内部表現である`u64`値を返します。
   #[inline]
@@ -59,11 +59,11 @@ impl DeadlineTimerKey {
 
   /// 内部表現からキーを生成する。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `raw` - キーの内部表現となる64ビット整数
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 指定された整数値から生成されたキーを返します。
   #[inline]
@@ -98,11 +98,11 @@ pub struct TimerDeadline(Duration);
 impl TimerDeadline {
   /// 指定した継続時間から期限を作成する。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `duration` - 期限までの継続時間
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 指定された継続時間をラップした`TimerDeadline`を返します。
   #[inline]
@@ -112,7 +112,7 @@ impl TimerDeadline {
 
   /// 格納されている継続時間を取得する。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// ラップされている`Duration`値を返します。
   #[inline]
@@ -218,12 +218,12 @@ pub trait DeadlineTimer {
 
   /// 新しい要素を期限付きで挿入する。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `item` - タイマーに登録するアイテム
   /// * `deadline` - アイテムが期限切れになるまでの期限
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 成功時は登録されたアイテムを識別するための`DeadlineTimerKey`を返します。
   /// 失敗時はエラーを返します。
@@ -231,12 +231,12 @@ pub trait DeadlineTimer {
 
   /// 指定キーの要素の期限を更新して再登録する。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `key` - 更新対象のアイテムのキー
   /// * `deadline` - 新しい期限
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 成功時は`Ok(())`、失敗時はエラーを返します。
   /// キーが存在しない場合は`KeyNotFound`エラーとなります。
@@ -244,11 +244,11 @@ pub trait DeadlineTimer {
 
   /// 指定キーの要素をキャンセルし、要素を返す。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `key` - キャンセルするアイテムのキー
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 成功時はキャンセルされたアイテムを`Some`で返します。
   /// キーが存在しない場合は`None`を返します。
@@ -257,11 +257,11 @@ pub trait DeadlineTimer {
 
   /// 最も近い期限の要素をポーリングする。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `cx` - 非同期タスクのコンテキスト
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// * `Poll::Ready(Ok(expired))` - 期限切れのアイテムがある場合
   /// * `Poll::Pending` - まだ期限切れのアイテムがない場合
@@ -296,7 +296,7 @@ impl DeadlineTimerKeyAllocator {
   ///
   /// カウンタは1から開始され、0は無効なキーとして予約されています。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 新しく作成された`DeadlineTimerKeyAllocator`を返します。
   #[inline]
@@ -311,11 +311,11 @@ impl DeadlineTimerKeyAllocator {
   /// この操作はスレッドセーフで、複数のスレッドから同時に呼び出しても
   /// 常に一意なキーが返されます。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 新しく生成された一意な`DeadlineTimerKey`を返します。
   ///
-  /// # パニック
+  /// # Panics
   ///
   /// カウンタがオーバーフローした場合でも、1から再開するため安全です。
   #[inline]
@@ -330,7 +330,7 @@ impl DeadlineTimerKeyAllocator {
   /// この操作は実際にキーを払い出さず、次に`allocate`が返すであろう
   /// キーを確認するだけです。主にテストやデバッグ用途で使用されます。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 次に`allocate`が返すと予想される`DeadlineTimerKey`を返します。
   ///

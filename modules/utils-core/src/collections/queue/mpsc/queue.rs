@@ -19,11 +19,11 @@ where
 {
   /// 指定されたストレージを使用して新しい[`MpscQueue`]を作成します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `storage` - キューのバックエンドストレージ
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 新しい[`MpscQueue`]インスタンス
   pub fn new(storage: S) -> Self {
@@ -35,7 +35,7 @@ where
 
   /// バックエンドストレージへの参照を取得します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// ストレージへの不変参照
   pub fn storage(&self) -> &S {
@@ -46,7 +46,7 @@ where
   ///
   /// このメソッドは[`MpscQueue`]を消費し、所有権をストレージに移します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// バックエンドストレージ
   pub fn into_storage(self) -> S {
@@ -55,11 +55,11 @@ where
 
   /// キューの容量を設定します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `capacity` - 新しい容量。`None`は無制限を意味します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 容量の設定に成功した場合は`true`、失敗した場合は`false`
   pub fn set_capacity(&self, capacity: Option<usize>) -> bool {
@@ -70,11 +70,11 @@ where
   ///
   /// キューが満杯の場合、または閉じている場合はエラーを返します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `element` - キューに追加する要素
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// * `Ok(())` - 要素の追加に成功
   /// * `Err(QueueError::Full(element))` - キューが満杯
@@ -87,7 +87,7 @@ where
   ///
   /// キューが空の場合は`None`を返します。キューが閉じている場合はエラーを返します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// * `Ok(Some(element))` - 要素の取り出しに成功
   /// * `Ok(None)` - キューが空
@@ -106,7 +106,7 @@ where
 
   /// キューの容量を取得します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// キューの容量。無制限の場合は[`QueueSize::Unbounded`]
   pub fn capacity(&self) -> QueueSize {
@@ -115,7 +115,7 @@ where
 
   /// キューが閉じているかどうかを確認します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// キューが閉じている場合は`true`、そうでない場合は`false`
   pub fn is_closed(&self) -> bool {
@@ -124,7 +124,7 @@ where
 
   /// バックエンドへの参照を取得します（内部使用）。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// バックエンドへの参照
   fn backend(&self) -> &S::Backend {
@@ -141,7 +141,7 @@ where
   /// バックエンドストレージは共有されるため、クローンされたキューは
   /// 同じキューインスタンスを参照します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 同じバックエンドストレージを共有する新しい[`MpscQueue`]インスタンス
   fn clone(&self) -> Self {
@@ -158,7 +158,7 @@ where
 {
   /// キュー内の要素数を取得します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// キュー内の要素数。無制限の場合は[`QueueSize::Unbounded`]
   fn len(&self) -> QueueSize {
@@ -167,7 +167,7 @@ where
 
   /// キューの容量を取得します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// キューの容量。無制限の場合は[`QueueSize::Unbounded`]
   fn capacity(&self) -> QueueSize {
@@ -183,11 +183,11 @@ where
   ///
   /// キューが満杯の場合、または閉じている場合はエラーを返します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `element` - キューに追加する要素
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// * `Ok(())` - 要素の追加に成功
   /// * `Err(QueueError::Full(element))` - キューが満杯
@@ -205,7 +205,7 @@ where
   ///
   /// キューが空の場合は`None`を返します。キューが閉じている場合はエラーを返します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// * `Ok(Some(element))` - 要素の取り出しに成功
   /// * `Ok(None)` - キューが空
@@ -231,11 +231,11 @@ where
   ///
   /// キューが満杯の場合、または閉じている場合はエラーを返します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `element` - キューに追加する要素
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// * `Ok(())` - 要素の追加に成功
   /// * `Err(QueueError::Full(element))` - キューが満杯
@@ -248,7 +248,7 @@ where
   ///
   /// キューが空の場合は`None`を返します。キューが閉じている場合はエラーを返します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// * `Ok(Some(element))` - 要素の取り出しに成功
   /// * `Ok(None)` - キューが空

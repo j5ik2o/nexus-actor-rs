@@ -15,7 +15,7 @@ pub struct GuardHandle<G> {
 impl<G> GuardHandle<G> {
   /// 新しい`GuardHandle`を作成します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `guard` - ラップするガードオブジェクト
   pub fn new(guard: G) -> Self {
@@ -24,7 +24,7 @@ impl<G> GuardHandle<G> {
 
   /// ガードオブジェクトを取り出します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 内部のガードオブジェクト
   pub fn into_inner(self) -> G {
@@ -63,7 +63,7 @@ pub trait SynchronizedMutexBackend<T: ?Sized> {
 
   /// 指定された値で新しいバックエンドを作成します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `value` - ミューテックスに保護される初期値
   fn new(value: T) -> Self
@@ -72,7 +72,7 @@ pub trait SynchronizedMutexBackend<T: ?Sized> {
 
   /// ミューテックスをロックし、ガードを取得します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 保護された値へのアクセスを提供するガード
   async fn lock(&self) -> Self::Guard<'_>;
@@ -97,7 +97,7 @@ pub trait SynchronizedRwBackend<T: ?Sized> {
 
   /// 指定された値で新しいバックエンドを作成します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `value` - RwLockに保護される初期値
   fn new(value: T) -> Self
@@ -106,14 +106,14 @@ pub trait SynchronizedRwBackend<T: ?Sized> {
 
   /// 読み取りロックを取得します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 保護された値への読み取り専用アクセスを提供するガード
   async fn read(&self) -> Self::ReadGuard<'_>;
 
   /// 書き込みロックを取得します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 保護された値への排他的アクセスを提供するガード
   async fn write(&self) -> Self::WriteGuard<'_>;
@@ -144,7 +144,7 @@ where
 {
   /// 新しい`Synchronized`を指定された値で作成します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `value` - 保護する初期値
   pub fn new(value: T) -> Self
@@ -158,7 +158,7 @@ where
 
   /// 既存のバックエンドから`Synchronized`を作成します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `backend` - 使用するバックエンドインスタンス
   pub fn from_backend(backend: B) -> Self {
@@ -170,7 +170,7 @@ where
 
   /// 内部のバックエンドへの参照を取得します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// バックエンドへの不変参照
   pub fn backend(&self) -> &B {
@@ -179,11 +179,11 @@ where
 
   /// ロックを取得し、指定された関数を実行します（読み取り用）。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `f` - ガードへの参照を受け取る関数
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 関数`f`の戻り値
   pub async fn read<R>(&self, f: impl FnOnce(&B::Guard<'_>) -> R) -> R {
@@ -193,11 +193,11 @@ where
 
   /// ロックを取得し、指定された関数を実行します（書き込み用）。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `f` - ガードへの可変参照を受け取る関数
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 関数`f`の戻り値
   pub async fn write<R>(&self, f: impl FnOnce(&mut B::Guard<'_>) -> R) -> R {
@@ -209,7 +209,7 @@ where
   ///
   /// このメソッドは、ガードを保持し続ける必要がある場合に使用します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// ガードオブジェクトをラップした`GuardHandle`
   pub async fn lock(&self) -> GuardHandle<B::Guard<'_>> {
@@ -263,7 +263,7 @@ where
 {
   /// 新しい`SynchronizedRw`を指定された値で作成します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `value` - 保護する初期値
   pub fn new(value: T) -> Self
@@ -277,7 +277,7 @@ where
 
   /// 既存のバックエンドから`SynchronizedRw`を作成します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `backend` - 使用するバックエンドインスタンス
   pub fn from_backend(backend: B) -> Self {
@@ -289,7 +289,7 @@ where
 
   /// 内部のバックエンドへの参照を取得します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// バックエンドへの不変参照
   pub fn backend(&self) -> &B {
@@ -298,11 +298,11 @@ where
 
   /// 読み取りロックを取得し、指定された関数を実行します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `f` - 読み取りガードへの参照を受け取る関数
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 関数`f`の戻り値
   pub async fn read<R>(&self, f: impl FnOnce(&B::ReadGuard<'_>) -> R) -> R {
@@ -312,11 +312,11 @@ where
 
   /// 書き込みロックを取得し、指定された関数を実行します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `f` - 書き込みガードへの可変参照を受け取る関数
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 関数`f`の戻り値
   pub async fn write<R>(&self, f: impl FnOnce(&mut B::WriteGuard<'_>) -> R) -> R {
@@ -328,7 +328,7 @@ where
   ///
   /// このメソッドは、読み取りガードを保持し続ける必要がある場合に使用します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 読み取りガードオブジェクトをラップした`GuardHandle`
   pub async fn read_guard(&self) -> GuardHandle<B::ReadGuard<'_>> {
@@ -340,7 +340,7 @@ where
   ///
   /// このメソッドは、書き込みガードを保持し続ける必要がある場合に使用します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 書き込みガードオブジェクトをラップした`GuardHandle`
   pub async fn write_guard(&self) -> GuardHandle<B::WriteGuard<'_>> {

@@ -232,11 +232,11 @@ impl<Resp, TFut> Drop for AskTimeoutFuture<Resp, TFut> {
 
 /// タイムアウト付き`AskFuture`を生成するヘルパー関数。
 ///
-/// # 引数
+/// # Arguments
 /// * `future` - 元となる`AskFuture`
 /// * `timeout` - タイムアウト制御用のFuture
 ///
-/// # 戻り値
+/// # Returns
 /// タイムアウト制御付きの`AskTimeoutFuture`
 pub fn ask_with_timeout<Resp, TFut>(future: AskFuture<Resp>, timeout: TFut) -> AskTimeoutFuture<Resp, TFut>
 where
@@ -247,7 +247,7 @@ where
 
 /// `ask`パターン用のFutureとレスポンダーのペアを生成する（内部API）。
 ///
-/// # 戻り値
+/// # Returns
 /// (`AskFuture`, `MessageSender`)のタプル
 pub(crate) fn create_ask_handles<Resp>() -> (AskFuture<Resp>, MessageSender<Resp>)
 where

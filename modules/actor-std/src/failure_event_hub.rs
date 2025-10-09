@@ -26,7 +26,7 @@ impl Default for FailureEventHubInner {
 impl FailureEventHub {
   /// 新しい`FailureEventHub`インスタンスを作成します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// デフォルト状態で初期化された新しいハブインスタンス
   pub fn new() -> Self {

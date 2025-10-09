@@ -208,7 +208,7 @@ where
 {
   /// メッセージ受信ハンドラを指定して`Behavior`を構築する。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `handler` - メッセージを受信した際の処理
   pub fn receive<F>(handler: F) -> Self
   where
@@ -223,7 +223,7 @@ where
   ///
   /// ハンドラは常に`BehaviorDirective::Same`を返す。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `handler` - メッセージを受信した際の処理
   pub fn stateless<F>(mut handler: F) -> Self
   where
@@ -239,7 +239,7 @@ where
 
   /// Contextを使わず、メッセージのみを受け取るハンドラでBehaviorを構築する。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `handler` - メッセージを受信した際の処理
   pub fn receive_message<F>(mut handler: F) -> Self
   where
@@ -254,7 +254,7 @@ where
 
   /// セットアップ処理を実行してBehaviorを生成する。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `init` - 初期化処理。Contextを受け取ってBehaviorを返す
   pub fn setup<F>(init: F) -> Self
   where
@@ -272,7 +272,7 @@ where
 
   /// シグナルハンドラを追加する。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `handler` - シグナル受信時の処理
   pub fn receive_signal<F>(self, handler: F) -> Self
   where
@@ -396,7 +396,7 @@ where
 {
   /// スーパーバイザー戦略を設定する。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `strategy` - 適用するスーパーバイザー戦略
   pub fn with_strategy(mut self, strategy: SupervisorStrategy) -> Behavior<U, R> {
     if let Behavior::Receive(state) = &mut self.behavior {
@@ -429,7 +429,7 @@ where
 {
   /// 新しい`ActorAdapter`を生成する。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `behavior_factory` - Behaviorを生成するファクトリ関数
   /// * `system_handler` - システムメッセージのハンドラ（オプション）
   pub fn new<S>(behavior_factory: Arc<dyn Fn() -> Behavior<U, R> + 'static>, system_handler: Option<S>) -> Self
@@ -445,7 +445,7 @@ where
 
   /// ユーザーメッセージを処理する。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `ctx` - アクターコンテキスト
   /// * `message` - 処理するメッセージ
   pub fn handle_user(&mut self, ctx: &mut Context<'_, '_, U, R>, message: U) {
@@ -467,7 +467,7 @@ where
 
   /// システムメッセージを処理する。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `ctx` - アクターコンテキスト
   /// * `message` - 処理するシステムメッセージ
   pub fn handle_system(&mut self, ctx: &mut Context<'_, '_, U, R>, message: SystemMessage) {

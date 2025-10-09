@@ -11,22 +11,22 @@ use super::StackError;
 pub trait StackStorage<T> {
   /// 読み取り専用アクセスでクロージャを実行します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `f` - スタックバッファへの不変参照を受け取るクロージャ
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// クロージャの実行結果
   fn with_read<R>(&self, f: impl FnOnce(&StackBuffer<T>) -> R) -> R;
 
   /// 書き込み可能アクセスでクロージャを実行します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `f` - スタックバッファへの可変参照を受け取るクロージャ
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// クロージャの実行結果
   fn with_write<R>(&self, f: impl FnOnce(&mut StackBuffer<T>) -> R) -> R;
@@ -39,11 +39,11 @@ pub trait StackStorage<T> {
 pub trait StackBackend<T> {
   /// スタックに値をプッシュします。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `value` - プッシュする値
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// * `Ok(())` - 成功時
   /// * `Err(StackError<T>)` - 容量制限に達した場合
@@ -51,7 +51,7 @@ pub trait StackBackend<T> {
 
   /// スタックから値をポップします。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// * `Some(T)` - スタックが空でない場合、最後の値
   /// * `None` - スタックが空の場合
@@ -62,28 +62,28 @@ pub trait StackBackend<T> {
 
   /// スタックの現在の要素数を取得します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 要素数を表す`QueueSize`
   fn len(&self) -> QueueSize;
 
   /// スタックの容量を取得します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 容量を表す`QueueSize`(無制限の場合は`QueueSize::Unlimited`)
   fn capacity(&self) -> QueueSize;
 
   /// スタックの容量を設定します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `capacity` - 新しい容量(`None`の場合は無制限)
   fn set_capacity(&self, capacity: Option<usize>);
 
   /// スタックが空かどうかを判定します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// * `true` - スタックが空の場合
   /// * `false` - スタックに要素がある場合
@@ -93,7 +93,7 @@ pub trait StackBackend<T> {
 
   /// スタックの最上位の値を取得します(ポップはしません)。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// * `Some(T)` - スタックが空でない場合、最上位の値のクローン
   /// * `None` - スタックが空の場合
@@ -112,7 +112,7 @@ pub trait StackHandle<T>: Shared<Self::Backend> + Clone {
 
   /// バックエンドへの参照を取得します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// スタックバックエンドへの参照
   fn backend(&self) -> &Self::Backend;
@@ -129,7 +129,7 @@ pub struct StackStorageBackend<S> {
 impl<S> StackStorageBackend<S> {
   /// 指定されたストレージで新しい`StackStorageBackend`を作成します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `storage` - 使用するストレージ実装
   pub const fn new(storage: S) -> Self {
@@ -138,7 +138,7 @@ impl<S> StackStorageBackend<S> {
 
   /// ストレージへの参照を取得します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 内部ストレージへの参照
   pub fn storage(&self) -> &S {
@@ -147,7 +147,7 @@ impl<S> StackStorageBackend<S> {
 
   /// バックエンドを消費してストレージを取り出します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 内部ストレージの所有権
   pub fn into_storage(self) -> S {
@@ -196,21 +196,21 @@ where
 pub trait StackBase<T> {
   /// スタックの現在の要素数を取得します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 要素数を表す`QueueSize`
   fn len(&self) -> QueueSize;
 
   /// スタックの容量を取得します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 容量を表す`QueueSize`(無制限の場合は`QueueSize::Unlimited`)
   fn capacity(&self) -> QueueSize;
 
   /// スタックが空かどうかを判定します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// * `true` - スタックが空の場合
   /// * `false` - スタックに要素がある場合
@@ -225,11 +225,11 @@ pub trait StackBase<T> {
 pub trait StackMut<T>: StackBase<T> {
   /// スタックに値をプッシュします。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `value` - プッシュする値
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// * `Ok(())` - 成功時
   /// * `Err(StackError<T>)` - 容量制限に達した場合
@@ -237,7 +237,7 @@ pub trait StackMut<T>: StackBase<T> {
 
   /// スタックから値をポップします。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// * `Some(T)` - スタックが空でない場合、最後の値
   /// * `None` - スタックが空の場合
@@ -248,7 +248,7 @@ pub trait StackMut<T>: StackBase<T> {
 
   /// スタックの最上位の値を取得します(ポップはしません)。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// * `Some(T)` - スタックが空でない場合、最上位の値のクローン
   /// * `None` - スタックが空の場合

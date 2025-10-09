@@ -27,12 +27,12 @@ where
   R::Signal: Clone, {
   /// 障害情報を処理します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `info` - 障害情報
   /// * `already_handled` - `true` の場合、既にローカルで処理が完了していることを示す
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 成功した場合は `Ok(())`、処理できなかった場合は `Err(FailureInfo)`
   fn handle(&mut self, info: FailureInfo, already_handled: bool) -> Result<(), FailureInfo>;
@@ -73,7 +73,7 @@ where
 
   /// 障害イベントハンドラを設定します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `handler` - 障害イベントハンドラ、または `None`
   pub fn set_event_handler(&mut self, handler: Option<FailureEventHandler>) {
@@ -82,7 +82,7 @@ where
 
   /// 障害イベントリスナーを設定します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `listener` - 障害イベントリスナー、または `None`
   pub fn set_event_listener(&mut self, listener: Option<FailureEventListener>) {
@@ -113,12 +113,12 @@ where
   ///
   /// ログ出力、ハンドラ呼び出し、リスナー通知を行います。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `info` - 障害情報
   /// * `_already_handled` - 未使用（ルートレベルでは常に処理を実行）
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 常に `Ok(())` を返します
   fn handle(&mut self, info: FailureInfo, _already_handled: bool) -> Result<(), FailureInfo> {

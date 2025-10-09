@@ -27,16 +27,16 @@ pub trait Mailbox<M> {
 
   /// メッセージの送信を試みます（ブロッキングなし）。
   ///
-  /// # 引数
+  /// # Arguments
   /// - `message`: 送信するメッセージ
   ///
-  /// # 戻り値
+  /// # Returns
   /// 成功時は `Ok(())`、失敗時は `Err(SendError)`
   fn try_send(&self, message: M) -> Result<(), Self::SendError>;
 
   /// メッセージを非同期的に受信します。
   ///
-  /// # 戻り値
+  /// # Returns
   /// メッセージ受信のFuture
   fn recv(&self) -> Self::RecvFuture<'_>;
 
@@ -56,7 +56,7 @@ pub trait Mailbox<M> {
 
   /// メールボックスが空かどうかを判定します。
   ///
-  /// # 戻り値
+  /// # Returns
   /// 空の場合は `true`、メッセージがある場合は `false`
   fn is_empty(&self) -> bool {
     self.len() == QueueSize::Limited(0)
@@ -71,7 +71,7 @@ pub trait Mailbox<M> {
   ///
   /// デフォルト実装では常に `false` を返します。
   ///
-  /// # 戻り値
+  /// # Returns
   /// 閉じられている場合は `true`、開いている場合は `false`
   fn is_closed(&self) -> bool {
     false
@@ -94,7 +94,7 @@ pub trait MailboxSignal: Clone {
 
   /// メッセージの到着を待機します。
   ///
-  /// # 戻り値
+  /// # Returns
   /// 通知を待つFuture
   fn wait(&self) -> Self::WaitFuture<'_>;
 }
@@ -114,10 +114,10 @@ pub trait MailboxFactory {
 
   /// 指定されたオプションでメールボックスを作成します。
   ///
-  /// # 引数
+  /// # Arguments
   /// - `options`: メールボックスの容量設定
   ///
-  /// # 戻り値
+  /// # Returns
   /// `(メールボックス, プロデューサー)` のペア
   fn build_mailbox<M>(&self, options: MailboxOptions) -> MailboxPair<Self::Queue<M>, Self::Signal>
   where
@@ -125,7 +125,7 @@ pub trait MailboxFactory {
 
   /// デフォルト設定でメールボックスを作成します。
   ///
-  /// # 戻り値
+  /// # Returns
   /// `(メールボックス, プロデューサー)` のペア
   fn build_default_mailbox<M>(&self) -> MailboxPair<Self::Queue<M>, Self::Signal>
   where

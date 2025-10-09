@@ -179,7 +179,7 @@ where
 
   /// 現在のメッセージに付随するメタデータを取得する。
   ///
-  /// # 戻り値
+  /// # Returns
   /// メタデータが存在する場合は`Some(&MessageMetadata)`、存在しない場合は`None`
   pub fn message_metadata(&self) -> Option<&MessageMetadata> {
     self.metadata.as_ref()
@@ -198,7 +198,7 @@ where
 
   /// このアクターのアクターIDを取得する。
   ///
-  /// # 戻り値
+  /// # Returns
   /// アクターID
   pub fn actor_id(&self) -> ActorId {
     self.inner.actor_id()
@@ -206,7 +206,7 @@ where
 
   /// このアクターのアクターパスを取得する。
   ///
-  /// # 戻り値
+  /// # Returns
   /// アクターパスへの参照
   pub fn actor_path(&self) -> &ActorPath {
     self.inner.actor_path()
@@ -214,7 +214,7 @@ where
 
   /// このアクターを監視しているアクターのIDリストを取得する。
   ///
-  /// # 戻り値
+  /// # Returns
   /// 監視者のアクターIDスライス
   pub fn watchers(&self) -> &[ActorId] {
     self.inner.watchers()
@@ -222,7 +222,7 @@ where
 
   /// このアクター用のロガーを取得する。
   ///
-  /// # 戻り値
+  /// # Returns
   /// コンテキストロガー
   pub fn log(&self) -> ContextLogger {
     ContextLogger::new(self.actor_id(), self.actor_path())
@@ -230,10 +230,10 @@ where
 
   /// 自分自身にメッセージを送信する。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `message` - 送信するメッセージ
   ///
-  /// # 戻り値
+  /// # Returns
   /// 送信成功時は`Ok(())`、失敗時はキューエラー
   pub fn send_to_self(&self, message: U) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> {
     let dyn_message = DynMessage::new(MessageEnvelope::user(message));
@@ -242,10 +242,10 @@ where
 
   /// 自分自身にシステムメッセージを送信する。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `message` - 送信するシステムメッセージ
   ///
-  /// # 戻り値
+  /// # Returns
   /// 送信成功時は`Ok(())`、失敗時はキューエラー
   pub fn send_system_to_self(&self, message: SystemMessage) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> {
     let envelope =
@@ -255,7 +255,7 @@ where
 
   /// 自分自身への参照を取得する。
   ///
-  /// # 戻り値
+  /// # Returns
   /// 自分自身への`ActorRef`
   pub fn self_ref(&self) -> ActorRef<U, R> {
     ActorRef::new(self.inner.self_ref())
@@ -263,10 +263,10 @@ where
 
   /// 外部メッセージ型を内部メッセージ型に変換するアダプターを作成する。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `f` - メッセージ変換関数
   ///
-  /// # 戻り値
+  /// # Returns
   /// メッセージアダプター参照
   pub fn message_adapter<Ext, F>(&self, f: F) -> MessageAdapterRef<Ext, U, R>
   where
@@ -277,7 +277,7 @@ where
 
   /// 監視者を登録する。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `watcher` - 監視者のアクターID
   pub fn register_watcher(&mut self, watcher: ActorId) {
     self.inner.register_watcher(watcher);
@@ -285,7 +285,7 @@ where
 
   /// 監視者の登録を解除する。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `watcher` - 監視者のアクターID
   pub fn unregister_watcher(&mut self, watcher: ActorId) {
     self.inner.unregister_watcher(watcher);
@@ -293,7 +293,7 @@ where
 
   /// 受信タイムアウトのサポートがあるかを判定する。
   ///
-  /// # 戻り値
+  /// # Returns
   /// サポートされている場合は`true`、それ以外は`false`
   pub fn has_receive_timeout_support(&self) -> bool {
     self.inner.has_receive_timeout_scheduler()
@@ -301,10 +301,10 @@ where
 
   /// 受信タイムアウトを設定する。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `duration` - タイムアウト時間
   ///
-  /// # 戻り値
+  /// # Returns
   /// 設定に成功した場合は`true`、それ以外は`false`
   pub fn set_receive_timeout(&mut self, duration: Duration) -> bool {
     self.inner.set_receive_timeout(duration)
@@ -312,7 +312,7 @@ where
 
   /// 受信タイムアウトをキャンセルする。
   ///
-  /// # 戻り値
+  /// # Returns
   /// キャンセルに成功した場合は`true`、それ以外は`false`
   pub fn cancel_receive_timeout(&mut self) -> bool {
     self.inner.cancel_receive_timeout()
@@ -320,7 +320,7 @@ where
 
   /// 内部コンテキストへの可変参照を取得する。
   ///
-  /// # 戻り値
+  /// # Returns
   /// 内部`ActorContext`への可変参照
   pub fn inner(&mut self) -> &mut ActorContext<'ctx, DynMessage, R, dyn Supervisor<DynMessage>> {
     self.inner
@@ -337,11 +337,11 @@ where
   ///
   /// 自分自身を送信者として設定してメッセージを送信する。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `target` - メッセージの送信先アクター
   /// * `message` - 送信するメッセージ
   ///
-  /// # 戻り値
+  /// # Returns
   /// 送信成功時は`Ok(())`、失敗時はキューエラー
   pub fn request<V>(
     &mut self,
@@ -358,12 +358,12 @@ where
 
   /// 指定した送信者情報付きでメッセージをリクエストする。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `target` - メッセージの送信先アクター
   /// * `message` - 送信するメッセージ
   /// * `sender` - 送信者として設定するアクター
   ///
-  /// # 戻り値
+  /// # Returns
   /// 送信成功時は`Ok(())`、失敗時はキューエラー
   pub fn request_with_sender<V, S>(
     &mut self,
@@ -384,11 +384,11 @@ where
   ///
   /// 現在のメッセージのメタデータ（送信者情報）をそのまま使用してメッセージを転送する。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `target` - メッセージの転送先アクター
   /// * `message` - 転送するメッセージ
   ///
-  /// # 戻り値
+  /// # Returns
   /// 送信成功時は`Ok(())`、失敗時はキューエラー
   pub fn forward<V>(
     &mut self,
@@ -403,13 +403,13 @@ where
 
   /// 現在のメッセージの送信者に応答する。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `message` - 応答メッセージ
   ///
-  /// # 戻り値
+  /// # Returns
   /// 送信成功時は`Ok(())`、失敗時は`AskError`
   ///
-  /// # エラー
+  /// # Errors
   /// - `AskError::MissingResponder` - 応答先が見つからない場合
   /// - `AskError::SendFailed` - メッセージ送信に失敗した場合
   pub fn respond<Resp>(&mut self, message: Resp) -> AskResult<()>
@@ -425,11 +425,11 @@ where
   ///
   /// メッセージファクトリを使用してレスポンダーを含むメッセージを構築する。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `target` - 問い合わせ先アクター
   /// * `factory` - レスポンダーを使用してメッセージを生成する関数
   ///
-  /// # 戻り値
+  /// # Returns
   /// 応答を受け取るための`AskFuture`、またはエラー
   pub fn ask<V, Resp, F>(&mut self, target: &ActorRef<V, R>, factory: F) -> AskResult<AskFuture<Resp>>
   where
@@ -450,12 +450,12 @@ where
 
   /// タイムアウト付きで問い合わせを行い、応答を待つFutureを返す。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `target` - 問い合わせ先アクター
   /// * `factory` - レスポンダーを使用してメッセージを生成する関数
   /// * `timeout` - タイムアウト制御用のFuture
   ///
-  /// # 戻り値
+  /// # Returns
   /// タイムアウト付き応答を受け取るための`AskTimeoutFuture`、またはエラー
   pub fn ask_with_timeout<V, Resp, F, TFut>(
     &mut self,
@@ -485,11 +485,11 @@ where
 
   /// ターゲットアクターに問い合わせを行い、応答を待つFutureを返す。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `target` - 問い合わせ先アクター
   /// * `message` - 送信するメッセージ
   ///
-  /// # 戻り値
+  /// # Returns
   /// 応答を受け取るための`AskFuture`、またはエラー
   pub fn request_future<V, Resp>(&mut self, target: &ActorRef<V, R>, message: V) -> AskResult<AskFuture<Resp>>
   where
@@ -507,12 +507,12 @@ where
 
   /// タイムアウト付きで問い合わせを行い、応答を待つFutureを返す。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `target` - 問い合わせ先アクター
   /// * `message` - 送信するメッセージ
   /// * `timeout` - タイムアウト制御用のFuture
   ///
-  /// # 戻り値
+  /// # Returns
   /// タイムアウト付き応答を受け取るための`AskTimeoutFuture`、またはエラー
   pub fn request_future_with_timeout<V, Resp, TFut>(
     &mut self,
@@ -552,14 +552,14 @@ where
 impl MessageMetadata {
   /// メタデータを使って応答メッセージを送信する。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `ctx` - 現在のコンテキスト
   /// * `message` - 送信する応答メッセージ
   ///
-  /// # 戻り値
+  /// # Returns
   /// 送信成功時は`Ok(())`、失敗時は`AskError`
   ///
-  /// # エラー
+  /// # Errors
   /// - `AskError::MissingResponder` - 応答先が見つからない場合
   /// - `AskError::SendFailed` - メッセージ送信に失敗した場合
   pub fn respond_with<Resp, U, R>(&self, ctx: &mut Context<'_, '_, U, R>, message: Resp) -> AskResult<()>
@@ -605,10 +605,10 @@ where
 
   /// 外部メッセージを変換してターゲットアクターに送信する。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `message` - 送信する外部メッセージ
   ///
-  /// # 戻り値
+  /// # Returns
   /// 送信成功時は`Ok(())`、失敗時はキューエラー
   pub fn tell(&self, message: Ext) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> {
     let mapped = (self.adapter)(message);
@@ -617,11 +617,11 @@ where
 
   /// 外部メッセージを変換し、指定された優先度でターゲットアクターに送信する。
   ///
-  /// # 引数
+  /// # Arguments
   /// * `message` - 送信する外部メッセージ
   /// * `priority` - メッセージの優先度
   ///
-  /// # 戻り値
+  /// # Returns
   /// 送信成功時は`Ok(())`、失敗時はキューエラー
   pub fn tell_with_priority(&self, message: Ext, priority: i8) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> {
     let mapped = (self.adapter)(message);
@@ -630,7 +630,7 @@ where
 
   /// ターゲットアクターへの参照を取得する。
   ///
-  /// # 戻り値
+  /// # Returns
   /// ターゲット`ActorRef`への参照
   pub fn target(&self) -> &ActorRef<U, R> {
     &self.target

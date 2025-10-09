@@ -24,11 +24,11 @@ where
 {
   /// 値から新しい`ArcShared`を作成します
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `value` - 共有する値
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 新しい`ArcShared`インスタンス
   pub fn new(value: T) -> Self {
@@ -39,11 +39,11 @@ where
 impl<T: ?Sized> ArcShared<T> {
   /// 既存の`Arc`から`ArcShared`を作成します
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `inner` - `Arc`インスタンス
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// `Arc`をラップした`ArcShared`インスタンス
   pub fn from_arc(inner: Arc<T>) -> Self {
@@ -52,7 +52,7 @@ impl<T: ?Sized> ArcShared<T> {
 
   /// `ArcShared`を内部の`Arc`に変換します
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// 内部の`Arc`インスタンス
   pub fn into_arc(self) -> Arc<T> {

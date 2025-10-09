@@ -37,7 +37,7 @@ where
 {
   /// 指定されたバックエンドハンドルから新しい[`Stack`]を作成します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `backend` - スタック操作を処理するバックエンドハンドル
   ///
@@ -71,7 +71,7 @@ where
 
   /// スタックの容量制限を設定します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `capacity` - 最大容量。`None`の場合は無制限
   pub fn set_capacity(&self, capacity: Option<usize>) {
@@ -82,7 +82,7 @@ where
   ///
   /// 容量制限がある場合、スタックが満杯だと[`StackError::Full`]を返します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `value` - プッシュする値
   ///

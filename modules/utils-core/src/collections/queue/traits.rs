@@ -12,14 +12,14 @@ use crate::sync::Shared;
 pub trait QueueBase<E> {
   /// キューの現在のサイズを返す。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// キューに現在格納されている要素数を [`QueueSize`] として返します。
   fn len(&self) -> QueueSize;
 
   /// キューの容量を返す。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// キューが保持できる最大要素数を [`QueueSize`] として返します。
   /// 無制限キューの場合は `QueueSize::Limitless` を返します。
@@ -27,7 +27,7 @@ pub trait QueueBase<E> {
 
   /// キューが空かどうかを判定する。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// キューが空の場合は `true`、要素が存在する場合は `false` を返します。
   fn is_empty(&self) -> bool {
@@ -49,11 +49,11 @@ pub trait QueueWriter<E>: QueueBase<E> {
   /// キューに要素を追加しようと試みます。キューが満杯の場合やクローズされている場合は
   /// エラーを返します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `element` - キューに追加する要素
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// * `Ok(())` - 要素が正常に追加された場合
   /// * `Err(QueueError)` - 追加に失敗した場合（満杯、クローズ済みなど）
@@ -73,7 +73,7 @@ pub trait QueueReader<E>: QueueBase<E> {
   ///
   /// キューの先頭要素を取り出して返します。キューが空の場合は `None` を返します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// * `Ok(Some(element))` - 要素が正常に取り出された場合
   /// * `Ok(None)` - キューが空の場合
@@ -101,11 +101,11 @@ pub trait QueueRw<E>: QueueBase<E> {
   /// キューに要素を追加しようと試みます。内部で適切なロックを取得して
   /// スレッドセーフな書き込みを保証します。
   ///
-  /// # 引数
+  /// # Arguments
   ///
   /// * `element` - キューに追加する要素
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// * `Ok(())` - 要素が正常に追加された場合
   /// * `Err(QueueError)` - 追加に失敗した場合（満杯、クローズ済みなど）
@@ -116,7 +116,7 @@ pub trait QueueRw<E>: QueueBase<E> {
   /// キューの先頭要素を取り出して返します。内部で適切なロックを取得して
   /// スレッドセーフな読み取りを保証します。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// * `Ok(Some(element))` - 要素が正常に取り出された場合
   /// * `Ok(None)` - キューが空の場合
@@ -153,7 +153,7 @@ pub trait QueueHandle<E>: Shared<Self::Storage> + Clone {
 
   /// 内部ストレージへの参照を取得する。
   ///
-  /// # 戻り値
+  /// # Returns
   ///
   /// このハンドルが管理するストレージへの参照を返します。
   fn storage(&self) -> &Self::Storage;
