@@ -38,3 +38,4 @@
 - 利用者向けドキュメント更新。
   - API の変更点（typed dispatcher／メタデータ）を README や examples に反映。
   - サンプルコードで新しいヘルパーの使い方を示す。
+- 公開 API では `replyTo` ベースの ask を提供し、現行の `request_*` は internal API として扱う。
