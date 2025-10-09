@@ -26,6 +26,7 @@ where
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
   R::Signal: Clone, {
   inner: &'r mut ActorContext<'ctx, DynMessage, R, dyn Supervisor<DynMessage>>,
+  metadata: Option<MessageMetadata>,
   _marker: PhantomData<U>,
 }
 
@@ -153,8 +154,13 @@ where
   R::Signal: Clone,
 {
   pub(super) fn new(inner: &'r mut ActorContext<'ctx, DynMessage, R, dyn Supervisor<DynMessage>>) -> Self {
+    let metadata = inner
+      .current_metadata()
+      .cloned()
+      .map(MessageMetadata::from_internal);
     Self {
       inner,
+      metadata,
       _marker: PhantomData,
     }
   }
@@ -163,8 +169,12 @@ where
     inner: &'r mut ActorContext<'ctx, DynMessage, R, dyn Supervisor<DynMessage>>,
     metadata: MessageMetadata,
   ) -> Self {
-    inner.enter_metadata(metadata.into_internal());
-    Self::new(inner)
+    inner.enter_metadata(metadata.clone().into_internal());
+    Self {
+      inner,
+      metadata: Some(metadata),
+      _marker: PhantomData,
+    }
   }
 
   pub fn actor_id(&self) -> ActorId {
@@ -217,12 +227,8 @@ where
     self.inner
   }
 
-  pub fn message_metadata(&self) -> Option<MessageMetadata> {
-    self
-      .inner
-      .current_metadata()
-      .cloned()
-      .map(MessageMetadata::from_internal)
+  pub fn message_metadata(&self) -> Option<&MessageMetadata> {
+    self.metadata.as_ref()
   }
 
   fn self_dispatcher(&self) -> MessageDispatcher<U>
@@ -267,7 +273,7 @@ where
   ) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>>
   where
     V: Element, {
-    let metadata = self.message_metadata().unwrap_or_default();
+    let metadata = self.message_metadata().cloned().unwrap_or_default();
     target.tell_with_metadata(message, metadata)
   }
 
