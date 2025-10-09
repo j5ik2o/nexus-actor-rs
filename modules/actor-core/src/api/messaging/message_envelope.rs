@@ -201,6 +201,12 @@ impl MessageMetadata {
     self.inner.responder_cloned().map(MessageDispatcher::new)
   }
 
+  pub fn dispatcher_for<U>(&self) -> Option<MessageDispatcher<U>>
+  where
+    U: Element, {
+    self.responder_as::<U>().or_else(|| self.sender_as::<U>())
+  }
+
   pub fn is_empty(&self) -> bool {
     self.inner.sender.is_none() && self.inner.responder.is_none()
   }
