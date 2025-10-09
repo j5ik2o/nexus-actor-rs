@@ -97,7 +97,9 @@ pub struct DeadlineTimerExpired<Item> {
 
 /// DeadlineTimer の振る舞いを抽象化したトレイト。
 ///
-/// `no_std` 環境でも利用可能な最小 API を提供する。
+/// `ReceiveTimeout` をはじめ、期限付きで要素を管理したい仕組みが
+/// ランタイムごとに異なる実装を差し替えられるよう、挿入・再設定・キャンセル・期限待ちの操作だけを定義している。
+/// `no_std` でも扱えるよう、標準ライブラリ依存の無い API に絞っている。
 pub trait DeadlineTimer {
   /// キューが保持する要素の型。
   type Item;

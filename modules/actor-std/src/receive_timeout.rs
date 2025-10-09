@@ -1,3 +1,8 @@
+//! Tokio ランタイム向けの ReceiveTimeout スケジューラ実装。
+//!
+//! `TokioDeadlineTimer` と優先度付きメールボックスを組み合わせ、アクターへ
+//! `SystemMessage::ReceiveTimeout` を配信する仕組みを提供する。
+
 use core::time::Duration;
 use std::sync::Arc;
 
@@ -11,6 +16,8 @@ use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use tokio::task::JoinHandle;
 
 use crate::TokioMailboxFactory;
+
+/// Tokio メールボックスへ `PriorityEnvelope<DynMessage>` を送信するためのプロデューサ。
 type TokioSender = QueueMailboxProducer<
   <TokioMailboxFactory as MailboxFactory>::Queue<PriorityEnvelope<DynMessage>>,
   <TokioMailboxFactory as MailboxFactory>::Signal,
@@ -38,6 +45,11 @@ impl TimerState {
   }
 }
 
+/// Tokio ランタイム上で `ReceiveTimeout` を駆動するスケジューラ。
+///
+/// 受信専用のタスクを起動し、`TokioDeadlineTimer` をポーリングしながら
+/// 期限切れ時に `PriorityEnvelope<SystemMessage>` を優先度付きメールボックスへ送る。
+/// `ActorCell` 側はタイマー実装を意識せずに `set` / `cancel` / `notify_activity` を呼び出すだけで済む。
 pub struct TokioReceiveTimeoutScheduler {
   tx: UnboundedSender<Command>,
   handle: JoinHandle<()>,
@@ -75,9 +87,15 @@ impl Drop for TokioReceiveTimeoutScheduler {
   }
 }
 
+/// Tokio ランタイム向けの `ReceiveTimeoutSchedulerFactory` 実装。
+///
+/// 優先度付きメールボックスのプロデューサと SystemMessage 変換クロージャを受け取り、
+/// 内部でスケジューラタスクを起動して `ReceiveTimeoutScheduler` を返す。
+/// `install_receive_timeout_scheduler` から登録するだけで、Tokio ランタイムに `ReceiveTimeout` 支援を追加できる。
 pub struct TokioReceiveTimeoutSchedulerFactory;
 
 impl TokioReceiveTimeoutSchedulerFactory {
+  /// 新しいファクトリを生成する。
   pub fn new() -> Self {
     Self
   }

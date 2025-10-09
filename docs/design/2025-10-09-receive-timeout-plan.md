@@ -18,6 +18,20 @@
 - 2025-10-09: `utils-std` に `TokioDeadlineTimer` を実装し、`tokio_util::time::DelayQueue` をラップするテストを追加。PoC の tokio util 依存を本番コードへ移管可能な状態を確認。
 - 2025-10-09: `utils-embedded` に `ManualDeadlineTimer` を追加。`advance` ベースのソフトウェアタイマーで期限を管理し、キャンセル／リセットと単体テストを整備。
 
+## 設計判断と理由
+- **抽象と実装の分離**  
+  - core は `no_std` 制約下で動作させる必要があるため、タイマー実装を一切持ち込まない。`ReceiveTimeoutScheduler` / `DeadlineTimer` を抽象として定義し、実装はランタイム側に委譲する。  
+  - この構成により、`actor-std`（tokio）と `actor-embedded`（ソフトウェアカウンタ）で共通のコアロジックを再利用できる。
+- **SystemMessage を経由した通知**  
+  - タイムアウト通知は `PriorityEnvelope<SystemMessage>` として送信し、他の制御メッセージと同じ優先度制御を受ける。  
+  - 過去の実装で発生した循環参照問題は、メールボックスの producer ハンドルだけを scheduler に渡すことで解決し、`ActorCell` から逆参照が無くなった。
+- **DeadlineTimer のキー変換**  
+  - `tokio_util::time::DelayQueue` は独自のキーを内部管理するため、`TokioDeadlineTimer` では Key のマッピングテーブルを持ち、外部 API には一貫して `DeadlineTimerKey` を見せる。  
+  - これにより core から見たキー管理はランタイム実装に依存せず、他のランタイム実装でも同じキー型を再利用できる。
+- **組み込み向けの歩進タイマー**  
+  - `ManualDeadlineTimer` はハードウェアタイマーが無い環境でも動作するよう `advance` を明示的に呼び出すデザインにした。  
+  - `poll_expired` を Future として実装しておくことで、組み込みランタイム側は `futures` ベースのインターフェースをそのまま活用できる。
+
 ## アーキテクチャ案
 
 ### 1. コア層（`actor-core`）
@@ -59,7 +73,7 @@
 
 ### 3. ランタイム実装例
 - **actor-std (Tokio)**
-  - `tokio::time::Sleep` ベースの最小実装を用意し、後続で DeadlineTimer 等へ置換可能な構成にしておく。
+  - `TokioDeadlineTimer`（DelayQueue ラッパー）と非同期タスクで構成する。キー変換とメールボックスへの送信を scheduler 内に閉じ込める。
   - `TokioMailboxFactory` 初期化時に Scheduler Factory を注入し、`ActorSystemParts` へ渡す。
 
 - **actor-embedded (仮実装)**

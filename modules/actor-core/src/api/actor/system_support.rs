@@ -3,11 +3,6 @@ use core::time::Duration;
 
 use crate::FailureEventStream;
 
-pub use crate::runtime::mailbox::{
-  Mailbox, MailboxFactory, MailboxOptions, MailboxPair, MailboxSignal, PriorityEnvelope, QueueMailbox,
-  QueueMailboxProducer, QueueMailboxRecv, SystemMessage,
-};
-
 /// `ActorSystem` 初期化時に必要な依存集合。
 pub struct ActorSystemParts<MF, S, T, E> {
   pub mailbox_factory: MF,

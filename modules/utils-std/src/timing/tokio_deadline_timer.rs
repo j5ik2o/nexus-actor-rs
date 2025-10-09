@@ -8,6 +8,10 @@ use nexus_utils_core_rs::{
 use tokio_util::time::delay_queue::{DelayQueue as InnerDelayQueue, Key as InnerKey};
 
 /// `tokio_util::time::DelayQueue` をラップし、`DeadlineTimer` 抽象を満たす実装。
+///
+/// DelayQueue の内部キーを外部公開せずに済むよう前後変換テーブルを持ち、
+/// コア層とは一貫して `DeadlineTimerKey` をやり取りする。
+/// `ReceiveTimeout` をはじめ、Tokio ランタイム上で期限付き処理を行う際の共通基盤として利用する。
 #[derive(Debug)]
 pub struct TokioDeadlineTimer<Item> {
   inner: InnerDelayQueue<Item>,

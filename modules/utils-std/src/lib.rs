@@ -1,3 +1,10 @@
+//! std ランタイム向けユーティリティ。
+//!
+//! `nexus_utils_core_rs` で定義された抽象を tokio ベースの実装に結び付け、
+//! `Arc` バックエンドや同期原語、期限付きタイマーをまとめて公開する。
+//! core 側との循環を避けるため re-export を中心とした構成にしており、
+//! `TokioDeadlineTimer` もここから提供される。
+
 pub(crate) mod collections;
 pub(crate) mod concurrent;
 pub(crate) mod sync;
