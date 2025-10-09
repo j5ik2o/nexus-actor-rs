@@ -12,21 +12,21 @@ use crate::PriorityEnvelope;
 use futures::task::AtomicWaker;
 use nexus_utils_core_rs::{Element, QueueError};
 
-/// `ask` 操作の結果を `Result` で表した型エイリアス。
+/// Type alias representing the result of an `ask` operation as `Result`.
 pub type AskResult<T> = Result<T, AskError>;
 
-/// `ask` 処理で発生し得るエラー。
+/// Errors that can occur during `ask` processing.
 #[derive(Debug)]
 pub enum AskError {
-  /// レスポンダーが見つからない
+  /// Responder not found
   MissingResponder,
-  /// メッセージ送信に失敗
+  /// Message send failed
   SendFailed(QueueError<PriorityEnvelope<DynMessage>>),
-  /// レスポンダーが応答前にドロップされた
+  /// Responder was dropped before responding
   ResponderDropped,
-  /// 応答待機がキャンセルされた
+  /// Response await was cancelled
   ResponseAwaitCancelled,
-  /// タイムアウトが発生
+  /// Timeout occurred
   Timeout,
 }
 
@@ -53,7 +53,7 @@ const STATE_READY: u8 = 1;
 const STATE_CANCELLED: u8 = 2;
 const STATE_RESPONDER_DROPPED: u8 = 3;
 
-/// `AskFuture` とレスポンダーが共有する内部状態。
+/// Internal state shared between `AskFuture` and responder.
 struct AskShared<Resp> {
   state: AtomicU8,
   value: UnsafeCell<Option<Resp>>,
@@ -111,7 +111,7 @@ impl<Resp> AskShared<Resp> {
   }
 
   unsafe fn take_value(&self) -> Option<Resp> {
-    // SAFETY: この関数はunsafeであり、呼び出し側が排他的アクセスを保証する責任を持つ
+    // SAFETY: This function is unsafe and the caller is responsible for guaranteeing exclusive access
     unsafe { (*self.value.get()).take() }
   }
 
@@ -123,10 +123,10 @@ impl<Resp> AskShared<Resp> {
 unsafe impl<Resp: Send> Send for AskShared<Resp> {}
 unsafe impl<Resp: Send> Sync for AskShared<Resp> {}
 
-/// `ask` の応答を待ち受ける Future。
+/// Future that awaits a response from an `ask` operation.
 ///
-/// `ask`パターンでメッセージを送信した際に返される Future。
-/// 応答メッセージが到着するまで待機し、結果を返す。
+/// Future returned when sending a message with the `ask` pattern.
+/// Waits until a response message arrives and returns the result.
 pub struct AskFuture<Resp> {
   shared: Arc<AskShared<Resp>>,
 }
@@ -173,10 +173,10 @@ unsafe impl<Resp> Send for AskFuture<Resp> where Resp: Send {}
 unsafe impl<Resp> Sync for AskFuture<Resp> where Resp: Send {}
 impl<Resp> Unpin for AskFuture<Resp> {}
 
-/// タイムアウト制御付きの `AskFuture` ラッパー。
+/// `AskFuture` wrapper with timeout control.
 ///
-/// `AskFuture`にタイムアウト機能を追加したもの。
-/// タイムアウトが先に完了した場合は`AskError::Timeout`を返す。
+/// Adds timeout functionality to `AskFuture`.
+/// Returns `AskError::Timeout` if timeout completes first.
 pub struct AskTimeoutFuture<Resp, TFut> {
   ask: Option<AskFuture<Resp>>,
   timeout: Option<TFut>,
@@ -230,14 +230,14 @@ impl<Resp, TFut> Drop for AskTimeoutFuture<Resp, TFut> {
   }
 }
 
-/// タイムアウト付き`AskFuture`を生成するヘルパー関数。
+/// Helper function to create an `AskFuture` with timeout.
 ///
 /// # Arguments
-/// * `future` - 元となる`AskFuture`
-/// * `timeout` - タイムアウト制御用のFuture
+/// * `future` - Base `AskFuture`
+/// * `timeout` - Future for timeout control
 ///
 /// # Returns
-/// タイムアウト制御付きの`AskTimeoutFuture`
+/// `AskTimeoutFuture` with timeout control
 pub fn ask_with_timeout<Resp, TFut>(future: AskFuture<Resp>, timeout: TFut) -> AskTimeoutFuture<Resp, TFut>
 where
   TFut: Future<Output = ()> + Unpin,
@@ -245,10 +245,10 @@ where
   AskTimeoutFuture::new(future, timeout)
 }
 
-/// `ask`パターン用のFutureとレスポンダーのペアを生成する（内部API）。
+/// Creates a Future and responder pair for the `ask` pattern (internal API).
 ///
 /// # Returns
-/// (`AskFuture`, `MessageSender`)のタプル
+/// Tuple of (`AskFuture`, `MessageSender`)
 pub(crate) fn create_ask_handles<Resp>() -> (AskFuture<Resp>, MessageSender<Resp>)
 where
   Resp: Element, {
@@ -268,7 +268,7 @@ where
           let _ = take_metadata(key);
         }
         if !dispatch_state.complete(value) {
-          // 応答先がキャンセル済みの場合は値を破棄
+          // Discard value if response destination was already cancelled
         }
       }
       MessageEnvelope::System(_) => {
