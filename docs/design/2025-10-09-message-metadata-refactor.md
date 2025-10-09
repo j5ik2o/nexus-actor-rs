@@ -19,13 +19,39 @@
 3. **最終的に完全な typed 化へ移行する** ⏳ *継続タスク*
    - `ActorContext` や scheduler が保持するメタデータ構造をさらに整理し、typed メタデータのみで回す方向を検討する。
    - `UserMessage<U>` ／ `MessageEnvelope<U>` ／ `DynMessage` を調整し、内部でも `InternalMessageMetadata` への依存を最小化する。
-- `InternalMessageSender` は型消去層に限定し、可能な限り `MessageSender<U>` を直接持つ。
+   - `InternalMessageSender` は型消去層に限定し、可能な限り `MessageSender<U>` を直接持つ。
 
 ## 残タスク・検討事項
 - `ActorContext` 内部のメタデータ格納方式の再整理（完全 typed 化 or typed/untyped ブリッジの最小化）。
 - Ask responder の補助 API（例: `MessageMetadata::respond_with` といった糖衣）を用意するかどうか検討。
 - `DynMessage` に型付きメタデータを組み込む設計（ecs 的に metadata を別ストレージに持つ案も含めて比較）。
 - ジェネリック化によるコンパイル時間／バイナリサイズへの影響評価。
+
+## サイドテーブル方式の叩き台
+- 目的: `DynMessage` のサイズを増やさずに typed メタデータをランタイムから参照可能にする。
+- 基本方針:
+  - `InternalMessageMetadata` を `Arc` で保持し、`DynMessage` 生成時にキー（`u64` など）を払い出す。
+  - キーとメタデータの対応は `Scheduler` 側で管理する（例: `slab::Slab<Arc<InternalMessageMetadata>>`）。
+  - `PriorityEnvelope` にはキーのみ埋め込み、`ActorCell::dispatch_envelope` でキーからメタデータを取り出し、`Context::with_metadata` に渡す。
+  - 処理完了後は必ずキーを解放し、リーク防止のユニットテストを追加する。
+- 想定変更箇所:
+  - `modules/actor-core/src/api/actor/actor_ref.rs`: `wrap_user_with_metadata` でキーを取得し `PriorityEnvelope` へ埋め込み。
+  - `modules/actor-core/src/runtime/mailbox/messages.rs`: `PriorityEnvelope` に `metadata_key: Option<MetadataKey>` を追加。
+  - `modules/actor-core/src/runtime/message/mod.rs` 付近に `MetadataTable`（Slab 管理）の新モジュールを追加。
+  - `modules/actor-core/src/runtime/scheduler/actor_cell.rs`: `dispatch_envelope` でキー解決とクリーンアップを実施。
+  - `modules/actor-core/src/api/messaging/message_envelope.rs`: `UserMessage` はメタデータを `Arc` キーへ移譲し、保持コストを削減。
+- 検証タスク:
+  - enqueue/dequeue パスでキー管理が O(1) であることをベンチマーク（`criterion` などを利用）。
+  - キー未解放の検出と Panic ハンドリング時の挙動確認。
+
+## ベンチ・計測準備案
+- 新規 `benches/metadata_table.rs` を追加し、以下を測定:
+  1. 現行実装（`UserMessage` にメタデータ内包）での enqueue/dequeue 時間。
+  2. サイドテーブル案での同等処理。
+- ベンチ対象 API:
+  - `ActorRef::tell_with_metadata` → `ActorCell::dispatch_envelope` の流れを模した micro bench。
+  - メタデータ無しケース（`MessageMetadata::default()`）と有りケースを分けて比較。
+- 結果は設計メモに追記し、閾値（例: 5% 以内）を超える regress があれば DynMessage 拡張案へフォールバック検討。
 
 ---
 このメモは段階的な実装計画を共有するためのものであり、実作業に着手する際は各ステップごとに PR / 設計レビューを行う。
