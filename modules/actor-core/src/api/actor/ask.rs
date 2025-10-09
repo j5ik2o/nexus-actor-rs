@@ -241,8 +241,7 @@ impl<Resp, TFut> Drop for AskTimeoutFuture<Resp, TFut> {
 pub fn ask_with_timeout<Resp, TFut>(future: AskFuture<Resp>, timeout: TFut) -> AskTimeoutFuture<Resp, TFut>
 where
   TFut: Future<Output = ()> + Unpin,
-  Resp: Element,
-{
+  Resp: Element, {
   AskTimeoutFuture::new(future, timeout)
 }
 
@@ -252,8 +251,7 @@ where
 /// (`AskFuture`, `MessageSender`)のタプル
 pub(crate) fn create_ask_handles<Resp>() -> (AskFuture<Resp>, MessageSender<Resp>)
 where
-  Resp: Element,
-{
+  Resp: Element, {
   let shared = Arc::new(AskShared::<Resp>::new());
   let future = AskFuture::new(shared.clone());
   let dispatch_state = shared.clone();

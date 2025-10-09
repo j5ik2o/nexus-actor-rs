@@ -19,8 +19,7 @@ where
   U: Element,
   R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
-  R::Signal: Clone,
-{
+  R::Signal: Clone, {
   inner: InternalActorRef<DynMessage, R>,
   _marker: PhantomData<U>,
 }
@@ -132,8 +131,7 @@ where
   pub fn to_dispatcher(&self) -> MessageSender<U>
   where
     R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
-    R::Signal: Clone + Send + Sync + 'static,
-  {
+    R::Signal: Clone + Send + Sync + 'static, {
     let internal = InternalMessageSender::from_internal_ref(self.inner.clone());
     MessageSender::new(internal)
   }
@@ -152,8 +150,7 @@ where
   where
     S: Element,
     R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
-    R::Signal: Clone + Send + Sync + 'static,
-  {
+    R::Signal: Clone + Send + Sync + 'static, {
     self.request_with_dispatcher(message, sender.to_dispatcher())
   }
 
@@ -169,8 +166,7 @@ where
     sender: MessageSender<S>,
   ) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>>
   where
-    S: Element,
-  {
+    S: Element, {
     let metadata = MessageMetadata::new().with_sender(sender);
     self.tell_with_metadata(message, metadata)
   }
@@ -184,8 +180,7 @@ where
   /// 応答を待ち受ける`AskFuture`
   pub(crate) fn request_future<Resp>(&self, message: U) -> AskResult<AskFuture<Resp>>
   where
-    Resp: Element,
-  {
+    Resp: Element, {
     let (future, responder) = create_ask_handles::<Resp>();
     let metadata = MessageMetadata::new().with_responder(responder);
     self.tell_with_metadata(message, metadata)?;
@@ -203,8 +198,7 @@ where
     Resp: Element,
     S: Element,
     R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
-    R::Signal: Clone + Send + Sync + 'static,
-  {
+    R::Signal: Clone + Send + Sync + 'static, {
     self.request_future_with_dispatcher(message, sender.to_dispatcher())
   }
 
@@ -221,8 +215,7 @@ where
   ) -> AskResult<AskFuture<Resp>>
   where
     Resp: Element,
-    S: Element,
-  {
+    S: Element, {
     let (future, responder) = create_ask_handles::<Resp>();
     let metadata = MessageMetadata::new().with_sender(sender).with_responder(responder);
     self.tell_with_metadata(message, metadata)?;
@@ -244,8 +237,7 @@ where
     Resp: Element,
     TFut: Future<Output = ()> + Unpin,
     R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
-    R::Signal: Clone + Send + Sync + 'static,
-  {
+    R::Signal: Clone + Send + Sync + 'static, {
     let mut timeout = Some(timeout);
     let (future, responder) = create_ask_handles::<Resp>();
     let metadata = MessageMetadata::new().with_responder(responder);
@@ -273,8 +265,7 @@ where
     S: Element,
     TFut: Future<Output = ()> + Unpin,
     R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
-    R::Signal: Clone + Send + Sync + 'static,
-  {
+    R::Signal: Clone + Send + Sync + 'static, {
     self.request_future_with_timeout_dispatcher(message, sender.to_dispatcher(), timeout)
   }
 
@@ -296,8 +287,7 @@ where
     S: Element,
     TFut: Future<Output = ()> + Unpin,
     R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
-    R::Signal: Clone + Send + Sync + 'static,
-  {
+    R::Signal: Clone + Send + Sync + 'static, {
     let mut timeout = Some(timeout);
     let (future, responder) = create_ask_handles::<Resp>();
     let metadata = MessageMetadata::new().with_sender(sender).with_responder(responder);
@@ -319,8 +309,7 @@ where
   pub fn ask_with<Resp, F>(&self, factory: F) -> AskResult<AskFuture<Resp>>
   where
     Resp: Element,
-    F: FnOnce(MessageSender<Resp>) -> U,
-  {
+    F: FnOnce(MessageSender<Resp>) -> U, {
     let (future, responder) = create_ask_handles::<Resp>();
     let responder_for_message = MessageSender::new(responder.internal());
     let message = factory(responder_for_message);
@@ -341,8 +330,7 @@ where
   where
     Resp: Element,
     F: FnOnce(MessageSender<Resp>) -> U,
-    TFut: Future<Output = ()> + Unpin,
-  {
+    TFut: Future<Output = ()> + Unpin, {
     let mut timeout = Some(timeout);
     let (future, responder) = create_ask_handles::<Resp>();
     let responder_for_message = MessageSender::new(responder.internal());

@@ -25,8 +25,7 @@ where
   U: Element,
   R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
-  R::Signal: Clone,
-{
+  R::Signal: Clone, {
   inner: &'r mut ActorContext<'ctx, DynMessage, R, dyn Supervisor<DynMessage>>,
   metadata: Option<MessageMetadata>,
   _marker: PhantomData<U>,
@@ -78,47 +77,41 @@ impl ContextLogger {
   /// トレースレベルのログを出力する。
   pub fn trace<F>(&self, message: F)
   where
-    F: FnOnce() -> String,
-  {
+    F: FnOnce() -> String, {
     self.emit(ContextLogLevel::Trace, message);
   }
 
   /// デバッグレベルのログを出力する。
   pub fn debug<F>(&self, message: F)
   where
-    F: FnOnce() -> String,
-  {
+    F: FnOnce() -> String, {
     self.emit(ContextLogLevel::Debug, message);
   }
 
   /// 情報レベルのログを出力する。
   pub fn info<F>(&self, message: F)
   where
-    F: FnOnce() -> String,
-  {
+    F: FnOnce() -> String, {
     self.emit(ContextLogLevel::Info, message);
   }
 
   /// 警告レベルのログを出力する。
   pub fn warn<F>(&self, message: F)
   where
-    F: FnOnce() -> String,
-  {
+    F: FnOnce() -> String, {
     self.emit(ContextLogLevel::Warn, message);
   }
 
   /// エラーレベルのログを出力する。
   pub fn error<F>(&self, message: F)
   where
-    F: FnOnce() -> String,
-  {
+    F: FnOnce() -> String, {
     self.emit(ContextLogLevel::Error, message);
   }
 
   fn emit<F>(&self, level: ContextLogLevel, message: F)
   where
-    F: FnOnce() -> String,
-  {
+    F: FnOnce() -> String, {
     #[cfg(feature = "tracing")]
     {
       let text = message();
@@ -278,8 +271,7 @@ where
   pub fn message_adapter<Ext, F>(&self, f: F) -> MessageAdapterRef<Ext, U, R>
   where
     Ext: Element,
-    F: Fn(Ext) -> U + Send + Sync + 'static,
-  {
+    F: Fn(Ext) -> U + Send + Sync + 'static, {
     MessageAdapterRef::new(self.self_ref(), Arc::new(f))
   }
 
@@ -337,8 +329,7 @@ where
   pub(crate) fn self_dispatcher(&self) -> MessageSender<U>
   where
     R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
-    R::Signal: Clone + Send + Sync + 'static,
-  {
+    R::Signal: Clone + Send + Sync + 'static, {
     self.self_ref().to_dispatcher()
   }
 
@@ -360,8 +351,7 @@ where
   where
     V: Element,
     R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
-    R::Signal: Clone + Send + Sync + 'static,
-  {
+    R::Signal: Clone + Send + Sync + 'static, {
     let metadata = MessageMetadata::new().with_sender(self.self_dispatcher());
     target.tell_with_metadata(message, metadata)
   }
@@ -385,8 +375,7 @@ where
     V: Element,
     S: Element,
     R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
-    R::Signal: Clone + Send + Sync + 'static,
-  {
+    R::Signal: Clone + Send + Sync + 'static, {
     let metadata = MessageMetadata::new().with_sender(sender.to_dispatcher());
     target.tell_with_metadata(message, metadata)
   }
@@ -407,8 +396,7 @@ where
     message: V,
   ) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>>
   where
-    V: Element,
-  {
+    V: Element, {
     let metadata = self.message_metadata().cloned().unwrap_or_default();
     target.tell_with_metadata(message, metadata)
   }
@@ -428,8 +416,7 @@ where
   where
     Resp: Element,
     R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
-    R::Signal: Clone + Send + Sync + 'static,
-  {
+    R::Signal: Clone + Send + Sync + 'static, {
     let metadata = self.message_metadata().cloned().ok_or(AskError::MissingResponder)?;
     metadata.respond_with(self, message)
   }
@@ -450,8 +437,7 @@ where
     Resp: Element,
     F: FnOnce(MessageSender<Resp>) -> V,
     R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
-    R::Signal: Clone + Send + Sync + 'static,
-  {
+    R::Signal: Clone + Send + Sync + 'static, {
     let (future, responder) = create_ask_handles::<Resp>();
     let responder_for_message = MessageSender::new(responder.internal());
     let message = factory(responder_for_message);
@@ -483,8 +469,7 @@ where
     F: FnOnce(MessageSender<Resp>) -> V,
     TFut: Future<Output = ()> + Unpin,
     R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
-    R::Signal: Clone + Send + Sync + 'static,
-  {
+    R::Signal: Clone + Send + Sync + 'static, {
     let mut timeout = Some(timeout);
     let (future, responder) = create_ask_handles::<Resp>();
     let responder_for_message = MessageSender::new(responder.internal());
@@ -511,8 +496,7 @@ where
     V: Element,
     Resp: Element,
     R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
-    R::Signal: Clone + Send + Sync + 'static,
-  {
+    R::Signal: Clone + Send + Sync + 'static, {
     let (future, responder) = create_ask_handles::<Resp>();
     let metadata = MessageMetadata::new()
       .with_sender(self.self_dispatcher())
@@ -541,8 +525,7 @@ where
     Resp: Element,
     TFut: Future<Output = ()> + Unpin,
     R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
-    R::Signal: Clone + Send + Sync + 'static,
-  {
+    R::Signal: Clone + Send + Sync + 'static, {
     let mut timeout = Some(timeout);
     let (future, responder) = create_ask_handles::<Resp>();
     let metadata = MessageMetadata::new()
@@ -557,8 +540,7 @@ where
   /// 子アクターを生成し、`ActorRef` を返す。
   pub fn spawn_child<V>(&mut self, props: Props<V, R>) -> ActorRef<V, R>
   where
-    V: Element,
-  {
+    V: Element, {
     let (internal_props, supervisor_cfg) = props.into_parts();
     let actor_ref = self
       .inner
@@ -586,8 +568,7 @@ impl MessageMetadata {
     U: Element,
     R: MailboxFactory + Clone + 'static,
     R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
-    R::Signal: Clone + Send + Sync + 'static,
-  {
+    R::Signal: Clone + Send + Sync + 'static, {
     let dispatcher = self.dispatcher_for::<Resp>().ok_or(AskError::MissingResponder)?;
     let dispatch_metadata = MessageMetadata::new().with_sender(ctx.self_dispatcher());
     let envelope = MessageEnvelope::user_with_metadata(message, dispatch_metadata);
@@ -605,8 +586,7 @@ where
   U: Element,
   R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
-  R::Signal: Clone,
-{
+  R::Signal: Clone, {
   target: ActorRef<U, R>,
   adapter: Arc<dyn Fn(Ext) -> U + Send + Sync>,
 }

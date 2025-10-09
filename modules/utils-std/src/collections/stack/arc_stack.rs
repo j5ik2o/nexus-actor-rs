@@ -87,8 +87,7 @@ impl<T> ArcStack<T> {
   /// A clone of the top element `Some(T)` if the stack is not empty, `None` if empty
   pub fn peek(&self) -> Option<T>
   where
-    T: Clone,
-  {
+    T: Clone, {
     self.inner.peek()
   }
 
@@ -147,8 +146,7 @@ impl<T> StackMut<T> for ArcStack<T> {
 
   fn peek(&self) -> Option<T>
   where
-    T: Clone,
-  {
+    T: Clone, {
     self.inner.peek()
   }
 }

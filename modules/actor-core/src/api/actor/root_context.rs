@@ -18,8 +18,7 @@ where
   R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
   R::Signal: Clone,
-  Strat: crate::api::guardian::GuardianStrategy<DynMessage, R>,
-{
+  Strat: crate::api::guardian::GuardianStrategy<DynMessage, R>, {
   pub(crate) inner: InternalRootContext<'a, DynMessage, R, Strat>,
   pub(crate) _marker: PhantomData<U>,
 }
@@ -62,8 +61,7 @@ where
   pub fn request_future<V, Resp>(&self, target: &ActorRef<V, R>, message: V) -> AskResult<AskFuture<Resp>>
   where
     V: Element,
-    Resp: Element,
-  {
+    Resp: Element, {
     target.request_future(message)
   }
 
@@ -87,8 +85,7 @@ where
   where
     V: Element,
     Resp: Element,
-    TFut: Future<Output = ()> + Unpin,
-  {
+    TFut: Future<Output = ()> + Unpin, {
     let future = target.request_future(message)?;
     Ok(ask_with_timeout(future, timeout))
   }

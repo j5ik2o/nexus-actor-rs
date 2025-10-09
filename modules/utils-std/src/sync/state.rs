@@ -66,8 +66,7 @@ impl<T> StateCell<T> for ArcStateCell<T> {
 
   fn new(value: T) -> Self
   where
-    Self: Sized,
-  {
+    Self: Sized, {
     ArcStateCell::new(value)
   }
 

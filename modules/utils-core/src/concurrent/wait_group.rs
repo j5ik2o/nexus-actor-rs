@@ -77,8 +77,7 @@ pub trait WaitGroupBackend: Clone {
 #[derive(Clone, Debug)]
 pub struct WaitGroup<B>
 where
-  B: WaitGroupBackend,
-{
+  B: WaitGroupBackend, {
   backend: B,
 }
 

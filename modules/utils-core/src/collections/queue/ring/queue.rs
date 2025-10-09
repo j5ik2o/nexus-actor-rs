@@ -7,8 +7,7 @@ use crate::collections::queue::{QueueBase, QueueError, QueueReader, QueueRw, Que
 #[derive(Debug)]
 pub struct RingQueue<H, E>
 where
-  H: RingHandle<E>,
-{
+  H: RingHandle<E>, {
   backend: H,
   _marker: PhantomData<E>,
 }

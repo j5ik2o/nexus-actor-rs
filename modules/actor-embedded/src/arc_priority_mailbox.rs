@@ -16,8 +16,7 @@ use crate::arc_mailbox::ArcSignal;
 pub struct ArcPriorityQueues<M, RM>
 where
   M: Element,
-  RM: RawMutex,
-{
+  RM: RawMutex, {
   control: ArcPriorityQueue<PriorityEnvelope<M>, RM>,
   regular: ArcRingQueue<PriorityEnvelope<M>, RM>,
   regular_capacity: usize,
@@ -166,8 +165,7 @@ where
 pub struct ArcPriorityMailbox<M, RM = CriticalSectionRawMutex>
 where
   M: Element,
-  RM: RawMutex,
-{
+  RM: RawMutex, {
   inner: QueueMailbox<ArcPriorityQueues<M, RM>, ArcSignal<RM>>,
 }
 
@@ -175,16 +173,14 @@ where
 pub struct ArcPriorityMailboxSender<M, RM = CriticalSectionRawMutex>
 where
   M: Element,
-  RM: RawMutex,
-{
+  RM: RawMutex, {
   inner: QueueMailboxProducer<ArcPriorityQueues<M, RM>, ArcSignal<RM>>,
 }
 
 #[derive(Clone, Debug)]
 pub struct ArcPriorityMailboxFactory<RM = CriticalSectionRawMutex>
 where
-  RM: RawMutex,
-{
+  RM: RawMutex, {
   control_capacity_per_level: usize,
   regular_capacity: usize,
   levels: usize,
@@ -230,8 +226,7 @@ where
 
   pub fn mailbox<M>(&self, options: MailboxOptions) -> (ArcPriorityMailbox<M, RM>, ArcPriorityMailboxSender<M, RM>)
   where
-    M: Element,
-  {
+    M: Element, {
     let control_per_level = self.resolve_control_capacity(options.priority_capacity);
     let regular_capacity = self.resolve_regular_capacity(options.capacity);
     let queue = ArcPriorityQueues::new(self.levels, control_per_level, regular_capacity);

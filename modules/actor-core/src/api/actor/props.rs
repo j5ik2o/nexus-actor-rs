@@ -23,8 +23,7 @@ where
   U: Element,
   R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
-  R::Signal: Clone,
-{
+  R::Signal: Clone, {
   inner: InternalProps<DynMessage, R>,
   _marker: PhantomData<U>,
   supervisor: SupervisorStrategyConfig,
@@ -44,8 +43,7 @@ where
   /// * `handler` - ユーザーメッセージを処理するハンドラ関数
   pub fn new<F>(options: MailboxOptions, handler: F) -> Self
   where
-    F: for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, U) + 'static,
-  {
+    F: for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, U) + 'static, {
     let handler_cell = Rc::new(RefCell::new(handler));
     Self::with_behavior(options, {
       let handler_cell = handler_cell.clone();
@@ -65,8 +63,7 @@ where
   /// * `behavior_factory` - アクターの振る舞いを生成するファクトリ関数
   pub fn with_behavior<F>(options: MailboxOptions, behavior_factory: F) -> Self
   where
-    F: Fn() -> Behavior<U, R> + 'static,
-  {
+    F: Fn() -> Behavior<U, R> + 'static, {
     Self::with_behavior_and_system::<_, fn(&mut Context<'_, '_, U, R>, SystemMessage)>(options, behavior_factory, None)
   }
 
@@ -79,8 +76,7 @@ where
   pub fn with_system_handler<F, G>(options: MailboxOptions, user_handler: F, system_handler: Option<G>) -> Self
   where
     F: for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, U) + 'static,
-    G: for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, SystemMessage) + 'static,
-  {
+    G: for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, SystemMessage) + 'static, {
     let handler_cell = Rc::new(RefCell::new(user_handler));
     Self::with_behavior_and_system(
       options,
@@ -105,11 +101,14 @@ where
   /// * `options` - メールボックスオプション
   /// * `behavior_factory` - アクターの振る舞いを生成するファクトリ関数
   /// * `system_handler` - システムメッセージを処理するハンドラ関数（オプション）
-  pub fn with_behavior_and_system<F, S>(options: MailboxOptions, behavior_factory: F, system_handler: Option<S>) -> Self
+  pub fn with_behavior_and_system<F, S>(
+    options: MailboxOptions,
+    behavior_factory: F,
+    system_handler: Option<S>,
+  ) -> Self
   where
     F: Fn() -> Behavior<U, R> + 'static,
-    S: for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, SystemMessage) + 'static,
-  {
+    S: for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, SystemMessage) + 'static, {
     let behavior_factory: Arc<dyn Fn() -> Behavior<U, R> + 'static> = Arc::new(behavior_factory);
     let mut adapter = ActorAdapter::new(behavior_factory.clone(), system_handler);
     let map_system = ActorAdapter::<U, R>::create_map_system();

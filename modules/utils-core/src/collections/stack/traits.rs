@@ -185,8 +185,7 @@ where
 
   fn peek(&self) -> Option<T>
   where
-    T: Clone,
-  {
+    T: Clone, {
     self.storage.with_read(|buffer| buffer.peek().cloned())
   }
 }

@@ -35,8 +35,7 @@ where
   M: Element + 'static,
   R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<M>>: Clone,
-  R::Signal: Clone,
-{
+  R::Signal: Clone, {
   /// Creates an actor-specific scheduler by receiving a priority mailbox and SystemMessage conversion function.
   fn create(
     &self,

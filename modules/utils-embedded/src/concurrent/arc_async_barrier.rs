@@ -10,8 +10,7 @@ use nexus_utils_core_rs::{async_trait, AsyncBarrier as CoreAsyncBarrier, AsyncBa
 
 pub struct ArcAsyncBarrierBackend<RM>
 where
-  RM: RawMutex,
-{
+  RM: RawMutex, {
   remaining: Arc<AtomicUsize>,
   initial: usize,
   signal: Arc<Signal<RM, ()>>,

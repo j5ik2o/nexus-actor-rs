@@ -37,8 +37,7 @@ where
   /// Creates a new synchronization backend with the specified value.
   fn new(value: T) -> Self
   where
-    T: Sized,
-  {
+    T: Sized, {
     Self {
       inner: Rc::new(Mutex::new(value)),
     }
@@ -84,8 +83,7 @@ where
   /// Creates a new read/write synchronization backend with the specified value.
   fn new(value: T) -> Self
   where
-    T: Sized,
-  {
+    T: Sized, {
     Self {
       inner: Rc::new(RwLock::new(value)),
     }

@@ -79,8 +79,7 @@ impl InternalMessageSender {
   where
     R: MailboxFactory + Clone + 'static,
     R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
-    R::Signal: Clone + Send + Sync + 'static,
-  {
+    R::Signal: Clone + Send + Sync + 'static, {
     let sender = actor_ref.clone();
     Self::new(Arc::new(move |message, priority| {
       sender.try_send_with_priority(message, priority)
@@ -100,8 +99,7 @@ impl Drop for InternalMessageSender {
 #[derive(Clone)]
 pub struct MessageSender<M>
 where
-  M: Element,
-{
+  M: Element, {
   inner: InternalMessageSender,
   _marker: PhantomData<fn(M)>,
 }
@@ -284,8 +282,7 @@ impl MessageMetadata {
   /// * `sender` - 設定する送信者のセンダー
   pub fn with_sender<U>(mut self, sender: MessageSender<U>) -> Self
   where
-    U: Element,
-  {
+    U: Element, {
     self.inner = self.inner.with_sender(Some(sender.into_internal()));
     self
   }
@@ -296,8 +293,7 @@ impl MessageMetadata {
   /// * `responder` - 設定する応答者のセンダー
   pub fn with_responder<U>(mut self, responder: MessageSender<U>) -> Self
   where
-    U: Element,
-  {
+    U: Element, {
     self.inner = self.inner.with_responder(Some(responder.into_internal()));
     self
   }
@@ -308,8 +304,7 @@ impl MessageMetadata {
   /// 送信者が存在する場合は`Some(MessageSender<U>)`、存在しない場合は`None`
   pub fn sender_as<U>(&self) -> Option<MessageSender<U>>
   where
-    U: Element,
-  {
+    U: Element, {
     self.inner.sender_cloned().map(MessageSender::new)
   }
 
@@ -319,8 +314,7 @@ impl MessageMetadata {
   /// 応答者が存在する場合は`Some(MessageSender<U>)`、存在しない場合は`None`
   pub fn responder_as<U>(&self) -> Option<MessageSender<U>>
   where
-    U: Element,
-  {
+    U: Element, {
     self.inner.responder_cloned().map(MessageSender::new)
   }
 
@@ -332,8 +326,7 @@ impl MessageMetadata {
   /// ディスパッチャーが存在する場合は`Some(MessageSender<U>)`、存在しない場合は`None`
   pub fn dispatcher_for<U>(&self) -> Option<MessageSender<U>>
   where
-    U: Element,
-  {
+    U: Element, {
     self.responder_as::<U>().or_else(|| self.sender_as::<U>())
   }
 

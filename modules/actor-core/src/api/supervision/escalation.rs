@@ -24,8 +24,7 @@ where
   M: Element,
   R: MailboxFactory,
   R::Queue<PriorityEnvelope<M>>: Clone,
-  R::Signal: Clone,
-{
+  R::Signal: Clone, {
   /// Processes failure information.
   ///
   /// # Arguments
@@ -48,8 +47,7 @@ where
   M: Element,
   R: MailboxFactory,
   R::Queue<PriorityEnvelope<M>>: Clone,
-  R::Signal: Clone,
-{
+  R::Signal: Clone, {
   event_handler: Option<FailureEventHandler>,
   event_listener: Option<FailureEventListener>,
   _marker: PhantomData<(M, R)>,

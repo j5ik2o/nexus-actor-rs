@@ -64,8 +64,7 @@ use nexus_remote_core_rs::RemoteFailureNotifier;
 #[cfg(feature = "std")]
 pub struct ClusterFailureBridge<E>
 where
-  E: FailureEventStream,
-{
+  E: FailureEventStream, {
   hub: E,
   remote_notifier: RemoteFailureNotifier<E>,
 }

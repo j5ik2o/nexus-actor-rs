@@ -16,8 +16,7 @@ use nexus_utils_embedded_rs::{Element, QueueBase, QueueError, QueueRw, QueueSize
 #[derive(Debug)]
 pub struct LocalQueue<M>
 where
-  M: Element,
-{
+  M: Element, {
   inner: Rc<RcMpscUnboundedQueue<M>>,
 }
 
@@ -82,8 +81,7 @@ where
 /// Uses `Rc`-based queue to deliver messages in `!Send` environments.
 pub struct LocalMailbox<M>
 where
-  M: Element,
-{
+  M: Element, {
   inner: QueueMailbox<LocalQueue<M>, LocalSignal>,
 }
 
@@ -92,8 +90,7 @@ where
 /// A handle for sending messages to the mailbox asynchronously.
 pub struct LocalMailboxSender<M>
 where
-  M: Element,
-{
+  M: Element, {
   inner: QueueMailboxProducer<LocalQueue<M>, LocalSignal>,
 }
 
@@ -175,8 +172,7 @@ impl LocalMailboxFactory {
   /// A tuple of (receiver mailbox, sender handle)
   pub fn mailbox<M>(&self, options: MailboxOptions) -> (LocalMailbox<M>, LocalMailboxSender<M>)
   where
-    M: Element,
-  {
+    M: Element, {
     let (mailbox, sender) = self.build_mailbox::<M>(options);
     (LocalMailbox { inner: mailbox }, LocalMailboxSender { inner: sender })
   }
@@ -188,8 +184,7 @@ impl LocalMailboxFactory {
   /// A tuple of (receiver mailbox, sender handle)
   pub fn unbounded<M>(&self) -> (LocalMailbox<M>, LocalMailboxSender<M>)
   where
-    M: Element,
-  {
+    M: Element, {
     self.mailbox(MailboxOptions::unbounded())
   }
 }
@@ -203,8 +198,7 @@ impl MailboxFactory for LocalMailboxFactory {
 
   fn build_mailbox<M>(&self, _options: MailboxOptions) -> MailboxPair<Self::Queue<M>, Self::Signal>
   where
-    M: Element,
-  {
+    M: Element, {
     let queue = LocalQueue::new();
     let signal = LocalSignal::default();
     let mailbox = QueueMailbox::new(queue, signal);
@@ -234,8 +228,7 @@ where
   /// A new sender to the mailbox
   pub fn producer(&self) -> LocalMailboxSender<M>
   where
-    LocalSignal: Clone,
-  {
+    LocalSignal: Clone, {
     LocalMailboxSender {
       inner: self.inner.producer(),
     }
@@ -393,8 +386,7 @@ mod tests {
 
   fn pin_poll<F>(mut fut: F) -> (Poll<F::Output>, F)
   where
-    F: Future + Unpin,
-  {
+    F: Future + Unpin, {
     let waker = noop_waker();
     let mut cx = Context::from_waker(&waker);
     let poll = Pin::new(&mut fut).poll(&mut cx);

@@ -40,8 +40,7 @@ use futures::future;
 
 fn noop_sender<M>() -> MessageSender<M>
 where
-  M: Element,
-{
+  M: Element, {
   let dispatch =
     Arc::new(|_message: DynMessage, _priority: i8| -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> { Ok(()) });
   let internal = InternalMessageSender::new(dispatch);
@@ -602,8 +601,7 @@ fn noop_waker() -> Waker {
 
 fn resolve<F>(mut future: F) -> F::Output
 where
-  F: Future + Unpin,
-{
+  F: Future + Unpin, {
   let waker = noop_waker();
   let mut future = Pin::new(&mut future);
   let mut cx = TaskContext::from_waker(&waker);

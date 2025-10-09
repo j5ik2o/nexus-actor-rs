@@ -85,8 +85,7 @@ pub trait CountDownLatchBackend: Clone {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CountDownLatch<B>
 where
-  B: CountDownLatchBackend,
-{
+  B: CountDownLatchBackend, {
   backend: B,
 }
 

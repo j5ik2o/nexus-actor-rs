@@ -44,8 +44,7 @@ impl SupervisorStrategyConfig {
 
   pub(crate) fn into_supervisor<M>(&self) -> DynSupervisor<M>
   where
-    M: Element,
-  {
+    M: Element, {
     let inner: Box<dyn Supervisor<M>> = match self {
       SupervisorStrategyConfig::Default => Box::new(NoopSupervisor),
       SupervisorStrategyConfig::Fixed(strategy) => Box::new(FixedDirectiveSupervisor::new(*strategy)),
@@ -101,8 +100,7 @@ impl<M> Supervisor<M> for FixedDirectiveSupervisor {
 /// 動的なスーパーバイザー実装（内部型）。
 pub(crate) struct DynSupervisor<M>
 where
-  M: Element,
-{
+  M: Element, {
   inner: Box<dyn Supervisor<M>>,
 }
 
@@ -140,8 +138,7 @@ where
   U: Element,
   R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
-  R::Signal: Clone,
-{
+  R::Signal: Clone, {
   /// 同じBehaviorを維持する
   Same,
   /// 新しいBehaviorへ遷移する
@@ -154,8 +151,7 @@ where
   U: Element,
   R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
-  R::Signal: Clone,
-{
+  R::Signal: Clone, {
   handler: Box<ReceiveFn<U, R>>,
   supervisor: SupervisorStrategyConfig,
   signal_handler: Option<Arc<SignalFn<U, R>>>,
@@ -194,8 +190,7 @@ where
   U: Element,
   R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
-  R::Signal: Clone,
-{
+  R::Signal: Clone, {
   /// メッセージ受信状態
   Receive(BehaviorState<U, R>),
   /// セットアップ処理を実行してBehaviorを生成
@@ -217,8 +212,7 @@ where
   /// * `handler` - メッセージを受信した際の処理
   pub fn receive<F>(handler: F) -> Self
   where
-    F: for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, U) -> BehaviorDirective<U, R> + 'static,
-  {
+    F: for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, U) -> BehaviorDirective<U, R> + 'static, {
     Self::Receive(BehaviorState::new(
       Box::new(handler),
       SupervisorStrategyConfig::default(),
@@ -233,8 +227,7 @@ where
   /// * `handler` - メッセージを受信した際の処理
   pub fn stateless<F>(mut handler: F) -> Self
   where
-    F: for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, U) + 'static,
-  {
+    F: for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, U) + 'static, {
     Self::Receive(BehaviorState::new(
       Box::new(move |ctx, msg| {
         handler(ctx, msg);
@@ -250,8 +243,7 @@ where
   /// * `handler` - メッセージを受信した際の処理
   pub fn receive_message<F>(mut handler: F) -> Self
   where
-    F: FnMut(U) -> BehaviorDirective<U, R> + 'static,
-  {
+    F: FnMut(U) -> BehaviorDirective<U, R> + 'static, {
     Self::receive(move |_, msg| handler(msg))
   }
 
@@ -266,8 +258,7 @@ where
   /// * `init` - 初期化処理。Contextを受け取ってBehaviorを返す
   pub fn setup<F>(init: F) -> Self
   where
-    F: for<'r, 'ctx> Fn(&mut Context<'r, 'ctx, U, R>) -> Behavior<U, R> + 'static,
-  {
+    F: for<'r, 'ctx> Fn(&mut Context<'r, 'ctx, U, R>) -> Behavior<U, R> + 'static, {
     Self::Setup(Arc::new(init), None)
   }
 
@@ -285,8 +276,7 @@ where
   /// * `handler` - シグナル受信時の処理
   pub fn receive_signal<F>(self, handler: F) -> Self
   where
-    F: for<'r, 'ctx> Fn(&mut Context<'r, 'ctx, U, R>, Signal) -> BehaviorDirective<U, R> + 'static,
-  {
+    F: for<'r, 'ctx> Fn(&mut Context<'r, 'ctx, U, R>, Signal) -> BehaviorDirective<U, R> + 'static, {
     let handler = Arc::new(handler) as Arc<SignalFn<U, R>>;
     self.attach_signal_arc(Some(handler))
   }
@@ -320,8 +310,7 @@ impl Behaviors {
     R: MailboxFactory + Clone + 'static,
     R::Queue<PriorityEnvelope<DynMessage>>: Clone,
     R::Signal: Clone,
-    F: for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, U) -> BehaviorDirective<U, R> + 'static,
-  {
+    F: for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, U) -> BehaviorDirective<U, R> + 'static, {
     Behavior::receive(handler)
   }
 
@@ -331,8 +320,7 @@ impl Behaviors {
     U: Element,
     R: MailboxFactory + Clone + 'static,
     R::Queue<PriorityEnvelope<DynMessage>>: Clone,
-    R::Signal: Clone,
-  {
+    R::Signal: Clone, {
     BehaviorDirective::Same
   }
 
@@ -343,8 +331,7 @@ impl Behaviors {
     R: MailboxFactory + Clone + 'static,
     R::Queue<PriorityEnvelope<DynMessage>>: Clone,
     R::Signal: Clone,
-    F: FnMut(U) -> BehaviorDirective<U, R> + 'static,
-  {
+    F: FnMut(U) -> BehaviorDirective<U, R> + 'static, {
     Behavior::receive_message(handler)
   }
 
@@ -354,8 +341,7 @@ impl Behaviors {
     U: Element,
     R: MailboxFactory + Clone + 'static,
     R::Queue<PriorityEnvelope<DynMessage>>: Clone,
-    R::Signal: Clone,
-  {
+    R::Signal: Clone, {
     BehaviorDirective::Become(behavior)
   }
 
@@ -365,8 +351,7 @@ impl Behaviors {
     U: Element,
     R: MailboxFactory + Clone + 'static,
     R::Queue<PriorityEnvelope<DynMessage>>: Clone,
-    R::Signal: Clone,
-  {
+    R::Signal: Clone, {
     BehaviorDirective::Become(Behavior::stopped())
   }
 
@@ -376,8 +361,7 @@ impl Behaviors {
     U: Element,
     R: MailboxFactory + Clone + 'static,
     R::Queue<PriorityEnvelope<DynMessage>>: Clone,
-    R::Signal: Clone,
-  {
+    R::Signal: Clone, {
     SuperviseBuilder { behavior }
   }
 
@@ -388,8 +372,7 @@ impl Behaviors {
     R: MailboxFactory + Clone + 'static,
     R::Queue<PriorityEnvelope<DynMessage>>: Clone,
     R::Signal: Clone,
-    F: for<'r, 'ctx> Fn(&mut Context<'r, 'ctx, U, R>) -> Behavior<U, R> + 'static,
-  {
+    F: for<'r, 'ctx> Fn(&mut Context<'r, 'ctx, U, R>) -> Behavior<U, R> + 'static, {
     Behavior::setup(init)
   }
 }
@@ -400,8 +383,7 @@ where
   U: Element,
   R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
-  R::Signal: Clone,
-{
+  R::Signal: Clone, {
   behavior: Behavior<U, R>,
 }
 
@@ -432,8 +414,7 @@ where
   U: Element,
   R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
-  R::Signal: Clone,
-{
+  R::Signal: Clone, {
   behavior_factory: Arc<dyn Fn() -> Behavior<U, R> + 'static>,
   pub(super) behavior: Behavior<U, R>,
   pub(super) system_handler: Option<Box<SystemHandlerFn<U, R>>>,
@@ -453,8 +434,7 @@ where
   /// * `system_handler` - システムメッセージのハンドラ（オプション）
   pub fn new<S>(behavior_factory: Arc<dyn Fn() -> Behavior<U, R> + 'static>, system_handler: Option<S>) -> Self
   where
-    S: for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, SystemMessage) + 'static,
-  {
+    S: for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, SystemMessage) + 'static, {
     let behavior = behavior_factory();
     Self {
       behavior_factory,

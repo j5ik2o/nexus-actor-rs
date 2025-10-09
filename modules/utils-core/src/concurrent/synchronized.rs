@@ -132,8 +132,7 @@ pub trait SynchronizedRwBackend<T: ?Sized> {
 #[derive(Debug)]
 pub struct Synchronized<B, T: ?Sized>
 where
-  B: SynchronizedMutexBackend<T>,
-{
+  B: SynchronizedMutexBackend<T>, {
   backend: B,
   _marker: PhantomData<T>,
 }
@@ -150,8 +149,7 @@ where
   /// * `value` - Initial value to protect
   pub fn new(value: T) -> Self
   where
-    T: Sized,
-  {
+    T: Sized, {
     Self {
       backend: B::new(value),
       _marker: PhantomData,
@@ -253,8 +251,7 @@ where
 #[derive(Debug)]
 pub struct SynchronizedRw<B, T: ?Sized>
 where
-  B: SynchronizedRwBackend<T>,
-{
+  B: SynchronizedRwBackend<T>, {
   backend: B,
   _marker: PhantomData<T>,
 }
@@ -271,8 +268,7 @@ where
   /// * `value` - Initial value to protect
   pub fn new(value: T) -> Self
   where
-    T: Sized,
-  {
+    T: Sized, {
     Self {
       backend: B::new(value),
       _marker: PhantomData,
