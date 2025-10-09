@@ -5,6 +5,18 @@ use nexus_utils_core_rs::{
   RingBufferBackend,
 };
 
+/// `Arc`-based bounded MPSC queue with configurable mutex backend
+///
+/// This queue provides Multi-Producer-Single-Consumer semantics with a fixed capacity,
+/// using `Arc` for thread-safe reference counting. The mutex backend is configurable
+/// via the `RM` type parameter, allowing selection between `NoopRawMutex` for
+/// single-threaded or interrupt-free contexts, and `CriticalSectionRawMutex` for
+/// interrupt-safe critical sections.
+///
+/// # Type Parameters
+///
+/// * `E` - Element type stored in the queue
+/// * `RM` - Raw mutex type (defaults to `NoopRawMutex`)
 #[derive(Debug)]
 pub struct ArcMpscBoundedQueue<E, RM = NoopRawMutex>
 where
@@ -23,13 +35,33 @@ where
   }
 }
 
+/// Type alias for `ArcMpscBoundedQueue` using `NoopRawMutex`
+///
+/// Suitable for single-threaded or interrupt-free contexts where no locking is required.
 pub type ArcLocalMpscBoundedQueue<E> = ArcMpscBoundedQueue<E, NoopRawMutex>;
+
+/// Type alias for `ArcMpscBoundedQueue` using `CriticalSectionRawMutex`
+///
+/// Provides interrupt-safe critical section protection for multi-threaded embedded contexts.
 pub type ArcCsMpscBoundedQueue<E> = ArcMpscBoundedQueue<E, CriticalSectionRawMutex>;
 
 impl<E, RM> ArcMpscBoundedQueue<E, RM>
 where
   RM: RawMutex,
 {
+  /// Creates a new bounded MPSC queue with the specified capacity
+  ///
+  /// # Arguments
+  ///
+  /// * `capacity` - Maximum number of elements the queue can hold
+  ///
+  /// # Examples
+  ///
+  /// ```ignore
+  /// use nexus_utils_embedded_rs::ArcMpscBoundedQueue;
+  ///
+  /// let queue: ArcMpscBoundedQueue<i32> = ArcMpscBoundedQueue::new(10);
+  /// ```
   pub fn new(capacity: usize) -> Self {
     let storage = ArcShared::new(RingBufferBackend::new(ArcStateCell::new(MpscBuffer::new(Some(
       capacity,

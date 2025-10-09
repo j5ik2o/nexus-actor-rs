@@ -5,6 +5,18 @@ use nexus_utils_core_rs::{
   RingBufferBackend,
 };
 
+/// `Arc`-based unbounded MPSC queue with configurable mutex backend
+///
+/// This queue provides Multi-Producer-Single-Consumer semantics with dynamic capacity,
+/// using `Arc` for thread-safe reference counting. The mutex backend is configurable
+/// via the `RM` type parameter, allowing selection between `NoopRawMutex` for
+/// single-threaded or interrupt-free contexts, and `CriticalSectionRawMutex` for
+/// interrupt-safe critical sections.
+///
+/// # Type Parameters
+///
+/// * `E` - Element type stored in the queue
+/// * `RM` - Raw mutex type (defaults to `NoopRawMutex`)
 #[derive(Debug)]
 pub struct ArcMpscUnboundedQueue<E, RM = NoopRawMutex>
 where
@@ -23,13 +35,31 @@ where
   }
 }
 
+/// Type alias for `ArcMpscUnboundedQueue` using `NoopRawMutex`
+///
+/// Suitable for single-threaded or interrupt-free contexts where no locking is required.
 pub type ArcLocalMpscUnboundedQueue<E> = ArcMpscUnboundedQueue<E, NoopRawMutex>;
+
+/// Type alias for `ArcMpscUnboundedQueue` using `CriticalSectionRawMutex`
+///
+/// Provides interrupt-safe critical section protection for multi-threaded embedded contexts.
 pub type ArcCsMpscUnboundedQueue<E> = ArcMpscUnboundedQueue<E, CriticalSectionRawMutex>;
 
 impl<E, RM> ArcMpscUnboundedQueue<E, RM>
 where
   RM: RawMutex,
 {
+  /// Creates a new unbounded MPSC queue
+  ///
+  /// The queue will dynamically grow as needed to accommodate elements.
+  ///
+  /// # Examples
+  ///
+  /// ```ignore
+  /// use nexus_utils_embedded_rs::ArcMpscUnboundedQueue;
+  ///
+  /// let queue: ArcMpscUnboundedQueue<i32> = ArcMpscUnboundedQueue::new();
+  /// ```
   pub fn new() -> Self {
     let storage = ArcShared::new(RingBufferBackend::new(ArcStateCell::new(MpscBuffer::new(None))));
     Self {
