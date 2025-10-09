@@ -6,7 +6,7 @@ use core::pin::Pin;
 use core::sync::atomic::{AtomicU8, Ordering};
 use core::task::{Context, Poll};
 
-use crate::api::{InternalMessageDispatcher, MessageDispatcher, MessageEnvelope};
+use crate::api::{InternalMessageDispatcher, MessageDispatcher, MessageEnvelope, MessageMetadata};
 use crate::runtime::message::DynMessage;
 use crate::PriorityEnvelope;
 use futures::task::AtomicWaker;
@@ -253,4 +253,14 @@ where
   let internal = InternalMessageDispatcher::with_drop_hook(dispatch, drop_hook);
   let responder = MessageDispatcher::new(internal);
   (future, responder)
+}
+
+pub(crate) fn dispatch_response<Resp>(metadata: &MessageMetadata, message: Resp) -> AskResult<()>
+where
+  Resp: Element, {
+  let dispatcher = metadata
+    .responder_as::<Resp>()
+    .or_else(|| metadata.sender_as::<Resp>())
+    .ok_or(AskError::MissingResponder)?;
+  dispatcher.dispatch_user(message).map_err(AskError::from)
 }

@@ -12,7 +12,8 @@ use core::marker::PhantomData;
 use nexus_utils_core_rs::{Element, QueueError, DEFAULT_PRIORITY};
 
 use super::{
-  ask::create_ask_handles, ask_with_timeout, ActorRef, AskError, AskFuture, AskResult, AskTimeoutFuture, Props,
+  ask::create_ask_handles, ask::dispatch_response, ask_with_timeout, ActorRef, AskError, AskFuture, AskResult,
+  AskTimeoutFuture, Props,
 };
 use crate::api::{MessageDispatcher, MessageEnvelope, MessageMetadata};
 
@@ -276,14 +277,7 @@ where
     R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
     R::Signal: Clone + Send + Sync + 'static, {
     let metadata = self.message_metadata().ok_or(AskError::MissingResponder)?;
-    let target = metadata
-      .responder_as::<Resp>()
-      .or_else(|| metadata.sender_as::<Resp>())
-      .ok_or(AskError::MissingResponder)?;
-    let dispatch_metadata = MessageMetadata::new().with_sender(self.self_dispatcher());
-    let envelope = MessageEnvelope::user_with_metadata(message, dispatch_metadata);
-    target.dispatch_envelope(envelope).map_err(AskError::from)?;
-    Ok(())
+    dispatch_response(metadata, message)
   }
 
   pub fn request_future<V, Resp>(&mut self, target: &ActorRef<V, R>, message: V) -> AskResult<AskFuture<Resp>>
