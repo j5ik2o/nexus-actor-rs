@@ -65,7 +65,7 @@ mod tokio_mailbox;
 mod tokio_priority_mailbox;
 
 pub use failure_event_hub::{FailureEventHub, FailureEventSubscription};
-pub use nexus_utils_std_rs::{ArcShared, ArcStateCell};
+pub use nexus_utils_std_rs::{ArcShared, ArcStateCell, Shared, SharedFactory, SharedFn};
 pub use receive_timeout::TokioReceiveTimeoutSchedulerFactory;
 pub use runtime_driver::TokioSystemHandle;
 pub use spawn::TokioSpawner;
@@ -73,16 +73,15 @@ pub use timer::TokioTimer;
 pub use tokio_mailbox::{TokioMailbox, TokioMailboxFactory, TokioMailboxSender};
 pub use tokio_priority_mailbox::{TokioPriorityMailbox, TokioPriorityMailboxFactory, TokioPriorityMailboxSender};
 
-use std::sync::Arc;
-
-use nexus_actor_core_rs::ActorSystem;
+use nexus_actor_core_rs::{ActorSystem, ReceiveTimeoutFactoryShared};
 use nexus_utils_std_rs::Element;
 
 /// A prelude module that provides commonly used re-exported types and traits.
 pub mod prelude {
   pub use super::{
-    ArcShared, ArcStateCell, TokioMailbox, TokioMailboxFactory, TokioMailboxSender, TokioPriorityMailbox,
-    TokioPriorityMailboxFactory, TokioPriorityMailboxSender, TokioSpawner, TokioSystemHandle, TokioTimer,
+    ArcShared, ArcStateCell, Shared, SharedFactory, SharedFn, TokioMailbox, TokioMailboxFactory, TokioMailboxSender,
+    TokioPriorityMailbox, TokioPriorityMailboxFactory, TokioPriorityMailboxSender, TokioSpawner, TokioSystemHandle,
+    TokioTimer,
   };
   pub use nexus_actor_core_rs::actor_loop;
 }
@@ -103,7 +102,9 @@ pub mod prelude {
 pub fn install_receive_timeout_scheduler<U>(system: &mut ActorSystem<U, TokioMailboxFactory>)
 where
   U: Element, {
-  system.set_receive_timeout_scheduler_factory(Some(Arc::new(TokioReceiveTimeoutSchedulerFactory::new())));
+  system.set_receive_timeout_scheduler_factory(Some(ReceiveTimeoutFactoryShared::new(
+    TokioReceiveTimeoutSchedulerFactory::new(),
+  )));
 }
 
 #[cfg(test)]

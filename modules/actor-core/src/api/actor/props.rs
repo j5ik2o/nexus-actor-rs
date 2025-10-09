@@ -7,6 +7,7 @@ use crate::runtime::system::InternalProps;
 use crate::Supervisor;
 use crate::SystemMessage;
 use crate::{MailboxFactory, MailboxOptions, PriorityEnvelope};
+use nexus_utils_core_rs::sync::ArcShared;
 use nexus_utils_core_rs::Element;
 
 use super::behavior::SupervisorStrategyConfig;
@@ -110,6 +111,7 @@ where
     F: Fn() -> Behavior<U, R> + 'static,
     S: for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, SystemMessage) + 'static, {
     let behavior_factory: Arc<dyn Fn() -> Behavior<U, R> + 'static> = Arc::new(behavior_factory);
+    let behavior_factory = ArcShared::from_arc(behavior_factory);
     let mut adapter = ActorAdapter::new(behavior_factory.clone(), system_handler);
     let map_system = ActorAdapter::<U, R>::create_map_system();
     let supervisor = adapter.supervisor_config();

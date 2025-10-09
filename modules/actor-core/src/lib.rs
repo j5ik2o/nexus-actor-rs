@@ -81,11 +81,13 @@ use nexus_utils_core_rs::QueueError;
 
 mod api;
 mod runtime;
+mod shared;
 
 pub use api::*;
 pub use runtime::mailbox::{PriorityEnvelope, SystemMessage};
 pub use runtime::message::{store_metadata, take_metadata, DynMessage, MetadataKey};
 pub use runtime::scheduler::{ReceiveTimeoutScheduler, ReceiveTimeoutSchedulerFactory};
+pub use shared::{FailureEventHandlerShared, FailureEventListenerShared, MapSystemShared, ReceiveTimeoutFactoryShared};
 
 /// Function type alias for converting system messages to message type.
 pub type MapSystemFn<M> = dyn Fn(SystemMessage) -> M + Send + Sync;

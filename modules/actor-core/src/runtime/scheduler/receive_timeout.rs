@@ -1,10 +1,9 @@
 use alloc::boxed::Box;
-use alloc::sync::Arc;
 use core::time::Duration;
 
 use nexus_utils_core_rs::Element;
 
-use crate::runtime::context::MapSystemFn;
+use crate::MapSystemShared;
 use crate::{MailboxFactory, PriorityEnvelope, QueueMailboxProducer};
 
 /// Scheduler abstraction for managing actor `ReceiveTimeout`.
@@ -40,6 +39,6 @@ where
   fn create(
     &self,
     sender: QueueMailboxProducer<R::Queue<PriorityEnvelope<M>>, R::Signal>,
-    map_system: Arc<MapSystemFn<M>>,
+    map_system: MapSystemShared<M>,
   ) -> Box<dyn ReceiveTimeoutScheduler>;
 }

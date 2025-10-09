@@ -6,6 +6,7 @@ use crate::SystemMessage;
 use crate::{MailboxFactory, PriorityEnvelope};
 use core::marker::PhantomData;
 use core::mem::{forget, ManuallyDrop};
+use nexus_utils_core_rs::sync::ArcShared;
 use nexus_utils_core_rs::{Element, QueueError, DEFAULT_PRIORITY};
 
 type SendFn = dyn Fn(DynMessage, i8) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> + Send + Sync;
@@ -13,8 +14,8 @@ type SendFn = dyn Fn(DynMessage, i8) -> Result<(), QueueError<PriorityEnvelope<D
 /// Internal dispatcher that abstracts the sending destination. Used for ask responses and similar purposes.
 #[derive(Clone)]
 pub struct InternalMessageSender {
-  inner: Arc<SendFn>,
-  drop_hook: Option<Arc<dyn Fn() + Send + Sync>>,
+  inner: ArcShared<SendFn>,
+  drop_hook: Option<ArcShared<dyn Fn() + Send + Sync>>,
 }
 
 impl core::fmt::Debug for InternalMessageSender {
@@ -28,7 +29,7 @@ impl InternalMessageSender {
   ///
   /// # Arguments
   /// * `inner` - Function that executes message sending
-  pub fn new(inner: Arc<SendFn>) -> Self {
+  pub fn new(inner: ArcShared<SendFn>) -> Self {
     Self { inner, drop_hook: None }
   }
 
@@ -37,7 +38,7 @@ impl InternalMessageSender {
   /// # Arguments
   /// * `inner` - Function that executes message sending
   /// * `drop_hook` - Hook function executed on drop
-  pub(crate) fn with_drop_hook(inner: Arc<SendFn>, drop_hook: Arc<dyn Fn() + Send + Sync>) -> Self {
+  pub(crate) fn with_drop_hook(inner: ArcShared<SendFn>, drop_hook: ArcShared<dyn Fn() + Send + Sync>) -> Self {
     Self {
       inner,
       drop_hook: Some(drop_hook),
@@ -81,9 +82,9 @@ impl InternalMessageSender {
     R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
     R::Signal: Clone + Send + Sync + 'static, {
     let sender = actor_ref.clone();
-    Self::new(Arc::new(move |message, priority| {
+    Self::new(ArcShared::from_arc(Arc::new(move |message, priority| {
       sender.try_send_with_priority(message, priority)
-    }))
+    })))
   }
 }
 

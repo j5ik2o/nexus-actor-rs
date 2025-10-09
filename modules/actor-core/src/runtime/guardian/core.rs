@@ -1,19 +1,19 @@
 use alloc::collections::BTreeMap;
-use alloc::sync::Arc;
 use core::fmt;
 
-use crate::runtime::context::{InternalActorRef, MapSystemFn};
+use crate::runtime::context::InternalActorRef;
 use crate::ActorId;
 use crate::ActorPath;
 use crate::FailureInfo;
 use crate::MailboxFactory;
+use crate::MapSystemShared;
 use crate::SupervisorDirective;
 use crate::{PriorityEnvelope, SystemMessage};
 use nexus_utils_core_rs::{Element, QueueError};
 
 use super::{ChildRecord, FailureReasonDebug, GuardianStrategy};
 
-type ChildRoute<M, R> = (InternalActorRef<M, R>, Arc<MapSystemFn<M>>);
+type ChildRoute<M, R> = (InternalActorRef<M, R>, MapSystemShared<M>);
 
 /// Guardian: Supervises child actors and sends SystemMessages.
 pub struct Guardian<M, R, Strat>
@@ -48,7 +48,7 @@ where
   pub fn register_child(
     &mut self,
     control_ref: InternalActorRef<M, R>,
-    map_system: Arc<MapSystemFn<M>>,
+    map_system: MapSystemShared<M>,
     watcher: Option<ActorId>,
     parent_path: &ActorPath,
   ) -> Result<(ActorId, ActorPath), QueueError<PriorityEnvelope<M>>> {

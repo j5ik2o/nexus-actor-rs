@@ -1,5 +1,5 @@
 use super::ClusterFailureBridge;
-use nexus_actor_core_rs::{ActorId, ActorPath, FailureEvent, FailureEventStream, FailureInfo};
+use nexus_actor_core_rs::{ActorId, ActorPath, FailureEvent, FailureEventListener, FailureEventStream, FailureInfo};
 use nexus_actor_std_rs::FailureEventHub;
 use nexus_remote_core_rs::RemoteFailureNotifier;
 use std::sync::{Arc, Mutex};
@@ -37,7 +37,7 @@ fn cluster_failure_bridge_fan_out_dispatches_root_escalation() {
 
   let hub_events = Arc::new(Mutex::new(Vec::new()));
   let hub_events_clone = Arc::clone(&hub_events);
-  let _subscription = hub.subscribe(Arc::new(move |event: FailureEvent| {
+  let _subscription = hub.subscribe(FailureEventListener::new(move |event: FailureEvent| {
     hub_events_clone.lock().unwrap().push(event);
   }));
 
@@ -47,7 +47,7 @@ fn cluster_failure_bridge_fan_out_dispatches_root_escalation() {
   let handler_called = Arc::new(Mutex::new(false));
   let handler_called_clone = Arc::clone(&handler_called);
 
-  let handler = Arc::new(move |event: FailureEvent| {
+  let handler = FailureEventListener::new(move |event: FailureEvent| {
     if matches!(event, FailureEvent::RootEscalated(_)) {
       *handler_called_clone.lock().unwrap() = true;
     }
@@ -79,7 +79,7 @@ fn cluster_failure_bridge_fan_out_handles_hub_listener_call() {
 
   let hub_events = Arc::new(Mutex::new(Vec::new()));
   let hub_events_clone = Arc::clone(&hub_events);
-  let _subscription = hub.subscribe(Arc::new(move |event: FailureEvent| {
+  let _subscription = hub.subscribe(FailureEventListener::new(move |event: FailureEvent| {
     hub_events_clone.lock().unwrap().push(event);
   }));
 

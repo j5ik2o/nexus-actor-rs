@@ -10,6 +10,7 @@ use crate::api::{InternalMessageSender, MessageEnvelope, MessageSender};
 use crate::runtime::message::{take_metadata, DynMessage};
 use crate::PriorityEnvelope;
 use futures::task::AtomicWaker;
+use nexus_utils_core_rs::sync::ArcShared;
 use nexus_utils_core_rs::{Element, QueueError};
 
 /// Type alias representing the result of an `ask` operation as `Result`.
@@ -257,30 +258,33 @@ where
   let dispatch_state = shared.clone();
   let drop_state = shared.clone();
 
-  let dispatch = Arc::new(move |message: DynMessage, _priority: i8| {
-    let envelope = message
-      .downcast::<MessageEnvelope<Resp>>()
-      .unwrap_or_else(|_| panic!("ask responder received mismatched message type"));
-    match envelope {
-      MessageEnvelope::User(user) => {
-        let (value, metadata_key) = user.into_parts();
-        if let Some(key) = metadata_key {
-          let _ = take_metadata(key);
+  let dispatch_impl: Arc<dyn Fn(DynMessage, i8) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> + Send + Sync> =
+    Arc::new(move |message: DynMessage, _priority: i8| {
+      let envelope = message
+        .downcast::<MessageEnvelope<Resp>>()
+        .unwrap_or_else(|_| panic!("ask responder received mismatched message type"));
+      match envelope {
+        MessageEnvelope::User(user) => {
+          let (value, metadata_key) = user.into_parts();
+          if let Some(key) = metadata_key {
+            let _ = take_metadata(key);
+          }
+          if !dispatch_state.complete(value) {
+            // Discard value if response destination was already cancelled
+          }
         }
-        if !dispatch_state.complete(value) {
-          // Discard value if response destination was already cancelled
+        MessageEnvelope::System(_) => {
+          panic!("ask responder received system message");
         }
       }
-      MessageEnvelope::System(_) => {
-        panic!("ask responder received system message");
-      }
-    }
-    Ok(())
-  });
+      Ok(())
+    });
+  let dispatch = ArcShared::from_arc(dispatch_impl);
 
-  let drop_hook = Arc::new(move || {
+  let drop_hook_impl: Arc<dyn Fn() + Send + Sync> = Arc::new(move || {
     drop_state.responder_dropped();
   });
+  let drop_hook = ArcShared::from_arc(drop_hook_impl);
 
   let internal = InternalMessageSender::with_drop_hook(dispatch, drop_hook);
   let responder = MessageSender::new(internal);

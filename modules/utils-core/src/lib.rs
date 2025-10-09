@@ -58,10 +58,11 @@
 
 extern crate alloc;
 
-pub(crate) mod collections;
-pub(crate) mod concurrent;
-pub(crate) mod sync;
-pub(crate) mod timing;
+mod collections;
+mod concurrent;
+/// Synchronization primitives and shared ownership abstractions.
+pub mod sync;
+mod timing;
 
 pub use async_trait::async_trait;
 
@@ -76,7 +77,7 @@ pub use concurrent::{
   AsyncBarrier, AsyncBarrierBackend, CountDownLatch, CountDownLatchBackend, GuardHandle, Synchronized,
   SynchronizedMutexBackend, SynchronizedRw, SynchronizedRwBackend, WaitGroup, WaitGroupBackend,
 };
-pub use sync::{Flag, Shared, StateCell};
+pub use sync::{ArcShared, Flag, Shared, SharedFactory, SharedFn, StateCell};
 pub use timing::{
   DeadlineTimer, DeadlineTimerError, DeadlineTimerExpired, DeadlineTimerKey, DeadlineTimerKeyAllocator, TimerDeadline,
 };

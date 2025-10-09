@@ -1,5 +1,5 @@
 use super::{placeholder_metadata, RemoteFailureNotifier};
-use nexus_actor_core_rs::{ActorId, ActorPath, FailureEvent, FailureEventStream, FailureInfo};
+use nexus_actor_core_rs::{ActorId, ActorPath, FailureEvent, FailureEventListener, FailureEventStream, FailureInfo};
 use nexus_actor_std_rs::FailureEventHub;
 use std::sync::{Arc, Mutex};
 
@@ -34,7 +34,7 @@ fn remote_failure_notifier_set_handler_stores_handler() {
 
   assert!(notifier.handler().is_none());
 
-  let handler = Arc::new(|_event: FailureEvent| {});
+  let handler = FailureEventListener::new(|_event: FailureEvent| {});
   notifier.set_handler(handler);
 
   assert!(notifier.handler().is_some());
@@ -48,7 +48,7 @@ fn remote_failure_notifier_dispatch_calls_handler() {
   let called = Arc::new(Mutex::new(false));
   let called_clone = Arc::clone(&called);
 
-  let handler = Arc::new(move |event: FailureEvent| {
+  let handler = FailureEventListener::new(move |event: FailureEvent| {
     if matches!(event, FailureEvent::RootEscalated(_)) {
       *called_clone.lock().unwrap() = true;
     }
@@ -76,7 +76,7 @@ fn remote_failure_notifier_emit_calls_hub_and_handler() {
 
   let hub_events = Arc::new(Mutex::new(Vec::new()));
   let hub_events_clone = Arc::clone(&hub_events);
-  let _subscription = hub.subscribe(Arc::new(move |event: FailureEvent| {
+  let _subscription = hub.subscribe(FailureEventListener::new(move |event: FailureEvent| {
     hub_events_clone.lock().unwrap().push(event);
   }));
 
@@ -85,7 +85,7 @@ fn remote_failure_notifier_emit_calls_hub_and_handler() {
   let handler_called = Arc::new(Mutex::new(false));
   let handler_called_clone = Arc::clone(&handler_called);
 
-  let handler = Arc::new(move |event: FailureEvent| {
+  let handler = FailureEventListener::new(move |event: FailureEvent| {
     if matches!(event, FailureEvent::RootEscalated(_)) {
       *handler_called_clone.lock().unwrap() = true;
     }

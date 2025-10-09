@@ -1,7 +1,6 @@
-use alloc::sync::Arc;
-
-use crate::runtime::context::{InternalActorRef, MapSystemFn};
+use crate::runtime::context::InternalActorRef;
 use crate::FailureInfo;
+use crate::MapSystemShared;
 use crate::{EscalationSink, FailureEventHandler, FailureEventListener, RootEscalationSink};
 use crate::{MailboxFactory, PriorityEnvelope};
 use nexus_utils_core_rs::{Element, QueueError};
@@ -35,7 +34,7 @@ where
     }
   }
 
-  pub(crate) fn set_parent_guardian(&mut self, control_ref: InternalActorRef<M, R>, map_system: Arc<MapSystemFn<M>>) {
+  pub(crate) fn set_parent_guardian(&mut self, control_ref: InternalActorRef<M, R>, map_system: MapSystemShared<M>) {
     self.parent_guardian = Some(ParentGuardianSink::new(control_ref, map_system));
   }
 

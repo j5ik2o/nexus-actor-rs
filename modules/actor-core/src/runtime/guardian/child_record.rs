@@ -1,10 +1,10 @@
-use alloc::sync::Arc;
 use core::fmt;
 
-use crate::runtime::context::{InternalActorRef, MapSystemFn};
+use crate::runtime::context::InternalActorRef;
 use crate::ActorId;
 use crate::ActorPath;
 use crate::MailboxFactory;
+use crate::MapSystemShared;
 use nexus_utils_core_rs::Element;
 
 pub(crate) struct FailureReasonDebug<'a>(pub(super) &'a str);
@@ -21,7 +21,7 @@ where
   M: Element,
   R: MailboxFactory, {
   pub(super) control_ref: InternalActorRef<M, R>,
-  pub(super) map_system: Arc<MapSystemFn<M>>,
+  pub(super) map_system: MapSystemShared<M>,
   pub(super) watcher: Option<ActorId>,
   pub(super) path: ActorPath,
 }

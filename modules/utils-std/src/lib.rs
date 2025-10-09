@@ -62,9 +62,9 @@ pub(crate) mod timing;
 pub use nexus_utils_core_rs::{
   DeadlineTimer, DeadlineTimerError, DeadlineTimerExpired, DeadlineTimerKey, DeadlineTimerKeyAllocator, Element,
   MpscHandle, PriorityMessage, QueueBase, QueueError, QueueHandle, QueueReader, QueueRw, QueueRwHandle, QueueSize,
-  QueueStorage, QueueWriter, RingBackend, RingBuffer, RingQueue, RingStorageBackend, Shared, Stack, StackBackend,
-  StackHandle, StackStorage, StackStorageBackend, StateCell, TimerDeadline, DEFAULT_CAPACITY, DEFAULT_PRIORITY,
-  PRIORITY_LEVELS,
+  QueueStorage, QueueWriter, RingBackend, RingBuffer, RingQueue, RingStorageBackend, Shared, SharedFactory, SharedFn,
+  Stack, StackBackend, StackHandle, StackStorage, StackStorageBackend, StateCell, TimerDeadline, DEFAULT_CAPACITY,
+  DEFAULT_PRIORITY, PRIORITY_LEVELS,
 };
 
 pub use collections::{ArcMpscBoundedQueue, ArcMpscUnboundedQueue, ArcPriorityQueue, ArcRingQueue, ArcStack};
@@ -84,7 +84,8 @@ pub mod prelude {
   pub use nexus_utils_core_rs::{
     DeadlineTimer, DeadlineTimerError, DeadlineTimerExpired, DeadlineTimerKey, DeadlineTimerKeyAllocator, Element,
     MpscHandle, PriorityMessage, QueueBase, QueueError, QueueReader, QueueRw, QueueRwHandle, QueueSize, QueueStorage,
-    QueueWriter, RingBackend, RingBuffer, RingStorageBackend, Shared, Stack, StackBackend, StackHandle, StackStorage,
-    StackStorageBackend, StateCell, TimerDeadline, DEFAULT_CAPACITY, DEFAULT_PRIORITY, PRIORITY_LEVELS,
+    QueueWriter, RingBackend, RingBuffer, RingStorageBackend, Shared, SharedFactory, SharedFn, Stack, StackBackend,
+    StackHandle, StackStorage, StackStorageBackend, StateCell, TimerDeadline, DEFAULT_CAPACITY, DEFAULT_PRIORITY,
+    PRIORITY_LEVELS,
   };
 }

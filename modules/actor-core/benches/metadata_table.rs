@@ -6,14 +6,17 @@ use alloc::sync::Arc;
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use nexus_actor_core_rs::{
-  take_metadata, InternalMessageSender, MessageEnvelope, MessageMetadata, MessageSender, PriorityEnvelope,
+  take_metadata, DynMessage, InternalMessageSender, MessageEnvelope, MessageMetadata, MessageSender, PriorityEnvelope,
 };
+use nexus_utils_core_rs::sync::ArcShared;
 use nexus_utils_core_rs::{Element, QueueError};
 
 fn noop_sender<M>() -> MessageSender<M>
 where
   M: Element, {
-  let dispatch = Arc::new(|_, _| -> Result<(), QueueError<PriorityEnvelope<_>>> { Ok(()) });
+  let dispatch_impl: Arc<dyn Fn(DynMessage, i8) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> + Send + Sync> =
+    Arc::new(|_, _| Ok(()));
+  let dispatch = ArcShared::from_arc(dispatch_impl);
   let internal = InternalMessageSender::new(dispatch);
   MessageSender::from_internal(internal)
 }

@@ -1,8 +1,15 @@
 #![cfg_attr(all(target_arch = "arm", target_os = "none", feature = "rp2350-board"), no_std)]
 #![cfg_attr(all(target_arch = "arm", target_os = "none", feature = "rp2350-board"), no_main)]
 
-#[cfg(all(target_arch = "arm", target_os = "none", feature = "rp2350-board", not(feature = "embedded_arc")))]
-compile_error!("rp2350_behaviors_greeter 例をビルドするには `embedded_arc` および `rp2350-board` フィーチャが必要です。");
+#[cfg(all(
+  target_arch = "arm",
+  target_os = "none",
+  feature = "rp2350-board",
+  not(feature = "embedded_arc")
+))]
+compile_error!(
+  "rp2350_behaviors_greeter 例をビルドするには `embedded_arc` および `rp2350-board` フィーチャが必要です。"
+);
 
 #[cfg(all(target_arch = "arm", target_os = "none", feature = "rp2350-board"))]
 extern crate alloc;

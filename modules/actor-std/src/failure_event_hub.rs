@@ -55,7 +55,7 @@ impl FailureEventStream for FailureEventHub {
 
   fn listener(&self) -> FailureEventListener {
     let inner = self.clone();
-    Arc::new(move |event: FailureEvent| inner.notify_listeners(event))
+    FailureEventListener::new(move |event: FailureEvent| inner.notify_listeners(event))
   }
 
   fn subscribe(&self, listener: FailureEventListener) -> Self::Subscription {
@@ -100,9 +100,9 @@ mod tests {
     let storage: StdArc<StdMutex<Vec<FailureEvent>>> = StdArc::new(StdMutex::new(Vec::new()));
     let storage_clone = storage.clone();
 
-    let _sub = hub.subscribe(StdArc::new(move |event: FailureEvent| {
+    let _sub = hub.subscribe(FailureEventListener::new(move |event: FailureEvent| {
       storage_clone.lock().unwrap().push(event);
-    }) as FailureEventListener);
+    }));
 
     let listener = hub.listener();
     let event = FailureEvent::RootEscalated(FailureInfo::new_with_metadata(
@@ -124,7 +124,7 @@ mod tests {
   fn subscription_drop_removes_listener() {
     let hub = FailureEventHub::new();
     assert_eq!(hub.listener_count(), 0);
-    let subscription = hub.subscribe(Arc::new(|_| {}));
+    let subscription = hub.subscribe(FailureEventListener::new(|_| {}));
     assert_eq!(hub.listener_count(), 1);
     drop(subscription);
     assert_eq!(hub.listener_count(), 0);

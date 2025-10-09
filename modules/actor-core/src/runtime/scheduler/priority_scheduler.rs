@@ -1,10 +1,9 @@
 use alloc::boxed::Box;
-use alloc::sync::Arc;
 use alloc::vec;
 use alloc::vec::Vec;
 use core::convert::Infallible;
 
-use crate::runtime::context::{ActorContext, ActorHandlerFn, InternalActorRef, MapSystemFn};
+use crate::runtime::context::{ActorContext, ActorHandlerFn, InternalActorRef};
 use crate::runtime::guardian::{AlwaysRestart, Guardian, GuardianStrategy};
 use crate::runtime::supervision::CompositeEscalationSink;
 use crate::ActorId;
@@ -19,7 +18,7 @@ use futures::FutureExt;
 use nexus_utils_core_rs::{Element, QueueError};
 
 use super::actor_cell::ActorCell;
-use super::ReceiveTimeoutSchedulerFactory;
+use crate::{MapSystemShared, ReceiveTimeoutFactoryShared};
 
 /// Simple scheduler implementation assuming priority mailboxes.
 pub struct PriorityScheduler<M, R, Strat = AlwaysRestart>
@@ -34,7 +33,7 @@ where
   actors: Vec<ActorCell<M, R, Strat>>,
   escalations: Vec<FailureInfo>,
   escalation_sink: CompositeEscalationSink<M, R>,
-  receive_timeout_factory: Option<Arc<dyn ReceiveTimeoutSchedulerFactory<M, R>>>,
+  receive_timeout_factory: Option<ReceiveTimeoutFactoryShared<M, R>>,
 }
 
 #[allow(dead_code)]
@@ -83,7 +82,7 @@ where
     &mut self,
     supervisor: Box<dyn Supervisor<M>>,
     options: MailboxOptions,
-    map_system: Arc<MapSystemFn<M>>,
+    map_system: MapSystemShared<M>,
     handler: F,
   ) -> Result<InternalActorRef<M, R>, QueueError<PriorityEnvelope<M>>>
   where
@@ -203,7 +202,7 @@ where
     self.drain_ready_cycle()
   }
 
-  pub fn set_receive_timeout_factory(&mut self, factory: Option<Arc<dyn ReceiveTimeoutSchedulerFactory<M, R>>>) {
+  pub fn set_receive_timeout_factory(&mut self, factory: Option<ReceiveTimeoutFactoryShared<M, R>>) {
     self.receive_timeout_factory = factory.clone();
     for actor in &mut self.actors {
       actor.configure_receive_timeout_factory(factory.clone());
@@ -216,7 +215,7 @@ where
     self.escalation_sink.set_custom_handler(handler);
   }
 
-  pub fn set_parent_guardian(&mut self, control_ref: InternalActorRef<M, R>, map_system: Arc<MapSystemFn<M>>) {
+  pub fn set_parent_guardian(&mut self, control_ref: InternalActorRef<M, R>, map_system: MapSystemShared<M>) {
     self.escalation_sink.set_parent_guardian(control_ref, map_system);
   }
 

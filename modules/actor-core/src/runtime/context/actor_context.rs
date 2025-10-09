@@ -1,5 +1,4 @@
 use alloc::boxed::Box;
-use alloc::sync::Arc;
 use alloc::vec;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
@@ -7,7 +6,6 @@ use core::marker::PhantomData;
 use crate::ActorId;
 use crate::ActorPath;
 use crate::Supervisor;
-use crate::SystemMessage;
 use crate::{MailboxFactory, MailboxOptions, PriorityEnvelope, QueueMailboxProducer};
 use nexus_utils_core_rs::{Element, QueueError, QueueSize};
 
@@ -17,10 +15,9 @@ use core::time::Duration;
 
 use super::{ChildSpawnSpec, InternalActorRef};
 use crate::runtime::system::InternalProps;
+use crate::MapSystemShared;
 
 pub type ActorHandlerFn<M, R> = dyn for<'ctx> FnMut(&mut ActorContext<'ctx, M, R, dyn Supervisor<M>>, M) + 'static;
-pub type MapSystemFn<M> = dyn Fn(SystemMessage) -> M + Send + Sync;
-
 /// Context for actors to operate on themselves and child actors.
 pub struct ActorContext<'a, M, R, Sup>
 where
@@ -33,7 +30,7 @@ where
   #[allow(dead_code)]
   pending_spawns: &'a mut Vec<ChildSpawnSpec<M, R>>,
   #[allow(dead_code)]
-  map_system: Arc<MapSystemFn<M>>,
+  map_system: MapSystemShared<M>,
   actor_path: ActorPath,
   actor_id: ActorId,
   watchers: &'a mut Vec<ActorId>,
@@ -54,7 +51,7 @@ where
     sender: &'a QueueMailboxProducer<R::Queue<PriorityEnvelope<M>>, R::Signal>,
     supervisor: &'a mut Sup,
     pending_spawns: &'a mut Vec<ChildSpawnSpec<M, R>>,
-    map_system: Arc<MapSystemFn<M>>,
+    map_system: MapSystemShared<M>,
     actor_path: ActorPath,
     actor_id: ActorId,
     watchers: &'a mut Vec<ActorId>,
@@ -119,7 +116,7 @@ where
     &mut self,
     supervisor: Box<dyn Supervisor<M>>,
     options: MailboxOptions,
-    map_system: Arc<MapSystemFn<M>>,
+    map_system: MapSystemShared<M>,
     handler: Box<ActorHandlerFn<M, R>>,
   ) -> InternalActorRef<M, R> {
     let (mailbox, sender) = self.runtime.build_mailbox::<PriorityEnvelope<M>>(options);

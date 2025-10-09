@@ -37,12 +37,14 @@ impl Element for ChildMessage {}
 
 use futures::executor::block_on;
 use futures::future;
+use nexus_utils_core_rs::sync::ArcShared;
 
 fn noop_sender<M>() -> MessageSender<M>
 where
   M: Element, {
-  let dispatch =
+  let dispatch_impl: Arc<dyn Fn(DynMessage, i8) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> + Send + Sync> =
     Arc::new(|_message: DynMessage, _priority: i8| -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> { Ok(()) });
+  let dispatch = ArcShared::from_arc(dispatch_impl);
   let internal = InternalMessageSender::new(dispatch);
   MessageSender::new(internal)
 }

@@ -45,7 +45,7 @@ impl FailureEventStream for EmbeddedFailureEventHub {
 
   fn listener(&self) -> FailureEventListener {
     let inner = self.clone();
-    Arc::new(move |event: FailureEvent| {
+    FailureEventListener::new(move |event: FailureEvent| {
       for listener in inner.snapshot_listeners().into_iter() {
         listener(event.clone());
       }

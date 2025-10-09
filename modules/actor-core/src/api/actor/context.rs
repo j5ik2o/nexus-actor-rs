@@ -10,6 +10,7 @@ use alloc::{boxed::Box, string::String, sync::Arc};
 use core::future::Future;
 use core::marker::PhantomData;
 use core::time::Duration;
+use nexus_utils_core_rs::sync::ArcShared;
 use nexus_utils_core_rs::{Element, QueueError, DEFAULT_PRIORITY};
 
 use super::{
@@ -272,7 +273,8 @@ where
   where
     Ext: Element,
     F: Fn(Ext) -> U + Send + Sync + 'static, {
-    MessageAdapterRef::new(self.self_ref(), Arc::new(f))
+    let adapter_impl: Arc<dyn Fn(Ext) -> U + Send + Sync> = Arc::new(f);
+    MessageAdapterRef::new(self.self_ref(), ArcShared::from_arc(adapter_impl))
   }
 
   /// Registers a watcher.
@@ -588,7 +590,7 @@ where
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
   R::Signal: Clone, {
   target: ActorRef<U, R>,
-  adapter: Arc<dyn Fn(Ext) -> U + Send + Sync>,
+  adapter: ArcShared<dyn Fn(Ext) -> U + Send + Sync>,
 }
 
 impl<Ext, U, R> MessageAdapterRef<Ext, U, R>
@@ -599,7 +601,7 @@ where
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
   R::Signal: Clone,
 {
-  pub(crate) fn new(target: ActorRef<U, R>, adapter: Arc<dyn Fn(Ext) -> U + Send + Sync>) -> Self {
+  pub(crate) fn new(target: ActorRef<U, R>, adapter: ArcShared<dyn Fn(Ext) -> U + Send + Sync>) -> Self {
     Self { target, adapter }
   }
 

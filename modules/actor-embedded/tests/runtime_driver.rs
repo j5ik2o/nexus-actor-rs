@@ -7,7 +7,7 @@ use core::cell::RefCell;
 
 use std::sync::Arc;
 
-use nexus_actor_core_rs::{ActorId, ActorPath, FailureEvent, FailureInfo, FailureMetadata};
+use nexus_actor_core_rs::{ActorId, ActorPath, FailureEvent, FailureEventListener, FailureInfo, FailureMetadata};
 use nexus_actor_core_rs::{ActorSystem, ActorSystemParts, FailureEventStream, MailboxOptions, Props};
 use nexus_actor_embedded_rs::{EmbeddedFailureEventHub, ImmediateSpawner, ImmediateTimer, LocalMailboxFactory};
 
@@ -44,7 +44,7 @@ fn embedded_failure_event_hub_broadcasts() {
   let received = Arc::new(std::sync::Mutex::new(Vec::<FailureEvent>::new()));
   let received_clone = received.clone();
 
-  let _subscription = hub.subscribe(Arc::new(move |event| {
+  let _subscription = hub.subscribe(FailureEventListener::new(move |event| {
     received_clone.lock().unwrap().push(event);
   }));
 

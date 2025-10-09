@@ -1,9 +1,8 @@
-use alloc::boxed::Box;
-use alloc::sync::Arc;
-
-use crate::runtime::context::{ActorContext, ActorHandlerFn, MapSystemFn};
+use crate::runtime::context::{ActorContext, ActorHandlerFn};
+use crate::MapSystemShared;
 use crate::Supervisor;
 use crate::{MailboxFactory, MailboxOptions, PriorityEnvelope};
+use alloc::boxed::Box;
 use nexus_utils_core_rs::Element;
 
 pub(crate) struct InternalProps<M, R>
@@ -13,7 +12,7 @@ where
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone, {
   pub options: MailboxOptions,
-  pub map_system: Arc<MapSystemFn<M>>,
+  pub map_system: MapSystemShared<M>,
   pub handler: Box<ActorHandlerFn<M, R>>,
 }
 
@@ -26,7 +25,7 @@ where
 {
   pub fn new(
     options: MailboxOptions,
-    map_system: Arc<MapSystemFn<M>>,
+    map_system: MapSystemShared<M>,
     handler: impl for<'ctx> FnMut(&mut ActorContext<'ctx, M, R, dyn Supervisor<M>>, M) + 'static,
   ) -> Self {
     Self {

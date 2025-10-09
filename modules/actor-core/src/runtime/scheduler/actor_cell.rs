@@ -1,7 +1,6 @@
 use alloc::boxed::Box;
 #[cfg(feature = "std")]
 use alloc::string::String;
-use alloc::sync::Arc;
 use alloc::vec;
 use alloc::vec::Vec;
 use core::any::TypeId;
@@ -13,7 +12,7 @@ use core::marker::PhantomData;
 #[cfg(feature = "std")]
 use std::panic::{catch_unwind, AssertUnwindSafe};
 
-use crate::runtime::context::{ActorContext, ActorHandlerFn, ChildSpawnSpec, InternalActorRef, MapSystemFn};
+use crate::runtime::context::{ActorContext, ActorHandlerFn, ChildSpawnSpec, InternalActorRef};
 use crate::runtime::guardian::{Guardian, GuardianStrategy};
 use crate::runtime::message::DynMessage;
 use crate::ActorId;
@@ -24,7 +23,8 @@ use crate::{Mailbox, SystemMessage};
 use crate::{MailboxFactory, PriorityEnvelope, QueueMailbox, QueueMailboxProducer};
 use nexus_utils_core_rs::{Element, QueueError, QueueRw};
 
-use super::{ReceiveTimeoutScheduler, ReceiveTimeoutSchedulerFactory};
+use super::ReceiveTimeoutScheduler;
+use crate::{MapSystemShared, ReceiveTimeoutFactoryShared};
 
 pub(crate) struct ActorCell<M, R, Strat>
 where
@@ -35,7 +35,7 @@ where
   Strat: GuardianStrategy<M, R>, {
   #[cfg_attr(not(feature = "std"), allow(dead_code))]
   actor_id: ActorId,
-  map_system: Arc<MapSystemFn<M>>,
+  map_system: MapSystemShared<M>,
   watchers: Vec<ActorId>,
   actor_path: ActorPath,
   runtime: R,
@@ -45,7 +45,7 @@ where
   handler: Box<ActorHandlerFn<M, R>>,
   _strategy: PhantomData<Strat>,
   stopped: bool,
-  receive_timeout_factory: Option<Arc<dyn ReceiveTimeoutSchedulerFactory<M, R>>>,
+  receive_timeout_factory: Option<ReceiveTimeoutFactoryShared<M, R>>,
   receive_timeout_scheduler: Option<RefCell<Box<dyn ReceiveTimeoutScheduler>>>,
 }
 
@@ -60,7 +60,7 @@ where
   #[allow(clippy::too_many_arguments)]
   pub(crate) fn new(
     actor_id: ActorId,
-    map_system: Arc<MapSystemFn<M>>,
+    map_system: MapSystemShared<M>,
     watchers: Vec<ActorId>,
     actor_path: ActorPath,
     runtime: R,
@@ -68,7 +68,7 @@ where
     sender: QueueMailboxProducer<R::Queue<PriorityEnvelope<M>>, R::Signal>,
     supervisor: Box<dyn Supervisor<M>>,
     handler: Box<ActorHandlerFn<M, R>>,
-    receive_timeout_factory: Option<Arc<dyn ReceiveTimeoutSchedulerFactory<M, R>>>,
+    receive_timeout_factory: Option<ReceiveTimeoutFactoryShared<M, R>>,
   ) -> Self {
     let mut cell = Self {
       actor_id,
@@ -258,10 +258,7 @@ where
     self.stopped
   }
 
-  pub(super) fn configure_receive_timeout_factory(
-    &mut self,
-    factory: Option<Arc<dyn ReceiveTimeoutSchedulerFactory<M, R>>>,
-  ) {
+  pub(super) fn configure_receive_timeout_factory(&mut self, factory: Option<ReceiveTimeoutFactoryShared<M, R>>) {
     if let Some(cell) = self.receive_timeout_scheduler.as_ref() {
       cell.borrow_mut().cancel();
     }
