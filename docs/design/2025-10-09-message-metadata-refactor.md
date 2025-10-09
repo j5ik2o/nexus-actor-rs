@@ -11,10 +11,10 @@
    - `Context::request*` や Ask API も typed センダーを利用し、利用者に `InternalMessageSender` を触らせない状態が実現できた。
 
 2. **メタデータ内部に typed/untyped の橋渡し層を用意する** ✅ *完了*
-- `MessageMetadata` を薄いラッパーとして再設計し、内部実装を `InternalMessageMetadata` に隔離。
-   - `Context` は `ActorContext` から取り出したメタデータを一度だけ型変換してキャッシュし、ハンドラ終了時は自動でクリアするよう Drop ガードを導入。
-- Ask responder も typed センダーで完結するため、レスポンス経路で untyped を扱わずに済む。`ask::dispatch_response` を追加し、`Context::respond` から再利用。
-- `ActorRef::ask_with` / `Context::ask` を追加し、メッセージ側に `replyTo` を受け取るファクトリを渡せるようにした。
+   - `MessageMetadata` を薄いラッパーとして再設計し、内部実装を `InternalMessageMetadata` に隔離。
+   - `Context` 自身が typed メタデータを保持し、`ActorContext` には橋渡し用の一時領域を持たせない構造に整理（Drop ガードは不要）。
+   - Ask responder も typed センダーで完結するため、レスポンス経路で untyped を扱わずに済む。`ask::dispatch_response` を追加し、`Context::respond` から再利用。
+   - `ActorRef::ask_with` / `Context::ask` を追加し、メッセージ側に `replyTo` を受け取るファクトリを渡せるようにした。
 
 3. **最終的に完全な typed 化へ移行する** ⏳ *継続タスク*
    - `ActorContext` や scheduler が保持するメタデータ構造をさらに整理し、typed メタデータのみで回す方向を検討する。

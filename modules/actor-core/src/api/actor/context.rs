@@ -154,10 +154,9 @@ where
   R::Signal: Clone,
 {
   pub(super) fn new(inner: &'r mut ActorContext<'ctx, DynMessage, R, dyn Supervisor<DynMessage>>) -> Self {
-    let metadata = inner.take_typed_metadata();
     Self {
       inner,
-      metadata,
+      metadata: None,
       _marker: PhantomData,
     }
   }
@@ -170,8 +169,11 @@ where
     inner: &'r mut ActorContext<'ctx, DynMessage, R, dyn Supervisor<DynMessage>>,
     metadata: MessageMetadata,
   ) -> Self {
-    inner.enter_typed_metadata(metadata);
-    Self::new(inner)
+    Self {
+      inner,
+      metadata: Some(metadata),
+      _marker: PhantomData,
+    }
   }
 
   pub fn actor_id(&self) -> ActorId {
@@ -371,18 +373,6 @@ where
       .inner
       .spawn_child_from_props(Box::new(supervisor_cfg.into_supervisor()), internal_props);
     ActorRef::new(actor_ref)
-  }
-}
-
-impl<'r, 'ctx, U, R> Drop for Context<'r, 'ctx, U, R>
-where
-  U: Element,
-  R: MailboxFactory + Clone + 'static,
-  R::Queue<PriorityEnvelope<DynMessage>>: Clone,
-  R::Signal: Clone,
-{
-  fn drop(&mut self) {
-    self.inner.clear_metadata();
   }
 }
 
