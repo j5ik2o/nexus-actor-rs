@@ -154,8 +154,7 @@ where
   R::Signal: Clone,
 {
   pub(super) fn new(inner: &'r mut ActorContext<'ctx, DynMessage, R, dyn Supervisor<DynMessage>>) -> Self {
-    inner.clear_metadata();
-    let metadata = inner.current_metadata().cloned().map(MessageMetadata::from_internal);
+    let metadata = inner.take_typed_metadata();
     Self {
       inner,
       metadata,
@@ -171,12 +170,8 @@ where
     inner: &'r mut ActorContext<'ctx, DynMessage, R, dyn Supervisor<DynMessage>>,
     metadata: MessageMetadata,
   ) -> Self {
-    inner.enter_metadata(metadata.clone().into_internal());
-    Self {
-      inner,
-      metadata: Some(metadata),
-      _marker: PhantomData,
-    }
+    inner.enter_typed_metadata(metadata);
+    Self::new(inner)
   }
 
   pub fn actor_id(&self) -> ActorId {
