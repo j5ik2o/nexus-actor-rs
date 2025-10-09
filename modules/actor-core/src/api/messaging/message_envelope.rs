@@ -125,14 +125,14 @@ where
   }
 }
 
-/// メッセージに付随するメタデータ。Ask 系 API が Sender/Responder をここに格納する。
+/// メッセージに付随するメタデータ（内部表現）。
 #[derive(Debug, Clone, Default)]
-pub struct MessageMetadata {
+pub struct InternalMessageMetadata {
   sender: Option<InternalMessageDispatcher>,
   responder: Option<InternalMessageDispatcher>,
 }
 
-impl MessageMetadata {
+impl InternalMessageMetadata {
   pub fn new(sender: Option<InternalMessageDispatcher>, responder: Option<InternalMessageDispatcher>) -> Self {
     Self { sender, responder }
   }
@@ -164,35 +164,88 @@ impl MessageMetadata {
   }
 }
 
+/// 外部 API 向けの型付きメタデータ。
+#[derive(Debug, Clone, Default)]
+pub struct MessageMetadata {
+  inner: InternalMessageMetadata,
+}
+
+impl MessageMetadata {
+  pub fn new() -> Self {
+    Self::default()
+  }
+
+  pub fn with_sender<U>(mut self, sender: MessageDispatcher<U>) -> Self
+  where
+    U: Element, {
+    self.inner = self.inner.with_sender(Some(sender.into_internal()));
+    self
+  }
+
+  pub fn with_responder<U>(mut self, responder: MessageDispatcher<U>) -> Self
+  where
+    U: Element, {
+    self.inner = self.inner.with_responder(Some(responder.into_internal()));
+    self
+  }
+
+  pub fn sender_as<U>(&self) -> Option<MessageDispatcher<U>>
+  where
+    U: Element, {
+    self.inner.sender_cloned().map(MessageDispatcher::new)
+  }
+
+  pub fn responder_as<U>(&self) -> Option<MessageDispatcher<U>>
+  where
+    U: Element, {
+    self.inner.responder_cloned().map(MessageDispatcher::new)
+  }
+
+  pub fn is_empty(&self) -> bool {
+    self.inner.sender.is_none() && self.inner.responder.is_none()
+  }
+
+  pub(crate) fn into_internal(self) -> InternalMessageMetadata {
+    self.inner
+  }
+
+  pub(crate) fn from_internal(inner: InternalMessageMetadata) -> Self {
+    Self { inner }
+  }
+}
+
 /// ユーザーメッセージとメタデータを保持するラッパー。
 #[derive(Debug, Clone)]
 pub struct UserMessage<U> {
   message: U,
-  metadata: MessageMetadata,
+  metadata: InternalMessageMetadata,
 }
 
 impl<U> UserMessage<U> {
   pub fn new(message: U) -> Self {
     Self {
       message,
-      metadata: MessageMetadata::default(),
+      metadata: InternalMessageMetadata::default(),
     }
   }
 
   pub fn with_metadata(message: U, metadata: MessageMetadata) -> Self {
-    Self { message, metadata }
+    Self {
+      message,
+      metadata: metadata.into_internal(),
+    }
   }
 
   pub fn message(&self) -> &U {
     &self.message
   }
 
-  pub fn metadata(&self) -> &MessageMetadata {
-    &self.metadata
+  pub fn metadata(&self) -> MessageMetadata {
+    MessageMetadata::from_internal(self.metadata.clone())
   }
 
   pub fn into_parts(self) -> (U, MessageMetadata) {
-    (self.message, self.metadata)
+    (self.message, MessageMetadata::from_internal(self.metadata))
   }
 }
 

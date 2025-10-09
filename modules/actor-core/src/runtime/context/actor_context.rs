@@ -4,7 +4,7 @@ use alloc::vec;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 
-use crate::api::MessageMetadata;
+use crate::api::InternalMessageMetadata;
 use crate::ActorId;
 use crate::ActorPath;
 use crate::Supervisor;
@@ -35,7 +35,7 @@ where
   actor_id: ActorId,
   watchers: &'a mut Vec<ActorId>,
   current_priority: Option<i8>,
-  current_metadata: Option<MessageMetadata>,
+  current_metadata: Option<InternalMessageMetadata>,
   _marker: PhantomData<M>,
 }
 
@@ -198,15 +198,11 @@ where
     self.current_priority = None;
   }
 
-  pub(crate) fn enter_metadata(&mut self, metadata: MessageMetadata) {
+  pub(crate) fn enter_metadata(&mut self, metadata: InternalMessageMetadata) {
     self.current_metadata = Some(metadata);
   }
 
-  pub(crate) fn take_metadata(&mut self) -> Option<MessageMetadata> {
-    self.current_metadata.take()
-  }
-
-  pub(crate) fn current_metadata(&self) -> Option<&MessageMetadata> {
+  pub(crate) fn current_metadata(&self) -> Option<&InternalMessageMetadata> {
     self.current_metadata.as_ref()
   }
 

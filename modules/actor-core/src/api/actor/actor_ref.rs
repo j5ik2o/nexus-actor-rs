@@ -83,13 +83,6 @@ where
     MessageDispatcher::new(internal)
   }
 
-  pub(crate) fn to_internal_dispatcher(&self) -> InternalMessageDispatcher
-  where
-    R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
-    R::Signal: Clone + Send + Sync + 'static, {
-    InternalMessageDispatcher::from_internal_ref(self.inner.clone())
-  }
-
   pub fn request_from<S>(
     &self,
     message: U,
@@ -109,7 +102,7 @@ where
   ) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>>
   where
     S: Element, {
-    let metadata = MessageMetadata::new(Some(sender.into_internal()), None);
+    let metadata = MessageMetadata::new().with_sender(sender);
     self.tell_with_metadata(message, metadata)
   }
 
@@ -117,7 +110,7 @@ where
   where
     Resp: Element, {
     let (future, responder) = create_ask_handles::<Resp>();
-    let metadata = MessageMetadata::new(None, Some(responder.into_internal()));
+    let metadata = MessageMetadata::new().with_responder(responder);
     self.tell_with_metadata(message, metadata)?;
     Ok(future)
   }
@@ -140,7 +133,7 @@ where
     Resp: Element,
     S: Element, {
     let (future, responder) = create_ask_handles::<Resp>();
-    let metadata = MessageMetadata::new(Some(sender.into_internal()), Some(responder.into_internal()));
+    let metadata = MessageMetadata::new().with_sender(sender).with_responder(responder);
     self.tell_with_metadata(message, metadata)?;
     Ok(future)
   }
@@ -157,7 +150,7 @@ where
     R::Signal: Clone + Send + Sync + 'static, {
     let mut timeout = Some(timeout);
     let (future, responder) = create_ask_handles::<Resp>();
-    let metadata = MessageMetadata::new(None, Some(responder.into_internal()));
+    let metadata = MessageMetadata::new().with_responder(responder);
     match self.tell_with_metadata(message, metadata) {
       Ok(()) => Ok(ask_with_timeout(future, timeout.take().unwrap())),
       Err(err) => Err(AskError::from(err)),
@@ -193,7 +186,7 @@ where
     R::Signal: Clone + Send + Sync + 'static, {
     let mut timeout = Some(timeout);
     let (future, responder) = create_ask_handles::<Resp>();
-    let metadata = MessageMetadata::new(Some(sender.into_internal()), Some(responder.into_internal()));
+    let metadata = MessageMetadata::new().with_sender(sender).with_responder(responder);
     match self.tell_with_metadata(message, metadata) {
       Ok(()) => Ok(ask_with_timeout(future, timeout.take().unwrap())),
       Err(err) => Err(AskError::from(err)),

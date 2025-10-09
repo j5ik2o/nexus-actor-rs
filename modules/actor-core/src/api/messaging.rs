@@ -1,5 +1,5 @@
 mod message_envelope;
 
 pub use message_envelope::{
-  InternalMessageDispatcher, MessageDispatcher, MessageEnvelope, MessageMetadata, UserMessage,
+  InternalMessageDispatcher, InternalMessageMetadata, MessageDispatcher, MessageEnvelope, MessageMetadata, UserMessage,
 };
