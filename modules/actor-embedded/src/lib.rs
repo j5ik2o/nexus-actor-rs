@@ -1,7 +1,7 @@
-//! 組み込み環境向けのアクターシステム実装。
+//! Actor system implementation for embedded environments.
 //!
-//! このクレートは`no_std`環境でアクターシステムを実行するための実装を提供します。
-//! ローカルメールボックス、Arcベースのメールボックス、Embassy統合などをサポートします。
+//! This crate provides implementations for running actor systems in `no_std` environments.
+//! Supports local mailboxes, Arc-based mailboxes, Embassy integration, and more.
 
 #![deny(missing_docs)]
 #![deny(rustdoc::broken_intra_doc_links)]
@@ -81,7 +81,7 @@ pub use runtime_driver::EmbeddedFailureEventHub;
 pub use spawn::ImmediateSpawner;
 pub use timer::ImmediateTimer;
 
-/// 組み込み環境で一般的に使用される型を再エクスポートするprelude。
+/// Prelude that re-exports commonly used types in embedded environments.
 pub mod prelude {
   #[cfg(feature = "embedded_arc")]
   pub use super::{

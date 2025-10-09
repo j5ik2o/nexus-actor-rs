@@ -8,9 +8,9 @@ use nexus_utils_std_rs::{ArcMpscBoundedQueue, ArcMpscUnboundedQueue};
 use nexus_utils_std_rs::{Element, QueueBase, QueueError, QueueRw, QueueSize};
 use tokio::sync::{futures::Notified, Notify};
 
-/// Tokioランタイム用のメールボックス実装
+/// Mailbox implementation for Tokio runtime
 ///
-/// アクターへのメッセージ配信を管理する非同期キューです。
+/// An asynchronous queue that manages message delivery to actors.
 #[derive(Clone, Debug)]
 pub struct TokioMailbox<M>
 where
@@ -18,9 +18,9 @@ where
   inner: QueueMailbox<TokioQueue<M>, NotifySignal>,
 }
 
-/// Tokioメールボックスへの送信側ハンドル
+/// Sender handle for Tokio mailbox
 ///
-/// メッセージの送信に特化したインターフェースを提供します。
+/// Provides an interface specialized for sending messages.
 #[derive(Clone, Debug)]
 pub struct TokioMailboxSender<M>
 where
@@ -28,9 +28,9 @@ where
   inner: QueueMailboxProducer<TokioQueue<M>, NotifySignal>,
 }
 
-/// Tokioメールボックスを生成するファクトリ
+/// Factory that creates Tokio mailboxes
 ///
-/// 有界・無界のメールボックスを生成します。
+/// Creates bounded and unbounded mailboxes.
 #[derive(Clone, Debug, Default)]
 pub struct TokioMailboxFactory;
 
@@ -152,13 +152,13 @@ where
 }
 
 impl TokioMailboxFactory {
-  /// 指定されたオプションでメールボックスを生成する
+  /// Creates a mailbox with the specified options
   ///
   /// # Arguments
-  /// * `options` - メールボックスの設定オプション
+  /// * `options` - Configuration options for the mailbox
   ///
   /// # Returns
-  /// メールボックスと送信側ハンドルのペア
+  /// A pair of mailbox and sender handle
   pub fn mailbox<M>(&self, options: MailboxOptions) -> (TokioMailbox<M>, TokioMailboxSender<M>)
   where
     M: Element, {
@@ -166,23 +166,23 @@ impl TokioMailboxFactory {
     (TokioMailbox { inner: mailbox }, TokioMailboxSender { inner: sender })
   }
 
-  /// 指定された容量の有界メールボックスを生成する
+  /// Creates a bounded mailbox with the specified capacity
   ///
   /// # Arguments
-  /// * `capacity` - メールボックスの最大容量
+  /// * `capacity` - Maximum capacity of the mailbox
   ///
   /// # Returns
-  /// メールボックスと送信側ハンドルのペア
+  /// A pair of mailbox and sender handle
   pub fn with_capacity<M>(&self, capacity: usize) -> (TokioMailbox<M>, TokioMailboxSender<M>)
   where
     M: Element, {
     self.mailbox(MailboxOptions::with_capacity(capacity))
   }
 
-  /// 無界メールボックスを生成する
+  /// Creates an unbounded mailbox
   ///
   /// # Returns
-  /// メールボックスと送信側ハンドルのペア
+  /// A pair of mailbox and sender handle
   pub fn unbounded<M>(&self) -> (TokioMailbox<M>, TokioMailboxSender<M>)
   where
     M: Element, {
@@ -212,29 +212,29 @@ impl<M> TokioMailbox<M>
 where
   M: Element,
 {
-  /// 指定容量のメールボックスを生成する
+  /// Creates a mailbox with the specified capacity
   ///
   /// # Arguments
-  /// * `capacity` - メールボックスの最大容量
+  /// * `capacity` - Maximum capacity of the mailbox
   ///
   /// # Returns
-  /// メールボックスと送信側ハンドルのペア
+  /// A pair of mailbox and sender handle
   pub fn new(capacity: usize) -> (Self, TokioMailboxSender<M>) {
     TokioMailboxFactory.with_capacity(capacity)
   }
 
-  /// 無界メールボックスを生成する
+  /// Creates an unbounded mailbox
   ///
   /// # Returns
-  /// メールボックスと送信側ハンドルのペア
+  /// A pair of mailbox and sender handle
   pub fn unbounded() -> (Self, TokioMailboxSender<M>) {
     TokioMailboxFactory.unbounded()
   }
 
-  /// 新しい送信側ハンドルを生成する
+  /// Creates a new sender handle
   ///
   /// # Returns
-  /// メッセージ送信用の`TokioMailboxSender`
+  /// A `TokioMailboxSender` for sending messages
   pub fn producer(&self) -> TokioMailboxSender<M>
   where
     TokioQueue<M>: Clone,
@@ -244,10 +244,10 @@ where
     }
   }
 
-  /// 内部のキューメールボックスへの参照を取得する
+  /// Returns a reference to the internal queue mailbox
   ///
   /// # Returns
-  /// 内部メールボックスへの不変参照
+  /// An immutable reference to the internal mailbox
   pub fn inner(&self) -> &QueueMailbox<TokioQueue<M>, NotifySignal> {
     &self.inner
   }
@@ -294,38 +294,38 @@ where
   M: Element,
   TokioQueue<M>: Clone,
 {
-  /// メッセージの送信を試みる（ブロックしない）
+  /// Attempts to send a message (non-blocking)
   ///
   /// # Arguments
-  /// * `message` - 送信するメッセージ
+  /// * `message` - The message to send
   ///
   /// # Returns
-  /// 成功時は`Ok(())`、失敗時はエラーとメッセージを返す
+  /// `Ok(())` on success, or an error with the message on failure
   ///
   /// # Errors
-  /// キューが満杯の場合、`QueueError::Full`を返す
+  /// Returns `QueueError::Full` if the queue is full
   pub fn try_send(&self, message: M) -> Result<(), QueueError<M>> {
     self.inner.try_send(message)
   }
 
-  /// メッセージを非同期で送信する
+  /// Sends a message asynchronously
   ///
   /// # Arguments
-  /// * `message` - 送信するメッセージ
+  /// * `message` - The message to send
   ///
   /// # Returns
-  /// 成功時は`Ok(())`、失敗時はエラーとメッセージを返す
+  /// `Ok(())` on success, or an error with the message on failure
   ///
   /// # Errors
-  /// メールボックスが閉じられている場合、`QueueError::Closed`を返す
+  /// Returns `QueueError::Closed` if the mailbox is closed
   pub async fn send(&self, message: M) -> Result<(), QueueError<M>> {
     self.inner.send(message).await
   }
 
-  /// 内部のキューメールボックスプロデューサーへの参照を取得する
+  /// Returns a reference to the internal queue mailbox producer
   ///
   /// # Returns
-  /// 内部プロデューサーへの不変参照
+  /// An immutable reference to the internal producer
   pub fn inner(&self) -> &QueueMailboxProducer<TokioQueue<M>, NotifySignal> {
     &self.inner
   }

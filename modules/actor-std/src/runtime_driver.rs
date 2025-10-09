@@ -9,9 +9,9 @@ use crate::TokioMailboxFactory;
 use nexus_actor_core_rs::{PriorityEnvelope, RuntimeMessage};
 use nexus_utils_std_rs::QueueError;
 
-/// Tokio実行環境でアクターシステムを管理するハンドル
+/// Handle for managing the actor system in the Tokio execution environment
 ///
-/// アクターシステムの起動、シャットダウン、および終了待機を制御します。
+/// Controls the startup, shutdown, and termination waiting of the actor system.
 pub struct TokioSystemHandle<U>
 where
   U: nexus_utils_std_rs::Element, {
@@ -24,13 +24,13 @@ impl<U> TokioSystemHandle<U>
 where
   U: nexus_utils_std_rs::Element,
 {
-  /// アクターシステムをローカルタスクとして起動する
+  /// Starts the actor system as a local task
   ///
   /// # Arguments
-  /// * `runner` - 起動するアクターシステムのランナー
+  /// * `runner` - The actor system runner to start
   ///
   /// # Returns
-  /// アクターシステムを管理する新しい`TokioSystemHandle`
+  /// A new `TokioSystemHandle` for managing the actor system
   pub fn start_local(runner: ActorSystemRunner<U, TokioMailboxFactory>) -> Self
   where
     U: nexus_utils_std_rs::Element + 'static, {
@@ -43,45 +43,45 @@ where
     }
   }
 
-  /// システムのシャットダウントークンを取得する
+  /// Returns the system's shutdown token
   ///
   /// # Returns
-  /// シャットダウンを制御するための`ShutdownToken`
+  /// A `ShutdownToken` for controlling shutdown
   pub fn shutdown_token(&self) -> ShutdownToken {
     self.shutdown.clone()
   }
 
-  /// アクターシステムのシャットダウンをトリガーする
+  /// Triggers the shutdown of the actor system
   ///
-  /// システムの優雅な終了を開始します。
+  /// Initiates a graceful shutdown of the system.
   pub fn trigger_shutdown(&self) {
     self.shutdown.trigger();
   }
 
-  /// アクターシステムの終了を待機する
+  /// Waits for the actor system to terminate
   ///
-  /// システムが完全に停止するまで非同期で待機します。
+  /// Asynchronously waits until the system has completely stopped.
   ///
   /// # Returns
-  /// システム実行の結果。外側の`Result`はタスクの結合エラー、
-  /// 内側の`Result`はシステムの実行エラーを示します。
+  /// The result of system execution. The outer `Result` indicates task join errors,
+  /// the inner `Result` indicates system execution errors.
   pub async fn await_terminated(
     self,
   ) -> Result<Result<Infallible, QueueError<PriorityEnvelope<RuntimeMessage>>>, tokio::task::JoinError> {
     self.join.await
   }
 
-  /// アクターシステムの実行を強制終了する
+  /// Forcibly terminates the actor system execution
   ///
-  /// 優雅なシャットダウンを行わず、即座にシステムを中断します。
+  /// Aborts the system immediately without performing a graceful shutdown.
   pub fn abort(self) {
     self.join.abort();
   }
 
-  /// Ctrl+Cシグナルを監視し、受信時にシャットダウンをトリガーするタスクを起動する
+  /// Spawns a task that monitors Ctrl+C signals and triggers shutdown upon receipt
   ///
   /// # Returns
-  /// リスナータスクの`JoinHandle`
+  /// A `JoinHandle` for the listener task
   pub fn spawn_ctrl_c_listener(&self) -> JoinHandle<()>
   where
     U: nexus_utils_std_rs::Element + 'static, {

@@ -34,7 +34,8 @@
       "Bash(do echo \"=== $f ===\")",
       "Bash(head:*)",
       "Bash(done)",
-      "Bash(RUSTFLAGS=\"-Dwarnings\" cargo check)"
+      "Bash(RUSTFLAGS=\"-Dwarnings\" cargo check)",
+      "Bash(RUSTFLAGS=\"-Dwarnings\" cargo check -p nexus-utils-embedded-rs)"
     ],
     "deny": []
   },

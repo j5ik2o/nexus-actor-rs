@@ -2,46 +2,46 @@ use super::super::storage::RingBufferStorage;
 use super::traits::MpscBackend;
 use crate::collections::{QueueError, QueueSize};
 
-/// リングバッファストレージを使用して共有マルチプロデューサー/シングルコンシューマー
-/// キューを駆動するバックエンド実装。
+/// Backend implementation that drives a shared multi-producer/single-consumer
+/// queue using ring buffer storage.
 ///
-/// このバックエンドは、インメモリの[`RingBufferStorage`]を利用して、
-/// 複数のプロデューサーから単一のコンシューマーへの効率的なメッセージ配送を実現します。
+/// This backend utilizes in-memory [`RingBufferStorage`] to achieve efficient
+/// message delivery from multiple producers to a single consumer.
 #[derive(Debug)]
 pub struct RingBufferBackend<S> {
   storage: S,
 }
 
 impl<S> RingBufferBackend<S> {
-  /// 指定されたストレージを使用して新しい`RingBufferBackend`を作成します。
+  /// Creates a new `RingBufferBackend` using the specified storage.
   ///
   /// # Arguments
   ///
-  /// * `storage` - バックエンドが使用するリングバッファストレージ
+  /// * `storage` - The ring buffer storage used by the backend
   ///
   /// # Returns
   ///
-  /// 新しい`RingBufferBackend`インスタンス
+  /// A new `RingBufferBackend` instance
   pub const fn new(storage: S) -> Self {
     Self { storage }
   }
 
-  /// 内部ストレージへの不変参照を返します。
+  /// Returns an immutable reference to the internal storage.
   ///
   /// # Returns
   ///
-  /// ストレージへの参照
+  /// A reference to the storage
   pub fn storage(&self) -> &S {
     &self.storage
   }
 
-  /// 内部ストレージの所有権を取得して返します。
+  /// Takes ownership of and returns the internal storage.
   ///
-  /// このメソッドはバックエンドを消費し、内部ストレージを返します。
+  /// This method consumes the backend and returns the internal storage.
   ///
   /// # Returns
   ///
-  /// 内部ストレージの所有権
+  /// Ownership of the internal storage
   pub fn into_storage(self) -> S {
     self.storage
   }
@@ -51,84 +51,84 @@ impl<S, T> MpscBackend<T> for RingBufferBackend<S>
 where
   S: RingBufferStorage<T>,
 {
-  /// キューに要素を送信しようと試みます。
+  /// Attempts to send an element to the queue.
   ///
-  /// このメソッドはブロッキングせずに要素をキューに追加しようとします。
-  /// キューが満杯の場合やクローズされている場合はエラーを返します。
+  /// This method tries to add an element to the queue without blocking.
+  /// Returns an error if the queue is full or closed.
   ///
   /// # Arguments
   ///
-  /// * `element` - キューに追加する要素
+  /// * `element` - The element to add to the queue
   ///
   /// # Returns
   ///
-  /// * `Ok(())` - 要素が正常にキューに追加された場合
-  /// * `Err(QueueError<T>)` - キューが満杯またはクローズされている場合
+  /// * `Ok(())` - If the element was successfully added to the queue
+  /// * `Err(QueueError<T>)` - If the queue is full or closed
   fn try_send(&self, element: T) -> Result<(), QueueError<T>> {
     self.storage.with_write(|buffer| buffer.offer(element))
   }
 
-  /// キューから要素を受信しようと試みます。
+  /// Attempts to receive an element from the queue.
   ///
-  /// このメソッドはブロッキングせずにキューから要素を取得しようとします。
-  /// キューが空の場合は`None`を返します。
+  /// This method tries to retrieve an element from the queue without blocking.
+  /// Returns `None` if the queue is empty.
   ///
   /// # Returns
   ///
-  /// * `Ok(Some(T))` - 要素が正常に取得された場合
-  /// * `Ok(None)` - キューが空の場合
-  /// * `Err(QueueError<T>)` - エラーが発生した場合
+  /// * `Ok(Some(T))` - If an element was successfully retrieved
+  /// * `Ok(None)` - If the queue is empty
+  /// * `Err(QueueError<T>)` - If an error occurred
   fn try_recv(&self) -> Result<Option<T>, QueueError<T>> {
     self.storage.with_write(|buffer| buffer.poll())
   }
 
-  /// キューをクローズし、リソースをクリーンアップします。
+  /// Closes the queue and cleans up resources.
   ///
-  /// このメソッドを呼び出すと、キューへの新しい送信はできなくなります。
-  /// 既にキューに存在する要素は引き続き受信可能です。
+  /// After calling this method, no new sends to the queue will be possible.
+  /// Elements already in the queue can still be received.
   fn close(&self) {
     self.storage.with_write(|buffer| buffer.clean_up());
   }
 
-  /// キュー内の現在の要素数を返します。
+  /// Returns the current number of elements in the queue.
   ///
   /// # Returns
   ///
-  /// キュー内の要素数を表す[`QueueSize`]
+  /// A [`QueueSize`] representing the number of elements in the queue
   fn len(&self) -> QueueSize {
     self.storage.with_read(|buffer| buffer.len())
   }
 
-  /// キューの容量を返します。
+  /// Returns the capacity of the queue.
   ///
   /// # Returns
   ///
-  /// キューの容量を表す[`QueueSize`]（無制限の場合は`QueueSize::Unbounded`）
+  /// A [`QueueSize`] representing the capacity of the queue (`QueueSize::Unbounded` if unlimited)
   fn capacity(&self) -> QueueSize {
     self.storage.with_read(|buffer| buffer.capacity())
   }
 
-  /// キューがクローズされているかどうかを確認します。
+  /// Checks whether the queue is closed.
   ///
   /// # Returns
   ///
-  /// * `true` - キューがクローズされている場合
-  /// * `false` - キューがオープンしている場合
+  /// * `true` - If the queue is closed
+  /// * `false` - If the queue is open
   fn is_closed(&self) -> bool {
     self.storage.with_read(|buffer| buffer.is_closed())
   }
 
-  /// キューの容量を設定します。
+  /// Sets the capacity of the queue.
   ///
-  /// このメソッドはキューの最大容量を変更します。
+  /// This method changes the maximum capacity of the queue.
   ///
   /// # Arguments
   ///
-  /// * `capacity` - 新しい容量（`None`の場合は無制限）
+  /// * `capacity` - The new capacity (`None` for unlimited)
   ///
   /// # Returns
   ///
-  /// * `true` - 容量が正常に設定された場合
+  /// * `true` - If the capacity was successfully set
   fn set_capacity(&self, capacity: Option<usize>) -> bool {
     self.storage.with_write(|buffer| buffer.set_capacity(capacity));
     true

@@ -76,27 +76,27 @@ where
   }
 }
 
-/// ローカルスレッド用の非同期メールボックス。
+/// Asynchronous mailbox for local thread.
 ///
-/// `Rc`ベースのキューを使用して、`!Send`環境でメッセージを配信します。
+/// Uses `Rc`-based queue to deliver messages in `!Send` environments.
 pub struct LocalMailbox<M>
 where
   M: Element, {
   inner: QueueMailbox<LocalQueue<M>, LocalSignal>,
 }
 
-/// `LocalMailbox`へのメッセージ送信者。
+/// Message sender to `LocalMailbox`.
 ///
-/// メールボックスに対してメッセージを非同期に送信するためのハンドルです。
+/// A handle for sending messages to the mailbox asynchronously.
 pub struct LocalMailboxSender<M>
 where
   M: Element, {
   inner: QueueMailboxProducer<LocalQueue<M>, LocalSignal>,
 }
 
-/// ローカルメールボックスを生成するファクトリ。
+/// Factory that creates local mailboxes.
 ///
-/// 組み込み環境やシングルスレッド環境向けのメールボックスペアを生成します。
+/// Creates mailbox pairs for embedded or single-threaded environments.
 #[derive(Clone, Debug, Default)]
 pub struct LocalMailboxFactory {
   _marker: PhantomData<()>,
@@ -152,24 +152,24 @@ impl Future for LocalSignalWait {
 }
 
 impl LocalMailboxFactory {
-  /// 新しい`LocalMailboxFactory`を作成します。
+  /// Creates a new `LocalMailboxFactory`.
   ///
   /// # Returns
   ///
-  /// 新しいファクトリインスタンス
+  /// A new factory instance
   pub const fn new() -> Self {
     Self { _marker: PhantomData }
   }
 
-  /// 指定されたオプションでメールボックスペアを生成します。
+  /// Creates a mailbox pair with the specified options.
   ///
   /// # Arguments
   ///
-  /// * `options` - メールボックスの設定オプション
+  /// * `options` - Mailbox configuration options
   ///
   /// # Returns
   ///
-  /// (受信側メールボックス, 送信側ハンドル)のタプル
+  /// A tuple of (receiver mailbox, sender handle)
   pub fn mailbox<M>(&self, options: MailboxOptions) -> (LocalMailbox<M>, LocalMailboxSender<M>)
   where
     M: Element, {
@@ -177,11 +177,11 @@ impl LocalMailboxFactory {
     (LocalMailbox { inner: mailbox }, LocalMailboxSender { inner: sender })
   }
 
-  /// 無制限容量のメールボックスペアを生成します。
+  /// Creates an unbounded mailbox pair.
   ///
   /// # Returns
   ///
-  /// (受信側メールボックス, 送信側ハンドル)のタプル
+  /// A tuple of (receiver mailbox, sender handle)
   pub fn unbounded<M>(&self) -> (LocalMailbox<M>, LocalMailboxSender<M>)
   where
     M: Element, {
@@ -212,20 +212,20 @@ where
   M: Element,
   LocalQueue<M>: Clone,
 {
-  /// デフォルト設定で新しいメールボックスペアを作成します。
+  /// Creates a new mailbox pair with default settings.
   ///
   /// # Returns
   ///
-  /// (受信側メールボックス, 送信側ハンドル)のタプル
+  /// A tuple of (receiver mailbox, sender handle)
   pub fn new() -> (Self, LocalMailboxSender<M>) {
     LocalMailboxFactory::default().unbounded()
   }
 
-  /// 新しい送信者ハンドルを生成します。
+  /// Creates a new sender handle.
   ///
   /// # Returns
   ///
-  /// メールボックスへの新しい送信者
+  /// A new sender to the mailbox
   pub fn producer(&self) -> LocalMailboxSender<M>
   where
     LocalSignal: Clone, {
@@ -234,11 +234,11 @@ where
     }
   }
 
-  /// 内部のキューメールボックスへの参照を取得します。
+  /// Returns a reference to the internal queue mailbox.
   ///
   /// # Returns
   ///
-  /// `QueueMailbox`への参照
+  /// A reference to the `QueueMailbox`
   pub fn inner(&self) -> &QueueMailbox<LocalQueue<M>, LocalSignal> {
     &self.inner
   }
@@ -306,37 +306,37 @@ where
   M: Element,
   LocalQueue<M>: Clone,
 {
-  /// メッセージを即座に送信します(ブロックしない)。
+  /// Sends a message immediately (non-blocking).
   ///
   /// # Arguments
   ///
-  /// * `message` - 送信するメッセージ
+  /// * `message` - The message to send
   ///
   /// # Errors
   ///
-  /// キューがフルまたはクローズされている場合は`QueueError`を返します
+  /// Returns `QueueError` if the queue is full or closed
   pub fn try_send(&self, message: M) -> Result<(), QueueError<M>> {
     self.inner.try_send(message)
   }
 
-  /// メッセージを非同期に送信します。
+  /// Sends a message asynchronously.
   ///
   /// # Arguments
   ///
-  /// * `message` - 送信するメッセージ
+  /// * `message` - The message to send
   ///
   /// # Errors
   ///
-  /// キューがクローズされている場合は`QueueError`を返します
+  /// Returns `QueueError` if the queue is closed
   pub async fn send(&self, message: M) -> Result<(), QueueError<M>> {
     self.inner.send(message).await
   }
 
-  /// 内部のメールボックスプロデューサーへの参照を取得します。
+  /// Returns a reference to the internal mailbox producer.
   ///
   /// # Returns
   ///
-  /// `QueueMailboxProducer`への参照
+  /// A reference to the `QueueMailboxProducer`
   pub fn inner(&self) -> &QueueMailboxProducer<LocalQueue<M>, LocalSignal> {
     &self.inner
   }

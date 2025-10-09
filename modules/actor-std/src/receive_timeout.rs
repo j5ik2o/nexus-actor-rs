@@ -1,7 +1,7 @@
-//! Tokio ランタイム向けの ReceiveTimeout スケジューラ実装。
+//! ReceiveTimeout scheduler implementation for Tokio runtime.
 //!
-//! `TokioDeadlineTimer` と優先度付きメールボックスを組み合わせ、アクターへ
-//! `SystemMessage::ReceiveTimeout` を配信する仕組みを提供する。
+//! Combines `TokioDeadlineTimer` with priority mailboxes to provide
+//! a mechanism for delivering `SystemMessage::ReceiveTimeout` to actors.
 
 use core::time::Duration;
 use std::sync::Arc;
@@ -17,7 +17,7 @@ use tokio::task::JoinHandle;
 
 use crate::TokioMailboxFactory;
 
-/// Tokio メールボックスへ `PriorityEnvelope<DynMessage>` を送信するためのプロデューサ。
+/// Producer for sending `PriorityEnvelope<DynMessage>` to Tokio mailbox.
 type TokioSender = QueueMailboxProducer<
   <TokioMailboxFactory as MailboxFactory>::Queue<PriorityEnvelope<DynMessage>>,
   <TokioMailboxFactory as MailboxFactory>::Signal,
@@ -45,11 +45,12 @@ impl TimerState {
   }
 }
 
-/// Tokio ランタイム上で `ReceiveTimeout` を駆動するスケジューラ。
+/// Scheduler that drives `ReceiveTimeout` on Tokio runtime.
 ///
-/// 受信専用のタスクを起動し、`TokioDeadlineTimer` をポーリングしながら
-/// 期限切れ時に `PriorityEnvelope<SystemMessage>` を優先度付きメールボックスへ送る。
-/// `ActorCell` 側はタイマー実装を意識せずに `set` / `cancel` / `notify_activity` を呼び出すだけで済む。
+/// Spawns a dedicated task that polls `TokioDeadlineTimer` and sends
+/// `PriorityEnvelope<SystemMessage>` to the priority mailbox when expired.
+/// The `ActorCell` side can simply call `set` / `cancel` / `notify_activity`
+/// without being aware of the timer implementation.
 pub struct TokioReceiveTimeoutScheduler {
   tx: UnboundedSender<Command>,
   handle: JoinHandle<()>,
@@ -87,15 +88,16 @@ impl Drop for TokioReceiveTimeoutScheduler {
   }
 }
 
-/// Tokio ランタイム向けの `ReceiveTimeoutSchedulerFactory` 実装。
+/// `ReceiveTimeoutSchedulerFactory` implementation for Tokio runtime.
 ///
-/// 優先度付きメールボックスのプロデューサと SystemMessage 変換クロージャを受け取り、
-/// 内部でスケジューラタスクを起動して `ReceiveTimeoutScheduler` を返す。
-/// `install_receive_timeout_scheduler` から登録するだけで、Tokio ランタイムに `ReceiveTimeout` 支援を追加できる。
+/// Receives the priority mailbox producer and SystemMessage conversion closure,
+/// spawns an internal scheduler task, and returns a `ReceiveTimeoutScheduler`.
+/// Simply registering it via `install_receive_timeout_scheduler` adds `ReceiveTimeout`
+/// support to the Tokio runtime.
 pub struct TokioReceiveTimeoutSchedulerFactory;
 
 impl TokioReceiveTimeoutSchedulerFactory {
-  /// 新しいファクトリを生成する。
+  /// Creates a new factory.
   pub fn new() -> Self {
     Self
   }

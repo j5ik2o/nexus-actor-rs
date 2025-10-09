@@ -1,8 +1,8 @@
-//! Tokio 非同期ランタイム向けのアクターシステム実装を提供するクレートです。
+//! A crate that provides actor system implementation for the Tokio asynchronous runtime.
 //!
-//! このクレートは、Tokioランタイム上で動作するメールボックス、タイマー、
-//! スポーナーなどのコンポーネントを提供し、`nexus-actor-core-rs`の機能を
-//! 標準的な非同期ランタイム環境で利用可能にします。
+//! This crate provides components such as mailboxes, timers, and spawners
+//! that run on the Tokio runtime, making the functionality of `nexus-actor-core-rs`
+//! available in standard asynchronous runtime environments.
 
 #![deny(missing_docs)]
 #![deny(rustdoc::broken_intra_doc_links)]
@@ -53,7 +53,7 @@
 #![deny(clippy::if_same_then_else)]
 #![deny(clippy::cmp_null)]
 
-/// Tokioのbroadcastチャネルを利用した障害イベントブリッジモジュールです。
+/// A failure event bridge module utilizing Tokio's broadcast channel.
 #[cfg(any(feature = "rt-multi-thread", feature = "rt-current-thread"))]
 pub mod failure_event_bridge;
 mod failure_event_hub;
@@ -78,7 +78,7 @@ use std::sync::Arc;
 use nexus_actor_core_rs::ActorSystem;
 use nexus_utils_std_rs::Element;
 
-/// 再エクスポートされた主要な型とトレイトを提供するプレリュードモジュールです。
+/// A prelude module that provides commonly used re-exported types and traits.
 pub mod prelude {
   pub use super::{
     ArcShared, ArcStateCell, TokioMailbox, TokioMailboxFactory, TokioMailboxSender, TokioPriorityMailbox,
@@ -87,19 +87,19 @@ pub mod prelude {
   pub use nexus_actor_core_rs::actor_loop;
 }
 
-/// アクターシステムに受信タイムアウトスケジューラをインストールします。
+/// Installs a receive timeout scheduler into the actor system.
 ///
-/// この関数は、Tokioベースの受信タイムアウトスケジューラファクトリを
-/// 指定されたアクターシステムに設定します。受信タイムアウト機能を使用する場合は、
-/// アクターシステムの初期化時にこの関数を呼び出す必要があります。
+/// This function sets up a Tokio-based receive timeout scheduler factory
+/// in the specified actor system. This function must be called during
+/// actor system initialization to use the receive timeout functionality.
 ///
 /// # Arguments
 ///
-/// * `system` - 受信タイムアウトスケジューラを設定するアクターシステムへの可変参照
+/// * `system` - A mutable reference to the actor system where the receive timeout scheduler will be installed
 ///
-/// # 型パラメータ
+/// # Type Parameters
 ///
-/// * `U` - アクターシステムで扱うユーザーメッセージの型（`Element`トレイトを実装）
+/// * `U` - The type of user messages handled by the actor system (must implement `Element` trait)
 pub fn install_receive_timeout_scheduler<U>(system: &mut ActorSystem<U, TokioMailboxFactory>)
 where
   U: Element, {

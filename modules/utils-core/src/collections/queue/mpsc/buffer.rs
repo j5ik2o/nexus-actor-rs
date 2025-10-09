@@ -2,18 +2,18 @@ use alloc::collections::VecDeque;
 
 use crate::collections::{QueueError, QueueSize};
 
-/// マルチプロデューサー・シングルコンシューマー（MPSC）用のバッファ実装。
+/// Buffer implementation for multi-producer, single-consumer (MPSC) queues.
 ///
-/// このバッファは、複数の送信者と単一の受信者の間でメッセージをやり取りするために使用されます。
-/// 容量制限の有無を選択でき、クローズ状態の管理もサポートします。
+/// This buffer is used to exchange messages between multiple senders and a single receiver.
+/// It supports both bounded and unbounded capacity options and manages closed state.
 ///
-/// # 特徴
+/// # Features
 ///
-/// - 有界・無界の両方をサポート
-/// - クローズ状態の管理
-/// - スレッドセーフ（適切なロック機構と組み合わせて使用）
+/// - Supports both bounded and unbounded modes
+/// - Closed state management
+/// - Thread-safe (when used with appropriate locking mechanisms)
 ///
-/// # 例
+/// # Examples
 ///
 /// ```
 /// use nexus_utils_core_rs::MpscBuffer;
@@ -30,25 +30,25 @@ pub struct MpscBuffer<T> {
 }
 
 impl<T> MpscBuffer<T> {
-  /// 新しい`MpscBuffer`を作成します。
+  /// Creates a new `MpscBuffer`.
   ///
   /// # Arguments
   ///
-  /// * `capacity` - バッファの容量。`None`の場合は無制限。
+  /// * `capacity` - The buffer capacity. `None` for unlimited.
   ///
   /// # Returns
   ///
-  /// 新しい`MpscBuffer`インスタンス。
+  /// A new `MpscBuffer` instance.
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```
   /// use nexus_utils_core_rs::MpscBuffer;
   ///
-  /// // 容量10の有界バッファ
+  /// // Bounded buffer with capacity 10
   /// let bounded = MpscBuffer::<i32>::new(Some(10));
   ///
-  /// // 無制限のバッファ
+  /// // Unbounded buffer
   /// let unbounded = MpscBuffer::<i32>::new(None);
   /// ```
   pub fn new(capacity: Option<usize>) -> Self {
@@ -59,13 +59,13 @@ impl<T> MpscBuffer<T> {
     }
   }
 
-  /// バッファ内の現在の要素数を返します。
+  /// Returns the current number of elements in the buffer.
   ///
   /// # Returns
   ///
-  /// 現在の要素数を表す`QueueSize`。
+  /// A `QueueSize` representing the current number of elements.
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```
   /// use nexus_utils_core_rs::MpscBuffer;
@@ -79,13 +79,13 @@ impl<T> MpscBuffer<T> {
     QueueSize::limited(self.buffer.len())
   }
 
-  /// バッファの容量を返します。
+  /// Returns the capacity of the buffer.
   ///
   /// # Returns
   ///
-  /// バッファの容量を表す`QueueSize`。無制限の場合は`QueueSize::limitless()`。
+  /// A `QueueSize` representing the buffer capacity. Returns `QueueSize::limitless()` if unlimited.
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```
   /// use nexus_utils_core_rs::MpscBuffer;
@@ -103,15 +103,15 @@ impl<T> MpscBuffer<T> {
     }
   }
 
-  /// バッファの容量を設定します。
+  /// Sets the capacity of the buffer.
   ///
-  /// 新しい容量が現在のバッファサイズより小さい場合、バッファは切り詰められます。
+  /// If the new capacity is smaller than the current buffer size, the buffer will be truncated.
   ///
   /// # Arguments
   ///
-  /// * `capacity` - 新しい容量。`None`の場合は無制限。
+  /// * `capacity` - The new capacity. `None` for unlimited.
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```
   /// use nexus_utils_core_rs::MpscBuffer;
@@ -121,7 +121,7 @@ impl<T> MpscBuffer<T> {
   /// buffer.offer(2).unwrap();
   /// buffer.offer(3).unwrap();
   ///
-  /// // 容量を2に縮小（3番目の要素は削除される）
+  /// // Reduce capacity to 2 (third element will be removed)
   /// buffer.set_capacity(Some(2));
   /// assert_eq!(buffer.len().to_usize(), 2);
   /// ```
@@ -134,21 +134,21 @@ impl<T> MpscBuffer<T> {
     }
   }
 
-  /// バッファに要素を追加します。
+  /// Adds an element to the buffer.
   ///
-  /// バッファがクローズされている場合や容量が満杯の場合はエラーを返します。
+  /// Returns an error if the buffer is closed or at capacity.
   ///
   /// # Arguments
   ///
-  /// * `element` - 追加する要素。
+  /// * `element` - The element to add.
   ///
   /// # Returns
   ///
-  /// * `Ok(())` - 要素の追加に成功。
-  /// * `Err(QueueError::Closed(element))` - バッファがクローズされている。
-  /// * `Err(QueueError::Full(element))` - バッファが満杯。
+  /// * `Ok(())` - Element was successfully added.
+  /// * `Err(QueueError::Closed(element))` - Buffer is closed.
+  /// * `Err(QueueError::Full(element))` - Buffer is at capacity.
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```
   /// use nexus_utils_core_rs::{MpscBuffer, QueueError};
@@ -157,7 +157,7 @@ impl<T> MpscBuffer<T> {
   /// assert!(buffer.offer(1).is_ok());
   /// assert!(buffer.offer(2).is_ok());
   ///
-  /// // 容量超過
+  /// // Capacity exceeded
   /// assert!(matches!(buffer.offer(3), Err(QueueError::Full(_))));
   /// ```
   pub fn offer(&mut self, element: T) -> Result<(), QueueError<T>> {
@@ -171,17 +171,17 @@ impl<T> MpscBuffer<T> {
     Ok(())
   }
 
-  /// バッファから要素を取り出します。
+  /// Retrieves an element from the buffer.
   ///
-  /// バッファが空でクローズされている場合は`Disconnected`エラーを返します。
+  /// Returns `Disconnected` error if the buffer is empty and closed.
   ///
   /// # Returns
   ///
-  /// * `Ok(Some(element))` - 要素の取り出しに成功。
-  /// * `Ok(None)` - バッファが空（まだクローズされていない）。
-  /// * `Err(QueueError::Disconnected)` - バッファが空でクローズされている。
+  /// * `Ok(Some(element))` - Element was successfully retrieved.
+  /// * `Ok(None)` - Buffer is empty (not yet closed).
+  /// * `Err(QueueError::Disconnected)` - Buffer is empty and closed.
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```
   /// use nexus_utils_core_rs::{MpscBuffer, QueueError};
@@ -206,11 +206,11 @@ impl<T> MpscBuffer<T> {
     }
   }
 
-  /// バッファをクリーンアップし、クローズ状態にします。
+  /// Cleans up the buffer and marks it as closed.
   ///
-  /// すべての要素を削除し、バッファをクローズ状態にマークします。
+  /// Removes all elements and marks the buffer as closed.
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```
   /// use nexus_utils_core_rs::MpscBuffer;
@@ -228,13 +228,13 @@ impl<T> MpscBuffer<T> {
     self.closed = true;
   }
 
-  /// バッファがクローズされているかどうかを返します。
+  /// Returns whether the buffer is closed.
   ///
   /// # Returns
   ///
-  /// バッファがクローズされている場合は`true`、それ以外は`false`。
+  /// `true` if the buffer is closed, `false` otherwise.
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```
   /// use nexus_utils_core_rs::MpscBuffer;
@@ -249,11 +249,11 @@ impl<T> MpscBuffer<T> {
     self.closed
   }
 
-  /// バッファをクローズ状態にマークします。
+  /// Marks the buffer as closed.
   ///
-  /// 既存の要素は削除されません。新しい要素の追加のみが禁止されます。
+  /// Existing elements are not removed. Only adding new elements is forbidden.
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```
   /// use nexus_utils_core_rs::{MpscBuffer, QueueError};
@@ -264,10 +264,10 @@ impl<T> MpscBuffer<T> {
   /// buffer.mark_closed();
   /// assert!(buffer.is_closed());
   ///
-  /// // クローズ後は要素を追加できない
+  /// // Cannot add elements after closing
   /// assert!(matches!(buffer.offer(2), Err(QueueError::Closed(_))));
   ///
-  /// // しかし既存の要素は取り出せる
+  /// // But can still retrieve existing elements
   /// assert_eq!(buffer.poll().unwrap(), Some(1));
   /// ```
   pub fn mark_closed(&mut self) {
@@ -276,11 +276,11 @@ impl<T> MpscBuffer<T> {
 }
 
 impl<T> Default for MpscBuffer<T> {
-  /// デフォルトの`MpscBuffer`を作成します。
+  /// Creates a default `MpscBuffer`.
   ///
-  /// 容量無制限のバッファを返します。
+  /// Returns an unbounded buffer.
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```
   /// use nexus_utils_core_rs::MpscBuffer;

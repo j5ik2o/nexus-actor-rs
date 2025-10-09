@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 
 use nexus_actor_core_rs::{FailureEvent, FailureEventListener, FailureEventStream};
 
-/// std 向けの FailureEventStream 実装。
+/// FailureEventStream implementation for std.
 #[derive(Clone, Default)]
 pub struct FailureEventHub {
   inner: Arc<FailureEventHubInner>,
@@ -24,11 +24,11 @@ impl Default for FailureEventHubInner {
 }
 
 impl FailureEventHub {
-  /// 新しい`FailureEventHub`インスタンスを作成します。
+  /// Creates a new `FailureEventHub` instance.
   ///
   /// # Returns
   ///
-  /// デフォルト状態で初期化された新しいハブインスタンス
+  /// A new hub instance initialized with default state
   pub fn new() -> Self {
     Self::default()
   }
@@ -72,7 +72,7 @@ impl FailureEventStream for FailureEventHub {
   }
 }
 
-/// FailureEventHub への購読ハンドル。Drop 時に自動解除される。
+/// Subscription handle to FailureEventHub. Automatically unsubscribes on Drop.
 pub struct FailureEventSubscription {
   inner: Arc<FailureEventHubInner>,
   id: u64,

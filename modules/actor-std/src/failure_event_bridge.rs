@@ -3,35 +3,35 @@ use std::sync::Arc;
 use nexus_actor_core_rs::{FailureEvent, FailureEventListener};
 use tokio::sync::broadcast;
 
-/// Tokio broadcast ベースで FailureEvent を配信するラッパ。
+/// A wrapper that distributes FailureEvent via Tokio broadcast channels.
 #[derive(Clone)]
 pub struct TokioFailureEventBridge {
   sender: broadcast::Sender<FailureEvent>,
 }
 
 impl TokioFailureEventBridge {
-  /// 新しい`TokioFailureEventBridge`インスタンスを作成します。
+  /// Creates a new `TokioFailureEventBridge` instance.
   ///
   /// # Arguments
   ///
-  /// * `capacity` - 内部broadcastチャネルのバッファ容量
+  /// * `capacity` - The buffer capacity of the internal broadcast channel
   ///
   /// # Returns
   ///
-  /// 指定された容量のbroadcastチャネルを持つ新しいブリッジインスタンス
+  /// A new bridge instance with a broadcast channel of the specified capacity
   pub fn new(capacity: usize) -> Self {
     let (sender, _) = broadcast::channel(capacity);
     Self { sender }
   }
 
-  /// 障害イベントをブロードキャストするリスナーを取得します。
+  /// Returns a listener that broadcasts failure events.
   ///
-  /// このメソッドは、障害イベントを受け取り、すべての購読者にブロードキャストする
-  /// `FailureEventListener`を返します。送信エラーは無視されます。
+  /// This method returns a `FailureEventListener` that receives failure events
+  /// and broadcasts them to all subscribers. Send errors are ignored.
   ///
   /// # Returns
   ///
-  /// 障害イベントをブロードキャストするリスナー関数
+  /// A listener function that broadcasts failure events
   pub fn listener(&self) -> FailureEventListener {
     let sender = self.sender.clone();
     Arc::new(move |event: FailureEvent| {
@@ -39,15 +39,15 @@ impl TokioFailureEventBridge {
     })
   }
 
-  /// 障害イベントの受信者を作成します。
+  /// Creates a receiver for failure events.
   ///
-  /// このメソッドは、ブロードキャストチャネルの新しい受信者を作成します。
-  /// 返された受信者を使用して、ブリッジを通じてブロードキャストされた
-  /// 障害イベントを受信できます。
+  /// This method creates a new receiver for the broadcast channel.
+  /// The returned receiver can be used to receive failure events
+  /// that are broadcast through the bridge.
   ///
   /// # Returns
   ///
-  /// 障害イベントを受信するためのbroadcast受信者
+  /// A broadcast receiver for receiving failure events
   pub fn subscribe(&self) -> broadcast::Receiver<FailureEvent> {
     self.sender.subscribe()
   }
