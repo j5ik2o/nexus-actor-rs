@@ -6,19 +6,22 @@ use super::behavior::{Signal, SupervisorStrategyConfig};
 use super::*;
 use super::{ask_with_timeout, AskError};
 use crate::api::guardian::AlwaysRestart;
+use crate::api::{InternalMessageSender, MessageEnvelope, MessageMetadata, MessageSender};
 use crate::runtime::mailbox::test_support::TestMailboxFactory;
+use crate::runtime::message::{outstanding_metadata_count, take_metadata, DynMessage};
 use crate::ActorId;
 use crate::MailboxOptions;
+use crate::PriorityEnvelope;
 use crate::SystemMessage;
 use alloc::rc::Rc;
 use alloc::string::String;
+use alloc::sync::Arc;
 use alloc::vec::Vec;
 use core::cell::RefCell;
 use core::future::Future;
 use core::pin::Pin;
 use core::task::{Context as TaskContext, Poll, RawWaker, RawWakerVTable, Waker};
-use nexus_utils_core_rs::Element;
-use nexus_utils_core_rs::QueueError;
+use nexus_utils_core_rs::{Element, QueueError};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 
 #[derive(Clone, Debug)]
@@ -34,6 +37,15 @@ impl Element for ChildMessage {}
 
 use futures::executor::block_on;
 use futures::future;
+
+fn noop_sender<M>() -> MessageSender<M>
+where
+  M: Element, {
+  let dispatch =
+    Arc::new(|_message: DynMessage, _priority: i8| -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> { Ok(()) });
+  let internal = InternalMessageSender::new(dispatch);
+  MessageSender::new(internal)
+}
 
 #[test]
 fn test_supervise_builder_sets_strategy() {
@@ -157,6 +169,29 @@ fn test_typed_actor_handles_system_stop() {
   block_on(root.dispatch_next()).expect("dispatch");
 
   assert!(*stopped.borrow(), "SystemMessage::Stop should be handled");
+}
+
+#[test]
+fn user_message_releases_metadata_on_drop() {
+  let before = outstanding_metadata_count();
+  {
+    let metadata = MessageMetadata::new().with_sender(noop_sender::<ParentMessage>());
+    let envelope = MessageEnvelope::user_with_metadata(ParentMessage("ping".into()), metadata);
+    drop(envelope);
+  }
+  assert_eq!(outstanding_metadata_count(), before);
+}
+
+#[test]
+fn metadata_key_consumed_once() {
+  let metadata = MessageMetadata::new().with_sender(noop_sender::<ParentMessage>());
+  let envelope = MessageEnvelope::user_with_metadata(ParentMessage("pong".into()), metadata);
+  let key = match envelope {
+    MessageEnvelope::User(user) => user.into_parts().1.expect("metadata key expected"),
+    MessageEnvelope::System(_) => unreachable!(),
+  };
+  assert!(take_metadata(key).is_some());
+  assert!(take_metadata(key).is_none());
 }
 
 #[test]

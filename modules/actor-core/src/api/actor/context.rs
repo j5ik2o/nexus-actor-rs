@@ -226,7 +226,7 @@ where
     self.inner
   }
 
-  fn self_dispatcher(&self) -> MessageSender<U>
+  pub(crate) fn self_dispatcher(&self) -> MessageSender<U>
   where
     R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
     R::Signal: Clone + Send + Sync + 'static, {
@@ -277,11 +277,8 @@ where
     Resp: Element,
     R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
     R::Signal: Clone + Send + Sync + 'static, {
-    let metadata = self.message_metadata().ok_or(AskError::MissingResponder)?;
-    let dispatcher = metadata.dispatcher_for::<Resp>().ok_or(AskError::MissingResponder)?;
-    let dispatch_metadata = MessageMetadata::new().with_sender(self.self_dispatcher());
-    let envelope = MessageEnvelope::user_with_metadata(message, dispatch_metadata);
-    dispatcher.dispatch_envelope(envelope).map_err(AskError::from)
+    let metadata = self.message_metadata().cloned().ok_or(AskError::MissingResponder)?;
+    metadata.respond_with(self, message)
   }
 
   pub fn ask<V, Resp, F>(&mut self, target: &ActorRef<V, R>, factory: F) -> AskResult<AskFuture<Resp>>
@@ -373,6 +370,21 @@ where
       .inner
       .spawn_child_from_props(Box::new(supervisor_cfg.into_supervisor()), internal_props);
     ActorRef::new(actor_ref)
+  }
+}
+
+impl MessageMetadata {
+  pub fn respond_with<Resp, U, R>(&self, ctx: &mut Context<'_, '_, U, R>, message: Resp) -> AskResult<()>
+  where
+    Resp: Element,
+    U: Element,
+    R: MailboxFactory + Clone + 'static,
+    R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
+    R::Signal: Clone + Send + Sync + 'static, {
+    let dispatcher = self.dispatcher_for::<Resp>().ok_or(AskError::MissingResponder)?;
+    let dispatch_metadata = MessageMetadata::new().with_sender(ctx.self_dispatcher());
+    let envelope = MessageEnvelope::user_with_metadata(message, dispatch_metadata);
+    dispatcher.dispatch_envelope(envelope).map_err(AskError::from)
   }
 }
 

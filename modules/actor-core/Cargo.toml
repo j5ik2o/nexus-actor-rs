@@ -22,3 +22,9 @@ futures = { version = "0.3", default-features = false, features = ["alloc"] }
 spin = { version = "0.9", default-features = false, features = ["mutex", "once"] }
 
 [dev-dependencies]
+criterion = "0.5"
+
+[[bench]]
+name = "metadata_table"
+harness = false
+required-features = ["std"]

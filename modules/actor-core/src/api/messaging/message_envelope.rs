@@ -1,10 +1,11 @@
 use alloc::sync::Arc;
 
 use crate::runtime::context::InternalActorRef;
-use crate::runtime::message::{store_metadata, DynMessage, MetadataKey};
+use crate::runtime::message::{store_metadata, take_metadata, DynMessage, MetadataKey};
 use crate::SystemMessage;
 use crate::{MailboxFactory, PriorityEnvelope};
 use core::marker::PhantomData;
+use core::mem::{forget, ManuallyDrop};
 use nexus_utils_core_rs::{Element, QueueError, DEFAULT_PRIORITY};
 
 type SendFn = dyn Fn(DynMessage, i8) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> + Send + Sync;
@@ -215,14 +216,14 @@ impl MessageMetadata {
 /// ユーザーメッセージとメタデータを保持するラッパー。
 #[derive(Debug, Clone)]
 pub struct UserMessage<U> {
-  message: U,
+  message: ManuallyDrop<U>,
   metadata_key: Option<MetadataKey>,
 }
 
 impl<U> UserMessage<U> {
   pub fn new(message: U) -> Self {
     Self {
-      message,
+      message: ManuallyDrop::new(message),
       metadata_key: None,
     }
   }
@@ -233,28 +234,42 @@ impl<U> UserMessage<U> {
     } else {
       let key = store_metadata(metadata);
       Self {
-        message,
+        message: ManuallyDrop::new(message),
         metadata_key: Some(key),
       }
     }
   }
 
   pub fn message(&self) -> &U {
-    &self.message
+    &*self.message
   }
 
   pub fn metadata_key(&self) -> Option<MetadataKey> {
     self.metadata_key
   }
 
-  pub fn into_parts(self) -> (U, Option<MetadataKey>) {
-    (self.message, self.metadata_key)
+  pub fn into_parts(mut self) -> (U, Option<MetadataKey>) {
+    let key = self.metadata_key.take();
+    let message = unsafe { ManuallyDrop::take(&mut self.message) };
+    forget(self);
+    (message, key)
   }
 }
 
 impl<U> From<U> for UserMessage<U> {
   fn from(message: U) -> Self {
     Self::new(message)
+  }
+}
+
+impl<U> Drop for UserMessage<U> {
+  fn drop(&mut self) {
+    if let Some(key) = self.metadata_key.take() {
+      let _ = take_metadata(key);
+    }
+    unsafe {
+      ManuallyDrop::drop(&mut self.message);
+    }
   }
 }
 
