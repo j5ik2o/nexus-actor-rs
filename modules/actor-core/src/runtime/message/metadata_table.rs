@@ -63,10 +63,12 @@ fn global_table() -> &'static MetadataTable {
   TABLE.call_once(MetadataTable::new)
 }
 
+/// グローバルなメタデータテーブルに値を格納し、キーを返す。
 pub fn store_metadata(metadata: MessageMetadata) -> MetadataKey {
   global_table().store(metadata)
 }
 
+/// 以前に登録したメタデータを取得し、同時にテーブルから削除する。
 pub fn take_metadata(key: MetadataKey) -> Option<MessageMetadata> {
   global_table().take(key)
 }
