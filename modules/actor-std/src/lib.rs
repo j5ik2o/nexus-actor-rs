@@ -1,3 +1,59 @@
+//! A crate that provides actor system implementation for the Tokio asynchronous runtime.
+//!
+//! This crate provides components such as mailboxes, timers, and spawners
+//! that run on the Tokio runtime, making the functionality of `nexus-actor-core-rs`
+//! available in standard asynchronous runtime environments.
+
+#![deny(missing_docs)]
+#![deny(rustdoc::broken_intra_doc_links)]
+#![deny(unsafe_op_in_unsafe_fn)]
+#![deny(clippy::missing_errors_doc)]
+#![deny(clippy::missing_panics_doc)]
+#![deny(clippy::missing_safety_doc)]
+#![deny(clippy::redundant_clone)]
+#![deny(clippy::redundant_field_names)]
+#![deny(clippy::redundant_pattern)]
+#![deny(clippy::redundant_static_lifetimes)]
+#![deny(clippy::unnecessary_to_owned)]
+#![deny(clippy::unnecessary_struct_initialization)]
+#![deny(clippy::needless_borrow)]
+#![deny(clippy::needless_pass_by_value)]
+#![deny(clippy::manual_ok_or)]
+#![deny(clippy::manual_map)]
+#![deny(clippy::manual_let_else)]
+#![deny(clippy::manual_strip)]
+#![deny(clippy::unused_async)]
+#![deny(clippy::unused_self)]
+#![deny(clippy::unnecessary_wraps)]
+#![deny(clippy::unreachable)]
+#![deny(clippy::empty_enum)]
+#![deny(clippy::no_effect)]
+#![deny(clippy::drop_copy)]
+#![deny(clippy::unwrap_used)]
+#![deny(clippy::expect_used)]
+#![deny(clippy::panic)]
+#![deny(clippy::todo)]
+#![deny(clippy::unimplemented)]
+#![deny(clippy::print_stdout)]
+#![deny(clippy::dbg_macro)]
+#![deny(clippy::missing_const_for_fn)]
+#![deny(clippy::must_use_candidate)]
+#![deny(clippy::trivially_copy_pass_by_ref)]
+#![deny(clippy::clone_on_copy)]
+#![deny(clippy::len_without_is_empty)]
+#![deny(clippy::wrong_self_convention)]
+#![deny(clippy::wrong_pub_self_convention)]
+#![deny(clippy::from_over_into)]
+#![deny(clippy::eq_op)]
+#![deny(clippy::bool_comparison)]
+#![deny(clippy::needless_bool)]
+#![deny(clippy::match_like_matches_macro)]
+#![deny(clippy::manual_assert)]
+#![deny(clippy::naive_bytecount)]
+#![deny(clippy::if_same_then_else)]
+#![deny(clippy::cmp_null)]
+
+/// A failure event bridge module utilizing Tokio's broadcast channel.
 #[cfg(any(feature = "rt-multi-thread", feature = "rt-current-thread"))]
 pub mod failure_event_bridge;
 mod failure_event_hub;
@@ -22,6 +78,7 @@ use std::sync::Arc;
 use nexus_actor_core_rs::ActorSystem;
 use nexus_utils_std_rs::Element;
 
+/// A prelude module that provides commonly used re-exported types and traits.
 pub mod prelude {
   pub use super::{
     ArcShared, ArcStateCell, TokioMailbox, TokioMailboxFactory, TokioMailboxSender, TokioPriorityMailbox,
@@ -30,6 +87,19 @@ pub mod prelude {
   pub use nexus_actor_core_rs::actor_loop;
 }
 
+/// Installs a receive timeout scheduler into the actor system.
+///
+/// This function sets up a Tokio-based receive timeout scheduler factory
+/// in the specified actor system. This function must be called during
+/// actor system initialization to use the receive timeout functionality.
+///
+/// # Arguments
+///
+/// * `system` - A mutable reference to the actor system where the receive timeout scheduler will be installed
+///
+/// # Type Parameters
+///
+/// * `U` - The type of user messages handled by the actor system (must implement `Element` trait)
 pub fn install_receive_timeout_scheduler<U>(system: &mut ActorSystem<U, TokioMailboxFactory>)
 where
   U: Element, {

@@ -7,7 +7,7 @@ use crate::MailboxFactory;
 use crate::{PriorityEnvelope, SystemMessage};
 use nexus_utils_core_rs::Element;
 
-/// 親 Guardian へ `SystemMessage::Escalate` を転送するシンク。
+/// Sink that forwards `SystemMessage::Escalate` to parent Guardian.
 pub(crate) struct ParentGuardianSink<M, R>
 where
   M: Element,

@@ -8,6 +8,14 @@ use embassy_sync::mutex::Mutex;
 use embassy_sync::signal::Signal;
 use nexus_utils_core_rs::{async_trait, CountDownLatch as CoreCountDownLatch, CountDownLatchBackend};
 
+/// Backend implementation for countdown latch using `Arc`
+///
+/// Provides countdown synchronization using embassy-sync primitives with `Arc`
+/// for thread-safe reference counting. Threads wait until the count reaches zero.
+///
+/// # Type Parameters
+///
+/// * `RM` - Raw mutex type from embassy-sync
 pub struct ArcCountDownLatchBackend<RM>
 where
   RM: RawMutex, {
@@ -65,7 +73,14 @@ where
   }
 }
 
+/// Type alias for `Arc`-based countdown latch using `CriticalSectionRawMutex`
+///
+/// Provides interrupt-safe countdown synchronization for embedded contexts.
 pub type ArcLocalCountDownLatch = CoreCountDownLatch<ArcCountDownLatchBackend<CriticalSectionRawMutex>>;
+
+/// Alias for `ArcLocalCountDownLatch` for consistency
+///
+/// Uses critical section mutex backend.
 pub type ArcCsCountDownLatch = ArcLocalCountDownLatch;
 
 #[cfg(all(test, feature = "std"))]

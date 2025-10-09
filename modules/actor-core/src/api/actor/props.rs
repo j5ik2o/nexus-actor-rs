@@ -15,6 +15,9 @@ use crate::api::MessageEnvelope;
 use core::cell::RefCell;
 use core::marker::PhantomData;
 
+/// Properties that hold configuration for actor spawning.
+///
+/// Includes actor behavior, mailbox settings, supervisor strategy, and more.
 pub struct Props<U, R>
 where
   U: Element,
@@ -33,6 +36,11 @@ where
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
   R::Signal: Clone,
 {
+  /// Creates a new `Props` with the specified message handler.
+  ///
+  /// # Arguments
+  /// * `options` - Mailbox options
+  /// * `handler` - Handler function to process user messages
   pub fn new<F>(options: MailboxOptions, handler: F) -> Self
   where
     F: for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, U) + 'static, {
@@ -48,12 +56,23 @@ where
     })
   }
 
+  /// Creates a new `Props` with the specified Behavior factory.
+  ///
+  /// # Arguments
+  /// * `options` - Mailbox options
+  /// * `behavior_factory` - Factory function that generates actor behavior
   pub fn with_behavior<F>(options: MailboxOptions, behavior_factory: F) -> Self
   where
     F: Fn() -> Behavior<U, R> + 'static, {
     Self::with_behavior_and_system::<_, fn(&mut Context<'_, '_, U, R>, SystemMessage)>(options, behavior_factory, None)
   }
 
+  /// Creates a new `Props` with user message handler and system message handler.
+  ///
+  /// # Arguments
+  /// * `options` - Mailbox options
+  /// * `user_handler` - Handler function to process user messages
+  /// * `system_handler` - Handler function to process system messages (optional)
   pub fn with_system_handler<F, G>(options: MailboxOptions, user_handler: F, system_handler: Option<G>) -> Self
   where
     F: for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, U) + 'static,
@@ -74,6 +93,14 @@ where
     )
   }
 
+  /// Creates a new `Props` with Behavior factory and system message handler.
+  ///
+  /// The most flexible way to create `Props`, allowing specification of both behavior and system message handler.
+  ///
+  /// # Arguments
+  /// * `options` - Mailbox options
+  /// * `behavior_factory` - Factory function that generates actor behavior
+  /// * `system_handler` - Handler function to process system messages (optional)
   pub fn with_behavior_and_system<F, S>(
     options: MailboxOptions,
     behavior_factory: F,
@@ -113,6 +140,10 @@ where
     }
   }
 
+  /// Decomposes into internal properties and supervisor configuration (internal API).
+  ///
+  /// # Returns
+  /// Tuple of `(InternalProps, SupervisorStrategyConfig)`
   pub(crate) fn into_parts(self) -> (InternalProps<DynMessage, R>, SupervisorStrategyConfig) {
     (self.inner, self.supervisor)
   }

@@ -3,6 +3,10 @@ use core::fmt::Debug;
 #[cfg(feature = "alloc")]
 use alloc::{boxed::Box, string::String, sync::Arc};
 
+/// Fundamental constraints for elements that can be stored in collections such as queues and stacks.
+///
+/// By requiring `Debug`, `Send`, `Sync`, and `'static`, this trait ensures element types
+/// that can be safely handled in multithreaded environments.
 pub trait Element: Debug + Send + Sync + 'static {}
 
 macro_rules! impl_element_for_primitives {

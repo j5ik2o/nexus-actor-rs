@@ -6,6 +6,16 @@ use nexus_utils_core_rs::{
 
 use crate::sync::{ArcShared, ArcStateCell};
 
+/// `Arc`-based ring queue with configurable mutex backend
+///
+/// This queue provides FIFO semantics using a circular buffer, with `Arc` for
+/// thread-safe reference counting. The mutex backend is configurable via the `RM`
+/// type parameter.
+///
+/// # Type Parameters
+///
+/// * `E` - Element type stored in the queue
+/// * `RM` - Raw mutex type (defaults to `NoopRawMutex`)
 #[derive(Debug)]
 pub struct ArcRingQueue<E, RM = NoopRawMutex>
 where
@@ -13,12 +23,20 @@ where
   inner: RingQueue<ArcShared<RingStorageBackend<ArcShared<ArcStateCell<RingBuffer<E>, RM>>>>, E>,
 }
 
+/// Type alias for `ArcRingQueue` using `NoopRawMutex`
+///
+/// Suitable for single-threaded or interrupt-free contexts where no locking is required.
 pub type ArcLocalRingQueue<E> = ArcRingQueue<E, NoopRawMutex>;
 
 impl<E, RM> ArcRingQueue<E, RM>
 where
   RM: RawMutex,
 {
+  /// Creates a new ring queue with the specified capacity
+  ///
+  /// # Arguments
+  ///
+  /// * `capacity` - Initial capacity of the queue
   pub fn new(capacity: usize) -> Self {
     let storage = ArcShared::new(ArcStateCell::new(RingBuffer::new(capacity)));
     let backend = ArcShared::new(RingStorageBackend::new(storage));
@@ -27,11 +45,21 @@ where
     }
   }
 
+  /// Sets the dynamic expansion mode and returns self (builder pattern)
+  ///
+  /// # Arguments
+  ///
+  /// * `dynamic` - If `true`, queue expands dynamically; if `false`, capacity is fixed
   pub fn with_dynamic(mut self, dynamic: bool) -> Self {
     self.inner = self.inner.with_dynamic(dynamic);
     self
   }
 
+  /// Sets the dynamic expansion mode
+  ///
+  /// # Arguments
+  ///
+  /// * `dynamic` - If `true`, queue expands dynamically when full
   pub fn set_dynamic(&self, dynamic: bool) {
     self.inner.set_dynamic(dynamic);
   }

@@ -24,7 +24,18 @@
       "mcp__serena__list_memories",
       "Bash(git add:*)",
       "Bash(git commit -m \"$(cat <<''EOF''\nrefactor: split context.rs into modular structure\n\nSplit context.rs (226 lines) into logical modules following Rust 2018 patterns:\n- context/actor_ref.rs - PriorityActorRef implementation\n- context/child_spawn_spec.rs - ChildSpawnSpec definition\n- context/actor_context.rs - ActorContext implementation\n- context.rs - Entry point with re-exports\n\nAll 29 tests passing\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
-      "Bash(git mv:*)"
+      "Bash(git mv:*)",
+      "mcp__serena__find_file",
+      "Bash(RUSTDOCFLAGS=\"--cap-lints=allow\" cargo test -p nexus-utils-core-rs --lib collections::queue::mpsc::queue::tests)",
+      "Bash(rustc:*)",
+      "Bash(rustdoc:*)",
+      "Bash(./scripts/check-rustdoc.sh:*)",
+      "Bash(for f in /Users/j5ik2o/Sources/nexus-actor-rs/modules/*/src/lib.rs)",
+      "Bash(do echo \"=== $f ===\")",
+      "Bash(head:*)",
+      "Bash(done)",
+      "Bash(RUSTFLAGS=\"-Dwarnings\" cargo check)",
+      "Bash(RUSTFLAGS=\"-Dwarnings\" cargo check -p nexus-utils-embedded-rs)"
     ],
     "deny": []
   },

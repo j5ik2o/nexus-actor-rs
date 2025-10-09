@@ -7,18 +7,31 @@ use nexus_utils_core_rs::{
 };
 use nexus_utils_core_rs::{Shared, StateCell};
 
+/// `Rc`-based shared reference wrapper.
+///
+/// Provides shared ownership using `Rc` in `no_std` environments.
+/// Implements the `Shared` trait and can be used as handles for various collection backends.
+///
+/// # Features
+///
+/// - Reference counting via `Rc` (single-threaded only)
+/// - Transparent access via `Deref`
+/// - Ownership recovery via `try_unwrap`
 #[derive(Debug)]
 pub struct RcShared<T>(Rc<T>);
 
 impl<T> RcShared<T> {
+  /// Creates a new shared reference with the specified value.
   pub fn new(value: T) -> Self {
     Self(Rc::new(value))
   }
 
+  /// Creates a shared reference from an existing `Rc`.
   pub fn from_rc(rc: Rc<T>) -> Self {
     Self(rc)
   }
 
+  /// Extracts the inner `Rc`.
   pub fn into_inner(self) -> Rc<T> {
     self.0
   }
@@ -90,18 +103,45 @@ where
   }
 }
 
+/// `Rc<RefCell<T>>`-based state cell.
+///
+/// Provides shared mutable state using `Rc` and `RefCell` in `no_std` environments.
+/// Implements the `StateCell` trait to enable the interior mutability pattern.
+///
+/// # Features
+///
+/// - Reference counting via `Rc` (single-threaded only)
+/// - Interior mutability via `RefCell`
+/// - Runtime borrow checking
+///
+/// # Usage Examples
+///
+/// ```ignore
+/// let cell = RcStateCell::new(1);
+/// let cloned = cell.clone();
+///
+/// {
+///   let mut value = cloned.borrow_mut();
+///   *value = 5;
+/// }
+///
+/// assert_eq!(*cell.borrow(), 5);
+/// ```
 #[derive(Debug)]
 pub struct RcStateCell<T>(Rc<RefCell<T>>);
 
 impl<T> RcStateCell<T> {
+  /// Creates a new state cell with the specified value.
   pub fn new(value: T) -> Self {
     <Self as StateCell<T>>::new(value)
   }
 
+  /// Creates a state cell from an existing `Rc<RefCell<T>>`.
   pub fn from_rc(rc: Rc<RefCell<T>>) -> Self {
     Self(rc)
   }
 
+  /// Extracts the inner `Rc<RefCell<T>>`.
   pub fn into_rc(self) -> Rc<RefCell<T>> {
     self.0
   }

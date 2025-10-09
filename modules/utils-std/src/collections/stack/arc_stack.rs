@@ -7,12 +7,21 @@ use nexus_utils_core_rs::{
 
 type ArcStackStorage<T> = ArcShared<StackStorageBackend<ArcShared<Mutex<StackBuffer<T>>>>>;
 
+/// `Arc`-based thread-safe stack implementation
+///
+/// Provides a stack data structure that can be safely shared across multiple threads.
+/// Internally uses `Arc` and `Mutex` for synchronization.
 #[derive(Debug, Clone)]
 pub struct ArcStack<T> {
   inner: Stack<ArcStackStorage<T>, T>,
 }
 
 impl<T> ArcStack<T> {
+  /// Creates a new `ArcStack`
+  ///
+  /// # Returns
+  ///
+  /// An empty `ArcStack` instance
   pub fn new() -> Self {
     let storage = ArcShared::new(Mutex::new(StackBuffer::new()));
     let backend: ArcStackStorage<T> = ArcShared::new(StackStorageBackend::new(storage));
@@ -21,38 +30,86 @@ impl<T> ArcStack<T> {
     }
   }
 
+  /// Creates an `ArcStack` with the specified capacity
+  ///
+  /// # Arguments
+  ///
+  /// * `capacity` - Maximum capacity of the stack
+  ///
+  /// # Returns
+  ///
+  /// An empty `ArcStack` instance with the specified capacity
   pub fn with_capacity(capacity: usize) -> Self {
     let stack = Self::new();
     stack.set_capacity(Some(capacity));
     stack
   }
 
+  /// Sets the capacity of the stack
+  ///
+  /// # Arguments
+  ///
+  /// * `capacity` - Maximum capacity of the stack. `None` for unlimited capacity
   pub fn set_capacity(&self, capacity: Option<usize>) {
     self.inner.set_capacity(capacity);
   }
 
+  /// Pushes a value onto the stack
+  ///
+  /// # Arguments
+  ///
+  /// * `value` - The value to push
+  ///
+  /// # Returns
+  ///
+  /// `Ok(())` on success, `Err(StackError)` if capacity limit is exceeded
+  ///
+  /// # Errors
+  ///
+  /// Returns `StackError` if the stack has reached its capacity limit
   pub fn push(&self, value: T) -> Result<(), StackError<T>> {
     self.inner.push(value)
   }
 
+  /// Pops a value from the stack
+  ///
+  /// # Returns
+  ///
+  /// `Some(T)` if the stack is not empty, `None` if empty
   pub fn pop(&self) -> Option<T> {
     self.inner.pop()
   }
 
+  /// Gets the top element without removing it
+  ///
+  /// # Returns
+  ///
+  /// A clone of the top element `Some(T)` if the stack is not empty, `None` if empty
   pub fn peek(&self) -> Option<T>
   where
     T: Clone, {
     self.inner.peek()
   }
 
+  /// Removes all elements from the stack
   pub fn clear(&self) {
     self.inner.clear();
   }
 
+  /// Returns the number of elements in the stack
+  ///
+  /// # Returns
+  ///
+  /// The current number of elements in the stack
   pub fn len(&self) -> QueueSize {
     self.inner.len()
   }
 
+  /// Returns the capacity of the stack
+  ///
+  /// # Returns
+  ///
+  /// The maximum capacity of the stack. `QueueSize::Unlimited` if unlimited
   pub fn capacity(&self) -> QueueSize {
     self.inner.capacity()
   }

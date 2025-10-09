@@ -11,6 +11,15 @@ use nexus_utils_core_rs::{
   SynchronizedRwBackend,
 };
 
+/// Backend implementation for mutex-based synchronization using `Arc`
+///
+/// Provides exclusive-access synchronization using embassy-sync's `Mutex` with
+/// `Arc` for thread-safe reference counting.
+///
+/// # Type Parameters
+///
+/// * `RM` - Raw mutex type from embassy-sync
+/// * `T` - The value type being synchronized
 #[derive(Clone, Debug)]
 pub struct ArcMutexBackend<RM, T>
 where
@@ -42,6 +51,15 @@ where
   }
 }
 
+/// Backend implementation for read-write lock synchronization using `Arc`
+///
+/// Provides concurrent read access with exclusive write access using embassy-sync's
+/// `RwLock` with `Arc` for thread-safe reference counting.
+///
+/// # Type Parameters
+///
+/// * `RM` - Raw mutex type from embassy-sync
+/// * `T` - The value type being synchronized
 #[derive(Clone, Debug)]
 pub struct ArcRwLockBackend<RM, T>
 where
@@ -81,12 +99,34 @@ where
   }
 }
 
+/// Type alias for `Arc`-based mutex synchronization
+///
+/// Provides exclusive-access synchronization with configurable mutex backend.
 pub type ArcSynchronized<T, RM> = CoreSynchronized<ArcMutexBackend<RM, T>, T>;
+
+/// Type alias for `Arc`-based read-write lock synchronization
+///
+/// Provides concurrent reads with exclusive writes using configurable mutex backend.
 pub type ArcSynchronizedRw<T, RM> = CoreSynchronizedRw<ArcRwLockBackend<RM, T>, T>;
 
+/// Type alias for `ArcSynchronized` using `CriticalSectionRawMutex`
+///
+/// Provides interrupt-safe critical section protection for embedded contexts.
 pub type ArcLocalSynchronized<T> = ArcSynchronized<T, CriticalSectionRawMutex>;
+
+/// Type alias for `ArcSynchronizedRw` using `CriticalSectionRawMutex`
+///
+/// Provides interrupt-safe read-write lock for embedded contexts.
 pub type ArcLocalSynchronizedRw<T> = ArcSynchronizedRw<T, CriticalSectionRawMutex>;
+
+/// Alias for `ArcLocalSynchronized` for consistency
+///
+/// Uses critical section mutex backend.
 pub type ArcCsSynchronized<T> = ArcLocalSynchronized<T>;
+
+/// Alias for `ArcLocalSynchronizedRw` for consistency
+///
+/// Uses critical section rwlock backend.
 pub type ArcCsSynchronizedRw<T> = ArcLocalSynchronizedRw<T>;
 
 #[cfg(all(test, feature = "std"))]

@@ -1,3 +1,8 @@
+//! ReceiveTimeout scheduler implementation for Tokio runtime.
+//!
+//! Combines `TokioDeadlineTimer` with priority mailboxes to provide
+//! a mechanism for delivering `SystemMessage::ReceiveTimeout` to actors.
+
 use core::time::Duration;
 use std::sync::Arc;
 
@@ -11,6 +16,8 @@ use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use tokio::task::JoinHandle;
 
 use crate::TokioMailboxFactory;
+
+/// Producer for sending `PriorityEnvelope<DynMessage>` to Tokio mailbox.
 type TokioSender = QueueMailboxProducer<
   <TokioMailboxFactory as MailboxFactory>::Queue<PriorityEnvelope<DynMessage>>,
   <TokioMailboxFactory as MailboxFactory>::Signal,
@@ -38,6 +45,12 @@ impl TimerState {
   }
 }
 
+/// Scheduler that drives `ReceiveTimeout` on Tokio runtime.
+///
+/// Spawns a dedicated task that polls `TokioDeadlineTimer` and sends
+/// `PriorityEnvelope<SystemMessage>` to the priority mailbox when expired.
+/// The `ActorCell` side can simply call `set` / `cancel` / `notify_activity`
+/// without being aware of the timer implementation.
 pub struct TokioReceiveTimeoutScheduler {
   tx: UnboundedSender<Command>,
   handle: JoinHandle<()>,
@@ -75,9 +88,16 @@ impl Drop for TokioReceiveTimeoutScheduler {
   }
 }
 
+/// `ReceiveTimeoutSchedulerFactory` implementation for Tokio runtime.
+///
+/// Receives the priority mailbox producer and SystemMessage conversion closure,
+/// spawns an internal scheduler task, and returns a `ReceiveTimeoutScheduler`.
+/// Simply registering it via `install_receive_timeout_scheduler` adds `ReceiveTimeout`
+/// support to the Tokio runtime.
 pub struct TokioReceiveTimeoutSchedulerFactory;
 
 impl TokioReceiveTimeoutSchedulerFactory {
+  /// Creates a new factory.
   pub fn new() -> Self {
     Self
   }

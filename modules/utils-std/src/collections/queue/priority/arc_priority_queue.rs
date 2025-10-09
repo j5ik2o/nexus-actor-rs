@@ -3,12 +3,25 @@ use nexus_utils_core_rs::{
   PriorityMessage, PriorityQueue, QueueBase, QueueError, QueueReader, QueueRw, QueueSize, QueueWriter, PRIORITY_LEVELS,
 };
 
+/// Priority queue
+///
+/// A priority queue that retrieves elements based on message priority.
+/// Internally uses multiple ring queue levels to process higher priority messages first.
 #[derive(Debug, Clone)]
 pub struct ArcPriorityQueue<E> {
   inner: PriorityQueue<ArcRingQueue<E>, E>,
 }
 
 impl<E> ArcPriorityQueue<E> {
+  /// Creates a new priority queue with the specified capacity per priority level
+  ///
+  /// # Arguments
+  ///
+  /// * `capacity_per_level` - Queue capacity for each priority level
+  ///
+  /// # Returns
+  ///
+  /// A new priority queue instance
   pub fn new(capacity_per_level: usize) -> Self {
     let levels = (0..PRIORITY_LEVELS)
       .map(|_| ArcRingQueue::new(capacity_per_level))
@@ -18,18 +31,38 @@ impl<E> ArcPriorityQueue<E> {
     }
   }
 
+  /// Returns an immutable reference to the priority level array
+  ///
+  /// # Returns
+  ///
+  /// A slice of priority level queues
   pub fn levels(&self) -> &[ArcRingQueue<E>] {
     self.inner.levels()
   }
 
+  /// Returns a mutable reference to the priority level array
+  ///
+  /// # Returns
+  ///
+  /// A mutable slice of priority level queues
   pub fn levels_mut(&mut self) -> &mut [ArcRingQueue<E>] {
     self.inner.levels_mut()
   }
 
+  /// Returns an immutable reference to the internal priority queue
+  ///
+  /// # Returns
+  ///
+  /// A reference to the internal priority queue
   pub fn inner(&self) -> &PriorityQueue<ArcRingQueue<E>, E> {
     &self.inner
   }
 
+  /// Returns a mutable reference to the internal priority queue
+  ///
+  /// # Returns
+  ///
+  /// A mutable reference to the internal priority queue
   pub fn inner_mut(&mut self) -> &mut PriorityQueue<ArcRingQueue<E>, E> {
     &mut self.inner
   }
@@ -39,14 +72,29 @@ impl<E> ArcPriorityQueue<E>
 where
   E: PriorityMessage,
 {
+  /// Adds an element to the queue based on its priority
+  ///
+  /// # Arguments
+  ///
+  /// * `element` - The element to add to the queue
+  ///
+  /// # Returns
+  ///
+  /// `Ok(())` on success, `Err(QueueError::Full)` if the queue is full
   pub fn offer(&self, element: E) -> Result<(), QueueError<E>> {
     self.inner.offer(element)
   }
 
+  /// Retrieves the highest priority element from the queue
+  ///
+  /// # Returns
+  ///
+  /// `Ok(Some(E))` on success, `Ok(None)` if the queue is empty
   pub fn poll(&self) -> Result<Option<E>, QueueError<E>> {
     self.inner.poll()
   }
 
+  /// Clears all elements in the queue
   pub fn clean_up(&self) {
     self.inner.clean_up();
   }

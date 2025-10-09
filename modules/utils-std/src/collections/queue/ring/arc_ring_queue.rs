@@ -8,12 +8,25 @@ use nexus_utils_core_rs::{
   DEFAULT_CAPACITY,
 };
 
+/// Ring buffer-based circular queue
+///
+/// A ring buffer queue with fixed capacity or dynamic expansion capability.
+/// Can be safely accessed from multiple threads using `Arc`-based shared ownership.
 #[derive(Debug, Clone)]
 pub struct ArcRingQueue<E> {
   inner: RingQueue<ArcRingStorage<E>, E>,
 }
 
 impl<E> ArcRingQueue<E> {
+  /// Creates a new ring queue with the specified capacity
+  ///
+  /// # Arguments
+  ///
+  /// * `capacity` - Initial capacity of the ring buffer
+  ///
+  /// # Returns
+  ///
+  /// A new ring queue instance
   pub fn new(capacity: usize) -> Self {
     let storage = ArcShared::new(Mutex::new(RingBuffer::new(capacity)));
     let backend: ArcRingStorage<E> = ArcShared::new(RingStorageBackend::new(storage));
@@ -22,11 +35,25 @@ impl<E> ArcRingQueue<E> {
     }
   }
 
+  /// Sets dynamic expansion mode and returns the queue (builder pattern)
+  ///
+  /// # Arguments
+  ///
+  /// * `dynamic` - If `true`, automatically expands when capacity is exceeded
+  ///
+  /// # Returns
+  ///
+  /// The queue instance with the configuration applied (self)
   pub fn with_dynamic(mut self, dynamic: bool) -> Self {
     self.inner = self.inner.with_dynamic(dynamic);
     self
   }
 
+  /// Sets dynamic expansion mode
+  ///
+  /// # Arguments
+  ///
+  /// * `dynamic` - If `true`, automatically expands when capacity is exceeded
   pub fn set_dynamic(&self, dynamic: bool) {
     self.inner.set_dynamic(dynamic);
   }

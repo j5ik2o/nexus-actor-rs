@@ -17,14 +17,19 @@ type SystemHandlerFn<U, R> = dyn for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R
 type SignalFn<U, R> = dyn for<'r, 'ctx> Fn(&mut Context<'r, 'ctx, U, R>, Signal) -> BehaviorDirective<U, R> + 'static;
 type SetupFn<U, R> = dyn for<'r, 'ctx> Fn(&mut Context<'r, 'ctx, U, R>) -> Behavior<U, R> + 'static;
 
+/// Actor lifecycle signals.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Signal {
+  /// Signal sent after actor stops
   PostStop,
 }
 
+/// Supervisor strategy configuration (internal representation).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum SupervisorStrategyConfig {
+  /// Default strategy (NoopSupervisor)
   Default,
+  /// Fixed strategy
   Fixed(SupervisorStrategy),
 }
 
@@ -48,11 +53,18 @@ impl SupervisorStrategyConfig {
   }
 }
 
+/// Types of supervisor strategies.
+///
+/// Defines how a parent actor handles failures in child actors.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SupervisorStrategy {
+  /// Restart the actor
   Restart,
+  /// Stop the actor
   Stop,
+  /// Ignore the error and continue processing
   Resume,
+  /// Escalate to parent
   Escalate,
 }
 
@@ -85,6 +97,7 @@ impl<M> Supervisor<M> for FixedDirectiveSupervisor {
   }
 }
 
+/// Dynamic supervisor implementation (internal type).
 pub(crate) struct DynSupervisor<M>
 where
   M: Element, {
@@ -117,17 +130,22 @@ where
   }
 }
 
-/// ユーザーメッセージ処理後の状態遷移指示。
+/// State transition directive after user message processing.
+///
+/// Specifies the next action after message processing.
 pub enum BehaviorDirective<U, R>
 where
   U: Element,
   R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
   R::Signal: Clone, {
+  /// Maintain the same Behavior
   Same,
+  /// Transition to a new Behavior
   Become(Behavior<U, R>),
 }
 
+/// Struct that holds the internal state of Behavior.
 pub struct BehaviorState<U, R>
 where
   U: Element,
@@ -163,15 +181,21 @@ where
   }
 }
 
-/// Typed Behavior 表現。Akka/Pekko Typed の `Behavior` に相当する。
+/// Typed Behavior representation. Equivalent to Akka/Pekko Typed's `Behavior`.
+///
+/// Defines actor behavior. Describes message processing and
+/// reactions to lifecycle events.
 pub enum Behavior<U, R>
 where
   U: Element,
   R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
   R::Signal: Clone, {
+  /// Message receiving state
   Receive(BehaviorState<U, R>),
+  /// Execute setup processing to generate Behavior
   Setup(Arc<SetupFn<U, R>>, Option<Arc<SignalFn<U, R>>>),
+  /// Stopped state
   Stopped,
 }
 
@@ -182,6 +206,10 @@ where
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
   R::Signal: Clone,
 {
+  /// Constructs a `Behavior` with specified message receive handler.
+  ///
+  /// # Arguments
+  /// * `handler` - Processing when message is received
   pub fn receive<F>(handler: F) -> Self
   where
     F: for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, U) -> BehaviorDirective<U, R> + 'static, {
@@ -191,6 +219,12 @@ where
     ))
   }
 
+  /// Constructs Behavior with a simple stateless handler.
+  ///
+  /// Handler always returns `BehaviorDirective::Same`.
+  ///
+  /// # Arguments
+  /// * `handler` - Processing when message is received
   pub fn stateless<F>(mut handler: F) -> Self
   where
     F: for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, U) + 'static, {
@@ -203,22 +237,32 @@ where
     ))
   }
 
+  /// Constructs Behavior with a handler that receives only the message, without Context.
+  ///
+  /// # Arguments
+  /// * `handler` - Processing when message is received
   pub fn receive_message<F>(mut handler: F) -> Self
   where
     F: FnMut(U) -> BehaviorDirective<U, R> + 'static, {
     Self::receive(move |_, msg| handler(msg))
   }
 
+  /// Creates a Behavior in stopped state.
   pub fn stopped() -> Self {
     Self::Stopped
   }
 
+  /// Executes setup processing to generate Behavior.
+  ///
+  /// # Arguments
+  /// * `init` - Initialization processing. Receives Context and returns Behavior
   pub fn setup<F>(init: F) -> Self
   where
     F: for<'r, 'ctx> Fn(&mut Context<'r, 'ctx, U, R>) -> Behavior<U, R> + 'static, {
     Self::Setup(Arc::new(init), None)
   }
 
+  /// Gets supervisor configuration (internal API).
   pub(crate) fn supervisor_config(&self) -> SupervisorStrategyConfig {
     match self {
       Behavior::Receive(state) => state.supervisor.clone(),
@@ -226,6 +270,10 @@ where
     }
   }
 
+  /// Adds a signal handler.
+  ///
+  /// # Arguments
+  /// * `handler` - Processing when signal is received
   pub fn receive_signal<F>(self, handler: F) -> Self
   where
     F: for<'r, 'ctx> Fn(&mut Context<'r, 'ctx, U, R>, Signal) -> BehaviorDirective<U, R> + 'static, {
@@ -249,10 +297,13 @@ where
   }
 }
 
-/// Behavior DSL ビルダー。
+/// Behavior DSL builder.
+///
+/// Provides Akka Typed-style Behavior construction API.
 pub struct Behaviors;
 
 impl Behaviors {
+  /// Constructs Behavior with specified message receive handler.
   pub fn receive<U, R, F>(handler: F) -> Behavior<U, R>
   where
     U: Element,
@@ -263,6 +314,7 @@ impl Behaviors {
     Behavior::receive(handler)
   }
 
+  /// Returns a directive to maintain current Behavior.
   pub fn same<U, R>() -> BehaviorDirective<U, R>
   where
     U: Element,
@@ -272,6 +324,7 @@ impl Behaviors {
     BehaviorDirective::Same
   }
 
+  /// Constructs Behavior with a handler that receives only the message.
   pub fn receive_message<U, R, F>(handler: F) -> Behavior<U, R>
   where
     U: Element,
@@ -282,6 +335,7 @@ impl Behaviors {
     Behavior::receive_message(handler)
   }
 
+  /// Returns a directive to transition to a new Behavior.
   pub fn transition<U, R>(behavior: Behavior<U, R>) -> BehaviorDirective<U, R>
   where
     U: Element,
@@ -291,6 +345,7 @@ impl Behaviors {
     BehaviorDirective::Become(behavior)
   }
 
+  /// Returns a directive to transition to stopped state.
   pub fn stopped<U, R>() -> BehaviorDirective<U, R>
   where
     U: Element,
@@ -300,6 +355,7 @@ impl Behaviors {
     BehaviorDirective::Become(Behavior::stopped())
   }
 
+  /// Creates a builder to set supervisor strategy on Behavior.
   pub fn supervise<U, R>(behavior: Behavior<U, R>) -> SuperviseBuilder<U, R>
   where
     U: Element,
@@ -309,6 +365,7 @@ impl Behaviors {
     SuperviseBuilder { behavior }
   }
 
+  /// Executes setup processing to generate Behavior.
   pub fn setup<U, R, F>(init: F) -> Behavior<U, R>
   where
     U: Element,
@@ -320,6 +377,7 @@ impl Behaviors {
   }
 }
 
+/// Builder for setting supervisor strategy.
 pub struct SuperviseBuilder<U, R>
 where
   U: Element,
@@ -336,6 +394,10 @@ where
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
   R::Signal: Clone,
 {
+  /// Sets supervisor strategy.
+  ///
+  /// # Arguments
+  /// * `strategy` - Supervisor strategy to apply
   pub fn with_strategy(mut self, strategy: SupervisorStrategy) -> Behavior<U, R> {
     if let Behavior::Receive(state) = &mut self.behavior {
       state.supervisor = SupervisorStrategyConfig::from_strategy(strategy);
@@ -344,7 +406,9 @@ where
   }
 }
 
-/// Behavior を非Typedランタイムへ橋渡しするアダプタ。
+/// Adapter that bridges Behavior to untyped runtime.
+///
+/// Type used by internal runtime to connect Behavior and message dispatching.
 pub struct ActorAdapter<U, R>
 where
   U: Element,
@@ -363,6 +427,11 @@ where
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
   R::Signal: Clone,
 {
+  /// Creates a new `ActorAdapter`.
+  ///
+  /// # Arguments
+  /// * `behavior_factory` - Factory function to create Behavior
+  /// * `system_handler` - System message handler (optional)
   pub fn new<S>(behavior_factory: Arc<dyn Fn() -> Behavior<U, R> + 'static>, system_handler: Option<S>) -> Self
   where
     S: for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, SystemMessage) + 'static, {
@@ -374,6 +443,11 @@ where
     }
   }
 
+  /// Processes a user message.
+  ///
+  /// # Arguments
+  /// * `ctx` - Actor context
+  /// * `message` - Message to process
   pub fn handle_user(&mut self, ctx: &mut Context<'_, '_, U, R>, message: U) {
     self.ensure_initialized(ctx);
     match &mut self.behavior {
@@ -391,6 +465,11 @@ where
     }
   }
 
+  /// Processes a system message.
+  ///
+  /// # Arguments
+  /// * `ctx` - Actor context
+  /// * `message` - System message to process
   pub fn handle_system(&mut self, ctx: &mut Context<'_, '_, U, R>, message: SystemMessage) {
     self.ensure_initialized(ctx);
     if matches!(message, SystemMessage::Stop) {
@@ -404,11 +483,12 @@ where
     }
   }
 
-  /// Guardian/Scheduler 用の SystemMessage マッパー。
+  /// Creates a SystemMessage mapper for Guardian/Scheduler.
   pub fn create_map_system() -> Arc<MapSystemFn<DynMessage>> {
     Arc::new(|sys| DynMessage::new(MessageEnvelope::<U>::System(sys)))
   }
 
+  /// Gets supervisor configuration (internal API).
   pub(crate) fn supervisor_config(&self) -> SupervisorStrategyConfig {
     self.behavior.supervisor_config()
   }
@@ -435,6 +515,7 @@ where
     }
   }
 
+  #[allow(dead_code)]
   fn handle_signal(&mut self, ctx: &mut Context<'_, '_, U, R>, signal: Signal) {
     if let Some(handler) = self.current_signal_handler() {
       match handler(ctx, signal) {

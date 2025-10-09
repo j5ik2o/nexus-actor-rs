@@ -8,7 +8,7 @@ use nexus_utils_core_rs::{Element, QueueError};
 
 use super::{CustomEscalationSink, ParentGuardianSink};
 
-/// 複数シンクを合成し、順番に適用する。
+/// Composes multiple sinks and applies them in order.
 pub(crate) struct CompositeEscalationSink<M, R>
 where
   M: Element,

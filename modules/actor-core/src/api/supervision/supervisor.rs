@@ -1,34 +1,56 @@
 use core::fmt;
 
-/// Supervisor が返すアクション。現在はテスト用途の最小限セットのみ定義する。
+/// Action returned by the supervisor.
+///
+/// Instructs how the supervisor should respond when an actor fails.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SupervisorDirective {
-  /// アクターを停止する。
+  /// Stop the actor.
   Stop,
-  /// エラーを無視して処理を継続する。
+  /// Ignore the error and continue processing.
   Resume,
-  /// アクターを再起動する。
+  /// Restart the actor.
   Restart,
-  /// 親へエスカレーションする。
+  /// Escalate to parent.
   Escalate,
 }
 
-/// Supervisor の基本トレイト。
+/// Base supervisor trait.
+///
+/// Defines actor failure handling strategy and controls behavior on failure.
 pub trait Supervisor<M>: Send + 'static {
+  /// Hook called before failure handling.
+  ///
+  /// Default implementation does nothing.
   fn before_handle(&mut self) {}
 
+  /// Hook called after failure handling.
+  ///
+  /// Default implementation does nothing.
   fn after_handle(&mut self) {}
 
+  /// Determines the handling policy for failures.
+  ///
+  /// # Arguments
+  ///
+  /// * `_error` - Information about the error that occurred
+  ///
+  /// # Returns
+  ///
+  /// `SupervisorDirective` to execute
   fn decide(&mut self, _error: &dyn fmt::Debug) -> SupervisorDirective {
     SupervisorDirective::Stop
   }
 }
 
-/// 何もしない Supervisor 実装。デフォルトで Resume を返す。
+/// No-op supervisor implementation.
+///
+/// Returns `Resume` for all failures and continues processing.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct NoopSupervisor;
 
 impl<M> Supervisor<M> for NoopSupervisor {
+  /// Returns `Resume` for all failures.
   fn decide(&mut self, _error: &dyn fmt::Debug) -> SupervisorDirective {
     SupervisorDirective::Resume
   }

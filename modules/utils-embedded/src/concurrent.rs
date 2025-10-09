@@ -1,3 +1,24 @@
+//! Concurrency primitives module.
+//!
+//! This module provides concurrency and synchronization primitives that can be used in `no_std` environments.
+//! You can select between `Rc` or `Arc` based implementations via feature flags.
+//!
+//! # Provided Synchronization Primitives
+//!
+//! - **AsyncBarrier**: Barrier for multiple tasks to wait at synchronization points
+//! - **CountDownLatch**: Latch that waits until count reaches 0
+//! - **WaitGroup**: Wait group for tracking completion of multiple tasks
+//! - **Synchronized**: Exclusive access control (Mutex-based)
+//! - **SynchronizedRw**: Read/write access control (RwLock-based)
+//!
+//! # Feature Flags
+//!
+//! - **`rc`**: `Rc`-based implementation (single-threaded only)
+//! - **`arc`**: `Arc`-based implementation (multi-threaded support)
+//!   - `ArcLocal*`: `Arc` + `LocalMutex`/`LocalRwLock` (single-thread optimized)
+//!   - `ArcCs*`: `Arc` + `CsMutex`/`CsRwLock` (critical section-based)
+//!   - `Arc*`: `Arc` + standard Mutex/RwLock
+
 #[cfg(feature = "rc")]
 mod rc_synchronized;
 #[cfg(feature = "rc")]

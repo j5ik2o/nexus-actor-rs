@@ -5,17 +5,17 @@ use nexus_actor_core_rs::guardian::GuardianStrategy;
 use nexus_actor_core_rs::{ActorSystem, MailboxFactory, PriorityEnvelope};
 use nexus_utils_core_rs::Element;
 
-/// Embassy の `Spawner` に `ActorSystem::run_forever` を登録するヘルパ。
+/// Helper to register `ActorSystem::run_forever` with Embassy's `Spawner`.
 ///
-/// # 使用例
+/// # Usage Example
 /// ```ignore
 /// static SYSTEM: StaticCell<ActorSystem<MessageEnvelope<MyMsg>, LocalMailboxFactory>> = StaticCell::new();
 /// let system = SYSTEM.init_with(|| ActorSystem::new(LocalMailboxFactory::default()));
 /// spawn_embassy_dispatcher(&spawner, system).unwrap();
 /// ```
 ///
-/// `ActorSystem` は `'static` な可変参照である必要があります。`StaticCell` などを利用し、
-/// 実行時に初期化したあと Embassy タスクへ移譲してください。
+/// The `ActorSystem` must be a `'static` mutable reference. Use `StaticCell` or similar,
+/// initialize it at runtime, and then delegate to an Embassy task.
 pub fn spawn_embassy_dispatcher<M, R, Strat>(
   spawner: &Spawner,
   system: &'static mut ActorSystem<M, R, Strat>,

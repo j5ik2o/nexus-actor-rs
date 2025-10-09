@@ -15,7 +15,7 @@ use super::{ChildRecord, FailureReasonDebug, GuardianStrategy};
 
 type ChildRoute<M, R> = (InternalActorRef<M, R>, Arc<MapSystemFn<M>>);
 
-/// Guardian: 子アクター群を監督し、SystemMessage を送出する。
+/// Guardian: Supervises child actors and sends SystemMessages.
 pub struct Guardian<M, R, Strat>
 where
   M: Element,

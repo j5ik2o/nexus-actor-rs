@@ -76,18 +76,27 @@ where
   }
 }
 
+/// Asynchronous mailbox for local thread.
+///
+/// Uses `Rc`-based queue to deliver messages in `!Send` environments.
 pub struct LocalMailbox<M>
 where
   M: Element, {
   inner: QueueMailbox<LocalQueue<M>, LocalSignal>,
 }
 
+/// Message sender to `LocalMailbox`.
+///
+/// A handle for sending messages to the mailbox asynchronously.
 pub struct LocalMailboxSender<M>
 where
   M: Element, {
   inner: QueueMailboxProducer<LocalQueue<M>, LocalSignal>,
 }
 
+/// Factory that creates local mailboxes.
+///
+/// Creates mailbox pairs for embedded or single-threaded environments.
 #[derive(Clone, Debug, Default)]
 pub struct LocalMailboxFactory {
   _marker: PhantomData<()>,
@@ -143,10 +152,24 @@ impl Future for LocalSignalWait {
 }
 
 impl LocalMailboxFactory {
+  /// Creates a new `LocalMailboxFactory`.
+  ///
+  /// # Returns
+  ///
+  /// A new factory instance
   pub const fn new() -> Self {
     Self { _marker: PhantomData }
   }
 
+  /// Creates a mailbox pair with the specified options.
+  ///
+  /// # Arguments
+  ///
+  /// * `options` - Mailbox configuration options
+  ///
+  /// # Returns
+  ///
+  /// A tuple of (receiver mailbox, sender handle)
   pub fn mailbox<M>(&self, options: MailboxOptions) -> (LocalMailbox<M>, LocalMailboxSender<M>)
   where
     M: Element, {
@@ -154,6 +177,11 @@ impl LocalMailboxFactory {
     (LocalMailbox { inner: mailbox }, LocalMailboxSender { inner: sender })
   }
 
+  /// Creates an unbounded mailbox pair.
+  ///
+  /// # Returns
+  ///
+  /// A tuple of (receiver mailbox, sender handle)
   pub fn unbounded<M>(&self) -> (LocalMailbox<M>, LocalMailboxSender<M>)
   where
     M: Element, {
@@ -184,10 +212,20 @@ where
   M: Element,
   LocalQueue<M>: Clone,
 {
+  /// Creates a new mailbox pair with default settings.
+  ///
+  /// # Returns
+  ///
+  /// A tuple of (receiver mailbox, sender handle)
   pub fn new() -> (Self, LocalMailboxSender<M>) {
     LocalMailboxFactory::default().unbounded()
   }
 
+  /// Creates a new sender handle.
+  ///
+  /// # Returns
+  ///
+  /// A new sender to the mailbox
   pub fn producer(&self) -> LocalMailboxSender<M>
   where
     LocalSignal: Clone, {
@@ -196,6 +234,11 @@ where
     }
   }
 
+  /// Returns a reference to the internal queue mailbox.
+  ///
+  /// # Returns
+  ///
+  /// A reference to the `QueueMailbox`
   pub fn inner(&self) -> &QueueMailbox<LocalQueue<M>, LocalSignal> {
     &self.inner
   }
@@ -263,14 +306,37 @@ where
   M: Element,
   LocalQueue<M>: Clone,
 {
+  /// Sends a message immediately (non-blocking).
+  ///
+  /// # Arguments
+  ///
+  /// * `message` - The message to send
+  ///
+  /// # Errors
+  ///
+  /// Returns `QueueError` if the queue is full or closed
   pub fn try_send(&self, message: M) -> Result<(), QueueError<M>> {
     self.inner.try_send(message)
   }
 
+  /// Sends a message asynchronously.
+  ///
+  /// # Arguments
+  ///
+  /// * `message` - The message to send
+  ///
+  /// # Errors
+  ///
+  /// Returns `QueueError` if the queue is closed
   pub async fn send(&self, message: M) -> Result<(), QueueError<M>> {
     self.inner.send(message).await
   }
 
+  /// Returns a reference to the internal mailbox producer.
+  ///
+  /// # Returns
+  ///
+  /// A reference to the `QueueMailboxProducer`
   pub fn inner(&self) -> &QueueMailboxProducer<LocalQueue<M>, LocalSignal> {
     &self.inner
   }

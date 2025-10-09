@@ -5,7 +5,7 @@ use spin::Mutex;
 
 use nexus_actor_core_rs::{FailureEvent, FailureEventListener, FailureEventStream};
 
-/// Embedded 環境向けの簡易 FailureEventHub 実装。
+/// Simple FailureEventHub implementation for embedded environments.
 #[derive(Clone, Default)]
 pub struct EmbeddedFailureEventHub {
   inner: Arc<Mutex<EmbeddedFailureEventHubState>>,
@@ -23,6 +23,11 @@ pub struct EmbeddedFailureEventSubscription {
 }
 
 impl EmbeddedFailureEventHub {
+  /// Creates a new `EmbeddedFailureEventHub`.
+  ///
+  /// # Returns
+  ///
+  /// A new event hub instance
   pub fn new() -> Self {
     Self {
       inner: Arc::new(Mutex::new(EmbeddedFailureEventHubState::default())),

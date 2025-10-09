@@ -8,6 +8,9 @@ use nexus_utils_std_rs::{ArcMpscBoundedQueue, ArcMpscUnboundedQueue};
 use nexus_utils_std_rs::{Element, QueueBase, QueueError, QueueRw, QueueSize};
 use tokio::sync::{futures::Notified, Notify};
 
+/// Mailbox implementation for Tokio runtime
+///
+/// An asynchronous queue that manages message delivery to actors.
 #[derive(Clone, Debug)]
 pub struct TokioMailbox<M>
 where
@@ -15,6 +18,9 @@ where
   inner: QueueMailbox<TokioQueue<M>, NotifySignal>,
 }
 
+/// Sender handle for Tokio mailbox
+///
+/// Provides an interface specialized for sending messages.
 #[derive(Clone, Debug)]
 pub struct TokioMailboxSender<M>
 where
@@ -22,6 +28,9 @@ where
   inner: QueueMailboxProducer<TokioQueue<M>, NotifySignal>,
 }
 
+/// Factory that creates Tokio mailboxes
+///
+/// Creates bounded and unbounded mailboxes.
 #[derive(Clone, Debug, Default)]
 pub struct TokioMailboxFactory;
 
@@ -143,6 +152,13 @@ where
 }
 
 impl TokioMailboxFactory {
+  /// Creates a mailbox with the specified options
+  ///
+  /// # Arguments
+  /// * `options` - Configuration options for the mailbox
+  ///
+  /// # Returns
+  /// A pair of mailbox and sender handle
   pub fn mailbox<M>(&self, options: MailboxOptions) -> (TokioMailbox<M>, TokioMailboxSender<M>)
   where
     M: Element, {
@@ -150,12 +166,23 @@ impl TokioMailboxFactory {
     (TokioMailbox { inner: mailbox }, TokioMailboxSender { inner: sender })
   }
 
+  /// Creates a bounded mailbox with the specified capacity
+  ///
+  /// # Arguments
+  /// * `capacity` - Maximum capacity of the mailbox
+  ///
+  /// # Returns
+  /// A pair of mailbox and sender handle
   pub fn with_capacity<M>(&self, capacity: usize) -> (TokioMailbox<M>, TokioMailboxSender<M>)
   where
     M: Element, {
     self.mailbox(MailboxOptions::with_capacity(capacity))
   }
 
+  /// Creates an unbounded mailbox
+  ///
+  /// # Returns
+  /// A pair of mailbox and sender handle
   pub fn unbounded<M>(&self) -> (TokioMailbox<M>, TokioMailboxSender<M>)
   where
     M: Element, {
@@ -185,14 +212,29 @@ impl<M> TokioMailbox<M>
 where
   M: Element,
 {
+  /// Creates a mailbox with the specified capacity
+  ///
+  /// # Arguments
+  /// * `capacity` - Maximum capacity of the mailbox
+  ///
+  /// # Returns
+  /// A pair of mailbox and sender handle
   pub fn new(capacity: usize) -> (Self, TokioMailboxSender<M>) {
     TokioMailboxFactory.with_capacity(capacity)
   }
 
+  /// Creates an unbounded mailbox
+  ///
+  /// # Returns
+  /// A pair of mailbox and sender handle
   pub fn unbounded() -> (Self, TokioMailboxSender<M>) {
     TokioMailboxFactory.unbounded()
   }
 
+  /// Creates a new sender handle
+  ///
+  /// # Returns
+  /// A `TokioMailboxSender` for sending messages
   pub fn producer(&self) -> TokioMailboxSender<M>
   where
     TokioQueue<M>: Clone,
@@ -202,6 +244,10 @@ where
     }
   }
 
+  /// Returns a reference to the internal queue mailbox
+  ///
+  /// # Returns
+  /// An immutable reference to the internal mailbox
   pub fn inner(&self) -> &QueueMailbox<TokioQueue<M>, NotifySignal> {
     &self.inner
   }
@@ -248,14 +294,38 @@ where
   M: Element,
   TokioQueue<M>: Clone,
 {
+  /// Attempts to send a message (non-blocking)
+  ///
+  /// # Arguments
+  /// * `message` - The message to send
+  ///
+  /// # Returns
+  /// `Ok(())` on success, or an error with the message on failure
+  ///
+  /// # Errors
+  /// Returns `QueueError::Full` if the queue is full
   pub fn try_send(&self, message: M) -> Result<(), QueueError<M>> {
     self.inner.try_send(message)
   }
 
+  /// Sends a message asynchronously
+  ///
+  /// # Arguments
+  /// * `message` - The message to send
+  ///
+  /// # Returns
+  /// `Ok(())` on success, or an error with the message on failure
+  ///
+  /// # Errors
+  /// Returns `QueueError::Closed` if the mailbox is closed
   pub async fn send(&self, message: M) -> Result<(), QueueError<M>> {
     self.inner.send(message).await
   }
 
+  /// Returns a reference to the internal queue mailbox producer
+  ///
+  /// # Returns
+  /// An immutable reference to the internal producer
   pub fn inner(&self) -> &QueueMailboxProducer<TokioQueue<M>, NotifySignal> {
     &self.inner
   }

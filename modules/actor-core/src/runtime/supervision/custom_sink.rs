@@ -9,7 +9,7 @@ type FailureHandler<M> = dyn FnMut(&FailureInfo) -> Result<(), QueueError<Priori
 
 use crate::EscalationSink;
 
-/// カスタムハンドラをベースにしたシンク。
+/// Sink based on custom handler.
 pub(crate) struct CustomEscalationSink<M, R>
 where
   M: Element,

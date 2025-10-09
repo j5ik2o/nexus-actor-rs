@@ -1,6 +1,10 @@
+//! Priority queue implementation
+
 #[cfg(feature = "arc")]
+/// `Arc`-based priority queue
 pub mod arc_priority_queue;
 #[cfg(feature = "rc")]
+/// `Rc`-based priority queue
 pub mod rc_priority_queue;
 
 #[cfg(feature = "arc")]

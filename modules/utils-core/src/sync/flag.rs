@@ -8,6 +8,29 @@ use core::cell::Cell;
 #[cfg(feature = "alloc")]
 use core::sync::atomic::{AtomicBool, Ordering};
 
+/// Structure providing a thread-safe boolean flag
+///
+/// `Flag` provides a boolean flag that can be safely used in multi-threaded environments.
+///
+/// # Implementation Details
+///
+/// - When `alloc` feature is enabled: Provides thread-safe implementation using `Arc<AtomicBool>`
+/// - When `alloc` feature is disabled: Provides lightweight implementation for single-threaded environments using `Cell<bool>`
+///
+/// # Examples
+///
+/// ```
+/// use nexus_utils_core_rs::Flag;
+///
+/// let flag = Flag::new(false);
+/// assert!(!flag.get());
+///
+/// flag.set(true);
+/// assert!(flag.get());
+///
+/// flag.clear();
+/// assert!(!flag.get());
+/// ```
 #[derive(Clone)]
 pub struct Flag {
   #[cfg(feature = "alloc")]
@@ -17,6 +40,20 @@ pub struct Flag {
 }
 
 impl Flag {
+  /// Creates a new `Flag` with the specified initial value
+  ///
+  /// # Arguments
+  ///
+  /// * `value` - Initial value of the flag
+  ///
+  /// # Examples
+  ///
+  /// ```
+  /// use nexus_utils_core_rs::Flag;
+  ///
+  /// let flag = Flag::new(true);
+  /// assert!(flag.get());
+  /// ```
   pub fn new(value: bool) -> Self {
     #[cfg(feature = "alloc")]
     {
@@ -33,6 +70,21 @@ impl Flag {
     }
   }
 
+  /// Sets the value of the flag
+  ///
+  /// # Arguments
+  ///
+  /// * `value` - New value to set
+  ///
+  /// # Examples
+  ///
+  /// ```
+  /// use nexus_utils_core_rs::Flag;
+  ///
+  /// let flag = Flag::new(false);
+  /// flag.set(true);
+  /// assert!(flag.get());
+  /// ```
   pub fn set(&self, value: bool) {
     #[cfg(feature = "alloc")]
     {
@@ -45,6 +97,20 @@ impl Flag {
     }
   }
 
+  /// Gets the current value of the flag
+  ///
+  /// # Returns
+  ///
+  /// Current value of the flag
+  ///
+  /// # Examples
+  ///
+  /// ```
+  /// use nexus_utils_core_rs::Flag;
+  ///
+  /// let flag = Flag::new(true);
+  /// assert!(flag.get());
+  /// ```
   pub fn get(&self) -> bool {
     #[cfg(feature = "alloc")]
     {
@@ -57,6 +123,19 @@ impl Flag {
     }
   }
 
+  /// Clears the flag (sets it to `false`)
+  ///
+  /// This method is equivalent to `set(false)`.
+  ///
+  /// # Examples
+  ///
+  /// ```
+  /// use nexus_utils_core_rs::Flag;
+  ///
+  /// let flag = Flag::new(true);
+  /// flag.clear();
+  /// assert!(!flag.get());
+  /// ```
   pub fn clear(&self) {
     self.set(false);
   }

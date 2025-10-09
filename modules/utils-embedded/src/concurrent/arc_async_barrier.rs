@@ -8,6 +8,15 @@ use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, RawMutex};
 use embassy_sync::signal::Signal;
 use nexus_utils_core_rs::{async_trait, AsyncBarrier as CoreAsyncBarrier, AsyncBarrierBackend};
 
+/// Backend implementation for async barrier using `Arc`
+///
+/// Provides barrier synchronization using atomic operations and embassy-sync
+/// signals with `Arc` for thread-safe reference counting. All threads wait at
+/// the barrier until the specified count is reached, then all are released.
+///
+/// # Type Parameters
+///
+/// * `RM` - Raw mutex type from embassy-sync
 pub struct ArcAsyncBarrierBackend<RM>
 where
   RM: RawMutex, {
@@ -63,7 +72,14 @@ where
   }
 }
 
+/// Type alias for `Arc`-based async barrier using `CriticalSectionRawMutex`
+///
+/// Provides interrupt-safe barrier synchronization for embedded contexts.
 pub type ArcLocalAsyncBarrier = CoreAsyncBarrier<ArcAsyncBarrierBackend<CriticalSectionRawMutex>>;
+
+/// Alias for `ArcLocalAsyncBarrier` for consistency
+///
+/// Uses critical section signal backend.
 pub type ArcCsAsyncBarrier = ArcLocalAsyncBarrier;
 
 #[cfg(all(test, feature = "std"))]

@@ -2,7 +2,7 @@ use crate::SystemMessage;
 use crate::{MailboxFactory, PriorityEnvelope, QueueMailboxProducer};
 use nexus_utils_core_rs::{Element, QueueError};
 
-/// アクター参照。QueueMailboxProducer をラップし、メッセージ送信 API を提供する。
+/// Actor reference. Wraps QueueMailboxProducer and provides message sending API.
 pub(crate) struct InternalActorRef<M, R>
 where
   M: Element,
@@ -59,6 +59,7 @@ where
     self.sender.try_send(PriorityEnvelope::new(message, priority))
   }
 
+  #[allow(dead_code)]
   pub fn try_send_control_with_priority(
     &self,
     message: M,

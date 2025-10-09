@@ -4,7 +4,7 @@ use spin::{Mutex, Once};
 
 use crate::api::MessageMetadata;
 
-/// メタデータを参照するためのキー型。
+/// Key type for referencing metadata.
 pub type MetadataKey = u32;
 
 struct MetadataTableInner {
@@ -63,10 +63,12 @@ fn global_table() -> &'static MetadataTable {
   TABLE.call_once(MetadataTable::new)
 }
 
+/// Stores a value in the global metadata table and returns its key.
 pub fn store_metadata(metadata: MessageMetadata) -> MetadataKey {
   global_table().store(metadata)
 }
 
+/// Retrieves previously registered metadata and removes it from the table.
 pub fn take_metadata(key: MetadataKey) -> Option<MessageMetadata> {
   global_table().take(key)
 }

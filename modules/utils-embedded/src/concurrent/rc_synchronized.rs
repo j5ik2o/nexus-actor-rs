@@ -9,6 +9,16 @@ use nexus_utils_core_rs::{
   SynchronizedRwBackend,
 };
 
+/// `Rc` + `Mutex` synchronization backend.
+///
+/// Implements a synchronization primitive that provides exclusive access in `no_std` environments.
+/// Uses Embassy's `Mutex` to achieve asynchronous exclusive access to values.
+///
+/// # Features
+///
+/// - Reference counting via `Rc` (single-threaded only)
+/// - Lightweight exclusive control via Embassy's `NoopRawMutex`
+/// - Uses the same lock for both reads and writes
 #[derive(Clone, Debug)]
 pub struct RcMutexBackend<T> {
   inner: Rc<Mutex<NoopRawMutex, T>>,
@@ -24,6 +34,7 @@ where
   where
     Self: 'a;
 
+  /// Creates a new synchronization backend with the specified value.
   fn new(value: T) -> Self
   where
     T: Sized, {
@@ -32,11 +43,24 @@ where
     }
   }
 
+  /// Acquires the lock and returns a guard.
+  ///
+  /// Waits until the lock is released if another task holds it.
   async fn lock(&self) -> Self::Guard<'_> {
     self.inner.lock().await
   }
 }
 
+/// `Rc` + `RwLock` read/write synchronization backend.
+///
+/// Implements a synchronization primitive that provides multiple readers or single writer access in `no_std` environments.
+/// Uses Embassy's `RwLock` to achieve asynchronous read/write access to values.
+///
+/// # Features
+///
+/// - Reference counting via `Rc` (single-threaded only)
+/// - Lightweight lock mechanism via Embassy's `NoopRawMutex`
+/// - Allows multiple readers or a single writer
 #[derive(Clone, Debug)]
 pub struct RcRwLockBackend<T> {
   inner: Rc<RwLock<NoopRawMutex, T>>,
@@ -56,6 +80,7 @@ where
   where
     Self: 'a;
 
+  /// Creates a new read/write synchronization backend with the specified value.
   fn new(value: T) -> Self
   where
     T: Sized, {
@@ -64,16 +89,31 @@ where
     }
   }
 
+  /// Acquires a read lock and returns a read guard.
+  ///
+  /// Multiple read locks can be held simultaneously.
+  /// Waits until a write lock is released if one is held.
   async fn read(&self) -> Self::ReadGuard<'_> {
     self.inner.read().await
   }
 
+  /// Acquires a write lock and returns a write guard.
+  ///
+  /// Write locks are exclusive and wait until all other read/write locks are released.
   async fn write(&self) -> Self::WriteGuard<'_> {
     self.inner.write().await
   }
 }
 
+/// Type alias for `Rc`-based exclusive synchronization type.
+///
+/// Synchronization primitive usable in `no_std` environments that provides exclusive access control.
+/// Uses the same lock for both reads and writes.
 pub type Synchronized<T> = CoreSynchronized<RcMutexBackend<T>, T>;
+
+/// Type alias for `Rc`-based read/write synchronization type.
+///
+/// Synchronization primitive usable in `no_std` environments that provides multiple readers or single writer access.
 pub type SynchronizedRw<T> = CoreSynchronizedRw<RcRwLockBackend<T>, T>;
 
 #[cfg(test)]

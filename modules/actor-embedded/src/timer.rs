@@ -3,6 +3,9 @@ use core::time::Duration;
 
 use nexus_actor_core_rs::Timer;
 
+/// A timer that completes immediately.
+///
+/// A timer implementation for embedded environments that completes instantly without waiting.
 pub struct ImmediateTimer;
 
 impl Timer for ImmediateTimer {

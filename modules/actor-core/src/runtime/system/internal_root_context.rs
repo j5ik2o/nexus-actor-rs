@@ -26,6 +26,7 @@ where
   R::Signal: Clone,
   Strat: GuardianStrategy<M, R>,
 {
+  #[allow(dead_code)]
   pub fn spawn(
     &mut self,
     props: InternalProps<M, R>,

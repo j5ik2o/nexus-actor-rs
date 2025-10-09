@@ -12,14 +12,21 @@ use crate::PriorityEnvelope;
 use futures::task::AtomicWaker;
 use nexus_utils_core_rs::{Element, QueueError};
 
+/// Type alias representing the result of an `ask` operation as `Result`.
 pub type AskResult<T> = Result<T, AskError>;
 
+/// Errors that can occur during `ask` processing.
 #[derive(Debug)]
 pub enum AskError {
+  /// Responder not found
   MissingResponder,
+  /// Message send failed
   SendFailed(QueueError<PriorityEnvelope<DynMessage>>),
+  /// Responder was dropped before responding
   ResponderDropped,
+  /// Response await was cancelled
   ResponseAwaitCancelled,
+  /// Timeout occurred
   Timeout,
 }
 
@@ -46,6 +53,7 @@ const STATE_READY: u8 = 1;
 const STATE_CANCELLED: u8 = 2;
 const STATE_RESPONDER_DROPPED: u8 = 3;
 
+/// Internal state shared between `AskFuture` and responder.
 struct AskShared<Resp> {
   state: AtomicU8,
   value: UnsafeCell<Option<Resp>>,
@@ -103,7 +111,8 @@ impl<Resp> AskShared<Resp> {
   }
 
   unsafe fn take_value(&self) -> Option<Resp> {
-    (*self.value.get()).take()
+    // SAFETY: This function is unsafe and the caller is responsible for guaranteeing exclusive access
+    unsafe { (*self.value.get()).take() }
   }
 
   fn state(&self) -> u8 {
@@ -114,6 +123,10 @@ impl<Resp> AskShared<Resp> {
 unsafe impl<Resp: Send> Send for AskShared<Resp> {}
 unsafe impl<Resp: Send> Sync for AskShared<Resp> {}
 
+/// Future that awaits a response from an `ask` operation.
+///
+/// Future returned when sending a message with the `ask` pattern.
+/// Waits until a response message arrives and returns the result.
 pub struct AskFuture<Resp> {
   shared: Arc<AskShared<Resp>>,
 }
@@ -160,6 +173,10 @@ unsafe impl<Resp> Send for AskFuture<Resp> where Resp: Send {}
 unsafe impl<Resp> Sync for AskFuture<Resp> where Resp: Send {}
 impl<Resp> Unpin for AskFuture<Resp> {}
 
+/// `AskFuture` wrapper with timeout control.
+///
+/// Adds timeout functionality to `AskFuture`.
+/// Returns `AskError::Timeout` if timeout completes first.
 pub struct AskTimeoutFuture<Resp, TFut> {
   ask: Option<AskFuture<Resp>>,
   timeout: Option<TFut>,
@@ -213,6 +230,14 @@ impl<Resp, TFut> Drop for AskTimeoutFuture<Resp, TFut> {
   }
 }
 
+/// Helper function to create an `AskFuture` with timeout.
+///
+/// # Arguments
+/// * `future` - Base `AskFuture`
+/// * `timeout` - Future for timeout control
+///
+/// # Returns
+/// `AskTimeoutFuture` with timeout control
 pub fn ask_with_timeout<Resp, TFut>(future: AskFuture<Resp>, timeout: TFut) -> AskTimeoutFuture<Resp, TFut>
 where
   TFut: Future<Output = ()> + Unpin,
@@ -220,6 +245,10 @@ where
   AskTimeoutFuture::new(future, timeout)
 }
 
+/// Creates a Future and responder pair for the `ask` pattern (internal API).
+///
+/// # Returns
+/// Tuple of (`AskFuture`, `MessageSender`)
 pub(crate) fn create_ask_handles<Resp>() -> (AskFuture<Resp>, MessageSender<Resp>)
 where
   Resp: Element, {
@@ -239,7 +268,7 @@ where
           let _ = take_metadata(key);
         }
         if !dispatch_state.complete(value) {
-          // 応答先がキャンセル済みの場合は値を破棄
+          // Discard value if response destination was already cancelled
         }
       }
       MessageEnvelope::System(_) => {

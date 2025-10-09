@@ -6,6 +6,10 @@ use nexus_utils_core_rs::{
   MpscBackend, MpscHandle, QueueHandle, QueueStorage, RingBackend, RingHandle, StackBackend, StackHandle,
 };
 
+/// Shared ownership wrapper using `Arc`
+///
+/// A type for safely sharing values across multiple threads.
+/// Implements the `Shared` trait and various handle traits.
 pub struct ArcShared<T: ?Sized>(Arc<T>);
 
 impl<T: ?Sized> core::fmt::Debug for ArcShared<T> {
@@ -18,16 +22,39 @@ impl<T> ArcShared<T>
 where
   T: Sized,
 {
+  /// Creates a new `ArcShared` from a value
+  ///
+  /// # Arguments
+  ///
+  /// * `value` - The value to share
+  ///
+  /// # Returns
+  ///
+  /// A new `ArcShared` instance
   pub fn new(value: T) -> Self {
     Self(Arc::new(value))
   }
 }
 
 impl<T: ?Sized> ArcShared<T> {
+  /// Creates `ArcShared` from an existing `Arc`
+  ///
+  /// # Arguments
+  ///
+  /// * `inner` - An `Arc` instance
+  ///
+  /// # Returns
+  ///
+  /// An `ArcShared` instance wrapping the `Arc`
   pub fn from_arc(inner: Arc<T>) -> Self {
     Self(inner)
   }
 
+  /// Converts `ArcShared` to the internal `Arc`
+  ///
+  /// # Returns
+  ///
+  /// The internal `Arc` instance
   pub fn into_arc(self) -> Arc<T> {
     self.0
   }

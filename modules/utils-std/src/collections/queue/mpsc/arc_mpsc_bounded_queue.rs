@@ -7,6 +7,10 @@ use nexus_utils_core_rs::{
 use std::fmt;
 use std::sync::{Arc, Mutex};
 
+/// Bounded multi-producer, single-consumer (MPSC) queue
+///
+/// A queue that can be safely accessed from multiple threads using `Arc`-based shared ownership.
+/// By default, it uses a Tokio channel backend, but a ring buffer backend can also be selected.
 #[derive(Clone)]
 pub struct ArcMpscBoundedQueue<E> {
   inner: MpscQueue<ArcShared<dyn MpscBackend<E> + Send + Sync>, E>,
@@ -22,14 +26,41 @@ impl<E> ArcMpscBoundedQueue<E>
 where
   E: Element,
 {
+  /// Creates a new queue with the specified capacity (using Tokio backend)
+  ///
+  /// # Arguments
+  ///
+  /// * `capacity` - Maximum capacity of the queue
+  ///
+  /// # Returns
+  ///
+  /// A new queue instance using the Tokio channel backend
   pub fn new(capacity: usize) -> Self {
     Self::with_tokio(capacity)
   }
 
+  /// Creates a queue using the Tokio channel backend
+  ///
+  /// # Arguments
+  ///
+  /// * `capacity` - Maximum capacity of the queue
+  ///
+  /// # Returns
+  ///
+  /// A new queue instance using the Tokio channel backend
   pub fn with_tokio(capacity: usize) -> Self {
     Self::from_backend(TokioBoundedMpscBackend::new(capacity))
   }
 
+  /// Creates a queue using the ring buffer backend
+  ///
+  /// # Arguments
+  ///
+  /// * `capacity` - Maximum capacity of the queue
+  ///
+  /// # Returns
+  ///
+  /// A new queue instance using the ring buffer backend
   pub fn with_ring_buffer(capacity: usize) -> Self {
     let backend = RingBufferBackend::new(Mutex::new(MpscBuffer::new(Some(capacity))));
     Self::from_backend(backend)

@@ -9,13 +9,24 @@ use nexus_utils_core_rs::{Element, QueueError, QueueRw, QueueSize};
 use super::traits::{Mailbox, MailboxSignal};
 
 /// Runtime-agnostic construction options for [`QueueMailbox`].
+///
+/// Holds the capacity settings for mailboxes.
+/// Different capacities can be set for regular messages and priority messages.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct MailboxOptions {
+  /// Capacity for regular message queue
   pub capacity: QueueSize,
+  /// Capacity for priority message queue
   pub priority_capacity: QueueSize,
 }
 
 impl MailboxOptions {
+  /// Creates mailbox options with the specified capacity.
+  ///
+  /// The priority message queue becomes unlimited.
+  ///
+  /// # Arguments
+  /// - `capacity`: Capacity for regular message queue
   pub const fn with_capacity(capacity: usize) -> Self {
     Self {
       capacity: QueueSize::limited(capacity),
@@ -23,6 +34,11 @@ impl MailboxOptions {
     }
   }
 
+  /// Creates mailbox options with both regular and priority capacities specified.
+  ///
+  /// # Arguments
+  /// - `capacity`: Capacity for regular message queue
+  /// - `priority_capacity`: Capacity for priority message queue
   pub const fn with_capacities(capacity: QueueSize, priority_capacity: QueueSize) -> Self {
     Self {
       capacity,
@@ -30,11 +46,16 @@ impl MailboxOptions {
     }
   }
 
+  /// Sets the capacity for the priority message queue.
+  ///
+  /// # Arguments
+  /// - `priority_capacity`: Capacity for priority message queue
   pub const fn with_priority_capacity(mut self, priority_capacity: QueueSize) -> Self {
     self.priority_capacity = priority_capacity;
     self
   }
 
+  /// Creates mailbox options with unlimited capacity.
   pub const fn unbounded() -> Self {
     Self {
       capacity: QueueSize::limitless(),
@@ -50,6 +71,13 @@ impl Default for MailboxOptions {
 }
 
 /// Mailbox implementation backed by a generic queue and notification signal.
+///
+/// Mailbox implementation based on generic queue and notification signal.
+/// Designed to be runtime-agnostic without depending on specific async runtimes.
+///
+/// # Type Parameters
+/// - `Q`: Message queue implementation type
+/// - `S`: Notification signal implementation type
 #[derive(Debug)]
 pub struct QueueMailbox<Q, S> {
   queue: Q,
@@ -58,6 +86,11 @@ pub struct QueueMailbox<Q, S> {
 }
 
 impl<Q, S> QueueMailbox<Q, S> {
+  /// Creates a new queue mailbox.
+  ///
+  /// # Arguments
+  /// - `queue`: Message queue implementation
+  /// - `signal`: Notification signal implementation
   pub fn new(queue: Q, signal: S) -> Self {
     Self {
       queue,
@@ -66,14 +99,19 @@ impl<Q, S> QueueMailbox<Q, S> {
     }
   }
 
+  /// Gets a reference to the internal queue.
   pub fn queue(&self) -> &Q {
     &self.queue
   }
 
+  /// Gets a reference to the internal signal.
   pub fn signal(&self) -> &S {
     &self.signal
   }
 
+  /// Creates a producer handle for sending messages.
+  ///
+  /// The producer can be shared across multiple threads and is used for sending messages to the mailbox.
   pub fn producer(&self) -> QueueMailboxProducer<Q, S>
   where
     Q: Clone,
@@ -101,6 +139,13 @@ where
 }
 
 /// Sending handle that shares queue ownership with [`QueueMailbox`].
+///
+/// Sending handle that shares queue ownership with the mailbox.
+/// Allows safe message sending from multiple threads.
+///
+/// # Type Parameters
+/// - `Q`: Message queue implementation type
+/// - `S`: Notification signal implementation type
 #[derive(Clone, Debug)]
 pub struct QueueMailboxProducer<Q, S> {
   queue: Q,
@@ -123,6 +168,19 @@ where
 }
 
 impl<Q, S> QueueMailboxProducer<Q, S> {
+  /// Attempts to send a message (non-blocking).
+  ///
+  /// Returns an error immediately if the queue is full.
+  ///
+  /// # Arguments
+  /// - `message`: Message to send
+  ///
+  /// # Returns
+  /// `Ok(())` on success, `Err(QueueError)` on failure
+  ///
+  /// # Errors
+  /// - `QueueError::Disconnected`: Mailbox is closed
+  /// - `QueueError::Full`: Queue is full
   pub fn try_send<M>(&self, message: M) -> Result<(), QueueError<M>>
   where
     Q: QueueRw<M>,
@@ -145,6 +203,16 @@ impl<Q, S> QueueMailboxProducer<Q, S> {
     }
   }
 
+  /// Sends a message asynchronously.
+  ///
+  /// Currently just calls `try_send`, but can be extended in the future
+  /// for features like backpressure support.
+  ///
+  /// # Arguments
+  /// - `message`: Message to send
+  ///
+  /// # Returns
+  /// `Ok(())` on success, `Err(QueueError)` on failure
   pub async fn send<M>(&self, message: M) -> Result<(), QueueError<M>>
   where
     Q: QueueRw<M>,
@@ -207,6 +275,16 @@ where
   }
 }
 
+/// Future for receiving messages.
+///
+/// Future implementation for asynchronously receiving messages from the mailbox.
+/// Waits until a message arrives and returns the arrived message.
+///
+/// # Type Parameters
+/// - `'a`: Lifetime of the reference to the mailbox
+/// - `Q`: Message queue implementation type
+/// - `S`: Notification signal implementation type
+/// - `M`: Type of the message to receive
 pub struct QueueMailboxRecv<'a, Q, S, M>
 where
   Q: QueueRw<M>,

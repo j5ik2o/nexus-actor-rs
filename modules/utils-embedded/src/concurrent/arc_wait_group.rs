@@ -8,6 +8,15 @@ use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, RawMutex};
 use embassy_sync::signal::Signal;
 use nexus_utils_core_rs::{async_trait, WaitGroup as CoreWaitGroup, WaitGroupBackend};
 
+/// Backend implementation for wait group using `Arc`
+///
+/// Provides wait group synchronization using atomic operations and embassy-sync
+/// signals with `Arc` for thread-safe reference counting. Threads wait until all
+/// tasks complete (count reaches zero).
+///
+/// # Type Parameters
+///
+/// * `RM` - Raw mutex type from embassy-sync
 pub struct ArcWaitGroupBackend<RM>
 where
   RM: RawMutex, {
@@ -67,7 +76,14 @@ where
   }
 }
 
+/// Type alias for `Arc`-based wait group using `CriticalSectionRawMutex`
+///
+/// Provides interrupt-safe wait group synchronization for embedded contexts.
 pub type ArcLocalWaitGroup = CoreWaitGroup<ArcWaitGroupBackend<CriticalSectionRawMutex>>;
+
+/// Alias for `ArcLocalWaitGroup` for consistency
+///
+/// Uses critical section signal backend.
 pub type ArcCsWaitGroup = ArcLocalWaitGroup;
 
 #[cfg(all(test, feature = "std"))]

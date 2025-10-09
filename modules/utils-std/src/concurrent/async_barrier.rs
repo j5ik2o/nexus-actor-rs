@@ -4,6 +4,10 @@ use std::sync::Arc;
 use nexus_utils_core_rs::{async_trait, AsyncBarrier as CoreAsyncBarrier, AsyncBarrierBackend};
 use tokio::sync::Notify;
 
+/// Backend implementation of async barrier using Tokio runtime
+///
+/// A synchronization primitive for multiple tasks to wait for each other.
+/// Blocks all tasks until the specified number of tasks call `wait()`.
 #[derive(Clone)]
 pub struct TokioAsyncBarrierBackend {
   inner: Arc<Inner>,
@@ -46,6 +50,10 @@ impl AsyncBarrierBackend for TokioAsyncBarrierBackend {
   }
 }
 
+/// Async barrier using Tokio runtime
+///
+/// A synchronization primitive that causes all tasks to wait until the specified number of tasks arrive.
+/// When all tasks reach the barrier, it resets to a reusable state.
 pub type AsyncBarrier = CoreAsyncBarrier<TokioAsyncBarrierBackend>;
 
 #[cfg(test)]

@@ -206,18 +206,30 @@ impl<M> QueueRw<PriorityEnvelope<M>> for TokioPriorityQueues<M> {
   }
 }
 
+/// Priority mailbox for Tokio runtime
+///
+/// An asynchronous mailbox that processes messages based on priority.
+/// Control messages are processed with higher priority than regular messages.
 pub struct TokioPriorityMailbox<M>
 where
   M: Element, {
   inner: QueueMailbox<TokioPriorityQueues<M>, NotifySignal>,
 }
 
+/// Message sender handle for priority mailbox
+///
+/// Provides an asynchronous interface for sending messages to the mailbox.
+/// Supports sending messages with specified priority and control messages.
 pub struct TokioPriorityMailboxSender<M>
 where
   M: Element, {
   inner: QueueMailboxProducer<TokioPriorityQueues<M>, NotifySignal>,
 }
 
+/// Factory that creates priority mailboxes
+///
+/// Configures the capacity of control and regular queues and the number of priority levels,
+/// and creates mailbox instances.
 #[derive(Clone, Debug)]
 pub struct TokioPriorityMailboxFactory {
   control_capacity_per_level: usize,
@@ -236,6 +248,15 @@ impl Default for TokioPriorityMailboxFactory {
 }
 
 impl TokioPriorityMailboxFactory {
+  /// Creates a new factory instance
+  ///
+  /// # Arguments
+  ///
+  /// * `control_capacity_per_level` - Capacity per priority level for the control queue
+  ///
+  /// # Returns
+  ///
+  /// A factory initialized with default regular queue capacity and default number of priority levels
   pub fn new(control_capacity_per_level: usize) -> Self {
     Self {
       control_capacity_per_level,
@@ -244,16 +265,43 @@ impl TokioPriorityMailboxFactory {
     }
   }
 
+  /// Sets the number of priority levels (builder pattern)
+  ///
+  /// # Arguments
+  ///
+  /// * `levels` - Number of priority levels to set (minimum value is 1)
+  ///
+  /// # Returns
+  ///
+  /// Factory instance with updated settings
   pub fn with_levels(mut self, levels: usize) -> Self {
     self.levels = levels.max(1);
     self
   }
 
+  /// Sets the regular queue capacity (builder pattern)
+  ///
+  /// # Arguments
+  ///
+  /// * `capacity` - Capacity of the regular message queue
+  ///
+  /// # Returns
+  ///
+  /// Factory instance with updated settings
   pub fn with_regular_capacity(mut self, capacity: usize) -> Self {
     self.regular_capacity = capacity;
     self
   }
 
+  /// Creates a pair of mailbox and sender handle
+  ///
+  /// # Arguments
+  ///
+  /// * `options` - Mailbox capacity options
+  ///
+  /// # Returns
+  ///
+  /// `(TokioPriorityMailbox<M>, TokioPriorityMailboxSender<M>)` - Tuple of mailbox and sender handle
   pub fn mailbox<M>(&self, options: MailboxOptions) -> (TokioPriorityMailbox<M>, TokioPriorityMailboxSender<M>)
   where
     M: Element, {
@@ -288,10 +336,24 @@ impl<M> TokioPriorityMailbox<M>
 where
   M: Element,
 {
+  /// Creates a new priority mailbox
+  ///
+  /// # Arguments
+  ///
+  /// * `control_capacity_per_level` - Capacity per priority level for the control queue
+  ///
+  /// # Returns
+  ///
+  /// `(TokioPriorityMailbox<M>, TokioPriorityMailboxSender<M>)` - Tuple of mailbox and sender handle
   pub fn new(control_capacity_per_level: usize) -> (Self, TokioPriorityMailboxSender<M>) {
     TokioPriorityMailboxFactory::new(control_capacity_per_level).mailbox::<M>(MailboxOptions::default())
   }
 
+  /// Returns a reference to the internal `QueueMailbox`
+  ///
+  /// # Returns
+  ///
+  /// An immutable reference to the internal mailbox
   pub fn inner(&self) -> &QueueMailbox<TokioPriorityQueues<M>, NotifySignal> {
     &self.inner
   }
@@ -336,30 +398,123 @@ impl<M> TokioPriorityMailboxSender<M>
 where
   M: Element,
 {
+  /// Sends a message in a non-blocking manner
+  ///
+  /// # Arguments
+  ///
+  /// * `message` - The priority envelope to send
+  ///
+  /// # Returns
+  ///
+  /// `Ok(())` if the message is successfully queued, `Err` if the queue is full
+  ///
+  /// # Errors
+  ///
+  /// Returns an error if the queue is full or sending fails
   pub fn try_send(&self, message: PriorityEnvelope<M>) -> Result<(), PriorityQueueError<M>> {
     self.inner.try_send(message).map_err(Box::new)
   }
 
+  /// Sends a message asynchronously
+  ///
+  /// Waits until space becomes available in the queue.
+  ///
+  /// # Arguments
+  ///
+  /// * `message` - The priority envelope to send
+  ///
+  /// # Returns
+  ///
+  /// `Ok(())` if the message is successfully sent, `Err` on failure
+  ///
+  /// # Errors
+  ///
+  /// Returns an error if sending fails
   pub async fn send(&self, message: PriorityEnvelope<M>) -> Result<(), PriorityQueueError<M>> {
     self.inner.send(message).await.map_err(Box::new)
   }
 
+  /// Sends a message with specified priority in a non-blocking manner
+  ///
+  /// # Arguments
+  ///
+  /// * `message` - The message to send
+  /// * `priority` - The priority of the message
+  ///
+  /// # Returns
+  ///
+  /// `Ok(())` if the message is successfully queued, `Err` on failure
+  ///
+  /// # Errors
+  ///
+  /// Returns an error if the queue is full or sending fails
   pub fn try_send_with_priority(&self, message: M, priority: i8) -> Result<(), PriorityQueueError<M>> {
     self.try_send(PriorityEnvelope::new(message, priority))
   }
 
+  /// Sends a message with specified priority asynchronously
+  ///
+  /// # Arguments
+  ///
+  /// * `message` - The message to send
+  /// * `priority` - The priority of the message
+  ///
+  /// # Returns
+  ///
+  /// `Ok(())` if the message is successfully sent, `Err` on failure
+  ///
+  /// # Errors
+  ///
+  /// Returns an error if sending fails
   pub async fn send_with_priority(&self, message: M, priority: i8) -> Result<(), PriorityQueueError<M>> {
     self.send(PriorityEnvelope::new(message, priority)).await
   }
 
+  /// Sends a control message with priority in a non-blocking manner
+  ///
+  /// Control messages are processed with higher priority than regular messages.
+  ///
+  /// # Arguments
+  ///
+  /// * `message` - The message to send
+  /// * `priority` - The priority of the message
+  ///
+  /// # Returns
+  ///
+  /// `Ok(())` if the message is successfully queued, `Err` on failure
+  ///
+  /// # Errors
+  ///
+  /// Returns an error if the queue is full or sending fails
   pub fn try_send_control_with_priority(&self, message: M, priority: i8) -> Result<(), PriorityQueueError<M>> {
     self.try_send(PriorityEnvelope::control(message, priority))
   }
 
+  /// Sends a control message with priority asynchronously
+  ///
+  /// Control messages are processed with higher priority than regular messages.
+  ///
+  /// # Arguments
+  ///
+  /// * `message` - The message to send
+  /// * `priority` - The priority of the message
+  ///
+  /// # Returns
+  ///
+  /// `Ok(())` if the message is successfully sent, `Err` on failure
+  ///
+  /// # Errors
+  ///
+  /// Returns an error if sending fails
   pub async fn send_control_with_priority(&self, message: M, priority: i8) -> Result<(), PriorityQueueError<M>> {
     self.send(PriorityEnvelope::control(message, priority)).await
   }
 
+  /// Returns a reference to the internal `QueueMailboxProducer`
+  ///
+  /// # Returns
+  ///
+  /// An immutable reference to the internal producer
   pub fn inner(&self) -> &QueueMailboxProducer<TokioPriorityQueues<M>, NotifySignal> {
     &self.inner
   }

@@ -21,7 +21,7 @@ use nexus_utils_core_rs::{Element, QueueError};
 use super::actor_cell::ActorCell;
 use super::ReceiveTimeoutSchedulerFactory;
 
-/// 優先度付きメールボックスを前提とした単純なスケジューラ実装。
+/// Simple scheduler implementation assuming priority mailboxes.
 pub struct PriorityScheduler<M, R, Strat = AlwaysRestart>
 where
   M: Element,
@@ -115,9 +115,9 @@ where
     Ok(control_ref)
   }
 
-  /// レガシーな同期 API。内部的には `dispatch_next` と同じ経路を使用するが、
-  /// 新しいコードでは `run_until` / `dispatch_next` を推奨。
-  #[deprecated(since = "3.1.0", note = "dispatch_next / run_until を使用してください")]
+  /// Legacy sync API. Internally uses the same path as `dispatch_next`,
+  /// but `run_until` / `dispatch_next` is recommended for new code.
+  #[deprecated(since = "3.1.0", note = "Use dispatch_next / run_until instead")]
   pub fn dispatch_all(&mut self) -> Result<(), QueueError<PriorityEnvelope<M>>> {
     #[cfg(feature = "std")]
     {
@@ -125,7 +125,7 @@ where
       static WARNED: AtomicBool = AtomicBool::new(false);
       if !WARNED.swap(true, Ordering::Relaxed) {
         tracing::warn!(
-          "PriorityScheduler::dispatch_all は今後廃止予定です。dispatch_next / run_until の利用を検討してください。"
+          "PriorityScheduler::dispatch_all is deprecated. Consider using dispatch_next / run_until instead."
         );
       }
     }
@@ -133,8 +133,8 @@ where
     Ok(())
   }
 
-  /// 条件が成立する限り `dispatch_next` を繰り返すヘルパ。ランタイム側で制御したい待機
-  /// ループをシンプルに構築できる。
+  /// Helper that repeats `dispatch_next` as long as the condition holds.
+  /// Allows simple construction of wait loops that can be controlled from the runtime side.
   pub async fn run_until<F>(&mut self, mut should_continue: F) -> Result<(), QueueError<PriorityEnvelope<M>>>
   where
     F: FnMut() -> bool, {
@@ -144,16 +144,17 @@ where
     Ok(())
   }
 
-  /// スケジューラを非同期タスクとして常駐させる。`tokio::spawn(async move { scheduler.run_forever().await })`
-  /// のように利用でき、停止はエラー発生またはタスクキャンセルで行う。
+  /// Runs the scheduler as a resident async task. Can be used like
+  /// `tokio::spawn(async move { scheduler.run_forever().await })`.
+  /// Stops on error or task cancellation.
   pub async fn run_forever(&mut self) -> Result<Infallible, QueueError<PriorityEnvelope<M>>> {
     loop {
       self.dispatch_next().await?;
     }
   }
 
-  /// `std` 環境向け。`dispatch_next` をブロックしつつループし、アプリケーションが指定する
-  /// 条件で停止できる。
+  /// For `std` environments. Blocks on `dispatch_next` in a loop and can stop
+  /// based on application-specified conditions.
   #[cfg(feature = "std")]
   pub fn blocking_dispatch_loop<F>(&mut self, mut should_continue: F) -> Result<(), QueueError<PriorityEnvelope<M>>>
   where
@@ -164,7 +165,8 @@ where
     Ok(())
   }
 
-  /// `dispatch_next` を無限にブロック実行する。明示的な停止条件が不要なシンプルな常駐用途向け。
+  /// Executes `dispatch_next` in an infinite blocking loop. For simple resident use
+  /// cases that don't require explicit stop conditions.
   #[cfg(feature = "std")]
   pub fn blocking_dispatch_forever(&mut self) -> Result<Infallible, QueueError<PriorityEnvelope<M>>> {
     loop {
@@ -196,7 +198,7 @@ where
     core::mem::take(&mut self.escalations)
   }
 
-  /// Ready キューに存在するメッセージを 1 サイクル分処理する。処理が行われた場合は true。
+  /// Processes one cycle of messages in the Ready queue. Returns true if processing occurred.
   pub fn drain_ready(&mut self) -> Result<bool, QueueError<PriorityEnvelope<M>>> {
     self.drain_ready_cycle()
   }
