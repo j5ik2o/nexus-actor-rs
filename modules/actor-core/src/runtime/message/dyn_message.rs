@@ -13,7 +13,8 @@ impl DynMessage {
   /// Creates a `DynMessage` wrapping an arbitrary value.
   pub fn new<T>(value: T) -> Self
   where
-    T: Any + Send + Sync, {
+    T: Any + Send + Sync,
+  {
     Self { inner: Box::new(value) }
   }
 
@@ -25,7 +26,8 @@ impl DynMessage {
   /// Attempts to downcast to type T by moving ownership.
   pub fn downcast<T>(self) -> Result<T, Self>
   where
-    T: Any + Send + Sync, {
+    T: Any + Send + Sync,
+  {
     match self.inner.downcast::<T>() {
       Ok(boxed) => Ok(*boxed),
       Err(inner) => Err(Self { inner }),
@@ -35,14 +37,16 @@ impl DynMessage {
   /// Attempts to downcast to type T through a reference.
   pub fn downcast_ref<T>(&self) -> Option<&T>
   where
-    T: Any + Send + Sync, {
+    T: Any + Send + Sync,
+  {
     self.inner.downcast_ref::<T>()
   }
 
   /// Attempts to downcast to type T through a mutable reference.
   pub fn downcast_mut<T>(&mut self) -> Option<&mut T>
   where
-    T: Any + Send + Sync, {
+    T: Any + Send + Sync,
+  {
     self.inner.downcast_mut::<T>()
   }
 

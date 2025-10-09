@@ -15,7 +15,8 @@ where
   M: Element,
   R: MailboxFactory,
   R::Queue<PriorityEnvelope<M>>: Clone,
-  R::Signal: Clone, {
+  R::Signal: Clone,
+{
   handler: Box<FailureHandler<M>>,
   _marker: PhantomData<R>,
 }
@@ -29,7 +30,8 @@ where
 {
   pub(crate) fn new<F>(handler: F) -> Self
   where
-    F: FnMut(&FailureInfo) -> Result<(), QueueError<PriorityEnvelope<M>>> + 'static, {
+    F: FnMut(&FailureInfo) -> Result<(), QueueError<PriorityEnvelope<M>>> + 'static,
+  {
     Self {
       handler: Box::new(handler),
       _marker: PhantomData,

@@ -14,7 +14,8 @@ use nexus_utils_std_rs::QueueError;
 /// Controls the startup, shutdown, and termination waiting of the actor system.
 pub struct TokioSystemHandle<U>
 where
-  U: nexus_utils_std_rs::Element, {
+  U: nexus_utils_std_rs::Element,
+{
   join: tokio::task::JoinHandle<Result<Infallible, QueueError<PriorityEnvelope<RuntimeMessage>>>>,
   shutdown: ShutdownToken,
   _marker: PhantomData<U>,
@@ -33,7 +34,8 @@ where
   /// A new `TokioSystemHandle` for managing the actor system
   pub fn start_local(runner: ActorSystemRunner<U, TokioMailboxFactory>) -> Self
   where
-    U: nexus_utils_std_rs::Element + 'static, {
+    U: nexus_utils_std_rs::Element + 'static,
+  {
     let shutdown = runner.shutdown_token();
     let join = tokio::task::spawn_local(async move { runner.run_forever().await });
     Self {
@@ -84,7 +86,8 @@ where
   /// A `JoinHandle` for the listener task
   pub fn spawn_ctrl_c_listener(&self) -> JoinHandle<()>
   where
-    U: nexus_utils_std_rs::Element + 'static, {
+    U: nexus_utils_std_rs::Element + 'static,
+  {
     let token = self.shutdown.clone();
     tokio::spawn(async move {
       if signal::ctrl_c().await.is_ok() {

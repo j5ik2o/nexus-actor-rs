@@ -7,7 +7,7 @@ pub enum EscalationStage {
   /// 親方向へ伝播中。
   Escalated {
     /// 伝播回数
-    hops: u8
+    hops: u8,
   },
 }
 

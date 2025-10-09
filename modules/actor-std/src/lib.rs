@@ -102,7 +102,8 @@ pub mod prelude {
 /// * `U` - The type of user messages handled by the actor system (must implement `Element` trait)
 pub fn install_receive_timeout_scheduler<U>(system: &mut ActorSystem<U, TokioMailboxFactory>)
 where
-  U: Element, {
+  U: Element,
+{
   system.set_receive_timeout_scheduler_factory(Some(Arc::new(TokioReceiveTimeoutSchedulerFactory::new())));
 }
 

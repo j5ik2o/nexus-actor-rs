@@ -14,7 +14,8 @@ where
   M: Element,
   R: MailboxFactory,
   R::Queue<PriorityEnvelope<M>>: Clone,
-  R::Signal: Clone, {
+  R::Signal: Clone,
+{
   parent_guardian: Option<ParentGuardianSink<M, R>>,
   custom: Option<CustomEscalationSink<M, R>>,
   root: Option<RootEscalationSink<M, R>>,
@@ -41,7 +42,8 @@ where
 
   pub(crate) fn set_custom_handler<F>(&mut self, handler: F)
   where
-    F: FnMut(&FailureInfo) -> Result<(), QueueError<PriorityEnvelope<M>>> + 'static, {
+    F: FnMut(&FailureInfo) -> Result<(), QueueError<PriorityEnvelope<M>>> + 'static,
+  {
     self.custom = Some(CustomEscalationSink::new(handler));
   }
 

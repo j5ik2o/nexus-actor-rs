@@ -1,60 +1,60 @@
 use alloc::boxed::Box;
 use async_trait::async_trait;
 
-/// WaitGroupのバックエンド実装を定義するトレイト
+/// Trait defining WaitGroup backend implementation
 ///
-/// このトレイトは、異なる非同期ランタイム（Tokio、async-std、組み込みシステムなど）向けに
-/// WaitGroupの具体的な実装を提供するために使用されます。
+/// This trait is used to provide concrete WaitGroup implementations
+/// for different async runtimes (Tokio, async-std, embedded systems, etc.).
 ///
-/// # 設計思想
+/// # Design Philosophy
 ///
-/// - GoのWaitGroupと同様の並行制御機構を提供
-/// - ランタイム非依存の抽象化によるポータビリティ
-/// - クローン可能な設計により、複数のタスク間での共有が容易
+/// - Provides concurrent control mechanism similar to Go's WaitGroup
+/// - Portability through runtime-independent abstraction
+/// - Easy sharing across multiple tasks through clonable design
 #[async_trait(?Send)]
 pub trait WaitGroupBackend: Clone {
-  /// 新しいバックエンドインスタンスを作成
+  /// Creates a new backend instance
   ///
-  /// カウンタは0で初期化されます。
+  /// The counter is initialized to 0.
   fn new() -> Self;
 
-  /// 指定されたカウント値で新しいバックエンドインスタンスを作成
+  /// Creates a new backend instance with the specified count
   ///
   /// # Arguments
   ///
-  /// * `count` - 初期カウント値
+  /// * `count` - Initial counter value
   fn with_count(count: usize) -> Self;
 
-  /// カウンタに指定された数を加算
+  /// Adds the specified number to the counter
   ///
   /// # Arguments
   ///
-  /// * `n` - 加算する値
+  /// * `n` - The value to add
   fn add(&self, n: usize);
 
-  /// カウンタを1減算
+  /// Decrements the counter by 1
   ///
-  /// カウンタが0になると、`wait()`で待機中のすべてのタスクが再開されます。
+  /// When the counter reaches 0, all tasks waiting on `wait()` are resumed.
   fn done(&self);
 
-  /// カウンタが0になるまで待機
+  /// Waits until the counter reaches 0
   ///
-  /// カウンタが既に0の場合、この関数は即座に返ります。
+  /// If the counter is already 0, this function returns immediately.
   async fn wait(&self);
 }
 
-/// 複数の並行タスクの完了を待機するための同期プリミティブ
+/// Synchronization primitive for waiting on multiple concurrent tasks
 ///
-/// `WaitGroup`は、Goの`sync.WaitGroup`にインスパイアされた同期機構で、
-/// 複数の非同期タスクの完了を待機するために使用されます。
+/// `WaitGroup` is a synchronization mechanism inspired by Go's `sync.WaitGroup`,
+/// used to wait for the completion of multiple async tasks.
 ///
-/// # 使用パターン
+/// # Usage Pattern
 ///
-/// 1. `add(n)`で待機するタスク数を追加
-/// 2. 各タスクで処理完了時に`done()`を呼び出し
-/// 3. `wait()`ですべてのタスクの完了を待機
+/// 1. Add the number of tasks to wait for with `add(n)`
+/// 2. Each task calls `done()` upon completion
+/// 3. Wait for all tasks to complete with `wait()`
 ///
-/// # 例
+/// # Examples
 ///
 /// ```rust,ignore
 /// let wg = WaitGroup::<TokioWaitGroupBackend>::new();
@@ -63,21 +63,22 @@ pub trait WaitGroupBackend: Clone {
 /// for i in 0..3 {
 ///     let wg_clone = wg.clone();
 ///     tokio::spawn(async move {
-///         // 何らかの処理
+///         // Some processing
 ///         wg_clone.done();
 ///     });
 /// }
 ///
-/// wg.wait().await; // すべてのタスクの完了を待機
+/// wg.wait().await; // Wait for all tasks to complete
 /// ```
 ///
-/// # 型パラメータ
+/// # Type Parameters
 ///
-/// * `B` - WaitGroupBackendトレイトを実装する具体的なバックエンド型
+/// * `B` - Concrete backend type implementing the WaitGroupBackend trait
 #[derive(Clone, Debug)]
 pub struct WaitGroup<B>
 where
-  B: WaitGroupBackend, {
+  B: WaitGroupBackend,
+{
   backend: B,
 }
 
@@ -85,64 +86,64 @@ impl<B> WaitGroup<B>
 where
   B: WaitGroupBackend,
 {
-  /// 新しいWaitGroupを作成
+  /// Creates a new WaitGroup
   ///
-  /// カウンタは0で初期化されます。
+  /// The counter is initialized to 0.
   ///
   /// # Returns
   ///
-  /// 新しいWaitGroupインスタンス
+  /// A new WaitGroup instance
   pub fn new() -> Self {
     Self { backend: B::new() }
   }
 
-  /// 指定されたカウント値で新しいWaitGroupを作成
+  /// Creates a new WaitGroup with the specified count
   ///
   /// # Arguments
   ///
-  /// * `count` - 初期カウント値（待機するタスク数）
+  /// * `count` - Initial count value (number of tasks to wait for)
   ///
   /// # Returns
   ///
-  /// 指定されたカウント値で初期化されたWaitGroupインスタンス
+  /// A WaitGroup instance initialized with the specified count
   pub fn with_count(count: usize) -> Self {
     Self {
       backend: B::with_count(count),
     }
   }
 
-  /// カウンタに指定された数を加算
+  /// Adds the specified number to the counter
   ///
-  /// 新たに開始するタスクの数だけカウンタを増やします。
+  /// Increments the counter by the number of tasks to be started.
   ///
   /// # Arguments
   ///
-  /// * `n` - 加算する値（開始するタスクの数）
+  /// * `n` - The value to add (number of tasks to start)
   pub fn add(&self, n: usize) {
     self.backend.add(n);
   }
 
-  /// カウンタを1減算
+  /// Decrements the counter by 1
   ///
-  /// タスクの完了時に呼び出します。カウンタが0になると、
-  /// `wait()`で待機中のすべてのタスクが再開されます。
+  /// Called when a task completes. When the counter reaches 0,
+  /// all tasks waiting on `wait()` are resumed.
   pub fn done(&self) {
     self.backend.done();
   }
 
-  /// カウンタが0になるまで非同期に待機
+  /// Asynchronously waits until the counter reaches 0
   ///
-  /// カウンタが既に0の場合、この関数は即座に返ります。
-  /// そうでない場合、すべてのタスクが`done()`を呼び出すまで待機します。
+  /// If the counter is already 0, this function returns immediately.
+  /// Otherwise, it waits until all tasks have called `done()`.
   pub async fn wait(&self) {
     self.backend.wait().await;
   }
 
-  /// バックエンドへの参照を取得
+  /// Gets a reference to the backend
   ///
   /// # Returns
   ///
-  /// バックエンドインスタンスへの不変参照
+  /// An immutable reference to the backend instance
   pub fn backend(&self) -> &B {
     &self.backend
   }

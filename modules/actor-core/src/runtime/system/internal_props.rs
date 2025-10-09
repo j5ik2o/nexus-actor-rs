@@ -11,7 +11,8 @@ where
   M: Element + 'static,
   R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<M>>: Clone,
-  R::Signal: Clone, {
+  R::Signal: Clone,
+{
   pub options: MailboxOptions,
   pub map_system: Arc<MapSystemFn<M>>,
   pub handler: Box<ActorHandlerFn<M, R>>,

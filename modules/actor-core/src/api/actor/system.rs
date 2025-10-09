@@ -21,7 +21,8 @@ where
   R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
   R::Signal: Clone,
-  Strat: crate::api::guardian::GuardianStrategy<DynMessage, R>, {
+  Strat: crate::api::guardian::GuardianStrategy<DynMessage, R>,
+{
   inner: InternalActorSystem<DynMessage, R, Strat>,
   shutdown: ShutdownToken,
   _marker: PhantomData<U>,
@@ -36,7 +37,8 @@ where
   R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
   R::Signal: Clone,
-  Strat: crate::api::guardian::GuardianStrategy<DynMessage, R>, {
+  Strat: crate::api::guardian::GuardianStrategy<DynMessage, R>,
+{
   system: ActorSystem<U, R, Strat>,
   _marker: PhantomData<U>,
 }
@@ -79,7 +81,8 @@ where
   where
     S: Spawn,
     T: Timer,
-    E: FailureEventStream, {
+    E: FailureEventStream,
+  {
     let (mailbox_factory, handles) = parts.split();
     let mut system = Self::new(mailbox_factory);
     system.set_failure_event_listener(Some(handles.event_stream.listener()));
@@ -149,7 +152,8 @@ where
   /// 正常終了時は`Ok(())`、キューエラー時は`Err`
   pub async fn run_until<F>(&mut self, should_continue: F) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>>
   where
-    F: FnMut() -> bool, {
+    F: FnMut() -> bool,
+  {
     self.inner.run_until(should_continue).await
   }
 
@@ -178,7 +182,8 @@ where
     should_continue: F,
   ) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>>
   where
-    F: FnMut() -> bool, {
+    F: FnMut() -> bool,
+  {
     self.inner.blocking_dispatch_loop(should_continue)
   }
 

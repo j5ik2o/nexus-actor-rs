@@ -13,7 +13,8 @@ where
   M: Element,
   R: MailboxFactory,
   R::Queue<PriorityEnvelope<M>>: Clone,
-  R::Signal: Clone, {
+  R::Signal: Clone,
+{
   control_ref: InternalActorRef<M, R>,
   map_system: Arc<MapSystemFn<M>>,
 }

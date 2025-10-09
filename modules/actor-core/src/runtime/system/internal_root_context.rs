@@ -14,7 +14,8 @@ where
   R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
-  Strat: GuardianStrategy<M, R>, {
+  Strat: GuardianStrategy<M, R>,
+{
   pub(super) system: &'a mut InternalActorSystem<M, R, Strat>,
 }
 

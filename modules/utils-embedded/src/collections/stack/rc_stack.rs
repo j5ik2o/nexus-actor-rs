@@ -173,7 +173,8 @@ impl<T> RcStack<T> {
   /// ```
   pub fn peek(&self) -> Option<T>
   where
-    T: Clone, {
+    T: Clone,
+  {
     self.inner.peek()
   }
 
@@ -263,7 +264,8 @@ impl<T> StackMut<T> for RcStack<T> {
 
   fn peek(&self) -> Option<T>
   where
-    T: Clone, {
+    T: Clone,
+  {
     self.inner.peek()
   }
 }

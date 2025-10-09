@@ -44,7 +44,8 @@ pub trait PriorityMessage: Element {
 #[derive(Debug)]
 pub struct PriorityQueue<Q, E>
 where
-  Q: QueueRw<E>, {
+  Q: QueueRw<E>,
+{
   levels: Vec<Q>,
   _marker: PhantomData<E>,
 }
@@ -122,7 +123,8 @@ where
   /// * `Err(QueueError)` - キューが満杯などの理由で追加できなかった場合
   pub fn offer(&self, element: E) -> Result<(), QueueError<E>>
   where
-    E: PriorityMessage, {
+    E: PriorityMessage,
+  {
     let idx = self.level_index(element.get_priority());
     self.levels[idx].offer(element)
   }
@@ -139,7 +141,8 @@ where
   /// * `Err(QueueError)` - エラーが発生した場合
   pub fn poll(&self) -> Result<Option<E>, QueueError<E>>
   where
-    E: PriorityMessage, {
+    E: PriorityMessage,
+  {
     for queue in self.levels.iter().rev() {
       match queue.poll()? {
         Some(item) => return Ok(Some(item)),

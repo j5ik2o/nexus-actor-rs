@@ -12,7 +12,8 @@ use nexus_utils_core_rs::{Element, QueueError};
 
 fn noop_sender<M>() -> MessageSender<M>
 where
-  M: Element, {
+  M: Element,
+{
   let dispatch = Arc::new(|_, _| -> Result<(), QueueError<PriorityEnvelope<_>>> { Ok(()) });
   let internal = InternalMessageSender::new(dispatch);
   MessageSender::from_internal(internal)
@@ -20,7 +21,8 @@ where
 
 fn sample_metadata<M>() -> MessageMetadata
 where
-  M: Element, {
+  M: Element,
+{
   MessageMetadata::new().with_sender(noop_sender::<M>())
 }
 
@@ -56,7 +58,8 @@ fn bench_side_table(c: &mut Criterion) {
 
 struct InlineUserMessage<U>
 where
-  U: Element, {
+  U: Element,
+{
   message: U,
   metadata: Option<MessageMetadata>,
 }

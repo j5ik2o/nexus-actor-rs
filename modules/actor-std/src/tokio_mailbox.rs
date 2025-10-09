@@ -14,7 +14,8 @@ use tokio::sync::{futures::Notified, Notify};
 #[derive(Clone, Debug)]
 pub struct TokioMailbox<M>
 where
-  M: Element, {
+  M: Element,
+{
   inner: QueueMailbox<TokioQueue<M>, NotifySignal>,
 }
 
@@ -24,7 +25,8 @@ where
 #[derive(Clone, Debug)]
 pub struct TokioMailboxSender<M>
 where
-  M: Element, {
+  M: Element,
+{
   inner: QueueMailboxProducer<TokioQueue<M>, NotifySignal>,
 }
 
@@ -65,14 +67,16 @@ impl MailboxSignal for NotifySignal {
 #[derive(Debug)]
 pub struct TokioQueue<M>
 where
-  M: Element, {
+  M: Element,
+{
   inner: Arc<TokioQueueKind<M>>,
 }
 
 #[derive(Debug)]
 enum TokioQueueKind<M>
 where
-  M: Element, {
+  M: Element,
+{
   Unbounded(ArcMpscUnboundedQueue<M>),
   Bounded(ArcMpscBoundedQueue<M>),
 }
@@ -161,7 +165,8 @@ impl TokioMailboxFactory {
   /// A pair of mailbox and sender handle
   pub fn mailbox<M>(&self, options: MailboxOptions) -> (TokioMailbox<M>, TokioMailboxSender<M>)
   where
-    M: Element, {
+    M: Element,
+  {
     let (mailbox, sender) = self.build_mailbox::<M>(options);
     (TokioMailbox { inner: mailbox }, TokioMailboxSender { inner: sender })
   }
@@ -175,7 +180,8 @@ impl TokioMailboxFactory {
   /// A pair of mailbox and sender handle
   pub fn with_capacity<M>(&self, capacity: usize) -> (TokioMailbox<M>, TokioMailboxSender<M>)
   where
-    M: Element, {
+    M: Element,
+  {
     self.mailbox(MailboxOptions::with_capacity(capacity))
   }
 
@@ -185,7 +191,8 @@ impl TokioMailboxFactory {
   /// A pair of mailbox and sender handle
   pub fn unbounded<M>(&self) -> (TokioMailbox<M>, TokioMailboxSender<M>)
   where
-    M: Element, {
+    M: Element,
+  {
     self.mailbox(MailboxOptions::unbounded())
   }
 }
@@ -199,7 +206,8 @@ impl MailboxFactory for TokioMailboxFactory {
 
   fn build_mailbox<M>(&self, options: MailboxOptions) -> MailboxPair<Self::Queue<M>, Self::Signal>
   where
-    M: Element, {
+    M: Element,
+  {
     let queue = TokioQueue::with_capacity(options.capacity);
     let signal = NotifySignal::default();
     let mailbox = QueueMailbox::new(queue, signal);
@@ -238,7 +246,8 @@ where
   pub fn producer(&self) -> TokioMailboxSender<M>
   where
     TokioQueue<M>: Clone,
-    NotifySignal: Clone, {
+    NotifySignal: Clone,
+  {
     TokioMailboxSender {
       inner: self.inner.producer(),
     }

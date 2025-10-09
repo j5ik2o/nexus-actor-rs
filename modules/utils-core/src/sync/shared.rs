@@ -6,7 +6,8 @@ pub trait Shared<T: ?Sized>: Clone + Deref<Target = T> {
   /// provide specialised behaviour (e.g. `Arc::try_unwrap`).
   fn try_unwrap(self) -> Result<T, Self>
   where
-    T: Sized, {
+    T: Sized,
+  {
     Err(self)
   }
 

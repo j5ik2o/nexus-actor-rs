@@ -64,7 +64,8 @@ use nexus_actor_core_rs::{FailureEvent, FailureEventListener, FailureEventStream
 #[cfg(feature = "std")]
 pub struct RemoteFailureNotifier<E>
 where
-  E: FailureEventStream, {
+  E: FailureEventStream,
+{
   hub: E,
   handler: Option<FailureEventListener>,
 }

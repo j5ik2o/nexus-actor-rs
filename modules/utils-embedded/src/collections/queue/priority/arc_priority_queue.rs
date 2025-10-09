@@ -11,7 +11,8 @@ pub type ArcCsPriorityQueue<E> = ArcPriorityQueue<E, CriticalSectionRawMutex>;
 #[derive(Debug)]
 pub struct ArcPriorityQueue<E, RM = NoopRawMutex>
 where
-  RM: RawMutex, {
+  RM: RawMutex,
+{
   inner: PriorityQueue<ArcRingQueue<E, RM>, E>,
 }
 

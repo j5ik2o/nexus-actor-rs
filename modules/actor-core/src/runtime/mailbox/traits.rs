@@ -129,7 +129,8 @@ pub trait MailboxFactory {
   /// Pair of `(mailbox, producer)`
   fn build_default_mailbox<M>(&self) -> MailboxPair<Self::Queue<M>, Self::Signal>
   where
-    M: Element, {
+    M: Element,
+  {
     self.build_mailbox(MailboxOptions::default())
   }
 }

@@ -16,7 +16,8 @@ use nexus_utils_core_rs::Element;
 pub trait GuardianStrategy<M, R>: Send + 'static
 where
   M: Element,
-  R: MailboxFactory, {
+  R: MailboxFactory,
+{
   /// Determines the handling policy when an actor fails.
   ///
   /// # Arguments

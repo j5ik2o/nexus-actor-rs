@@ -15,7 +15,8 @@ where
   R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
-  Strat: GuardianStrategy<M, R>, {
+  Strat: GuardianStrategy<M, R>,
+{
   pub(super) scheduler: PriorityScheduler<M, R, Strat>,
 }
 
@@ -47,7 +48,8 @@ where
 
   pub async fn run_until<F>(&mut self, should_continue: F) -> Result<(), QueueError<PriorityEnvelope<M>>>
   where
-    F: FnMut() -> bool, {
+    F: FnMut() -> bool,
+  {
     self.scheduler.run_until(should_continue).await
   }
 
@@ -58,7 +60,8 @@ where
   #[cfg(feature = "std")]
   pub fn blocking_dispatch_loop<F>(&mut self, should_continue: F) -> Result<(), QueueError<PriorityEnvelope<M>>>
   where
-    F: FnMut() -> bool, {
+    F: FnMut() -> bool,
+  {
     self.scheduler.blocking_dispatch_loop(should_continue)
   }
 
@@ -85,7 +88,8 @@ where
 
   pub fn run_until_idle<F>(&mut self, mut should_continue: F) -> Result<(), QueueError<PriorityEnvelope<M>>>
   where
-    F: FnMut() -> bool, {
+    F: FnMut() -> bool,
+  {
     while should_continue() {
       let processed = self.drain_ready()?;
       if !processed {

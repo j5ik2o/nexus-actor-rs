@@ -5,12 +5,12 @@ use core::{
   time::Duration,
 };
 
-/// DeadlineTimer に登録されたアイテムを識別するためのキー。
+/// Key for identifying items registered in a DeadlineTimer.
 ///
-/// このキーは、タイマーに登録された各アイテムを一意に識別するために使用されます。
-/// 内部的には64ビット整数として表現され、0は無効なキーとして予約されています。
+/// This key is used to uniquely identify each item registered in the timer.
+/// Internally represented as a 64-bit integer, with 0 reserved as an invalid key.
 ///
-/// # 例
+/// # Examples
 ///
 /// ```
 /// use nexus_utils_core_rs::DeadlineTimerKey;
@@ -26,59 +26,59 @@ use core::{
 pub struct DeadlineTimerKey(u64);
 
 impl DeadlineTimerKey {
-  /// 無効なキーを返す。
+  /// Returns an invalid key.
   ///
-  /// 無効なキーは内部的に0として表現され、タイマーに登録されていない
-  /// 状態を示すために使用されます。
+  /// An invalid key is internally represented as 0 and is used to indicate
+  /// a state where the item is not registered in the timer.
   #[inline]
   pub const fn invalid() -> Self {
     Self(0)
   }
 
-  /// キーが有効か判定する。
+  /// Checks if the key is valid.
   ///
   /// # Returns
   ///
-  /// キーが有効（0以外）であれば`true`、無効（0）であれば`false`を返します。
+  /// Returns `true` if the key is valid (non-zero), `false` if invalid (zero).
   #[inline]
   pub const fn is_valid(self) -> bool {
     self.0 != 0
   }
 
-  /// 内部表現へアクセスする。
+  /// Accesses the internal representation.
   ///
-  /// キーの内部的な64ビット整数表現を取得します。
+  /// Retrieves the internal 64-bit integer representation of the key.
   ///
   /// # Returns
   ///
-  /// キーの内部表現である`u64`値を返します。
+  /// Returns the internal `u64` representation of the key.
   #[inline]
   pub const fn into_raw(self) -> u64 {
     self.0
   }
 
-  /// 内部表現からキーを生成する。
+  /// Creates a key from an internal representation.
   ///
   /// # Arguments
   ///
-  /// * `raw` - キーの内部表現となる64ビット整数
+  /// * `raw` - The 64-bit integer to use as the internal representation
   ///
   /// # Returns
   ///
-  /// 指定された整数値から生成されたキーを返します。
+  /// Returns a key created from the specified integer value.
   #[inline]
   pub const fn from_raw(raw: u64) -> Self {
     Self(raw)
   }
 }
 
-/// DeadlineTimer の期限を表す新しい型。
+/// A newtype representing a DeadlineTimer deadline.
 ///
-/// タイマーの期限を型安全に扱うためのラッパー型です。
-/// 内部的には`Duration`として表現され、タイマーに登録されたアイテムが
-/// 期限切れになるまでの時間を表します。
+/// A wrapper type for type-safe handling of timer deadlines.
+/// Internally represented as a `Duration`, representing the time
+/// until a registered item expires.
 ///
-/// # 例
+/// # Examples
 ///
 /// ```
 /// use nexus_utils_core_rs::TimerDeadline;
@@ -88,7 +88,7 @@ impl DeadlineTimerKey {
 /// let deadline = TimerDeadline::from_duration(duration);
 /// assert_eq!(deadline.as_duration(), duration);
 ///
-/// // From/Into traitsによる変換も可能
+/// // Conversion via From/Into traits is also possible
 /// let deadline2: TimerDeadline = Duration::from_millis(100).into();
 /// let duration2: Duration = deadline2.into();
 /// ```
@@ -96,32 +96,32 @@ impl DeadlineTimerKey {
 pub struct TimerDeadline(Duration);
 
 impl TimerDeadline {
-  /// 指定した継続時間から期限を作成する。
+  /// Creates a deadline from the specified duration.
   ///
   /// # Arguments
   ///
-  /// * `duration` - 期限までの継続時間
+  /// * `duration` - The duration until the deadline
   ///
   /// # Returns
   ///
-  /// 指定された継続時間をラップした`TimerDeadline`を返します。
+  /// Returns a `TimerDeadline` wrapping the specified duration.
   #[inline]
   pub const fn from_duration(duration: Duration) -> Self {
     Self(duration)
   }
 
-  /// 格納されている継続時間を取得する。
+  /// Retrieves the stored duration.
   ///
   /// # Returns
   ///
-  /// ラップされている`Duration`値を返します。
+  /// Returns the wrapped `Duration` value.
   #[inline]
   pub const fn as_duration(self) -> Duration {
     self.0
   }
 }
 
-/// `Duration`から`TimerDeadline`への変換を提供します。
+/// Provides conversion from `Duration` to `TimerDeadline`.
 impl From<Duration> for TimerDeadline {
   #[inline]
   fn from(value: Duration) -> Self {
@@ -129,7 +129,7 @@ impl From<Duration> for TimerDeadline {
   }
 }
 
-/// `TimerDeadline`から`Duration`への変換を提供します。
+/// Provides conversion from `TimerDeadline` to `Duration`.
 impl From<TimerDeadline> for Duration {
   #[inline]
   fn from(value: TimerDeadline) -> Self {
@@ -137,24 +137,24 @@ impl From<TimerDeadline> for Duration {
   }
 }
 
-/// DeadlineTimer 操作で発生し得るエラー。
+/// Errors that may occur during DeadlineTimer operations.
 ///
-/// タイマー操作中に発生する可能性のあるエラーを表します。
+/// Represents errors that can occur during timer operations.
 ///
-/// # バリアント
+/// # Variants
 ///
-/// * `KeyNotFound` - 指定されたキーに対応するアイテムが存在しない場合
-/// * `Closed` - タイマーが既に停止しているなどの理由で操作できない場合
+/// * `KeyNotFound` - When no item exists for the specified key
+/// * `Closed` - When the timer cannot be operated on (e.g., already stopped)
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DeadlineTimerError {
-  /// 指定したキーに対応する項目が存在しない。
+  /// The entry corresponding to the specified key does not exist.
   ///
-  /// `reset`や`cancel`操作時に、指定されたキーがタイマーに登録されていない
-  /// 場合に返されます。
+  /// Returned during `reset` or `cancel` operations when the specified key
+  /// is not registered in the timer.
   KeyNotFound,
-  /// DeadlineTimer が既に停止しているなどの理由で操作できない。
+  /// The DeadlineTimer cannot be operated on (e.g., already stopped).
   ///
-  /// タイマーがクローズされた後に操作を試みた場合に返されます。
+  /// Returned when attempting an operation after the timer has been closed.
   Closed,
 }
 
@@ -170,35 +170,36 @@ impl fmt::Display for DeadlineTimerError {
 #[cfg(feature = "std")]
 impl std::error::Error for DeadlineTimerError {}
 
-/// DeadlineTimer の期限切れイベント。
+/// DeadlineTimer expiration event.
 ///
-/// タイマーに登録されたアイテムが期限切れになった際に返されるイベントです。
-/// 期限切れになったアイテムと、そのアイテムを識別するためのキーを含みます。
+/// An event returned when an item registered in the timer expires.
+/// Contains the expired item and the key to identify that item.
 ///
-/// # フィールド
+/// # Fields
 ///
-/// * `key` - 期限切れになったアイテムのキー
-/// * `item` - 期限切れになったアイテム本体
+/// * `key` - The key of the expired item
+/// * `item` - The expired item itself
 #[derive(Debug)]
 pub struct DeadlineTimerExpired<Item> {
-  /// 期限切れになったアイテムのキー
+  /// The key of the expired item
   pub key: DeadlineTimerKey,
-  /// 期限切れになったアイテム本体
+  /// The expired item itself
   pub item: Item,
 }
 
-/// DeadlineTimer の振る舞いを抽象化したトレイト。
+/// Trait abstracting DeadlineTimer behavior.
 ///
-/// `ReceiveTimeout` をはじめ、期限付きで要素を管理したい仕組みが
-/// ランタイムごとに異なる実装を差し替えられるよう、挿入・再設定・キャンセル・期限待ちの操作だけを定義しています。
-/// `no_std` でも扱えるよう、標準ライブラリ依存のない API に絞っています。
+/// Defines only the operations for insertion, reset, cancellation, and deadline waiting
+/// to allow mechanisms like `ReceiveTimeout` that manage elements with deadlines
+/// to swap out different runtime-specific implementations.
+/// The API is limited to no standard library dependencies for `no_std` compatibility.
 ///
-/// # 関連型
+/// # Associated Types
 ///
-/// * `Item` - タイマーが管理するアイテムの型
-/// * `Error` - タイマー操作で発生し得るエラーの型
+/// * `Item` - The type of items managed by the timer
+/// * `Error` - The error type that may occur during timer operations
 ///
-/// # 例
+/// # Examples
 ///
 /// ```ignore
 /// use nexus_utils_core_rs::{DeadlineTimer, TimerDeadline};
@@ -207,74 +208,74 @@ pub struct DeadlineTimerExpired<Item> {
 /// fn schedule_timeout<T: DeadlineTimer>(timer: &mut T, item: T::Item) {
 ///     let deadline = TimerDeadline::from_duration(Duration::from_secs(5));
 ///     let key = timer.insert(item, deadline).expect("Failed to insert");
-///     // 必要に応じてキーを保存して後でキャンセルや再設定を行う
+///     // Save the key if needed for later cancellation or reset
 /// }
 /// ```
 pub trait DeadlineTimer {
-  /// タイマーが保持する要素の型。
+  /// The type of elements held by the timer.
   type Item;
-  /// 操作時に発生し得るエラー型。
+  /// The error type that may occur during operations.
   type Error;
 
-  /// 新しい要素を期限付きで挿入する。
+  /// Inserts a new element with a deadline.
   ///
   /// # Arguments
   ///
-  /// * `item` - タイマーに登録するアイテム
-  /// * `deadline` - アイテムが期限切れになるまでの期限
+  /// * `item` - The item to register in the timer
+  /// * `deadline` - The deadline until the item expires
   ///
   /// # Returns
   ///
-  /// 成功時は登録されたアイテムを識別するための`DeadlineTimerKey`を返します。
-  /// 失敗時はエラーを返します。
+  /// On success, returns a `DeadlineTimerKey` to identify the registered item.
+  /// On failure, returns an error.
   fn insert(&mut self, item: Self::Item, deadline: TimerDeadline) -> Result<DeadlineTimerKey, Self::Error>;
 
-  /// 指定キーの要素の期限を更新して再登録する。
+  /// Updates and re-registers the deadline for an element with the specified key.
   ///
   /// # Arguments
   ///
-  /// * `key` - 更新対象のアイテムのキー
-  /// * `deadline` - 新しい期限
+  /// * `key` - The key of the item to update
+  /// * `deadline` - The new deadline
   ///
   /// # Returns
   ///
-  /// 成功時は`Ok(())`、失敗時はエラーを返します。
-  /// キーが存在しない場合は`KeyNotFound`エラーとなります。
+  /// On success, returns `Ok(())`. On failure, returns an error.
+  /// If the key doesn't exist, returns a `KeyNotFound` error.
   fn reset(&mut self, key: DeadlineTimerKey, deadline: TimerDeadline) -> Result<(), Self::Error>;
 
-  /// 指定キーの要素をキャンセルし、要素を返す。
+  /// Cancels an element with the specified key and returns it.
   ///
   /// # Arguments
   ///
-  /// * `key` - キャンセルするアイテムのキー
+  /// * `key` - The key of the item to cancel
   ///
   /// # Returns
   ///
-  /// 成功時はキャンセルされたアイテムを`Some`で返します。
-  /// キーが存在しない場合は`None`を返します。
-  /// タイマーがクローズされている場合はエラーを返します。
+  /// On success, returns the cancelled item in `Some`.
+  /// If the key doesn't exist, returns `None`.
+  /// If the timer is closed, returns an error.
   fn cancel(&mut self, key: DeadlineTimerKey) -> Result<Option<Self::Item>, Self::Error>;
 
-  /// 最も近い期限の要素をポーリングする。
+  /// Polls for the element with the closest deadline.
   ///
   /// # Arguments
   ///
-  /// * `cx` - 非同期タスクのコンテキスト
+  /// * `cx` - The async task context
   ///
   /// # Returns
   ///
-  /// * `Poll::Ready(Ok(expired))` - 期限切れのアイテムがある場合
-  /// * `Poll::Pending` - まだ期限切れのアイテムがない場合
-  /// * `Poll::Ready(Err(e))` - エラーが発生した場合
+  /// * `Poll::Ready(Ok(expired))` - When an expired item is available
+  /// * `Poll::Pending` - When no expired items yet
+  /// * `Poll::Ready(Err(e))` - When an error occurs
   fn poll_expired(&mut self, cx: &mut Context<'_>) -> Poll<Result<DeadlineTimerExpired<Self::Item>, Self::Error>>;
 }
 
-/// DeadlineTimerKey を生成するためのアロケータ。
+/// Allocator for generating DeadlineTimerKeys.
 ///
-/// スレッドセーフに一意なキーを生成するためのアロケータです。
-/// 内部的にはアトミックカウンタを使用して、重複のないキーを払い出します。
+/// An allocator for thread-safe generation of unique keys.
+/// Internally uses an atomic counter to issue non-duplicate keys.
 ///
-/// # 例
+/// # Examples
 ///
 /// ```
 /// use nexus_utils_core_rs::DeadlineTimerKeyAllocator;
@@ -292,13 +293,13 @@ pub struct DeadlineTimerKeyAllocator {
 }
 
 impl DeadlineTimerKeyAllocator {
-  /// 新しいアロケータを作成する。
+  /// Creates a new allocator.
   ///
-  /// カウンタは1から開始され、0は無効なキーとして予約されています。
+  /// The counter starts at 1, with 0 reserved as an invalid key.
   ///
   /// # Returns
   ///
-  /// 新しく作成された`DeadlineTimerKeyAllocator`を返します。
+  /// Returns a newly created `DeadlineTimerKeyAllocator`.
   #[inline]
   pub const fn new() -> Self {
     Self {
@@ -306,18 +307,18 @@ impl DeadlineTimerKeyAllocator {
     }
   }
 
-  /// 新しい一意なキーを払い出す。
+  /// Issues a new unique key.
   ///
-  /// この操作はスレッドセーフで、複数のスレッドから同時に呼び出しても
-  /// 常に一意なキーが返されます。
+  /// This operation is thread-safe, and even when called from multiple threads simultaneously,
+  /// always returns a unique key.
   ///
   /// # Returns
   ///
-  /// 新しく生成された一意な`DeadlineTimerKey`を返します。
+  /// Returns a newly generated unique `DeadlineTimerKey`.
   ///
   /// # Panics
   ///
-  /// カウンタがオーバーフローした場合でも、1から再開するため安全です。
+  /// Even if the counter overflows, it safely restarts from 1.
   #[inline]
   pub fn allocate(&self) -> DeadlineTimerKey {
     let next = self.counter.fetch_add(1, Ordering::Relaxed) as u64;
@@ -325,28 +326,28 @@ impl DeadlineTimerKeyAllocator {
     DeadlineTimerKey::from_raw(raw)
   }
 
-  /// 次に払い出されるキーを確認する（テスト用途）。
+  /// Checks the next key to be issued (for testing purposes).
   ///
-  /// この操作は実際にキーを払い出さず、次に`allocate`が返すであろう
-  /// キーを確認するだけです。主にテストやデバッグ用途で使用されます。
+  /// This operation doesn't actually issue a key, just checks what key
+  /// `allocate` would return next. Mainly used for testing and debugging.
   ///
   /// # Returns
   ///
-  /// 次に`allocate`が返すと予想される`DeadlineTimerKey`を返します。
+  /// Returns the `DeadlineTimerKey` expected to be returned by the next `allocate`.
   ///
-  /// # 注意
+  /// # Note
   ///
-  /// この操作と実際の`allocate`の間に他のスレッドが介入する可能性があるため、
-  /// 返されたキーが実際に次に払い出されるとは限りません。
+  /// Since other threads may intervene between this operation and an actual `allocate`,
+  /// the returned key may not actually be the next one issued.
   #[inline]
   pub fn peek(&self) -> DeadlineTimerKey {
     DeadlineTimerKey::from_raw(self.counter.load(Ordering::Relaxed) as u64)
   }
 }
 
-/// `Default` トレイトの実装。
+/// Implementation of the `Default` trait.
 ///
-/// `new()` と同じ動作で新しいアロケータを作成します。
+/// Creates a new allocator with the same behavior as `new()`.
 impl Default for DeadlineTimerKeyAllocator {
   fn default() -> Self {
     Self::new()

@@ -212,7 +212,8 @@ impl<M> QueueRw<PriorityEnvelope<M>> for TokioPriorityQueues<M> {
 /// Control messages are processed with higher priority than regular messages.
 pub struct TokioPriorityMailbox<M>
 where
-  M: Element, {
+  M: Element,
+{
   inner: QueueMailbox<TokioPriorityQueues<M>, NotifySignal>,
 }
 
@@ -222,7 +223,8 @@ where
 /// Supports sending messages with specified priority and control messages.
 pub struct TokioPriorityMailboxSender<M>
 where
-  M: Element, {
+  M: Element,
+{
   inner: QueueMailboxProducer<TokioPriorityQueues<M>, NotifySignal>,
 }
 
@@ -304,7 +306,8 @@ impl TokioPriorityMailboxFactory {
   /// `(TokioPriorityMailbox<M>, TokioPriorityMailboxSender<M>)` - Tuple of mailbox and sender handle
   pub fn mailbox<M>(&self, options: MailboxOptions) -> (TokioPriorityMailbox<M>, TokioPriorityMailboxSender<M>)
   where
-    M: Element, {
+    M: Element,
+  {
     let control_per_level = self.resolve_control_capacity(options.priority_capacity);
     let regular_capacity = self.resolve_regular_capacity(options.capacity);
     let queue = TokioPriorityQueues::<M>::new(self.levels, control_per_level, regular_capacity);
