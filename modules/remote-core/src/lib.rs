@@ -1,7 +1,7 @@
-//! リモートメッセージング機能のコア実装。
+//! Core implementation of remote messaging functionality.
 //!
-//! このクレートは将来のリモートメッセージングロジックのためのプレースホルダーです。
-//! 現在の目標はFailureEventStreamの統合ポイントを提供することです。
+//! This crate is a placeholder for future remote messaging logic.
+//! The current goal is to provide integration points for `FailureEventStream`.
 
 #![deny(missing_docs)]
 #![deny(rustdoc::broken_intra_doc_links)]
@@ -58,9 +58,9 @@ extern crate alloc;
 
 use nexus_actor_core_rs::{FailureEvent, FailureEventListener, FailureEventStream, FailureInfo, FailureMetadata};
 
-/// リモートアクターの障害イベントを通知するためのハンドラ。
+/// Handler for notifying failure events from remote actors.
 ///
-/// `FailureEventStream`を使用して障害情報を配信し、カスタムハンドラによる追加処理を可能にします。
+/// Uses `FailureEventStream` to distribute failure information and enables additional processing through custom handlers.
 #[cfg(feature = "std")]
 pub struct RemoteFailureNotifier<E>
 where
@@ -74,82 +74,82 @@ impl<E> RemoteFailureNotifier<E>
 where
   E: FailureEventStream,
 {
-  /// 新しい`RemoteFailureNotifier`を作成します。
+  /// Creates a new `RemoteFailureNotifier`.
   ///
   /// # Arguments
   ///
-  /// * `hub` - 障害イベントを配信するためのストリーム
+  /// * `hub` - The stream for distributing failure events
   pub fn new(hub: E) -> Self {
     Self { hub, handler: None }
   }
 
-  /// イベントストリームのリスナーを取得します。
+  /// Gets the event stream listener.
   ///
   /// # Returns
   ///
-  /// `FailureEventListener`のインスタンス
+  /// A `FailureEventListener` instance
   pub fn listener(&self) -> FailureEventListener {
     self.hub.listener()
   }
 
-  /// イベントハブへの参照を取得します。
+  /// Gets a reference to the event hub.
   ///
   /// # Returns
   ///
-  /// `FailureEventStream`への参照
+  /// A reference to the `FailureEventStream`
   pub fn hub(&self) -> &E {
     &self.hub
   }
 
-  /// 設定されているカスタムハンドラを取得します。
+  /// Gets the configured custom handler.
   ///
   /// # Returns
   ///
-  /// ハンドラが設定されている場合は`Some(&FailureEventListener)`、そうでない場合は`None`
+  /// `Some(&FailureEventListener)` if a handler is set, otherwise `None`
   pub fn handler(&self) -> Option<&FailureEventListener> {
     self.handler.as_ref()
   }
 
-  /// カスタムハンドラを設定します。
+  /// Sets a custom handler.
   ///
   /// # Arguments
   ///
-  /// * `handler` - 障害イベントを処理するハンドラ
+  /// * `handler` - The handler to process failure events
   pub fn set_handler(&mut self, handler: FailureEventListener) {
     self.handler = Some(handler);
   }
 
-  /// カスタムハンドラが設定されている場合、障害情報をディスパッチします。
+  /// Dispatches failure information if a custom handler is configured.
   ///
   /// # Arguments
   ///
-  /// * `info` - 障害情報
+  /// * `info` - The failure information
   pub fn dispatch(&self, info: FailureInfo) {
     if let Some(handler) = self.handler.as_ref() {
       handler(FailureEvent::RootEscalated(info.clone()));
     }
   }
 
-  /// 障害情報をイベントハブとカスタムハンドラの両方に送信します。
+  /// Sends failure information to both the event hub and custom handler.
   ///
   /// # Arguments
   ///
-  /// * `info` - 障害情報
+  /// * `info` - The failure information
   pub fn emit(&self, info: FailureInfo) {
     self.hub.listener()(FailureEvent::RootEscalated(info.clone()));
     self.dispatch(info);
   }
 }
 
-/// エンドポイント情報を持つプレースホルダーのメタデータを作成します。
+/// Creates placeholder metadata with endpoint information.
 ///
 /// # Arguments
 ///
-/// * `endpoint` - エンドポイント名
+/// * `endpoint` - The endpoint name
 ///
 /// # Returns
 ///
-/// エンドポイント情報が設定された`FailureMetadata`
+/// `FailureMetadata` configured with the endpoint information
 pub fn placeholder_metadata(endpoint: &str) -> FailureMetadata {
   FailureMetadata::new().with_endpoint(endpoint.to_owned())
 }

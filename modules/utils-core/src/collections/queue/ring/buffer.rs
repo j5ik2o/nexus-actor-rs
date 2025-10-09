@@ -50,7 +50,7 @@ impl<T> RingBuffer<T> {
   /// # 例
   ///
   /// ```
-  /// # use nexus_actor_utils_rs::collections::queue::ring::RingBuffer;
+  /// # use nexus_utils_core_rs::RingBuffer;
   /// let buffer = RingBuffer::<i32>::new(10);
   /// ```
   pub fn new(capacity: usize) -> Self {
@@ -74,7 +74,7 @@ impl<T> RingBuffer<T> {
   /// # 例
   ///
   /// ```
-  /// # use nexus_actor_utils_rs::collections::queue::ring::RingBuffer;
+  /// # use nexus_utils_core_rs::RingBuffer;
   /// let buffer = RingBuffer::<i32>::new(10).with_dynamic(false);
   /// ```
   pub fn with_dynamic(mut self, dynamic: bool) -> Self {
@@ -180,7 +180,7 @@ impl<T> QueueWriter<T> for RingBuffer<T> {
   /// # 例
   ///
   /// ```
-  /// # use nexus_actor_utils_rs::collections::queue::{QueueWriter, ring::RingBuffer};
+  /// # use nexus_utils_core_rs::{QueueWriter, RingBuffer};
   /// let mut buffer = RingBuffer::new(2).with_dynamic(false);
   /// buffer.offer_mut(1).unwrap();
   /// buffer.offer_mut(2).unwrap();
@@ -213,7 +213,7 @@ impl<T> QueueReader<T> for RingBuffer<T> {
   /// # 例
   ///
   /// ```
-  /// # use nexus_actor_utils_rs::collections::queue::{QueueWriter, QueueReader, ring::RingBuffer};
+  /// # use nexus_utils_core_rs::{QueueWriter, QueueReader, RingBuffer};
   /// let mut buffer = RingBuffer::new(10);
   /// buffer.offer_mut(1).unwrap();
   /// buffer.offer_mut(2).unwrap();
@@ -251,7 +251,7 @@ impl<T> Default for RingBuffer<T> {
   /// # 例
   ///
   /// ```
-  /// # use nexus_actor_utils_rs::collections::queue::ring::RingBuffer;
+  /// # use nexus_utils_core_rs::RingBuffer;
   /// let buffer = RingBuffer::<i32>::default();
   /// ```
   fn default() -> Self {

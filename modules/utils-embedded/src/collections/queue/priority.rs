@@ -1,10 +1,10 @@
-//! 優先度付きキュー実装
+//! Priority queue implementation
 
 #[cfg(feature = "arc")]
-/// `Arc`ベースの優先度付きキュー
+/// `Arc`-based priority queue
 pub mod arc_priority_queue;
 #[cfg(feature = "rc")]
-/// `Rc`ベースの優先度付きキュー
+/// `Rc`-based priority queue
 pub mod rc_priority_queue;
 
 #[cfg(feature = "arc")]

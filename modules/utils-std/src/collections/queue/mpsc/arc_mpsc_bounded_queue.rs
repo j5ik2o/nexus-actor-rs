@@ -7,10 +7,10 @@ use nexus_utils_core_rs::{
 use std::fmt;
 use std::sync::{Arc, Mutex};
 
-/// 容量制限付きのマルチプロデューサー・シングルコンシューマー(MPSC)キュー
+/// Bounded multi-producer, single-consumer (MPSC) queue
 ///
-/// `Arc`による共有所有権を使用し、複数のスレッドから安全にアクセス可能なキューです。
-/// デフォルトではTokioチャネルバックエンドを使用しますが、リングバッファバックエンドも選択可能です。
+/// A queue that can be safely accessed from multiple threads using `Arc`-based shared ownership.
+/// By default, it uses a Tokio channel backend, but a ring buffer backend can also be selected.
 #[derive(Clone)]
 pub struct ArcMpscBoundedQueue<E> {
   inner: MpscQueue<ArcShared<dyn MpscBackend<E> + Send + Sync>, E>,
@@ -26,41 +26,41 @@ impl<E> ArcMpscBoundedQueue<E>
 where
   E: Element,
 {
-  /// 指定された容量で新しいキューを作成します(Tokioバックエンド使用)
+  /// Creates a new queue with the specified capacity (using Tokio backend)
   ///
   /// # Arguments
   ///
-  /// * `capacity` - キューの最大容量
+  /// * `capacity` - Maximum capacity of the queue
   ///
   /// # Returns
   ///
-  /// Tokioチャネルバックエンドを使用する新しいキューインスタンス
+  /// A new queue instance using the Tokio channel backend
   pub fn new(capacity: usize) -> Self {
     Self::with_tokio(capacity)
   }
 
-  /// Tokioチャネルバックエンドを使用するキューを作成します
+  /// Creates a queue using the Tokio channel backend
   ///
   /// # Arguments
   ///
-  /// * `capacity` - キューの最大容量
+  /// * `capacity` - Maximum capacity of the queue
   ///
   /// # Returns
   ///
-  /// Tokioチャネルバックエンドを使用する新しいキューインスタンス
+  /// A new queue instance using the Tokio channel backend
   pub fn with_tokio(capacity: usize) -> Self {
     Self::from_backend(TokioBoundedMpscBackend::new(capacity))
   }
 
-  /// リングバッファバックエンドを使用するキューを作成します
+  /// Creates a queue using the ring buffer backend
   ///
   /// # Arguments
   ///
-  /// * `capacity` - キューの最大容量
+  /// * `capacity` - Maximum capacity of the queue
   ///
   /// # Returns
   ///
-  /// リングバッファバックエンドを使用する新しいキューインスタンス
+  /// A new queue instance using the ring buffer backend
   pub fn with_ring_buffer(capacity: usize) -> Self {
     let backend = RingBufferBackend::new(Mutex::new(MpscBuffer::new(Some(capacity))));
     Self::from_backend(backend)

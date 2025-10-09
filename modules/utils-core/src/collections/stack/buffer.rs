@@ -36,7 +36,7 @@ impl<T> From<StackError<T>> for QueueError<T> {
 /// # 例
 ///
 /// ```
-/// use nexus_actor_utils_core_rs::collections::stack::StackBuffer;
+/// use nexus_utils_core_rs::StackBuffer;
 ///
 /// let mut stack = StackBuffer::new();
 /// stack.push(1).unwrap();
@@ -60,7 +60,7 @@ impl<T> StackBuffer<T> {
   /// # 例
   ///
   /// ```
-  /// use nexus_actor_utils_core_rs::collections::stack::StackBuffer;
+  /// use nexus_utils_core_rs::StackBuffer;
   ///
   /// let stack: StackBuffer<i32> = StackBuffer::new();
   /// assert!(stack.is_empty());
@@ -85,7 +85,7 @@ impl<T> StackBuffer<T> {
   /// # 例
   ///
   /// ```
-  /// use nexus_actor_utils_core_rs::collections::stack::StackBuffer;
+  /// use nexus_utils_core_rs::StackBuffer;
   ///
   /// let mut stack = StackBuffer::with_capacity(3);
   /// stack.push(1).unwrap();
@@ -111,10 +111,10 @@ impl<T> StackBuffer<T> {
   /// # 例
   ///
   /// ```
-  /// use nexus_actor_utils_core_rs::collections::stack::StackBuffer;
+  /// use nexus_utils_core_rs::StackBuffer;
   ///
   /// let stack = StackBuffer::<i32>::with_capacity(10);
-  /// assert_eq!(stack.capacity().limit(), Some(10));
+  /// assert_eq!(stack.capacity().to_usize(), 10);
   /// ```
   pub fn capacity(&self) -> QueueSize {
     match self.capacity {
@@ -134,7 +134,7 @@ impl<T> StackBuffer<T> {
   /// # 例
   ///
   /// ```
-  /// use nexus_actor_utils_core_rs::collections::stack::StackBuffer;
+  /// use nexus_utils_core_rs::StackBuffer;
   ///
   /// let mut stack = StackBuffer::new();
   /// stack.push(1).unwrap();
@@ -143,7 +143,7 @@ impl<T> StackBuffer<T> {
   ///
   /// // 容量を2に制限すると、最も古い要素が削除されます
   /// stack.set_capacity(Some(2));
-  /// assert_eq!(stack.len().size(), 2);
+  /// assert_eq!(stack.len().to_usize(), 2);
   /// ```
   pub fn set_capacity(&mut self, capacity: Option<usize>) {
     self.capacity = capacity;
@@ -163,12 +163,12 @@ impl<T> StackBuffer<T> {
   /// # 例
   ///
   /// ```
-  /// use nexus_actor_utils_core_rs::collections::stack::StackBuffer;
+  /// use nexus_utils_core_rs::StackBuffer;
   ///
   /// let mut stack = StackBuffer::new();
   /// stack.push(1).unwrap();
   /// stack.push(2).unwrap();
-  /// assert_eq!(stack.len().size(), 2);
+  /// assert_eq!(stack.len().to_usize(), 2);
   /// ```
   pub fn len(&self) -> QueueSize {
     QueueSize::limited(self.items.len())
@@ -184,7 +184,7 @@ impl<T> StackBuffer<T> {
   /// # 例
   ///
   /// ```
-  /// use nexus_actor_utils_core_rs::collections::stack::StackBuffer;
+  /// use nexus_utils_core_rs::StackBuffer;
   ///
   /// let mut stack = StackBuffer::new();
   /// assert!(stack.is_empty());
@@ -211,7 +211,7 @@ impl<T> StackBuffer<T> {
   /// # 例
   ///
   /// ```
-  /// use nexus_actor_utils_core_rs::collections::stack::StackBuffer;
+  /// use nexus_utils_core_rs::StackBuffer;
   ///
   /// let mut stack = StackBuffer::with_capacity(2);
   /// assert!(stack.push(1).is_ok());
@@ -238,7 +238,7 @@ impl<T> StackBuffer<T> {
   /// # 例
   ///
   /// ```
-  /// use nexus_actor_utils_core_rs::collections::stack::StackBuffer;
+  /// use nexus_utils_core_rs::StackBuffer;
   ///
   /// let mut stack = StackBuffer::new();
   /// stack.push(1).unwrap();
@@ -261,13 +261,13 @@ impl<T> StackBuffer<T> {
   /// # 例
   ///
   /// ```
-  /// use nexus_actor_utils_core_rs::collections::stack::StackBuffer;
+  /// use nexus_utils_core_rs::StackBuffer;
   ///
   /// let mut stack = StackBuffer::new();
   /// stack.push(1).unwrap();
   /// stack.push(2).unwrap();
   /// assert_eq!(stack.peek(), Some(&2));
-  /// assert_eq!(stack.len().size(), 2); // 要素は削除されていない
+  /// assert_eq!(stack.len().to_usize(), 2); // 要素は削除されていない
   /// ```
   pub fn peek(&self) -> Option<&T> {
     self.items.last()
@@ -280,7 +280,7 @@ impl<T> StackBuffer<T> {
   /// # 例
   ///
   /// ```
-  /// use nexus_actor_utils_core_rs::collections::stack::StackBuffer;
+  /// use nexus_utils_core_rs::StackBuffer;
   ///
   /// let mut stack = StackBuffer::new();
   /// stack.push(1).unwrap();

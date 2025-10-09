@@ -6,32 +6,32 @@ use embassy_sync::mutex::Mutex;
 use embassy_sync::signal::Signal;
 use nexus_utils_core_rs::{async_trait, CountDownLatch as CoreCountDownLatch, CountDownLatchBackend};
 
-/// `Rc` ベースのカウントダウンラッチ実装のバックエンド。
+/// Backend for `Rc`-based countdown latch implementation.
 ///
-/// `no_std` 環境で、複数のタスクが完了するまで待機する同期機構を提供します。
-/// カウントが指定された値から 0 にデクリメントされると、待機中のすべてのタスクが解放されます。
+/// Provides a synchronization mechanism that waits for multiple tasks to complete in `no_std` environments.
+/// When the count decrements from the specified value to 0, all waiting tasks are released.
 ///
-/// # 特徴
+/// # Features
 ///
-/// - `Rc` による参照カウント（シングルスレッド専用）
-/// - Embassy の `Mutex` と `Signal` による非同期同期
-/// - 一方向カウントダウン（カウントは減少のみ）
+/// - Reference counting via `Rc` (single-threaded only)
+/// - Asynchronous synchronization via Embassy's `Mutex` and `Signal`
+/// - One-way countdown (count only decreases)
 ///
-/// # 使用例
+/// # Usage Examples
 ///
 /// ```ignore
 /// let latch = CountDownLatch::new(2);
 /// let clone = latch.clone();
 ///
-/// // ワーカータスク
+/// // Worker task
 /// async move {
-///   // 作業を実行
+///   // Perform work
 ///   clone.count_down().await;
-///   // さらに作業を実行
+///   // Perform more work
 ///   clone.count_down().await;
 /// };
 ///
-/// // カウントが 0 になるまで待機
+/// // Wait until count reaches 0
 /// latch.wait().await;
 /// ```
 #[derive(Clone)]
@@ -42,11 +42,11 @@ pub struct RcCountDownLatchBackend {
 
 #[async_trait(?Send)]
 impl CountDownLatchBackend for RcCountDownLatchBackend {
-  /// 指定されたカウントで新しいラッチバックエンドを作成します。
+  /// Creates a new latch backend with the specified count.
   ///
   /// # Arguments
   ///
-  /// * `count` - 初期カウント値（0も許可）
+  /// * `count` - Initial count value (0 is allowed)
   fn new(count: usize) -> Self {
     Self {
       count: Rc::new(Mutex::new(count)),
@@ -54,13 +54,13 @@ impl CountDownLatchBackend for RcCountDownLatchBackend {
     }
   }
 
-  /// カウントを 1 減らします。
+  /// Decrements the count by 1.
   ///
-  /// カウントが 0 になると、待機中のすべてのタスクがシグナルを受け取り解放されます。
+  /// When the count reaches 0, all waiting tasks receive a signal and are released.
   ///
   /// # Panics
   ///
-  /// カウントが既に 0 の状態で呼び出された場合はパニックします。
+  /// Panics if called when the count is already 0.
   async fn count_down(&self) {
     let count = self.count.clone();
     let signal = self.signal.clone();
@@ -72,9 +72,9 @@ impl CountDownLatchBackend for RcCountDownLatchBackend {
     }
   }
 
-  /// カウントが 0 になるまで待機します。
+  /// Waits until the count reaches 0.
   ///
-  /// カウントが既に 0 の場合は即座に返ります。
+  /// Returns immediately if the count is already 0.
   async fn wait(&self) {
     let count = self.count.clone();
     let signal = self.signal.clone();
@@ -90,10 +90,10 @@ impl CountDownLatchBackend for RcCountDownLatchBackend {
   }
 }
 
-/// `Rc` ベースのカウントダウンラッチの型エイリアス。
+/// Type alias for `Rc`-based countdown latch.
 ///
-/// `no_std` 環境で使用できるカウントダウンラッチ実装です。
-/// カウントが 0 になるまで複数のタスクの完了を待機する機能を提供します。
+/// Countdown latch implementation usable in `no_std` environments.
+/// Provides functionality to wait for multiple tasks to complete until the count reaches 0.
 pub type CountDownLatch = CoreCountDownLatch<RcCountDownLatchBackend>;
 
 #[cfg(test)]

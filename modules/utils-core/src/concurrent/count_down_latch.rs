@@ -60,7 +60,7 @@ pub trait CountDownLatchBackend: Clone {
 /// # 使用例
 ///
 /// ```ignore
-/// use nexus_actor_utils_core::concurrent::CountDownLatch;
+/// use nexus_utils_core_rs::CountDownLatch;
 ///
 /// #[tokio::main]
 /// async fn main() {

@@ -4,10 +4,10 @@ use std::sync::Arc;
 use nexus_utils_core_rs::{async_trait, CountDownLatch as CoreCountDownLatch, CountDownLatchBackend};
 use tokio::sync::Notify;
 
-/// Tokioランタイムを使用したカウントダウンラッチのバックエンド実装
+/// Backend implementation of countdown latch using Tokio runtime
 ///
-/// 指定された回数のカウントダウンが完了するまで、タスクを待機させる同期プリミティブです。
-/// カウントがゼロに達すると、待機中のすべてのタスクが解放されます。
+/// A synchronization primitive that causes tasks to wait until the specified number of countdowns complete.
+/// When the count reaches zero, all waiting tasks are released.
 #[derive(Clone)]
 pub struct TokioCountDownLatchBackend {
   inner: Arc<State>,
@@ -56,10 +56,10 @@ impl CountDownLatchBackend for TokioCountDownLatchBackend {
   }
 }
 
-/// Tokioランタイムを使用したカウントダウンラッチ
+/// Countdown latch using Tokio runtime
 ///
-/// 指定された回数のカウントダウンが完了するまで、タスクを待機させる同期プリミティブです。
-/// `count_down()`が初期カウント数だけ呼ばれると、`wait()`で待機していたすべてのタスクが解放されます。
+/// A synchronization primitive that causes tasks to wait until the specified number of countdowns complete.
+/// When `count_down()` is called as many times as the initial count, all tasks waiting on `wait()` are released.
 pub type CountDownLatch = CoreCountDownLatch<TokioCountDownLatchBackend>;
 
 #[cfg(test)]

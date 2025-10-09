@@ -1,10 +1,10 @@
-//! リングバッファキュー実装
+//! Ring buffer queue implementation
 
 #[cfg(feature = "arc")]
-/// `Arc`ベースのリングバッファキュー
+/// `Arc`-based ring buffer queue
 pub mod arc_ring_queue;
 #[cfg(feature = "rc")]
-/// `Rc`ベースのリングバッファキュー
+/// `Rc`-based ring buffer queue
 pub mod rc_ring_queue;
 
 #[cfg(feature = "arc")]

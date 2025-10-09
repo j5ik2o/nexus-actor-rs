@@ -47,62 +47,62 @@
 #![deny(clippy::if_same_then_else)]
 #![deny(clippy::cmp_null)]
 
-//! 組み込み環境向けユーティリティライブラリ。
+//! Utility library for embedded environments.
 //!
-//! このクレートは、`no_std` 環境で動作する並行処理および同期プリミティブを提供します。
-//! `actor-embedded` などのランタイムが、標準ライブラリなしで動作できるよう設計されています。
+//! This crate provides concurrency and synchronization primitives that work in `no_std` environments.
+//! It is designed to enable runtimes like `actor-embedded` to operate without the standard library.
 //!
-//! # 主な機能
+//! # Key Features
 //!
-//! ## 同期プリミティブ
+//! ## Synchronization Primitives
 //!
-//! - **AsyncBarrier**: 複数のタスクが同期ポイントで待機するバリア機構
-//! - **CountDownLatch**: カウントダウンベースのラッチ（カウントが 0 になるまで待機）
-//! - **WaitGroup**: 複数のタスクの完了を追跡する待機グループ
-//! - **Synchronized**: 排他的アクセス制御を提供する同期型（Mutex ベース）
-//! - **SynchronizedRw**: 読み取り/書き込みアクセス制御を提供する同期型（RwLock ベース）
+//! - **AsyncBarrier**: Barrier mechanism for multiple tasks to wait at synchronization points
+//! - **CountDownLatch**: Countdown-based latch (waits until count reaches 0)
+//! - **WaitGroup**: Wait group for tracking completion of multiple tasks
+//! - **Synchronized**: Synchronization type providing exclusive access control (Mutex-based)
+//! - **SynchronizedRw**: Synchronization type providing read/write access control (RwLock-based)
 //!
-//! ## コレクション
+//! ## Collections
 //!
-//! - **Queue**: 有界/無界キュー、優先度付きキュー、リングバッファ
-//! - **Stack**: スタック構造
-//! - **MPSC**: マルチプロデューサー/シングルコンシューマーキュー
+//! - **Queue**: Bounded/unbounded queues, priority queues, ring buffers
+//! - **Stack**: Stack data structure
+//! - **MPSC**: Multi-producer, single-consumer queues
 //!
-//! ## タイマー
+//! ## Timers
 //!
-//! - **ManualDeadlineTimer**: ソフトウェア歩進によるデッドラインタイマー
+//! - **ManualDeadlineTimer**: Software-stepped deadline timer
 //!
-//! # 所有権モデル
+//! # Ownership Models
 //!
-//! 所有権モデルは機能フラグで切り替え可能です：
+//! The ownership model can be switched via feature flags:
 //!
-//! - **`rc` フィーチャ**: `Rc` ベースの実装（シングルスレッド、デフォルト）
-//! - **`arc` フィーチャ**: `Arc` ベースの実装（マルチスレッド対応）
+//! - **`rc` feature**: `Rc`-based implementation (single-threaded, default)
+//! - **`arc` feature**: `Arc`-based implementation (multi-threaded support)
 //!
-//! # 使用例
+//! # Usage Examples
 //!
 //! ```ignore
 //! use nexus_utils_embedded_rs::prelude::*;
 //!
-//! // 非同期バリアの使用
+//! // Using AsyncBarrier
 //! let barrier = RcAsyncBarrier::new(2);
 //! let other = barrier.clone();
 //!
-//! // カウントダウンラッチの使用
+//! // Using CountDownLatch
 //! let latch = RcCountDownLatch::new(3);
 //! latch.count_down().await;
 //!
-//! // 待機グループの使用
+//! // Using WaitGroup
 //! let wg = RcWaitGroup::new();
 //! wg.add(2);
 //! wg.done();
 //! wg.wait().await;
 //! ```
 //!
-//! # Embassy との統合
+//! # Embassy Integration
 //!
-//! このクレートは、[Embassy](https://embassy.dev/) エコシステムと統合されており、
-//! `embassy_sync` の同期プリミティブを内部で使用しています。
+//! This crate integrates with the [Embassy](https://embassy.dev/) ecosystem and
+//! internally uses `embassy_sync` synchronization primitives.
 
 #![no_std]
 
@@ -136,18 +136,18 @@ pub use concurrent::{
 pub use sync::*;
 pub use timing::ManualDeadlineTimer;
 
-/// 一般的に使用される型と関数を再エクスポートするプレリュードモジュール
+/// Prelude module that re-exports commonly used types and functions.
 ///
-/// このモジュールは、`nexus-utils-embedded-rs`の主要な型とトレイトを
-/// 一括でインポートするための便利な方法を提供します。
+/// This module provides a convenient way to import the main types and traits
+/// of `nexus-utils-embedded-rs` in bulk.
 ///
-/// # 使用例
+/// # Usage Examples
 ///
 /// ```
 /// use nexus_utils_embedded_rs::prelude::*;
 ///
-/// let queue = RcMpscBoundedQueue::new(10);
-/// let stack = RcStack::new();
+/// let queue: RcMpscBoundedQueue<i32> = RcMpscBoundedQueue::new(10);
+/// let stack: RcStack<i32> = RcStack::new();
 /// ```
 pub mod prelude {
   pub use super::ManualDeadlineTimer;

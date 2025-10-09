@@ -7,30 +7,30 @@ use nexus_utils_core_rs::{
 
 use crate::sync::RcShared;
 
-/// `Rc`ベースの無界MPSC(Multiple Producer, Single Consumer)キュー
+/// `Rc`-based unbounded MPSC (Multiple Producer, Single Consumer) queue
 ///
-/// このキューは`no_std`環境で利用可能な、容量制限のないMPSCキューです。
-/// `Rc`と`RefCell`を使用して参照カウントベースの共有所有権を提供します。
+/// This queue is an MPSC queue without capacity limits, usable in `no_std` environments.
+/// It provides reference-counted shared ownership using `Rc` and `RefCell`.
 ///
-/// # 特徴
+/// # Features
 ///
-/// - **無界**: 容量制限なしで要素を追加できます（メモリが許す限り）
-/// - **MPSC**: 複数のプロデューサーと単一のコンシューマーをサポート
-/// - **no_std対応**: 標準ライブラリを必要としません
-/// - **クローン可能**: `clone()`で複数のハンドルを作成可能
+/// - **Unbounded**: Can add elements without capacity limits (as memory permits)
+/// - **MPSC**: Supports multiple producers and a single consumer
+/// - **no_std Support**: Does not require the standard library
+/// - **Cloneable**: Multiple handles can be created via `clone()`
 ///
-/// # パフォーマンス特性
+/// # Performance Characteristics
 ///
-/// - `offer`: O(1)（償却）、リサイズ時はO(n)
+/// - `offer`: O(1) (amortized), O(n) when resizing
 /// - `poll`: O(1)
-/// - メモリ使用量: O(n)（要素数に比例）
+/// - Memory usage: O(n) (proportional to number of elements)
 ///
-/// # メモリについての注意
+/// # Memory Considerations
 ///
-/// このキューは容量制限がないため、メモリ不足を引き起こす可能性があります。
-/// 本番環境では適切なバックプレッシャー制御を実装することを推奨します。
+/// Since this queue has no capacity limit, it may cause memory exhaustion.
+/// It is recommended to implement appropriate backpressure control in production environments.
 ///
-/// # 例
+/// # Examples
 ///
 /// ```
 /// use nexus_utils_embedded_rs::RcMpscUnboundedQueue;
@@ -48,11 +48,11 @@ pub struct RcMpscUnboundedQueue<E> {
 }
 
 impl<E> RcMpscUnboundedQueue<E> {
-  /// 新しい無界MPSCキューを作成します
+  /// Creates a new unbounded MPSC queue
   ///
-  /// このキューには容量制限がなく、動的に拡張されます。
+  /// This queue has no capacity limit and expands dynamically.
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```
   /// use nexus_utils_embedded_rs::RcMpscUnboundedQueue;

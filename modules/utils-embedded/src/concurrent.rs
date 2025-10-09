@@ -1,23 +1,23 @@
-//! 並行処理プリミティブモジュール。
+//! Concurrency primitives module.
 //!
-//! このモジュールは、`no_std` 環境で使用できる並行処理および同期プリミティブを提供します。
-//! `Rc` または `Arc` ベースの実装を、フィーチャフラグで選択できます。
+//! This module provides concurrency and synchronization primitives that can be used in `no_std` environments.
+//! You can select between `Rc` or `Arc` based implementations via feature flags.
 //!
-//! # 提供される同期プリミティブ
+//! # Provided Synchronization Primitives
 //!
-//! - **AsyncBarrier**: 複数のタスクが同期ポイントで待機するバリア
-//! - **CountDownLatch**: カウントが 0 になるまで待機するラッチ
-//! - **WaitGroup**: 複数のタスクの完了を追跡する待機グループ
-//! - **Synchronized**: 排他的アクセス制御（Mutex ベース）
-//! - **SynchronizedRw**: 読み取り/書き込みアクセス制御（RwLock ベース）
+//! - **AsyncBarrier**: Barrier for multiple tasks to wait at synchronization points
+//! - **CountDownLatch**: Latch that waits until count reaches 0
+//! - **WaitGroup**: Wait group for tracking completion of multiple tasks
+//! - **Synchronized**: Exclusive access control (Mutex-based)
+//! - **SynchronizedRw**: Read/write access control (RwLock-based)
 //!
-//! # フィーチャフラグ
+//! # Feature Flags
 //!
-//! - **`rc`**: `Rc` ベースの実装（シングルスレッド専用）
-//! - **`arc`**: `Arc` ベースの実装（マルチスレッド対応）
-//!   - `ArcLocal*`: `Arc` + `LocalMutex`/`LocalRwLock`（シングルスレッド最適化）
-//!   - `ArcCs*`: `Arc` + `CsMutex`/`CsRwLock`（クリティカルセクションベース）
-//!   - `Arc*`: `Arc` + 標準 Mutex/RwLock
+//! - **`rc`**: `Rc`-based implementation (single-threaded only)
+//! - **`arc`**: `Arc`-based implementation (multi-threaded support)
+//!   - `ArcLocal*`: `Arc` + `LocalMutex`/`LocalRwLock` (single-thread optimized)
+//!   - `ArcCs*`: `Arc` + `CsMutex`/`CsRwLock` (critical section-based)
+//!   - `Arc*`: `Arc` + standard Mutex/RwLock
 
 #[cfg(feature = "rc")]
 mod rc_synchronized;

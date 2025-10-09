@@ -1,18 +1,18 @@
-//! キュー実装モジュール
+//! Queue implementation module
 
-/// MPSC（Multiple Producer, Single Consumer）キュー
+/// MPSC (Multiple Producer, Single Consumer) queue
 ///
-/// 複数のプロデューサーと単一のコンシューマーをサポートするキュー実装です。
+/// Queue implementation that supports multiple producers and a single consumer.
 pub mod mpsc;
 
-/// 優先度付きキュー
+/// Priority queue
 ///
-/// メッセージの優先度に基づいて処理順序を制御するキュー実装です。
+/// Queue implementation that controls processing order based on message priority.
 pub mod priority;
 
-/// リングバッファキュー
+/// Ring buffer queue
 ///
-/// 循環バッファを使用した効率的なFIFOキュー実装です。
+/// Efficient FIFO queue implementation using circular buffers.
 pub mod ring;
 
 #[cfg(feature = "arc")]

@@ -13,7 +13,7 @@ use core::{
 /// # 例
 ///
 /// ```
-/// use nexus_actor_utils_core::timing::DeadlineTimerKey;
+/// use nexus_utils_core_rs::DeadlineTimerKey;
 ///
 /// let key = DeadlineTimerKey::from_raw(42);
 /// assert!(key.is_valid());
@@ -81,7 +81,7 @@ impl DeadlineTimerKey {
 /// # 例
 ///
 /// ```
-/// use nexus_actor_utils_core::timing::TimerDeadline;
+/// use nexus_utils_core_rs::TimerDeadline;
 /// use core::time::Duration;
 ///
 /// let duration = Duration::from_secs(5);
@@ -201,7 +201,7 @@ pub struct DeadlineTimerExpired<Item> {
 /// # 例
 ///
 /// ```ignore
-/// use nexus_actor_utils_core::timing::{DeadlineTimer, TimerDeadline};
+/// use nexus_utils_core_rs::{DeadlineTimer, TimerDeadline};
 /// use core::time::Duration;
 ///
 /// fn schedule_timeout<T: DeadlineTimer>(timer: &mut T, item: T::Item) {
@@ -277,7 +277,7 @@ pub trait DeadlineTimer {
 /// # 例
 ///
 /// ```
-/// use nexus_actor_utils_core::timing::DeadlineTimerKeyAllocator;
+/// use nexus_utils_core_rs::DeadlineTimerKeyAllocator;
 ///
 /// let allocator = DeadlineTimerKeyAllocator::new();
 /// let key1 = allocator.allocate();

@@ -4,10 +4,10 @@ use std::sync::Arc;
 use nexus_utils_core_rs::{async_trait, AsyncBarrier as CoreAsyncBarrier, AsyncBarrierBackend};
 use tokio::sync::Notify;
 
-/// Tokioランタイムを使用した非同期バリアのバックエンド実装
+/// Backend implementation of async barrier using Tokio runtime
 ///
-/// 複数のタスクが互いに待ち合わせるための同期プリミティブです。
-/// 指定された数のタスクが`wait()`を呼び出すまで、すべてのタスクをブロックします。
+/// A synchronization primitive for multiple tasks to wait for each other.
+/// Blocks all tasks until the specified number of tasks call `wait()`.
 #[derive(Clone)]
 pub struct TokioAsyncBarrierBackend {
   inner: Arc<Inner>,
@@ -50,10 +50,10 @@ impl AsyncBarrierBackend for TokioAsyncBarrierBackend {
   }
 }
 
-/// Tokioランタイムを使用した非同期バリア
+/// Async barrier using Tokio runtime
 ///
-/// 指定された数のタスクが到達するまで、すべてのタスクを待機させる同期プリミティブです。
-/// すべてのタスクがバリアに到達すると、バリアは再利用可能な状態にリセットされます。
+/// A synchronization primitive that causes all tasks to wait until the specified number of tasks arrive.
+/// When all tasks reach the barrier, it resets to a reusable state.
 pub type AsyncBarrier = CoreAsyncBarrier<TokioAsyncBarrierBackend>;
 
 #[cfg(test)]

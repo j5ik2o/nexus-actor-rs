@@ -47,12 +47,12 @@
 #![deny(clippy::if_same_then_else)]
 #![deny(clippy::cmp_null)]
 
-//! std ランタイム向けユーティリティ。
+//! Utilities for std runtime.
 //!
-//! `nexus_utils_core_rs` で定義された抽象を tokio ベースの実装に結び付け、
-//! `Arc` バックエンドや同期原語、期限付きタイマーをまとめて公開する。
-//! core 側との循環を避けるため re-export を中心とした構成にしており、
-//! `TokioDeadlineTimer` もここから提供される。
+//! This module binds the abstractions defined in `nexus_utils_core_rs` to tokio-based implementations,
+//! providing `Arc`-based backends, synchronization primitives, and deadline timers.
+//! The structure is primarily based on re-exports to avoid circular dependencies with the core layer,
+//! and `TokioDeadlineTimer` is also provided from here.
 
 pub(crate) mod collections;
 pub(crate) mod concurrent;
@@ -75,7 +75,7 @@ pub use concurrent::{
 pub use sync::{ArcShared, ArcStateCell};
 pub use timing::TokioDeadlineTimer;
 
-/// 一般的に使用される型とトレイトを再エクスポートするprelude。
+/// Prelude module that re-exports commonly used types and traits.
 pub mod prelude {
   pub use super::{
     ArcMpscBoundedQueue, ArcMpscUnboundedQueue, ArcPriorityQueue, ArcRingQueue, ArcShared, ArcStack, ArcStateCell,

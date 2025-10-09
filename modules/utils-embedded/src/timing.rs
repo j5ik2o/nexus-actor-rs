@@ -1,6 +1,6 @@
-//! 組み込み向けタイマー実装をまとめるモジュール。
+//! Module that aggregates timer implementations for embedded systems.
 //!
-//! `ManualDeadlineTimer` を公開し、ランタイムがソフトウェアカウンタで期限管理できるようにする。
+//! Exposes `ManualDeadlineTimer` to enable runtimes to manage deadlines via software counters.
 
 mod manual_deadline_timer;
 

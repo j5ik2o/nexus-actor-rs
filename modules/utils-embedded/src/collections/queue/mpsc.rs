@@ -1,16 +1,16 @@
-//! MPSC（Multiple Producer, Single Consumer）キュー実装
+//! MPSC (Multiple Producer, Single Consumer) queue implementation
 
 #[cfg(feature = "arc")]
-/// `Arc`ベースのMPSC有界/無界キュー
+/// `Arc`-based MPSC bounded/unbounded queue
 pub mod arc_mpsc_bounded_queue;
 #[cfg(feature = "arc")]
-/// `Arc`ベースのMPSC無界キュー
+/// `Arc`-based MPSC unbounded queue
 pub mod arc_mpsc_unbounded_queue;
 #[cfg(feature = "rc")]
-/// `Rc`ベースのMPSC有界キュー
+/// `Rc`-based MPSC bounded queue
 pub mod rc_mpsc_bounded_queue;
 #[cfg(feature = "rc")]
-/// `Rc`ベースのMPSC無界キュー
+/// `Rc`-based MPSC unbounded queue
 pub mod rc_mpsc_unbounded_queue;
 
 #[cfg(feature = "arc")]

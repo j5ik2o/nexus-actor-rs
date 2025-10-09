@@ -7,21 +7,21 @@ use nexus_utils_core_rs::{
 
 type ArcStackStorage<T> = ArcShared<StackStorageBackend<ArcShared<Mutex<StackBuffer<T>>>>>;
 
-/// `Arc`ベースのスレッドセーフなスタック実装
+/// `Arc`-based thread-safe stack implementation
 ///
-/// 複数のスレッド間で安全に共有可能なスタックデータ構造を提供します。
-/// 内部的に`Arc`と`Mutex`を使用して同期を行います。
+/// Provides a stack data structure that can be safely shared across multiple threads.
+/// Internally uses `Arc` and `Mutex` for synchronization.
 #[derive(Debug, Clone)]
 pub struct ArcStack<T> {
   inner: Stack<ArcStackStorage<T>, T>,
 }
 
 impl<T> ArcStack<T> {
-  /// 新しい`ArcStack`を作成します
+  /// Creates a new `ArcStack`
   ///
   /// # Returns
   ///
-  /// 空の`ArcStack`インスタンス
+  /// An empty `ArcStack` instance
   pub fn new() -> Self {
     let storage = ArcShared::new(Mutex::new(StackBuffer::new()));
     let backend: ArcStackStorage<T> = ArcShared::new(StackStorageBackend::new(storage));
@@ -30,86 +30,86 @@ impl<T> ArcStack<T> {
     }
   }
 
-  /// 指定された容量を持つ`ArcStack`を作成します
+  /// Creates an `ArcStack` with the specified capacity
   ///
   /// # Arguments
   ///
-  /// * `capacity` - スタックの最大容量
+  /// * `capacity` - Maximum capacity of the stack
   ///
   /// # Returns
   ///
-  /// 指定された容量を持つ空の`ArcStack`インスタンス
+  /// An empty `ArcStack` instance with the specified capacity
   pub fn with_capacity(capacity: usize) -> Self {
     let stack = Self::new();
     stack.set_capacity(Some(capacity));
     stack
   }
 
-  /// スタックの容量を設定します
+  /// Sets the capacity of the stack
   ///
   /// # Arguments
   ///
-  /// * `capacity` - スタックの最大容量。`None`の場合は無制限
+  /// * `capacity` - Maximum capacity of the stack. `None` for unlimited capacity
   pub fn set_capacity(&self, capacity: Option<usize>) {
     self.inner.set_capacity(capacity);
   }
 
-  /// スタックに値をプッシュします
+  /// Pushes a value onto the stack
   ///
   /// # Arguments
   ///
-  /// * `value` - プッシュする値
+  /// * `value` - The value to push
   ///
   /// # Returns
   ///
-  /// 成功時は`Ok(())`、容量制限を超える場合は`Err(StackError)`
+  /// `Ok(())` on success, `Err(StackError)` if capacity limit is exceeded
   ///
   /// # Errors
   ///
-  /// スタックが容量制限に達している場合、`StackError`を返します
+  /// Returns `StackError` if the stack has reached its capacity limit
   pub fn push(&self, value: T) -> Result<(), StackError<T>> {
     self.inner.push(value)
   }
 
-  /// スタックから値をポップします
+  /// Pops a value from the stack
   ///
   /// # Returns
   ///
-  /// スタックが空でない場合は`Some(T)`、空の場合は`None`
+  /// `Some(T)` if the stack is not empty, `None` if empty
   pub fn pop(&self) -> Option<T> {
     self.inner.pop()
   }
 
-  /// スタックの先頭要素を削除せずに取得します
+  /// Gets the top element without removing it
   ///
   /// # Returns
   ///
-  /// スタックが空でない場合は先頭要素のクローン`Some(T)`、空の場合は`None`
+  /// A clone of the top element `Some(T)` if the stack is not empty, `None` if empty
   pub fn peek(&self) -> Option<T>
   where
     T: Clone, {
     self.inner.peek()
   }
 
-  /// スタック内のすべての要素を削除します
+  /// Removes all elements from the stack
   pub fn clear(&self) {
     self.inner.clear();
   }
 
-  /// スタック内の要素数を取得します
+  /// Returns the number of elements in the stack
   ///
   /// # Returns
   ///
-  /// 現在のスタック内の要素数
+  /// The current number of elements in the stack
   pub fn len(&self) -> QueueSize {
     self.inner.len()
   }
 
-  /// スタックの容量を取得します
+  /// Returns the capacity of the stack
   ///
   /// # Returns
   ///
-  /// スタックの最大容量。無制限の場合は`QueueSize::Unlimited`
+  /// The maximum capacity of the stack. `QueueSize::Unlimited` if unlimited
   pub fn capacity(&self) -> QueueSize {
     self.inner.capacity()
   }

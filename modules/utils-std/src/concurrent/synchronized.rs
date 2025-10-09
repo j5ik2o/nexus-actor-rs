@@ -4,23 +4,23 @@ use nexus_utils_core_rs::{
 };
 use tokio::sync::{Mutex, MutexGuard, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
-/// Tokio Mutexを使用した排他制御バックエンド実装
+/// Backend implementation of exclusive control using Tokio Mutex
 ///
-/// 共有データへの排他的アクセスを提供します。
+/// Provides exclusive access to shared data.
 pub struct TokioMutexBackend<T> {
   inner: Mutex<T>,
 }
 
 impl<T> TokioMutexBackend<T> {
-  /// 既存のTokio Mutexから新しいバックエンドインスタンスを作成します。
+  /// Creates a new backend instance from an existing Tokio Mutex.
   ///
   /// # Arguments
   ///
-  /// * `inner` - ラップするTokio Mutex
+  /// * `inner` - The Tokio Mutex to wrap
   ///
   /// # Returns
   ///
-  /// 新しい`TokioMutexBackend`インスタンス
+  /// A new `TokioMutexBackend` instance
   pub fn new_with_mutex(inner: Mutex<T>) -> Self {
     Self { inner }
   }
@@ -49,23 +49,23 @@ where
   }
 }
 
-/// Tokio RwLockを使用した読み書きロックバックエンド実装
+/// Backend implementation of read-write lock using Tokio RwLock
 ///
-/// 複数の読み取りアクセスまたは単一の書き込みアクセスを提供します。
+/// Provides multiple read accesses or a single write access.
 pub struct TokioRwLockBackend<T> {
   inner: RwLock<T>,
 }
 
 impl<T> TokioRwLockBackend<T> {
-  /// 既存のTokio RwLockから新しいバックエンドインスタンスを作成します。
+  /// Creates a new backend instance from an existing Tokio RwLock.
   ///
   /// # Arguments
   ///
-  /// * `inner` - ラップするTokio RwLock
+  /// * `inner` - The Tokio RwLock to wrap
   ///
   /// # Returns
   ///
-  /// 新しい`TokioRwLockBackend`インスタンス
+  /// A new `TokioRwLockBackend` instance
   pub fn new_with_rwlock(inner: RwLock<T>) -> Self {
     Self { inner }
   }
@@ -102,14 +102,14 @@ where
   }
 }
 
-/// Tokioランタイムを使用した排他制御付き共有データ
+/// Shared data with exclusive control using Tokio runtime
 ///
-/// `Mutex`による排他的アクセスを提供し、複数のタスク間で安全にデータを共有できます。
+/// Provides exclusive access via `Mutex`, allowing safe data sharing across multiple tasks.
 pub type Synchronized<T> = CoreSynchronized<TokioMutexBackend<T>, T>;
 
-/// Tokioランタイムを使用した読み書きロック付き共有データ
+/// Shared data with read-write lock using Tokio runtime
 ///
-/// `RwLock`による読み取り/書き込みアクセスを提供し、複数の読み取りまたは単一の書き込みを許可します。
+/// Provides read/write access via `RwLock`, allowing multiple reads or a single write.
 pub type SynchronizedRw<T> = CoreSynchronizedRw<TokioRwLockBackend<T>, T>;
 
 #[cfg(test)]

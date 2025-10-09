@@ -7,25 +7,25 @@ use nexus_utils_core_rs::{
 
 use crate::sync::RcShared;
 
-/// `Rc`ベースの有界MPSC(Multiple Producer, Single Consumer)キュー
+/// `Rc`-based bounded MPSC (Multiple Producer, Single Consumer) queue
 ///
-/// このキューは`no_std`環境で利用可能な、容量制限付きのMPSCキューです。
-/// `Rc`と`RefCell`を使用して参照カウントベースの共有所有権を提供します。
+/// This queue is a capacity-limited MPSC queue usable in `no_std` environments.
+/// It provides reference-counted shared ownership using `Rc` and `RefCell`.
 ///
-/// # 特徴
+/// # Features
 ///
-/// - **有界**: 指定された容量を超える要素を追加することはできません
-/// - **MPSC**: 複数のプロデューサーと単一のコンシューマーをサポート
-/// - **no_std対応**: 標準ライブラリを必要としません
-/// - **クローン可能**: `clone()`で複数のハンドルを作成可能
+/// - **Bounded**: Cannot add elements beyond the specified capacity
+/// - **MPSC**: Supports multiple producers and a single consumer
+/// - **no_std Support**: Does not require the standard library
+/// - **Cloneable**: Multiple handles can be created via `clone()`
 ///
-/// # パフォーマンス特性
+/// # Performance Characteristics
 ///
-/// - `offer`: O(1)（容量内）
+/// - `offer`: O(1) (within capacity)
 /// - `poll`: O(1)
-/// - メモリ使用量: O(capacity)
+/// - Memory usage: O(capacity)
 ///
-/// # 例
+/// # Examples
 ///
 /// ```
 /// use nexus_utils_embedded_rs::RcMpscBoundedQueue;
@@ -41,13 +41,13 @@ pub struct RcMpscBoundedQueue<E> {
 }
 
 impl<E> RcMpscBoundedQueue<E> {
-  /// 指定された容量で新しい有界MPSCキューを作成します
+  /// Creates a new bounded MPSC queue with the specified capacity
   ///
   /// # Arguments
   ///
-  /// * `capacity` - キューに格納できる最大要素数
+  /// * `capacity` - Maximum number of elements the queue can hold
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```
   /// use nexus_utils_embedded_rs::RcMpscBoundedQueue;

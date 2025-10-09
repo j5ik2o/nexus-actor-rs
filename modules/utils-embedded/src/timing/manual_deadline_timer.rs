@@ -15,11 +15,11 @@ struct Entry<Item> {
   item: Item,
 }
 
-/// `no_std` 環境で動作するソフトウェア駆動の `DeadlineTimer` 実装。
+/// Software-driven `DeadlineTimer` implementation for `no_std` environments.
 ///
-/// 外部から経過時間を [`Self::advance`] で知らせることで期限切れを検知し、
-/// 次回の `poll_expired` で取り出せるようキューに積む。
-/// ハードウェアタイマーが無い環境でも、コア抽象を変えずに `ReceiveTimeout` を扱える。
+/// Detects expiration by receiving elapsed time notifications via [`Self::advance`]
+/// and queues expired items for retrieval in the next `poll_expired` call.
+/// Enables handling of `ReceiveTimeout` without hardware timers while keeping the core abstraction unchanged.
 #[derive(Debug)]
 pub struct ManualDeadlineTimer<Item> {
   allocator: DeadlineTimerKeyAllocator,
@@ -29,7 +29,7 @@ pub struct ManualDeadlineTimer<Item> {
 }
 
 impl<Item> ManualDeadlineTimer<Item> {
-  /// 要素を持たない新しいタイマーを生成する。
+  /// Creates a new timer with no entries.
   #[inline]
   pub fn new() -> Self {
     Self {
@@ -46,7 +46,7 @@ impl<Item> ManualDeadlineTimer<Item> {
     }
   }
 
-  /// 経過時間を通知し、期限に達した要素をキューに積む。
+  /// Notifies elapsed time and queues expired items.
   pub fn advance(&mut self, elapsed: Duration) {
     if elapsed == Duration::ZERO && self.ready.is_empty() {
       return;
@@ -67,7 +67,7 @@ impl<Item> ManualDeadlineTimer<Item> {
         self.entries[idx].remaining = remaining;
         idx += 1;
       } else {
-        // `checked_sub` が None の場合は期限切れ扱い。
+        // If `checked_sub` returns None, treat as expired.
         let entry = self.entries.swap_remove(idx);
         self.ready.push_back(DeadlineTimerExpired {
           key: entry.key,

@@ -14,7 +14,7 @@ use async_trait::async_trait;
 /// # Examples
 ///
 /// ```ignore
-/// use nexus_actor_utils_rs::concurrent::{AsyncBarrierBackend, AsyncBarrier};
+/// use nexus_utils_core_rs::{AsyncBarrierBackend, AsyncBarrier};
 ///
 /// // カスタムバックエンドの実装例
 /// #[derive(Clone)]
@@ -64,7 +64,7 @@ pub trait AsyncBarrierBackend: Clone {
 /// # Examples
 ///
 /// ```ignore
-/// use nexus_actor_utils_rs::concurrent::AsyncBarrier;
+/// use nexus_utils_core_rs::AsyncBarrier;
 /// use tokio::task;
 ///
 /// #[tokio::main]
@@ -97,7 +97,7 @@ pub trait AsyncBarrierBackend: Clone {
 /// # 使用例（並行処理の同期）
 ///
 /// ```ignore
-/// use nexus_actor_utils_rs::concurrent::AsyncBarrier;
+/// use nexus_utils_core_rs::AsyncBarrier;
 ///
 /// async fn parallel_computation() {
 ///     let barrier = AsyncBarrier::new(3);
@@ -146,7 +146,7 @@ where
   /// # Examples
   ///
   /// ```ignore
-  /// use nexus_actor_utils_rs::concurrent::AsyncBarrier;
+  /// use nexus_utils_core_rs::AsyncBarrier;
   ///
   /// // 5つのタスクが到達するまで待機するバリアを作成
   /// let barrier = AsyncBarrier::new(5);
@@ -169,7 +169,7 @@ where
   /// # Examples
   ///
   /// ```ignore
-  /// use nexus_actor_utils_rs::concurrent::AsyncBarrier;
+  /// use nexus_utils_core_rs::AsyncBarrier;
   ///
   /// let barrier = AsyncBarrier::new(3);
   ///
@@ -203,7 +203,7 @@ where
   /// # Examples
   ///
   /// ```ignore
-  /// use nexus_actor_utils_rs::concurrent::AsyncBarrier;
+  /// use nexus_utils_core_rs::AsyncBarrier;
   ///
   /// let barrier = AsyncBarrier::new(3);
   /// let backend = barrier.backend();

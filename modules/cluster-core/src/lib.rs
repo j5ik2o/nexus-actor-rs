@@ -1,6 +1,6 @@
-//! クラスター協調機能のコア実装。
+//! Core implementation of cluster coordination functionality.
 //!
-//! 将来のクラスターサービスに`FailureEventStream`を統合するためのプレースホルダーAPIを提供します。
+//! Provides placeholder APIs for integrating `FailureEventStream` into future cluster services.
 
 #![deny(missing_docs)]
 #![deny(rustdoc::broken_intra_doc_links)]
@@ -58,9 +58,9 @@ extern crate alloc;
 use nexus_actor_core_rs::{FailureEvent, FailureEventListener, FailureEventStream};
 use nexus_remote_core_rs::RemoteFailureNotifier;
 
-/// クラスターとリモート障害通知を橋渡しするブリッジ。
+/// Bridge connecting cluster and remote failure notifications.
 ///
-/// ローカル障害イベントをリモートノードへ伝播し、クラスター全体での障害情報の共有を可能にします。
+/// Propagates local failure events to remote nodes, enabling cluster-wide sharing of failure information.
 #[cfg(feature = "std")]
 pub struct ClusterFailureBridge<E>
 where
@@ -74,39 +74,39 @@ impl<E> ClusterFailureBridge<E>
 where
   E: FailureEventStream,
 {
-  /// 新しい`ClusterFailureBridge`を作成します。
+  /// Creates a new `ClusterFailureBridge`.
   ///
   /// # Arguments
   ///
-  /// * `hub` - ローカル障害イベントハブ
-  /// * `remote_notifier` - リモートノードへの通知ハンドラ
+  /// * `hub` - The local failure event hub
+  /// * `remote_notifier` - The notification handler for remote nodes
   pub fn new(hub: E, remote_notifier: RemoteFailureNotifier<E>) -> Self {
     Self { hub, remote_notifier }
   }
 
-  /// 障害イベントリスナーを登録します。
+  /// Registers a failure event listener.
   ///
   /// # Returns
   ///
-  /// `FailureEventListener`のインスタンス
+  /// A `FailureEventListener` instance
   pub fn register(&self) -> FailureEventListener {
     self.hub.listener()
   }
 
-  /// リモート障害通知ハンドラへの参照を取得します。
+  /// Gets a reference to the remote failure notification handler.
   ///
   /// # Returns
   ///
-  /// `RemoteFailureNotifier`への参照
+  /// A reference to `RemoteFailureNotifier`
   pub fn notifier(&self) -> &RemoteFailureNotifier<E> {
     &self.remote_notifier
   }
 
-  /// 障害イベントをローカルとリモートの両方に配信します。
+  /// Distributes failure events to both local and remote destinations.
   ///
   /// # Arguments
   ///
-  /// * `event` - 配信する障害イベント
+  /// * `event` - The failure event to distribute
   pub fn fan_out(&self, event: FailureEvent) {
     let FailureEvent::RootEscalated(info) = &event;
     self.remote_notifier.dispatch(info.clone());

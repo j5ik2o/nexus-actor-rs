@@ -16,7 +16,7 @@ use super::StackError;
 /// # Examples
 ///
 /// ```ignore
-/// use nexus_actor_utils_rs::collections::stack::{Stack, StackStorageBackend};
+/// use nexus_utils_core_rs::{Stack, StackStorageBackend};
 ///
 /// let backend = /* StackHandle実装を作成 */;
 /// let stack = Stack::new(backend);

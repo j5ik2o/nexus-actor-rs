@@ -1,12 +1,12 @@
-/// キュー操作時に発生するエラー。
+/// Errors that occur during queue operations.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum QueueError<T> {
-  /// キューが満杯で要素を追加できない。返却された値は追加しようとした要素。
+  /// The queue is full and cannot accept more elements. Contains the element that was attempted to be added.
   Full(T),
-  /// キューへの提供操作が失敗。返却された値は提供しようとした要素。
+  /// The offer operation to the queue failed. Contains the element that was attempted to be provided.
   OfferError(T),
-  /// キューがクローズ済み。返却された値は送信しようとした要素。
+  /// The queue is closed. Contains the element that was attempted to be sent.
   Closed(T),
-  /// キューとの接続が切断された。
+  /// The connection to the queue has been disconnected.
   Disconnected,
 }

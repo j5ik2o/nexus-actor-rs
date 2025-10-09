@@ -42,13 +42,13 @@ type RcRingStorage<E> = RcShared<RingStorageBackend<RcShared<RefCell<RingBuffer<
 /// use nexus_utils_core_rs::QueueRw;
 ///
 /// // 容量10の動的リングキューを作成
-/// let queue = RcRingQueue::new(10);
+/// let queue: RcRingQueue<i32> = RcRingQueue::new(10);
 /// queue.offer(1).unwrap();
 /// queue.offer(2).unwrap();
 /// assert_eq!(queue.poll().unwrap(), Some(1));
 ///
 /// // 固定容量のリングキューを作成
-/// let static_queue = RcRingQueue::new(5).with_dynamic(false);
+/// let static_queue: RcRingQueue<i32> = RcRingQueue::new(5).with_dynamic(false);
 /// ```
 #[derive(Debug, Clone)]
 pub struct RcRingQueue<E> {

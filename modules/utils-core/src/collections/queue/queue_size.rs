@@ -1,29 +1,29 @@
-/// キューのサイズ制限を表す列挙型。
+/// Enumeration representing the size limit of a queue.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum QueueSize {
-  /// 制限なし（無制限）。
+  /// No limit (unlimited).
   Limitless,
-  /// 指定されたサイズまで制限。
+  /// Limited to the specified size.
   Limited(usize),
 }
 
 impl QueueSize {
-  /// 無制限サイズのキューを表す定数コンストラクタ。
+  /// Constant constructor representing an unlimited size queue.
   pub const fn limitless() -> Self {
     Self::Limitless
   }
 
-  /// 指定されたサイズで制限されたキューを表す定数コンストラクタ。
+  /// Constant constructor representing a queue limited to the specified size.
   pub const fn limited(value: usize) -> Self {
     Self::Limited(value)
   }
 
-  /// このサイズが無制限かどうかを判定する。
+  /// Determines whether this size is unlimited.
   pub const fn is_limitless(&self) -> bool {
     matches!(self, Self::Limitless)
   }
 
-  /// サイズを`usize`として取得する。無制限の場合は`usize::MAX`を返す。
+  /// Gets the size as `usize`. Returns `usize::MAX` if unlimited.
   pub const fn to_usize(self) -> usize {
     match self {
       Self::Limitless => usize::MAX,

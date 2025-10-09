@@ -6,48 +6,48 @@ use nexus_utils_core_rs::{
 
 use crate::sync::RcShared;
 
-/// `Rc`ベースのスタックストレージ型エイリアス
+/// `Rc`-based stack storage type alias
 ///
-/// `RcShared`と`RefCell`を使用した参照カウントベースのスタックストレージです。
+/// Reference-counted stack storage using `RcShared` and `RefCell`.
 type RcStackStorage<T> = RcShared<StackStorageBackend<RcShared<RefCell<StackBuffer<T>>>>>;
 
-/// `Rc`ベースのスタック（後入れ先出しデータ構造）
+/// `Rc`-based stack (Last-In-First-Out data structure)
 ///
-/// このスタックは`no_std`環境で利用可能な、LIFO(Last-In-First-Out)データ構造です。
-/// `Rc`と`RefCell`を使用して参照カウントベースの共有所有権を提供します。
+/// This stack is a LIFO (Last-In-First-Out) data structure usable in `no_std` environments.
+/// It provides reference-counted shared ownership using `Rc` and `RefCell`.
 ///
-/// # 特徴
+/// # Features
 ///
-/// - **LIFO**: 最後に追加された要素が最初に取り出されます
-/// - **容量制限**: オプションで容量制限を設定可能
-/// - **no_std対応**: 標準ライブラリを必要としません
-/// - **クローン可能**: `clone()`で複数のハンドルを作成可能
+/// - **LIFO**: Last added element is retrieved first
+/// - **Capacity Limit**: Optional capacity limit can be set
+/// - **no_std Support**: Does not require the standard library
+/// - **Cloneable**: Multiple handles can be created via `clone()`
 ///
-/// # パフォーマンス特性
+/// # Performance Characteristics
 ///
-/// - `push`: O(1)（容量内）、リサイズ時はO(n)
+/// - `push`: O(1) (within capacity), O(n) when resizing
 /// - `pop`: O(1)
 /// - `peek`: O(1)
-/// - メモリ使用量: O(n)（要素数に比例）
+/// - Memory usage: O(n) (proportional to number of elements)
 ///
-/// # 例
+/// # Examples
 ///
 /// ```
 /// use nexus_utils_embedded_rs::RcStack;
 ///
-/// // 容量制限なしのスタック
+/// // Stack without capacity limit
 /// let stack = RcStack::new();
 /// stack.push(1).unwrap();
 /// stack.push(2).unwrap();
 /// assert_eq!(stack.pop(), Some(2));
 /// assert_eq!(stack.pop(), Some(1));
 ///
-/// // 容量制限付きのスタック
+/// // Stack with capacity limit
 /// let limited_stack = RcStack::with_capacity(5);
 /// for i in 0..5 {
 ///     limited_stack.push(i).unwrap();
 /// }
-/// // 6番目の要素は追加できない
+/// // Cannot add 6th element
 /// assert!(limited_stack.push(5).is_err());
 /// ```
 #[derive(Debug, Clone)]
@@ -56,11 +56,11 @@ pub struct RcStack<T> {
 }
 
 impl<T> RcStack<T> {
-  /// 新しいスタックを作成します
+  /// Creates a new stack
   ///
-  /// 容量制限なしで作成されます。
+  /// Created without capacity limit.
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```
   /// use nexus_utils_embedded_rs::RcStack;
@@ -75,13 +75,13 @@ impl<T> RcStack<T> {
     }
   }
 
-  /// 指定された容量制限で新しいスタックを作成します
+  /// Creates a new stack with the specified capacity limit
   ///
   /// # Arguments
   ///
-  /// * `capacity` - スタックに格納できる最大要素数
+  /// * `capacity` - Maximum number of elements the stack can hold
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```
   /// use nexus_utils_embedded_rs::RcStack;
@@ -94,36 +94,36 @@ impl<T> RcStack<T> {
     stack
   }
 
-  /// スタックの容量制限を設定します
+  /// Sets the stack's capacity limit
   ///
   /// # Arguments
   ///
-  /// * `capacity` - `Some(n)`で容量をn要素に制限、`None`で容量制限を解除
+  /// * `capacity` - `Some(n)` to limit capacity to n elements, `None` to remove capacity limit
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```
   /// use nexus_utils_embedded_rs::RcStack;
   ///
   /// let stack: RcStack<i32> = RcStack::new();
-  /// stack.set_capacity(Some(10)); // 容量を10に制限
-  /// stack.set_capacity(None);     // 容量制限を解除
+  /// stack.set_capacity(Some(10)); // Limit capacity to 10
+  /// stack.set_capacity(None);     // Remove capacity limit
   /// ```
   pub fn set_capacity(&self, capacity: Option<usize>) {
     self.inner.set_capacity(capacity);
   }
 
-  /// スタックに値を追加します
+  /// Pushes a value onto the stack
   ///
   /// # Arguments
   ///
-  /// * `value` - スタックに追加する値
+  /// * `value` - Value to push onto the stack
   ///
   /// # Returns
   ///
-  /// 成功した場合は`Ok(())`、容量制限に達している場合は`Err(StackError::Full(value))`
+  /// Returns `Ok(())` on success, `Err(StackError::Full(value))` if capacity limit is reached
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```
   /// use nexus_utils_embedded_rs::RcStack;
@@ -135,13 +135,13 @@ impl<T> RcStack<T> {
     self.inner.push(value)
   }
 
-  /// スタックから値を取り出します
+  /// Pops a value from the stack
   ///
   /// # Returns
   ///
-  /// スタックが空でない場合は`Some(value)`、空の場合は`None`
+  /// Returns `Some(value)` if stack is not empty, `None` if empty
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```
   /// use nexus_utils_embedded_rs::RcStack;
@@ -155,13 +155,13 @@ impl<T> RcStack<T> {
     self.inner.pop()
   }
 
-  /// スタックのトップの値を取り出さずに参照します
+  /// Peeks at the top value of the stack without removing it
   ///
   /// # Returns
   ///
-  /// スタックが空でない場合は`Some(value)`、空の場合は`None`
+  /// Returns `Some(value)` if stack is not empty, `None` if empty
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```
   /// use nexus_utils_embedded_rs::RcStack;
@@ -169,7 +169,7 @@ impl<T> RcStack<T> {
   /// let stack = RcStack::new();
   /// stack.push(1).unwrap();
   /// assert_eq!(stack.peek(), Some(1));
-  /// assert_eq!(stack.len().to_usize(), 1); // 要素はまだ残っている
+  /// assert_eq!(stack.len().to_usize(), 1); // Element still remains
   /// ```
   pub fn peek(&self) -> Option<T>
   where
@@ -177,9 +177,9 @@ impl<T> RcStack<T> {
     self.inner.peek()
   }
 
-  /// スタックからすべての要素を削除します
+  /// Removes all elements from the stack
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```
   /// use nexus_utils_embedded_rs::RcStack;
@@ -194,13 +194,13 @@ impl<T> RcStack<T> {
     self.inner.clear();
   }
 
-  /// スタック内の要素数を返します
+  /// Returns the number of elements in the stack
   ///
   /// # Returns
   ///
-  /// 現在の要素数を表す`QueueSize`
+  /// `QueueSize` representing the current number of elements
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```
   /// use nexus_utils_embedded_rs::RcStack;
@@ -213,18 +213,18 @@ impl<T> RcStack<T> {
     self.inner.len()
   }
 
-  /// スタックの容量を返します
+  /// Returns the capacity of the stack
   ///
   /// # Returns
   ///
-  /// 容量制限が設定されている場合は制限値、設定されていない場合は`QueueSize::Limitless`
+  /// Limit value if capacity limit is set, `QueueSize::Limitless` if not set
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```
   /// use nexus_utils_embedded_rs::RcStack;
   ///
-  /// let stack = RcStack::with_capacity(10);
+  /// let stack: RcStack<i32> = RcStack::with_capacity(10);
   /// assert_eq!(stack.capacity().to_usize(), 10);
   /// ```
   pub fn capacity(&self) -> QueueSize {

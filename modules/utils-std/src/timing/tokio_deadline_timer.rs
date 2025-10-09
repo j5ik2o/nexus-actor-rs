@@ -7,11 +7,11 @@ use nexus_utils_core_rs::{
 };
 use tokio_util::time::delay_queue::{DelayQueue as InnerDelayQueue, Key as InnerKey};
 
-/// `tokio_util::time::DelayQueue` をラップし、`DeadlineTimer` 抽象を満たす実装。
+/// Implementation that wraps `tokio_util::time::DelayQueue` to satisfy the `DeadlineTimer` abstraction.
 ///
-/// DelayQueue の内部キーを外部公開せずに済むよう前後変換テーブルを持ち、
-/// コア層とは一貫して `DeadlineTimerKey` をやり取りする。
-/// `ReceiveTimeout` をはじめ、Tokio ランタイム上で期限付き処理を行う際の共通基盤として利用する。
+/// Maintains forward and reverse conversion tables to avoid exposing the internal keys of DelayQueue externally.
+/// Consistently exchanges `DeadlineTimerKey` with the core layer.
+/// Used as a common foundation for deadline-based processing on the Tokio runtime, including `ReceiveTimeout`.
 #[derive(Debug)]
 pub struct TokioDeadlineTimer<Item> {
   inner: InnerDelayQueue<Item>,
@@ -21,13 +21,13 @@ pub struct TokioDeadlineTimer<Item> {
 }
 
 impl<Item> TokioDeadlineTimer<Item> {
-  /// 空の DeadlineTimer を生成する。
+  /// Creates an empty DeadlineTimer.
   #[inline]
   pub fn new() -> Self {
     Self::with_inner(InnerDelayQueue::new())
   }
 
-  /// 予め容量を確保した DeadlineTimer を生成する。
+  /// Creates a DeadlineTimer with pre-allocated capacity.
   #[inline]
   pub fn with_capacity(capacity: usize) -> Self {
     Self::with_inner(InnerDelayQueue::with_capacity(capacity))

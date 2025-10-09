@@ -1,15 +1,15 @@
-//! コレクション型モジュール
+//! Collection types module
 //!
-//! このモジュールは、`no_std`環境で利用可能なキューやスタックなどのコレクション型を提供します。
+//! This module provides collection types such as queues and stacks that are usable in `no_std` environments.
 
-/// キューコレクション
+/// Queue collections
 ///
-/// MPSC、優先度付き、リングバッファベースのキュー実装を提供します。
+/// Provides MPSC, priority-based, and ring buffer-based queue implementations.
 pub mod queue;
 
-/// スタックコレクション
+/// Stack collections
 ///
-/// LIFO（後入れ先出し）スタック実装を提供します。
+/// Provides LIFO (Last-In-First-Out) stack implementations.
 pub mod stack;
 
 #[cfg(feature = "arc")]

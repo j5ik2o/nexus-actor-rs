@@ -7,10 +7,10 @@ use nexus_utils_core_rs::{
 use std::fmt;
 use std::sync::{Arc, Mutex};
 
-/// 容量無制限のマルチプロデューサー・シングルコンシューマー(MPSC)キュー
+/// Unbounded multi-producer, single-consumer (MPSC) queue
 ///
-/// `Arc`による共有所有権を使用し、複数のスレッドから安全にアクセス可能な無制限キューです。
-/// デフォルトではTokioアンバウンデッドチャネルバックエンドを使用しますが、リングバッファバックエンドも選択可能です。
+/// An unbounded queue that can be safely accessed from multiple threads using `Arc`-based shared ownership.
+/// By default, it uses a Tokio unbounded channel backend, but a ring buffer backend can also be selected.
 #[derive(Clone)]
 pub struct ArcMpscUnboundedQueue<E> {
   inner: MpscQueue<ArcShared<dyn MpscBackend<E> + Send + Sync>, E>,
@@ -26,29 +26,29 @@ impl<E> ArcMpscUnboundedQueue<E>
 where
   E: Element,
 {
-  /// 新しい無制限キューを作成します(Tokioアンバウンデッドバックエンド使用)
+  /// Creates a new unbounded queue (using Tokio unbounded backend)
   ///
   /// # Returns
   ///
-  /// Tokioアンバウンデッドチャネルバックエンドを使用する新しいキューインスタンス
+  /// A new queue instance using the Tokio unbounded channel backend
   pub fn new() -> Self {
     Self::with_tokio()
   }
 
-  /// Tokioアンバウンデッドチャネルバックエンドを使用するキューを作成します
+  /// Creates a queue using the Tokio unbounded channel backend
   ///
   /// # Returns
   ///
-  /// Tokioアンバウンデッドチャネルバックエンドを使用する新しいキューインスタンス
+  /// A new queue instance using the Tokio unbounded channel backend
   pub fn with_tokio() -> Self {
     Self::from_backend(TokioUnboundedMpscBackend::new())
   }
 
-  /// リングバッファバックエンドを使用する無制限キューを作成します
+  /// Creates an unbounded queue using the ring buffer backend
   ///
   /// # Returns
   ///
-  /// リングバッファバックエンドを使用する新しいキューインスタンス
+  /// A new queue instance using the ring buffer backend
   pub fn with_ring_buffer() -> Self {
     let backend = RingBufferBackend::new(Mutex::new(MpscBuffer::new(None)));
     Self::from_backend(backend)

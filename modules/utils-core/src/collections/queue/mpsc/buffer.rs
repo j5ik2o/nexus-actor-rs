@@ -16,7 +16,7 @@ use crate::collections::{QueueError, QueueSize};
 /// # 例
 ///
 /// ```
-/// use nexus_utils_core_rs::collections::queue::mpsc::MpscBuffer;
+/// use nexus_utils_core_rs::MpscBuffer;
 ///
 /// let mut buffer = MpscBuffer::new(Some(10));
 /// assert!(buffer.offer(42).is_ok());
@@ -43,7 +43,7 @@ impl<T> MpscBuffer<T> {
   /// # 例
   ///
   /// ```
-  /// use nexus_utils_core_rs::collections::queue::mpsc::MpscBuffer;
+  /// use nexus_utils_core_rs::MpscBuffer;
   ///
   /// // 容量10の有界バッファ
   /// let bounded = MpscBuffer::<i32>::new(Some(10));
@@ -68,12 +68,12 @@ impl<T> MpscBuffer<T> {
   /// # 例
   ///
   /// ```
-  /// use nexus_utils_core_rs::collections::queue::mpsc::MpscBuffer;
+  /// use nexus_utils_core_rs::MpscBuffer;
   ///
   /// let mut buffer = MpscBuffer::new(Some(10));
   /// buffer.offer(1).unwrap();
   /// buffer.offer(2).unwrap();
-  /// assert_eq!(buffer.len().value(), Some(2));
+  /// assert_eq!(buffer.len().to_usize(), 2);
   /// ```
   pub fn len(&self) -> QueueSize {
     QueueSize::limited(self.buffer.len())
@@ -88,10 +88,10 @@ impl<T> MpscBuffer<T> {
   /// # 例
   ///
   /// ```
-  /// use nexus_utils_core_rs::collections::queue::mpsc::MpscBuffer;
+  /// use nexus_utils_core_rs::MpscBuffer;
   ///
   /// let bounded = MpscBuffer::<i32>::new(Some(10));
-  /// assert_eq!(bounded.capacity().value(), Some(10));
+  /// assert_eq!(bounded.capacity().to_usize(), 10);
   ///
   /// let unbounded = MpscBuffer::<i32>::new(None);
   /// assert!(unbounded.capacity().is_limitless());
@@ -114,7 +114,7 @@ impl<T> MpscBuffer<T> {
   /// # 例
   ///
   /// ```
-  /// use nexus_utils_core_rs::collections::queue::mpsc::MpscBuffer;
+  /// use nexus_utils_core_rs::MpscBuffer;
   ///
   /// let mut buffer = MpscBuffer::new(Some(10));
   /// buffer.offer(1).unwrap();
@@ -123,7 +123,7 @@ impl<T> MpscBuffer<T> {
   ///
   /// // 容量を2に縮小（3番目の要素は削除される）
   /// buffer.set_capacity(Some(2));
-  /// assert_eq!(buffer.len().value(), Some(2));
+  /// assert_eq!(buffer.len().to_usize(), 2);
   /// ```
   pub fn set_capacity(&mut self, capacity: Option<usize>) {
     self.capacity = capacity;
@@ -151,8 +151,7 @@ impl<T> MpscBuffer<T> {
   /// # 例
   ///
   /// ```
-  /// use nexus_utils_core_rs::collections::queue::mpsc::MpscBuffer;
-  /// use nexus_utils_core_rs::collections::QueueError;
+  /// use nexus_utils_core_rs::{MpscBuffer, QueueError};
   ///
   /// let mut buffer = MpscBuffer::new(Some(2));
   /// assert!(buffer.offer(1).is_ok());
@@ -185,8 +184,7 @@ impl<T> MpscBuffer<T> {
   /// # 例
   ///
   /// ```
-  /// use nexus_utils_core_rs::collections::queue::mpsc::MpscBuffer;
-  /// use nexus_utils_core_rs::collections::QueueError;
+  /// use nexus_utils_core_rs::{MpscBuffer, QueueError};
   ///
   /// let mut buffer = MpscBuffer::new(Some(10));
   /// buffer.offer(42).unwrap();
@@ -215,7 +213,7 @@ impl<T> MpscBuffer<T> {
   /// # 例
   ///
   /// ```
-  /// use nexus_utils_core_rs::collections::queue::mpsc::MpscBuffer;
+  /// use nexus_utils_core_rs::MpscBuffer;
   ///
   /// let mut buffer = MpscBuffer::new(Some(10));
   /// buffer.offer(1).unwrap();
@@ -223,7 +221,7 @@ impl<T> MpscBuffer<T> {
   ///
   /// buffer.clean_up();
   /// assert!(buffer.is_closed());
-  /// assert_eq!(buffer.len().value(), Some(0));
+  /// assert_eq!(buffer.len().to_usize(), 0);
   /// ```
   pub fn clean_up(&mut self) {
     self.buffer.clear();
@@ -239,7 +237,7 @@ impl<T> MpscBuffer<T> {
   /// # 例
   ///
   /// ```
-  /// use nexus_utils_core_rs::collections::queue::mpsc::MpscBuffer;
+  /// use nexus_utils_core_rs::MpscBuffer;
   ///
   /// let mut buffer = MpscBuffer::<i32>::new(Some(10));
   /// assert!(!buffer.is_closed());
@@ -258,8 +256,7 @@ impl<T> MpscBuffer<T> {
   /// # 例
   ///
   /// ```
-  /// use nexus_utils_core_rs::collections::queue::mpsc::MpscBuffer;
-  /// use nexus_utils_core_rs::collections::QueueError;
+  /// use nexus_utils_core_rs::{MpscBuffer, QueueError};
   ///
   /// let mut buffer = MpscBuffer::new(Some(10));
   /// buffer.offer(1).unwrap();
@@ -286,7 +283,7 @@ impl<T> Default for MpscBuffer<T> {
   /// # 例
   ///
   /// ```
-  /// use nexus_utils_core_rs::collections::queue::mpsc::MpscBuffer;
+  /// use nexus_utils_core_rs::MpscBuffer;
   ///
   /// let buffer: MpscBuffer<i32> = Default::default();
   /// assert!(buffer.capacity().is_limitless());

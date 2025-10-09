@@ -1,20 +1,20 @@
-//! 同期プリミティブの基盤モジュール。
+//! Foundation module for synchronization primitives.
 //!
-//! このモジュールは、共有参照と状態セルの実装を提供します。
-//! これらは、コレクションや並行処理プリミティブの基盤として使用されます。
+//! This module provides implementations of shared references and state cells.
+//! These are used as the foundation for collections and concurrency primitives.
 //!
-//! # 提供される型
+//! # Provided Types
 //!
-//! - **RcShared / ArcShared**: 共有参照ラッパー（`Shared` トレイトの実装）
-//! - **RcStateCell / ArcStateCell**: 状態セル（`StateCell` トレイトの実装）
+//! - **RcShared / ArcShared**: Shared reference wrapper (implements `Shared` trait)
+//! - **RcStateCell / ArcStateCell**: State cell (implements `StateCell` trait)
 //!
-//! # フィーチャフラグ
+//! # Feature Flags
 //!
-//! - **`rc`**: `Rc` ベースの実装（シングルスレッド専用）
-//! - **`arc`**: `Arc` ベースの実装（マルチスレッド対応）
-//!   - `ArcLocal*`: ローカルミューテックスを使用した最適化実装
-//!   - `ArcCs*`: クリティカルセクションベースの実装
-//!   - `Arc*`: 標準的な実装
+//! - **`rc`**: `Rc`-based implementation (single-threaded only)
+//! - **`arc`**: `Arc`-based implementation (multi-threaded support)
+//!   - `ArcLocal*`: Optimized implementation using local mutex
+//!   - `ArcCs*`: Critical section-based implementation
+//!   - `Arc*`: Standard implementation
 
 #[cfg(feature = "arc")]
 mod arc;

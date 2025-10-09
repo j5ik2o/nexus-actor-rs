@@ -7,31 +7,31 @@ use nexus_utils_core_rs::{
 };
 use nexus_utils_core_rs::{Shared, StateCell};
 
-/// `Rc` ベースの共有参照ラッパー。
+/// `Rc`-based shared reference wrapper.
 ///
-/// `no_std` 環境で、`Rc` を使用した共有所有権を提供します。
-/// `Shared` トレイトを実装し、各種コレクションバックエンドのハンドルとして使用できます。
+/// Provides shared ownership using `Rc` in `no_std` environments.
+/// Implements the `Shared` trait and can be used as handles for various collection backends.
 ///
-/// # 特徴
+/// # Features
 ///
-/// - `Rc` による参照カウント（シングルスレッド専用）
-/// - `Deref` による透過的なアクセス
-/// - `try_unwrap` による所有権の取り戻し
+/// - Reference counting via `Rc` (single-threaded only)
+/// - Transparent access via `Deref`
+/// - Ownership recovery via `try_unwrap`
 #[derive(Debug)]
 pub struct RcShared<T>(Rc<T>);
 
 impl<T> RcShared<T> {
-  /// 指定された値で新しい共有参照を作成します。
+  /// Creates a new shared reference with the specified value.
   pub fn new(value: T) -> Self {
     Self(Rc::new(value))
   }
 
-  /// 既存の `Rc` から共有参照を作成します。
+  /// Creates a shared reference from an existing `Rc`.
   pub fn from_rc(rc: Rc<T>) -> Self {
     Self(rc)
   }
 
-  /// 内部の `Rc` を取り出します。
+  /// Extracts the inner `Rc`.
   pub fn into_inner(self) -> Rc<T> {
     self.0
   }
@@ -103,18 +103,18 @@ where
   }
 }
 
-/// `Rc<RefCell<T>>` ベースの状態セル。
+/// `Rc<RefCell<T>>`-based state cell.
 ///
-/// `no_std` 環境で、`Rc` と `RefCell` を使用した共有可変状態を提供します。
-/// `StateCell` トレイトを実装し、内部可変性パターンを実現します。
+/// Provides shared mutable state using `Rc` and `RefCell` in `no_std` environments.
+/// Implements the `StateCell` trait to enable the interior mutability pattern.
 ///
-/// # 特徴
+/// # Features
 ///
-/// - `Rc` による参照カウント（シングルスレッド専用）
-/// - `RefCell` による内部可変性
-/// - 実行時借用チェック
+/// - Reference counting via `Rc` (single-threaded only)
+/// - Interior mutability via `RefCell`
+/// - Runtime borrow checking
 ///
-/// # 使用例
+/// # Usage Examples
 ///
 /// ```ignore
 /// let cell = RcStateCell::new(1);
@@ -131,17 +131,17 @@ where
 pub struct RcStateCell<T>(Rc<RefCell<T>>);
 
 impl<T> RcStateCell<T> {
-  /// 指定された値で新しい状態セルを作成します。
+  /// Creates a new state cell with the specified value.
   pub fn new(value: T) -> Self {
     <Self as StateCell<T>>::new(value)
   }
 
-  /// 既存の `Rc<RefCell<T>>` から状態セルを作成します。
+  /// Creates a state cell from an existing `Rc<RefCell<T>>`.
   pub fn from_rc(rc: Rc<RefCell<T>>) -> Self {
     Self(rc)
   }
 
-  /// 内部の `Rc<RefCell<T>>` を取り出します。
+  /// Extracts the inner `Rc<RefCell<T>>`.
   pub fn into_rc(self) -> Rc<RefCell<T>> {
     self.0
   }

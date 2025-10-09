@@ -2,45 +2,45 @@ use std::sync::{Arc, Mutex, MutexGuard};
 
 use nexus_utils_core_rs::StateCell;
 
-/// `Arc`と`Mutex`による共有可変状態セル
+/// Shared mutable state cell using `Arc` and `Mutex`
 ///
-/// 複数のスレッド間で安全に共有可能な可変状態を提供します。
-/// `StateCell`トレイトを実装しており、一貫したAPIで状態にアクセスできます。
+/// Provides mutable state that can be safely shared across multiple threads.
+/// Implements the `StateCell` trait, enabling consistent API access to the state.
 #[derive(Debug)]
 pub struct ArcStateCell<T>(Arc<Mutex<T>>);
 
 impl<T> ArcStateCell<T> {
-  /// 値から新しい`ArcStateCell`を作成します
+  /// Creates a new `ArcStateCell` from a value
   ///
   /// # Arguments
   ///
-  /// * `value` - 初期値
+  /// * `value` - The initial value
   ///
   /// # Returns
   ///
-  /// 新しい`ArcStateCell`インスタンス
+  /// A new `ArcStateCell` instance
   pub fn new(value: T) -> Self {
     Self(Arc::new(Mutex::new(value)))
   }
 
-  /// 既存の`Arc<Mutex<T>>`から`ArcStateCell`を作成します
+  /// Creates `ArcStateCell` from an existing `Arc<Mutex<T>>`
   ///
   /// # Arguments
   ///
-  /// * `inner` - `Arc<Mutex<T>>`インスタンス
+  /// * `inner` - An `Arc<Mutex<T>>` instance
   ///
   /// # Returns
   ///
-  /// `Arc<Mutex<T>>`をラップした`ArcStateCell`インスタンス
+  /// An `ArcStateCell` instance wrapping the `Arc<Mutex<T>>`
   pub fn from_arc(inner: Arc<Mutex<T>>) -> Self {
     Self(inner)
   }
 
-  /// `ArcStateCell`を内部の`Arc<Mutex<T>>`に変換します
+  /// Converts `ArcStateCell` to the internal `Arc<Mutex<T>>`
   ///
   /// # Returns
   ///
-  /// 内部の`Arc<Mutex<T>>`インスタンス
+  /// The internal `Arc<Mutex<T>>` instance
   pub fn into_arc(self) -> Arc<Mutex<T>> {
     self.0
   }
