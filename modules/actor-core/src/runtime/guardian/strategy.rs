@@ -5,55 +5,55 @@ use crate::MailboxFactory;
 use crate::SupervisorDirective;
 use nexus_utils_core_rs::Element;
 
-/// Supervisor 戦略。protoactor-go の Strategy に相当する。
+/// Supervisor strategy. Corresponds to protoactor-go's Strategy.
 ///
-/// アクターの障害発生時に適用される戦略を定義するトレイトです。
-/// 親アクター（ガーディアン）が子アクターの障害をどのように処理するかを決定します。
+/// Trait that defines the strategy applied when an actor fails.
+/// Determines how the parent actor (guardian) handles child actor failures.
 ///
-/// # 型パラメータ
-/// - `M`: メールボックスで処理されるメッセージ型
-/// - `R`: メールボックスを生成するファクトリー型
+/// # Type Parameters
+/// - `M`: Message type processed by the mailbox
+/// - `R`: Factory type that generates mailboxes
 pub trait GuardianStrategy<M, R>: Send + 'static
 where
   M: Element,
   R: MailboxFactory, {
-  /// アクターに障害が発生した際の処理方針を決定します。
+  /// Determines the handling policy when an actor fails.
   ///
   /// # Arguments
-  /// - `actor`: 障害が発生したアクターのID
-  /// - `error`: 発生したエラーの詳細情報
+  /// - `actor`: ID of the failed actor
+  /// - `error`: Detailed information about the error that occurred
   ///
   /// # Returns
-  /// スーパーバイザーディレクティブ（Restart、Stop、Resume、Escalateなど）
+  /// Supervisor directive (Restart, Stop, Resume, Escalate, etc.)
   fn decide(&mut self, actor: ActorId, error: &dyn fmt::Debug) -> SupervisorDirective;
 
-  /// アクター起動前に呼び出されるフック。
+  /// Hook called before actor startup.
   ///
-  /// デフォルト実装は何もしません。必要に応じてオーバーライドしてください。
+  /// Default implementation does nothing. Override if needed.
   ///
   /// # Arguments
-  /// - `_actor`: 起動するアクターのID
+  /// - `_actor`: ID of the actor being started
   fn before_start(&mut self, _actor: ActorId) {}
 
-  /// アクター再起動後に呼び出されるフック。
+  /// Hook called after actor restart.
   ///
-  /// デフォルト実装は何もしません。必要に応じてオーバーライドしてください。
+  /// Default implementation does nothing. Override if needed.
   ///
   /// # Arguments
-  /// - `_actor`: 再起動したアクターのID
+  /// - `_actor`: ID of the restarted actor
   fn after_restart(&mut self, _actor: ActorId) {}
 }
 
-/// 最も単純な戦略: 常に Restart を指示する。
+/// Simplest strategy: Always instruct Restart.
 ///
-/// エラーの種類に関わらず、常にアクターの再起動を指示するスーパーバイザー戦略です。
-/// 一時的な障害からの自動復旧を期待する場合に適しています。
+/// Supervisor strategy that always instructs actor restart regardless of error type.
+/// Suitable when expecting automatic recovery from temporary failures.
 ///
-/// # 使用例
+/// # Example Usage
 /// ```ignore
 /// let strategy = AlwaysRestart;
-/// // この戦略を使用するガーディアンは、子アクターが障害を起こしても
-/// // 常に再起動を試みます
+/// // A guardian using this strategy will always attempt to restart
+/// // child actors when they fail
 /// ```
 #[derive(Clone, Copy, Debug, Default)]
 pub struct AlwaysRestart;

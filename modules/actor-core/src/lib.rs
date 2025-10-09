@@ -1,18 +1,18 @@
-//! nexus-actor-rs コアライブラリ
+//! nexus-actor-rs core library
 //!
-//! Rustで実装されたアクターモデルライブラリのコアモジュール。
-//! 型安全なメッセージパッシング、スーパーバイザー階層、
-//! Akka/Pekko Typed風のBehavior APIを提供する。
+//! Core module of the actor model library implemented in Rust.
+//! Provides type-safe message passing, supervisor hierarchies,
+//! and Akka/Pekko Typed-style Behavior API.
 //!
-//! # 主要な機能
-//! - 型付きアクター参照 (`ActorRef<U, R>`)
-//! - Behavior DSL (Akka Typed風)
-//! - スーパーバイザー戦略
-//! - Ask パターン (Request-Response)
-//! - メールボックスとディスパッチャー
-//! - イベントストリーム
+//! # Key Features
+//! - Typed actor references (`ActorRef<U, R>`)
+//! - Behavior DSL (Akka Typed-style)
+//! - Supervisor strategies
+//! - Ask pattern (Request-Response)
+//! - Mailboxes and dispatchers
+//! - Event stream
 //!
-//! # 使用例
+//! # Example Usage
 //! ```ignore
 //! use nexus_actor_core_rs::*;
 //!
@@ -87,18 +87,18 @@ pub use runtime::mailbox::{PriorityEnvelope, SystemMessage};
 pub use runtime::message::{store_metadata, take_metadata, DynMessage, MetadataKey};
 pub use runtime::scheduler::{ReceiveTimeoutScheduler, ReceiveTimeoutSchedulerFactory};
 
-/// システムメッセージをメッセージ型に変換する関数型エイリアス。
+/// Function type alias for converting system messages to message type.
 pub type MapSystemFn<M> = dyn Fn(SystemMessage) -> M + Send + Sync;
 
-/// 最小限のアクターループ実装。
+/// Minimal actor loop implementation.
 ///
-/// メッセージを受信し、ハンドラに渡して処理する。
-/// stdとembeddedランタイムの両方で共有される参照実装。
+/// Receives messages and passes them to the handler for processing.
+/// Reference implementation shared by both std and embedded runtimes.
 ///
 /// # Arguments
-/// * `mailbox` - メッセージを受信するメールボックス
-/// * `timer` - 待機に使用するタイマー
-/// * `handler` - メッセージを処理するハンドラ関数
+/// * `mailbox` - Mailbox to receive messages from
+/// * `timer` - Timer used for waiting
+/// * `handler` - Handler function to process messages
 pub async fn actor_loop<M, MB, T, F>(mailbox: &MB, timer: &T, mut handler: F)
 where
   MB: Mailbox<M>,

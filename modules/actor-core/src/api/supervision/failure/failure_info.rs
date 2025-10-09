@@ -3,45 +3,45 @@ use crate::ActorPath;
 
 use super::{EscalationStage, FailureMetadata};
 
-/// 障害情報。protoactor-go の Failure メッセージを簡略化した形で保持する。
+/// Failure information. Holds a simplified form of protoactor-go's Failure message.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FailureInfo {
-  /// 障害が発生したアクターのID
+  /// ID of the actor where the failure occurred
   pub actor: ActorId,
-  /// 障害が発生したアクターのパス
+  /// Path of the actor where the failure occurred
   pub path: ActorPath,
-  /// 障害の理由を表す文字列
+  /// String describing the reason for the failure
   pub reason: alloc::string::String,
-  /// 障害に関連するメタデータ
+  /// Metadata associated with the failure
   pub metadata: FailureMetadata,
-  /// エスカレーションの段階
+  /// Escalation stage
   pub stage: EscalationStage,
 }
 
 impl FailureInfo {
-  /// デフォルトのメタデータで新しい障害情報を作成する。
+  /// Creates new failure information with default metadata.
   ///
   /// # Arguments
-  /// * `actor` - 障害が発生したアクターのID
-  /// * `path` - 障害が発生したアクターのパス
-  /// * `reason` - 障害の理由を表す文字列
+  /// * `actor` - ID of the actor where the failure occurred
+  /// * `path` - Path of the actor where the failure occurred
+  /// * `reason` - String describing the reason for the failure
   ///
   /// # Returns
-  /// 新しい`FailureInfo`インスタンス
+  /// New `FailureInfo` instance
   pub fn new(actor: ActorId, path: ActorPath, reason: alloc::string::String) -> Self {
     Self::new_with_metadata(actor, path, reason, FailureMetadata::default())
   }
 
-  /// メタデータを指定して新しい障害情報を作成する。
+  /// Creates new failure information with specified metadata.
   ///
   /// # Arguments
-  /// * `actor` - 障害が発生したアクターのID
-  /// * `path` - 障害が発生したアクターのパス
-  /// * `reason` - 障害の理由を表す文字列
-  /// * `metadata` - 障害に関連するメタデータ
+  /// * `actor` - ID of the actor where the failure occurred
+  /// * `path` - Path of the actor where the failure occurred
+  /// * `reason` - String describing the reason for the failure
+  /// * `metadata` - Metadata associated with the failure
   ///
   /// # Returns
-  /// 新しい`FailureInfo`インスタンス
+  /// New `FailureInfo` instance
   pub fn new_with_metadata(
     actor: ActorId,
     path: ActorPath,
@@ -57,53 +57,53 @@ impl FailureInfo {
     }
   }
 
-  /// メタデータを設定する。
+  /// Sets metadata.
   ///
   /// # Arguments
-  /// * `metadata` - 設定するメタデータ
+  /// * `metadata` - Metadata to set
   ///
   /// # Returns
-  /// メタデータが設定された`FailureInfo`インスタンス
+  /// `FailureInfo` instance with metadata set
   pub fn with_metadata(mut self, metadata: FailureMetadata) -> Self {
     self.metadata = metadata;
     self
   }
 
-  /// エスカレーション段階を設定する。
+  /// Sets escalation stage.
   ///
   /// # Arguments
-  /// * `stage` - 設定するエスカレーション段階
+  /// * `stage` - Escalation stage to set
   ///
   /// # Returns
-  /// エスカレーション段階が設定された`FailureInfo`インスタンス
+  /// `FailureInfo` instance with escalation stage set
   pub fn with_stage(mut self, stage: EscalationStage) -> Self {
     self.stage = stage;
     self
   }
 
-  /// エラーからデフォルトのメタデータで障害情報を作成する。
+  /// Creates failure information from an error with default metadata.
   ///
   /// # Arguments
-  /// * `actor` - 障害が発生したアクターのID
-  /// * `path` - 障害が発生したアクターのパス
-  /// * `error` - エラーオブジェクト
+  /// * `actor` - ID of the actor where the failure occurred
+  /// * `path` - Path of the actor where the failure occurred
+  /// * `error` - Error object
   ///
   /// # Returns
-  /// 新しい`FailureInfo`インスタンス
+  /// New `FailureInfo` instance
   pub fn from_error(actor: ActorId, path: ActorPath, error: &dyn core::fmt::Debug) -> Self {
     Self::from_error_with_metadata(actor, path, error, FailureMetadata::default())
   }
 
-  /// エラーとメタデータから障害情報を作成する。
+  /// Creates failure information from an error and metadata.
   ///
   /// # Arguments
-  /// * `actor` - 障害が発生したアクターのID
-  /// * `path` - 障害が発生したアクターのパス
-  /// * `error` - エラーオブジェクト
-  /// * `metadata` - 障害に関連するメタデータ
+  /// * `actor` - ID of the actor where the failure occurred
+  /// * `path` - Path of the actor where the failure occurred
+  /// * `error` - Error object
+  /// * `metadata` - Metadata associated with the failure
   ///
   /// # Returns
-  /// 新しい`FailureInfo`インスタンス
+  /// New `FailureInfo` instance
   pub fn from_error_with_metadata(
     actor: ActorId,
     path: ActorPath,
@@ -119,11 +119,11 @@ impl FailureInfo {
     }
   }
 
-  /// 親アクターへエスカレートした新しい障害情報を作成する。
+  /// Creates new failure information escalated to parent actor.
   ///
   /// # Returns
-  /// 親アクターへエスカレートした`FailureInfo`インスタンス。
-  /// 親が存在しない場合は`None`を返す。
+  /// `FailureInfo` instance escalated to parent actor.
+  /// Returns `None` if parent doesn't exist.
   pub fn escalate_to_parent(&self) -> Option<Self> {
     let parent_path = self.path.parent()?;
     let parent_actor = parent_path.last().unwrap_or(self.actor);

@@ -4,75 +4,75 @@ use nexus_utils_core_rs::{Element, QueueError, QueueRw, QueueSize};
 
 use super::queue_mailbox::MailboxOptions;
 
-/// メールボックスとプロデューサーのペア型エイリアス。
+/// Type alias for mailbox and producer pair.
 ///
-/// メールボックスの作成時に返される、受信側と送信側のハンドルのペアです。
+/// Pair of receiver and sender handles returned when creating a mailbox.
 pub type MailboxPair<Q, S> = (super::QueueMailbox<Q, S>, super::QueueMailboxProducer<Q, S>);
 
 /// Mailbox abstraction that decouples message queue implementations from core logic.
 ///
-/// メッセージキューの実装をコアロジックから分離する抽象化トレイトです。
-/// 様々なキュー実装（有界/無界、優先度付きなど）を統一的に扱えるようにします。
+/// Abstraction trait that decouples message queue implementations from core logic.
+/// Enables unified handling of various queue implementations (bounded/unbounded, prioritized, etc.).
 ///
-/// # 型パラメータ
-/// - `M`: 処理するメッセージの型
+/// # Type Parameters
+/// - `M`: Type of the message to process
 pub trait Mailbox<M> {
-  /// メッセージ送信時のエラー型
+  /// Error type for message sending
   type SendError;
 
-  /// メッセージ受信のFuture型
+  /// Future type for message reception
   type RecvFuture<'a>: Future<Output = Result<M, QueueError<M>>> + 'a
   where
     Self: 'a;
 
-  /// メッセージの送信を試みます（ブロッキングなし）。
+  /// Attempts to send a message (non-blocking).
   ///
   /// # Arguments
-  /// - `message`: 送信するメッセージ
+  /// - `message`: Message to send
   ///
   /// # Returns
-  /// 成功時は `Ok(())`、失敗時は `Err(SendError)`
+  /// `Ok(())` on success, `Err(SendError)` on failure
   fn try_send(&self, message: M) -> Result<(), Self::SendError>;
 
-  /// メッセージを非同期的に受信します。
+  /// Receives a message asynchronously.
   ///
   /// # Returns
-  /// メッセージ受信のFuture
+  /// Future for message reception
   fn recv(&self) -> Self::RecvFuture<'_>;
 
-  /// メールボックス内のメッセージ数を取得します。
+  /// Gets the number of messages in the mailbox.
   ///
-  /// デフォルト実装では無制限を返します。
+  /// Default implementation returns unlimited.
   fn len(&self) -> QueueSize {
     QueueSize::limitless()
   }
 
-  /// メールボックスの容量を取得します。
+  /// Gets the capacity of the mailbox.
   ///
-  /// デフォルト実装では無制限を返します。
+  /// Default implementation returns unlimited.
   fn capacity(&self) -> QueueSize {
     QueueSize::limitless()
   }
 
-  /// メールボックスが空かどうかを判定します。
+  /// Checks if the mailbox is empty.
   ///
   /// # Returns
-  /// 空の場合は `true`、メッセージがある場合は `false`
+  /// `true` if empty, `false` if there are messages
   fn is_empty(&self) -> bool {
     self.len() == QueueSize::Limited(0)
   }
 
-  /// メールボックスを閉じます。
+  /// Closes the mailbox.
   ///
-  /// デフォルト実装は何もしません。
+  /// Default implementation does nothing.
   fn close(&self) {}
 
-  /// メールボックスが閉じられているかどうかを判定します。
+  /// Checks if the mailbox is closed.
   ///
-  /// デフォルト実装では常に `false` を返します。
+  /// Default implementation always returns `false`.
   ///
   /// # Returns
-  /// 閉じられている場合は `true`、開いている場合は `false`
+  /// `true` if closed, `false` if open
   fn is_closed(&self) -> bool {
     false
   }
@@ -81,52 +81,52 @@ pub trait Mailbox<M> {
 /// Notification primitive used by `QueueMailbox` to park awaiting receivers until
 /// new messages are available.
 ///
-/// メッセージ到着の通知に使用される同期プリミティブです。
-/// 受信側がメッセージを待機し、送信側が到着を通知する仕組みを提供します。
+/// Synchronization primitive used for notifying message arrivals.
+/// Provides a mechanism for receivers to wait for messages and senders to notify arrivals.
 pub trait MailboxSignal: Clone {
-  /// 待機のFuture型
+  /// Future type for waiting
   type WaitFuture<'a>: Future<Output = ()> + 'a
   where
     Self: 'a;
 
-  /// メッセージが到着したことを待機中の受信者に通知します。
+  /// Notifies waiting receivers that a message has arrived.
   fn notify(&self);
 
-  /// メッセージの到着を待機します。
+  /// Waits for a message arrival.
   ///
   /// # Returns
-  /// 通知を待つFuture
+  /// Future that waits for notification
   fn wait(&self) -> Self::WaitFuture<'_>;
 }
 
-/// メールボックスを作成するファクトリートレイト。
+/// Factory trait for creating mailboxes.
 ///
-/// 特定の非同期ランタイム（TokioやAsync-stdなど）に応じた
-/// メールボックスとキューの実装を生成します。
+/// Generates mailbox and queue implementations according to
+/// specific async runtimes (Tokio, Async-std, etc.).
 pub trait MailboxFactory {
-  /// 通知シグナルの型
+  /// Type of notification signal
   type Signal: MailboxSignal;
 
-  /// メッセージキューの型
+  /// Type of message queue
   type Queue<M>: QueueRw<M> + Clone
   where
     M: Element;
 
-  /// 指定されたオプションでメールボックスを作成します。
+  /// Creates a mailbox with the specified options.
   ///
   /// # Arguments
-  /// - `options`: メールボックスの容量設定
+  /// - `options`: Capacity settings for the mailbox
   ///
   /// # Returns
-  /// `(メールボックス, プロデューサー)` のペア
+  /// Pair of `(mailbox, producer)`
   fn build_mailbox<M>(&self, options: MailboxOptions) -> MailboxPair<Self::Queue<M>, Self::Signal>
   where
     M: Element;
 
-  /// デフォルト設定でメールボックスを作成します。
+  /// Creates a mailbox with default settings.
   ///
   /// # Returns
-  /// `(メールボックス, プロデューサー)` のペア
+  /// Pair of `(mailbox, producer)`
   fn build_default_mailbox<M>(&self) -> MailboxPair<Self::Queue<M>, Self::Signal>
   where
     M: Element, {

@@ -10,23 +10,23 @@ use super::traits::{Mailbox, MailboxSignal};
 
 /// Runtime-agnostic construction options for [`QueueMailbox`].
 ///
-/// メールボックスの容量設定を保持します。
-/// 通常のメッセージと優先度付きメッセージで異なる容量を設定できます。
+/// Holds the capacity settings for mailboxes.
+/// Different capacities can be set for regular messages and priority messages.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct MailboxOptions {
-  /// 通常のメッセージキューの容量
+  /// Capacity for regular message queue
   pub capacity: QueueSize,
-  /// 優先度付きメッセージキューの容量
+  /// Capacity for priority message queue
   pub priority_capacity: QueueSize,
 }
 
 impl MailboxOptions {
-  /// 指定された容量でメールボックスオプションを作成します。
+  /// Creates mailbox options with the specified capacity.
   ///
-  /// 優先度付きメッセージキューは無制限になります。
+  /// The priority message queue becomes unlimited.
   ///
   /// # Arguments
-  /// - `capacity`: 通常のメッセージキューの容量
+  /// - `capacity`: Capacity for regular message queue
   pub const fn with_capacity(capacity: usize) -> Self {
     Self {
       capacity: QueueSize::limited(capacity),
@@ -34,11 +34,11 @@ impl MailboxOptions {
     }
   }
 
-  /// 通常と優先度付きの両方の容量を指定してメールボックスオプションを作成します。
+  /// Creates mailbox options with both regular and priority capacities specified.
   ///
   /// # Arguments
-  /// - `capacity`: 通常のメッセージキューの容量
-  /// - `priority_capacity`: 優先度付きメッセージキューの容量
+  /// - `capacity`: Capacity for regular message queue
+  /// - `priority_capacity`: Capacity for priority message queue
   pub const fn with_capacities(capacity: QueueSize, priority_capacity: QueueSize) -> Self {
     Self {
       capacity,
@@ -46,16 +46,16 @@ impl MailboxOptions {
     }
   }
 
-  /// 優先度付きメッセージキューの容量を設定します。
+  /// Sets the capacity for the priority message queue.
   ///
   /// # Arguments
-  /// - `priority_capacity`: 優先度付きメッセージキューの容量
+  /// - `priority_capacity`: Capacity for priority message queue
   pub const fn with_priority_capacity(mut self, priority_capacity: QueueSize) -> Self {
     self.priority_capacity = priority_capacity;
     self
   }
 
-  /// 無制限の容量でメールボックスオプションを作成します。
+  /// Creates mailbox options with unlimited capacity.
   pub const fn unbounded() -> Self {
     Self {
       capacity: QueueSize::limitless(),
@@ -72,12 +72,12 @@ impl Default for MailboxOptions {
 
 /// Mailbox implementation backed by a generic queue and notification signal.
 ///
-/// ジェネリックなキューと通知シグナルに基づくメールボックス実装です。
-/// 非同期ランタイムに依存しない汎用的な設計になっています。
+/// Mailbox implementation based on generic queue and notification signal.
+/// Designed to be runtime-agnostic without depending on specific async runtimes.
 ///
-/// # 型パラメータ
-/// - `Q`: メッセージキューの実装型
-/// - `S`: 通知シグナルの実装型
+/// # Type Parameters
+/// - `Q`: Message queue implementation type
+/// - `S`: Notification signal implementation type
 #[derive(Debug)]
 pub struct QueueMailbox<Q, S> {
   queue: Q,
@@ -86,11 +86,11 @@ pub struct QueueMailbox<Q, S> {
 }
 
 impl<Q, S> QueueMailbox<Q, S> {
-  /// 新しいキューメールボックスを作成します。
+  /// Creates a new queue mailbox.
   ///
   /// # Arguments
-  /// - `queue`: メッセージキューの実装
-  /// - `signal`: 通知シグナルの実装
+  /// - `queue`: Message queue implementation
+  /// - `signal`: Notification signal implementation
   pub fn new(queue: Q, signal: S) -> Self {
     Self {
       queue,
@@ -99,19 +99,19 @@ impl<Q, S> QueueMailbox<Q, S> {
     }
   }
 
-  /// 内部のキューへの参照を取得します。
+  /// Gets a reference to the internal queue.
   pub fn queue(&self) -> &Q {
     &self.queue
   }
 
-  /// 内部のシグナルへの参照を取得します。
+  /// Gets a reference to the internal signal.
   pub fn signal(&self) -> &S {
     &self.signal
   }
 
-  /// メッセージ送信用のプロデューサーハンドルを作成します。
+  /// Creates a producer handle for sending messages.
   ///
-  /// プロデューサーは複数のスレッドで共有でき、メールボックスへのメッセージ送信に使用されます。
+  /// The producer can be shared across multiple threads and is used for sending messages to the mailbox.
   pub fn producer(&self) -> QueueMailboxProducer<Q, S>
   where
     Q: Clone,
@@ -140,12 +140,12 @@ where
 
 /// Sending handle that shares queue ownership with [`QueueMailbox`].
 ///
-/// メールボックスとキューの所有権を共有する送信ハンドルです。
-/// 複数のスレッドから安全にメッセージを送信できます。
+/// Sending handle that shares queue ownership with the mailbox.
+/// Allows safe message sending from multiple threads.
 ///
-/// # 型パラメータ
-/// - `Q`: メッセージキューの実装型
-/// - `S`: 通知シグナルの実装型
+/// # Type Parameters
+/// - `Q`: Message queue implementation type
+/// - `S`: Notification signal implementation type
 #[derive(Clone, Debug)]
 pub struct QueueMailboxProducer<Q, S> {
   queue: Q,
@@ -168,19 +168,19 @@ where
 }
 
 impl<Q, S> QueueMailboxProducer<Q, S> {
-  /// メッセージの送信を試みます（ブロッキングなし）。
+  /// Attempts to send a message (non-blocking).
   ///
-  /// キューが満杯の場合は即座にエラーを返します。
+  /// Returns an error immediately if the queue is full.
   ///
   /// # Arguments
-  /// - `message`: 送信するメッセージ
+  /// - `message`: Message to send
   ///
   /// # Returns
-  /// 成功時は `Ok(())`、失敗時は `Err(QueueError)`
+  /// `Ok(())` on success, `Err(QueueError)` on failure
   ///
   /// # Errors
-  /// - `QueueError::Disconnected`: メールボックスが閉じられている
-  /// - `QueueError::Full`: キューが満杯
+  /// - `QueueError::Disconnected`: Mailbox is closed
+  /// - `QueueError::Full`: Queue is full
   pub fn try_send<M>(&self, message: M) -> Result<(), QueueError<M>>
   where
     Q: QueueRw<M>,
@@ -203,16 +203,16 @@ impl<Q, S> QueueMailboxProducer<Q, S> {
     }
   }
 
-  /// メッセージを非同期的に送信します。
+  /// Sends a message asynchronously.
   ///
-  /// 現在の実装では `try_send` を呼び出すだけですが、
-  /// 将来的にバックプレッシャー対応などの拡張が可能です。
+  /// Currently just calls `try_send`, but can be extended in the future
+  /// for features like backpressure support.
   ///
   /// # Arguments
-  /// - `message`: 送信するメッセージ
+  /// - `message`: Message to send
   ///
   /// # Returns
-  /// 成功時は `Ok(())`、失敗時は `Err(QueueError)`
+  /// `Ok(())` on success, `Err(QueueError)` on failure
   pub async fn send<M>(&self, message: M) -> Result<(), QueueError<M>>
   where
     Q: QueueRw<M>,
@@ -275,16 +275,16 @@ where
   }
 }
 
-/// メッセージ受信用のFuture。
+/// Future for receiving messages.
 ///
-/// メールボックスからメッセージを非同期的に受信するためのFuture実装です。
-/// メッセージが到着するまで待機し、到着したメッセージを返します。
+/// Future implementation for asynchronously receiving messages from the mailbox.
+/// Waits until a message arrives and returns the arrived message.
 ///
-/// # 型パラメータ
-/// - `'a`: メールボックスへの参照のライフタイム
-/// - `Q`: メッセージキューの実装型
-/// - `S`: 通知シグナルの実装型
-/// - `M`: 受信するメッセージの型
+/// # Type Parameters
+/// - `'a`: Lifetime of the reference to the mailbox
+/// - `Q`: Message queue implementation type
+/// - `S`: Notification signal implementation type
+/// - `M`: Type of the message to receive
 pub struct QueueMailboxRecv<'a, Q, S, M>
 where
   Q: QueueRw<M>,

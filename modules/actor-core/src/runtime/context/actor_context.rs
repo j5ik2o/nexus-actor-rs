@@ -21,7 +21,7 @@ use crate::runtime::system::InternalProps;
 pub type ActorHandlerFn<M, R> = dyn for<'ctx> FnMut(&mut ActorContext<'ctx, M, R, dyn Supervisor<M>>, M) + 'static;
 pub type MapSystemFn<M> = dyn Fn(SystemMessage) -> M + Send + Sync;
 
-/// アクターが自身や子アクターを操作するためのコンテキスト。
+/// Context for actors to operate on themselves and child actors.
 pub struct ActorContext<'a, M, R, Sup>
 where
   M: Element,

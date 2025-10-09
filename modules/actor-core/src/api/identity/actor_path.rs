@@ -3,51 +3,51 @@ use core::fmt;
 
 use crate::ActorId;
 
-/// アクターの階層的なパス。
+/// Hierarchical path of an actor.
 ///
-/// アクターの位置を階層構造で表現し、ルートからのパスをセグメントの列として保持します。
+/// Represents actor location in a hierarchical structure, holding the path from root as a sequence of segments.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ActorPath {
   segments: Vec<ActorId>,
 }
 
 impl ActorPath {
-  /// 空の新しい `ActorPath` を作成します。
+  /// Creates a new empty `ActorPath`.
   ///
-  /// セグメントを持たないルートパスを表します。
+  /// Represents a root path with no segments.
   pub fn new() -> Self {
     Self { segments: Vec::new() }
   }
 
-  /// パスのセグメント列を取得します。
+  /// Gets the sequence of path segments.
   ///
   /// # Returns
   ///
-  /// `ActorId` のスライス
+  /// Slice of `ActorId`
   pub fn segments(&self) -> &[ActorId] {
     &self.segments
   }
 
-  /// 子アクターのIDを追加した新しいパスを作成します。
+  /// Creates a new path with a child actor ID added.
   ///
   /// # Arguments
   ///
-  /// * `id` - 追加する子アクターのID
+  /// * `id` - ID of the child actor to add
   ///
   /// # Returns
   ///
-  /// 子アクターを含む新しい `ActorPath`
+  /// New `ActorPath` including the child actor
   pub fn push_child(&self, id: ActorId) -> Self {
     let mut segments = self.segments.clone();
     segments.push(id);
     Self { segments }
   }
 
-  /// 親アクターのパスを取得します。
+  /// Gets the parent actor's path.
   ///
   /// # Returns
   ///
-  /// 親パスが存在する場合は `Some(ActorPath)`、ルートの場合は `None`
+  /// `Some(ActorPath)` if parent path exists, `None` for root
   pub fn parent(&self) -> Option<Self> {
     if self.segments.is_empty() {
       None
@@ -58,20 +58,20 @@ impl ActorPath {
     }
   }
 
-  /// パスの最後のセグメント（アクターID）を取得します。
+  /// Gets the last segment (actor ID) of the path.
   ///
   /// # Returns
   ///
-  /// 最後の `ActorId`、または空の場合は `None`
+  /// Last `ActorId`, or `None` if empty
   pub fn last(&self) -> Option<ActorId> {
     self.segments.last().copied()
   }
 
-  /// パスが空（ルート）かどうかを判定します。
+  /// Checks if the path is empty (root).
   ///
   /// # Returns
   ///
-  /// 空の場合は `true`、そうでなければ `false`
+  /// `true` if empty, `false` otherwise
   pub fn is_empty(&self) -> bool {
     self.segments.is_empty()
   }

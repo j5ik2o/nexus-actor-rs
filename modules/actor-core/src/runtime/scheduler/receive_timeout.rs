@@ -7,36 +7,36 @@ use nexus_utils_core_rs::Element;
 use crate::runtime::context::MapSystemFn;
 use crate::{MailboxFactory, PriorityEnvelope, QueueMailboxProducer};
 
-/// アクターの `ReceiveTimeout` を管理するスケジューラ抽象。
+/// Scheduler abstraction for managing actor `ReceiveTimeout`.
 ///
-/// `actor-core` がランタイム依存のタイマーを直接扱わずに済むよう、
-/// タイムアウトのセット / リセット / 停止を統一的なインターフェースに切り出している。
-/// ユーザーメッセージ処理後に `notify_activity` を呼ぶことで、
-/// ランタイム側は任意の実装（tokio / 組み込みソフトウェアタイマー等）で再アームすればよい。
+/// Provides a unified interface for setting/resetting/stopping timeouts,
+/// so that `actor-core` doesn't need to directly handle runtime-dependent timers.
+/// By calling `notify_activity` after user message processing,
+/// the runtime side can re-arm with any implementation (tokio / embedded software timer, etc.).
 pub trait ReceiveTimeoutScheduler: Send {
-  /// 指定した継続時間でタイマーをセット／再アームする。
+  /// Sets/re-arms the timer with the specified duration.
   fn set(&mut self, duration: Duration);
 
-  /// タイマーを停止する。
+  /// Stops the timer.
   fn cancel(&mut self);
 
-  /// ユーザーメッセージなど、タイムアウトをリセットすべきアクティビティを通知する。
+  /// Notifies of activity (like user messages) that should reset the timeout.
   fn notify_activity(&mut self);
 }
 
-/// スケジューラを生成するためのファクトリ。
+/// Factory for creating schedulers.
 ///
-/// アクター生成時に優先度付きメールボックスと SystemMessage 変換関数を受け取り、
-/// ランタイム固有の `ReceiveTimeoutScheduler` を組み立てる役目を担う。
-/// `ActorSystem::set_receive_timeout_scheduler_factory` から登録することで、
-/// すべてのアクターが同じ方針でタイムアウトを扱える。
+/// Receives a priority mailbox and SystemMessage conversion function when creating actors,
+/// and assembles a runtime-specific `ReceiveTimeoutScheduler`.
+/// By registering via `ActorSystem::set_receive_timeout_scheduler_factory`,
+/// all actors can handle timeouts with the same policy.
 pub trait ReceiveTimeoutSchedulerFactory<M, R>: Send + Sync
 where
   M: Element + 'static,
   R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone, {
-  /// 優先度付きメールボックスと SystemMessage 変換関数を受け取り、アクター専用のスケジューラを作成する。
+  /// Creates an actor-specific scheduler by receiving a priority mailbox and SystemMessage conversion function.
   fn create(
     &self,
     sender: QueueMailboxProducer<R::Queue<PriorityEnvelope<M>>, R::Signal>,

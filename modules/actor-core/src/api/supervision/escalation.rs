@@ -6,42 +6,42 @@ use nexus_utils_core_rs::Element;
 use super::failure::FailureEvent;
 use crate::{FailureInfo, MailboxFactory, PriorityEnvelope};
 
-/// 失敗イベントを外部へ通知するためのハンドラ。
+/// Handler for notifying failure events externally.
 ///
-/// アクターの障害情報を受け取り、ログ記録や監視システムへの通知などを行います。
+/// Receives actor failure information and performs tasks like logging or notifications to monitoring systems.
 pub type FailureEventHandler = Arc<dyn Fn(&FailureInfo) + Send + Sync>;
 
-/// 失敗イベントをストリームとして受信するためのリスナー。
+/// Listener for receiving failure events as a stream.
 ///
-/// アクターシステム全体の障害イベントを購読し、カスタム処理を実行します。
+/// Subscribes to failure events from the entire actor system and executes custom processing.
 pub type FailureEventListener = Arc<dyn Fn(FailureEvent) + Send + Sync>;
 
-/// `FailureInfo` をどのように上位へ伝達するかを制御するためのシンク。
+/// Sink for controlling how `FailureInfo` is propagated upward.
 ///
-/// アクターの障害情報のエスカレーション処理を定義します。
+/// Defines escalation processing for actor failure information.
 pub trait EscalationSink<M, R>
 where
   M: Element,
   R: MailboxFactory,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone, {
-  /// 障害情報を処理します。
+  /// Processes failure information.
   ///
   /// # Arguments
   ///
-  /// * `info` - 障害情報
-  /// * `already_handled` - `true` の場合、既にローカルで処理が完了していることを示す
+  /// * `info` - Failure information
+  /// * `already_handled` - If `true`, indicates that processing has already been completed locally
   ///
   /// # Returns
   ///
-  /// 成功した場合は `Ok(())`、処理できなかった場合は `Err(FailureInfo)`
+  /// `Ok(())` on success, `Err(FailureInfo)` if processing failed
   fn handle(&mut self, info: FailureInfo, already_handled: bool) -> Result<(), FailureInfo>;
 }
 
-/// ルートガーディアン用の `EscalationSink` 実装。
+/// `EscalationSink` implementation for root guardian.
 ///
-/// アクターシステムのルートレベルでの障害処理を担当します。
-/// これ以上エスカレーションできない障害を最終的に処理します。
+/// Handles failures at the root level of the actor system.
+/// Ultimately processes failures that cannot be escalated further.
 pub struct RootEscalationSink<M, R>
 where
   M: Element,
@@ -60,9 +60,9 @@ where
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
 {
-  /// 新しい `RootEscalationSink` を作成します。
+  /// Creates a new `RootEscalationSink`.
   ///
-  /// デフォルトではハンドラとリスナーは設定されていません。
+  /// By default, no handler or listener is configured.
   pub fn new() -> Self {
     Self {
       event_handler: None,
@@ -71,20 +71,20 @@ where
     }
   }
 
-  /// 障害イベントハンドラを設定します。
+  /// Sets the failure event handler.
   ///
   /// # Arguments
   ///
-  /// * `handler` - 障害イベントハンドラ、または `None`
+  /// * `handler` - Failure event handler, or `None`
   pub fn set_event_handler(&mut self, handler: Option<FailureEventHandler>) {
     self.event_handler = handler;
   }
 
-  /// 障害イベントリスナーを設定します。
+  /// Sets the failure event listener.
   ///
   /// # Arguments
   ///
-  /// * `listener` - 障害イベントリスナー、または `None`
+  /// * `listener` - Failure event listener, or `None`
   pub fn set_event_listener(&mut self, listener: Option<FailureEventListener>) {
     self.event_listener = listener;
   }
@@ -109,18 +109,18 @@ where
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
 {
-  /// ルートレベルでの障害情報を処理します。
+  /// Processes failure information at root level.
   ///
-  /// ログ出力、ハンドラ呼び出し、リスナー通知を行います。
+  /// Performs log output, handler invocation, and listener notification.
   ///
   /// # Arguments
   ///
-  /// * `info` - 障害情報
-  /// * `_already_handled` - 未使用（ルートレベルでは常に処理を実行）
+  /// * `info` - Failure information
+  /// * `_already_handled` - Unused (always executes processing at root level)
   ///
   /// # Returns
   ///
-  /// 常に `Ok(())` を返します
+  /// Always returns `Ok(())`
   fn handle(&mut self, info: FailureInfo, _already_handled: bool) -> Result<(), FailureInfo> {
     #[cfg(feature = "std")]
     {

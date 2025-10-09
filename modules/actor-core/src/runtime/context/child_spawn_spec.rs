@@ -10,7 +10,7 @@ use nexus_utils_core_rs::Element;
 
 use super::{ActorHandlerFn, MapSystemFn};
 
-/// 子アクター生成時に必要となる情報。
+/// Information required when spawning child actors.
 pub struct ChildSpawnSpec<M, R>
 where
   M: Element,
