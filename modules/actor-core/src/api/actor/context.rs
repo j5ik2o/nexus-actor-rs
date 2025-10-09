@@ -154,10 +154,7 @@ where
   R::Signal: Clone,
 {
   pub(super) fn new(inner: &'r mut ActorContext<'ctx, DynMessage, R, dyn Supervisor<DynMessage>>) -> Self {
-    let metadata = inner
-      .current_metadata()
-      .cloned()
-      .map(MessageMetadata::from_internal);
+    let metadata = inner.current_metadata().cloned().map(MessageMetadata::from_internal);
     Self {
       inner,
       metadata,
@@ -288,11 +285,8 @@ where
       .or_else(|| metadata.sender_as::<Resp>())
       .ok_or(AskError::MissingResponder)?;
     let dispatch_metadata = MessageMetadata::new().with_sender(self.self_dispatcher());
-    let dyn_message = DynMessage::new(MessageEnvelope::user_with_metadata(message, dispatch_metadata));
-    target
-      .internal()
-      .dispatch_default(dyn_message)
-      .map_err(AskError::from)?;
+    let envelope = MessageEnvelope::user_with_metadata(message, dispatch_metadata);
+    target.dispatch_envelope(envelope).map_err(AskError::from)?;
     Ok(())
   }
 
