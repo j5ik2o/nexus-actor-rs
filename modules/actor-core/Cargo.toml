@@ -19,7 +19,7 @@ test-support = []
 nexus-utils-core-rs = { path = "../utils-core", default-features = false, features = ["alloc"] }
 tracing = { version = "0.1", default-features = false, features = ["std"], optional = true }
 futures = { version = "0.3", default-features = false, features = ["alloc"] }
-spin = { version = "0.9", default-features = false, features = ["mutex", "once"] }
+spin = { version = "0.9", default-features = false, features = ["mutex", "once", "use_ticket_mutex"] }
 
 [dev-dependencies]
 criterion = "0.5"

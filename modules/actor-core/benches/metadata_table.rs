@@ -5,18 +5,17 @@ extern crate alloc;
 use alloc::sync::Arc;
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
-use nexus_actor_core_rs::api::{InternalMessageSender, MessageEnvelope, MessageMetadata, MessageSender};
-use nexus_actor_core_rs::runtime::message::{take_metadata, DynMessage};
-use nexus_actor_core_rs::PriorityEnvelope;
+use nexus_actor_core_rs::{
+  take_metadata, InternalMessageSender, MessageEnvelope, MessageMetadata, MessageSender, PriorityEnvelope,
+};
 use nexus_utils_core_rs::{Element, QueueError};
 
 fn noop_sender<M>() -> MessageSender<M>
 where
   M: Element, {
-  let dispatch =
-    Arc::new(|_message: DynMessage, _priority: i8| -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> { Ok(()) });
+  let dispatch = Arc::new(|_, _| -> Result<(), QueueError<PriorityEnvelope<_>>> { Ok(()) });
   let internal = InternalMessageSender::new(dispatch);
-  MessageSender::new(internal)
+  MessageSender::from_internal(internal)
 }
 
 fn sample_metadata<M>() -> MessageMetadata
@@ -32,9 +31,11 @@ fn bench_side_table(c: &mut Criterion) {
       let metadata = sample_metadata::<u32>();
       let envelope = MessageEnvelope::user_with_metadata(black_box(42_u32), metadata);
       if let MessageEnvelope::User(user) = envelope {
-        let (_message, key) = user.into_parts();
+        let (message, key) = user.into_parts();
+        black_box(message);
         if let Some(key) = key {
-          let _ = take_metadata(key).unwrap();
+          let metadata = take_metadata(key).expect("metadata present");
+          black_box(metadata);
         }
       }
     });
@@ -44,8 +45,9 @@ fn bench_side_table(c: &mut Criterion) {
     b.iter(|| {
       let metadata = sample_metadata::<u32>();
       let inline = InlineUserMessage::with_metadata(black_box(42_u32), metadata);
-      let (_message, metadata) = inline.into_parts();
-      let _ = metadata;
+      let (message, metadata) = inline.into_parts();
+      black_box(message);
+      black_box(metadata);
     });
   });
 

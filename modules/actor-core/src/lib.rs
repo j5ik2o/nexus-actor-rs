@@ -11,6 +11,7 @@ mod api;
 mod runtime;
 
 pub use api::*;
+pub use runtime::message::{store_metadata, take_metadata, DynMessage, MetadataKey};
 
 /// Minimal actor loop that waits for messages, handles them, and yields control.
 ///

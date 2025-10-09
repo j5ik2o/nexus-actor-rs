@@ -96,6 +96,10 @@ where
     }
   }
 
+  pub fn from_internal(inner: InternalMessageSender) -> Self {
+    Self::new(inner)
+  }
+
   pub fn dispatch_user(&self, message: M) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> {
     self.dispatch_envelope(MessageEnvelope::user(message))
   }

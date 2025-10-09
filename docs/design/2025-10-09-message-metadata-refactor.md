@@ -52,6 +52,10 @@
   - `MessageEnvelope::user_with_metadata` と `metadata_table` の `store`/`take` を中心にした micro bench（`modules/actor-core/benches/metadata_table.rs`）。
   - メタデータ無しケース（`MessageMetadata::default()`）との比較は次ステップで追加予定。
 - 結果は設計メモに追記し、閾値（例: 5% 以内）を超える regress があれば DynMessage 拡張案へフォールバック検討。
+- 2025-10-09 `cargo bench -p nexus-actor-core-rs --features std --bench metadata_table` 実行結果:
+  - side_table/store_take: 30.2 ns (平均, 100 サンプル)
+  - inline/store_take: 16.9 ns (平均, 100 サンプル)
+  - 現状、side_table は inline と比較して約 +79% のオーバーヘッド。キー払い出し／解放コストを削減する最適化と、計測対象の細分化が今後の課題。
 
 ---
 このメモは段階的な実装計画を共有するためのものであり、実作業に着手する際は各ステップごとに PR / 設計レビューを行う。
@@ -60,6 +64,26 @@
   - メタデータを別レイヤ（例: スレッドローカル or スケジューラ側のサイドテーブル）で管理し、`DynMessage` はキーだけ渡す。
   - メリット／デメリット、パフォーマンス、互換性を比較し、今後の方向性を決める。
 - Ask レスポンダー向け糖衣 API（`MessageMetadata::respond_with`）の利用状況を観察し、必要に応じてさらなる補助関数やドキュメント例を検討。
+- 利用例（typed ハンドラ内で Ask 応答を返すケース）:
+
+```rust
+use nexus_actor_core_rs::api::actor::Context;
+use nexus_actor_core_rs::{AskResult, MessageMetadata, PriorityEnvelope};
+
+fn handle_request<U, R>(ctx: &mut Context<'_, '_, U, R>, reply: Response) -> AskResult<()>
+where
+  U: Element,
+  Response: Element,
+  R: MailboxFactory + Clone + 'static,
+  R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
+  R::Signal: Clone + Send + Sync + 'static,
+{
+  if let Some(metadata) = ctx.message_metadata() {
+    metadata.respond_with(ctx, reply)?;
+  }
+  Ok(())
+}
+```
 - 利用者向けドキュメント更新。
   - API の変更点（typed dispatcher／メタデータ）を README や examples に反映。
   - サンプルコードで新しいヘルパーの使い方を示す。
