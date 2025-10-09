@@ -5,49 +5,49 @@ use core::mem::MaybeUninit;
 
 use crate::collections::queue::{QueueBase, QueueError, QueueReader, QueueSize, QueueWriter};
 
-/// リングバッファのデフォルト容量
+/// Default capacity for ring buffers
 ///
-/// リングバッファが作成される際の初期容量として使用されます。
+/// Used as the initial capacity when ring buffers are created.
 pub const DEFAULT_CAPACITY: usize = 32;
 
-/// リングバッファの実装
+/// Ring buffer implementation
 ///
-/// FIFOキューとして動作する循環バッファです。
-/// 容量に達した際の動作は`dynamic`フラグにより制御されます：
-/// - `dynamic = true`: 容量が自動的に2倍に拡張されます
-/// - `dynamic = false`: 新しい要素の追加は`QueueError::Full`エラーを返します
+/// A circular buffer that operates as a FIFO queue.
+/// Behavior when capacity is reached is controlled by the `dynamic` flag:
+/// - `dynamic = true`: Capacity is automatically doubled
+/// - `dynamic = false`: Adding new elements returns a `QueueError::Full` error
 ///
-/// # 型パラメータ
+/// # Type Parameters
 ///
-/// * `T` - バッファに格納される要素の型
+/// * `T` - Type of elements stored in the buffer
 #[derive(Debug)]
 pub struct RingBuffer<T> {
-  /// 内部バッファ（未初期化メモリを含む可能性があります）
+  /// Internal buffer (may contain uninitialized memory)
   buf: Box<[MaybeUninit<T>]>,
-  /// 読み取り位置を示すヘッドインデックス
+  /// Head index indicating read position
   head: usize,
-  /// 書き込み位置を示すテールインデックス
+  /// Tail index indicating write position
   tail: usize,
-  /// 現在のバッファ内の要素数
+  /// Current number of elements in the buffer
   len: usize,
-  /// 容量の動的拡張を有効にするかどうか
+  /// Whether dynamic capacity expansion is enabled
   dynamic: bool,
 }
 
 impl<T> RingBuffer<T> {
-  /// 指定された容量で新しいリングバッファを作成します
+  /// Creates a new ring buffer with the specified capacity
   ///
-  /// デフォルトでは動的拡張が有効になっています（`dynamic = true`）。
+  /// Dynamic expansion is enabled by default (`dynamic = true`).
   ///
-  /// # パラメータ
+  /// # Parameters
   ///
-  /// * `capacity` - 初期容量（0より大きい値を指定する必要があります）
+  /// * `capacity` - Initial capacity (must be greater than 0)
   ///
   /// # Panics
   ///
-  /// * `capacity`が0の場合にパニックします
+  /// * Panics if `capacity` is 0
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```
   /// # use nexus_utils_core_rs::RingBuffer;
@@ -65,13 +65,13 @@ impl<T> RingBuffer<T> {
     }
   }
 
-  /// 動的拡張の有効/無効を設定してリングバッファを返します（ビルダーパターン）
+  /// Sets dynamic expansion enabled/disabled and returns the ring buffer (builder pattern)
   ///
-  /// # パラメータ
+  /// # Parameters
   ///
-  /// * `dynamic` - `true`の場合、容量に達したときに自動的に拡張されます
+  /// * `dynamic` - If `true`, automatically expands when capacity is reached
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```
   /// # use nexus_utils_core_rs::RingBuffer;
@@ -82,39 +82,39 @@ impl<T> RingBuffer<T> {
     self
   }
 
-  /// 動的拡張の有効/無効を設定します
+  /// Sets dynamic expansion enabled/disabled
   ///
-  /// # パラメータ
+  /// # Parameters
   ///
-  /// * `dynamic` - `true`の場合、容量に達したときに自動的に拡張されます
+  /// * `dynamic` - If `true`, automatically expands when capacity is reached
   pub fn set_dynamic(&mut self, dynamic: bool) {
     self.dynamic = dynamic;
   }
 
-  /// 指定された容量で新しいバッファを割り当てます
+  /// Allocates a new buffer with the specified capacity
   ///
-  /// # パラメータ
+  /// # Parameters
   ///
-  /// * `capacity` - 割り当てる容量
+  /// * `capacity` - Capacity to allocate
   ///
   /// # Returns
   ///
-  /// 未初期化メモリを含むボックス化されたスライス
+  /// Boxed slice containing uninitialized memory
   fn alloc_buffer(capacity: usize) -> Box<[MaybeUninit<T>]> {
     let mut vec = Vec::with_capacity(capacity);
     vec.resize_with(capacity, MaybeUninit::uninit);
     vec.into_boxed_slice()
   }
 
-  /// バッファの容量を2倍に拡張します
+  /// Doubles the buffer capacity
   ///
-  /// 既存の要素をすべて取り出し、新しいバッファに再挿入します。
-  /// この操作中に既存の要素は保持されます。
+  /// Removes all existing elements and reinserts them into a new buffer.
+  /// Existing elements are preserved during this operation.
   ///
   /// # Panics
   ///
-  /// 再挿入時に容量不足が発生した場合にパニックします
-  /// （通常は発生しないはずです）
+  /// Panics if insufficient capacity occurs during reinsertion
+  /// (should normally not occur)
   fn grow(&mut self) {
     let new_cap = self.buf.len().saturating_mul(2).max(1);
     let mut items = Vec::with_capacity(self.len);
@@ -137,21 +137,21 @@ impl<T> RingBuffer<T> {
 }
 
 impl<T> QueueBase<T> for RingBuffer<T> {
-  /// バッファ内の現在の要素数を返します
+  /// Returns the current number of elements in the buffer
   ///
   /// # Returns
   ///
-  /// 要素数を表す`QueueSize::limited`
+  /// `QueueSize::limited` representing element count
   fn len(&self) -> QueueSize {
     QueueSize::limited(self.len)
   }
 
-  /// バッファの容量を返します
+  /// Returns the buffer capacity
   ///
   /// # Returns
   ///
-  /// * `dynamic = true`の場合: `QueueSize::limitless()`（無制限）
-  /// * `dynamic = false`の場合: `QueueSize::limited(capacity)`（制限あり）
+  /// * If `dynamic = true`: `QueueSize::limitless()` (unlimited)
+  /// * If `dynamic = false`: `QueueSize::limited(capacity)` (limited)
   fn capacity(&self) -> QueueSize {
     if self.dynamic {
       QueueSize::limitless()
@@ -162,29 +162,29 @@ impl<T> QueueBase<T> for RingBuffer<T> {
 }
 
 impl<T> QueueWriter<T> for RingBuffer<T> {
-  /// バッファに要素を追加します
+  /// Adds an element to the buffer
   ///
-  /// バッファが満杯の場合：
-  /// * `dynamic = true`: 容量を2倍に拡張してから追加します
-  /// * `dynamic = false`: `QueueError::Full`を返します
+  /// When buffer is full:
+  /// * `dynamic = true`: Doubles capacity before adding
+  /// * `dynamic = false`: Returns `QueueError::Full`
   ///
-  /// # パラメータ
+  /// # Parameters
   ///
-  /// * `item` - 追加する要素
+  /// * `item` - Element to add
   ///
   /// # Returns
   ///
-  /// * `Ok(())` - 追加に成功した場合
-  /// * `Err(QueueError::Full(item))` - バッファが満杯で動的拡張が無効な場合
+  /// * `Ok(())` - If addition succeeded
+  /// * `Err(QueueError::Full(item))` - If buffer is full and dynamic expansion is disabled
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```
   /// # use nexus_utils_core_rs::{QueueWriter, RingBuffer};
   /// let mut buffer = RingBuffer::new(2).with_dynamic(false);
   /// buffer.offer_mut(1).unwrap();
   /// buffer.offer_mut(2).unwrap();
-  /// assert!(buffer.offer_mut(3).is_err()); // 満杯のためエラー
+  /// assert!(buffer.offer_mut(3).is_err()); // Error because full
   /// ```
   fn offer_mut(&mut self, item: T) -> Result<(), QueueError<T>> {
     if self.len == self.buf.len() {
@@ -203,14 +203,14 @@ impl<T> QueueWriter<T> for RingBuffer<T> {
 }
 
 impl<T> QueueReader<T> for RingBuffer<T> {
-  /// バッファから要素を取り出します（FIFO順）
+  /// Removes an element from the buffer (FIFO order)
   ///
   /// # Returns
   ///
-  /// * `Ok(Some(item))` - 要素が取り出された場合
-  /// * `Ok(None)` - バッファが空の場合
+  /// * `Ok(Some(item))` - If element was removed
+  /// * `Ok(None)` - If buffer is empty
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```
   /// # use nexus_utils_core_rs::{QueueWriter, QueueReader, RingBuffer};
@@ -232,10 +232,10 @@ impl<T> QueueReader<T> for RingBuffer<T> {
     Ok(Some(value))
   }
 
-  /// バッファ内のすべての要素を破棄します
+  /// Discards all elements in the buffer
   ///
-  /// すべての要素を順番に取り出してドロップします。
-  /// この操作後、バッファは空になります。
+  /// Removes and drops all elements in order.
+  /// After this operation, the buffer is empty.
   fn clean_up_mut(&mut self) {
     while self.len > 0 {
       let _ = self.poll_mut();
@@ -244,11 +244,11 @@ impl<T> QueueReader<T> for RingBuffer<T> {
 }
 
 impl<T> Default for RingBuffer<T> {
-  /// デフォルトのリングバッファを作成します
+  /// Creates a default ring buffer
   ///
-  /// `DEFAULT_CAPACITY`（32）の容量で、動的拡張が有効なバッファを作成します。
+  /// Creates a buffer with `DEFAULT_CAPACITY` (32) capacity and dynamic expansion enabled.
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```
   /// # use nexus_utils_core_rs::RingBuffer;

@@ -2,22 +2,22 @@ use alloc::vec::Vec;
 
 use crate::collections::{QueueError, QueueSize};
 
-/// スタック操作固有のエラー型。
+/// Error type specific to stack operations.
 ///
-/// スタックバッファの操作中に発生する可能性のあるエラーを表します。
+/// Represents errors that can occur during stack buffer operations.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum StackError<T> {
-  /// スタックが容量上限に達している状態で要素を追加しようとした場合のエラー。
+  /// Error when attempting to add an element while the stack is at capacity.
   ///
-  /// # フィールド
+  /// # Field
   ///
-  /// * 追加しようとした値が含まれます。
+  /// * Contains the value that was attempted to be added.
   Full(T),
 }
 
-/// `StackError`から`QueueError`への変換実装。
+/// Implementation to convert `StackError` to `QueueError`.
 ///
-/// スタック固有のエラーを汎用のキューエラーに変換します。
+/// Converts stack-specific errors to generic queue errors.
 impl<T> From<StackError<T>> for QueueError<T> {
   fn from(err: StackError<T>) -> Self {
     match err {
@@ -26,14 +26,14 @@ impl<T> From<StackError<T>> for QueueError<T> {
   }
 }
 
-/// LIFO（後入先出）順で値を格納する所有権を持つスタックバッファ。
+/// Owned stack buffer that stores values in LIFO (Last-In-First-Out) order.
 ///
-/// # 概要
+/// # Overview
 ///
-/// `StackBuffer`は、要素を後入先出（Last-In-First-Out）順で管理するデータ構造です。
-/// オプションで容量制限を設定でき、制限を超えた場合は追加操作がエラーを返します。
+/// `StackBuffer` is a data structure that manages elements in Last-In-First-Out order.
+/// An optional capacity limit can be set, and adding operations return errors if the limit is exceeded.
 ///
-/// # 例
+/// # Examples
 ///
 /// ```
 /// use nexus_utils_core_rs::StackBuffer;
@@ -51,13 +51,13 @@ pub struct StackBuffer<T> {
 }
 
 impl<T> StackBuffer<T> {
-  /// 容量制限のない空の新しい`StackBuffer`を作成します。
+  /// Creates a new empty `StackBuffer` without capacity limit.
   ///
   /// # Returns
   ///
-  /// 容量無制限の空のスタックバッファ。
+  /// Empty stack buffer with unlimited capacity.
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```
   /// use nexus_utils_core_rs::StackBuffer;
@@ -72,17 +72,17 @@ impl<T> StackBuffer<T> {
     }
   }
 
-  /// 指定された容量制限を持つ新しい`StackBuffer`を作成します。
+  /// Creates a new `StackBuffer` with the specified capacity limit.
   ///
   /// # Arguments
   ///
-  /// * `capacity` - スタックの最大容量。
+  /// * `capacity` - Maximum capacity of the stack.
   ///
   /// # Returns
   ///
-  /// 指定された容量制限を持つ空のスタックバッファ。
+  /// Empty stack buffer with the specified capacity limit.
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```
   /// use nexus_utils_core_rs::StackBuffer;
@@ -91,7 +91,7 @@ impl<T> StackBuffer<T> {
   /// stack.push(1).unwrap();
   /// stack.push(2).unwrap();
   /// stack.push(3).unwrap();
-  /// // 容量上限に達しているため、次のpushはエラーを返します
+  /// // Next push returns error because capacity limit is reached
   /// assert!(stack.push(4).is_err());
   /// ```
   pub fn with_capacity(capacity: usize) -> Self {
@@ -101,14 +101,14 @@ impl<T> StackBuffer<T> {
     }
   }
 
-  /// スタックの容量制限を取得します。
+  /// Gets the stack's capacity limit.
   ///
   /// # Returns
   ///
-  /// * 容量制限が設定されている場合は`QueueSize::limited`。
-  /// * 容量無制限の場合は`QueueSize::limitless`。
+  /// * `QueueSize::limited` if capacity limit is set.
+  /// * `QueueSize::limitless` if unlimited capacity.
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```
   /// use nexus_utils_core_rs::StackBuffer;
@@ -123,15 +123,15 @@ impl<T> StackBuffer<T> {
     }
   }
 
-  /// スタックの容量制限を設定します。
+  /// Sets the stack's capacity limit.
   ///
-  /// 新しい容量が現在の要素数より少ない場合、スタックは新しい容量に切り詰められます。
+  /// If the new capacity is less than the current number of elements, the stack is truncated to the new capacity.
   ///
   /// # Arguments
   ///
-  /// * `capacity` - 新しい容量制限。`None`の場合は容量無制限になります。
+  /// * `capacity` - New capacity limit. Unlimited capacity if `None`.
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```
   /// use nexus_utils_core_rs::StackBuffer;
@@ -141,7 +141,7 @@ impl<T> StackBuffer<T> {
   /// stack.push(2).unwrap();
   /// stack.push(3).unwrap();
   ///
-  /// // 容量を2に制限すると、最も古い要素が削除されます
+  /// // Limiting capacity to 2 removes oldest elements
   /// stack.set_capacity(Some(2));
   /// assert_eq!(stack.len().to_usize(), 2);
   /// ```
@@ -154,13 +154,13 @@ impl<T> StackBuffer<T> {
     }
   }
 
-  /// スタック内の現在の要素数を取得します。
+  /// Gets the current number of elements in the stack.
   ///
   /// # Returns
   ///
-  /// 現在の要素数を表す`QueueSize`。
+  /// `QueueSize` representing the current element count.
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```
   /// use nexus_utils_core_rs::StackBuffer;
@@ -174,14 +174,14 @@ impl<T> StackBuffer<T> {
     QueueSize::limited(self.items.len())
   }
 
-  /// スタックが空かどうかを確認します。
+  /// Checks if the stack is empty.
   ///
   /// # Returns
   ///
-  /// * スタックが空の場合は`true`。
-  /// * 1つ以上の要素がある場合は`false`。
+  /// * `true` if the stack is empty.
+  /// * `false` if there are one or more elements.
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```
   /// use nexus_utils_core_rs::StackBuffer;
@@ -195,20 +195,20 @@ impl<T> StackBuffer<T> {
     self.items.is_empty()
   }
 
-  /// スタックの先頭に要素を追加します。
+  /// Adds an element to the top of the stack.
   ///
-  /// 容量制限が設定されており、スタックが既に満杯の場合は、エラーを返します。
+  /// Returns an error if a capacity limit is set and the stack is already full.
   ///
   /// # Arguments
   ///
-  /// * `value` - スタックに追加する値。
+  /// * `value` - Value to add to the stack.
   ///
   /// # Returns
   ///
-  /// * 成功した場合は`Ok(())`。
-  /// * スタックが満杯の場合は`Err(StackError::Full(value))`。
+  /// * `Ok(())` on success.
+  /// * `Err(StackError::Full(value))` if stack is full.
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```
   /// use nexus_utils_core_rs::StackBuffer;
@@ -216,7 +216,7 @@ impl<T> StackBuffer<T> {
   /// let mut stack = StackBuffer::with_capacity(2);
   /// assert!(stack.push(1).is_ok());
   /// assert!(stack.push(2).is_ok());
-  /// assert!(stack.push(3).is_err()); // 容量上限
+  /// assert!(stack.push(3).is_err()); // Capacity limit
   /// ```
   pub fn push(&mut self, value: T) -> Result<(), StackError<T>> {
     if matches!(self.capacity, Some(limit) if self.items.len() >= limit) {
@@ -226,16 +226,16 @@ impl<T> StackBuffer<T> {
     Ok(())
   }
 
-  /// スタックの先頭から要素を取り出します。
+  /// Removes an element from the top of the stack.
   ///
-  /// この操作は、最後に追加された要素を削除して返します（LIFO順）。
+  /// This operation removes and returns the last added element (LIFO order).
   ///
   /// # Returns
   ///
-  /// * スタックに要素がある場合は`Some(value)`。
-  /// * スタックが空の場合は`None`。
+  /// * `Some(value)` if there are elements in the stack.
+  /// * `None` if the stack is empty.
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```
   /// use nexus_utils_core_rs::StackBuffer;
@@ -251,14 +251,14 @@ impl<T> StackBuffer<T> {
     self.items.pop()
   }
 
-  /// スタックの先頭要素への参照を取得します（削除はしません）。
+  /// Gets a reference to the top element (without removing it).
   ///
   /// # Returns
   ///
-  /// * スタックに要素がある場合は`Some(&value)`。
-  /// * スタックが空の場合は`None`。
+  /// * `Some(&value)` if there are elements in the stack.
+  /// * `None` if the stack is empty.
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```
   /// use nexus_utils_core_rs::StackBuffer;
@@ -267,17 +267,17 @@ impl<T> StackBuffer<T> {
   /// stack.push(1).unwrap();
   /// stack.push(2).unwrap();
   /// assert_eq!(stack.peek(), Some(&2));
-  /// assert_eq!(stack.len().to_usize(), 2); // 要素は削除されていない
+  /// assert_eq!(stack.len().to_usize(), 2); // Element not removed
   /// ```
   pub fn peek(&self) -> Option<&T> {
     self.items.last()
   }
 
-  /// スタックからすべての要素を削除します。
+  /// Removes all elements from the stack.
   ///
-  /// この操作の後、スタックは空になります。
+  /// After this operation, the stack is empty.
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```
   /// use nexus_utils_core_rs::StackBuffer;
@@ -293,9 +293,9 @@ impl<T> StackBuffer<T> {
   }
 }
 
-/// `StackBuffer`のデフォルト実装。
+/// Default implementation for `StackBuffer`.
 ///
-/// `new()`メソッドを呼び出して、容量無制限の空のスタックバッファを作成します。
+/// Calls `new()` to create an empty stack buffer with unlimited capacity.
 impl<T> Default for StackBuffer<T> {
   fn default() -> Self {
     Self::new()

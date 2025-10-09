@@ -4,33 +4,33 @@ use nexus_utils_core_rs::{
 
 use crate::RcRingQueue;
 
-/// `Rc`ベースの優先度付きキュー
+/// `Rc`-based priority queue
 ///
-/// このキューは`no_std`環境で利用可能な、メッセージの優先度に基づいて
-/// 処理順序を制御するキューです。`Rc`と`RefCell`を使用して
-/// 参照カウントベースの共有所有権を提供します。
+/// This queue is available in `no_std` environments and controls processing order
+/// based on message priority. It provides reference-counted shared ownership
+/// using `Rc` and `RefCell`.
 ///
-/// # 特徴
+/// # Features
 ///
-/// - **優先度ベース**: メッセージの優先度（0-7）に基づいて処理順序を決定
-/// - **複数レベル**: 8つの優先度レベルをサポート
-/// - **動的/静的モード**: 動的拡張または固定容量のいずれかを選択可能
-/// - **no_std対応**: 標準ライブラリを必要としません
-/// - **クローン可能**: `clone()`で複数のハンドルを作成可能
+/// - **Priority-based**: Determines processing order based on message priority (0-7)
+/// - **Multiple levels**: Supports 8 priority levels
+/// - **Dynamic/static modes**: Choose between dynamic expansion or fixed capacity
+/// - **no_std support**: Does not require the standard library
+/// - **Cloneable**: Multiple handles can be created via `clone()`
 ///
-/// # 優先度
+/// # Priority
 ///
-/// - 優先度は0（最低）から7（最高）までの8レベル
-/// - 優先度が指定されていない場合、デフォルト優先度（0）が使用されます
-/// - 高い優先度のメッセージが先に処理されます
+/// - Priority ranges from 0 (lowest) to 7 (highest) across 8 levels
+/// - Default priority (0) is used when priority is not specified
+/// - Higher priority messages are processed first
 ///
-/// # パフォーマンス特性
+/// # Performance characteristics
 ///
 /// - `offer`: O(1)
-/// - `poll`: O(PRIORITY_LEVELS)、通常はO(1)に近い
-/// - メモリ使用量: O(capacity_per_level * PRIORITY_LEVELS)
+/// - `poll`: O(PRIORITY_LEVELS), typically close to O(1)
+/// - Memory usage: O(capacity_per_level * PRIORITY_LEVELS)
 ///
-/// # 例
+/// # Examples
 ///
 /// ```
 /// use nexus_utils_embedded_rs::RcPriorityQueue;
@@ -54,7 +54,7 @@ use crate::RcRingQueue;
 /// queue.offer(Task { id: 1, priority: 0 }).unwrap();
 /// queue.offer(Task { id: 2, priority: 5 }).unwrap();
 ///
-/// // 高優先度のタスクが先に取得される
+/// // Higher priority task is retrieved first
 /// let task = queue.poll().unwrap().unwrap();
 /// assert_eq!(task.id, 2);
 /// ```
@@ -64,18 +64,18 @@ pub struct RcPriorityQueue<E> {
 }
 
 impl<E> RcPriorityQueue<E> {
-  /// 各優先度レベルに対して指定された容量で新しい優先度付きキューを作成します
+  /// Creates a new priority queue with the specified capacity per priority level
   ///
   /// # Arguments
   ///
-  /// * `capacity_per_level` - 各優先度レベルのキューに格納できる最大要素数
+  /// * `capacity_per_level` - Maximum number of elements that can be stored in each priority level queue
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```
   /// use nexus_utils_embedded_rs::RcPriorityQueue;
   ///
-  /// // 各優先度レベルに10要素まで格納可能
+  /// // Can store up to 10 elements per priority level
   /// let queue: RcPriorityQueue<u32> = RcPriorityQueue::new(10);
   /// ```
   pub fn new(capacity_per_level: usize) -> Self {
@@ -87,20 +87,20 @@ impl<E> RcPriorityQueue<E> {
     }
   }
 
-  /// キューの動的拡張モードを設定します
+  /// Sets the dynamic expansion mode of the queue
   ///
   /// # Arguments
   ///
-  /// * `dynamic` - `true`の場合、容量が不足すると自動的に拡張されます。
-  ///               `false`の場合、容量制限が厳密に適用されます。
+  /// * `dynamic` - If `true`, automatically expands when capacity is insufficient.
+  ///               If `false`, capacity limits are strictly enforced.
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```
   /// use nexus_utils_embedded_rs::RcPriorityQueue;
   ///
   /// let queue: RcPriorityQueue<i32> = RcPriorityQueue::new(5);
-  /// queue.set_dynamic(false); // 固定容量モード
+  /// queue.set_dynamic(false); // Fixed capacity mode
   /// ```
   pub fn set_dynamic(&self, dynamic: bool) {
     for queue in self.inner.levels() {
@@ -108,13 +108,13 @@ impl<E> RcPriorityQueue<E> {
     }
   }
 
-  /// 動的拡張モードを設定して自身を返します（ビルダーパターン）
+  /// Sets the dynamic expansion mode and returns self (builder pattern)
   ///
   /// # Arguments
   ///
-  /// * `dynamic` - `true`の場合、容量が不足すると自動的に拡張されます
+  /// * `dynamic` - If `true`, automatically expands when capacity is insufficient
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```
   /// use nexus_utils_embedded_rs::RcPriorityQueue;
@@ -127,29 +127,29 @@ impl<E> RcPriorityQueue<E> {
     self
   }
 
-  /// 内部の優先度レベル別キューへの不変参照を返します
+  /// Returns an immutable reference to the internal priority level queues
   ///
   /// # Returns
   ///
-  /// 8つの優先度レベルキューの配列への参照
+  /// Reference to an array of 8 priority level queues
   pub fn levels(&self) -> &[RcRingQueue<E>] {
     self.inner.levels()
   }
 
-  /// 内部の優先度レベル別キューへの可変参照を返します
+  /// Returns a mutable reference to the internal priority level queues
   ///
   /// # Returns
   ///
-  /// 8つの優先度レベルキューの配列への可変参照
+  /// Mutable reference to an array of 8 priority level queues
   pub fn levels_mut(&mut self) -> &mut [RcRingQueue<E>] {
     self.inner.levels_mut()
   }
 
-  /// 内部の`PriorityQueue`への不変参照を返します
+  /// Returns an immutable reference to the internal `PriorityQueue`
   ///
   /// # Returns
   ///
-  /// 内部の`PriorityQueue`インスタンスへの参照
+  /// Reference to the internal `PriorityQueue` instance
   pub fn inner(&self) -> &PriorityQueue<RcRingQueue<E>, E> {
     &self.inner
   }

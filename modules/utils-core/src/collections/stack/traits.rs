@@ -4,152 +4,152 @@ use crate::sync::Shared;
 
 use super::StackError;
 
-/// スタックバックエンドで使用されるストレージの抽象化。
+/// Abstraction for storage used by stack backends.
 ///
-/// このトレイトは、スタックの内部データ構造へのアクセスを提供し、
-/// 読み取り専用および書き込み可能な操作を可能にします。
+/// This trait provides access to the internal data structure of a stack,
+/// enabling both read-only and writable operations.
 pub trait StackStorage<T> {
-  /// 読み取り専用アクセスでクロージャを実行します。
+  /// Executes a closure with read-only access.
   ///
   /// # Arguments
   ///
-  /// * `f` - スタックバッファへの不変参照を受け取るクロージャ
+  /// * `f` - Closure that receives an immutable reference to the stack buffer
   ///
   /// # Returns
   ///
-  /// クロージャの実行結果
+  /// Result of executing the closure
   fn with_read<R>(&self, f: impl FnOnce(&StackBuffer<T>) -> R) -> R;
 
-  /// 書き込み可能アクセスでクロージャを実行します。
+  /// Executes a closure with writable access.
   ///
   /// # Arguments
   ///
-  /// * `f` - スタックバッファへの可変参照を受け取るクロージャ
+  /// * `f` - Closure that receives a mutable reference to the stack buffer
   ///
   /// # Returns
   ///
-  /// クロージャの実行結果
+  /// Result of executing the closure
   fn with_write<R>(&self, f: impl FnOnce(&mut StackBuffer<T>) -> R) -> R;
 }
 
-/// スタック操作のためのバックエンド抽象化。
+/// Backend abstraction for stack operations.
 ///
-/// このトレイトは、スタックの基本操作(push、pop、peek等)を定義し、
-/// 具体的なストレージ実装から独立したインターフェースを提供します。
+/// This trait defines basic stack operations (push, pop, peek, etc.),
+/// providing an interface independent of the concrete storage implementation.
 pub trait StackBackend<T> {
-  /// スタックに値をプッシュします。
+  /// Pushes a value onto the stack.
   ///
   /// # Arguments
   ///
-  /// * `value` - プッシュする値
+  /// * `value` - Value to push
   ///
   /// # Returns
   ///
-  /// * `Ok(())` - 成功時
-  /// * `Err(StackError<T>)` - 容量制限に達した場合
+  /// * `Ok(())` - On success
+  /// * `Err(StackError<T>)` - If capacity limit is reached
   fn push(&self, value: T) -> Result<(), StackError<T>>;
 
-  /// スタックから値をポップします。
+  /// Pops a value from the stack.
   ///
   /// # Returns
   ///
-  /// * `Some(T)` - スタックが空でない場合、最後の値
-  /// * `None` - スタックが空の場合
+  /// * `Some(T)` - Last value if stack is not empty
+  /// * `None` - If stack is empty
   fn pop(&self) -> Option<T>;
 
-  /// スタックのすべての要素をクリアします。
+  /// Clears all elements from the stack.
   fn clear(&self);
 
-  /// スタックの現在の要素数を取得します。
+  /// Gets the current number of elements in the stack.
   ///
   /// # Returns
   ///
-  /// 要素数を表す`QueueSize`
+  /// `QueueSize` representing the element count
   fn len(&self) -> QueueSize;
 
-  /// スタックの容量を取得します。
+  /// Gets the capacity of the stack.
   ///
   /// # Returns
   ///
-  /// 容量を表す`QueueSize`(無制限の場合は`QueueSize::Unlimited`)
+  /// `QueueSize` representing capacity (`QueueSize::Unlimited` if unlimited)
   fn capacity(&self) -> QueueSize;
 
-  /// スタックの容量を設定します。
+  /// Sets the stack's capacity.
   ///
   /// # Arguments
   ///
-  /// * `capacity` - 新しい容量(`None`の場合は無制限)
+  /// * `capacity` - New capacity (`None` for unlimited)
   fn set_capacity(&self, capacity: Option<usize>);
 
-  /// スタックが空かどうかを判定します。
+  /// Checks if the stack is empty.
   ///
   /// # Returns
   ///
-  /// * `true` - スタックが空の場合
-  /// * `false` - スタックに要素がある場合
+  /// * `true` - If stack is empty
+  /// * `false` - If stack contains elements
   fn is_empty(&self) -> bool {
     self.len() == QueueSize::Limited(0)
   }
 
-  /// スタックの最上位の値を取得します(ポップはしません)。
+  /// Gets the top value of the stack without popping.
   ///
   /// # Returns
   ///
-  /// * `Some(T)` - スタックが空でない場合、最上位の値のクローン
-  /// * `None` - スタックが空の場合
+  /// * `Some(T)` - Clone of the top value if stack is not empty
+  /// * `None` - If stack is empty
   fn peek(&self) -> Option<T>
   where
     T: Clone;
 }
 
-/// [`StackBackend`]を公開するハンドル。
+/// Handle that exposes a [`StackBackend`].
 ///
-/// このトレイトは、スタックバックエンドへの共有アクセスを提供し、
-/// 複数の所有者が同じスタックインスタンスを使用できるようにします。
+/// This trait provides shared access to a stack backend,
+/// allowing multiple owners to use the same stack instance.
 pub trait StackHandle<T>: Shared<Self::Backend> + Clone {
-  /// このハンドルが管理するバックエンドの型。
+  /// Backend type managed by this handle.
   type Backend: StackBackend<T> + ?Sized;
 
-  /// バックエンドへの参照を取得します。
+  /// Gets a reference to the backend.
   ///
   /// # Returns
   ///
-  /// スタックバックエンドへの参照
+  /// Reference to the stack backend
   fn backend(&self) -> &Self::Backend;
 }
 
-/// [`StackStorage`]上で直接動作するバックエンド実装。
+/// Backend implementation that operates directly on [`StackStorage`].
 ///
-/// このバックエンドは、ストレージ抽象化を使用してスタック操作を実装します。
+/// This backend implements stack operations using the storage abstraction.
 #[derive(Debug)]
 pub struct StackStorageBackend<S> {
   storage: S,
 }
 
 impl<S> StackStorageBackend<S> {
-  /// 指定されたストレージで新しい`StackStorageBackend`を作成します。
+  /// Creates a new `StackStorageBackend` with the specified storage.
   ///
   /// # Arguments
   ///
-  /// * `storage` - 使用するストレージ実装
+  /// * `storage` - Storage implementation to use
   pub const fn new(storage: S) -> Self {
     Self { storage }
   }
 
-  /// ストレージへの参照を取得します。
+  /// Gets a reference to the storage.
   ///
   /// # Returns
   ///
-  /// 内部ストレージへの参照
+  /// Reference to the internal storage
   pub fn storage(&self) -> &S {
     &self.storage
   }
 
-  /// バックエンドを消費してストレージを取り出します。
+  /// Consumes the backend and extracts the storage.
   ///
   /// # Returns
   ///
-  /// 内部ストレージの所有権
+  /// Ownership of the internal storage
   pub fn into_storage(self) -> S {
     self.storage
   }
@@ -191,68 +191,68 @@ where
   }
 }
 
-/// スタック型コレクションの基本トレイト。
+/// Base trait for stack-like collections.
 ///
-/// このトレイトは、スタックの基本的な情報取得メソッドを定義します。
+/// This trait defines basic information retrieval methods for stacks.
 pub trait StackBase<T> {
-  /// スタックの現在の要素数を取得します。
+  /// Gets the current number of elements in the stack.
   ///
   /// # Returns
   ///
-  /// 要素数を表す`QueueSize`
+  /// `QueueSize` representing the element count
   fn len(&self) -> QueueSize;
 
-  /// スタックの容量を取得します。
+  /// Gets the capacity of the stack.
   ///
   /// # Returns
   ///
-  /// 容量を表す`QueueSize`(無制限の場合は`QueueSize::Unlimited`)
+  /// `QueueSize` representing capacity (`QueueSize::Unlimited` if unlimited)
   fn capacity(&self) -> QueueSize;
 
-  /// スタックが空かどうかを判定します。
+  /// Checks if the stack is empty.
   ///
   /// # Returns
   ///
-  /// * `true` - スタックが空の場合
-  /// * `false` - スタックに要素がある場合
+  /// * `true` - If stack is empty
+  /// * `false` - If stack contains elements
   fn is_empty(&self) -> bool {
     self.len().to_usize() == 0
   }
 }
 
-/// 可変スタックインターフェース。
+/// Mutable stack interface.
 ///
-/// このトレイトは、スタックの変更操作(push、pop、clear等)を提供します。
+/// This trait provides stack modification operations (push, pop, clear, etc.).
 pub trait StackMut<T>: StackBase<T> {
-  /// スタックに値をプッシュします。
+  /// Pushes a value onto the stack.
   ///
   /// # Arguments
   ///
-  /// * `value` - プッシュする値
+  /// * `value` - Value to push
   ///
   /// # Returns
   ///
-  /// * `Ok(())` - 成功時
-  /// * `Err(StackError<T>)` - 容量制限に達した場合
+  /// * `Ok(())` - On success
+  /// * `Err(StackError<T>)` - If capacity limit is reached
   fn push(&mut self, value: T) -> Result<(), StackError<T>>;
 
-  /// スタックから値をポップします。
+  /// Pops a value from the stack.
   ///
   /// # Returns
   ///
-  /// * `Some(T)` - スタックが空でない場合、最後の値
-  /// * `None` - スタックが空の場合
+  /// * `Some(T)` - Last value if stack is not empty
+  /// * `None` - If stack is empty
   fn pop(&mut self) -> Option<T>;
 
-  /// スタックのすべての要素をクリアします。
+  /// Clears all elements from the stack.
   fn clear(&mut self);
 
-  /// スタックの最上位の値を取得します(ポップはしません)。
+  /// Gets the top value of the stack without popping.
   ///
   /// # Returns
   ///
-  /// * `Some(T)` - スタックが空でない場合、最上位の値のクローン
-  /// * `None` - スタックが空の場合
+  /// * `Some(T)` - Clone of the top value if stack is not empty
+  /// * `None` - If stack is empty
   fn peek(&self) -> Option<T>
   where
     T: Clone;

@@ -3,22 +3,22 @@ use crate::collections::QueueSize;
 
 use super::StackError;
 
-/// [`StackBackend`]に処理を委譲するスタックファサード。
+/// Stack facade that delegates operations to [`StackBackend`].
 ///
-/// このstructは、スタックの操作を抽象化し、実際のバックエンド実装への
-/// 統一的なインターフェースを提供します。
+/// This struct abstracts stack operations and provides a unified interface
+/// to the actual backend implementation.
 ///
-/// # 型パラメータ
+/// # Type Parameters
 ///
-/// * `H` - [`StackHandle`]を実装したバックエンドハンドル型
-/// * `T` - スタックに格納する要素の型
+/// * `H` - Backend handle type implementing [`StackHandle`]
+/// * `T` - Type of elements stored in the stack
 ///
 /// # Examples
 ///
 /// ```ignore
 /// use nexus_utils_core_rs::{Stack, StackStorageBackend};
 ///
-/// let backend = /* StackHandle実装を作成 */;
+/// let backend = /* create StackHandle implementation */;
 /// let stack = Stack::new(backend);
 /// stack.push(42).unwrap();
 /// assert_eq!(stack.pop(), Some(42));
@@ -36,15 +36,15 @@ impl<H, T> Stack<H, T>
 where
   H: StackHandle<T>,
 {
-  /// 指定されたバックエンドハンドルから新しい[`Stack`]を作成します。
+  /// Creates a new [`Stack`] from the specified backend handle.
   ///
   /// # Arguments
   ///
-  /// * `backend` - スタック操作を処理するバックエンドハンドル
+  /// * `backend` - Backend handle to process stack operations
   ///
   /// # Returns
   ///
-  /// 新しい[`Stack`]インスタンス
+  /// A new [`Stack`] instance
   pub fn new(backend: H) -> Self {
     Self {
       backend,
@@ -52,67 +52,67 @@ where
     }
   }
 
-  /// バックエンドハンドルへの参照を取得します。
+  /// Gets a reference to the backend handle.
   ///
   /// # Returns
   ///
-  /// バックエンドハンドルへの不変参照
+  /// Immutable reference to the backend handle
   pub fn backend(&self) -> &H {
     &self.backend
   }
 
-  /// [`Stack`]を消費して、内部のバックエンドハンドルを取得します。
+  /// Consumes the [`Stack`] and extracts the internal backend handle.
   ///
   /// # Returns
   ///
-  /// 内部に保持していたバックエンドハンドル
+  /// Internal backend handle
   pub fn into_backend(self) -> H {
     self.backend
   }
 
-  /// スタックの容量制限を設定します。
+  /// Sets the stack's capacity limit.
   ///
   /// # Arguments
   ///
-  /// * `capacity` - 最大容量。`None`の場合は無制限
+  /// * `capacity` - Maximum capacity; unlimited if `None`
   pub fn set_capacity(&self, capacity: Option<usize>) {
     self.backend.backend().set_capacity(capacity);
   }
 
-  /// スタックの先頭に値をプッシュします。
+  /// Pushes a value onto the top of the stack.
   ///
-  /// 容量制限がある場合、スタックが満杯だと[`StackError::Full`]を返します。
+  /// Returns [`StackError::Full`] if the stack is full and a capacity limit is set.
   ///
   /// # Arguments
   ///
-  /// * `value` - プッシュする値
+  /// * `value` - Value to push
   ///
   /// # Returns
   ///
-  /// * `Ok(())` - プッシュが成功
-  /// * `Err(StackError<T>)` - スタックが満杯の場合、元の値を含むエラー
+  /// * `Ok(())` - Push succeeded
+  /// * `Err(StackError<T>)` - Stack is full; error contains the original value
   pub fn push(&self, value: T) -> Result<(), StackError<T>> {
     self.backend.backend().push(value)
   }
 
-  /// スタックの先頭から値をポップします。
+  /// Pops a value from the top of the stack.
   ///
   /// # Returns
   ///
-  /// * `Some(T)` - ポップされた値
-  /// * `None` - スタックが空の場合
+  /// * `Some(T)` - Popped value
+  /// * `None` - If stack is empty
   pub fn pop(&self) -> Option<T> {
     self.backend.backend().pop()
   }
 
-  /// スタックの先頭の値を削除せずに参照します。
+  /// References the top value of the stack without removing it.
   ///
-  /// この操作は要素をクローンするため、`T`は[`Clone`]を実装している必要があります。
+  /// This operation clones the element, so `T` must implement [`Clone`].
   ///
   /// # Returns
   ///
-  /// * `Some(T)` - 先頭の値のクローン
-  /// * `None` - スタックが空の場合
+  /// * `Some(T)` - Clone of the top value
+  /// * `None` - If stack is empty
   pub fn peek(&self) -> Option<T>
   where
     T: Clone,
@@ -120,26 +120,26 @@ where
     self.backend.backend().peek()
   }
 
-  /// スタック内のすべての要素をクリアします。
+  /// Clears all elements in the stack.
   pub fn clear(&self) {
     self.backend.backend().clear();
   }
 
-  /// スタックに格納されている要素数を取得します。
+  /// Gets the number of elements stored in the stack.
   ///
   /// # Returns
   ///
-  /// 現在の要素数を表す[`QueueSize`]
+  /// [`QueueSize`] representing the current element count
   pub fn len(&self) -> QueueSize {
     self.backend.backend().len()
   }
 
-  /// スタックの容量を取得します。
+  /// Gets the capacity of the stack.
   ///
   /// # Returns
   ///
-  /// * `QueueSize::Bounded(n)` - 最大容量が`n`
-  /// * `QueueSize::Unbounded` - 無制限
+  /// * `QueueSize::Bounded(n)` - Maximum capacity is `n`
+  /// * `QueueSize::Unbounded` - Unlimited
   pub fn capacity(&self) -> QueueSize {
     self.backend.backend().capacity()
   }
@@ -149,10 +149,10 @@ impl<H, T> Clone for Stack<H, T>
 where
   H: StackHandle<T>,
 {
-  /// [`Stack`]のクローンを作成します。
+  /// Creates a clone of the [`Stack`].
   ///
-  /// バックエンドハンドルをクローンすることで、同じスタックを参照する
-  /// 新しいインスタンスを作成します。
+  /// Clones the backend handle to create a new instance that references
+  /// the same stack.
   fn clone(&self) -> Self {
     Self {
       backend: self.backend.clone(),
@@ -161,9 +161,9 @@ where
   }
 }
 
-/// [`StackBase`]トレイトの実装。
+/// Implementation of [`StackBase`] trait.
 ///
-/// スタックの基本的な照会操作（長さと容量の取得）を提供します。
+/// Provides basic stack query operations (retrieving length and capacity).
 impl<H, T> StackBase<T> for Stack<H, T>
 where
   H: StackHandle<T>,
@@ -177,10 +177,10 @@ where
   }
 }
 
-/// [`StackMut`]トレイトの実装。
+/// Implementation of [`StackMut`] trait.
 ///
-/// 可変参照を通じてスタックを操作するメソッドを提供します。
-/// 非可変メソッドと同じ操作を、`&mut self`レシーバで実行できます。
+/// Provides methods to manipulate the stack through mutable references.
+/// Allows the same operations as immutable methods to be performed with a `&mut self` receiver.
 impl<H, T> StackMut<T> for Stack<H, T>
 where
   H: StackHandle<T>,

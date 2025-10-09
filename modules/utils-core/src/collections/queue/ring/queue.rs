@@ -17,15 +17,15 @@ impl<H, E> RingQueue<H, E>
 where
   H: RingHandle<E>,
 {
-  /// 指定されたバックエンドハンドルから新しい`RingQueue`を作成します。
+  /// Creates a new `RingQueue` from the specified backend handle.
   ///
   /// # Arguments
   ///
-  /// * `backend` - リングキューのバックエンドハンドル
+  /// * `backend` - Backend handle for the ring queue
   ///
   /// # Returns
   ///
-  /// 新しい`RingQueue`インスタンス
+  /// New `RingQueue` instance
   pub fn new(backend: H) -> Self {
     Self {
       backend,
@@ -33,83 +33,83 @@ where
     }
   }
 
-  /// バックエンドハンドルへの参照を返します。
+  /// Returns a reference to the backend handle.
   ///
   /// # Returns
   ///
-  /// バックエンドハンドルへの不変参照
+  /// Immutable reference to the backend handle
   pub fn backend(&self) -> &H {
     &self.backend
   }
 
-  /// このキューを消費し、内部のバックエンドハンドルを返します。
+  /// Consumes this queue and returns the internal backend handle.
   ///
   /// # Returns
   ///
-  /// 内部のバックエンドハンドル
+  /// Internal backend handle
   pub fn into_backend(self) -> H {
     self.backend
   }
 
-  /// キューの動的モードを設定します。
+  /// Sets the dynamic mode of the queue.
   ///
-  /// 動的モードが有効な場合、キューは容量を超えた要素の追加時に自動的に拡張されます。
+  /// When dynamic mode is enabled, the queue automatically expands when elements are added beyond capacity.
   ///
   /// # Arguments
   ///
-  /// * `dynamic` - `true`の場合、動的モードを有効にします
+  /// * `dynamic` - If `true`, enables dynamic mode
   pub fn set_dynamic(&self, dynamic: bool) {
     self.backend.backend().set_dynamic(dynamic);
   }
 
-  /// 動的モードを設定し、このキューを返すビルダーメソッド。
+  /// Builder method that sets dynamic mode and returns this queue.
   ///
-  /// 動的モードが有効な場合、キューは容量を超えた要素の追加時に自動的に拡張されます。
+  /// When dynamic mode is enabled, the queue automatically expands when elements are added beyond capacity.
   ///
   /// # Arguments
   ///
-  /// * `dynamic` - `true`の場合、動的モードを有効にします
+  /// * `dynamic` - If `true`, enables dynamic mode
   ///
   /// # Returns
   ///
-  /// 動的モードが設定されたこのキュー
+  /// This queue with dynamic mode set
   pub fn with_dynamic(self, dynamic: bool) -> Self {
     self.set_dynamic(dynamic);
     self
   }
 
-  /// キューに要素を追加します。
+  /// Adds an element to the queue.
   ///
   /// # Arguments
   ///
-  /// * `element` - キューに追加する要素
+  /// * `element` - Element to add to the queue
   ///
   /// # Returns
   ///
-  /// * `Ok(())` - 要素が正常に追加された場合
-  /// * `Err(QueueError)` - キューが満杯で要素を追加できない場合
+  /// * `Ok(())` - If element was successfully added
+  /// * `Err(QueueError)` - If queue is full and element cannot be added
   ///
   /// # Errors
   ///
-  /// キューが満杯で動的モードが無効な場合、`QueueError::Full`が返されます。
+  /// Returns `QueueError::Full` if the queue is full and dynamic mode is disabled.
   pub fn offer(&self, element: E) -> Result<(), QueueError<E>> {
     self.backend.backend().offer(element)
   }
 
-  /// キューから要素を取り出します。
+  /// Removes an element from the queue.
   ///
   /// # Returns
   ///
-  /// * `Ok(Some(E))` - キューから取り出された要素
-  /// * `Ok(None)` - キューが空の場合
-  /// * `Err(QueueError)` - エラーが発生した場合
+  /// * `Ok(Some(E))` - Element removed from the queue
+  /// * `Ok(None)` - If queue is empty
+  /// * `Err(QueueError)` - If an error occurred
   pub fn poll(&self) -> Result<Option<E>, QueueError<E>> {
     self.backend.backend().poll()
   }
 
-  /// キューのクリーンアップを実行します。
+  /// Performs queue cleanup.
   ///
-  /// 内部バッファのメモリ整理などを行います。
+  /// Performs maintenance such as internal buffer memory optimization.
   pub fn clean_up(&self) {
     self.backend.backend().clean_up();
   }
@@ -119,13 +119,13 @@ impl<H, E> Clone for RingQueue<H, E>
 where
   H: RingHandle<E>,
 {
-  /// `RingQueue`のクローンを作成します。
+  /// Creates a clone of the `RingQueue`.
   ///
-  /// バックエンドハンドルをクローンし、新しい`RingQueue`インスタンスを返します。
+  /// Clones the backend handle and returns a new `RingQueue` instance.
   ///
   /// # Returns
   ///
-  /// このキューのクローン
+  /// Clone of this queue
   fn clone(&self) -> Self {
     Self {
       backend: self.backend.clone(),
@@ -138,20 +138,20 @@ impl<H, E> QueueBase<E> for RingQueue<H, E>
 where
   H: RingHandle<E>,
 {
-  /// キュー内の要素数を返します。
+  /// Returns the number of elements in the queue.
   ///
   /// # Returns
   ///
-  /// キュー内の現在の要素数
+  /// Current number of elements in the queue
   fn len(&self) -> QueueSize {
     self.backend.backend().len()
   }
 
-  /// キューの容量を返します。
+  /// Returns the capacity of the queue.
   ///
   /// # Returns
   ///
-  /// キューが保持できる最大要素数
+  /// Maximum number of elements the queue can hold
   fn capacity(&self) -> QueueSize {
     self.backend.backend().capacity()
   }
@@ -161,16 +161,16 @@ impl<H, E> QueueWriter<E> for RingQueue<H, E>
 where
   H: RingHandle<E>,
 {
-  /// 可変参照を使用してキューに要素を追加します。
+  /// Adds an element to the queue using a mutable reference.
   ///
   /// # Arguments
   ///
-  /// * `element` - キューに追加する要素
+  /// * `element` - Element to add to the queue
   ///
   /// # Returns
   ///
-  /// * `Ok(())` - 要素が正常に追加された場合
-  /// * `Err(QueueError)` - キューが満杯で要素を追加できない場合
+  /// * `Ok(())` - If element was successfully added
+  /// * `Err(QueueError)` - If queue is full and element cannot be added
   fn offer_mut(&mut self, element: E) -> Result<(), QueueError<E>> {
     self.offer(element)
   }
@@ -180,20 +180,20 @@ impl<H, E> QueueReader<E> for RingQueue<H, E>
 where
   H: RingHandle<E>,
 {
-  /// 可変参照を使用してキューから要素を取り出します。
+  /// Removes an element from the queue using a mutable reference.
   ///
   /// # Returns
   ///
-  /// * `Ok(Some(E))` - キューから取り出された要素
-  /// * `Ok(None)` - キューが空の場合
-  /// * `Err(QueueError)` - エラーが発生した場合
+  /// * `Ok(Some(E))` - Element removed from the queue
+  /// * `Ok(None)` - If queue is empty
+  /// * `Err(QueueError)` - If an error occurred
   fn poll_mut(&mut self) -> Result<Option<E>, QueueError<E>> {
     self.poll()
   }
 
-  /// 可変参照を使用してキューのクリーンアップを実行します。
+  /// Performs queue cleanup using a mutable reference.
   ///
-  /// 内部バッファのメモリ整理などを行います。
+  /// Performs maintenance such as internal buffer memory optimization.
   fn clean_up_mut(&mut self) {
     self.clean_up();
   }
@@ -203,34 +203,34 @@ impl<H, E> QueueRw<E> for RingQueue<H, E>
 where
   H: RingHandle<E>,
 {
-  /// 共有参照を使用してキューに要素を追加します。
+  /// Adds an element to the queue using a shared reference.
   ///
   /// # Arguments
   ///
-  /// * `element` - キューに追加する要素
+  /// * `element` - Element to add to the queue
   ///
   /// # Returns
   ///
-  /// * `Ok(())` - 要素が正常に追加された場合
-  /// * `Err(QueueError)` - キューが満杯で要素を追加できない場合
+  /// * `Ok(())` - If element was successfully added
+  /// * `Err(QueueError)` - If queue is full and element cannot be added
   fn offer(&self, element: E) -> Result<(), QueueError<E>> {
     self.offer(element)
   }
 
-  /// 共有参照を使用してキューから要素を取り出します。
+  /// Removes an element from the queue using a shared reference.
   ///
   /// # Returns
   ///
-  /// * `Ok(Some(E))` - キューから取り出された要素
-  /// * `Ok(None)` - キューが空の場合
-  /// * `Err(QueueError)` - エラーが発生した場合
+  /// * `Ok(Some(E))` - Element removed from the queue
+  /// * `Ok(None)` - If queue is empty
+  /// * `Err(QueueError)` - If an error occurred
   fn poll(&self) -> Result<Option<E>, QueueError<E>> {
     self.poll()
   }
 
-  /// 共有参照を使用してキューのクリーンアップを実行します。
+  /// Performs queue cleanup using a shared reference.
   ///
-  /// 内部バッファのメモリ整理などを行います。
+  /// Performs maintenance such as internal buffer memory optimization.
   fn clean_up(&self) {
     self.clean_up();
   }

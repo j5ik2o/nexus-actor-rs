@@ -3,105 +3,104 @@ use crate::collections::queue::QueueStorage;
 use crate::collections::{QueueError, QueueSize};
 use crate::sync::Shared;
 
-/// リングバッファベースのキューのためのバックエンド抽象化トレイト。
+/// Backend abstraction trait for ring buffer-based queues.
 ///
-/// このトレイトは、リングバッファを使用したキューの基本的な操作を定義します。
-/// 具体的な実装は、異なる同期機構や永続化戦略を使用できます。
+/// This trait defines basic operations for queues using ring buffers.
+/// Concrete implementations can use different synchronization mechanisms or persistence strategies.
 ///
-/// # 型パラメータ
+/// # Type Parameters
 ///
-/// * `E` - キューに格納される要素の型
+/// * `E` - Type of elements stored in the queue
 pub trait RingBackend<E> {
-  /// キューに要素を追加します。
+  /// Adds an element to the queue.
   ///
   /// # Arguments
   ///
-  /// * `element` - キューに追加する要素
+  /// * `element` - Element to add to the queue
   ///
   /// # Returns
   ///
-  /// * `Ok(())` - 要素の追加が成功した場合
-  /// * `Err(QueueError<E>)` - キューが満杯の場合やその他のエラーが発生した場合
+  /// * `Ok(())` - If element was successfully added
+  /// * `Err(QueueError<E>)` - If queue is full or other errors occurred
   fn offer(&self, element: E) -> Result<(), QueueError<E>>;
 
-  /// キューから要素を取り出します。
+  /// Removes an element from the queue.
   ///
   /// # Returns
   ///
-  /// * `Ok(Some(E))` - 要素が正常に取り出された場合
-  /// * `Ok(None)` - キューが空の場合
-  /// * `Err(QueueError<E>)` - エラーが発生した場合
+  /// * `Ok(Some(E))` - If element was successfully removed
+  /// * `Ok(None)` - If queue is empty
+  /// * `Err(QueueError<E>)` - If an error occurred
   fn poll(&self) -> Result<Option<E>, QueueError<E>>;
 
-  /// キューの内部状態をクリーンアップします。
+  /// Cleans up the queue's internal state.
   ///
-  /// このメソッドは、不要になったリソースの解放や、
-  /// 内部バッファの最適化などの保守作業を実行します。
+  /// This method performs maintenance tasks such as releasing unused resources
+  /// and optimizing internal buffers.
   fn clean_up(&self);
 
-  /// キューに現在格納されている要素の数を返します。
+  /// Returns the number of elements currently stored in the queue.
   ///
   /// # Returns
   ///
-  /// キューのサイズ（`QueueSize::Limited(n)` または `QueueSize::Unlimited`）
+  /// Queue size (`QueueSize::Limited(n)` or `QueueSize::Unlimited`)
   fn len(&self) -> QueueSize;
 
-  /// キューの容量（最大格納可能数）を返します。
+  /// Returns the queue capacity (maximum storable count).
   ///
   /// # Returns
   ///
-  /// キューの容量（`QueueSize::Limited(n)` または `QueueSize::Unlimited`）
+  /// Queue capacity (`QueueSize::Limited(n)` or `QueueSize::Unlimited`)
   fn capacity(&self) -> QueueSize;
 
-  /// キューの動的サイズ変更機能を有効または無効にします。
+  /// Enables or disables the queue's dynamic resizing feature.
   ///
   /// # Arguments
   ///
-  /// * `dynamic` - `true`の場合、動的サイズ変更を有効化。`false`の場合、無効化。
+  /// * `dynamic` - If `true`, enables dynamic resizing; if `false`, disables it.
   fn set_dynamic(&self, dynamic: bool);
 
-  /// キューが空かどうかを判定します。
+  /// Checks if the queue is empty.
   ///
   /// # Returns
   ///
-  /// * `true` - キューが空の場合
-  /// * `false` - キューに1つ以上の要素がある場合
+  /// * `true` - If queue is empty
+  /// * `false` - If queue has one or more elements
   fn is_empty(&self) -> bool {
     self.len() == QueueSize::Limited(0)
   }
 }
 
-/// [`RingBackend`]への参照を提供するハンドルトレイト。
+/// Handle trait that provides references to [`RingBackend`].
 ///
-/// このトレイトは、リングバッファバックエンドへの共有参照を管理するための
-/// ハンドル型を定義します。クローン可能であり、複数のスレッドから安全に
-/// アクセスできることを保証します。
+/// This trait defines handle types for managing shared references to ring buffer backends.
+/// It is cloneable and ensures safe access from multiple threads.
 ///
-/// # 型パラメータ
+/// # Type Parameters
 ///
-/// * `E` - キューに格納される要素の型
+/// * `E` - Type of elements stored in the queue
 pub trait RingHandle<E>: Shared<Self::Backend> + Clone {
-  /// このハンドルが参照するバックエンドの型。
+  /// Backend type referenced by this handle.
   ///
-  /// `?Sized`により、動的サイズのトレイトオブジェクトも許容します。
+  /// `?Sized` allows dynamically-sized trait objects.
   type Backend: RingBackend<E> + ?Sized;
 
-  /// バックエンドへの参照を取得します。
+  /// Gets a reference to the backend.
   ///
   /// # Returns
   ///
-  /// バックエンドへの不変参照
+  /// Immutable reference to the backend
   fn backend(&self) -> &Self::Backend;
 }
 
-/// リングバッファのストレージハンドルを直接操作するバックエンド実装。
+/// Backend implementation that directly operates on ring buffer storage handles.
 ///
-/// この構造体は、[`QueueHandle`]を介してリングバッファストレージに
-/// 直接アクセスする具体的なバックエンド実装を提供します。
+/// This struct provides a concrete backend implementation that directly accesses
+/// ring buffer storage via [`QueueHandle`].
 ///
-/// # 型パラメータ
+/// # Type Parameters
 ///
-/// * `S` - リングバッファのストレージハンドル型
+/// * `S` - Ring buffer storage handle type
 ///
 /// [`QueueHandle`]: crate::collections::queue::QueueHandle
 #[derive(Debug)]
@@ -110,43 +109,42 @@ pub struct RingStorageBackend<S> {
 }
 
 impl<S> RingStorageBackend<S> {
-  /// 新しい`RingStorageBackend`を作成します。
+  /// Creates a new `RingStorageBackend`.
   ///
   /// # Arguments
   ///
-  /// * `storage` - 使用するストレージハンドル
+  /// * `storage` - Storage handle to use
   ///
   /// # Returns
   ///
-  /// 新しい`RingStorageBackend`インスタンス
+  /// New `RingStorageBackend` instance
   pub const fn new(storage: S) -> Self {
     Self { storage }
   }
 
-  /// ストレージハンドルへの参照を取得します。
+  /// Gets a reference to the storage handle.
   ///
   /// # Returns
   ///
-  /// ストレージハンドルへの不変参照
+  /// Immutable reference to the storage handle
   pub fn storage(&self) -> &S {
     &self.storage
   }
 
-  /// このバックエンドを消費し、内部のストレージハンドルを返します。
+  /// Consumes this backend and returns the internal storage handle.
   ///
   /// # Returns
   ///
-  /// 内部のストレージハンドル
+  /// Internal storage handle
   pub fn into_storage(self) -> S {
     self.storage
   }
 }
 
-/// `RingStorageBackend`の[`RingBackend`]トレイト実装。
+/// [`RingBackend`] trait implementation for `RingStorageBackend`.
 ///
-/// この実装は、ストレージハンドルを介してリングバッファに対する
-/// すべての操作を委譲します。各操作は適切な読み取りまたは書き込みロックを
-/// 使用して実行されます。
+/// This implementation delegates all operations to the ring buffer via the storage handle.
+/// Each operation is executed using appropriate read or write locks.
 impl<S, E> RingBackend<E> for RingStorageBackend<S>
 where
   S: crate::collections::queue::QueueHandle<E>,

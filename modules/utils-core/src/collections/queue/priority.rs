@@ -5,42 +5,42 @@ use crate::collections::{
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 
-/// 優先度キューのレベル数
+/// Number of priority queue levels
 ///
-/// デフォルトでは8段階の優先度をサポートします。
-/// 0（最低優先度）から7（最高優先度）までの範囲です。
+/// By default, supports 8 priority levels.
+/// Ranges from 0 (lowest priority) to 7 (highest priority).
 pub const PRIORITY_LEVELS: usize = 8;
 
-/// デフォルトの優先度レベル
+/// Default priority level
 ///
-/// メッセージに優先度が指定されていない場合に使用されます。
-/// PRIORITY_LEVELS の中間値（4）がデフォルトとなります。
+/// Used when message priority is not specified.
+/// Defaults to the midpoint of PRIORITY_LEVELS (4).
 pub const DEFAULT_PRIORITY: i8 = (PRIORITY_LEVELS / 2) as i8;
 
-/// 優先度を持つメッセージのためのトレイト
+/// Trait for messages with priority
 ///
-/// このトレイトを実装することで、メッセージに優先度を付与できます。
-/// 優先度は0から7の範囲で指定され、大きい値ほど高い優先度となります。
+/// Implementing this trait allows messages to have priority.
+/// Priority is specified in the range 0 to 7, with higher values indicating higher priority.
 pub trait PriorityMessage: Element {
-  /// メッセージの優先度を取得します
+  /// Gets the message priority
   ///
   /// # Returns
   ///
-  /// * `Some(i8)` - 0から7の範囲の優先度。大きい値ほど高優先度
-  /// * `None` - 優先度が指定されていない場合、デフォルト優先度が使用されます
+  /// * `Some(i8)` - Priority in range 0 to 7; higher value = higher priority
+  /// * `None` - If priority is not specified, default priority is used
   fn get_priority(&self) -> Option<i8>;
 }
 
-/// 優先度別キュー
+/// Priority queue
 ///
-/// 複数の優先度レベルを持つキューのファサードです。
-/// メッセージを優先度に応じて適切なレベルのキューに振り分けます。
-/// 取り出し時は高い優先度のキューから順に処理されます。
+/// A facade for queues with multiple priority levels.
+/// Distributes messages to the appropriate level queue based on priority.
+/// When removing, processes from the highest priority queue first.
 ///
 /// # Type Parameters
 ///
-/// * `Q` - 各レベルで使用するキューの型。`QueueRw<E>`トレイトを実装している必要があります
-/// * `E` - キューに格納される要素の型。`PriorityMessage`トレイトを実装している必要があります
+/// * `Q` - Queue type used for each level. Must implement `QueueRw<E>` trait
+/// * `E` - Type of elements stored in queue. Must implement `PriorityMessage` trait
 #[derive(Debug)]
 pub struct PriorityQueue<Q, E>
 where
@@ -54,16 +54,16 @@ impl<Q, E> PriorityQueue<Q, E>
 where
   Q: QueueRw<E>,
 {
-  /// 新しい優先度キューを作成します
+  /// Creates a new priority queue
   ///
   /// # Arguments
   ///
-  /// * `levels` - 各優先度レベルに対応するキューのベクタ。
-  ///              インデックス0が最低優先度、最後のインデックスが最高優先度となります
+  /// * `levels` - Vector of queues corresponding to each priority level.
+  ///              Index 0 is lowest priority, last index is highest priority
   ///
   /// # Panics
   ///
-  /// `levels`が空の場合にパニックします
+  /// Panics if `levels` is empty
   pub fn new(levels: Vec<Q>) -> Self {
     assert!(!levels.is_empty(), "PriorityQueue requires at least one level");
     Self {
@@ -72,35 +72,35 @@ where
     }
   }
 
-  /// 各レベルのキューへの不変参照を取得します
+  /// Gets immutable references to queues at each level
   ///
   /// # Returns
   ///
-  /// 各優先度レベルのキューのスライス
+  /// Slice of queues for each priority level
   pub fn levels(&self) -> &[Q] {
     &self.levels
   }
 
-  /// 各レベルのキューへの可変参照を取得します
+  /// Gets mutable references to queues at each level
   ///
   /// # Returns
   ///
-  /// 各優先度レベルのキューの可変スライス
+  /// Mutable slice of queues for each priority level
   pub fn levels_mut(&mut self) -> &mut [Q] {
     &mut self.levels
   }
 
-  /// 優先度からレベルインデックスを計算します
+  /// Calculates level index from priority
   ///
-  /// 優先度が範囲外の場合は、0からmax（レベル数-1）の範囲にクランプされます。
+  /// If priority is out of range, it is clamped to the range 0 to max (number of levels - 1).
   ///
   /// # Arguments
   ///
-  /// * `priority` - メッセージの優先度。Noneの場合はデフォルト値（中間レベル）が使用されます
+  /// * `priority` - Message priority. If None, uses default value (middle level)
   ///
   /// # Returns
   ///
-  /// 0からlevels.len()-1の範囲のインデックス
+  /// Index in range 0 to levels.len()-1
   fn level_index(&self, priority: Option<i8>) -> usize {
     let levels = self.levels.len();
     let default = (levels / 2) as i8;
@@ -109,18 +109,18 @@ where
     clamped as usize
   }
 
-  /// 要素をキューに追加します
+  /// Adds an element to the queue
   ///
-  /// 要素の優先度に基づいて、適切なレベルのキューに要素を追加します。
+  /// Based on the element's priority, adds it to the appropriate level queue.
   ///
   /// # Arguments
   ///
-  /// * `element` - 追加する要素
+  /// * `element` - Element to add
   ///
   /// # Returns
   ///
-  /// * `Ok(())` - 正常に追加された場合
-  /// * `Err(QueueError)` - キューが満杯などの理由で追加できなかった場合
+  /// * `Ok(())` - If successfully added
+  /// * `Err(QueueError)` - If could not add due to reasons such as queue being full
   pub fn offer(&self, element: E) -> Result<(), QueueError<E>>
   where
     E: PriorityMessage,
@@ -129,16 +129,16 @@ where
     self.levels[idx].offer(element)
   }
 
-  /// キューから要素を取り出します
+  /// Removes an element from the queue
   ///
-  /// 最も高い優先度のキューから順に要素を取り出します。
-  /// すべてのキューが空の場合は`None`を返します。
+  /// Removes elements from the highest priority queue first.
+  /// Returns `None` if all queues are empty.
   ///
   /// # Returns
   ///
-  /// * `Ok(Some(E))` - 要素が取り出せた場合
-  /// * `Ok(None)` - すべてのキューが空の場合
-  /// * `Err(QueueError)` - エラーが発生した場合
+  /// * `Ok(Some(E))` - If element was removed
+  /// * `Ok(None)` - If all queues are empty
+  /// * `Err(QueueError)` - If an error occurred
   pub fn poll(&self) -> Result<Option<E>, QueueError<E>>
   where
     E: PriorityMessage,
@@ -152,21 +152,21 @@ where
     Ok(None)
   }
 
-  /// すべてのレベルのキューをクリーンアップします
+  /// Cleans up queues at all levels
   ///
-  /// 各キューの内部状態を整理し、不要なリソースを解放します。
+  /// Organizes internal state of each queue and releases unnecessary resources.
   pub fn clean_up(&self) {
     for queue in &self.levels {
       queue.clean_up();
     }
   }
 
-  /// すべてのレベルのキューの合計長を計算します
+  /// Calculates total length of queues at all levels
   ///
   /// # Returns
   ///
-  /// すべてのキューに格納されている要素数の合計。
-  /// いずれかのキューが無制限の場合は`QueueSize::Limitless`を返します。
+  /// Sum of number of elements stored in all queues.
+  /// Returns `QueueSize::Limitless` if any queue is unlimited.
   fn aggregate_len(&self) -> QueueSize {
     let mut total = 0usize;
     for queue in &self.levels {
@@ -178,12 +178,12 @@ where
     QueueSize::limited(total)
   }
 
-  /// すべてのレベルのキューの合計容量を計算します
+  /// Calculates total capacity of queues at all levels
   ///
   /// # Returns
   ///
-  /// すべてのキューの容量の合計。
-  /// いずれかのキューが無制限の場合は`QueueSize::Limitless`を返します。
+  /// Sum of capacities of all queues.
+  /// Returns `QueueSize::Limitless` if any queue is unlimited.
   fn aggregate_capacity(&self) -> QueueSize {
     let mut total = 0usize;
     for queue in &self.levels {
@@ -213,20 +213,20 @@ where
   Q: QueueRw<E>,
   E: PriorityMessage,
 {
-  /// すべてのレベルのキューの合計長を返します
+  /// Returns total length of queues at all levels
   ///
   /// # Returns
   ///
-  /// すべてのキューに格納されている要素数の合計
+  /// Sum of number of elements stored in all queues
   fn len(&self) -> QueueSize {
     self.aggregate_len()
   }
 
-  /// すべてのレベルのキューの合計容量を返します
+  /// Returns total capacity of queues at all levels
   ///
   /// # Returns
   ///
-  /// すべてのキューの容量の合計
+  /// Sum of capacities of all queues
   fn capacity(&self) -> QueueSize {
     self.aggregate_capacity()
   }
@@ -237,18 +237,18 @@ where
   Q: QueueRw<E>,
   E: PriorityMessage,
 {
-  /// 要素をキューに追加します（可変参照版）
+  /// Adds an element to the queue (mutable reference version)
   ///
-  /// 要素の優先度に基づいて、適切なレベルのキューに要素を追加します。
+  /// Based on the element's priority, adds it to the appropriate level queue.
   ///
   /// # Arguments
   ///
-  /// * `element` - 追加する要素
+  /// * `element` - Element to add
   ///
   /// # Returns
   ///
-  /// * `Ok(())` - 正常に追加された場合
-  /// * `Err(QueueError)` - キューが満杯などの理由で追加できなかった場合
+  /// * `Ok(())` - If successfully added
+  /// * `Err(QueueError)` - If could not add due to reasons such as queue being full
   fn offer_mut(&mut self, element: E) -> Result<(), QueueError<E>> {
     self.offer(element)
   }
@@ -259,22 +259,22 @@ where
   Q: QueueRw<E>,
   E: PriorityMessage,
 {
-  /// キューから要素を取り出します（可変参照版）
+  /// Removes an element from the queue (mutable reference version)
   ///
-  /// 最も高い優先度のキューから順に要素を取り出します。
+  /// Removes elements from the highest priority queue first.
   ///
   /// # Returns
   ///
-  /// * `Ok(Some(E))` - 要素が取り出せた場合
-  /// * `Ok(None)` - すべてのキューが空の場合
-  /// * `Err(QueueError)` - エラーが発生した場合
+  /// * `Ok(Some(E))` - If element was removed
+  /// * `Ok(None)` - If all queues are empty
+  /// * `Err(QueueError)` - If an error occurred
   fn poll_mut(&mut self) -> Result<Option<E>, QueueError<E>> {
     self.poll()
   }
 
-  /// すべてのレベルのキューをクリーンアップします（可変参照版）
+  /// Cleans up queues at all levels (mutable reference version)
   ///
-  /// 各キューの内部状態を整理し、不要なリソースを解放します。
+  /// Organizes internal state of each queue and releases unnecessary resources.
   fn clean_up_mut(&mut self) {
     self.clean_up();
   }
@@ -285,38 +285,38 @@ where
   Q: QueueRw<E>,
   E: PriorityMessage,
 {
-  /// 要素をキューに追加します
+  /// Adds an element to the queue
   ///
-  /// 要素の優先度に基づいて、適切なレベルのキューに要素を追加します。
+  /// Based on the element's priority, adds it to the appropriate level queue.
   ///
   /// # Arguments
   ///
-  /// * `element` - 追加する要素
+  /// * `element` - Element to add
   ///
   /// # Returns
   ///
-  /// * `Ok(())` - 正常に追加された場合
-  /// * `Err(QueueError)` - キューが満杯などの理由で追加できなかった場合
+  /// * `Ok(())` - If successfully added
+  /// * `Err(QueueError)` - If could not add due to reasons such as queue being full
   fn offer(&self, element: E) -> Result<(), QueueError<E>> {
     self.offer(element)
   }
 
-  /// キューから要素を取り出します
+  /// Removes an element from the queue
   ///
-  /// 最も高い優先度のキューから順に要素を取り出します。
+  /// Removes elements from the highest priority queue first.
   ///
   /// # Returns
   ///
-  /// * `Ok(Some(E))` - 要素が取り出せた場合
-  /// * `Ok(None)` - すべてのキューが空の場合
-  /// * `Err(QueueError)` - エラーが発生した場合
+  /// * `Ok(Some(E))` - If element was removed
+  /// * `Ok(None)` - If all queues are empty
+  /// * `Err(QueueError)` - If an error occurred
   fn poll(&self) -> Result<Option<E>, QueueError<E>> {
     self.poll()
   }
 
-  /// すべてのレベルのキューをクリーンアップします
+  /// Cleans up queues at all levels
   ///
-  /// 各キューの内部状態を整理し、不要なリソースを解放します。
+  /// Organizes internal state of each queue and releases unnecessary resources.
   fn clean_up(&self) {
     self.clean_up();
   }

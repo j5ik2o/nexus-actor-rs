@@ -1,160 +1,160 @@
 use super::{queue_error::QueueError, queue_size::QueueSize, QueueStorage};
 use crate::sync::Shared;
 
-/// キューの基本操作を定義する共通トレイト。
+/// Common trait defining basic queue operations.
 ///
-/// このトレイトは、キューのサイズ情報を取得するための基本的な機能を提供します。
-/// [`QueueWriter`]、[`QueueReader`]、[`QueueRw`] トレイトの基底トレイトとして機能します。
+/// This trait provides basic functionality for retrieving queue size information.
+/// It serves as the base trait for [`QueueWriter`], [`QueueReader`], and [`QueueRw`] traits.
 ///
-/// # 型パラメータ
+/// # Type Parameters
 ///
-/// * `E` - キューに格納される要素の型
+/// * `E` - Type of elements stored in the queue
 pub trait QueueBase<E> {
-  /// キューの現在のサイズを返す。
+  /// Returns the current size of the queue.
   ///
   /// # Returns
   ///
-  /// キューに現在格納されている要素数を [`QueueSize`] として返します。
+  /// Returns the current number of elements stored in the queue as [`QueueSize`].
   fn len(&self) -> QueueSize;
 
-  /// キューの容量を返す。
+  /// Returns the queue capacity.
   ///
   /// # Returns
   ///
-  /// キューが保持できる最大要素数を [`QueueSize`] として返します。
-  /// 無制限キューの場合は `QueueSize::Limitless` を返します。
+  /// Returns the maximum number of elements the queue can hold as [`QueueSize`].
+  /// Returns `QueueSize::Limitless` for unlimited queues.
   fn capacity(&self) -> QueueSize;
 
-  /// キューが空かどうかを判定する。
+  /// Checks if the queue is empty.
   ///
   /// # Returns
   ///
-  /// キューが空の場合は `true`、要素が存在する場合は `false` を返します。
+  /// Returns `true` if the queue is empty, `false` if elements exist.
   fn is_empty(&self) -> bool {
     self.len() == QueueSize::Limited(0)
   }
 }
 
-/// キューへの書き込み操作を提供するトレイト。
+/// Trait providing write operations to the queue.
 ///
-/// このトレイトは、可変参照を使用してキューに要素を追加する機能を提供します。
-/// シングルスレッド環境や、既に適切なロックが取得されている状況で使用されます。
+/// This trait provides functionality to add elements to the queue using mutable references.
+/// Used in single-threaded environments or situations where appropriate locks are already acquired.
 ///
-/// # 型パラメータ
+/// # Type Parameters
 ///
-/// * `E` - キューに格納される要素の型
+/// * `E` - Type of elements stored in the queue
 pub trait QueueWriter<E>: QueueBase<E> {
-  /// 要素をキューに追加する（可変参照版）。
+  /// Adds an element to the queue (mutable reference version).
   ///
-  /// キューに要素を追加しようと試みます。キューが満杯の場合やクローズされている場合は
-  /// エラーを返します。
+  /// Attempts to add an element to the queue. Returns an error if the queue
+  /// is full or closed.
   ///
   /// # Arguments
   ///
-  /// * `element` - キューに追加する要素
+  /// * `element` - Element to add to the queue
   ///
   /// # Returns
   ///
-  /// * `Ok(())` - 要素が正常に追加された場合
-  /// * `Err(QueueError)` - 追加に失敗した場合（満杯、クローズ済みなど）
+  /// * `Ok(())` - If element was successfully added
+  /// * `Err(QueueError)` - If addition failed (full, closed, etc.)
   fn offer_mut(&mut self, element: E) -> Result<(), QueueError<E>>;
 }
 
-/// キューからの読み取り操作を提供するトレイト。
+/// Trait providing read operations from the queue.
 ///
-/// このトレイトは、可変参照を使用してキューから要素を取り出す機能を提供します。
-/// シングルスレッド環境や、既に適切なロックが取得されている状況で使用されます。
+/// This trait provides functionality to remove elements from the queue using mutable references.
+/// Used in single-threaded environments or situations where appropriate locks are already acquired.
 ///
-/// # 型パラメータ
+/// # Type Parameters
 ///
-/// * `E` - キューに格納される要素の型
+/// * `E` - Type of elements stored in the queue
 pub trait QueueReader<E>: QueueBase<E> {
-  /// キューから要素を取り出す（可変参照版）。
+  /// Removes an element from the queue (mutable reference version).
   ///
-  /// キューの先頭要素を取り出して返します。キューが空の場合は `None` を返します。
+  /// Removes and returns the front element of the queue. Returns `None` if the queue is empty.
   ///
   /// # Returns
   ///
-  /// * `Ok(Some(element))` - 要素が正常に取り出された場合
-  /// * `Ok(None)` - キューが空の場合
-  /// * `Err(QueueError)` - 読み取りに失敗した場合
+  /// * `Ok(Some(element))` - If element was successfully removed
+  /// * `Ok(None)` - If queue is empty
+  /// * `Err(QueueError)` - If read failed
   fn poll_mut(&mut self) -> Result<Option<E>, QueueError<E>>;
 
-  /// キューのクリーンアップ処理を実行する（可変参照版）。
+  /// Performs queue cleanup processing (mutable reference version).
   ///
-  /// キューの内部状態を整理し、不要なリソースを解放します。
-  /// 実装によっては、メモリの最適化やバッファの再編成などを行います。
+  /// Organizes the queue's internal state and releases unnecessary resources.
+  /// Depending on implementation, may perform memory optimization or buffer reorganization.
   fn clean_up_mut(&mut self);
 }
 
-/// キューの読み書き操作を提供するトレイト。
+/// Trait providing read/write operations for the queue.
 ///
-/// このトレイトは、共有参照を使用してキューの読み書き操作を行う機能を提供します。
-/// マルチスレッド環境で安全に使用できるよう、内部で適切な同期機構を使用します。
+/// This trait provides functionality for queue read/write operations using shared references.
+/// Uses appropriate internal synchronization mechanisms for safe use in multithreaded environments.
 ///
-/// # 型パラメータ
+/// # Type Parameters
 ///
-/// * `E` - キューに格納される要素の型
+/// * `E` - Type of elements stored in the queue
 pub trait QueueRw<E>: QueueBase<E> {
-  /// 要素をキューに追加する（共有参照版）。
+  /// Adds an element to the queue (shared reference version).
   ///
-  /// キューに要素を追加しようと試みます。内部で適切なロックを取得して
-  /// スレッドセーフな書き込みを保証します。
+  /// Attempts to add an element to the queue. Acquires appropriate internal locks
+  /// to ensure thread-safe writes.
   ///
   /// # Arguments
   ///
-  /// * `element` - キューに追加する要素
+  /// * `element` - Element to add to the queue
   ///
   /// # Returns
   ///
-  /// * `Ok(())` - 要素が正常に追加された場合
-  /// * `Err(QueueError)` - 追加に失敗した場合（満杯、クローズ済みなど）
+  /// * `Ok(())` - If element was successfully added
+  /// * `Err(QueueError)` - If addition failed (full, closed, etc.)
   fn offer(&self, element: E) -> Result<(), QueueError<E>>;
 
-  /// キューから要素を取り出す（共有参照版）。
+  /// Removes an element from the queue (shared reference version).
   ///
-  /// キューの先頭要素を取り出して返します。内部で適切なロックを取得して
-  /// スレッドセーフな読み取りを保証します。
+  /// Removes and returns the front element of the queue. Acquires appropriate internal locks
+  /// to ensure thread-safe reads.
   ///
   /// # Returns
   ///
-  /// * `Ok(Some(element))` - 要素が正常に取り出された場合
-  /// * `Ok(None)` - キューが空の場合
-  /// * `Err(QueueError)` - 読み取りに失敗した場合
+  /// * `Ok(Some(element))` - If element was successfully removed
+  /// * `Ok(None)` - If queue is empty
+  /// * `Err(QueueError)` - If read failed
   fn poll(&self) -> Result<Option<E>, QueueError<E>>;
 
-  /// キューのクリーンアップ処理を実行する（共有参照版）。
+  /// Performs queue cleanup processing (shared reference version).
   ///
-  /// キューの内部状態を整理し、不要なリソースを解放します。
-  /// 内部で適切なロックを取得してスレッドセーフなクリーンアップを保証します。
+  /// Organizes the queue's internal state and releases unnecessary resources.
+  /// Acquires appropriate internal locks to ensure thread-safe cleanup.
   fn clean_up(&self);
 }
 
-/// キューハンドルの共通インターフェース。
+/// Common interface for queue handles.
 ///
-/// このトレイトは、キューの実装を抽象化し、異なるストレージバックエンドを
-/// 統一的に扱うためのハンドルを定義します。
-/// [`Shared`] トレイトと [`Clone`] を継承し、複数のスレッドから安全に
-/// キューにアクセスできることを保証します。
+/// This trait defines handles for abstracting queue implementations and
+/// uniformly handling different storage backends.
+/// Inherits [`Shared`] trait and [`Clone`], ensuring safe queue access
+/// from multiple threads.
 ///
-/// # 型パラメータ
+/// # Type Parameters
 ///
-/// * `E` - キューに格納される要素の型
+/// * `E` - Type of elements stored in the queue
 ///
-/// # 関連型
+/// # Associated Types
 ///
-/// * `Storage` - 内部で使用されるストレージの型。[`QueueStorage`] を実装している必要があります。
+/// * `Storage` - Type of storage used internally. Must implement [`QueueStorage`].
 pub trait QueueHandle<E>: Shared<Self::Storage> + Clone {
-  /// ストレージバックエンドの型。
+  /// Storage backend type.
   ///
-  /// このキューが使用する内部ストレージの型を定義します。
-  /// [`QueueStorage`] トレイトを実装している必要があります。
+  /// Defines the internal storage type used by this queue.
+  /// Must implement the [`QueueStorage`] trait.
   type Storage: QueueStorage<E> + ?Sized;
 
-  /// 内部ストレージへの参照を取得する。
+  /// Gets a reference to the internal storage.
   ///
   /// # Returns
   ///
-  /// このハンドルが管理するストレージへの参照を返します。
+  /// Returns a reference to the storage managed by this handle.
   fn storage(&self) -> &Self::Storage;
 }
