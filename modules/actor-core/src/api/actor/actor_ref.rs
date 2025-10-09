@@ -83,7 +83,7 @@ where
     MessageDispatcher::new(internal)
   }
 
-  pub fn request_from<S>(
+  pub(crate) fn request_from<S>(
     &self,
     message: U,
     sender: &ActorRef<S, R>,
@@ -95,7 +95,7 @@ where
     self.request_with_dispatcher(message, sender.to_dispatcher())
   }
 
-  pub fn request_with_dispatcher<S>(
+  pub(crate) fn request_with_dispatcher<S>(
     &self,
     message: U,
     sender: MessageDispatcher<S>,
@@ -106,7 +106,7 @@ where
     self.tell_with_metadata(message, metadata)
   }
 
-  pub fn request_future<Resp>(&self, message: U) -> AskResult<AskFuture<Resp>>
+  pub(crate) fn request_future<Resp>(&self, message: U) -> AskResult<AskFuture<Resp>>
   where
     Resp: Element, {
     let (future, responder) = create_ask_handles::<Resp>();
@@ -115,7 +115,7 @@ where
     Ok(future)
   }
 
-  pub fn request_future_from<Resp, S>(&self, message: U, sender: &ActorRef<S, R>) -> AskResult<AskFuture<Resp>>
+  pub(crate) fn request_future_from<Resp, S>(&self, message: U, sender: &ActorRef<S, R>) -> AskResult<AskFuture<Resp>>
   where
     Resp: Element,
     S: Element,
@@ -124,7 +124,7 @@ where
     self.request_future_with_dispatcher(message, sender.to_dispatcher())
   }
 
-  pub fn request_future_with_dispatcher<Resp, S>(
+  pub(crate) fn request_future_with_dispatcher<Resp, S>(
     &self,
     message: U,
     sender: MessageDispatcher<S>,
@@ -138,7 +138,7 @@ where
     Ok(future)
   }
 
-  pub fn request_future_with_timeout<Resp, TFut>(
+  pub(crate) fn request_future_with_timeout<Resp, TFut>(
     &self,
     message: U,
     timeout: TFut,
@@ -157,7 +157,7 @@ where
     }
   }
 
-  pub fn request_future_with_timeout_from<Resp, S, TFut>(
+  pub(crate) fn request_future_with_timeout_from<Resp, S, TFut>(
     &self,
     message: U,
     sender: &ActorRef<S, R>,
@@ -172,7 +172,7 @@ where
     self.request_future_with_timeout_dispatcher(message, sender.to_dispatcher(), timeout)
   }
 
-  pub fn request_future_with_timeout_dispatcher<Resp, S, TFut>(
+  pub(crate) fn request_future_with_timeout_dispatcher<Resp, S, TFut>(
     &self,
     message: U,
     sender: MessageDispatcher<S>,
@@ -187,6 +187,34 @@ where
     let mut timeout = Some(timeout);
     let (future, responder) = create_ask_handles::<Resp>();
     let metadata = MessageMetadata::new().with_sender(sender).with_responder(responder);
+    match self.tell_with_metadata(message, metadata) {
+      Ok(()) => Ok(ask_with_timeout(future, timeout.take().unwrap())),
+      Err(err) => Err(AskError::from(err)),
+    }
+  }
+
+  pub fn ask_with<Resp, F>(&self, factory: F) -> AskResult<AskFuture<Resp>>
+  where
+    Resp: Element,
+    F: FnOnce(MessageDispatcher<Resp>) -> U, {
+    let (future, responder) = create_ask_handles::<Resp>();
+    let responder_for_message = MessageDispatcher::new(responder.internal());
+    let message = factory(responder_for_message);
+    let metadata = MessageMetadata::new().with_responder(responder);
+    self.tell_with_metadata(message, metadata)?;
+    Ok(future)
+  }
+
+  pub fn ask_with_timeout<Resp, F, TFut>(&self, factory: F, timeout: TFut) -> AskResult<AskTimeoutFuture<Resp, TFut>>
+  where
+    Resp: Element,
+    F: FnOnce(MessageDispatcher<Resp>) -> U,
+    TFut: Future<Output = ()> + Unpin, {
+    let mut timeout = Some(timeout);
+    let (future, responder) = create_ask_handles::<Resp>();
+    let responder_for_message = MessageDispatcher::new(responder.internal());
+    let message = factory(responder_for_message);
+    let metadata = MessageMetadata::new().with_responder(responder);
     match self.tell_with_metadata(message, metadata) {
       Ok(()) => Ok(ask_with_timeout(future, timeout.take().unwrap())),
       Err(err) => Err(AskError::from(err)),

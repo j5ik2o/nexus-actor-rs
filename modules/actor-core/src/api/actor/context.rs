@@ -282,6 +282,49 @@ where
     dispatcher.dispatch_envelope(envelope).map_err(AskError::from)
   }
 
+  pub fn ask<V, Resp, F>(&mut self, target: &ActorRef<V, R>, factory: F) -> AskResult<AskFuture<Resp>>
+  where
+    V: Element,
+    Resp: Element,
+    F: FnOnce(MessageDispatcher<Resp>) -> V,
+    R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
+    R::Signal: Clone + Send + Sync + 'static, {
+    let (future, responder) = create_ask_handles::<Resp>();
+    let responder_for_message = MessageDispatcher::new(responder.internal());
+    let message = factory(responder_for_message);
+    let metadata = MessageMetadata::new()
+      .with_sender(self.self_dispatcher())
+      .with_responder(responder);
+    target.tell_with_metadata(message, metadata)?;
+    Ok(future)
+  }
+
+  pub fn ask_with_timeout<V, Resp, F, TFut>(
+    &mut self,
+    target: &ActorRef<V, R>,
+    factory: F,
+    timeout: TFut,
+  ) -> AskResult<AskTimeoutFuture<Resp, TFut>>
+  where
+    V: Element,
+    Resp: Element,
+    F: FnOnce(MessageDispatcher<Resp>) -> V,
+    TFut: Future<Output = ()> + Unpin,
+    R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
+    R::Signal: Clone + Send + Sync + 'static, {
+    let mut timeout = Some(timeout);
+    let (future, responder) = create_ask_handles::<Resp>();
+    let responder_for_message = MessageDispatcher::new(responder.internal());
+    let message = factory(responder_for_message);
+    let metadata = MessageMetadata::new()
+      .with_sender(self.self_dispatcher())
+      .with_responder(responder);
+    match target.tell_with_metadata(message, metadata) {
+      Ok(()) => Ok(ask_with_timeout(future, timeout.take().unwrap())),
+      Err(err) => Err(AskError::from(err)),
+    }
+  }
+
   pub fn request_future<V, Resp>(&mut self, target: &ActorRef<V, R>, message: V) -> AskResult<AskFuture<Resp>>
   where
     V: Element,
