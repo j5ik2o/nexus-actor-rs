@@ -218,6 +218,10 @@ impl MessageMetadata {
   pub(crate) fn from_internal(inner: InternalMessageMetadata) -> Self {
     Self { inner }
   }
+
+  pub fn internal_mut(&mut self) -> &mut InternalMessageMetadata {
+    &mut self.inner
+  }
 }
 
 /// ユーザーメッセージとメタデータを保持するラッパー。
@@ -252,6 +256,10 @@ impl<U> UserMessage<U> {
 
   pub fn into_parts(self) -> (U, MessageMetadata) {
     (self.message, MessageMetadata::from_internal(self.metadata))
+  }
+
+  pub fn metadata_mut(&mut self) -> &mut InternalMessageMetadata {
+    &mut self.metadata
   }
 }
 
