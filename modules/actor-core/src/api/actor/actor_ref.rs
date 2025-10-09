@@ -9,6 +9,10 @@ use nexus_utils_core_rs::{Element, QueueError, DEFAULT_PRIORITY};
 use super::{ask::create_ask_handles, ask_with_timeout, AskError, AskFuture, AskResult, AskTimeoutFuture};
 use crate::api::{InternalMessageSender, MessageEnvelope, MessageMetadata, MessageSender};
 
+/// 型付きアクター参照。
+///
+/// メールボックスにユーザーメッセージやシステムメッセージを送信したり、
+/// `ask` 系 API で応答を受け取るときに利用する。
 #[derive(Clone)]
 pub struct ActorRef<U, R>
 where
@@ -27,6 +31,7 @@ where
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
   R::Signal: Clone,
 {
+  /// 内部参照から新しい `ActorRef` を生成する。
   pub(crate) fn new(inner: InternalActorRef<DynMessage, R>) -> Self {
     Self {
       inner,
@@ -34,14 +39,17 @@ where
     }
   }
 
+  /// ユーザーメッセージを動的メッセージへラップする。
   pub(crate) fn wrap_user(message: U) -> DynMessage {
     DynMessage::new(MessageEnvelope::user(message))
   }
 
+  /// メタデータ付きのユーザーメッセージを動的メッセージへラップする。
   pub(crate) fn wrap_user_with_metadata(message: U, metadata: MessageMetadata) -> DynMessage {
     DynMessage::new(MessageEnvelope::user_with_metadata(message, metadata))
   }
 
+  /// 既にラップ済みのメッセージを優先度付きで送信する。
   fn send_envelope(
     &self,
     dyn_message: DynMessage,
@@ -106,6 +114,7 @@ where
     self.tell_with_metadata(message, metadata)
   }
 
+  /// 応答チャネルを内部で生成し、`message` を送って `AskFuture` を返す。
   pub(crate) fn request_future<Resp>(&self, message: U) -> AskResult<AskFuture<Resp>>
   where
     Resp: Element, {
@@ -115,6 +124,7 @@ where
     Ok(future)
   }
 
+  /// 送信元のアクター参照を指定して `ask` を発行する。
   pub(crate) fn request_future_from<Resp, S>(&self, message: U, sender: &ActorRef<S, R>) -> AskResult<AskFuture<Resp>>
   where
     Resp: Element,
@@ -124,6 +134,7 @@ where
     self.request_future_with_dispatcher(message, sender.to_dispatcher())
   }
 
+  /// 任意のディスパッチャを送信元として `ask` を発行する。
   pub(crate) fn request_future_with_dispatcher<Resp, S>(
     &self,
     message: U,

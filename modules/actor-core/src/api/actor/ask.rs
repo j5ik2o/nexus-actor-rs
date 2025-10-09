@@ -12,9 +12,11 @@ use crate::PriorityEnvelope;
 use futures::task::AtomicWaker;
 use nexus_utils_core_rs::{Element, QueueError};
 
+/// `ask` 操作の結果を `Result` で表した型エイリアス。
 pub type AskResult<T> = Result<T, AskError>;
 
 #[derive(Debug)]
+/// `ask` 処理で発生し得るエラー。
 pub enum AskError {
   MissingResponder,
   SendFailed(QueueError<PriorityEnvelope<DynMessage>>),
@@ -46,6 +48,7 @@ const STATE_READY: u8 = 1;
 const STATE_CANCELLED: u8 = 2;
 const STATE_RESPONDER_DROPPED: u8 = 3;
 
+/// `AskFuture` とレスポンダーが共有する内部状態。
 struct AskShared<Resp> {
   state: AtomicU8,
   value: UnsafeCell<Option<Resp>>,
@@ -114,6 +117,7 @@ impl<Resp> AskShared<Resp> {
 unsafe impl<Resp: Send> Send for AskShared<Resp> {}
 unsafe impl<Resp: Send> Sync for AskShared<Resp> {}
 
+/// `ask` の応答を待ち受ける Future。
 pub struct AskFuture<Resp> {
   shared: Arc<AskShared<Resp>>,
 }
@@ -160,6 +164,7 @@ unsafe impl<Resp> Send for AskFuture<Resp> where Resp: Send {}
 unsafe impl<Resp> Sync for AskFuture<Resp> where Resp: Send {}
 impl<Resp> Unpin for AskFuture<Resp> {}
 
+/// タイムアウト制御付きの `AskFuture` ラッパー。
 pub struct AskTimeoutFuture<Resp, TFut> {
   ask: Option<AskFuture<Resp>>,
   timeout: Option<TFut>,
