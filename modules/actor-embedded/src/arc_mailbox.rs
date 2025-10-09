@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 use alloc::boxed::Box;
 
 use core::future::Future;
@@ -12,10 +14,8 @@ use nexus_actor_core_rs::{
   Mailbox, MailboxFactory, MailboxOptions, MailboxPair, MailboxSignal, QueueMailbox, QueueMailboxProducer,
   QueueMailboxRecv,
 };
-use nexus_utils_embedded_rs::collections::queue::mpsc::ArcMpscUnboundedQueue;
-use nexus_utils_embedded_rs::{Element, QueueError, QueueSize};
-
-use nexus_utils_embedded_rs::sync::ArcShared;
+use nexus_utils_embedded_rs::queue::mpsc::ArcMpscUnboundedQueue;
+use nexus_utils_embedded_rs::{ArcShared, Element, QueueError, QueueSize};
 
 #[derive(Clone)]
 pub struct ArcMailbox<M, RM = CriticalSectionRawMutex>
@@ -33,11 +33,19 @@ where
   inner: QueueMailboxProducer<ArcMpscUnboundedQueue<M, RM>, ArcSignal<RM>>,
 }
 
-#[derive(Clone)]
 pub struct ArcMailboxFactory<RM = CriticalSectionRawMutex>
 where
   RM: RawMutex, {
   _marker: PhantomData<RM>,
+}
+
+impl<RM> Clone for ArcMailboxFactory<RM>
+where
+  RM: RawMutex,
+{
+  fn clone(&self) -> Self {
+    Self::new()
+  }
 }
 
 impl<RM> Default for ArcMailboxFactory<RM>

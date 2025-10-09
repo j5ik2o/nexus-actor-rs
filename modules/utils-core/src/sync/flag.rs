@@ -1,11 +1,12 @@
 use core::fmt::{self, Debug, Formatter};
 
-#[cfg(feature = "alloc")]
+#[cfg(all(feature = "alloc", not(target_has_atomic = "ptr")))]
+use alloc::rc::Rc;
+#[cfg(all(feature = "alloc", target_has_atomic = "ptr"))]
 use alloc::sync::Arc;
-
-#[cfg(not(feature = "alloc"))]
+#[cfg(any(not(feature = "alloc"), all(feature = "alloc", not(target_has_atomic = "ptr"))))]
 use core::cell::Cell;
-#[cfg(feature = "alloc")]
+#[cfg(all(feature = "alloc", target_has_atomic = "ptr"))]
 use core::sync::atomic::{AtomicBool, Ordering};
 
 /// Structure providing a thread-safe boolean flag
@@ -33,8 +34,10 @@ use core::sync::atomic::{AtomicBool, Ordering};
 /// ```
 #[derive(Clone)]
 pub struct Flag {
-  #[cfg(feature = "alloc")]
+  #[cfg(all(feature = "alloc", target_has_atomic = "ptr"))]
   inner: Arc<AtomicBool>,
+  #[cfg(all(feature = "alloc", not(target_has_atomic = "ptr")))]
+  inner: Rc<Cell<bool>>,
   #[cfg(not(feature = "alloc"))]
   inner: Cell<bool>,
 }
@@ -55,10 +58,17 @@ impl Flag {
   /// assert!(flag.get());
   /// ```
   pub fn new(value: bool) -> Self {
-    #[cfg(feature = "alloc")]
+    #[cfg(all(feature = "alloc", target_has_atomic = "ptr"))]
     {
       Self {
         inner: Arc::new(AtomicBool::new(value)),
+      }
+    }
+
+    #[cfg(all(feature = "alloc", not(target_has_atomic = "ptr")))]
+    {
+      Self {
+        inner: Rc::new(Cell::new(value)),
       }
     }
 
@@ -86,9 +96,14 @@ impl Flag {
   /// assert!(flag.get());
   /// ```
   pub fn set(&self, value: bool) {
-    #[cfg(feature = "alloc")]
+    #[cfg(all(feature = "alloc", target_has_atomic = "ptr"))]
     {
       self.inner.store(value, Ordering::SeqCst);
+    }
+
+    #[cfg(all(feature = "alloc", not(target_has_atomic = "ptr")))]
+    {
+      self.inner.set(value);
     }
 
     #[cfg(not(feature = "alloc"))]
@@ -112,9 +127,14 @@ impl Flag {
   /// assert!(flag.get());
   /// ```
   pub fn get(&self) -> bool {
-    #[cfg(feature = "alloc")]
+    #[cfg(all(feature = "alloc", target_has_atomic = "ptr"))]
     {
       self.inner.load(Ordering::SeqCst)
+    }
+
+    #[cfg(all(feature = "alloc", not(target_has_atomic = "ptr")))]
+    {
+      return self.inner.get();
     }
 
     #[cfg(not(feature = "alloc"))]

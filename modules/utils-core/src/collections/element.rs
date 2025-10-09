@@ -1,7 +1,9 @@
 use core::fmt::Debug;
 
+#[cfg(all(feature = "alloc", target_has_atomic = "ptr"))]
+use alloc::sync::Arc;
 #[cfg(feature = "alloc")]
-use alloc::{boxed::Box, string::String, sync::Arc};
+use alloc::{boxed::Box, string::String};
 
 /// Fundamental constraints for elements that can be stored in collections such as queues and stacks.
 ///
@@ -25,7 +27,7 @@ impl Element for String {}
 #[cfg(feature = "alloc")]
 impl<T> Element for Box<T> where T: Debug + Send + Sync + 'static {}
 
-#[cfg(feature = "alloc")]
+#[cfg(all(feature = "alloc", target_has_atomic = "ptr"))]
 impl<T> Element for Arc<T> where T: Debug + Send + Sync + 'static {}
 
 impl<T> Element for Option<T> where T: Debug + Send + Sync + 'static {}
