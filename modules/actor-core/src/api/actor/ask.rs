@@ -7,7 +7,7 @@ use core::sync::atomic::{AtomicU8, Ordering};
 use core::task::{Context, Poll};
 
 use crate::api::{InternalMessageSender, MessageEnvelope, MessageSender};
-use crate::runtime::message::DynMessage;
+use crate::runtime::message::{take_metadata, DynMessage};
 use crate::PriorityEnvelope;
 use futures::task::AtomicWaker;
 use nexus_utils_core_rs::{Element, QueueError};
@@ -234,7 +234,10 @@ where
       .unwrap_or_else(|_| panic!("ask responder received mismatched message type"));
     match envelope {
       MessageEnvelope::User(user) => {
-        let (value, _metadata) = user.into_parts();
+        let (value, metadata_key) = user.into_parts();
+        if let Some(key) = metadata_key {
+          let _ = take_metadata(key);
+        }
         if !dispatch_state.complete(value) {
           // 応答先がキャンセル済みの場合は値を破棄
         }

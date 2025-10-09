@@ -35,11 +35,10 @@
   - `PriorityEnvelope` にはキーのみ埋め込み、`ActorCell::dispatch_envelope` でキーからメタデータを取り出し、`Context::with_metadata` に渡す。
   - 処理完了後は必ずキーを解放し、リーク防止のユニットテストを追加する。
 - 想定変更箇所:
-  - `modules/actor-core/src/api/actor/actor_ref.rs`: `wrap_user_with_metadata` でキーを取得し `PriorityEnvelope` へ埋め込み。
-  - `modules/actor-core/src/runtime/mailbox/messages.rs`: `PriorityEnvelope` に `metadata_key: Option<MetadataKey>` を追加。
+  - `modules/actor-core/src/api/actor/actor_ref.rs`: `wrap_user_with_metadata` でキーを取得し `MessageEnvelope::User` に埋め込む。
   - `modules/actor-core/src/runtime/message/mod.rs` 付近に `MetadataTable`（Slab 管理）の新モジュールを追加。
   - `modules/actor-core/src/runtime/scheduler/actor_cell.rs`: `dispatch_envelope` でキー解決とクリーンアップを実施。
-  - `modules/actor-core/src/api/messaging/message_envelope.rs`: `UserMessage` はメタデータを `Arc` キーへ移譲し、保持コストを削減。
+  - `modules/actor-core/src/api/messaging/message_envelope.rs`: `UserMessage` はメタデータをキー参照に置き換え、保持コストを削減。
 - 検証タスク:
   - enqueue/dequeue パスでキー管理が O(1) であることをベンチマーク（`criterion` などを利用）。
   - キー未解放の検出と Panic ハンドリング時の挙動確認。

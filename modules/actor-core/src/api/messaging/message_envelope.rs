@@ -1,7 +1,7 @@
 use alloc::sync::Arc;
 
 use crate::runtime::context::InternalActorRef;
-use crate::runtime::message::DynMessage;
+use crate::runtime::message::{store_metadata, DynMessage, MetadataKey};
 use crate::SystemMessage;
 use crate::{MailboxFactory, PriorityEnvelope};
 use core::marker::PhantomData;
@@ -210,39 +210,32 @@ impl MessageMetadata {
   pub fn is_empty(&self) -> bool {
     self.inner.sender.is_none() && self.inner.responder.is_none()
   }
-
-  pub(crate) fn into_internal(self) -> InternalMessageMetadata {
-    self.inner
-  }
-
-  pub(crate) fn from_internal(inner: InternalMessageMetadata) -> Self {
-    Self { inner }
-  }
-
-  pub fn internal_mut(&mut self) -> &mut InternalMessageMetadata {
-    &mut self.inner
-  }
 }
 
 /// ユーザーメッセージとメタデータを保持するラッパー。
 #[derive(Debug, Clone)]
 pub struct UserMessage<U> {
   message: U,
-  metadata: InternalMessageMetadata,
+  metadata_key: Option<MetadataKey>,
 }
 
 impl<U> UserMessage<U> {
   pub fn new(message: U) -> Self {
     Self {
       message,
-      metadata: InternalMessageMetadata::default(),
+      metadata_key: None,
     }
   }
 
   pub fn with_metadata(message: U, metadata: MessageMetadata) -> Self {
-    Self {
-      message,
-      metadata: metadata.into_internal(),
+    if metadata.is_empty() {
+      Self::new(message)
+    } else {
+      let key = store_metadata(metadata);
+      Self {
+        message,
+        metadata_key: Some(key),
+      }
     }
   }
 
@@ -250,16 +243,12 @@ impl<U> UserMessage<U> {
     &self.message
   }
 
-  pub fn metadata(&self) -> MessageMetadata {
-    MessageMetadata::from_internal(self.metadata.clone())
+  pub fn metadata_key(&self) -> Option<MetadataKey> {
+    self.metadata_key
   }
 
-  pub fn into_parts(self) -> (U, MessageMetadata) {
-    (self.message, MessageMetadata::from_internal(self.metadata))
-  }
-
-  pub fn metadata_mut(&mut self) -> &mut InternalMessageMetadata {
-    &mut self.metadata
+  pub fn into_parts(self) -> (U, Option<MetadataKey>) {
+    (self.message, self.metadata_key)
   }
 }
 
