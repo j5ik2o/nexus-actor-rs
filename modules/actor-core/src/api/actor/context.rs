@@ -252,7 +252,7 @@ where
     S: Element,
     R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
     R::Signal: Clone + Send + Sync + 'static, {
-    let metadata = MessageMetadata::new(Some(sender.to_dispatcher()), None);
+    let metadata = MessageMetadata::new(Some(sender.to_internal_dispatcher()), None);
     target.tell_with_metadata(message, metadata)
   }
 
