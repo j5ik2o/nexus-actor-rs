@@ -11,7 +11,10 @@ mod api;
 mod runtime;
 
 pub use api::*;
+pub use runtime::mailbox::{PriorityEnvelope, SystemMessage};
 pub use runtime::message::{store_metadata, take_metadata, DynMessage, MetadataKey};
+pub use runtime::scheduler::{ReceiveTimeoutScheduler, ReceiveTimeoutSchedulerFactory};
+pub type MapSystemFn<M> = dyn Fn(SystemMessage) -> M + Send + Sync;
 
 /// Minimal actor loop that waits for messages, handles them, and yields control.
 ///

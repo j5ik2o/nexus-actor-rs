@@ -5,6 +5,7 @@ use alloc::sync::Arc;
 use alloc::vec;
 use alloc::vec::Vec;
 use core::any::TypeId;
+use core::cell::RefCell;
 #[cfg(feature = "std")]
 use core::fmt;
 use core::marker::PhantomData;
@@ -23,10 +24,12 @@ use crate::{Mailbox, SystemMessage};
 use crate::{MailboxFactory, PriorityEnvelope, QueueMailbox, QueueMailboxProducer};
 use nexus_utils_core_rs::{Element, QueueError, QueueRw};
 
+use super::{ReceiveTimeoutScheduler, ReceiveTimeoutSchedulerFactory};
+
 pub(crate) struct ActorCell<M, R, Strat>
 where
   M: Element,
-  R: MailboxFactory + Clone,
+  R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
   Strat: GuardianStrategy<M, R>, {
@@ -42,12 +45,14 @@ where
   handler: Box<ActorHandlerFn<M, R>>,
   _strategy: PhantomData<Strat>,
   stopped: bool,
+  receive_timeout_factory: Option<Arc<dyn ReceiveTimeoutSchedulerFactory<M, R>>>,
+  receive_timeout_scheduler: Option<RefCell<Box<dyn ReceiveTimeoutScheduler>>>,
 }
 
 impl<M, R, Strat> ActorCell<M, R, Strat>
 where
   M: Element,
-  R: MailboxFactory + Clone,
+  R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
   Strat: GuardianStrategy<M, R>,
@@ -63,8 +68,9 @@ where
     sender: QueueMailboxProducer<R::Queue<PriorityEnvelope<M>>, R::Signal>,
     supervisor: Box<dyn Supervisor<M>>,
     handler: Box<ActorHandlerFn<M, R>>,
+    receive_timeout_factory: Option<Arc<dyn ReceiveTimeoutSchedulerFactory<M, R>>>,
   ) -> Self {
-    Self {
+    let mut cell = Self {
       actor_id,
       map_system,
       watchers,
@@ -76,7 +82,11 @@ where
       handler,
       _strategy: PhantomData,
       stopped: false,
-    }
+      receive_timeout_factory: None,
+      receive_timeout_scheduler: None,
+    };
+    cell.configure_receive_timeout_factory(receive_timeout_factory);
+    cell
   }
 
   fn collect_envelopes(&mut self) -> Result<Vec<PriorityEnvelope<M>>, QueueError<PriorityEnvelope<M>>> {
@@ -167,11 +177,13 @@ where
       return Ok(());
     }
 
+    let influences_receive_timeout = envelope.system_message().is_none();
     let (message, priority) = envelope.into_parts();
     self.supervisor.before_handle();
     let mut pending_specs = Vec::new();
     #[cfg(feature = "std")]
     let result = catch_unwind(AssertUnwindSafe(|| {
+      let receive_timeout = self.receive_timeout_scheduler.as_ref();
       let mut ctx = ActorContext::new(
         &self.runtime,
         &self.sender,
@@ -181,14 +193,17 @@ where
         self.actor_path.clone(),
         self.actor_id,
         &mut self.watchers,
+        receive_timeout,
       );
       ctx.enter_priority(priority);
       (self.handler)(&mut ctx, message);
+      ctx.notify_receive_timeout_activity(influences_receive_timeout);
       ctx.exit_priority();
     }));
 
     #[cfg(not(feature = "std"))]
     {
+      let receive_timeout = self.receive_timeout_scheduler.as_ref();
       let mut ctx = ActorContext::new(
         &self.runtime,
         &self.sender,
@@ -198,9 +213,11 @@ where
         self.actor_path.clone(),
         self.actor_id,
         &mut self.watchers,
+        receive_timeout,
       );
       ctx.enter_priority(priority);
       (self.handler)(&mut ctx, message);
+      ctx.notify_receive_timeout_activity(influences_receive_timeout);
       ctx.exit_priority();
       self.supervisor.after_handle();
       for spec in pending_specs.into_iter() {
@@ -241,12 +258,32 @@ where
     self.stopped
   }
 
+  pub(super) fn configure_receive_timeout_factory(
+    &mut self,
+    factory: Option<Arc<dyn ReceiveTimeoutSchedulerFactory<M, R>>>,
+  ) {
+    if let Some(cell) = self.receive_timeout_scheduler.as_ref() {
+      cell.borrow_mut().cancel();
+    }
+    self.receive_timeout_scheduler = None;
+    self.receive_timeout_factory = factory.clone();
+    if let Some(factory_arc) = factory {
+      let scheduler = factory_arc.create(self.sender.clone(), self.map_system.clone());
+      self.receive_timeout_scheduler = Some(RefCell::new(scheduler));
+    }
+  }
+
   fn mark_stopped(&mut self, guardian: &mut Guardian<M, R, Strat>) {
     if self.stopped {
       return;
     }
 
     self.stopped = true;
+    if let Some(cell) = self.receive_timeout_scheduler.as_ref() {
+      cell.borrow_mut().cancel();
+    }
+    self.receive_timeout_scheduler = None;
+    self.receive_timeout_factory = None;
     self.mailbox.close();
     let _ = guardian.remove_child(self.actor_id);
     self.watchers.clear();
@@ -286,6 +323,7 @@ where
       sender,
       supervisor,
       handler,
+      self.receive_timeout_factory.clone(),
     );
     new_children.push(cell);
     Ok(())

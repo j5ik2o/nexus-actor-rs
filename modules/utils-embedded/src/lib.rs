@@ -5,11 +5,13 @@ extern crate alloc;
 pub(crate) mod collections;
 pub(crate) mod concurrent;
 pub(crate) mod sync;
+pub(crate) mod timing;
 
 pub use nexus_utils_core_rs::{
-  Element, MpscHandle, PriorityMessage, QueueBase, QueueError, QueueReader, QueueRw, QueueRwHandle, QueueSize,
-  QueueStorage, QueueWriter, RingBackend, RingBuffer, RingQueue, RingStorageBackend, Shared, Stack, StackBackend,
-  StackHandle, StackStorage, StackStorageBackend, StateCell, DEFAULT_CAPACITY, DEFAULT_PRIORITY, PRIORITY_LEVELS,
+  DeadlineTimer, DeadlineTimerError, DeadlineTimerExpired, DeadlineTimerKey, DeadlineTimerKeyAllocator, Element,
+  MpscHandle, PriorityMessage, QueueBase, QueueError, QueueReader, QueueRw, QueueRwHandle, QueueSize, QueueStorage,
+  QueueWriter, RingBackend, RingBuffer, RingQueue, RingStorageBackend, Shared, Stack, StackBackend, StackHandle,
+  StackStorage, StackStorageBackend, StateCell, TimerDeadline, DEFAULT_CAPACITY, DEFAULT_PRIORITY, PRIORITY_LEVELS,
 };
 
 pub use collections::*;
@@ -26,8 +28,10 @@ pub use concurrent::{
   RcSynchronized, RcSynchronizedRw, RcWaitGroup, RcWaitGroupBackend,
 };
 pub use sync::*;
+pub use timing::ManualDeadlineTimer;
 
 pub mod prelude {
+  pub use super::ManualDeadlineTimer;
   #[cfg(feature = "arc")]
   pub use super::{
     ArcCsAsyncBarrier, ArcCsCountDownLatch, ArcCsSynchronized, ArcCsSynchronizedRw, ArcCsWaitGroup,
@@ -48,9 +52,10 @@ pub mod prelude {
   #[cfg(feature = "rc")]
   pub use super::{RcShared, RcStateCell};
   pub use nexus_utils_core_rs::{
-    Element, MpscHandle, PriorityMessage, QueueBase, QueueError, QueueReader, QueueRw, QueueRwHandle, QueueSize,
-    QueueStorage, QueueWriter, RingBackend, RingBuffer, RingQueue, RingStorageBackend, Shared, Stack, StackBackend,
-    StackBase, StackBuffer, StackError, StackHandle, StackMut, StackStorage, StackStorageBackend, StateCell,
+    DeadlineTimer, DeadlineTimerError, DeadlineTimerExpired, DeadlineTimerKey, DeadlineTimerKeyAllocator, Element,
+    MpscHandle, PriorityMessage, QueueBase, QueueError, QueueReader, QueueRw, QueueRwHandle, QueueSize, QueueStorage,
+    QueueWriter, RingBackend, RingBuffer, RingQueue, RingStorageBackend, Shared, Stack, StackBackend, StackBase,
+    StackBuffer, StackError, StackHandle, StackMut, StackStorage, StackStorageBackend, StateCell, TimerDeadline,
     DEFAULT_CAPACITY, DEFAULT_PRIORITY, PRIORITY_LEVELS,
   };
 }

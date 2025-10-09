@@ -70,10 +70,3 @@ pub fn store_metadata(metadata: MessageMetadata) -> MetadataKey {
 pub fn take_metadata(key: MetadataKey) -> Option<MessageMetadata> {
   global_table().take(key)
 }
-
-#[cfg(test)]
-pub(crate) fn outstanding_metadata_count() -> usize {
-  let table = global_table();
-  let guard = table.inner.lock();
-  guard.entries.iter().filter(|entry| entry.is_some()).count()
-}

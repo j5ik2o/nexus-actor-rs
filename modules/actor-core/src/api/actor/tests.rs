@@ -8,7 +8,7 @@ use super::{ask_with_timeout, AskError};
 use crate::api::guardian::AlwaysRestart;
 use crate::api::{InternalMessageSender, MessageEnvelope, MessageMetadata, MessageSender};
 use crate::runtime::mailbox::test_support::TestMailboxFactory;
-use crate::runtime::message::{outstanding_metadata_count, take_metadata, DynMessage};
+use crate::runtime::message::{take_metadata, DynMessage};
 use crate::ActorId;
 use crate::MailboxOptions;
 use crate::PriorityEnvelope;
@@ -173,13 +173,14 @@ fn test_typed_actor_handles_system_stop() {
 
 #[test]
 fn user_message_releases_metadata_on_drop() {
-  let before = outstanding_metadata_count();
-  {
-    let metadata = MessageMetadata::new().with_sender(noop_sender::<ParentMessage>());
-    let envelope = MessageEnvelope::user_with_metadata(ParentMessage("ping".into()), metadata);
-    drop(envelope);
-  }
-  assert_eq!(outstanding_metadata_count(), before);
+  let metadata = MessageMetadata::new().with_sender(noop_sender::<ParentMessage>());
+  let envelope = MessageEnvelope::user_with_metadata(ParentMessage("ping".into()), metadata);
+  let key = match &envelope {
+    MessageEnvelope::User(user) => user.metadata_key().expect("metadata key expected"),
+    MessageEnvelope::System(_) => unreachable!(),
+  };
+  drop(envelope);
+  assert!(take_metadata(key).is_none(), "metadata key should be released on drop");
 }
 
 #[test]

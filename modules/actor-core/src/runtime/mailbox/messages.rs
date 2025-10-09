@@ -22,6 +22,7 @@ pub enum SystemMessage {
   Suspend,
   Resume,
   Escalate(FailureInfo),
+  ReceiveTimeout,
 }
 
 impl SystemMessage {
@@ -34,6 +35,7 @@ impl SystemMessage {
       SystemMessage::Restart => DEFAULT_PRIORITY + 11,
       SystemMessage::Suspend | SystemMessage::Resume => DEFAULT_PRIORITY + 9,
       SystemMessage::Escalate(_) => DEFAULT_PRIORITY + 13,
+      SystemMessage::ReceiveTimeout => DEFAULT_PRIORITY + 8,
     }
   }
 }

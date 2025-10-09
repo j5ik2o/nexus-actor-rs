@@ -9,6 +9,7 @@ use crate::SystemMessage;
 use alloc::{boxed::Box, string::String, sync::Arc};
 use core::future::Future;
 use core::marker::PhantomData;
+use core::time::Duration;
 use nexus_utils_core_rs::{Element, QueueError, DEFAULT_PRIORITY};
 
 use super::{
@@ -220,6 +221,18 @@ where
 
   pub fn unregister_watcher(&mut self, watcher: ActorId) {
     self.inner.unregister_watcher(watcher);
+  }
+
+  pub fn has_receive_timeout_support(&self) -> bool {
+    self.inner.has_receive_timeout_scheduler()
+  }
+
+  pub fn set_receive_timeout(&mut self, duration: Duration) -> bool {
+    self.inner.set_receive_timeout(duration)
+  }
+
+  pub fn cancel_receive_timeout(&mut self) -> bool {
+    self.inner.cancel_receive_timeout()
   }
 
   pub fn inner(&mut self) -> &mut ActorContext<'ctx, DynMessage, R, dyn Supervisor<DynMessage>> {

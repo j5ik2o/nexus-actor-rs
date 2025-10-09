@@ -19,12 +19,13 @@ use futures::FutureExt;
 use nexus_utils_core_rs::{Element, QueueError};
 
 use super::actor_cell::ActorCell;
+use super::ReceiveTimeoutSchedulerFactory;
 
 /// 優先度付きメールボックスを前提とした単純なスケジューラ実装。
 pub struct PriorityScheduler<M, R, Strat = AlwaysRestart>
 where
   M: Element,
-  R: MailboxFactory + Clone,
+  R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
   Strat: GuardianStrategy<M, R>, {
@@ -33,13 +34,14 @@ where
   actors: Vec<ActorCell<M, R, Strat>>,
   escalations: Vec<FailureInfo>,
   escalation_sink: CompositeEscalationSink<M, R>,
+  receive_timeout_factory: Option<Arc<dyn ReceiveTimeoutSchedulerFactory<M, R>>>,
 }
 
 #[allow(dead_code)]
 impl<M, R> PriorityScheduler<M, R, AlwaysRestart>
 where
   M: Element,
-  R: MailboxFactory + Clone,
+  R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
 {
@@ -50,6 +52,7 @@ where
       actors: Vec::new(),
       escalations: Vec::new(),
       escalation_sink: CompositeEscalationSink::new(),
+      receive_timeout_factory: None,
     }
   }
 
@@ -62,6 +65,7 @@ where
       actors: Vec::new(),
       escalations: Vec::new(),
       escalation_sink: CompositeEscalationSink::new(),
+      receive_timeout_factory: None,
     }
   }
 }
@@ -70,7 +74,7 @@ where
 impl<M, R, Strat> PriorityScheduler<M, R, Strat>
 where
   M: Element,
-  R: MailboxFactory + Clone,
+  R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
   Strat: GuardianStrategy<M, R>,
@@ -105,6 +109,7 @@ where
       sender,
       supervisor,
       handler_box,
+      self.receive_timeout_factory.clone(),
     );
     self.actors.push(cell);
     Ok(control_ref)
@@ -194,6 +199,13 @@ where
   /// Ready キューに存在するメッセージを 1 サイクル分処理する。処理が行われた場合は true。
   pub fn drain_ready(&mut self) -> Result<bool, QueueError<PriorityEnvelope<M>>> {
     self.drain_ready_cycle()
+  }
+
+  pub fn set_receive_timeout_factory(&mut self, factory: Option<Arc<dyn ReceiveTimeoutSchedulerFactory<M, R>>>) {
+    self.receive_timeout_factory = factory.clone();
+    for actor in &mut self.actors {
+      actor.configure_receive_timeout_factory(factory.clone());
+    }
   }
 
   pub fn on_escalation<F>(&mut self, handler: F)

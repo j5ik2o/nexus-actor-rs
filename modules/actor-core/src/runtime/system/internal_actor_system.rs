@@ -1,7 +1,9 @@
 use core::convert::Infallible;
 
+use alloc::sync::Arc;
+
 use crate::runtime::guardian::{AlwaysRestart, GuardianStrategy};
-use crate::runtime::scheduler::PriorityScheduler;
+use crate::runtime::scheduler::{PriorityScheduler, ReceiveTimeoutSchedulerFactory};
 use crate::{FailureEventListener, MailboxFactory, PriorityEnvelope};
 use nexus_utils_core_rs::{Element, QueueError};
 
@@ -71,6 +73,10 @@ where
 
   pub fn set_root_event_listener(&mut self, listener: Option<FailureEventListener>) {
     self.scheduler.set_root_event_listener(listener);
+  }
+
+  pub fn set_receive_timeout_factory(&mut self, factory: Option<Arc<dyn ReceiveTimeoutSchedulerFactory<M, R>>>) {
+    self.scheduler.set_receive_timeout_factory(factory);
   }
 
   pub fn drain_ready(&mut self) -> Result<bool, QueueError<PriorityEnvelope<M>>> {

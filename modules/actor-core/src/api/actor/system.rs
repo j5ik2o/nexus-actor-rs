@@ -8,6 +8,7 @@ use super::{ActorSystemHandles, ActorSystemParts, Spawn, Timer};
 use crate::api::guardian::AlwaysRestart;
 use crate::runtime::message::DynMessage;
 use crate::runtime::system::InternalActorSystem;
+use crate::ReceiveTimeoutSchedulerFactory;
 use crate::{FailureEventListener, FailureEventStream, MailboxFactory, PriorityEnvelope};
 use nexus_utils_core_rs::{Element, QueueError};
 
@@ -82,6 +83,13 @@ where
       system: self,
       _marker: PhantomData,
     }
+  }
+
+  pub fn set_receive_timeout_scheduler_factory(
+    &mut self,
+    factory: Option<Arc<dyn ReceiveTimeoutSchedulerFactory<DynMessage, R>>>,
+  ) {
+    self.inner.set_receive_timeout_factory(factory);
   }
 
   pub fn root_context(&mut self) -> RootContext<'_, U, R, Strat> {
