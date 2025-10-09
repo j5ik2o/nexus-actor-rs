@@ -6,9 +6,10 @@ use core::convert::Infallible;
 
 use crate::runtime::context::{ActorContext, ActorHandlerFn, InternalActorRef, MapSystemFn};
 use crate::runtime::guardian::{AlwaysRestart, Guardian, GuardianStrategy};
-use crate::runtime::supervision::{CompositeEscalationSink, EscalationSink};
+use crate::runtime::supervision::CompositeEscalationSink;
 use crate::ActorId;
 use crate::ActorPath;
+use crate::EscalationSink;
 use crate::FailureInfo;
 use crate::Supervisor;
 use crate::{MailboxFactory, MailboxOptions, PriorityEnvelope};

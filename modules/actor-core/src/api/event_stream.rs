@@ -1,4 +1,4 @@
-use crate::runtime::supervision::FailureEventListener;
+use crate::FailureEventListener;
 
 /// FailureEvent を外部へ配信するためのストリーム抽象。
 ///
@@ -18,8 +18,8 @@ pub trait FailureEventStream: Clone + Send + Sync + 'static {
 #[cfg(all(test, feature = "std"))]
 pub(crate) mod tests {
   use super::FailureEventStream;
-  use crate::runtime::supervision::FailureEventListener;
   use crate::FailureEvent;
+  use crate::FailureEventListener;
   use alloc::sync::Arc;
   use core::sync::atomic::{AtomicU64, Ordering};
   use std::sync::Mutex;

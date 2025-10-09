@@ -7,7 +7,7 @@ use nexus_utils_core_rs::{Element, QueueError};
 
 type FailureHandler<M> = dyn FnMut(&FailureInfo) -> Result<(), QueueError<PriorityEnvelope<M>>> + 'static;
 
-use super::EscalationSink;
+use crate::EscalationSink;
 
 /// カスタムハンドラをベースにしたシンク。
 pub(crate) struct CustomEscalationSink<M, R>

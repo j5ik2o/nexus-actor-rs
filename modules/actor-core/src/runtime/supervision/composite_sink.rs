@@ -2,13 +2,11 @@ use alloc::sync::Arc;
 
 use crate::runtime::context::{InternalActorRef, MapSystemFn};
 use crate::FailureInfo;
+use crate::{EscalationSink, FailureEventHandler, FailureEventListener, RootEscalationSink};
 use crate::{MailboxFactory, PriorityEnvelope};
 use nexus_utils_core_rs::{Element, QueueError};
 
-use super::{
-  CustomEscalationSink, EscalationSink, FailureEventHandler, FailureEventListener, ParentGuardianSink,
-  RootEscalationSink,
-};
+use super::{CustomEscalationSink, ParentGuardianSink};
 
 /// 複数シンクを合成し、順番に適用する。
 pub(crate) struct CompositeEscalationSink<M, R>
