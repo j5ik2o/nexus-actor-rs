@@ -7,7 +7,7 @@ use core::marker::PhantomData;
 use nexus_utils_core_rs::{Element, QueueError, DEFAULT_PRIORITY};
 
 use super::{ask::create_ask_handles, ask_with_timeout, AskError, AskFuture, AskResult, AskTimeoutFuture};
-use crate::api::{InternalMessageDispatcher, MessageDispatcher, MessageEnvelope, MessageMetadata};
+use crate::api::{InternalMessageSender, MessageEnvelope, MessageMetadata, MessageSender};
 
 #[derive(Clone)]
 pub struct ActorRef<U, R>
@@ -75,12 +75,12 @@ where
     self.inner.try_send_envelope(envelope)
   }
 
-  pub fn to_dispatcher(&self) -> MessageDispatcher<U>
+  pub fn to_dispatcher(&self) -> MessageSender<U>
   where
     R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
     R::Signal: Clone + Send + Sync + 'static, {
-    let internal = InternalMessageDispatcher::from_internal_ref(self.inner.clone());
-    MessageDispatcher::new(internal)
+    let internal = InternalMessageSender::from_internal_ref(self.inner.clone());
+    MessageSender::new(internal)
   }
 
   pub(crate) fn request_from<S>(
@@ -98,7 +98,7 @@ where
   pub(crate) fn request_with_dispatcher<S>(
     &self,
     message: U,
-    sender: MessageDispatcher<S>,
+    sender: MessageSender<S>,
   ) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>>
   where
     S: Element, {
@@ -127,7 +127,7 @@ where
   pub(crate) fn request_future_with_dispatcher<Resp, S>(
     &self,
     message: U,
-    sender: MessageDispatcher<S>,
+    sender: MessageSender<S>,
   ) -> AskResult<AskFuture<Resp>>
   where
     Resp: Element,
@@ -175,7 +175,7 @@ where
   pub(crate) fn request_future_with_timeout_dispatcher<Resp, S, TFut>(
     &self,
     message: U,
-    sender: MessageDispatcher<S>,
+    sender: MessageSender<S>,
     timeout: TFut,
   ) -> AskResult<AskTimeoutFuture<Resp, TFut>>
   where
@@ -196,9 +196,9 @@ where
   pub fn ask_with<Resp, F>(&self, factory: F) -> AskResult<AskFuture<Resp>>
   where
     Resp: Element,
-    F: FnOnce(MessageDispatcher<Resp>) -> U, {
+    F: FnOnce(MessageSender<Resp>) -> U, {
     let (future, responder) = create_ask_handles::<Resp>();
-    let responder_for_message = MessageDispatcher::new(responder.internal());
+    let responder_for_message = MessageSender::new(responder.internal());
     let message = factory(responder_for_message);
     let metadata = MessageMetadata::new().with_responder(responder);
     self.tell_with_metadata(message, metadata)?;
@@ -208,11 +208,11 @@ where
   pub fn ask_with_timeout<Resp, F, TFut>(&self, factory: F, timeout: TFut) -> AskResult<AskTimeoutFuture<Resp, TFut>>
   where
     Resp: Element,
-    F: FnOnce(MessageDispatcher<Resp>) -> U,
+    F: FnOnce(MessageSender<Resp>) -> U,
     TFut: Future<Output = ()> + Unpin, {
     let mut timeout = Some(timeout);
     let (future, responder) = create_ask_handles::<Resp>();
-    let responder_for_message = MessageDispatcher::new(responder.internal());
+    let responder_for_message = MessageSender::new(responder.internal());
     let message = factory(responder_for_message);
     let metadata = MessageMetadata::new().with_responder(responder);
     match self.tell_with_metadata(message, metadata) {

@@ -14,7 +14,7 @@ use nexus_utils_core_rs::{Element, QueueError, DEFAULT_PRIORITY};
 use super::{
   ask::create_ask_handles, ask_with_timeout, ActorRef, AskError, AskFuture, AskResult, AskTimeoutFuture, Props,
 };
-use crate::api::{MessageDispatcher, MessageEnvelope, MessageMetadata};
+use crate::api::{MessageEnvelope, MessageMetadata, MessageSender};
 
 /// Typed actor execution context wrapper.
 /// 'r: lifetime of the mutable reference to ActorContext
@@ -224,7 +224,7 @@ where
     self.inner
   }
 
-  fn self_dispatcher(&self) -> MessageDispatcher<U>
+  fn self_dispatcher(&self) -> MessageSender<U>
   where
     R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
     R::Signal: Clone + Send + Sync + 'static, {
@@ -286,11 +286,11 @@ where
   where
     V: Element,
     Resp: Element,
-    F: FnOnce(MessageDispatcher<Resp>) -> V,
+    F: FnOnce(MessageSender<Resp>) -> V,
     R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
     R::Signal: Clone + Send + Sync + 'static, {
     let (future, responder) = create_ask_handles::<Resp>();
-    let responder_for_message = MessageDispatcher::new(responder.internal());
+    let responder_for_message = MessageSender::new(responder.internal());
     let message = factory(responder_for_message);
     let metadata = MessageMetadata::new()
       .with_sender(self.self_dispatcher())
@@ -308,13 +308,13 @@ where
   where
     V: Element,
     Resp: Element,
-    F: FnOnce(MessageDispatcher<Resp>) -> V,
+    F: FnOnce(MessageSender<Resp>) -> V,
     TFut: Future<Output = ()> + Unpin,
     R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
     R::Signal: Clone + Send + Sync + 'static, {
     let mut timeout = Some(timeout);
     let (future, responder) = create_ask_handles::<Resp>();
-    let responder_for_message = MessageDispatcher::new(responder.internal());
+    let responder_for_message = MessageSender::new(responder.internal());
     let message = factory(responder_for_message);
     let metadata = MessageMetadata::new()
       .with_sender(self.self_dispatcher())

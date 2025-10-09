@@ -7,38 +7,38 @@ use crate::{MailboxFactory, PriorityEnvelope};
 use core::marker::PhantomData;
 use nexus_utils_core_rs::{Element, QueueError, DEFAULT_PRIORITY};
 
-type DispatchFn = dyn Fn(DynMessage, i8) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> + Send + Sync;
+type SendFn = dyn Fn(DynMessage, i8) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> + Send + Sync;
 
 /// 送信先を抽象化した内部ディスパッチャ。Ask 応答などで利用する。
 #[derive(Clone)]
-pub struct InternalMessageDispatcher {
-  inner: Arc<DispatchFn>,
+pub struct InternalMessageSender {
+  inner: Arc<SendFn>,
   drop_hook: Option<Arc<dyn Fn() + Send + Sync>>,
 }
 
-impl core::fmt::Debug for InternalMessageDispatcher {
+impl core::fmt::Debug for InternalMessageSender {
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-    f.write_str("MessageDispatcher(..)")
+    f.write_str("MessageSender(..)")
   }
 }
 
-impl InternalMessageDispatcher {
-  pub fn new(inner: Arc<DispatchFn>) -> Self {
+impl InternalMessageSender {
+  pub fn new(inner: Arc<SendFn>) -> Self {
     Self { inner, drop_hook: None }
   }
 
-  pub(crate) fn with_drop_hook(inner: Arc<DispatchFn>, drop_hook: Arc<dyn Fn() + Send + Sync>) -> Self {
+  pub(crate) fn with_drop_hook(inner: Arc<SendFn>, drop_hook: Arc<dyn Fn() + Send + Sync>) -> Self {
     Self {
       inner,
       drop_hook: Some(drop_hook),
     }
   }
 
-  pub fn dispatch_default(&self, message: DynMessage) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> {
-    self.dispatch_with_priority(message, DEFAULT_PRIORITY)
+  pub fn send_default(&self, message: DynMessage) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> {
+    self.send_with_priority(message, DEFAULT_PRIORITY)
   }
 
-  pub fn dispatch_with_priority(
+  pub fn send_with_priority(
     &self,
     message: DynMessage,
     priority: i8,
@@ -58,7 +58,7 @@ impl InternalMessageDispatcher {
   }
 }
 
-impl Drop for InternalMessageDispatcher {
+impl Drop for InternalMessageSender {
   fn drop(&mut self) {
     if let Some(hook) = &self.drop_hook {
       hook();
@@ -68,27 +68,27 @@ impl Drop for InternalMessageDispatcher {
 
 /// 型安全なディスパッチャ。内部ディスパッチャをラップし、ユーザーメッセージを自動的にエンベロープ化する。
 #[derive(Clone)]
-pub struct MessageDispatcher<M>
+pub struct MessageSender<M>
 where
   M: Element, {
-  inner: InternalMessageDispatcher,
+  inner: InternalMessageSender,
   _marker: PhantomData<fn(M)>,
 }
 
-impl<M> core::fmt::Debug for MessageDispatcher<M>
+impl<M> core::fmt::Debug for MessageSender<M>
 where
   M: Element,
 {
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-    f.debug_tuple("MessageDispatcher").finish()
+    f.debug_tuple("MessageSender").finish()
   }
 }
 
-impl<M> MessageDispatcher<M>
+impl<M> MessageSender<M>
 where
   M: Element,
 {
-  pub(crate) fn new(inner: InternalMessageDispatcher) -> Self {
+  pub(crate) fn new(inner: InternalMessageSender) -> Self {
     Self {
       inner,
       _marker: PhantomData,
@@ -104,7 +104,7 @@ where
     envelope: MessageEnvelope<M>,
   ) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> {
     let dyn_message = DynMessage::new(envelope);
-    self.inner.dispatch_default(dyn_message)
+    self.inner.send_default(dyn_message)
   }
 
   pub fn dispatch_with_priority(
@@ -113,14 +113,14 @@ where
     priority: i8,
   ) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> {
     let dyn_message = DynMessage::new(envelope);
-    self.inner.dispatch_with_priority(dyn_message, priority)
+    self.inner.send_with_priority(dyn_message, priority)
   }
 
-  pub fn internal(&self) -> InternalMessageDispatcher {
+  pub fn internal(&self) -> InternalMessageSender {
     self.inner.clone()
   }
 
-  pub fn into_internal(self) -> InternalMessageDispatcher {
+  pub fn into_internal(self) -> InternalMessageSender {
     self.inner
   }
 }
@@ -128,37 +128,37 @@ where
 /// メッセージに付随するメタデータ（内部表現）。
 #[derive(Debug, Clone, Default)]
 pub struct InternalMessageMetadata {
-  sender: Option<InternalMessageDispatcher>,
-  responder: Option<InternalMessageDispatcher>,
+  sender: Option<InternalMessageSender>,
+  responder: Option<InternalMessageSender>,
 }
 
 impl InternalMessageMetadata {
-  pub fn new(sender: Option<InternalMessageDispatcher>, responder: Option<InternalMessageDispatcher>) -> Self {
+  pub fn new(sender: Option<InternalMessageSender>, responder: Option<InternalMessageSender>) -> Self {
     Self { sender, responder }
   }
 
-  pub fn sender(&self) -> Option<&InternalMessageDispatcher> {
+  pub fn sender(&self) -> Option<&InternalMessageSender> {
     self.sender.as_ref()
   }
 
-  pub fn sender_cloned(&self) -> Option<InternalMessageDispatcher> {
+  pub fn sender_cloned(&self) -> Option<InternalMessageSender> {
     self.sender.clone()
   }
 
-  pub fn responder(&self) -> Option<&InternalMessageDispatcher> {
+  pub fn responder(&self) -> Option<&InternalMessageSender> {
     self.responder.as_ref()
   }
 
-  pub fn responder_cloned(&self) -> Option<InternalMessageDispatcher> {
+  pub fn responder_cloned(&self) -> Option<InternalMessageSender> {
     self.responder.clone()
   }
 
-  pub fn with_sender(mut self, sender: Option<InternalMessageDispatcher>) -> Self {
+  pub fn with_sender(mut self, sender: Option<InternalMessageSender>) -> Self {
     self.sender = sender;
     self
   }
 
-  pub fn with_responder(mut self, responder: Option<InternalMessageDispatcher>) -> Self {
+  pub fn with_responder(mut self, responder: Option<InternalMessageSender>) -> Self {
     self.responder = responder;
     self
   }
@@ -175,33 +175,33 @@ impl MessageMetadata {
     Self::default()
   }
 
-  pub fn with_sender<U>(mut self, sender: MessageDispatcher<U>) -> Self
+  pub fn with_sender<U>(mut self, sender: MessageSender<U>) -> Self
   where
     U: Element, {
     self.inner = self.inner.with_sender(Some(sender.into_internal()));
     self
   }
 
-  pub fn with_responder<U>(mut self, responder: MessageDispatcher<U>) -> Self
+  pub fn with_responder<U>(mut self, responder: MessageSender<U>) -> Self
   where
     U: Element, {
     self.inner = self.inner.with_responder(Some(responder.into_internal()));
     self
   }
 
-  pub fn sender_as<U>(&self) -> Option<MessageDispatcher<U>>
+  pub fn sender_as<U>(&self) -> Option<MessageSender<U>>
   where
     U: Element, {
-    self.inner.sender_cloned().map(MessageDispatcher::new)
+    self.inner.sender_cloned().map(MessageSender::new)
   }
 
-  pub fn responder_as<U>(&self) -> Option<MessageDispatcher<U>>
+  pub fn responder_as<U>(&self) -> Option<MessageSender<U>>
   where
     U: Element, {
-    self.inner.responder_cloned().map(MessageDispatcher::new)
+    self.inner.responder_cloned().map(MessageSender::new)
   }
 
-  pub fn dispatcher_for<U>(&self) -> Option<MessageDispatcher<U>>
+  pub fn dispatcher_for<U>(&self) -> Option<MessageSender<U>>
   where
     U: Element, {
     self.responder_as::<U>().or_else(|| self.sender_as::<U>())

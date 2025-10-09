@@ -6,7 +6,7 @@ use core::pin::Pin;
 use core::sync::atomic::{AtomicU8, Ordering};
 use core::task::{Context, Poll};
 
-use crate::api::{InternalMessageDispatcher, MessageDispatcher, MessageEnvelope};
+use crate::api::{InternalMessageSender, MessageEnvelope, MessageSender};
 use crate::runtime::message::DynMessage;
 use crate::PriorityEnvelope;
 use futures::task::AtomicWaker;
@@ -220,7 +220,7 @@ where
   AskTimeoutFuture::new(future, timeout)
 }
 
-pub(crate) fn create_ask_handles<Resp>() -> (AskFuture<Resp>, MessageDispatcher<Resp>)
+pub(crate) fn create_ask_handles<Resp>() -> (AskFuture<Resp>, MessageSender<Resp>)
 where
   Resp: Element, {
   let shared = Arc::new(AskShared::<Resp>::new());
@@ -250,7 +250,7 @@ where
     drop_state.responder_dropped();
   });
 
-  let internal = InternalMessageDispatcher::with_drop_hook(dispatch, drop_hook);
-  let responder = MessageDispatcher::new(internal);
+  let internal = InternalMessageSender::with_drop_hook(dispatch, drop_hook);
+  let responder = MessageSender::new(internal);
   (future, responder)
 }
