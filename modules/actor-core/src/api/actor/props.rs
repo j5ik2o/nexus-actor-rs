@@ -2,7 +2,7 @@ use alloc::rc::Rc;
 use alloc::sync::Arc;
 
 use crate::runtime::context::ActorContext;
-use crate::runtime::message::DynMessage;
+use crate::runtime::message::{take_metadata, DynMessage};
 use crate::runtime::system::InternalProps;
 use crate::Supervisor;
 use crate::SystemMessage;
@@ -93,7 +93,8 @@ where
       };
       match envelope {
         MessageEnvelope::User(user) => {
-          let (message, metadata) = user.into_parts();
+          let (message, metadata_key) = user.into_parts();
+          let metadata = metadata_key.and_then(take_metadata).unwrap_or_default();
           let mut typed_ctx = Context::with_metadata(ctx, metadata);
           adapter.handle_user(&mut typed_ctx, message);
         }

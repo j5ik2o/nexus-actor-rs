@@ -1,0 +1,90 @@
+# MessageMetadata Typed 化計画メモ (2025-10-09)
+
+## 背景
+- 現在の `MessageMetadata` は `InternalMessageSender` を直接保持しており、Typed API (`ActorRef<U, R>`) から untyped な sender を露出している。
+- `Ask` や `Context::respond` がメタデータを経由して再送信する関係で、`DynMessage` 前提の内部構造に引きずられている。
+- 利用者視点では `MessageSender<U>` だけで完結したいが、現状の API では `InternalMessageSender` を扱う必要がある。
+
+## 段階的な移行方針（進捗状況）
+1. **Typed sender を優先的に公開する** ✅ *完了*
+   - `ActorRef` の `request*` 系 API はすべて `MessageSender<S>` を取る形に統一済み。
+   - `Context::request*` や Ask API も typed センダーを利用し、利用者に `InternalMessageSender` を触らせない状態が実現できた。
+
+2. **メタデータ内部に typed/untyped の橋渡し層を用意する** ✅ *完了*
+   - `MessageMetadata` を薄いラッパーとして再設計し、内部実装を `InternalMessageMetadata` に隔離。
+   - `Context` 自身が typed メタデータを保持し、`ActorContext` には橋渡し用の一時領域を持たせない構造に整理（Drop ガードは不要）。
+   - Ask responder も typed センダーで完結するため、レスポンス経路で untyped を扱わずに済む。`ask::dispatch_response` を追加し、`Context::respond` から再利用。
+   - `ActorRef::ask_with` / `Context::ask` を追加し、メッセージ側に `replyTo` を受け取るファクトリを渡せるようにした。
+   - `MessageMetadata::respond_with` を追加し、`Context::respond` の糖衣 API として一元化。
+
+3. **最終的に完全な typed 化へ移行する** ⏳ *継続タスク*
+   - `ActorContext` や scheduler が保持するメタデータ構造をさらに整理し、typed メタデータのみで回す方向を検討する。
+   - `UserMessage<U>` ／ `MessageEnvelope<U>` ／ `DynMessage` を調整し、内部でも `InternalMessageMetadata` への依存を最小化する。
+   - `InternalMessageSender` は型消去層に限定し、可能な限り `MessageSender<U>` を直接持つ。
+
+## 残タスク・検討事項
+- `ActorContext` 内部のメタデータ格納方式の再整理（完全 typed 化 or typed/untyped ブリッジの最小化）。
+- Ask responder の補助 API（`MessageMetadata::respond_with` など）を活用しつつ、さらなる糖衣が必要か継続検討。
+- `DynMessage` に型付きメタデータを組み込む設計（ecs 的に metadata を別ストレージに持つ案も含めて比較）。
+- ジェネリック化によるコンパイル時間／バイナリサイズへの影響評価。
+
+## サイドテーブル方式の叩き台
+- 目的: `DynMessage` のサイズを増やさずに typed メタデータをランタイムから参照可能にする。
+- 基本方針:
+  - `InternalMessageMetadata` を `Arc` で保持し、`DynMessage` 生成時にキー（`u64` など）を払い出す。
+  - キーとメタデータの対応は `Scheduler` 側で管理する（例: `slab::Slab<Arc<InternalMessageMetadata>>`）。
+  - `PriorityEnvelope` にはキーのみ埋め込み、`ActorCell::dispatch_envelope` でキーからメタデータを取り出し、`Context::with_metadata` に渡す。
+  - 処理完了後は必ずキーを解放し、リーク防止のユニットテストを追加する。
+- 想定変更箇所:
+  - `modules/actor-core/src/api/actor/actor_ref.rs`: `wrap_user_with_metadata` でキーを取得し `MessageEnvelope::User` に埋め込む。
+  - `modules/actor-core/src/runtime/message/mod.rs` 付近に `MetadataTable`（Slab 管理）の新モジュールを追加。
+  - `modules/actor-core/src/runtime/scheduler/actor_cell.rs`: `dispatch_envelope` でキー解決とクリーンアップを実施。
+  - `modules/actor-core/src/api/messaging/message_envelope.rs`: `UserMessage` はメタデータをキー参照に置き換え、保持コストを削減。
+- 検証タスク:
+  - enqueue/dequeue パスでキー管理が O(1) であることをベンチマーク（`criterion` などを利用）。
+  - キー未解放の検出と Panic ハンドリング時の挙動確認。
+
+## ベンチ・計測準備案
+- 新規 `benches/metadata_table.rs` を追加し、以下を測定:
+  1. 現行実装（`UserMessage` にメタデータ内包）での enqueue/dequeue 時間。
+  2. サイドテーブル案での同等処理。
+- ベンチ対象 API:
+  - `MessageEnvelope::user_with_metadata` と `metadata_table` の `store`/`take` を中心にした micro bench（`modules/actor-core/benches/metadata_table.rs`）。
+  - メタデータ無しケース（`MessageMetadata::default()`）との比較は次ステップで追加予定。
+- 結果は設計メモに追記し、閾値（例: 5% 以内）を超える regress があれば DynMessage 拡張案へフォールバック検討。
+- 2025-10-09 `cargo bench -p nexus-actor-core-rs --features std --bench metadata_table` 実行結果:
+  - side_table/store_take: 30.2 ns (平均, 100 サンプル)
+  - inline/store_take: 16.9 ns (平均, 100 サンプル)
+  - 現状、side_table は inline と比較して約 +79% のオーバーヘッド。キー払い出し／解放コストを削減する最適化と、計測対象の細分化が今後の課題。
+
+---
+このメモは段階的な実装計画を共有するためのものであり、実作業に着手する際は各ステップごとに PR / 設計レビューを行う。
+- `DynMessage` に型付きメタデータを紐付ける方法の検討。候補:
+  - `DynMessage` を拡張して `Option<MessageMetadata>` を保持。（型安全になるがサイズ増）
+  - メタデータを別レイヤ（例: スレッドローカル or スケジューラ側のサイドテーブル）で管理し、`DynMessage` はキーだけ渡す。
+  - メリット／デメリット、パフォーマンス、互換性を比較し、今後の方向性を決める。
+- Ask レスポンダー向け糖衣 API（`MessageMetadata::respond_with`）の利用状況を観察し、必要に応じてさらなる補助関数やドキュメント例を検討。
+- 利用例（typed ハンドラ内で Ask 応答を返すケース）:
+
+```rust
+use nexus_actor_core_rs::api::actor::Context;
+use nexus_actor_core_rs::{AskResult, MessageMetadata, PriorityEnvelope};
+
+fn handle_request<U, R>(ctx: &mut Context<'_, '_, U, R>, reply: Response) -> AskResult<()>
+where
+  U: Element,
+  Response: Element,
+  R: MailboxFactory + Clone + 'static,
+  R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
+  R::Signal: Clone + Send + Sync + 'static,
+{
+  if let Some(metadata) = ctx.message_metadata() {
+    metadata.respond_with(ctx, reply)?;
+  }
+  Ok(())
+}
+```
+- 利用者向けドキュメント更新。
+  - API の変更点（typed dispatcher／メタデータ）を README や examples に反映。
+  - サンプルコードで新しいヘルパーの使い方を示す。
+- 公開 API では `replyTo` ベースの ask を提供し、現行の `request_*` は internal API として扱う。

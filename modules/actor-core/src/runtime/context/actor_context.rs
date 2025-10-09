@@ -4,13 +4,16 @@ use alloc::vec;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 
-use crate::api::MessageMetadata;
 use crate::ActorId;
 use crate::ActorPath;
 use crate::Supervisor;
 use crate::SystemMessage;
 use crate::{MailboxFactory, MailboxOptions, PriorityEnvelope, QueueMailboxProducer};
 use nexus_utils_core_rs::{Element, QueueError, QueueSize};
+
+use crate::runtime::scheduler::ReceiveTimeoutScheduler;
+use core::cell::RefCell;
+use core::time::Duration;
 
 use super::{ChildSpawnSpec, InternalActorRef};
 use crate::runtime::system::InternalProps;
@@ -35,7 +38,7 @@ where
   actor_id: ActorId,
   watchers: &'a mut Vec<ActorId>,
   current_priority: Option<i8>,
-  current_metadata: Option<MessageMetadata>,
+  receive_timeout: Option<&'a RefCell<Box<dyn ReceiveTimeoutScheduler>>>,
   _marker: PhantomData<M>,
 }
 
@@ -55,6 +58,7 @@ where
     actor_path: ActorPath,
     actor_id: ActorId,
     watchers: &'a mut Vec<ActorId>,
+    receive_timeout: Option<&'a RefCell<Box<dyn ReceiveTimeoutScheduler>>>,
   ) -> Self {
     Self {
       runtime,
@@ -66,7 +70,7 @@ where
       actor_id,
       watchers,
       current_priority: None,
-      current_metadata: None,
+      receive_timeout,
       _marker: PhantomData,
     }
   }
@@ -198,19 +202,35 @@ where
     self.current_priority = None;
   }
 
-  pub(crate) fn enter_metadata(&mut self, metadata: MessageMetadata) {
-    self.current_metadata = Some(metadata);
+  pub fn has_receive_timeout_scheduler(&self) -> bool {
+    self.receive_timeout.is_some()
   }
 
-  pub(crate) fn take_metadata(&mut self) -> Option<MessageMetadata> {
-    self.current_metadata.take()
+  pub fn set_receive_timeout(&mut self, duration: Duration) -> bool {
+    if let Some(cell) = self.receive_timeout {
+      cell.borrow_mut().set(duration);
+      true
+    } else {
+      false
+    }
   }
 
-  pub(crate) fn current_metadata(&self) -> Option<&MessageMetadata> {
-    self.current_metadata.as_ref()
+  pub fn cancel_receive_timeout(&mut self) -> bool {
+    if let Some(cell) = self.receive_timeout {
+      cell.borrow_mut().cancel();
+      true
+    } else {
+      false
+    }
   }
 
-  pub(crate) fn clear_metadata(&mut self) {
-    self.current_metadata = None;
+  pub(crate) fn notify_receive_timeout_activity(&mut self, influence: bool) {
+    if !influence {
+      return;
+    }
+
+    if let Some(cell) = self.receive_timeout {
+      cell.borrow_mut().notify_activity();
+    }
   }
 }

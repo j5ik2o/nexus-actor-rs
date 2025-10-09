@@ -6,8 +6,8 @@ use core::pin::Pin;
 use core::sync::atomic::{AtomicU8, Ordering};
 use core::task::{Context, Poll};
 
-use crate::api::{InternalMessageDispatcher, MessageDispatcher, MessageEnvelope};
-use crate::runtime::message::DynMessage;
+use crate::api::{InternalMessageSender, MessageEnvelope, MessageSender};
+use crate::runtime::message::{take_metadata, DynMessage};
 use crate::PriorityEnvelope;
 use futures::task::AtomicWaker;
 use nexus_utils_core_rs::{Element, QueueError};
@@ -220,7 +220,7 @@ where
   AskTimeoutFuture::new(future, timeout)
 }
 
-pub(crate) fn create_ask_handles<Resp>() -> (AskFuture<Resp>, MessageDispatcher<Resp>)
+pub(crate) fn create_ask_handles<Resp>() -> (AskFuture<Resp>, MessageSender<Resp>)
 where
   Resp: Element, {
   let shared = Arc::new(AskShared::<Resp>::new());
@@ -234,7 +234,10 @@ where
       .unwrap_or_else(|_| panic!("ask responder received mismatched message type"));
     match envelope {
       MessageEnvelope::User(user) => {
-        let (value, _metadata) = user.into_parts();
+        let (value, metadata_key) = user.into_parts();
+        if let Some(key) = metadata_key {
+          let _ = take_metadata(key);
+        }
         if !dispatch_state.complete(value) {
           // 応答先がキャンセル済みの場合は値を破棄
         }
@@ -250,7 +253,7 @@ where
     drop_state.responder_dropped();
   });
 
-  let internal = InternalMessageDispatcher::with_drop_hook(dispatch, drop_hook);
-  let responder = MessageDispatcher::new(internal);
+  let internal = InternalMessageSender::with_drop_hook(dispatch, drop_hook);
+  let responder = MessageSender::new(internal);
   (future, responder)
 }

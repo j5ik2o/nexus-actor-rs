@@ -1,12 +1,11 @@
 use alloc::sync::Arc;
 
 use crate::runtime::context::{InternalActorRef, MapSystemFn};
+use crate::EscalationSink;
 use crate::FailureInfo;
 use crate::MailboxFactory;
 use crate::{PriorityEnvelope, SystemMessage};
 use nexus_utils_core_rs::Element;
-
-use super::EscalationSink;
 
 /// 親 Guardian へ `SystemMessage::Escalate` を転送するシンク。
 pub(crate) struct ParentGuardianSink<M, R>

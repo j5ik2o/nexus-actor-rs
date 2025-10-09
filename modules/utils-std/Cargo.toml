@@ -15,6 +15,7 @@ async-trait = { workspace = true }
 dashmap = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
+tokio-util = { workspace = true }
 tokio-condvar = "0.3.0"
 tracing = { workspace = true }
 parking_lot = { workspace = true }

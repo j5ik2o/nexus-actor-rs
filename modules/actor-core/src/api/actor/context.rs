@@ -9,12 +9,13 @@ use crate::SystemMessage;
 use alloc::{boxed::Box, string::String, sync::Arc};
 use core::future::Future;
 use core::marker::PhantomData;
+use core::time::Duration;
 use nexus_utils_core_rs::{Element, QueueError, DEFAULT_PRIORITY};
 
 use super::{
   ask::create_ask_handles, ask_with_timeout, ActorRef, AskError, AskFuture, AskResult, AskTimeoutFuture, Props,
 };
-use crate::api::{InternalMessageDispatcher, MessageEnvelope, MessageMetadata};
+use crate::api::{MessageEnvelope, MessageMetadata, MessageSender};
 
 /// Typed actor execution context wrapper.
 /// 'r: lifetime of the mutable reference to ActorContext
@@ -26,6 +27,7 @@ where
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
   R::Signal: Clone, {
   inner: &'r mut ActorContext<'ctx, DynMessage, R, dyn Supervisor<DynMessage>>,
+  metadata: Option<MessageMetadata>,
   _marker: PhantomData<U>,
 }
 
@@ -155,16 +157,24 @@ where
   pub(super) fn new(inner: &'r mut ActorContext<'ctx, DynMessage, R, dyn Supervisor<DynMessage>>) -> Self {
     Self {
       inner,
+      metadata: None,
       _marker: PhantomData,
     }
+  }
+
+  pub fn message_metadata(&self) -> Option<&MessageMetadata> {
+    self.metadata.as_ref()
   }
 
   pub(super) fn with_metadata(
     inner: &'r mut ActorContext<'ctx, DynMessage, R, dyn Supervisor<DynMessage>>,
     metadata: MessageMetadata,
   ) -> Self {
-    inner.enter_metadata(metadata);
-    Self::new(inner)
+    Self {
+      inner,
+      metadata: Some(metadata),
+      _marker: PhantomData,
+    }
   }
 
   pub fn actor_id(&self) -> ActorId {
@@ -213,19 +223,27 @@ where
     self.inner.unregister_watcher(watcher);
   }
 
+  pub fn has_receive_timeout_support(&self) -> bool {
+    self.inner.has_receive_timeout_scheduler()
+  }
+
+  pub fn set_receive_timeout(&mut self, duration: Duration) -> bool {
+    self.inner.set_receive_timeout(duration)
+  }
+
+  pub fn cancel_receive_timeout(&mut self) -> bool {
+    self.inner.cancel_receive_timeout()
+  }
+
   pub fn inner(&mut self) -> &mut ActorContext<'ctx, DynMessage, R, dyn Supervisor<DynMessage>> {
     self.inner
   }
 
-  pub fn message_metadata(&self) -> Option<&MessageMetadata> {
-    self.inner.current_metadata()
-  }
-
-  fn self_dispatcher(&self) -> InternalMessageDispatcher
+  pub(crate) fn self_dispatcher(&self) -> MessageSender<U>
   where
     R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
     R::Signal: Clone + Send + Sync + 'static, {
-    InternalMessageDispatcher::from_internal_ref(self.inner.self_ref())
+    self.self_ref().to_dispatcher()
   }
 
   pub fn request<V>(
@@ -237,7 +255,7 @@ where
     V: Element,
     R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
     R::Signal: Clone + Send + Sync + 'static, {
-    let metadata = MessageMetadata::new(Some(self.self_dispatcher()), None);
+    let metadata = MessageMetadata::new().with_sender(self.self_dispatcher());
     target.tell_with_metadata(message, metadata)
   }
 
@@ -252,7 +270,7 @@ where
     S: Element,
     R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
     R::Signal: Clone + Send + Sync + 'static, {
-    let metadata = MessageMetadata::new(Some(sender.to_dispatcher()), None);
+    let metadata = MessageMetadata::new().with_sender(sender.to_dispatcher());
     target.tell_with_metadata(message, metadata)
   }
 
@@ -272,15 +290,51 @@ where
     Resp: Element,
     R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
     R::Signal: Clone + Send + Sync + 'static, {
-    let metadata = self.message_metadata().ok_or(AskError::MissingResponder)?;
-    let target = metadata
-      .responder_cloned()
-      .or_else(|| metadata.sender_cloned())
-      .ok_or(AskError::MissingResponder)?;
-    let dispatch_metadata = MessageMetadata::new(Some(self.self_dispatcher()), None);
-    let dyn_message = DynMessage::new(MessageEnvelope::user_with_metadata(message, dispatch_metadata));
-    target.dispatch_default(dyn_message).map_err(AskError::from)?;
-    Ok(())
+    let metadata = self.message_metadata().cloned().ok_or(AskError::MissingResponder)?;
+    metadata.respond_with(self, message)
+  }
+
+  pub fn ask<V, Resp, F>(&mut self, target: &ActorRef<V, R>, factory: F) -> AskResult<AskFuture<Resp>>
+  where
+    V: Element,
+    Resp: Element,
+    F: FnOnce(MessageSender<Resp>) -> V,
+    R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
+    R::Signal: Clone + Send + Sync + 'static, {
+    let (future, responder) = create_ask_handles::<Resp>();
+    let responder_for_message = MessageSender::new(responder.internal());
+    let message = factory(responder_for_message);
+    let metadata = MessageMetadata::new()
+      .with_sender(self.self_dispatcher())
+      .with_responder(responder);
+    target.tell_with_metadata(message, metadata)?;
+    Ok(future)
+  }
+
+  pub fn ask_with_timeout<V, Resp, F, TFut>(
+    &mut self,
+    target: &ActorRef<V, R>,
+    factory: F,
+    timeout: TFut,
+  ) -> AskResult<AskTimeoutFuture<Resp, TFut>>
+  where
+    V: Element,
+    Resp: Element,
+    F: FnOnce(MessageSender<Resp>) -> V,
+    TFut: Future<Output = ()> + Unpin,
+    R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
+    R::Signal: Clone + Send + Sync + 'static, {
+    let mut timeout = Some(timeout);
+    let (future, responder) = create_ask_handles::<Resp>();
+    let responder_for_message = MessageSender::new(responder.internal());
+    let message = factory(responder_for_message);
+    let metadata = MessageMetadata::new()
+      .with_sender(self.self_dispatcher())
+      .with_responder(responder);
+    match target.tell_with_metadata(message, metadata) {
+      Ok(()) => Ok(ask_with_timeout(future, timeout.take().unwrap())),
+      Err(err) => Err(AskError::from(err)),
+    }
   }
 
   pub fn request_future<V, Resp>(&mut self, target: &ActorRef<V, R>, message: V) -> AskResult<AskFuture<Resp>>
@@ -290,7 +344,9 @@ where
     R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
     R::Signal: Clone + Send + Sync + 'static, {
     let (future, responder) = create_ask_handles::<Resp>();
-    let metadata = MessageMetadata::new(Some(self.self_dispatcher()), Some(responder.into_internal()));
+    let metadata = MessageMetadata::new()
+      .with_sender(self.self_dispatcher())
+      .with_responder(responder);
     target.tell_with_metadata(message, metadata)?;
     Ok(future)
   }
@@ -309,7 +365,9 @@ where
     R::Signal: Clone + Send + Sync + 'static, {
     let mut timeout = Some(timeout);
     let (future, responder) = create_ask_handles::<Resp>();
-    let metadata = MessageMetadata::new(Some(self.self_dispatcher()), Some(responder.into_internal()));
+    let metadata = MessageMetadata::new()
+      .with_sender(self.self_dispatcher())
+      .with_responder(responder);
     match target.tell_with_metadata(message, metadata) {
       Ok(()) => Ok(ask_with_timeout(future, timeout.take().unwrap())),
       Err(err) => Err(AskError::from(err)),
@@ -325,6 +383,21 @@ where
       .inner
       .spawn_child_from_props(Box::new(supervisor_cfg.into_supervisor()), internal_props);
     ActorRef::new(actor_ref)
+  }
+}
+
+impl MessageMetadata {
+  pub fn respond_with<Resp, U, R>(&self, ctx: &mut Context<'_, '_, U, R>, message: Resp) -> AskResult<()>
+  where
+    Resp: Element,
+    U: Element,
+    R: MailboxFactory + Clone + 'static,
+    R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
+    R::Signal: Clone + Send + Sync + 'static, {
+    let dispatcher = self.dispatcher_for::<Resp>().ok_or(AskError::MissingResponder)?;
+    let dispatch_metadata = MessageMetadata::new().with_sender(ctx.self_dispatcher());
+    let envelope = MessageEnvelope::user_with_metadata(message, dispatch_metadata);
+    dispatcher.dispatch_envelope(envelope).map_err(AskError::from)
   }
 }
 

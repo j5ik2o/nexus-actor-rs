@@ -7,7 +7,7 @@ use core::marker::PhantomData;
 use nexus_utils_core_rs::{Element, QueueError, DEFAULT_PRIORITY};
 
 use super::{ask::create_ask_handles, ask_with_timeout, AskError, AskFuture, AskResult, AskTimeoutFuture};
-use crate::api::{InternalMessageDispatcher, MessageEnvelope, MessageMetadata};
+use crate::api::{InternalMessageSender, MessageEnvelope, MessageMetadata, MessageSender};
 
 #[derive(Clone)]
 pub struct ActorRef<U, R>
@@ -75,14 +75,15 @@ where
     self.inner.try_send_envelope(envelope)
   }
 
-  pub fn to_dispatcher(&self) -> InternalMessageDispatcher
+  pub fn to_dispatcher(&self) -> MessageSender<U>
   where
     R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
     R::Signal: Clone + Send + Sync + 'static, {
-    InternalMessageDispatcher::from_internal_ref(self.inner.clone())
+    let internal = InternalMessageSender::from_internal_ref(self.inner.clone());
+    MessageSender::new(internal)
   }
 
-  pub fn request_from<S>(
+  pub(crate) fn request_from<S>(
     &self,
     message: U,
     sender: &ActorRef<S, R>,
@@ -94,25 +95,27 @@ where
     self.request_with_dispatcher(message, sender.to_dispatcher())
   }
 
-  pub fn request_with_dispatcher(
+  pub(crate) fn request_with_dispatcher<S>(
     &self,
     message: U,
-    sender: InternalMessageDispatcher,
-  ) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> {
-    let metadata = MessageMetadata::new(Some(sender), None);
+    sender: MessageSender<S>,
+  ) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>>
+  where
+    S: Element, {
+    let metadata = MessageMetadata::new().with_sender(sender);
     self.tell_with_metadata(message, metadata)
   }
 
-  pub fn request_future<Resp>(&self, message: U) -> AskResult<AskFuture<Resp>>
+  pub(crate) fn request_future<Resp>(&self, message: U) -> AskResult<AskFuture<Resp>>
   where
     Resp: Element, {
     let (future, responder) = create_ask_handles::<Resp>();
-    let metadata = MessageMetadata::new(None, Some(responder.into_internal()));
+    let metadata = MessageMetadata::new().with_responder(responder);
     self.tell_with_metadata(message, metadata)?;
     Ok(future)
   }
 
-  pub fn request_future_from<Resp, S>(&self, message: U, sender: &ActorRef<S, R>) -> AskResult<AskFuture<Resp>>
+  pub(crate) fn request_future_from<Resp, S>(&self, message: U, sender: &ActorRef<S, R>) -> AskResult<AskFuture<Resp>>
   where
     Resp: Element,
     S: Element,
@@ -121,20 +124,21 @@ where
     self.request_future_with_dispatcher(message, sender.to_dispatcher())
   }
 
-  pub fn request_future_with_dispatcher<Resp>(
+  pub(crate) fn request_future_with_dispatcher<Resp, S>(
     &self,
     message: U,
-    sender: InternalMessageDispatcher,
+    sender: MessageSender<S>,
   ) -> AskResult<AskFuture<Resp>>
   where
-    Resp: Element, {
+    Resp: Element,
+    S: Element, {
     let (future, responder) = create_ask_handles::<Resp>();
-    let metadata = MessageMetadata::new(Some(sender), Some(responder.into_internal()));
+    let metadata = MessageMetadata::new().with_sender(sender).with_responder(responder);
     self.tell_with_metadata(message, metadata)?;
     Ok(future)
   }
 
-  pub fn request_future_with_timeout<Resp, TFut>(
+  pub(crate) fn request_future_with_timeout<Resp, TFut>(
     &self,
     message: U,
     timeout: TFut,
@@ -146,14 +150,14 @@ where
     R::Signal: Clone + Send + Sync + 'static, {
     let mut timeout = Some(timeout);
     let (future, responder) = create_ask_handles::<Resp>();
-    let metadata = MessageMetadata::new(None, Some(responder.into_internal()));
+    let metadata = MessageMetadata::new().with_responder(responder);
     match self.tell_with_metadata(message, metadata) {
       Ok(()) => Ok(ask_with_timeout(future, timeout.take().unwrap())),
       Err(err) => Err(AskError::from(err)),
     }
   }
 
-  pub fn request_future_with_timeout_from<Resp, S, TFut>(
+  pub(crate) fn request_future_with_timeout_from<Resp, S, TFut>(
     &self,
     message: U,
     sender: &ActorRef<S, R>,
@@ -168,20 +172,49 @@ where
     self.request_future_with_timeout_dispatcher(message, sender.to_dispatcher(), timeout)
   }
 
-  pub fn request_future_with_timeout_dispatcher<Resp, TFut>(
+  pub(crate) fn request_future_with_timeout_dispatcher<Resp, S, TFut>(
     &self,
     message: U,
-    sender: InternalMessageDispatcher,
+    sender: MessageSender<S>,
     timeout: TFut,
   ) -> AskResult<AskTimeoutFuture<Resp, TFut>>
   where
     Resp: Element,
+    S: Element,
     TFut: Future<Output = ()> + Unpin,
     R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
     R::Signal: Clone + Send + Sync + 'static, {
     let mut timeout = Some(timeout);
     let (future, responder) = create_ask_handles::<Resp>();
-    let metadata = MessageMetadata::new(Some(sender), Some(responder.into_internal()));
+    let metadata = MessageMetadata::new().with_sender(sender).with_responder(responder);
+    match self.tell_with_metadata(message, metadata) {
+      Ok(()) => Ok(ask_with_timeout(future, timeout.take().unwrap())),
+      Err(err) => Err(AskError::from(err)),
+    }
+  }
+
+  pub fn ask_with<Resp, F>(&self, factory: F) -> AskResult<AskFuture<Resp>>
+  where
+    Resp: Element,
+    F: FnOnce(MessageSender<Resp>) -> U, {
+    let (future, responder) = create_ask_handles::<Resp>();
+    let responder_for_message = MessageSender::new(responder.internal());
+    let message = factory(responder_for_message);
+    let metadata = MessageMetadata::new().with_responder(responder);
+    self.tell_with_metadata(message, metadata)?;
+    Ok(future)
+  }
+
+  pub fn ask_with_timeout<Resp, F, TFut>(&self, factory: F, timeout: TFut) -> AskResult<AskTimeoutFuture<Resp, TFut>>
+  where
+    Resp: Element,
+    F: FnOnce(MessageSender<Resp>) -> U,
+    TFut: Future<Output = ()> + Unpin, {
+    let mut timeout = Some(timeout);
+    let (future, responder) = create_ask_handles::<Resp>();
+    let responder_for_message = MessageSender::new(responder.internal());
+    let message = factory(responder_for_message);
+    let metadata = MessageMetadata::new().with_responder(responder);
     match self.tell_with_metadata(message, metadata) {
       Ok(()) => Ok(ask_with_timeout(future, timeout.take().unwrap())),
       Err(err) => Err(AskError::from(err)),
