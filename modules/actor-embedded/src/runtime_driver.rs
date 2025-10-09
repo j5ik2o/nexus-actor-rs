@@ -23,6 +23,11 @@ pub struct EmbeddedFailureEventSubscription {
 }
 
 impl EmbeddedFailureEventHub {
+  /// 新しい`EmbeddedFailureEventHub`を作成します。
+  ///
+  /// # 戻り値
+  ///
+  /// 新しいイベントハブインスタンス
   pub fn new() -> Self {
     Self {
       inner: Arc::new(Mutex::new(EmbeddedFailureEventHubState::default())),

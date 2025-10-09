@@ -7,6 +7,10 @@ use nexus_utils_core_rs::{
 use std::fmt;
 use std::sync::{Arc, Mutex};
 
+/// 容量制限付きのマルチプロデューサー・シングルコンシューマー(MPSC)キュー
+///
+/// `Arc`による共有所有権を使用し、複数のスレッドから安全にアクセス可能なキューです。
+/// デフォルトではTokioチャネルバックエンドを使用しますが、リングバッファバックエンドも選択可能です。
 #[derive(Clone)]
 pub struct ArcMpscBoundedQueue<E> {
   inner: MpscQueue<ArcShared<dyn MpscBackend<E> + Send + Sync>, E>,
@@ -22,14 +26,41 @@ impl<E> ArcMpscBoundedQueue<E>
 where
   E: Element,
 {
+  /// 指定された容量で新しいキューを作成します(Tokioバックエンド使用)
+  ///
+  /// # 引数
+  ///
+  /// * `capacity` - キューの最大容量
+  ///
+  /// # 戻り値
+  ///
+  /// Tokioチャネルバックエンドを使用する新しいキューインスタンス
   pub fn new(capacity: usize) -> Self {
     Self::with_tokio(capacity)
   }
 
+  /// Tokioチャネルバックエンドを使用するキューを作成します
+  ///
+  /// # 引数
+  ///
+  /// * `capacity` - キューの最大容量
+  ///
+  /// # 戻り値
+  ///
+  /// Tokioチャネルバックエンドを使用する新しいキューインスタンス
   pub fn with_tokio(capacity: usize) -> Self {
     Self::from_backend(TokioBoundedMpscBackend::new(capacity))
   }
 
+  /// リングバッファバックエンドを使用するキューを作成します
+  ///
+  /// # 引数
+  ///
+  /// * `capacity` - キューの最大容量
+  ///
+  /// # 戻り値
+  ///
+  /// リングバッファバックエンドを使用する新しいキューインスタンス
   pub fn with_ring_buffer(capacity: usize) -> Self {
     let backend = RingBufferBackend::new(Mutex::new(MpscBuffer::new(Some(capacity))));
     Self::from_backend(backend)

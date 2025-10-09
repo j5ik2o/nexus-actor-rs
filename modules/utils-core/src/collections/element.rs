@@ -3,6 +3,10 @@ use core::fmt::Debug;
 #[cfg(feature = "alloc")]
 use alloc::{boxed::Box, string::String, sync::Arc};
 
+/// キューやスタックなどのコレクションに格納可能な要素の基本的な制約。
+///
+/// `Debug`、`Send`、`Sync`、および `'static` を要求することで、
+/// マルチスレッド環境でも安全に扱える要素型を保証する。
 pub trait Element: Debug + Send + Sync + 'static {}
 
 macro_rules! impl_element_for_primitives {

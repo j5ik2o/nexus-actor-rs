@@ -1,14 +1,68 @@
 use super::{mpsc::MpscBuffer, ring::RingBuffer};
 
+/// キューのストレージ抽象化トレイト
+///
+/// リングバッファベースのキューに対する読み取りおよび書き込みアクセスを提供します。
+/// このトレイトは、異なる同期プリミティブ（RefCell、Mutexなど）でラップされた
+/// リングバッファに対して統一的なインターフェースを提供します。
+///
+/// # 型パラメータ
+///
+/// * `E` - キューに格納される要素の型
 pub trait QueueStorage<E> {
+  /// リングバッファへの不変参照を使用してクロージャを実行します
+  ///
+  /// # 引数
+  ///
+  /// * `f` - リングバッファの不変参照を受け取るクロージャ
+  ///
+  /// # 戻り値
+  ///
+  /// クロージャの実行結果
   fn with_read<R>(&self, f: impl FnOnce(&RingBuffer<E>) -> R) -> R;
+
+  /// リングバッファへの可変参照を使用してクロージャを実行します
+  ///
+  /// # 引数
+  ///
+  /// * `f` - リングバッファの可変参照を受け取るクロージャ
+  ///
+  /// # 戻り値
+  ///
+  /// クロージャの実行結果
   fn with_write<R>(&self, f: impl FnOnce(&mut RingBuffer<E>) -> R) -> R;
 }
 
-/// Storage abstraction shared by ring-buffer based [`crate::collections::queue::mpsc::RingBufferBackend`]
-/// implementations.
+/// リングバッファベースのストレージ抽象化トレイト
+///
+/// [`crate::collections::queue::mpsc::RingBufferBackend`] 実装で共有される
+/// ストレージ抽象化を提供します。このトレイトは、MPSCバッファに対する
+/// 読み取りおよび書き込みアクセスを統一的に扱うためのインターフェースです。
+///
+/// # 型パラメータ
+///
+/// * `T` - バッファに格納される要素の型
 pub trait RingBufferStorage<T> {
+  /// MPSCバッファへの不変参照を使用してクロージャを実行します
+  ///
+  /// # 引数
+  ///
+  /// * `f` - MPSCバッファの不変参照を受け取るクロージャ
+  ///
+  /// # 戻り値
+  ///
+  /// クロージャの実行結果
   fn with_read<R>(&self, f: impl FnOnce(&MpscBuffer<T>) -> R) -> R;
+
+  /// MPSCバッファへの可変参照を使用してクロージャを実行します
+  ///
+  /// # 引数
+  ///
+  /// * `f` - MPSCバッファの可変参照を受け取るクロージャ
+  ///
+  /// # 戻り値
+  ///
+  /// クロージャの実行結果
   fn with_write<R>(&self, f: impl FnOnce(&mut MpscBuffer<T>) -> R) -> R;
 }
 

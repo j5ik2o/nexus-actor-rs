@@ -1,6 +1,8 @@
 use core::fmt;
 
-/// Supervisor が返すアクション。現在はテスト用途の最小限セットのみ定義する。
+/// スーパーバイザーが返すアクション。
+///
+/// アクターの障害発生時に、スーパーバイザーがどのように対処するかを指示します。
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SupervisorDirective {
   /// アクターを停止する。
@@ -13,22 +15,42 @@ pub enum SupervisorDirective {
   Escalate,
 }
 
-/// Supervisor の基本トレイト。
+/// スーパーバイザーの基本トレイト。
+///
+/// アクターの障害処理戦略を定義し、障害時の挙動を制御します。
 pub trait Supervisor<M>: Send + 'static {
+  /// 障害処理の前に呼び出されるフック。
+  ///
+  /// デフォルト実装では何もしません。
   fn before_handle(&mut self) {}
 
+  /// 障害処理の後に呼び出されるフック。
+  ///
+  /// デフォルト実装では何もしません。
   fn after_handle(&mut self) {}
 
+  /// 障害に対する処理方針を決定します。
+  ///
+  /// # 引数
+  ///
+  /// * `_error` - 発生したエラー情報
+  ///
+  /// # 戻り値
+  ///
+  /// 実行すべき `SupervisorDirective`
   fn decide(&mut self, _error: &dyn fmt::Debug) -> SupervisorDirective {
     SupervisorDirective::Stop
   }
 }
 
-/// 何もしない Supervisor 実装。デフォルトで Resume を返す。
+/// 何もしないスーパーバイザー実装。
+///
+/// すべての障害に対して `Resume` を返し、処理を継続します。
 #[derive(Clone, Copy, Debug, Default)]
 pub struct NoopSupervisor;
 
 impl<M> Supervisor<M> for NoopSupervisor {
+  /// すべての障害に対して `Resume` を返します。
   fn decide(&mut self, _error: &dyn fmt::Debug) -> SupervisorDirective {
     SupervisorDirective::Resume
   }

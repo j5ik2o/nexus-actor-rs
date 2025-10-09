@@ -8,6 +8,9 @@ use nexus_utils_std_rs::{ArcMpscBoundedQueue, ArcMpscUnboundedQueue};
 use nexus_utils_std_rs::{Element, QueueBase, QueueError, QueueRw, QueueSize};
 use tokio::sync::{futures::Notified, Notify};
 
+/// Tokioランタイム用のメールボックス実装
+///
+/// アクターへのメッセージ配信を管理する非同期キューです。
 #[derive(Clone, Debug)]
 pub struct TokioMailbox<M>
 where
@@ -15,6 +18,9 @@ where
   inner: QueueMailbox<TokioQueue<M>, NotifySignal>,
 }
 
+/// Tokioメールボックスへの送信側ハンドル
+///
+/// メッセージの送信に特化したインターフェースを提供します。
 #[derive(Clone, Debug)]
 pub struct TokioMailboxSender<M>
 where
@@ -22,6 +28,9 @@ where
   inner: QueueMailboxProducer<TokioQueue<M>, NotifySignal>,
 }
 
+/// Tokioメールボックスを生成するファクトリ
+///
+/// 有界・無界のメールボックスを生成します。
 #[derive(Clone, Debug, Default)]
 pub struct TokioMailboxFactory;
 
@@ -143,6 +152,13 @@ where
 }
 
 impl TokioMailboxFactory {
+  /// 指定されたオプションでメールボックスを生成する
+  ///
+  /// # 引数
+  /// * `options` - メールボックスの設定オプション
+  ///
+  /// # 戻り値
+  /// メールボックスと送信側ハンドルのペア
   pub fn mailbox<M>(&self, options: MailboxOptions) -> (TokioMailbox<M>, TokioMailboxSender<M>)
   where
     M: Element, {
@@ -150,12 +166,23 @@ impl TokioMailboxFactory {
     (TokioMailbox { inner: mailbox }, TokioMailboxSender { inner: sender })
   }
 
+  /// 指定された容量の有界メールボックスを生成する
+  ///
+  /// # 引数
+  /// * `capacity` - メールボックスの最大容量
+  ///
+  /// # 戻り値
+  /// メールボックスと送信側ハンドルのペア
   pub fn with_capacity<M>(&self, capacity: usize) -> (TokioMailbox<M>, TokioMailboxSender<M>)
   where
     M: Element, {
     self.mailbox(MailboxOptions::with_capacity(capacity))
   }
 
+  /// 無界メールボックスを生成する
+  ///
+  /// # 戻り値
+  /// メールボックスと送信側ハンドルのペア
   pub fn unbounded<M>(&self) -> (TokioMailbox<M>, TokioMailboxSender<M>)
   where
     M: Element, {
@@ -185,14 +212,29 @@ impl<M> TokioMailbox<M>
 where
   M: Element,
 {
+  /// 指定容量のメールボックスを生成する
+  ///
+  /// # 引数
+  /// * `capacity` - メールボックスの最大容量
+  ///
+  /// # 戻り値
+  /// メールボックスと送信側ハンドルのペア
   pub fn new(capacity: usize) -> (Self, TokioMailboxSender<M>) {
     TokioMailboxFactory.with_capacity(capacity)
   }
 
+  /// 無界メールボックスを生成する
+  ///
+  /// # 戻り値
+  /// メールボックスと送信側ハンドルのペア
   pub fn unbounded() -> (Self, TokioMailboxSender<M>) {
     TokioMailboxFactory.unbounded()
   }
 
+  /// 新しい送信側ハンドルを生成する
+  ///
+  /// # 戻り値
+  /// メッセージ送信用の`TokioMailboxSender`
   pub fn producer(&self) -> TokioMailboxSender<M>
   where
     TokioQueue<M>: Clone,
@@ -202,6 +244,10 @@ where
     }
   }
 
+  /// 内部のキューメールボックスへの参照を取得する
+  ///
+  /// # 戻り値
+  /// 内部メールボックスへの不変参照
   pub fn inner(&self) -> &QueueMailbox<TokioQueue<M>, NotifySignal> {
     &self.inner
   }
@@ -248,14 +294,38 @@ where
   M: Element,
   TokioQueue<M>: Clone,
 {
+  /// メッセージの送信を試みる（ブロックしない）
+  ///
+  /// # 引数
+  /// * `message` - 送信するメッセージ
+  ///
+  /// # 戻り値
+  /// 成功時は`Ok(())`、失敗時はエラーとメッセージを返す
+  ///
+  /// # エラー
+  /// キューが満杯の場合、`QueueError::Full`を返す
   pub fn try_send(&self, message: M) -> Result<(), QueueError<M>> {
     self.inner.try_send(message)
   }
 
+  /// メッセージを非同期で送信する
+  ///
+  /// # 引数
+  /// * `message` - 送信するメッセージ
+  ///
+  /// # 戻り値
+  /// 成功時は`Ok(())`、失敗時はエラーとメッセージを返す
+  ///
+  /// # エラー
+  /// メールボックスが閉じられている場合、`QueueError::Closed`を返す
   pub async fn send(&self, message: M) -> Result<(), QueueError<M>> {
     self.inner.send(message).await
   }
 
+  /// 内部のキューメールボックスプロデューサーへの参照を取得する
+  ///
+  /// # 戻り値
+  /// 内部プロデューサーへの不変参照
   pub fn inner(&self) -> &QueueMailboxProducer<TokioQueue<M>, NotifySignal> {
     &self.inner
   }

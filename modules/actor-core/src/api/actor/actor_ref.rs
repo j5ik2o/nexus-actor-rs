@@ -32,6 +32,9 @@ where
   R::Signal: Clone,
 {
   /// 内部参照から新しい `ActorRef` を生成する。
+  ///
+  /// # 引数
+  /// * `inner` - 内部アクター参照
   pub(crate) fn new(inner: InternalActorRef<DynMessage, R>) -> Self {
     Self {
       inner,
@@ -40,16 +43,27 @@ where
   }
 
   /// ユーザーメッセージを動的メッセージへラップする。
+  ///
+  /// # 引数
+  /// * `message` - ラップするユーザーメッセージ
   pub(crate) fn wrap_user(message: U) -> DynMessage {
     DynMessage::new(MessageEnvelope::user(message))
   }
 
   /// メタデータ付きのユーザーメッセージを動的メッセージへラップする。
+  ///
+  /// # 引数
+  /// * `message` - ラップするユーザーメッセージ
+  /// * `metadata` - メッセージに付随するメタデータ
   pub(crate) fn wrap_user_with_metadata(message: U, metadata: MessageMetadata) -> DynMessage {
     DynMessage::new(MessageEnvelope::user_with_metadata(message, metadata))
   }
 
   /// 既にラップ済みのメッセージを優先度付きで送信する。
+  ///
+  /// # 引数
+  /// * `dyn_message` - 動的メッセージ
+  /// * `priority` - メッセージの優先度
   fn send_envelope(
     &self,
     dyn_message: DynMessage,
@@ -58,6 +72,11 @@ where
     self.inner.try_send_with_priority(dyn_message, priority)
   }
 
+  /// メタデータ付きでメッセージを送信する（内部API）。
+  ///
+  /// # 引数
+  /// * `message` - 送信するメッセージ
+  /// * `metadata` - メッセージに付随するメタデータ
   pub(crate) fn tell_with_metadata(
     &self,
     message: U,
@@ -67,22 +86,48 @@ where
     self.send_envelope(dyn_message, DEFAULT_PRIORITY)
   }
 
+  /// メッセージを送信する（Fire-and-Forget）。
+  ///
+  /// # 引数
+  /// * `message` - 送信するメッセージ
+  ///
+  /// # 戻り値
+  /// 送信成功時は`Ok(())`、失敗時はエラー
   pub fn tell(&self, message: U) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> {
     self
       .inner
       .try_send_with_priority(Self::wrap_user(message), DEFAULT_PRIORITY)
   }
 
+  /// 優先度を指定してメッセージを送信する。
+  ///
+  /// # 引数
+  /// * `message` - 送信するメッセージ
+  /// * `priority` - メッセージの優先度（値が小さいほど高優先度）
+  ///
+  /// # 戻り値
+  /// 送信成功時は`Ok(())`、失敗時はエラー
   pub fn tell_with_priority(&self, message: U, priority: i8) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> {
     self.inner.try_send_with_priority(Self::wrap_user(message), priority)
   }
 
+  /// システムメッセージを送信する。
+  ///
+  /// # 引数
+  /// * `message` - 送信するシステムメッセージ
+  ///
+  /// # 戻り値
+  /// 送信成功時は`Ok(())`、失敗時はエラー
   pub fn send_system(&self, message: SystemMessage) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> {
     let envelope =
       PriorityEnvelope::from_system(message.clone()).map(|sys| DynMessage::new(MessageEnvelope::<U>::System(sys)));
     self.inner.try_send_envelope(envelope)
   }
 
+  /// このアクター参照をメッセージディスパッチャに変換する。
+  ///
+  /// # 戻り値
+  /// メッセージ送信用のディスパッチャ
   pub fn to_dispatcher(&self) -> MessageSender<U>
   where
     R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
@@ -91,6 +136,12 @@ where
     MessageSender::new(internal)
   }
 
+  /// 送信元アクターを指定してリクエストを送信する（内部API）。
+  ///
+  /// # 引数
+  /// * `message` - 送信するメッセージ
+  /// * `sender` - 送信元アクターの参照
+  #[allow(dead_code)]
   pub(crate) fn request_from<S>(
     &self,
     message: U,
@@ -103,6 +154,12 @@ where
     self.request_with_dispatcher(message, sender.to_dispatcher())
   }
 
+  /// ディスパッチャを指定してリクエストを送信する（内部API）。
+  ///
+  /// # 引数
+  /// * `message` - 送信するメッセージ
+  /// * `sender` - 送信元ディスパッチャ
+  #[allow(dead_code)]
   pub(crate) fn request_with_dispatcher<S>(
     &self,
     message: U,
@@ -114,7 +171,13 @@ where
     self.tell_with_metadata(message, metadata)
   }
 
-  /// 応答チャネルを内部で生成し、`message` を送って `AskFuture` を返す。
+  /// 応答チャネルを内部で生成し、`message` を送って `AskFuture` を返す（内部API）。
+  ///
+  /// # 引数
+  /// * `message` - 送信するメッセージ
+  ///
+  /// # 戻り値
+  /// 応答を待ち受ける`AskFuture`
   pub(crate) fn request_future<Resp>(&self, message: U) -> AskResult<AskFuture<Resp>>
   where
     Resp: Element, {
@@ -124,7 +187,12 @@ where
     Ok(future)
   }
 
-  /// 送信元のアクター参照を指定して `ask` を発行する。
+  /// 送信元のアクター参照を指定して `ask` を発行する（内部API）。
+  ///
+  /// # 引数
+  /// * `message` - 送信するメッセージ
+  /// * `sender` - 送信元アクターの参照
+  #[allow(dead_code)]
   pub(crate) fn request_future_from<Resp, S>(&self, message: U, sender: &ActorRef<S, R>) -> AskResult<AskFuture<Resp>>
   where
     Resp: Element,
@@ -134,7 +202,12 @@ where
     self.request_future_with_dispatcher(message, sender.to_dispatcher())
   }
 
-  /// 任意のディスパッチャを送信元として `ask` を発行する。
+  /// 任意のディスパッチャを送信元として `ask` を発行する（内部API）。
+  ///
+  /// # 引数
+  /// * `message` - 送信するメッセージ
+  /// * `sender` - 送信元ディスパッチャ
+  #[allow(dead_code)]
   pub(crate) fn request_future_with_dispatcher<Resp, S>(
     &self,
     message: U,
@@ -149,6 +222,12 @@ where
     Ok(future)
   }
 
+  /// タイムアウト付きで`ask`を発行する（内部API）。
+  ///
+  /// # 引数
+  /// * `message` - 送信するメッセージ
+  /// * `timeout` - タイムアウト制御用のFuture
+  #[allow(dead_code)]
   pub(crate) fn request_future_with_timeout<Resp, TFut>(
     &self,
     message: U,
@@ -168,6 +247,13 @@ where
     }
   }
 
+  /// 送信元を指定してタイムアウト付き`ask`を発行する（内部API）。
+  ///
+  /// # 引数
+  /// * `message` - 送信するメッセージ
+  /// * `sender` - 送信元アクターの参照
+  /// * `timeout` - タイムアウト制御用のFuture
+  #[allow(dead_code)]
   pub(crate) fn request_future_with_timeout_from<Resp, S, TFut>(
     &self,
     message: U,
@@ -183,6 +269,13 @@ where
     self.request_future_with_timeout_dispatcher(message, sender.to_dispatcher(), timeout)
   }
 
+  /// ディスパッチャを指定してタイムアウト付き`ask`を発行する（内部API）。
+  ///
+  /// # 引数
+  /// * `message` - 送信するメッセージ
+  /// * `sender` - 送信元ディスパッチャ
+  /// * `timeout` - タイムアウト制御用のFuture
+  #[allow(dead_code)]
   pub(crate) fn request_future_with_timeout_dispatcher<Resp, S, TFut>(
     &self,
     message: U,
@@ -204,6 +297,15 @@ where
     }
   }
 
+  /// ファクトリ関数でメッセージを構築し、`ask`パターンで送信する。
+  ///
+  /// 応答用のディスパッチャをファクトリに渡してメッセージを構築できる。
+  ///
+  /// # 引数
+  /// * `factory` - 応答用ディスパッチャを受け取りメッセージを生成する関数
+  ///
+  /// # 戻り値
+  /// 応答を待ち受ける`AskFuture`
   pub fn ask_with<Resp, F>(&self, factory: F) -> AskResult<AskFuture<Resp>>
   where
     Resp: Element,
@@ -216,6 +318,14 @@ where
     Ok(future)
   }
 
+  /// タイムアウト付きでファクトリ関数を使って`ask`を発行する。
+  ///
+  /// # 引数
+  /// * `factory` - 応答用ディスパッチャを受け取りメッセージを生成する関数
+  /// * `timeout` - タイムアウト制御用のFuture
+  ///
+  /// # 戻り値
+  /// タイムアウト制御付きの`AskTimeoutFuture`
   pub fn ask_with_timeout<Resp, F, TFut>(&self, factory: F, timeout: TFut) -> AskResult<AskTimeoutFuture<Resp, TFut>>
   where
     Resp: Element,

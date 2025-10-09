@@ -7,12 +7,21 @@ use nexus_utils_core_rs::{
 
 type ArcStackStorage<T> = ArcShared<StackStorageBackend<ArcShared<Mutex<StackBuffer<T>>>>>;
 
+/// `Arc`ベースのスレッドセーフなスタック実装
+///
+/// 複数のスレッド間で安全に共有可能なスタックデータ構造を提供します。
+/// 内部的に`Arc`と`Mutex`を使用して同期を行います。
 #[derive(Debug, Clone)]
 pub struct ArcStack<T> {
   inner: Stack<ArcStackStorage<T>, T>,
 }
 
 impl<T> ArcStack<T> {
+  /// 新しい`ArcStack`を作成します
+  ///
+  /// # 戻り値
+  ///
+  /// 空の`ArcStack`インスタンス
   pub fn new() -> Self {
     let storage = ArcShared::new(Mutex::new(StackBuffer::new()));
     let backend: ArcStackStorage<T> = ArcShared::new(StackStorageBackend::new(storage));
@@ -21,38 +30,86 @@ impl<T> ArcStack<T> {
     }
   }
 
+  /// 指定された容量を持つ`ArcStack`を作成します
+  ///
+  /// # 引数
+  ///
+  /// * `capacity` - スタックの最大容量
+  ///
+  /// # 戻り値
+  ///
+  /// 指定された容量を持つ空の`ArcStack`インスタンス
   pub fn with_capacity(capacity: usize) -> Self {
     let stack = Self::new();
     stack.set_capacity(Some(capacity));
     stack
   }
 
+  /// スタックの容量を設定します
+  ///
+  /// # 引数
+  ///
+  /// * `capacity` - スタックの最大容量。`None`の場合は無制限
   pub fn set_capacity(&self, capacity: Option<usize>) {
     self.inner.set_capacity(capacity);
   }
 
+  /// スタックに値をプッシュします
+  ///
+  /// # 引数
+  ///
+  /// * `value` - プッシュする値
+  ///
+  /// # 戻り値
+  ///
+  /// 成功時は`Ok(())`、容量制限を超える場合は`Err(StackError)`
+  ///
+  /// # エラー
+  ///
+  /// スタックが容量制限に達している場合、`StackError`を返します
   pub fn push(&self, value: T) -> Result<(), StackError<T>> {
     self.inner.push(value)
   }
 
+  /// スタックから値をポップします
+  ///
+  /// # 戻り値
+  ///
+  /// スタックが空でない場合は`Some(T)`、空の場合は`None`
   pub fn pop(&self) -> Option<T> {
     self.inner.pop()
   }
 
+  /// スタックの先頭要素を削除せずに取得します
+  ///
+  /// # 戻り値
+  ///
+  /// スタックが空でない場合は先頭要素のクローン`Some(T)`、空の場合は`None`
   pub fn peek(&self) -> Option<T>
   where
     T: Clone, {
     self.inner.peek()
   }
 
+  /// スタック内のすべての要素を削除します
   pub fn clear(&self) {
     self.inner.clear();
   }
 
+  /// スタック内の要素数を取得します
+  ///
+  /// # 戻り値
+  ///
+  /// 現在のスタック内の要素数
   pub fn len(&self) -> QueueSize {
     self.inner.len()
   }
 
+  /// スタックの容量を取得します
+  ///
+  /// # 戻り値
+  ///
+  /// スタックの最大容量。無制限の場合は`QueueSize::Unlimited`
   pub fn capacity(&self) -> QueueSize {
     self.inner.capacity()
   }

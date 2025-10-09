@@ -8,12 +8,25 @@ use nexus_utils_core_rs::{
   DEFAULT_CAPACITY,
 };
 
+/// リングバッファに基づく循環キュー
+///
+/// 固定容量または動的拡張可能なリングバッファキューです。
+/// `Arc`による共有所有権を使用し、複数のスレッドから安全にアクセス可能です。
 #[derive(Debug, Clone)]
 pub struct ArcRingQueue<E> {
   inner: RingQueue<ArcRingStorage<E>, E>,
 }
 
 impl<E> ArcRingQueue<E> {
+  /// 指定された容量で新しいリングキューを作成します
+  ///
+  /// # 引数
+  ///
+  /// * `capacity` - リングバッファの初期容量
+  ///
+  /// # 戻り値
+  ///
+  /// 新しいリングキューインスタンス
   pub fn new(capacity: usize) -> Self {
     let storage = ArcShared::new(Mutex::new(RingBuffer::new(capacity)));
     let backend: ArcRingStorage<E> = ArcShared::new(RingStorageBackend::new(storage));
@@ -22,11 +35,25 @@ impl<E> ArcRingQueue<E> {
     }
   }
 
+  /// 動的拡張モードを設定してキューを返します(ビルダーパターン)
+  ///
+  /// # 引数
+  ///
+  /// * `dynamic` - `true`の場合、容量超過時に自動拡張します
+  ///
+  /// # 戻り値
+  ///
+  /// 設定が適用されたキューインスタンス(self)
   pub fn with_dynamic(mut self, dynamic: bool) -> Self {
     self.inner = self.inner.with_dynamic(dynamic);
     self
   }
 
+  /// 動的拡張モードを設定します
+  ///
+  /// # 引数
+  ///
+  /// * `dynamic` - `true`の場合、容量超過時に自動拡張します
   pub fn set_dynamic(&self, dynamic: bool) {
     self.inner.set_dynamic(dynamic);
   }

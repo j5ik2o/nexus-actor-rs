@@ -9,6 +9,16 @@ use nexus_utils_core_rs::{
   SynchronizedRwBackend,
 };
 
+/// `Rc` + `Mutex` による同期化バックエンド。
+///
+/// `no_std` 環境で、排他的アクセスを提供する同期プリミティブを実装します。
+/// Embassy の `Mutex` を使用して、値への非同期的な排他アクセスを実現します。
+///
+/// # 特徴
+///
+/// - `Rc` による参照カウント（シングルスレッド専用）
+/// - Embassy の `NoopRawMutex` による軽量な排他制御
+/// - 読み書き両方で同じロックを使用
 #[derive(Clone, Debug)]
 pub struct RcMutexBackend<T> {
   inner: Rc<Mutex<NoopRawMutex, T>>,
@@ -24,6 +34,7 @@ where
   where
     Self: 'a;
 
+  /// 指定された値で新しい同期化バックエンドを作成します。
   fn new(value: T) -> Self
   where
     T: Sized, {
@@ -32,11 +43,24 @@ where
     }
   }
 
+  /// ロックを取得し、ガードを返します。
+  ///
+  /// 他のタスクがロックを保持している場合、解放されるまで待機します。
   async fn lock(&self) -> Self::Guard<'_> {
     self.inner.lock().await
   }
 }
 
+/// `Rc` + `RwLock` による読み取り/書き込み同期化バックエンド。
+///
+/// `no_std` 環境で、複数の読み取りまたは単一の書き込みアクセスを提供する同期プリミティブを実装します。
+/// Embassy の `RwLock` を使用して、値への非同期的な読み取り/書き込みアクセスを実現します。
+///
+/// # 特徴
+///
+/// - `Rc` による参照カウント（シングルスレッド専用）
+/// - Embassy の `NoopRawMutex` による軽量なロック機構
+/// - 複数の読み取りまたは単一の書き込みを許可
 #[derive(Clone, Debug)]
 pub struct RcRwLockBackend<T> {
   inner: Rc<RwLock<NoopRawMutex, T>>,
@@ -56,6 +80,7 @@ where
   where
     Self: 'a;
 
+  /// 指定された値で新しい読み取り/書き込み同期化バックエンドを作成します。
   fn new(value: T) -> Self
   where
     T: Sized, {
@@ -64,16 +89,31 @@ where
     }
   }
 
+  /// 読み取りロックを取得し、読み取りガードを返します。
+  ///
+  /// 複数の読み取りロックは同時に保持できます。
+  /// 書き込みロックが保持されている場合、解放されるまで待機します。
   async fn read(&self) -> Self::ReadGuard<'_> {
     self.inner.read().await
   }
 
+  /// 書き込みロックを取得し、書き込みガードを返します。
+  ///
+  /// 書き込みロックは排他的であり、他の読み取り/書き込みロックが解放されるまで待機します。
   async fn write(&self) -> Self::WriteGuard<'_> {
     self.inner.write().await
   }
 }
 
+/// `Rc` ベースの排他的同期型の型エイリアス。
+///
+/// `no_std` 環境で使用できる、排他的アクセス制御を提供する同期プリミティブです。
+/// 読み取り/書き込み両方で同じロックを使用します。
 pub type Synchronized<T> = CoreSynchronized<RcMutexBackend<T>, T>;
+
+/// `Rc` ベースの読み取り/書き込み同期型の型エイリアス。
+///
+/// `no_std` 環境で使用できる、複数の読み取りまたは単一の書き込みアクセスを提供する同期プリミティブです。
 pub type SynchronizedRw<T> = CoreSynchronizedRw<RcRwLockBackend<T>, T>;
 
 #[cfg(test)]

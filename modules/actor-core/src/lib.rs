@@ -1,3 +1,75 @@
+//! nexus-actor-rs コアライブラリ
+//!
+//! Rustで実装されたアクターモデルライブラリのコアモジュール。
+//! 型安全なメッセージパッシング、スーパーバイザー階層、
+//! Akka/Pekko Typed風のBehavior APIを提供する。
+//!
+//! # 主要な機能
+//! - 型付きアクター参照 (`ActorRef<U, R>`)
+//! - Behavior DSL (Akka Typed風)
+//! - スーパーバイザー戦略
+//! - Ask パターン (Request-Response)
+//! - メールボックスとディスパッチャー
+//! - イベントストリーム
+//!
+//! # 使用例
+//! ```ignore
+//! use nexus_actor_core_rs::*;
+//!
+//! let behavior = Behaviors::receive(|ctx, msg: String| {
+//!     println!("Received: {}", msg);
+//!     Behaviors::same()
+//! });
+//! ```
+
+#![deny(missing_docs)]
+#![deny(rustdoc::broken_intra_doc_links)]
+#![deny(unsafe_op_in_unsafe_fn)]
+#![deny(clippy::missing_errors_doc)]
+#![deny(clippy::missing_panics_doc)]
+#![deny(clippy::missing_safety_doc)]
+#![deny(clippy::redundant_clone)]
+#![deny(clippy::redundant_field_names)]
+#![deny(clippy::redundant_pattern)]
+#![deny(clippy::redundant_static_lifetimes)]
+#![deny(clippy::unnecessary_to_owned)]
+#![deny(clippy::unnecessary_struct_initialization)]
+#![deny(clippy::needless_borrow)]
+#![deny(clippy::needless_pass_by_value)]
+#![deny(clippy::manual_ok_or)]
+#![deny(clippy::manual_map)]
+#![deny(clippy::manual_let_else)]
+#![deny(clippy::manual_strip)]
+#![deny(clippy::unused_async)]
+#![deny(clippy::unused_self)]
+#![deny(clippy::unnecessary_wraps)]
+#![deny(clippy::unreachable)]
+#![deny(clippy::empty_enum)]
+#![deny(clippy::no_effect)]
+#![deny(clippy::drop_copy)]
+#![deny(clippy::unwrap_used)]
+#![deny(clippy::expect_used)]
+#![deny(clippy::panic)]
+#![deny(clippy::todo)]
+#![deny(clippy::unimplemented)]
+#![deny(clippy::print_stdout)]
+#![deny(clippy::dbg_macro)]
+#![deny(clippy::missing_const_for_fn)]
+#![deny(clippy::must_use_candidate)]
+#![deny(clippy::trivially_copy_pass_by_ref)]
+#![deny(clippy::clone_on_copy)]
+#![deny(clippy::len_without_is_empty)]
+#![deny(clippy::wrong_self_convention)]
+#![deny(clippy::wrong_pub_self_convention)]
+#![deny(clippy::from_over_into)]
+#![deny(clippy::eq_op)]
+#![deny(clippy::bool_comparison)]
+#![deny(clippy::needless_bool)]
+#![deny(clippy::match_like_matches_macro)]
+#![deny(clippy::manual_assert)]
+#![deny(clippy::naive_bytecount)]
+#![deny(clippy::if_same_then_else)]
+#![deny(clippy::cmp_null)]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![allow(clippy::result_large_err)]
 
@@ -14,11 +86,19 @@ pub use api::*;
 pub use runtime::mailbox::{PriorityEnvelope, SystemMessage};
 pub use runtime::message::{store_metadata, take_metadata, DynMessage, MetadataKey};
 pub use runtime::scheduler::{ReceiveTimeoutScheduler, ReceiveTimeoutSchedulerFactory};
+
+/// システムメッセージをメッセージ型に変換する関数型エイリアス。
 pub type MapSystemFn<M> = dyn Fn(SystemMessage) -> M + Send + Sync;
 
-/// Minimal actor loop that waits for messages, handles them, and yields control.
+/// 最小限のアクターループ実装。
 ///
-/// This is a reference implementation shared by both std and embedded runtimes.
+/// メッセージを受信し、ハンドラに渡して処理する。
+/// stdとembeddedランタイムの両方で共有される参照実装。
+///
+/// # 引数
+/// * `mailbox` - メッセージを受信するメールボックス
+/// * `timer` - 待機に使用するタイマー
+/// * `handler` - メッセージを処理するハンドラ関数
 pub async fn actor_loop<M, MB, T, F>(mailbox: &MB, timer: &T, mut handler: F)
 where
   MB: Mailbox<M>,

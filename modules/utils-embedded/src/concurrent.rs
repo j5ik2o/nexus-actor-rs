@@ -1,3 +1,24 @@
+//! 並行処理プリミティブモジュール。
+//!
+//! このモジュールは、`no_std` 環境で使用できる並行処理および同期プリミティブを提供します。
+//! `Rc` または `Arc` ベースの実装を、フィーチャフラグで選択できます。
+//!
+//! # 提供される同期プリミティブ
+//!
+//! - **AsyncBarrier**: 複数のタスクが同期ポイントで待機するバリア
+//! - **CountDownLatch**: カウントが 0 になるまで待機するラッチ
+//! - **WaitGroup**: 複数のタスクの完了を追跡する待機グループ
+//! - **Synchronized**: 排他的アクセス制御（Mutex ベース）
+//! - **SynchronizedRw**: 読み取り/書き込みアクセス制御（RwLock ベース）
+//!
+//! # フィーチャフラグ
+//!
+//! - **`rc`**: `Rc` ベースの実装（シングルスレッド専用）
+//! - **`arc`**: `Arc` ベースの実装（マルチスレッド対応）
+//!   - `ArcLocal*`: `Arc` + `LocalMutex`/`LocalRwLock`（シングルスレッド最適化）
+//!   - `ArcCs*`: `Arc` + `CsMutex`/`CsRwLock`（クリティカルセクションベース）
+//!   - `Arc*`: `Arc` + 標準 Mutex/RwLock
+
 #[cfg(feature = "rc")]
 mod rc_synchronized;
 #[cfg(feature = "rc")]

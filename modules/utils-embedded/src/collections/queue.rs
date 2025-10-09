@@ -1,5 +1,18 @@
+//! キュー実装モジュール
+
+/// MPSC（Multiple Producer, Single Consumer）キュー
+///
+/// 複数のプロデューサーと単一のコンシューマーをサポートするキュー実装です。
 pub mod mpsc;
+
+/// 優先度付きキュー
+///
+/// メッセージの優先度に基づいて処理順序を制御するキュー実装です。
 pub mod priority;
+
+/// リングバッファキュー
+///
+/// 循環バッファを使用した効率的なFIFOキュー実装です。
 pub mod ring;
 
 #[cfg(feature = "arc")]

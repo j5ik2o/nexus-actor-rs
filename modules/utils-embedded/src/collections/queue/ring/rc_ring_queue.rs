@@ -7,14 +7,70 @@ use nexus_utils_core_rs::{
 
 use crate::sync::RcShared;
 
+/// `Rc`ベースのリングバッファストレージ型エイリアス
+///
+/// `RcShared`と`RefCell`を使用した参照カウントベースのリングバッファストレージです。
 type RcRingStorage<E> = RcShared<RingStorageBackend<RcShared<RefCell<RingBuffer<E>>>>>;
 
+/// `Rc`ベースのリングバッファキュー
+///
+/// このキューは`no_std`環境で利用可能な、循環バッファを使用したFIFO(First-In-First-Out)キューです。
+/// `Rc`と`RefCell`を使用して参照カウントベースの共有所有権を提供します。
+///
+/// # 特徴
+///
+/// - **リングバッファ**: 効率的な循環バッファ実装
+/// - **動的/静的モード**: 動的拡張または固定容量のいずれかを選択可能
+/// - **no_std対応**: 標準ライブラリを必要としません
+/// - **クローン可能**: `clone()`で複数のハンドルを作成可能
+///
+/// # パフォーマンス特性
+///
+/// - `offer`: O(1)（容量内）、リサイズ時はO(n)
+/// - `poll`: O(1)
+/// - メモリ使用量: O(capacity)
+///
+/// # モード
+///
+/// - **動的モード**: 容量が不足すると自動的に拡張されます（デフォルト）
+/// - **静的モード**: 容量制限が厳密に適用され、満杯時に`QueueError::Full`を返します
+///
+/// # 例
+///
+/// ```
+/// use nexus_utils_embedded_rs::RcRingQueue;
+/// use nexus_utils_core_rs::QueueRw;
+///
+/// // 容量10の動的リングキューを作成
+/// let queue = RcRingQueue::new(10);
+/// queue.offer(1).unwrap();
+/// queue.offer(2).unwrap();
+/// assert_eq!(queue.poll().unwrap(), Some(1));
+///
+/// // 固定容量のリングキューを作成
+/// let static_queue = RcRingQueue::new(5).with_dynamic(false);
+/// ```
 #[derive(Debug, Clone)]
 pub struct RcRingQueue<E> {
   inner: RingQueue<RcRingStorage<E>, E>,
 }
 
 impl<E> RcRingQueue<E> {
+  /// 指定された容量で新しいリングバッファキューを作成します
+  ///
+  /// デフォルトでは動的拡張モードで作成されます。
+  ///
+  /// # 引数
+  ///
+  /// * `capacity` - キューの初期容量
+  ///
+  /// # 例
+  ///
+  /// ```
+  /// use nexus_utils_embedded_rs::RcRingQueue;
+  ///
+  /// let queue: RcRingQueue<String> = RcRingQueue::new(100);
+  /// ```
   pub fn new(capacity: usize) -> Self {
     let storage = RcShared::new(RefCell::new(RingBuffer::new(capacity)));
     let backend: RcRingStorage<E> = RcShared::new(RingStorageBackend::new(storage));
@@ -23,11 +79,40 @@ impl<E> RcRingQueue<E> {
     }
   }
 
+  /// 動的拡張モードを設定して自身を返します（ビルダーパターン）
+  ///
+  /// # 引数
+  ///
+  /// * `dynamic` - `true`の場合、容量が不足すると自動的に拡張されます。
+  ///               `false`の場合、容量制限が厳密に適用されます。
+  ///
+  /// # 例
+  ///
+  /// ```
+  /// use nexus_utils_embedded_rs::RcRingQueue;
+  ///
+  /// let queue: RcRingQueue<i32> = RcRingQueue::new(10)
+  ///     .with_dynamic(false); // 固定容量モード
+  /// ```
   pub fn with_dynamic(mut self, dynamic: bool) -> Self {
     self.inner = self.inner.with_dynamic(dynamic);
     self
   }
 
+  /// キューの動的拡張モードを設定します
+  ///
+  /// # 引数
+  ///
+  /// * `dynamic` - `true`の場合、容量が不足すると自動的に拡張されます
+  ///
+  /// # 例
+  ///
+  /// ```
+  /// use nexus_utils_embedded_rs::RcRingQueue;
+  ///
+  /// let queue: RcRingQueue<i32> = RcRingQueue::new(10);
+  /// queue.set_dynamic(false); // 固定容量モードに変更
+  /// ```
   pub fn set_dynamic(&self, dynamic: bool) {
     self.inner.set_dynamic(dynamic);
   }

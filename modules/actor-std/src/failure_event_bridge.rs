@@ -10,11 +10,28 @@ pub struct TokioFailureEventBridge {
 }
 
 impl TokioFailureEventBridge {
+  /// 新しい`TokioFailureEventBridge`インスタンスを作成します。
+  ///
+  /// # 引数
+  ///
+  /// * `capacity` - 内部broadcastチャネルのバッファ容量
+  ///
+  /// # 戻り値
+  ///
+  /// 指定された容量のbroadcastチャネルを持つ新しいブリッジインスタンス
   pub fn new(capacity: usize) -> Self {
     let (sender, _) = broadcast::channel(capacity);
     Self { sender }
   }
 
+  /// 障害イベントをブロードキャストするリスナーを取得します。
+  ///
+  /// このメソッドは、障害イベントを受け取り、すべての購読者にブロードキャストする
+  /// `FailureEventListener`を返します。送信エラーは無視されます。
+  ///
+  /// # 戻り値
+  ///
+  /// 障害イベントをブロードキャストするリスナー関数
   pub fn listener(&self) -> FailureEventListener {
     let sender = self.sender.clone();
     Arc::new(move |event: FailureEvent| {
@@ -22,6 +39,15 @@ impl TokioFailureEventBridge {
     })
   }
 
+  /// 障害イベントの受信者を作成します。
+  ///
+  /// このメソッドは、ブロードキャストチャネルの新しい受信者を作成します。
+  /// 返された受信者を使用して、ブリッジを通じてブロードキャストされた
+  /// 障害イベントを受信できます。
+  ///
+  /// # 戻り値
+  ///
+  /// 障害イベントを受信するためのbroadcast受信者
   pub fn subscribe(&self) -> broadcast::Receiver<FailureEvent> {
     self.sender.subscribe()
   }

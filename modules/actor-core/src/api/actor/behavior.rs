@@ -17,14 +17,19 @@ type SystemHandlerFn<U, R> = dyn for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R
 type SignalFn<U, R> = dyn for<'r, 'ctx> Fn(&mut Context<'r, 'ctx, U, R>, Signal) -> BehaviorDirective<U, R> + 'static;
 type SetupFn<U, R> = dyn for<'r, 'ctx> Fn(&mut Context<'r, 'ctx, U, R>) -> Behavior<U, R> + 'static;
 
+/// アクターのライフサイクルシグナル。
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Signal {
+  /// アクター停止後に送信されるシグナル
   PostStop,
 }
 
+/// スーパーバイザー戦略の設定（内部表現）。
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum SupervisorStrategyConfig {
+  /// デフォルト戦略（NoopSupervisor）
   Default,
+  /// 固定戦略
   Fixed(SupervisorStrategy),
 }
 
@@ -48,11 +53,18 @@ impl SupervisorStrategyConfig {
   }
 }
 
+/// スーパーバイザー戦略の種類。
+///
+/// 子アクターで障害が発生した際に、親アクターがどのように対処するかを定義する。
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SupervisorStrategy {
+  /// アクターを再起動する
   Restart,
+  /// アクターを停止する
   Stop,
+  /// エラーを無視して処理を継続する
   Resume,
+  /// 親へエスカレーションする
   Escalate,
 }
 
@@ -85,6 +97,7 @@ impl<M> Supervisor<M> for FixedDirectiveSupervisor {
   }
 }
 
+/// 動的なスーパーバイザー実装（内部型）。
 pub(crate) struct DynSupervisor<M>
 where
   M: Element, {
@@ -118,16 +131,21 @@ where
 }
 
 /// ユーザーメッセージ処理後の状態遷移指示。
+///
+/// メッセージ処理後に次の動作を指定する。
 pub enum BehaviorDirective<U, R>
 where
   U: Element,
   R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
   R::Signal: Clone, {
+  /// 同じBehaviorを維持する
   Same,
+  /// 新しいBehaviorへ遷移する
   Become(Behavior<U, R>),
 }
 
+/// Behaviorの内部状態を保持する構造体。
 pub struct BehaviorState<U, R>
 where
   U: Element,
@@ -164,14 +182,20 @@ where
 }
 
 /// Typed Behavior 表現。Akka/Pekko Typed の `Behavior` に相当する。
+///
+/// アクターの振る舞いを定義する。メッセージ受信時の処理や
+/// ライフサイクルイベントへの反応を記述する。
 pub enum Behavior<U, R>
 where
   U: Element,
   R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
   R::Signal: Clone, {
+  /// メッセージ受信状態
   Receive(BehaviorState<U, R>),
+  /// セットアップ処理を実行してBehaviorを生成
   Setup(Arc<SetupFn<U, R>>, Option<Arc<SignalFn<U, R>>>),
+  /// 停止状態
   Stopped,
 }
 
@@ -182,6 +206,10 @@ where
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
   R::Signal: Clone,
 {
+  /// メッセージ受信ハンドラを指定して`Behavior`を構築する。
+  ///
+  /// # 引数
+  /// * `handler` - メッセージを受信した際の処理
   pub fn receive<F>(handler: F) -> Self
   where
     F: for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, U) -> BehaviorDirective<U, R> + 'static, {
@@ -191,6 +219,12 @@ where
     ))
   }
 
+  /// 状態を持たないシンプルなハンドラでBehaviorを構築する。
+  ///
+  /// ハンドラは常に`BehaviorDirective::Same`を返す。
+  ///
+  /// # 引数
+  /// * `handler` - メッセージを受信した際の処理
   pub fn stateless<F>(mut handler: F) -> Self
   where
     F: for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, U) + 'static, {
@@ -203,22 +237,32 @@ where
     ))
   }
 
+  /// Contextを使わず、メッセージのみを受け取るハンドラでBehaviorを構築する。
+  ///
+  /// # 引数
+  /// * `handler` - メッセージを受信した際の処理
   pub fn receive_message<F>(mut handler: F) -> Self
   where
     F: FnMut(U) -> BehaviorDirective<U, R> + 'static, {
     Self::receive(move |_, msg| handler(msg))
   }
 
+  /// 停止状態のBehaviorを生成する。
   pub fn stopped() -> Self {
     Self::Stopped
   }
 
+  /// セットアップ処理を実行してBehaviorを生成する。
+  ///
+  /// # 引数
+  /// * `init` - 初期化処理。Contextを受け取ってBehaviorを返す
   pub fn setup<F>(init: F) -> Self
   where
     F: for<'r, 'ctx> Fn(&mut Context<'r, 'ctx, U, R>) -> Behavior<U, R> + 'static, {
     Self::Setup(Arc::new(init), None)
   }
 
+  /// スーパーバイザー設定を取得する（内部API）。
   pub(crate) fn supervisor_config(&self) -> SupervisorStrategyConfig {
     match self {
       Behavior::Receive(state) => state.supervisor.clone(),
@@ -226,6 +270,10 @@ where
     }
   }
 
+  /// シグナルハンドラを追加する。
+  ///
+  /// # 引数
+  /// * `handler` - シグナル受信時の処理
   pub fn receive_signal<F>(self, handler: F) -> Self
   where
     F: for<'r, 'ctx> Fn(&mut Context<'r, 'ctx, U, R>, Signal) -> BehaviorDirective<U, R> + 'static, {
@@ -250,9 +298,12 @@ where
 }
 
 /// Behavior DSL ビルダー。
+///
+/// Akka Typed風のBehavior構築APIを提供する。
 pub struct Behaviors;
 
 impl Behaviors {
+  /// メッセージ受信ハンドラを指定してBehaviorを構築する。
   pub fn receive<U, R, F>(handler: F) -> Behavior<U, R>
   where
     U: Element,
@@ -263,6 +314,7 @@ impl Behaviors {
     Behavior::receive(handler)
   }
 
+  /// 現在のBehaviorを維持する指示を返す。
   pub fn same<U, R>() -> BehaviorDirective<U, R>
   where
     U: Element,
@@ -272,6 +324,7 @@ impl Behaviors {
     BehaviorDirective::Same
   }
 
+  /// メッセージのみを受け取るハンドラでBehaviorを構築する。
   pub fn receive_message<U, R, F>(handler: F) -> Behavior<U, R>
   where
     U: Element,
@@ -282,6 +335,7 @@ impl Behaviors {
     Behavior::receive_message(handler)
   }
 
+  /// 新しいBehaviorへ遷移する指示を返す。
   pub fn transition<U, R>(behavior: Behavior<U, R>) -> BehaviorDirective<U, R>
   where
     U: Element,
@@ -291,6 +345,7 @@ impl Behaviors {
     BehaviorDirective::Become(behavior)
   }
 
+  /// 停止状態へ遷移する指示を返す。
   pub fn stopped<U, R>() -> BehaviorDirective<U, R>
   where
     U: Element,
@@ -300,6 +355,7 @@ impl Behaviors {
     BehaviorDirective::Become(Behavior::stopped())
   }
 
+  /// Behaviorにスーパーバイザー戦略を設定するビルダーを生成する。
   pub fn supervise<U, R>(behavior: Behavior<U, R>) -> SuperviseBuilder<U, R>
   where
     U: Element,
@@ -309,6 +365,7 @@ impl Behaviors {
     SuperviseBuilder { behavior }
   }
 
+  /// セットアップ処理を実行してBehaviorを生成する。
   pub fn setup<U, R, F>(init: F) -> Behavior<U, R>
   where
     U: Element,
@@ -320,6 +377,7 @@ impl Behaviors {
   }
 }
 
+/// スーパーバイザー戦略を設定するビルダー。
 pub struct SuperviseBuilder<U, R>
 where
   U: Element,
@@ -336,6 +394,10 @@ where
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
   R::Signal: Clone,
 {
+  /// スーパーバイザー戦略を設定する。
+  ///
+  /// # 引数
+  /// * `strategy` - 適用するスーパーバイザー戦略
   pub fn with_strategy(mut self, strategy: SupervisorStrategy) -> Behavior<U, R> {
     if let Behavior::Receive(state) = &mut self.behavior {
       state.supervisor = SupervisorStrategyConfig::from_strategy(strategy);
@@ -345,6 +407,8 @@ where
 }
 
 /// Behavior を非Typedランタイムへ橋渡しするアダプタ。
+///
+/// 内部ランタイムで使用される、Behaviorとメッセージディスパッチを結びつける型。
 pub struct ActorAdapter<U, R>
 where
   U: Element,
@@ -363,6 +427,11 @@ where
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
   R::Signal: Clone,
 {
+  /// 新しい`ActorAdapter`を生成する。
+  ///
+  /// # 引数
+  /// * `behavior_factory` - Behaviorを生成するファクトリ関数
+  /// * `system_handler` - システムメッセージのハンドラ（オプション）
   pub fn new<S>(behavior_factory: Arc<dyn Fn() -> Behavior<U, R> + 'static>, system_handler: Option<S>) -> Self
   where
     S: for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, SystemMessage) + 'static, {
@@ -374,6 +443,11 @@ where
     }
   }
 
+  /// ユーザーメッセージを処理する。
+  ///
+  /// # 引数
+  /// * `ctx` - アクターコンテキスト
+  /// * `message` - 処理するメッセージ
   pub fn handle_user(&mut self, ctx: &mut Context<'_, '_, U, R>, message: U) {
     self.ensure_initialized(ctx);
     match &mut self.behavior {
@@ -391,6 +465,11 @@ where
     }
   }
 
+  /// システムメッセージを処理する。
+  ///
+  /// # 引数
+  /// * `ctx` - アクターコンテキスト
+  /// * `message` - 処理するシステムメッセージ
   pub fn handle_system(&mut self, ctx: &mut Context<'_, '_, U, R>, message: SystemMessage) {
     self.ensure_initialized(ctx);
     if matches!(message, SystemMessage::Stop) {
@@ -404,11 +483,12 @@ where
     }
   }
 
-  /// Guardian/Scheduler 用の SystemMessage マッパー。
+  /// Guardian/Scheduler用のSystemMessageマッパーを生成する。
   pub fn create_map_system() -> Arc<MapSystemFn<DynMessage>> {
     Arc::new(|sys| DynMessage::new(MessageEnvelope::<U>::System(sys)))
   }
 
+  /// スーパーバイザー設定を取得する（内部API）。
   pub(crate) fn supervisor_config(&self) -> SupervisorStrategyConfig {
     self.behavior.supervisor_config()
   }
@@ -435,6 +515,7 @@ where
     }
   }
 
+  #[allow(dead_code)]
   fn handle_signal(&mut self, ctx: &mut Context<'_, '_, U, R>, signal: Signal) {
     if let Some(handler) = self.current_signal_handler() {
       match handler(ctx, signal) {

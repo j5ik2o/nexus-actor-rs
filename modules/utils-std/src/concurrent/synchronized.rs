@@ -4,11 +4,23 @@ use nexus_utils_core_rs::{
 };
 use tokio::sync::{Mutex, MutexGuard, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
+/// Tokio Mutexを使用した排他制御バックエンド実装
+///
+/// 共有データへの排他的アクセスを提供します。
 pub struct TokioMutexBackend<T> {
   inner: Mutex<T>,
 }
 
 impl<T> TokioMutexBackend<T> {
+  /// 既存のTokio Mutexから新しいバックエンドインスタンスを作成します。
+  ///
+  /// # 引数
+  ///
+  /// * `inner` - ラップするTokio Mutex
+  ///
+  /// # 戻り値
+  ///
+  /// 新しい`TokioMutexBackend`インスタンス
   pub fn new_with_mutex(inner: Mutex<T>) -> Self {
     Self { inner }
   }
@@ -37,11 +49,23 @@ where
   }
 }
 
+/// Tokio RwLockを使用した読み書きロックバックエンド実装
+///
+/// 複数の読み取りアクセスまたは単一の書き込みアクセスを提供します。
 pub struct TokioRwLockBackend<T> {
   inner: RwLock<T>,
 }
 
 impl<T> TokioRwLockBackend<T> {
+  /// 既存のTokio RwLockから新しいバックエンドインスタンスを作成します。
+  ///
+  /// # 引数
+  ///
+  /// * `inner` - ラップするTokio RwLock
+  ///
+  /// # 戻り値
+  ///
+  /// 新しい`TokioRwLockBackend`インスタンス
   pub fn new_with_rwlock(inner: RwLock<T>) -> Self {
     Self { inner }
   }
@@ -78,7 +102,14 @@ where
   }
 }
 
+/// Tokioランタイムを使用した排他制御付き共有データ
+///
+/// `Mutex`による排他的アクセスを提供し、複数のタスク間で安全にデータを共有できます。
 pub type Synchronized<T> = CoreSynchronized<TokioMutexBackend<T>, T>;
+
+/// Tokioランタイムを使用した読み書きロック付き共有データ
+///
+/// `RwLock`による読み取り/書き込みアクセスを提供し、複数の読み取りまたは単一の書き込みを許可します。
 pub type SynchronizedRw<T> = CoreSynchronizedRw<TokioRwLockBackend<T>, T>;
 
 #[cfg(test)]

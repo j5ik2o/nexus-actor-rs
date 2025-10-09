@@ -15,13 +15,18 @@ use nexus_utils_core_rs::{Element, QueueError};
 /// `ask` 操作の結果を `Result` で表した型エイリアス。
 pub type AskResult<T> = Result<T, AskError>;
 
-#[derive(Debug)]
 /// `ask` 処理で発生し得るエラー。
+#[derive(Debug)]
 pub enum AskError {
+  /// レスポンダーが見つからない
   MissingResponder,
+  /// メッセージ送信に失敗
   SendFailed(QueueError<PriorityEnvelope<DynMessage>>),
+  /// レスポンダーが応答前にドロップされた
   ResponderDropped,
+  /// 応答待機がキャンセルされた
   ResponseAwaitCancelled,
+  /// タイムアウトが発生
   Timeout,
 }
 
@@ -106,7 +111,8 @@ impl<Resp> AskShared<Resp> {
   }
 
   unsafe fn take_value(&self) -> Option<Resp> {
-    (*self.value.get()).take()
+    // SAFETY: この関数はunsafeであり、呼び出し側が排他的アクセスを保証する責任を持つ
+    unsafe { (*self.value.get()).take() }
   }
 
   fn state(&self) -> u8 {
@@ -118,6 +124,9 @@ unsafe impl<Resp: Send> Send for AskShared<Resp> {}
 unsafe impl<Resp: Send> Sync for AskShared<Resp> {}
 
 /// `ask` の応答を待ち受ける Future。
+///
+/// `ask`パターンでメッセージを送信した際に返される Future。
+/// 応答メッセージが到着するまで待機し、結果を返す。
 pub struct AskFuture<Resp> {
   shared: Arc<AskShared<Resp>>,
 }
@@ -165,6 +174,9 @@ unsafe impl<Resp> Sync for AskFuture<Resp> where Resp: Send {}
 impl<Resp> Unpin for AskFuture<Resp> {}
 
 /// タイムアウト制御付きの `AskFuture` ラッパー。
+///
+/// `AskFuture`にタイムアウト機能を追加したもの。
+/// タイムアウトが先に完了した場合は`AskError::Timeout`を返す。
 pub struct AskTimeoutFuture<Resp, TFut> {
   ask: Option<AskFuture<Resp>>,
   timeout: Option<TFut>,
@@ -218,6 +230,14 @@ impl<Resp, TFut> Drop for AskTimeoutFuture<Resp, TFut> {
   }
 }
 
+/// タイムアウト付き`AskFuture`を生成するヘルパー関数。
+///
+/// # 引数
+/// * `future` - 元となる`AskFuture`
+/// * `timeout` - タイムアウト制御用のFuture
+///
+/// # 戻り値
+/// タイムアウト制御付きの`AskTimeoutFuture`
 pub fn ask_with_timeout<Resp, TFut>(future: AskFuture<Resp>, timeout: TFut) -> AskTimeoutFuture<Resp, TFut>
 where
   TFut: Future<Output = ()> + Unpin,
@@ -225,6 +245,10 @@ where
   AskTimeoutFuture::new(future, timeout)
 }
 
+/// `ask`パターン用のFutureとレスポンダーのペアを生成する（内部API）。
+///
+/// # 戻り値
+/// (`AskFuture`, `MessageSender`)のタプル
 pub(crate) fn create_ask_handles<Resp>() -> (AskFuture<Resp>, MessageSender<Resp>)
 where
   Resp: Element, {

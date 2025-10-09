@@ -9,13 +9,24 @@ use nexus_utils_core_rs::{Element, QueueError, QueueRw, QueueSize};
 use super::traits::{Mailbox, MailboxSignal};
 
 /// Runtime-agnostic construction options for [`QueueMailbox`].
+///
+/// メールボックスの容量設定を保持します。
+/// 通常のメッセージと優先度付きメッセージで異なる容量を設定できます。
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct MailboxOptions {
+  /// 通常のメッセージキューの容量
   pub capacity: QueueSize,
+  /// 優先度付きメッセージキューの容量
   pub priority_capacity: QueueSize,
 }
 
 impl MailboxOptions {
+  /// 指定された容量でメールボックスオプションを作成します。
+  ///
+  /// 優先度付きメッセージキューは無制限になります。
+  ///
+  /// # 引数
+  /// - `capacity`: 通常のメッセージキューの容量
   pub const fn with_capacity(capacity: usize) -> Self {
     Self {
       capacity: QueueSize::limited(capacity),
@@ -23,6 +34,11 @@ impl MailboxOptions {
     }
   }
 
+  /// 通常と優先度付きの両方の容量を指定してメールボックスオプションを作成します。
+  ///
+  /// # 引数
+  /// - `capacity`: 通常のメッセージキューの容量
+  /// - `priority_capacity`: 優先度付きメッセージキューの容量
   pub const fn with_capacities(capacity: QueueSize, priority_capacity: QueueSize) -> Self {
     Self {
       capacity,
@@ -30,11 +46,16 @@ impl MailboxOptions {
     }
   }
 
+  /// 優先度付きメッセージキューの容量を設定します。
+  ///
+  /// # 引数
+  /// - `priority_capacity`: 優先度付きメッセージキューの容量
   pub const fn with_priority_capacity(mut self, priority_capacity: QueueSize) -> Self {
     self.priority_capacity = priority_capacity;
     self
   }
 
+  /// 無制限の容量でメールボックスオプションを作成します。
   pub const fn unbounded() -> Self {
     Self {
       capacity: QueueSize::limitless(),
@@ -50,6 +71,13 @@ impl Default for MailboxOptions {
 }
 
 /// Mailbox implementation backed by a generic queue and notification signal.
+///
+/// ジェネリックなキューと通知シグナルに基づくメールボックス実装です。
+/// 非同期ランタイムに依存しない汎用的な設計になっています。
+///
+/// # 型パラメータ
+/// - `Q`: メッセージキューの実装型
+/// - `S`: 通知シグナルの実装型
 #[derive(Debug)]
 pub struct QueueMailbox<Q, S> {
   queue: Q,
@@ -58,6 +86,11 @@ pub struct QueueMailbox<Q, S> {
 }
 
 impl<Q, S> QueueMailbox<Q, S> {
+  /// 新しいキューメールボックスを作成します。
+  ///
+  /// # 引数
+  /// - `queue`: メッセージキューの実装
+  /// - `signal`: 通知シグナルの実装
   pub fn new(queue: Q, signal: S) -> Self {
     Self {
       queue,
@@ -66,14 +99,19 @@ impl<Q, S> QueueMailbox<Q, S> {
     }
   }
 
+  /// 内部のキューへの参照を取得します。
   pub fn queue(&self) -> &Q {
     &self.queue
   }
 
+  /// 内部のシグナルへの参照を取得します。
   pub fn signal(&self) -> &S {
     &self.signal
   }
 
+  /// メッセージ送信用のプロデューサーハンドルを作成します。
+  ///
+  /// プロデューサーは複数のスレッドで共有でき、メールボックスへのメッセージ送信に使用されます。
   pub fn producer(&self) -> QueueMailboxProducer<Q, S>
   where
     Q: Clone,
@@ -101,6 +139,13 @@ where
 }
 
 /// Sending handle that shares queue ownership with [`QueueMailbox`].
+///
+/// メールボックスとキューの所有権を共有する送信ハンドルです。
+/// 複数のスレッドから安全にメッセージを送信できます。
+///
+/// # 型パラメータ
+/// - `Q`: メッセージキューの実装型
+/// - `S`: 通知シグナルの実装型
 #[derive(Clone, Debug)]
 pub struct QueueMailboxProducer<Q, S> {
   queue: Q,
@@ -123,6 +168,19 @@ where
 }
 
 impl<Q, S> QueueMailboxProducer<Q, S> {
+  /// メッセージの送信を試みます（ブロッキングなし）。
+  ///
+  /// キューが満杯の場合は即座にエラーを返します。
+  ///
+  /// # 引数
+  /// - `message`: 送信するメッセージ
+  ///
+  /// # 戻り値
+  /// 成功時は `Ok(())`、失敗時は `Err(QueueError)`
+  ///
+  /// # エラー
+  /// - `QueueError::Disconnected`: メールボックスが閉じられている
+  /// - `QueueError::Full`: キューが満杯
   pub fn try_send<M>(&self, message: M) -> Result<(), QueueError<M>>
   where
     Q: QueueRw<M>,
@@ -145,6 +203,16 @@ impl<Q, S> QueueMailboxProducer<Q, S> {
     }
   }
 
+  /// メッセージを非同期的に送信します。
+  ///
+  /// 現在の実装では `try_send` を呼び出すだけですが、
+  /// 将来的にバックプレッシャー対応などの拡張が可能です。
+  ///
+  /// # 引数
+  /// - `message`: 送信するメッセージ
+  ///
+  /// # 戻り値
+  /// 成功時は `Ok(())`、失敗時は `Err(QueueError)`
   pub async fn send<M>(&self, message: M) -> Result<(), QueueError<M>>
   where
     Q: QueueRw<M>,
@@ -207,6 +275,16 @@ where
   }
 }
 
+/// メッセージ受信用のFuture。
+///
+/// メールボックスからメッセージを非同期的に受信するためのFuture実装です。
+/// メッセージが到着するまで待機し、到着したメッセージを返します。
+///
+/// # 型パラメータ
+/// - `'a`: メールボックスへの参照のライフタイム
+/// - `Q`: メッセージキューの実装型
+/// - `S`: 通知シグナルの実装型
+/// - `M`: 受信するメッセージの型
 pub struct QueueMailboxRecv<'a, Q, S, M>
 where
   Q: QueueRw<M>,

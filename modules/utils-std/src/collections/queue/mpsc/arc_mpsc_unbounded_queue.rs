@@ -7,6 +7,10 @@ use nexus_utils_core_rs::{
 use std::fmt;
 use std::sync::{Arc, Mutex};
 
+/// 容量無制限のマルチプロデューサー・シングルコンシューマー(MPSC)キュー
+///
+/// `Arc`による共有所有権を使用し、複数のスレッドから安全にアクセス可能な無制限キューです。
+/// デフォルトではTokioアンバウンデッドチャネルバックエンドを使用しますが、リングバッファバックエンドも選択可能です。
 #[derive(Clone)]
 pub struct ArcMpscUnboundedQueue<E> {
   inner: MpscQueue<ArcShared<dyn MpscBackend<E> + Send + Sync>, E>,
@@ -22,14 +26,29 @@ impl<E> ArcMpscUnboundedQueue<E>
 where
   E: Element,
 {
+  /// 新しい無制限キューを作成します(Tokioアンバウンデッドバックエンド使用)
+  ///
+  /// # 戻り値
+  ///
+  /// Tokioアンバウンデッドチャネルバックエンドを使用する新しいキューインスタンス
   pub fn new() -> Self {
     Self::with_tokio()
   }
 
+  /// Tokioアンバウンデッドチャネルバックエンドを使用するキューを作成します
+  ///
+  /// # 戻り値
+  ///
+  /// Tokioアンバウンデッドチャネルバックエンドを使用する新しいキューインスタンス
   pub fn with_tokio() -> Self {
     Self::from_backend(TokioUnboundedMpscBackend::new())
   }
 
+  /// リングバッファバックエンドを使用する無制限キューを作成します
+  ///
+  /// # 戻り値
+  ///
+  /// リングバッファバックエンドを使用する新しいキューインスタンス
   pub fn with_ring_buffer() -> Self {
     let backend = RingBufferBackend::new(Mutex::new(MpscBuffer::new(None)));
     Self::from_backend(backend)

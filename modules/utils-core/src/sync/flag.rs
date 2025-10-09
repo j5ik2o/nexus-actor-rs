@@ -8,6 +8,29 @@ use core::cell::Cell;
 #[cfg(feature = "alloc")]
 use core::sync::atomic::{AtomicBool, Ordering};
 
+/// スレッドセーフなブールフラグを提供する構造体
+///
+/// `Flag`は、マルチスレッド環境で安全に使用できるブールフラグを提供します。
+///
+/// # 実装の詳細
+///
+/// - `alloc`フィーチャが有効な場合: `Arc<AtomicBool>`を使用してスレッドセーフな実装を提供
+/// - `alloc`フィーチャが無効な場合: `Cell<bool>`を使用してシングルスレッド環境向けの軽量な実装を提供
+///
+/// # 例
+///
+/// ```
+/// use nexus_utils_core_rs::Flag;
+///
+/// let flag = Flag::new(false);
+/// assert!(!flag.get());
+///
+/// flag.set(true);
+/// assert!(flag.get());
+///
+/// flag.clear();
+/// assert!(!flag.get());
+/// ```
 #[derive(Clone)]
 pub struct Flag {
   #[cfg(feature = "alloc")]
@@ -17,6 +40,20 @@ pub struct Flag {
 }
 
 impl Flag {
+  /// 指定された初期値で新しい`Flag`を作成します
+  ///
+  /// # 引数
+  ///
+  /// * `value` - フラグの初期値
+  ///
+  /// # 例
+  ///
+  /// ```
+  /// use nexus_utils_core_rs::Flag;
+  ///
+  /// let flag = Flag::new(true);
+  /// assert!(flag.get());
+  /// ```
   pub fn new(value: bool) -> Self {
     #[cfg(feature = "alloc")]
     {
@@ -33,6 +70,21 @@ impl Flag {
     }
   }
 
+  /// フラグの値を設定します
+  ///
+  /// # 引数
+  ///
+  /// * `value` - 設定する新しい値
+  ///
+  /// # 例
+  ///
+  /// ```
+  /// use nexus_utils_core_rs::Flag;
+  ///
+  /// let flag = Flag::new(false);
+  /// flag.set(true);
+  /// assert!(flag.get());
+  /// ```
   pub fn set(&self, value: bool) {
     #[cfg(feature = "alloc")]
     {
@@ -45,6 +97,20 @@ impl Flag {
     }
   }
 
+  /// フラグの現在の値を取得します
+  ///
+  /// # 戻り値
+  ///
+  /// フラグの現在の値
+  ///
+  /// # 例
+  ///
+  /// ```
+  /// use nexus_utils_core_rs::Flag;
+  ///
+  /// let flag = Flag::new(true);
+  /// assert!(flag.get());
+  /// ```
   pub fn get(&self) -> bool {
     #[cfg(feature = "alloc")]
     {
@@ -57,6 +123,19 @@ impl Flag {
     }
   }
 
+  /// フラグをクリアします（`false`に設定します）
+  ///
+  /// このメソッドは`set(false)`と同等です。
+  ///
+  /// # 例
+  ///
+  /// ```
+  /// use nexus_utils_core_rs::Flag;
+  ///
+  /// let flag = Flag::new(true);
+  /// flag.clear();
+  /// assert!(!flag.get());
+  /// ```
   pub fn clear(&self) {
     self.set(false);
   }

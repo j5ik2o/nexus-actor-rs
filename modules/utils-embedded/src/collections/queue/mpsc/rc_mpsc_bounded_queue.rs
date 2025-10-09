@@ -7,12 +7,53 @@ use nexus_utils_core_rs::{
 
 use crate::sync::RcShared;
 
+/// `Rc`ベースの有界MPSC(Multiple Producer, Single Consumer)キュー
+///
+/// このキューは`no_std`環境で利用可能な、容量制限付きのMPSCキューです。
+/// `Rc`と`RefCell`を使用して参照カウントベースの共有所有権を提供します。
+///
+/// # 特徴
+///
+/// - **有界**: 指定された容量を超える要素を追加することはできません
+/// - **MPSC**: 複数のプロデューサーと単一のコンシューマーをサポート
+/// - **no_std対応**: 標準ライブラリを必要としません
+/// - **クローン可能**: `clone()`で複数のハンドルを作成可能
+///
+/// # パフォーマンス特性
+///
+/// - `offer`: O(1)（容量内）
+/// - `poll`: O(1)
+/// - メモリ使用量: O(capacity)
+///
+/// # 例
+///
+/// ```
+/// use nexus_utils_embedded_rs::RcMpscBoundedQueue;
+/// use nexus_utils_core_rs::QueueRw;
+///
+/// let queue = RcMpscBoundedQueue::new(10);
+/// queue.offer(42).unwrap();
+/// assert_eq!(queue.poll().unwrap(), Some(42));
+/// ```
 #[derive(Debug, Clone)]
 pub struct RcMpscBoundedQueue<E> {
   inner: MpscQueue<RcShared<RingBufferBackend<RefCell<MpscBuffer<E>>>>, E>,
 }
 
 impl<E> RcMpscBoundedQueue<E> {
+  /// 指定された容量で新しい有界MPSCキューを作成します
+  ///
+  /// # 引数
+  ///
+  /// * `capacity` - キューに格納できる最大要素数
+  ///
+  /// # 例
+  ///
+  /// ```
+  /// use nexus_utils_embedded_rs::RcMpscBoundedQueue;
+  ///
+  /// let queue: RcMpscBoundedQueue<u32> = RcMpscBoundedQueue::new(100);
+  /// ```
   pub fn new(capacity: usize) -> Self {
     let storage = RcShared::new(RingBufferBackend::new(RefCell::new(MpscBuffer::new(Some(capacity)))));
     Self {

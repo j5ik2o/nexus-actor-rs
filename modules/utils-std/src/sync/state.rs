@@ -2,18 +2,45 @@ use std::sync::{Arc, Mutex, MutexGuard};
 
 use nexus_utils_core_rs::StateCell;
 
+/// `Arc`と`Mutex`による共有可変状態セル
+///
+/// 複数のスレッド間で安全に共有可能な可変状態を提供します。
+/// `StateCell`トレイトを実装しており、一貫したAPIで状態にアクセスできます。
 #[derive(Debug)]
 pub struct ArcStateCell<T>(Arc<Mutex<T>>);
 
 impl<T> ArcStateCell<T> {
+  /// 値から新しい`ArcStateCell`を作成します
+  ///
+  /// # 引数
+  ///
+  /// * `value` - 初期値
+  ///
+  /// # 戻り値
+  ///
+  /// 新しい`ArcStateCell`インスタンス
   pub fn new(value: T) -> Self {
     Self(Arc::new(Mutex::new(value)))
   }
 
+  /// 既存の`Arc<Mutex<T>>`から`ArcStateCell`を作成します
+  ///
+  /// # 引数
+  ///
+  /// * `inner` - `Arc<Mutex<T>>`インスタンス
+  ///
+  /// # 戻り値
+  ///
+  /// `Arc<Mutex<T>>`をラップした`ArcStateCell`インスタンス
   pub fn from_arc(inner: Arc<Mutex<T>>) -> Self {
     Self(inner)
   }
 
+  /// `ArcStateCell`を内部の`Arc<Mutex<T>>`に変換します
+  ///
+  /// # 戻り値
+  ///
+  /// 内部の`Arc<Mutex<T>>`インスタンス
   pub fn into_arc(self) -> Arc<Mutex<T>> {
     self.0
   }

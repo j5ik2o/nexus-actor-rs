@@ -1,7 +1,10 @@
 use super::traits::{MpscBackend, MpscHandle};
 use crate::collections::{QueueBase, QueueError, QueueReader, QueueRw, QueueSize, QueueWriter};
 
-/// Queue facade that operates on a [`MpscBackend`].
+/// [`MpscBackend`]を操作するキューファサード
+///
+/// このキューは、マルチプロデューサー・シングルコンシューマー（MPSC）パターンを実装しており、
+/// 複数のスレッドから要素を追加し、単一のスレッドから要素を取り出すことができます。
 #[derive(Debug)]
 pub struct MpscQueue<S, T>
 where
@@ -14,6 +17,15 @@ impl<S, T> MpscQueue<S, T>
 where
   S: MpscHandle<T>,
 {
+  /// 指定されたストレージを使用して新しい[`MpscQueue`]を作成します。
+  ///
+  /// # 引数
+  ///
+  /// * `storage` - キューのバックエンドストレージ
+  ///
+  /// # 戻り値
+  ///
+  /// 新しい[`MpscQueue`]インスタンス
   pub fn new(storage: S) -> Self {
     Self {
       storage,
@@ -21,38 +33,100 @@ where
     }
   }
 
+  /// バックエンドストレージへの参照を取得します。
+  ///
+  /// # 戻り値
+  ///
+  /// ストレージへの不変参照
   pub fn storage(&self) -> &S {
     &self.storage
   }
 
+  /// キューからバックエンドストレージを取り出します。
+  ///
+  /// このメソッドは[`MpscQueue`]を消費し、所有権をストレージに移します。
+  ///
+  /// # 戻り値
+  ///
+  /// バックエンドストレージ
   pub fn into_storage(self) -> S {
     self.storage
   }
 
+  /// キューの容量を設定します。
+  ///
+  /// # 引数
+  ///
+  /// * `capacity` - 新しい容量。`None`は無制限を意味します。
+  ///
+  /// # 戻り値
+  ///
+  /// 容量の設定に成功した場合は`true`、失敗した場合は`false`
   pub fn set_capacity(&self, capacity: Option<usize>) -> bool {
     self.storage.backend().set_capacity(capacity)
   }
 
+  /// 要素をキューに追加します。
+  ///
+  /// キューが満杯の場合、または閉じている場合はエラーを返します。
+  ///
+  /// # 引数
+  ///
+  /// * `element` - キューに追加する要素
+  ///
+  /// # 戻り値
+  ///
+  /// * `Ok(())` - 要素の追加に成功
+  /// * `Err(QueueError::Full(element))` - キューが満杯
+  /// * `Err(QueueError::Closed(element))` - キューが閉じている
   pub fn offer(&self, element: T) -> Result<(), QueueError<T>> {
     self.storage.backend().try_send(element)
   }
 
+  /// キューから要素を取り出します。
+  ///
+  /// キューが空の場合は`None`を返します。キューが閉じている場合はエラーを返します。
+  ///
+  /// # 戻り値
+  ///
+  /// * `Ok(Some(element))` - 要素の取り出しに成功
+  /// * `Ok(None)` - キューが空
+  /// * `Err(QueueError::Disconnected)` - キューが閉じている
   pub fn poll(&self) -> Result<Option<T>, QueueError<T>> {
     self.storage.backend().try_recv()
   }
 
+  /// キューをクリーンアップし、閉じます。
+  ///
+  /// このメソッドを呼び出すと、以降の`offer`操作は失敗し、
+  /// `poll`操作は残りの要素を取り出した後にエラーを返します。
   pub fn clean_up(&self) {
     self.storage.backend().close();
   }
 
+  /// キューの容量を取得します。
+  ///
+  /// # 戻り値
+  ///
+  /// キューの容量。無制限の場合は[`QueueSize::Unbounded`]
   pub fn capacity(&self) -> QueueSize {
     self.storage.backend().capacity()
   }
 
+  /// キューが閉じているかどうかを確認します。
+  ///
+  /// # 戻り値
+  ///
+  /// キューが閉じている場合は`true`、そうでない場合は`false`
   pub fn is_closed(&self) -> bool {
     self.storage.backend().is_closed()
   }
 
+  /// バックエンドへの参照を取得します（内部使用）。
+  ///
+  /// # 戻り値
+  ///
+  /// バックエンドへの参照
   fn backend(&self) -> &S::Backend {
     self.storage.backend()
   }
@@ -62,6 +136,14 @@ impl<S, T> Clone for MpscQueue<S, T>
 where
   S: MpscHandle<T>,
 {
+  /// キューのクローンを作成します。
+  ///
+  /// バックエンドストレージは共有されるため、クローンされたキューは
+  /// 同じキューインスタンスを参照します。
+  ///
+  /// # 戻り値
+  ///
+  /// 同じバックエンドストレージを共有する新しい[`MpscQueue`]インスタンス
   fn clone(&self) -> Self {
     Self {
       storage: self.storage.clone(),
@@ -74,10 +156,20 @@ impl<S, T> QueueBase<T> for MpscQueue<S, T>
 where
   S: MpscHandle<T>,
 {
+  /// キュー内の要素数を取得します。
+  ///
+  /// # 戻り値
+  ///
+  /// キュー内の要素数。無制限の場合は[`QueueSize::Unbounded`]
   fn len(&self) -> QueueSize {
     self.backend().len()
   }
 
+  /// キューの容量を取得します。
+  ///
+  /// # 戻り値
+  ///
+  /// キューの容量。無制限の場合は[`QueueSize::Unbounded`]
   fn capacity(&self) -> QueueSize {
     self.capacity()
   }
@@ -87,6 +179,19 @@ impl<S, T> QueueWriter<T> for MpscQueue<S, T>
 where
   S: MpscHandle<T>,
 {
+  /// 可変参照を使用して要素をキューに追加します。
+  ///
+  /// キューが満杯の場合、または閉じている場合はエラーを返します。
+  ///
+  /// # 引数
+  ///
+  /// * `element` - キューに追加する要素
+  ///
+  /// # 戻り値
+  ///
+  /// * `Ok(())` - 要素の追加に成功
+  /// * `Err(QueueError::Full(element))` - キューが満杯
+  /// * `Err(QueueError::Closed(element))` - キューが閉じている
   fn offer_mut(&mut self, element: T) -> Result<(), QueueError<T>> {
     self.backend().try_send(element)
   }
@@ -96,10 +201,23 @@ impl<S, T> QueueReader<T> for MpscQueue<S, T>
 where
   S: MpscHandle<T>,
 {
+  /// 可変参照を使用してキューから要素を取り出します。
+  ///
+  /// キューが空の場合は`None`を返します。キューが閉じている場合はエラーを返します。
+  ///
+  /// # 戻り値
+  ///
+  /// * `Ok(Some(element))` - 要素の取り出しに成功
+  /// * `Ok(None)` - キューが空
+  /// * `Err(QueueError::Disconnected)` - キューが閉じている
   fn poll_mut(&mut self) -> Result<Option<T>, QueueError<T>> {
     self.backend().try_recv()
   }
 
+  /// 可変参照を使用してキューをクリーンアップし、閉じます。
+  ///
+  /// このメソッドを呼び出すと、以降の`offer_mut`操作は失敗し、
+  /// `poll_mut`操作は残りの要素を取り出した後にエラーを返します。
   fn clean_up_mut(&mut self) {
     self.backend().close();
   }
@@ -109,14 +227,40 @@ impl<S, T> QueueRw<T> for MpscQueue<S, T>
 where
   S: MpscHandle<T>,
 {
+  /// 共有参照を使用して要素をキューに追加します。
+  ///
+  /// キューが満杯の場合、または閉じている場合はエラーを返します。
+  ///
+  /// # 引数
+  ///
+  /// * `element` - キューに追加する要素
+  ///
+  /// # 戻り値
+  ///
+  /// * `Ok(())` - 要素の追加に成功
+  /// * `Err(QueueError::Full(element))` - キューが満杯
+  /// * `Err(QueueError::Closed(element))` - キューが閉じている
   fn offer(&self, element: T) -> Result<(), QueueError<T>> {
     self.offer(element)
   }
 
+  /// 共有参照を使用してキューから要素を取り出します。
+  ///
+  /// キューが空の場合は`None`を返します。キューが閉じている場合はエラーを返します。
+  ///
+  /// # 戻り値
+  ///
+  /// * `Ok(Some(element))` - 要素の取り出しに成功
+  /// * `Ok(None)` - キューが空
+  /// * `Err(QueueError::Disconnected)` - キューが閉じている
   fn poll(&self) -> Result<Option<T>, QueueError<T>> {
     self.poll()
   }
 
+  /// 共有参照を使用してキューをクリーンアップし、閉じます。
+  ///
+  /// このメソッドを呼び出すと、以降の`offer`操作は失敗し、
+  /// `poll`操作は残りの要素を取り出した後にエラーを返します。
   fn clean_up(&self) {
     self.clean_up();
   }

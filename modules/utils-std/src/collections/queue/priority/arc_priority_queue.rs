@@ -3,12 +3,25 @@ use nexus_utils_core_rs::{
   PriorityMessage, PriorityQueue, QueueBase, QueueError, QueueReader, QueueRw, QueueSize, QueueWriter, PRIORITY_LEVELS,
 };
 
+/// 優先度付きキュー
+///
+/// メッセージの優先度に基づいて要素を取り出す優先度キューです。
+/// 内部的に複数のリングキューレベルを使用し、高優先度のメッセージを先に処理します。
 #[derive(Debug, Clone)]
 pub struct ArcPriorityQueue<E> {
   inner: PriorityQueue<ArcRingQueue<E>, E>,
 }
 
 impl<E> ArcPriorityQueue<E> {
+  /// 優先度レベルごとに指定された容量で新しい優先度キューを作成します
+  ///
+  /// # 引数
+  ///
+  /// * `capacity_per_level` - 各優先度レベルのキュー容量
+  ///
+  /// # 戻り値
+  ///
+  /// 新しい優先度キューインスタンス
   pub fn new(capacity_per_level: usize) -> Self {
     let levels = (0..PRIORITY_LEVELS)
       .map(|_| ArcRingQueue::new(capacity_per_level))
@@ -18,18 +31,38 @@ impl<E> ArcPriorityQueue<E> {
     }
   }
 
+  /// 優先度レベル配列への不変参照を取得します
+  ///
+  /// # 戻り値
+  ///
+  /// 優先度レベルキューのスライス
   pub fn levels(&self) -> &[ArcRingQueue<E>] {
     self.inner.levels()
   }
 
+  /// 優先度レベル配列への可変参照を取得します
+  ///
+  /// # 戻り値
+  ///
+  /// 優先度レベルキューの可変スライス
   pub fn levels_mut(&mut self) -> &mut [ArcRingQueue<E>] {
     self.inner.levels_mut()
   }
 
+  /// 内部優先度キューへの不変参照を取得します
+  ///
+  /// # 戻り値
+  ///
+  /// 内部優先度キューへの参照
   pub fn inner(&self) -> &PriorityQueue<ArcRingQueue<E>, E> {
     &self.inner
   }
 
+  /// 内部優先度キューへの可変参照を取得します
+  ///
+  /// # 戻り値
+  ///
+  /// 内部優先度キューへの可変参照
   pub fn inner_mut(&mut self) -> &mut PriorityQueue<ArcRingQueue<E>, E> {
     &mut self.inner
   }
@@ -39,14 +72,29 @@ impl<E> ArcPriorityQueue<E>
 where
   E: PriorityMessage,
 {
+  /// 要素を優先度に基づいてキューに追加します
+  ///
+  /// # 引数
+  ///
+  /// * `element` - キューに追加する要素
+  ///
+  /// # 戻り値
+  ///
+  /// 成功時は`Ok(())`、キューが満杯の場合は`Err(QueueError::Full)`
   pub fn offer(&self, element: E) -> Result<(), QueueError<E>> {
     self.inner.offer(element)
   }
 
+  /// 最も優先度の高い要素をキューから取り出します
+  ///
+  /// # 戻り値
+  ///
+  /// 成功時は`Ok(Some(E))`、キューが空の場合は`Ok(None)`
   pub fn poll(&self) -> Result<Option<E>, QueueError<E>> {
     self.inner.poll()
   }
 
+  /// キュー内のすべての要素をクリアします
   pub fn clean_up(&self) {
     self.inner.clean_up();
   }

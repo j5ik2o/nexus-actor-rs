@@ -2,6 +2,9 @@ use core::future::Future;
 
 use nexus_actor_core_rs::Spawn;
 
+/// Futureを即座にドロップするスポーナー。
+///
+/// 組み込み環境向けに、タスクを実際には実行せずにドロップするだけの実装です。
 pub struct ImmediateSpawner;
 
 impl Spawn for ImmediateSpawner {

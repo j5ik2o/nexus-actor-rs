@@ -59,6 +59,7 @@ where
     self.sender.try_send(PriorityEnvelope::new(message, priority))
   }
 
+  #[allow(dead_code)]
   pub fn try_send_control_with_priority(
     &self,
     message: M,

@@ -7,18 +7,31 @@ use nexus_utils_core_rs::{
 };
 use nexus_utils_core_rs::{Shared, StateCell};
 
+/// `Rc` ベースの共有参照ラッパー。
+///
+/// `no_std` 環境で、`Rc` を使用した共有所有権を提供します。
+/// `Shared` トレイトを実装し、各種コレクションバックエンドのハンドルとして使用できます。
+///
+/// # 特徴
+///
+/// - `Rc` による参照カウント（シングルスレッド専用）
+/// - `Deref` による透過的なアクセス
+/// - `try_unwrap` による所有権の取り戻し
 #[derive(Debug)]
 pub struct RcShared<T>(Rc<T>);
 
 impl<T> RcShared<T> {
+  /// 指定された値で新しい共有参照を作成します。
   pub fn new(value: T) -> Self {
     Self(Rc::new(value))
   }
 
+  /// 既存の `Rc` から共有参照を作成します。
   pub fn from_rc(rc: Rc<T>) -> Self {
     Self(rc)
   }
 
+  /// 内部の `Rc` を取り出します。
   pub fn into_inner(self) -> Rc<T> {
     self.0
   }
@@ -90,18 +103,45 @@ where
   }
 }
 
+/// `Rc<RefCell<T>>` ベースの状態セル。
+///
+/// `no_std` 環境で、`Rc` と `RefCell` を使用した共有可変状態を提供します。
+/// `StateCell` トレイトを実装し、内部可変性パターンを実現します。
+///
+/// # 特徴
+///
+/// - `Rc` による参照カウント（シングルスレッド専用）
+/// - `RefCell` による内部可変性
+/// - 実行時借用チェック
+///
+/// # 使用例
+///
+/// ```ignore
+/// let cell = RcStateCell::new(1);
+/// let cloned = cell.clone();
+///
+/// {
+///   let mut value = cloned.borrow_mut();
+///   *value = 5;
+/// }
+///
+/// assert_eq!(*cell.borrow(), 5);
+/// ```
 #[derive(Debug)]
 pub struct RcStateCell<T>(Rc<RefCell<T>>);
 
 impl<T> RcStateCell<T> {
+  /// 指定された値で新しい状態セルを作成します。
   pub fn new(value: T) -> Self {
     <Self as StateCell<T>>::new(value)
   }
 
+  /// 既存の `Rc<RefCell<T>>` から状態セルを作成します。
   pub fn from_rc(rc: Rc<RefCell<T>>) -> Self {
     Self(rc)
   }
 
+  /// 内部の `Rc<RefCell<T>>` を取り出します。
   pub fn into_rc(self) -> Rc<RefCell<T>> {
     self.0
   }

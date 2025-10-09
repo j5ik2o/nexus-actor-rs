@@ -17,7 +17,7 @@ struct Entry<Item> {
 
 /// `no_std` 環境で動作するソフトウェア駆動の `DeadlineTimer` 実装。
 ///
-/// 外部から経過時間を [`advance`] で知らせることで期限切れを検知し、
+/// 外部から経過時間を [`Self::advance`] で知らせることで期限切れを検知し、
 /// 次回の `poll_expired` で取り出せるようキューに積む。
 /// ハードウェアタイマーが無い環境でも、コア抽象を変えずに `ReceiveTimeout` を扱える。
 #[derive(Debug)]

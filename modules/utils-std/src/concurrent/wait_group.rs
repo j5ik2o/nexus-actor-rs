@@ -4,6 +4,9 @@ use std::sync::Arc;
 use nexus_utils_core_rs::{async_trait, WaitGroup as CoreWaitGroup, WaitGroupBackend};
 use tokio::sync::Notify;
 
+/// Tokioランタイムを使用したWaitGroupバックエンド実装
+///
+/// 非同期タスクの同期に使用され、複数の非同期操作が完了するまで待機できます。
 #[derive(Clone)]
 pub struct TokioWaitGroupBackend {
   inner: Arc<Inner>,
@@ -52,6 +55,9 @@ impl WaitGroupBackend for TokioWaitGroupBackend {
   }
 }
 
+/// Tokioバックエンドを使用するWaitGroupの型エイリアス
+///
+/// 複数の非同期タスクが完了するまで待機するための同期プリミティブです。
 pub type WaitGroup = CoreWaitGroup<TokioWaitGroupBackend>;
 
 #[cfg(test)]

@@ -1,6 +1,10 @@
+//! スタック実装
+
 #[cfg(feature = "arc")]
+/// `Arc`ベースのスタック
 pub mod arc_stack;
 #[cfg(feature = "rc")]
+/// `Rc`ベースのスタック
 pub mod rc_stack;
 
 #[cfg(feature = "arc")]

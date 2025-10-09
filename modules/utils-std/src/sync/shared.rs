@@ -6,6 +6,10 @@ use nexus_utils_core_rs::{
   MpscBackend, MpscHandle, QueueHandle, QueueStorage, RingBackend, RingHandle, StackBackend, StackHandle,
 };
 
+/// `Arc`による共有所有権ラッパー
+///
+/// 複数のスレッド間で値を安全に共有するための型です。
+/// `Shared`トレイトおよび各種ハンドルトレイトを実装しています。
 pub struct ArcShared<T: ?Sized>(Arc<T>);
 
 impl<T: ?Sized> core::fmt::Debug for ArcShared<T> {
@@ -18,16 +22,39 @@ impl<T> ArcShared<T>
 where
   T: Sized,
 {
+  /// 値から新しい`ArcShared`を作成します
+  ///
+  /// # 引数
+  ///
+  /// * `value` - 共有する値
+  ///
+  /// # 戻り値
+  ///
+  /// 新しい`ArcShared`インスタンス
   pub fn new(value: T) -> Self {
     Self(Arc::new(value))
   }
 }
 
 impl<T: ?Sized> ArcShared<T> {
+  /// 既存の`Arc`から`ArcShared`を作成します
+  ///
+  /// # 引数
+  ///
+  /// * `inner` - `Arc`インスタンス
+  ///
+  /// # 戻り値
+  ///
+  /// `Arc`をラップした`ArcShared`インスタンス
   pub fn from_arc(inner: Arc<T>) -> Self {
     Self(inner)
   }
 
+  /// `ArcShared`を内部の`Arc`に変換します
+  ///
+  /// # 戻り値
+  ///
+  /// 内部の`Arc`インスタンス
   pub fn into_arc(self) -> Arc<T> {
     self.0
   }
