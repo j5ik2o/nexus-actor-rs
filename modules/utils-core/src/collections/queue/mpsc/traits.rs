@@ -1,104 +1,105 @@
 use crate::collections::{QueueError, QueueSize};
 use crate::sync::Shared;
 
-/// MPSCキューのバックエンドを抽象化するトランスポート指向のトレイトです。
+/// Transport-oriented trait abstracting MPSC queue backends.
 ///
-/// このトレイトは、Multiple Producer Single Consumer (MPSC) キューの基本的な操作を定義します。
-/// 複数の送信者と単一の受信者の間でメッセージを非同期に伝達するための抽象インターフェースです。
+/// This trait defines the basic operations of a Multiple Producer Single Consumer (MPSC) queue.
+/// It provides an abstract interface for asynchronously transmitting messages between
+/// multiple senders and a single receiver.
 pub trait MpscBackend<T> {
-  /// 要素をキューに送信を試みます（ノンブロッキング）。
+  /// Attempts to send an element to the queue (non-blocking).
   ///
   /// # Arguments
   ///
-  /// * `element` - キューに追加する要素
+  /// * `element` - Element to add to the queue
   ///
   /// # Returns
   ///
-  /// * `Ok(())` - 要素が正常に追加された場合
-  /// * `Err(QueueError)` - キューが満杯、クローズ済み、またはその他のエラーが発生した場合
+  /// * `Ok(())` - Element was successfully added
+  /// * `Err(QueueError)` - Queue is full, closed, or another error occurred
   fn try_send(&self, element: T) -> Result<(), QueueError<T>>;
 
-  /// キューから要素を受信を試みます（ノンブロッキング）。
+  /// Attempts to receive an element from the queue (non-blocking).
   ///
   /// # Returns
   ///
-  /// * `Ok(Some(element))` - 要素が正常に受信された場合
-  /// * `Ok(None)` - キューが空の場合
-  /// * `Err(QueueError)` - エラーが発生した場合
+  /// * `Ok(Some(element))` - Element was successfully received
+  /// * `Ok(None)` - Queue is empty
+  /// * `Err(QueueError)` - An error occurred
   fn try_recv(&self) -> Result<Option<T>, QueueError<T>>;
 
-  /// キューをクローズします。
+  /// Closes the queue.
   ///
-  /// クローズ後は新しい要素の送信ができなくなりますが、
-  /// 既にキューに入っている要素は受信可能です。
+  /// After closing, no new elements can be sent, but
+  /// elements already in the queue can still be received.
   fn close(&self);
 
-  /// キューに現在格納されている要素数を取得します。
+  /// Gets the number of elements currently in the queue.
   ///
   /// # Returns
   ///
-  /// 要素数を表す `QueueSize`（有界または無界）
+  /// `QueueSize` representing the element count (bounded or unbounded)
   fn len(&self) -> QueueSize;
 
-  /// キューの容量を取得します。
+  /// Gets the capacity of the queue.
   ///
   /// # Returns
   ///
-  /// 容量を表す `QueueSize`（有界または無界）
+  /// `QueueSize` representing the capacity (bounded or unbounded)
   fn capacity(&self) -> QueueSize;
 
-  /// キューがクローズされているかどうかを確認します。
+  /// Checks if the queue is closed.
   ///
   /// # Returns
   ///
-  /// * `true` - キューがクローズされている場合
-  /// * `false` - キューがオープン状態の場合
+  /// * `true` - Queue is closed
+  /// * `false` - Queue is open
   fn is_closed(&self) -> bool;
 
-  /// キューの容量を設定します。
+  /// Sets the capacity of the queue.
   ///
-  /// デフォルト実装では何も行わず、`false` を返します。
-  /// バックエンド実装によってはこのメソッドをオーバーライドして動的な容量変更をサポートできます。
+  /// Default implementation does nothing and returns `false`.
+  /// Backend implementations may override this method to support dynamic capacity changes.
   ///
   /// # Arguments
   ///
-  /// * `capacity` - 新しい容量。`None` の場合は無制限
+  /// * `capacity` - New capacity. `None` means unlimited
   ///
   /// # Returns
   ///
-  /// * `true` - 容量の設定が成功した場合
-  /// * `false` - 容量の設定がサポートされていない、または失敗した場合
+  /// * `true` - Capacity was successfully set
+  /// * `false` - Capacity setting is not supported or failed
   fn set_capacity(&self, capacity: Option<usize>) -> bool {
     let _ = capacity;
     false
   }
 
-  /// キューが空かどうかを確認します。
+  /// Checks if the queue is empty.
   ///
   /// # Returns
   ///
-  /// * `true` - キューが空の場合
-  /// * `false` - キューに1つ以上の要素がある場合
+  /// * `true` - Queue is empty
+  /// * `false` - Queue contains one or more elements
   fn is_empty(&self) -> bool {
     self.len() == QueueSize::Limited(0)
   }
 }
 
-/// [`MpscBackend`] を公開する共有ハンドルトレイトです。
+/// Shared handle trait exposing an [`MpscBackend`].
 ///
-/// このトレイトは、複数のスレッドから安全にアクセスできる共有ハンドルを表します。
-/// `Shared` および `Clone` を実装することで、ハンドルを複数の送信者間で共有可能にします。
+/// This trait represents a shared handle that can be safely accessed from multiple threads.
+/// By implementing `Shared` and `Clone`, the handle can be shared among multiple senders.
 pub trait MpscHandle<T>: Shared<Self::Backend> + Clone {
-  /// このハンドルが使用するバックエンドの型です。
+  /// The backend type used by this handle.
   ///
-  /// バックエンドは [`MpscBackend`] トレイトを実装している必要があります。
-  /// `?Sized` により、動的サイズのバックエンド（トレイトオブジェクトなど）もサポートします。
+  /// The backend must implement the [`MpscBackend`] trait.
+  /// `?Sized` allows dynamic-sized backends (such as trait objects).
   type Backend: MpscBackend<T> + ?Sized;
 
-  /// このハンドルが管理するバックエンドへの参照を取得します。
+  /// Gets a reference to the backend managed by this handle.
   ///
   /// # Returns
   ///
-  /// バックエンドへの参照
+  /// Reference to the backend
   fn backend(&self) -> &Self::Backend;
 }

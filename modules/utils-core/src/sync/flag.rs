@@ -8,16 +8,16 @@ use core::cell::Cell;
 #[cfg(feature = "alloc")]
 use core::sync::atomic::{AtomicBool, Ordering};
 
-/// スレッドセーフなブールフラグを提供する構造体
+/// Structure providing a thread-safe boolean flag
 ///
-/// `Flag`は、マルチスレッド環境で安全に使用できるブールフラグを提供します。
+/// `Flag` provides a boolean flag that can be safely used in multi-threaded environments.
 ///
-/// # 実装の詳細
+/// # Implementation Details
 ///
-/// - `alloc`フィーチャが有効な場合: `Arc<AtomicBool>`を使用してスレッドセーフな実装を提供
-/// - `alloc`フィーチャが無効な場合: `Cell<bool>`を使用してシングルスレッド環境向けの軽量な実装を提供
+/// - When `alloc` feature is enabled: Provides thread-safe implementation using `Arc<AtomicBool>`
+/// - When `alloc` feature is disabled: Provides lightweight implementation for single-threaded environments using `Cell<bool>`
 ///
-/// # 例
+/// # Examples
 ///
 /// ```
 /// use nexus_utils_core_rs::Flag;
@@ -40,13 +40,13 @@ pub struct Flag {
 }
 
 impl Flag {
-  /// 指定された初期値で新しい`Flag`を作成します
+  /// Creates a new `Flag` with the specified initial value
   ///
   /// # Arguments
   ///
-  /// * `value` - フラグの初期値
+  /// * `value` - Initial value of the flag
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```
   /// use nexus_utils_core_rs::Flag;
@@ -70,13 +70,13 @@ impl Flag {
     }
   }
 
-  /// フラグの値を設定します
+  /// Sets the value of the flag
   ///
   /// # Arguments
   ///
-  /// * `value` - 設定する新しい値
+  /// * `value` - New value to set
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```
   /// use nexus_utils_core_rs::Flag;
@@ -97,13 +97,13 @@ impl Flag {
     }
   }
 
-  /// フラグの現在の値を取得します
+  /// Gets the current value of the flag
   ///
   /// # Returns
   ///
-  /// フラグの現在の値
+  /// Current value of the flag
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```
   /// use nexus_utils_core_rs::Flag;
@@ -123,11 +123,11 @@ impl Flag {
     }
   }
 
-  /// フラグをクリアします（`false`に設定します）
+  /// Clears the flag (sets it to `false`)
   ///
-  /// このメソッドは`set(false)`と同等です。
+  /// This method is equivalent to `set(false)`.
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```
   /// use nexus_utils_core_rs::Flag;

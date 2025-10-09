@@ -1,68 +1,67 @@
 use super::{mpsc::MpscBuffer, ring::RingBuffer};
 
-/// キューのストレージ抽象化トレイト
+/// Queue storage abstraction trait
 ///
-/// リングバッファベースのキューに対する読み取りおよび書き込みアクセスを提供します。
-/// このトレイトは、異なる同期プリミティブ（RefCell、Mutexなど）でラップされた
-/// リングバッファに対して統一的なインターフェースを提供します。
+/// Provides read and write access to ring buffer-based queues.
+/// This trait provides a unified interface for ring buffers wrapped
+/// in different synchronization primitives (RefCell, Mutex, etc.).
 ///
-/// # 型パラメータ
+/// # Type Parameters
 ///
-/// * `E` - キューに格納される要素の型
+/// * `E` - Type of elements stored in the queue
 pub trait QueueStorage<E> {
-  /// リングバッファへの不変参照を使用してクロージャを実行します
+  /// Executes a closure using an immutable reference to the ring buffer
   ///
   /// # Arguments
   ///
-  /// * `f` - リングバッファの不変参照を受け取るクロージャ
+  /// * `f` - Closure receiving an immutable reference to the ring buffer
   ///
   /// # Returns
   ///
-  /// クロージャの実行結果
+  /// Result of executing the closure
   fn with_read<R>(&self, f: impl FnOnce(&RingBuffer<E>) -> R) -> R;
 
-  /// リングバッファへの可変参照を使用してクロージャを実行します
+  /// Executes a closure using a mutable reference to the ring buffer
   ///
   /// # Arguments
   ///
-  /// * `f` - リングバッファの可変参照を受け取るクロージャ
+  /// * `f` - Closure receiving a mutable reference to the ring buffer
   ///
   /// # Returns
   ///
-  /// クロージャの実行結果
+  /// Result of executing the closure
   fn with_write<R>(&self, f: impl FnOnce(&mut RingBuffer<E>) -> R) -> R;
 }
 
-/// リングバッファベースのストレージ抽象化トレイト
+/// Ring buffer-based storage abstraction trait
 ///
-/// [`crate::collections::queue::mpsc::RingBufferBackend`] 実装で共有される
-/// ストレージ抽象化を提供します。このトレイトは、MPSCバッファに対する
-/// 読み取りおよび書き込みアクセスを統一的に扱うためのインターフェースです。
+/// Provides storage abstraction shared by [`crate::collections::queue::mpsc::RingBufferBackend`] implementations.
+/// This trait offers an interface for uniformly handling read and write access to MPSC buffers.
 ///
-/// # 型パラメータ
+/// # Type Parameters
 ///
-/// * `T` - バッファに格納される要素の型
+/// * `T` - Type of elements stored in the buffer
 pub trait RingBufferStorage<T> {
-  /// MPSCバッファへの不変参照を使用してクロージャを実行します
+  /// Executes a closure using an immutable reference to the MPSC buffer
   ///
   /// # Arguments
   ///
-  /// * `f` - MPSCバッファの不変参照を受け取るクロージャ
+  /// * `f` - Closure receiving an immutable reference to the MPSC buffer
   ///
   /// # Returns
   ///
-  /// クロージャの実行結果
+  /// Result of executing the closure
   fn with_read<R>(&self, f: impl FnOnce(&MpscBuffer<T>) -> R) -> R;
 
-  /// MPSCバッファへの可変参照を使用してクロージャを実行します
+  /// Executes a closure using a mutable reference to the MPSC buffer
   ///
   /// # Arguments
   ///
-  /// * `f` - MPSCバッファの可変参照を受け取るクロージャ
+  /// * `f` - Closure receiving a mutable reference to the MPSC buffer
   ///
   /// # Returns
   ///
-  /// クロージャの実行結果
+  /// Result of executing the closure
   fn with_write<R>(&self, f: impl FnOnce(&mut MpscBuffer<T>) -> R) -> R;
 }
 

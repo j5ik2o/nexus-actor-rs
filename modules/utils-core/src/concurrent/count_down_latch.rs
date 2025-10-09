@@ -1,63 +1,64 @@
 use alloc::boxed::Box;
 use async_trait::async_trait;
 
-/// CountDownLatchのバックエンド実装を定義するトレイト
+/// Trait defining the backend implementation for CountDownLatch
 ///
-/// このトレイトは、異なる環境（標準ライブラリ、組み込み環境など）に対応するため、
-/// CountDownLatchの具体的な実装を抽象化します。
+/// This trait abstracts the concrete implementation of CountDownLatch to support
+/// different environments (standard library, embedded environments, etc.).
 ///
-/// # 例
+/// # Examples
 ///
 /// ```ignore
 /// use async_trait::async_trait;
 ///
 /// #[derive(Clone)]
 /// struct MyBackend {
-///     // バックエンドの実装詳細
+///     // Backend implementation details
 /// }
 ///
 /// #[async_trait(?Send)]
 /// impl CountDownLatchBackend for MyBackend {
 ///     fn new(count: usize) -> Self {
-///         // 初期化処理
+///         // Initialization logic
 ///     }
 ///
 ///     async fn count_down(&self) {
-///         // カウントダウン処理
+///         // Count down logic
 ///     }
 ///
 ///     async fn wait(&self) {
-///         // 待機処理
+///         // Wait logic
 ///     }
 /// }
 /// ```
 #[async_trait(?Send)]
 pub trait CountDownLatchBackend: Clone {
-  /// 指定されたカウント値でバックエンドを初期化します
+  /// Initializes the backend with the specified count value
   ///
   /// # Arguments
   ///
-  /// * `count` - 初期カウント値。0になるまでカウントダウンされます
+  /// * `count` - Initial count value. Counts down until it reaches 0
   fn new(count: usize) -> Self;
 
-  /// カウントを1減らします
+  /// Decrements the count by 1
   ///
-  /// カウントが0になった場合、待機中のすべてのタスクが解放されます。
+  /// When the count reaches 0, all waiting tasks are released.
   async fn count_down(&self);
 
-  /// カウントが0になるまで待機します
+  /// Waits until the count reaches 0
   ///
-  /// このメソッドは、カウントが0になるまで現在のタスクをブロックします。
-  /// 複数のタスクが同時に待機できます。
+  /// This method blocks the current task until the count becomes 0.
+  /// Multiple tasks can wait simultaneously.
   async fn wait(&self);
 }
 
-/// カウントダウンラッチ同期プリミティブ
+/// Count-down latch synchronization primitive
 ///
-/// `CountDownLatch`は、指定されたカウントが0になるまで複数のタスクを待機させる同期機構です。
-/// Javaの`CountDownLatch`やGoの`WaitGroup`に相当する機能を提供します。
+/// `CountDownLatch` is a synchronization mechanism that causes multiple tasks to wait
+/// until a specified count reaches zero. It provides functionality equivalent to Java's
+/// `CountDownLatch` or Go's `WaitGroup`.
 ///
-/// # 使用例
+/// # Usage Examples
 ///
 /// ```ignore
 /// use nexus_utils_core_rs::CountDownLatch;
@@ -66,17 +67,17 @@ pub trait CountDownLatchBackend: Clone {
 /// async fn main() {
 ///     let latch = CountDownLatch::<SomeBackend>::new(3);
 ///
-///     // 3つのタスクを起動
+///     // Spawn 3 tasks
 ///     for i in 0..3 {
 ///         let latch_clone = latch.clone();
 ///         tokio::spawn(async move {
-///             // 何らかの処理
+///             // Some processing
 ///             println!("Task {} completed", i);
 ///             latch_clone.count_down().await;
 ///         });
 ///     }
 ///
-///     // すべてのタスクが完了するまで待機
+///     // Wait for all tasks to complete
 ///     latch.wait().await;
 ///     println!("All tasks completed");
 /// }
@@ -93,13 +94,13 @@ impl<B> CountDownLatch<B>
 where
   B: CountDownLatchBackend,
 {
-  /// 指定されたカウント値で新しい`CountDownLatch`を作成します
+  /// Creates a new `CountDownLatch` with the specified count value
   ///
   /// # Arguments
   ///
-  /// * `count` - 初期カウント値。0になるまで`count_down`が呼び出される必要があります
+  /// * `count` - Initial count value. `count_down` must be called this many times to reach 0
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```ignore
   /// let latch = CountDownLatch::<SomeBackend>::new(5);
@@ -108,12 +109,12 @@ where
     Self { backend: B::new(count) }
   }
 
-  /// カウントを1減らします
+  /// Decrements the count by 1
   ///
-  /// カウントが0になった場合、`wait()`で待機中のすべてのタスクが解放されます。
-  /// カウントがすでに0の場合、このメソッドは何も行いません。
+  /// When the count reaches 0, all tasks waiting in `wait()` are released.
+  /// If the count is already 0, this method does nothing.
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```ignore
   /// latch.count_down().await;
@@ -122,12 +123,12 @@ where
     self.backend.count_down().await;
   }
 
-  /// カウントが0になるまで現在のタスクを待機させます
+  /// Causes the current task to wait until the count reaches 0
   ///
-  /// カウントがすでに0の場合、このメソッドは即座に返ります。
-  /// 複数のタスクが同時に待機でき、カウントが0になるとすべてのタスクが同時に解放されます。
+  /// If the count is already 0, this method returns immediately.
+  /// Multiple tasks can wait simultaneously, and all are released at once when the count reaches 0.
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```ignore
   /// latch.wait().await;
@@ -137,11 +138,11 @@ where
     self.backend.wait().await;
   }
 
-  /// 内部バックエンドへの参照を取得します
+  /// Gets a reference to the internal backend
   ///
   /// # Returns
   ///
-  /// バックエンド実装への不変参照
+  /// Immutable reference to the backend implementation
   pub fn backend(&self) -> &B {
     &self.backend
   }
@@ -151,10 +152,10 @@ impl<B> Default for CountDownLatch<B>
 where
   B: CountDownLatchBackend,
 {
-  /// カウント値0でデフォルトの`CountDownLatch`を作成します
+  /// Creates a default `CountDownLatch` with a count of 0
   ///
-  /// このデフォルト実装は、カウント値0のラッチを作成します。
-  /// つまり、`wait()`は即座に返ります。
+  /// This default implementation creates a latch with count 0.
+  /// This means `wait()` will return immediately.
   fn default() -> Self {
     Self::new(0)
   }

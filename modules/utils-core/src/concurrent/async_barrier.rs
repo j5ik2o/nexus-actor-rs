@@ -1,65 +1,65 @@
 use alloc::boxed::Box;
 use async_trait::async_trait;
 
-/// 非同期バリアのバックエンド実装を定義するトレイト。
+/// Trait defining the backend implementation for async barriers.
 ///
-/// このトレイトは、異なる実行環境（Tokio、async-stdなど）に対応した
-/// バリア同期機構のバックエンドを実装するために使用されます。
+/// This trait is used to implement barrier synchronization backends
+/// for different execution environments (Tokio, async-std, etc.).
 ///
-/// # 実装要件
+/// # Implementation Requirements
 ///
-/// - `Clone`トレイトを実装する必要があります
-/// - スレッド送信可能である必要はありません（`?Send`）
+/// - Must implement the `Clone` trait
+/// - Need not be thread-sendable (`?Send`)
 ///
 /// # Examples
 ///
 /// ```ignore
 /// use nexus_utils_core_rs::{AsyncBarrierBackend, AsyncBarrier};
 ///
-/// // カスタムバックエンドの実装例
+/// // Example custom backend implementation
 /// #[derive(Clone)]
 /// struct MyBackend {
-///     // バックエンド固有のフィールド
+///     // Backend-specific fields
 /// }
 ///
 /// #[async_trait::async_trait(?Send)]
 /// impl AsyncBarrierBackend for MyBackend {
 ///     fn new(count: usize) -> Self {
-///         // 初期化処理
+///         // Initialization logic
 ///         MyBackend { /* ... */ }
 ///     }
 ///
 ///     async fn wait(&self) {
-///         // 待機処理の実装
+///         // Wait logic implementation
 ///     }
 /// }
 /// ```
 #[async_trait(?Send)]
 pub trait AsyncBarrierBackend: Clone {
-  /// 指定された数のタスクを待機するバックエンドを作成します。
+  /// Creates a backend that waits for the specified number of tasks.
   ///
   /// # Arguments
   ///
-  /// * `count` - バリアが解放されるまでに到達する必要があるタスク数
+  /// * `count` - Number of tasks that must reach the barrier before it is released
   fn new(count: usize) -> Self;
 
-  /// バリアポイントで待機します。
+  /// Waits at the barrier point.
   ///
-  /// このメソッドを呼び出したタスクは、指定された数のタスクが
-  /// すべて`wait()`を呼び出すまでブロックされます。
-  /// すべてのタスクが到達すると、すべてのタスクが同時に解放されます。
+  /// Tasks calling this method block until all tasks (specified count)
+  /// have called `wait()`.
+  /// When all tasks arrive, all tasks are released simultaneously.
   async fn wait(&self);
 }
 
-/// 非同期タスク間の同期バリアを提供する構造体。
+/// Structure providing synchronization barrier among async tasks.
 ///
-/// `AsyncBarrier`は、複数の非同期タスクが特定のポイントで同期するための
-/// バリア同期機構を提供します。指定された数のタスクがバリアに到達するまで、
-/// すべてのタスクが待機し、すべてが到達した時点で一斉に処理を再開します。
+/// `AsyncBarrier` provides a barrier synchronization mechanism for multiple async
+/// tasks to synchronize at a specific point. All tasks wait until the specified
+/// number of tasks reach the barrier, then all resume processing simultaneously.
 ///
-/// # 型パラメータ
+/// # Type Parameters
 ///
-/// * `B` - 使用するバックエンド実装（`AsyncBarrierBackend`を実装する型）
+/// * `B` - Backend implementation to use (a type implementing `AsyncBarrierBackend`)
 ///
 /// # Examples
 ///
@@ -69,7 +69,7 @@ pub trait AsyncBarrierBackend: Clone {
 ///
 /// #[tokio::main]
 /// async fn main() {
-///     // 3つのタスクが到達するまで待機するバリアを作成
+///     // Create a barrier that waits for 3 tasks to arrive
 ///     let barrier = AsyncBarrier::new(3);
 ///
 ///     let mut handles = vec![];
@@ -77,24 +77,24 @@ pub trait AsyncBarrierBackend: Clone {
 ///     for i in 0..3 {
 ///         let barrier_clone = barrier.clone();
 ///         let handle = task::spawn(async move {
-///             println!("タスク {} が開始しました", i);
+///             println!("Task {} started", i);
 ///
-///             // バリアで待機
+///             // Wait at barrier
 ///             barrier_clone.wait().await;
 ///
-///             println!("タスク {} がバリアを通過しました", i);
+///             println!("Task {} passed the barrier", i);
 ///         });
 ///         handles.push(handle);
 ///     }
 ///
-///     // すべてのタスクの完了を待機
+///     // Wait for all tasks to complete
 ///     for handle in handles {
 ///         handle.await.unwrap();
 ///     }
 /// }
 /// ```
 ///
-/// # 使用例（並行処理の同期）
+/// # Usage Example (Concurrent Processing Synchronization)
 ///
 /// ```ignore
 /// use nexus_utils_core_rs::AsyncBarrier;
@@ -102,18 +102,18 @@ pub trait AsyncBarrierBackend: Clone {
 /// async fn parallel_computation() {
 ///     let barrier = AsyncBarrier::new(3);
 ///
-///     // フェーズ1: 各タスクが初期化処理を実行
+///     // Phase 1: Each task executes initialization
 ///     let tasks: Vec<_> = (0..3).map(|i| {
 ///         let barrier = barrier.clone();
 ///         tokio::spawn(async move {
-///             // 初期化処理
-///             println!("タスク {} 初期化中...", i);
+///             // Initialization processing
+///             println!("Task {} initializing...", i);
 ///
-///             // すべてのタスクが初期化完了するまで待機
+///             // Wait for all tasks to finish initialization
 ///             barrier.wait().await;
 ///
-///             // フェーズ2: すべてが初期化完了後に実行される処理
-///             println!("タスク {} メイン処理を実行", i);
+///             // Phase 2: Processing executed after all initialization completes
+///             println!("Task {} executing main processing", i);
 ///         })
 ///     }).collect();
 ///
@@ -134,38 +134,38 @@ impl<B> AsyncBarrier<B>
 where
   B: AsyncBarrierBackend,
 {
-  /// 指定された数のタスクを待機する新しいバリアを作成します。
+  /// Creates a new barrier that waits for the specified number of tasks.
   ///
   /// # Arguments
   ///
-  /// * `count` - バリアが解放されるまでに到達する必要があるタスク数
+  /// * `count` - Number of tasks that must reach the barrier before it is released
   ///
   /// # Returns
   ///
-  /// 新しい`AsyncBarrier`インスタンス
+  /// A new `AsyncBarrier` instance
   ///
   /// # Examples
   ///
   /// ```ignore
   /// use nexus_utils_core_rs::AsyncBarrier;
   ///
-  /// // 5つのタスクが到達するまで待機するバリアを作成
+  /// // Create a barrier that waits for 5 tasks to arrive
   /// let barrier = AsyncBarrier::new(5);
   /// ```
   ///
   /// # Panics
   ///
-  /// `count`が0の場合、バックエンド実装によってはパニックする可能性があります。
+  /// If `count` is 0, some backend implementations may panic.
   pub fn new(count: usize) -> Self {
     Self { backend: B::new(count) }
   }
 
-  /// バリアポイントで待機します。
+  /// Waits at the barrier point.
   ///
-  /// このメソッドを呼び出したタスクは、バリアに指定された数のタスクが
-  /// すべて`wait()`を呼び出すまで待機状態になります。
-  /// すべてのタスクが到達すると、すべてのタスクが同時に解放され、
-  /// 処理を続行できます。
+  /// Tasks calling this method enter a wait state until all tasks (the specified count)
+  /// have called `wait()` on the barrier.
+  /// When all tasks arrive, all tasks are released simultaneously and can
+  /// continue processing.
   ///
   /// # Examples
   ///
@@ -174,32 +174,32 @@ where
   ///
   /// let barrier = AsyncBarrier::new(3);
   ///
-  /// // 複数のタスクから呼び出し
+  /// // Call from multiple tasks
   /// let barrier_clone = barrier.clone();
   /// tokio::spawn(async move {
-  ///     println!("タスク1: バリアで待機中...");
+  ///     println!("Task 1: Waiting at barrier...");
   ///     barrier_clone.wait().await;
-  ///     println!("タスク1: バリアを通過!");
+  ///     println!("Task 1: Passed the barrier!");
   /// });
   /// ```
   ///
-  /// # 動作
+  /// # Behavior
   ///
-  /// - 最初の`count - 1`個のタスクは、`wait()`呼び出し時に待機状態になります
-  /// - `count`番目のタスクが`wait()`を呼び出すと、すべてのタスクが同時に解放されます
-  /// - バリアは再利用可能な場合もありますが、それはバックエンド実装に依存します
+  /// - The first `count - 1` tasks enter a wait state when calling `wait()`
+  /// - When the `count`-th task calls `wait()`, all tasks are released simultaneously
+  /// - The barrier may be reusable depending on the backend implementation
   pub async fn wait(&self) {
     self.backend.wait().await;
   }
 
-  /// バックエンド実装への参照を取得します。
+  /// Gets a reference to the backend implementation.
   ///
-  /// このメソッドは、バックエンド固有の機能にアクセスする必要がある場合に使用します。
-  /// 通常の使用では、`new()`と`wait()`メソッドのみで十分です。
+  /// This method is used when you need to access backend-specific functionality.
+  /// For normal usage, the `new()` and `wait()` methods are sufficient.
   ///
   /// # Returns
   ///
-  /// バックエンド実装への不変参照
+  /// Immutable reference to the backend implementation
   ///
   /// # Examples
   ///
@@ -208,7 +208,7 @@ where
   ///
   /// let barrier = AsyncBarrier::new(3);
   /// let backend = barrier.backend();
-  /// // バックエンド固有の操作を実行...
+  /// // Execute backend-specific operations...
   /// ```
   pub fn backend(&self) -> &B {
     &self.backend

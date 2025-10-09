@@ -1,18 +1,18 @@
 use core::ops::{Deref, DerefMut};
 
-/// アクター状態を格納する内部可変セルの抽象化トレイト。
+/// Trait abstracting an internal mutable cell for storing actor state.
 ///
-/// このトレイトは意図的に軽量に設計されており、ランタイムが環境に応じて
-/// `Rc<RefCell<T>>`、`Arc<Mutex<T>>`、`Arc<RwLock<T>>` などの実装を提供しつつ、
-/// 統一されたAPIを通じて状態を参照・更新できるようにします。
+/// This trait is intentionally designed to be lightweight, allowing runtimes
+/// to provide implementations using `Rc<RefCell<T>>`, `Arc<Mutex<T>>`, `Arc<RwLock<T>>`, etc.,
+/// while enabling state to be referenced and updated through a unified API.
 ///
-/// # 設計思想
+/// # Design Philosophy
 ///
-/// - **抽象化**: 内部実装の詳細を隠蔽し、異なるランタイム環境で同じコードを使用可能に
-/// - **柔軟性**: シングルスレッド環境では`Rc<RefCell<T>>`、マルチスレッド環境では`Arc<Mutex<T>>`など、適切な実装を選択可能
-/// - **型安全性**: Generic Associated Types (GAT)を活用し、コンパイル時の型安全性を保証
+/// - **Abstraction**: Hides implementation details, enabling the same code to work across different runtime environments
+/// - **Flexibility**: Allows choosing appropriate implementation for the environment (e.g., `Rc<RefCell<T>>` for single-threaded, `Arc<Mutex<T>>` for multi-threaded)
+/// - **Type Safety**: Leverages Generic Associated Types (GAT) to guarantee type safety at compile time
 ///
-/// # 実装例
+/// # Example Implementation
 ///
 /// ```rust
 /// use std::rc::Rc;
@@ -26,7 +26,7 @@ use core::ops::{Deref, DerefMut};
 /// #   fn borrow_mut(&self) -> Self::RefMut<'_>;
 /// # }
 ///
-/// // シングルスレッド環境向けの実装
+/// // Implementation for single-threaded environments
 /// struct RcState<T>(Rc<RefCell<T>>);
 ///
 /// impl<T> Clone for RcState<T> {
@@ -53,37 +53,37 @@ use core::ops::{Deref, DerefMut};
 /// }
 /// ```
 pub trait StateCell<T>: Clone {
-  /// 不変参照のガード型。
+  /// Immutable reference guard type.
   ///
-  /// `Deref<Target = T>`を実装し、スコープを抜けると自動的にロックが解放される
-  /// RAII型として機能します。ランタイムの実装により、`Ref<'a, T>`、
-  /// `MutexGuard<'a, T>`、`RwLockReadGuard<'a, T>`など異なる型が使用されます。
+  /// Functions as an RAII type implementing `Deref<Target = T>` that automatically
+  /// releases the lock when it goes out of scope. Depending on the runtime implementation,
+  /// different types such as `Ref<'a, T>`, `MutexGuard<'a, T>`, `RwLockReadGuard<'a, T>` are used.
   type Ref<'a>: Deref<Target = T>
   where
     Self: 'a,
     T: 'a;
 
-  /// 可変参照のガード型。
+  /// Mutable reference guard type.
   ///
-  /// `DerefMut<Target = T>`を実装し、スコープを抜けると自動的にロックが解放される
-  /// RAII型として機能します。ランタイムの実装により、`RefMut<'a, T>`、
-  /// `MutexGuard<'a, T>`、`RwLockWriteGuard<'a, T>`など異なる型が使用されます。
+  /// Functions as an RAII type implementing `DerefMut<Target = T>` that automatically
+  /// releases the lock when it goes out of scope. Depending on the runtime implementation,
+  /// different types such as `RefMut<'a, T>`, `MutexGuard<'a, T>`, `RwLockWriteGuard<'a, T>` are used.
   type RefMut<'a>: DerefMut<Target = T>
   where
     Self: 'a,
     T: 'a;
 
-  /// 指定された値で新しい状態セルを構築します。
+  /// Constructs a new state cell with the specified value.
   ///
   /// # Arguments
   ///
-  /// * `value` - 初期状態として格納する値
+  /// * `value` - Value to store as initial state
   ///
   /// # Returns
   ///
-  /// 新しく作成された状態セルのインスタンス
+  /// Newly created state cell instance
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```rust,ignore
   /// let cell = RcState::new(42);
@@ -92,21 +92,21 @@ pub trait StateCell<T>: Clone {
   where
     Self: Sized;
 
-  /// 状態を不変的に借用します。
+  /// Borrows the state immutably.
   ///
-  /// このメソッドは、内部状態への読み取り専用アクセスを提供する
-  /// ガード型を返します。ガードがスコープを抜けると、自動的にロックが解放されます。
+  /// This method returns a guard type that provides read-only access to the internal state.
+  /// The lock is automatically released when the guard goes out of scope.
   ///
   /// # Returns
   ///
-  /// 状態への不変参照を保持するガードオブジェクト
+  /// Guard object holding an immutable reference to the state
   ///
   /// # Panics
   ///
-  /// 実装によっては、既に可変借用が存在する場合にパニックする可能性があります
-  /// （例: `RefCell`ベースの実装）。
+  /// Depending on the implementation, may panic if a mutable borrow already exists
+  /// (e.g., `RefCell`-based implementations).
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```rust,ignore
   /// let cell = RcState::new(42);
@@ -115,21 +115,21 @@ pub trait StateCell<T>: Clone {
   /// ```
   fn borrow(&self) -> Self::Ref<'_>;
 
-  /// 状態を可変的に借用します。
+  /// Borrows the state mutably.
   ///
-  /// このメソッドは、内部状態への読み書きアクセスを提供する
-  /// ガード型を返します。ガードがスコープを抜けると、自動的にロックが解放されます。
+  /// This method returns a guard type that provides read-write access to the internal state.
+  /// The lock is automatically released when the guard goes out of scope.
   ///
   /// # Returns
   ///
-  /// 状態への可変参照を保持するガードオブジェクト
+  /// Guard object holding a mutable reference to the state
   ///
   /// # Panics
   ///
-  /// 実装によっては、既に借用が存在する場合にパニックする可能性があります
-  /// （例: `RefCell`ベースの実装）。
+  /// Depending on the implementation, may panic if any borrow already exists
+  /// (e.g., `RefCell`-based implementations).
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```rust,ignore
   /// let cell = RcState::new(42);
@@ -138,21 +138,21 @@ pub trait StateCell<T>: Clone {
   /// ```
   fn borrow_mut(&self) -> Self::RefMut<'_>;
 
-  /// 状態への不変参照を使用してクロージャを実行します。
+  /// Executes a closure with an immutable reference to the state.
   ///
-  /// このメソッドは、状態を借用し、その参照をクロージャに渡して実行します。
-  /// クロージャの実行が完了すると、自動的にロックが解放されます。
-  /// 手動でガードを管理する必要がないため、より安全で簡潔なコードが書けます。
+  /// This method borrows the state and passes the reference to the closure for execution.
+  /// The lock is automatically released when the closure completes.
+  /// Enables safer and more concise code by eliminating the need to manually manage guards.
   ///
   /// # Arguments
   ///
-  /// * `f` - 状態への不変参照を受け取り、任意の型`R`を返すクロージャ
+  /// * `f` - Closure that receives an immutable reference to the state and returns a value of type `R`
   ///
   /// # Returns
   ///
-  /// クロージャの実行結果
+  /// Result of executing the closure
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```rust,ignore
   /// let cell = RcState::new(vec![1, 2, 3]);
@@ -164,21 +164,21 @@ pub trait StateCell<T>: Clone {
     f(&*guard)
   }
 
-  /// 状態への可変参照を使用してクロージャを実行します。
+  /// Executes a closure with a mutable reference to the state.
   ///
-  /// このメソッドは、状態を可変的に借用し、その参照をクロージャに渡して実行します。
-  /// クロージャの実行が完了すると、自動的にロックが解放されます。
-  /// 手動でガードを管理する必要がないため、より安全で簡潔なコードが書けます。
+  /// This method mutably borrows the state and passes the reference to the closure for execution.
+  /// The lock is automatically released when the closure completes.
+  /// Enables safer and more concise code by eliminating the need to manually manage guards.
   ///
   /// # Arguments
   ///
-  /// * `f` - 状態への可変参照を受け取り、任意の型`R`を返すクロージャ
+  /// * `f` - Closure that receives a mutable reference to the state and returns a value of type `R`
   ///
   /// # Returns
   ///
-  /// クロージャの実行結果
+  /// Result of executing the closure
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```rust,ignore
   /// let cell = RcState::new(0);

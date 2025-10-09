@@ -3,30 +3,30 @@ use async_trait::async_trait;
 use core::marker::PhantomData;
 use core::ops::{Deref, DerefMut};
 
-/// ガードオブジェクトをラップするハンドル
+/// Handle that wraps a guard object
 ///
-/// このハンドルは、ミューテックスやRwLockのガードを保持し、
-/// `Deref`や`DerefMut`を通じて中身にアクセスできるようにします。
+/// This handle holds a mutex or RwLock guard and allows access to
+/// the inner value through `Deref` and `DerefMut`.
 #[derive(Debug)]
 pub struct GuardHandle<G> {
   guard: G,
 }
 
 impl<G> GuardHandle<G> {
-  /// 新しい`GuardHandle`を作成します。
+  /// Creates a new `GuardHandle`.
   ///
   /// # Arguments
   ///
-  /// * `guard` - ラップするガードオブジェクト
+  /// * `guard` - Guard object to wrap
   pub fn new(guard: G) -> Self {
     Self { guard }
   }
 
-  /// ガードオブジェクトを取り出します。
+  /// Extracts the guard object.
   ///
   /// # Returns
   ///
-  /// 内部のガードオブジェクト
+  /// The inner guard object
   pub fn into_inner(self) -> G {
     self.guard
   }
@@ -49,86 +49,86 @@ where
   }
 }
 
-/// 非同期ミューテックス風プリミティブのバックエンドトレイト
+/// Backend trait for async mutex-like primitives
 ///
-/// このトレイトは、`Synchronized`型で使用される非同期ミューテックスの
-/// バックエンド実装を定義します。具体的な実装は、Tokio、async-std、
-/// あるいはカスタムランタイムによって提供されます。
+/// This trait defines the backend implementation for async mutex used by
+/// the `Synchronized` type. Concrete implementations are provided by Tokio,
+/// async-std, or custom runtimes.
 #[async_trait(?Send)]
 pub trait SynchronizedMutexBackend<T: ?Sized> {
-  /// ロックを取得した際に返されるガード型
+  /// Guard type returned when lock is acquired
   type Guard<'a>: Deref<Target = T> + DerefMut + 'a
   where
     Self: 'a;
 
-  /// 指定された値で新しいバックエンドを作成します。
+  /// Creates a new backend with the specified value.
   ///
   /// # Arguments
   ///
-  /// * `value` - ミューテックスに保護される初期値
+  /// * `value` - Initial value to be protected by the mutex
   fn new(value: T) -> Self
   where
     T: Sized;
 
-  /// ミューテックスをロックし、ガードを取得します。
+  /// Locks the mutex and obtains a guard.
   ///
   /// # Returns
   ///
-  /// 保護された値へのアクセスを提供するガード
+  /// A guard providing access to the protected value
   async fn lock(&self) -> Self::Guard<'_>;
 }
 
-/// 非同期読み取り/書き込みロックプリミティブのバックエンドトレイト
+/// Backend trait for async read/write lock primitives
 ///
-/// このトレイトは、`SynchronizedRw`型で使用される非同期RwLockの
-/// バックエンド実装を定義します。読み取りアクセスと書き込みアクセスを
-/// 分離することで、複数の読み取りと単一の書き込みを可能にします。
+/// This trait defines the backend implementation for async RwLock used by
+/// the `SynchronizedRw` type. By separating read and write access, it enables
+/// multiple readers and a single writer.
 #[async_trait(?Send)]
 pub trait SynchronizedRwBackend<T: ?Sized> {
-  /// 読み取りロックを取得した際に返されるガード型
+  /// Guard type returned when read lock is acquired
   type ReadGuard<'a>: Deref<Target = T> + 'a
   where
     Self: 'a;
 
-  /// 書き込みロックを取得した際に返されるガード型
+  /// Guard type returned when write lock is acquired
   type WriteGuard<'a>: Deref<Target = T> + DerefMut + 'a
   where
     Self: 'a;
 
-  /// 指定された値で新しいバックエンドを作成します。
+  /// Creates a new backend with the specified value.
   ///
   /// # Arguments
   ///
-  /// * `value` - RwLockに保護される初期値
+  /// * `value` - Initial value to be protected by the RwLock
   fn new(value: T) -> Self
   where
     T: Sized;
 
-  /// 読み取りロックを取得します。
+  /// Acquires a read lock.
   ///
   /// # Returns
   ///
-  /// 保護された値への読み取り専用アクセスを提供するガード
+  /// A guard providing read-only access to the protected value
   async fn read(&self) -> Self::ReadGuard<'_>;
 
-  /// 書き込みロックを取得します。
+  /// Acquires a write lock.
   ///
   /// # Returns
   ///
-  /// 保護された値への排他的アクセスを提供するガード
+  /// A guard providing exclusive access to the protected value
   async fn write(&self) -> Self::WriteGuard<'_>;
 }
 
-/// バックエンド抽象化を提供する非同期同期プリミティブ
+/// Async synchronization primitive providing backend abstraction
 ///
-/// `Synchronized`は、ミューテックス風のバックエンドを使用して値への
-/// 排他的アクセスを提供します。バックエンドは`SynchronizedMutexBackend`
-/// トレイトを実装することで、異なるランタイムやカスタム実装に対応できます。
+/// `Synchronized` provides exclusive access to a value using a mutex-like backend.
+/// Backends can be adapted to different runtimes or custom implementations by
+/// implementing the `SynchronizedMutexBackend` trait.
 ///
-/// # 型パラメータ
+/// # Type Parameters
 ///
-/// * `B` - 使用するバックエンド実装
-/// * `T` - 保護される値の型
+/// * `B` - Backend implementation to use
+/// * `T` - Type of value to be protected
 #[derive(Debug)]
 pub struct Synchronized<B, T: ?Sized>
 where
@@ -143,11 +143,11 @@ where
   T: ?Sized,
   B: SynchronizedMutexBackend<T>,
 {
-  /// 新しい`Synchronized`を指定された値で作成します。
+  /// Creates a new `Synchronized` with the specified value.
   ///
   /// # Arguments
   ///
-  /// * `value` - 保護する初期値
+  /// * `value` - Initial value to protect
   pub fn new(value: T) -> Self
   where
     T: Sized,
@@ -158,11 +158,11 @@ where
     }
   }
 
-  /// 既存のバックエンドから`Synchronized`を作成します。
+  /// Creates a `Synchronized` from an existing backend.
   ///
   /// # Arguments
   ///
-  /// * `backend` - 使用するバックエンドインスタンス
+  /// * `backend` - Backend instance to use
   pub fn from_backend(backend: B) -> Self {
     Self {
       backend,
@@ -170,50 +170,50 @@ where
     }
   }
 
-  /// 内部のバックエンドへの参照を取得します。
+  /// Gets a reference to the internal backend.
   ///
   /// # Returns
   ///
-  /// バックエンドへの不変参照
+  /// Immutable reference to the backend
   pub fn backend(&self) -> &B {
     &self.backend
   }
 
-  /// ロックを取得し、指定された関数を実行します（読み取り用）。
+  /// Acquires a lock and executes the specified function (for reading).
   ///
   /// # Arguments
   ///
-  /// * `f` - ガードへの参照を受け取る関数
+  /// * `f` - Function that receives a reference to the guard
   ///
   /// # Returns
   ///
-  /// 関数`f`の戻り値
+  /// Return value of function `f`
   pub async fn read<R>(&self, f: impl FnOnce(&B::Guard<'_>) -> R) -> R {
     let guard = self.backend.lock().await;
     f(&guard)
   }
 
-  /// ロックを取得し、指定された関数を実行します（書き込み用）。
+  /// Acquires a lock and executes the specified function (for writing).
   ///
   /// # Arguments
   ///
-  /// * `f` - ガードへの可変参照を受け取る関数
+  /// * `f` - Function that receives a mutable reference to the guard
   ///
   /// # Returns
   ///
-  /// 関数`f`の戻り値
+  /// Return value of function `f`
   pub async fn write<R>(&self, f: impl FnOnce(&mut B::Guard<'_>) -> R) -> R {
     let mut guard = self.backend.lock().await;
     f(&mut guard)
   }
 
-  /// ロックを取得し、ガードハンドルを返します。
+  /// Acquires a lock and returns a guard handle.
   ///
-  /// このメソッドは、ガードを保持し続ける必要がある場合に使用します。
+  /// Use this method when you need to hold the guard for an extended period.
   ///
   /// # Returns
   ///
-  /// ガードオブジェクトをラップした`GuardHandle`
+  /// `GuardHandle` wrapping the guard object
   pub async fn lock(&self) -> GuardHandle<B::Guard<'_>> {
     let guard = self.backend.lock().await;
     GuardHandle::new(guard)
@@ -240,16 +240,16 @@ where
   }
 }
 
-/// バックエンド抽象化を提供する非同期読み取り/書き込み同期プリミティブ
+/// Async read/write synchronization primitive providing backend abstraction
 ///
-/// `SynchronizedRw`は、RwLock風のバックエンドを使用して値への
-/// 読み取りと書き込みのアクセスを分離して提供します。複数の読み取りを
-/// 同時に許可しつつ、書き込みは排他的に行われます。
+/// `SynchronizedRw` provides separate read and write access to a value using
+/// an RwLock-like backend. Multiple reads are allowed concurrently,
+/// while writes are exclusive.
 ///
-/// # 型パラメータ
+/// # Type Parameters
 ///
-/// * `B` - 使用するバックエンド実装
-/// * `T` - 保護される値の型
+/// * `B` - Backend implementation to use
+/// * `T` - Type of value to be protected
 #[derive(Debug)]
 pub struct SynchronizedRw<B, T: ?Sized>
 where
@@ -264,11 +264,11 @@ where
   T: ?Sized,
   B: SynchronizedRwBackend<T>,
 {
-  /// 新しい`SynchronizedRw`を指定された値で作成します。
+  /// Creates a new `SynchronizedRw` with the specified value.
   ///
   /// # Arguments
   ///
-  /// * `value` - 保護する初期値
+  /// * `value` - Initial value to protect
   pub fn new(value: T) -> Self
   where
     T: Sized,
@@ -279,11 +279,11 @@ where
     }
   }
 
-  /// 既存のバックエンドから`SynchronizedRw`を作成します。
+  /// Creates a `SynchronizedRw` from an existing backend.
   ///
   /// # Arguments
   ///
-  /// * `backend` - 使用するバックエンドインスタンス
+  /// * `backend` - Backend instance to use
   pub fn from_backend(backend: B) -> Self {
     Self {
       backend,
@@ -291,62 +291,62 @@ where
     }
   }
 
-  /// 内部のバックエンドへの参照を取得します。
+  /// Gets a reference to the internal backend.
   ///
   /// # Returns
   ///
-  /// バックエンドへの不変参照
+  /// Immutable reference to the backend
   pub fn backend(&self) -> &B {
     &self.backend
   }
 
-  /// 読み取りロックを取得し、指定された関数を実行します。
+  /// Acquires a read lock and executes the specified function.
   ///
   /// # Arguments
   ///
-  /// * `f` - 読み取りガードへの参照を受け取る関数
+  /// * `f` - Function that receives a reference to the read guard
   ///
   /// # Returns
   ///
-  /// 関数`f`の戻り値
+  /// Return value of function `f`
   pub async fn read<R>(&self, f: impl FnOnce(&B::ReadGuard<'_>) -> R) -> R {
     let guard = self.backend.read().await;
     f(&guard)
   }
 
-  /// 書き込みロックを取得し、指定された関数を実行します。
+  /// Acquires a write lock and executes the specified function.
   ///
   /// # Arguments
   ///
-  /// * `f` - 書き込みガードへの可変参照を受け取る関数
+  /// * `f` - Function that receives a mutable reference to the write guard
   ///
   /// # Returns
   ///
-  /// 関数`f`の戻り値
+  /// Return value of function `f`
   pub async fn write<R>(&self, f: impl FnOnce(&mut B::WriteGuard<'_>) -> R) -> R {
     let mut guard = self.backend.write().await;
     f(&mut guard)
   }
 
-  /// 読み取りロックを取得し、ガードハンドルを返します。
+  /// Acquires a read lock and returns a guard handle.
   ///
-  /// このメソッドは、読み取りガードを保持し続ける必要がある場合に使用します。
+  /// Use this method when you need to hold the read guard for an extended period.
   ///
   /// # Returns
   ///
-  /// 読み取りガードオブジェクトをラップした`GuardHandle`
+  /// `GuardHandle` wrapping the read guard object
   pub async fn read_guard(&self) -> GuardHandle<B::ReadGuard<'_>> {
     let guard = self.backend.read().await;
     GuardHandle::new(guard)
   }
 
-  /// 書き込みロックを取得し、ガードハンドルを返します。
+  /// Acquires a write lock and returns a guard handle.
   ///
-  /// このメソッドは、書き込みガードを保持し続ける必要がある場合に使用します。
+  /// Use this method when you need to hold the write guard for an extended period.
   ///
   /// # Returns
   ///
-  /// 書き込みガードオブジェクトをラップした`GuardHandle`
+  /// `GuardHandle` wrapping the write guard object
   pub async fn write_guard(&self) -> GuardHandle<B::WriteGuard<'_>> {
     let guard = self.backend.write().await;
     GuardHandle::new(guard)
