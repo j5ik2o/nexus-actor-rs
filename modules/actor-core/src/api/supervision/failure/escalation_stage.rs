@@ -1,29 +1,29 @@
-/// エスカレーションの段階。
+/// Escalation stage.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum EscalationStage {
-  /// 最初の障害発生地点。
+  /// Initial failure point.
   #[default]
   Initial,
-  /// 親方向へ伝播中。
+  /// Propagating towards parent.
   Escalated {
-    /// 伝播回数
+    /// Number of propagations
     hops: u8,
   },
 }
 
 impl EscalationStage {
-  /// 初期段階を返す。
+  /// Returns the initial stage.
   ///
   /// # Returns
-  /// `EscalationStage::Initial`インスタンス
+  /// `EscalationStage::Initial` instance
   pub const fn initial() -> Self {
     EscalationStage::Initial
   }
 
-  /// エスカレーションの伝播回数を返す。
+  /// Returns the number of escalation propagations.
   ///
   /// # Returns
-  /// 伝播回数。`Initial`の場合は0を返す。
+  /// Number of propagations. Returns 0 for `Initial`.
   pub fn hops(self) -> u8 {
     match self {
       EscalationStage::Initial => 0,
@@ -31,20 +31,20 @@ impl EscalationStage {
     }
   }
 
-  /// 初期段階かどうかを判定する。
+  /// Checks if this is the initial stage.
   ///
   /// # Returns
-  /// 初期段階の場合は`true`、それ以外は`false`
+  /// `true` if initial stage, `false` otherwise
   pub const fn is_initial(self) -> bool {
     matches!(self, EscalationStage::Initial)
   }
 
-  /// 次のエスカレーション段階を返す。
+  /// Returns the next escalation stage.
   ///
   /// # Returns
-  /// エスカレートされた新しい`EscalationStage`インスタンス。
-  /// `Initial`の場合は`Escalated { hops: 1 }`、
-  /// `Escalated`の場合は`hops`を1増やした新しいインスタンスを返す。
+  /// New escalated `EscalationStage` instance.
+  /// Returns `Escalated { hops: 1 }` for `Initial`,
+  /// or a new instance with `hops` incremented by 1 for `Escalated`.
   pub fn escalate(self) -> Self {
     match self {
       EscalationStage::Initial => EscalationStage::Escalated { hops: 1 },

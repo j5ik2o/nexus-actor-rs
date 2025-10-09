@@ -10,7 +10,7 @@ use nexus_utils_core_rs::{Element, QueueError, DEFAULT_PRIORITY};
 
 type SendFn = dyn Fn(DynMessage, i8) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> + Send + Sync;
 
-/// 送信先を抽象化した内部ディスパッチャ。Ask 応答などで利用する。
+/// Internal dispatcher that abstracts the sending destination. Used for ask responses and similar purposes.
 #[derive(Clone)]
 pub struct InternalMessageSender {
   inner: Arc<SendFn>,
@@ -24,19 +24,19 @@ impl core::fmt::Debug for InternalMessageSender {
 }
 
 impl InternalMessageSender {
-  /// 送信関数を指定して新しい`InternalMessageSender`を作成する。
+  /// Creates a new `InternalMessageSender` with the specified send function.
   ///
   /// # Arguments
-  /// * `inner` - メッセージ送信を実行する関数
+  /// * `inner` - Function that executes message sending
   pub fn new(inner: Arc<SendFn>) -> Self {
     Self { inner, drop_hook: None }
   }
 
-  /// ドロップフックを持つ`InternalMessageSender`を作成する（内部API）。
+  /// Creates an `InternalMessageSender` with a drop hook (internal API).
   ///
   /// # Arguments
-  /// * `inner` - メッセージ送信を実行する関数
-  /// * `drop_hook` - ドロップ時に実行されるフック関数
+  /// * `inner` - Function that executes message sending
+  /// * `drop_hook` - Hook function executed on drop
   pub(crate) fn with_drop_hook(inner: Arc<SendFn>, drop_hook: Arc<dyn Fn() + Send + Sync>) -> Self {
     Self {
       inner,
@@ -44,25 +44,25 @@ impl InternalMessageSender {
     }
   }
 
-  /// デフォルト優先度でメッセージを送信する。
+  /// Sends a message with default priority.
   ///
   /// # Arguments
-  /// * `message` - 送信するメッセージ
+  /// * `message` - Message to send
   ///
   /// # Returns
-  /// 送信成功時は`Ok(())`、失敗時はキューエラー
+  /// `Ok(())` on success, queue error on failure
   pub fn send_default(&self, message: DynMessage) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> {
     self.send_with_priority(message, DEFAULT_PRIORITY)
   }
 
-  /// 指定された優先度でメッセージを送信する。
+  /// Sends a message with the specified priority.
   ///
   /// # Arguments
-  /// * `message` - 送信するメッセージ
-  /// * `priority` - メッセージの優先度
+  /// * `message` - Message to send
+  /// * `priority` - Message priority
   ///
   /// # Returns
-  /// 送信成功時は`Ok(())`、失敗時はキューエラー
+  /// `Ok(())` on success, queue error on failure
   pub fn send_with_priority(
     &self,
     message: DynMessage,
@@ -71,10 +71,10 @@ impl InternalMessageSender {
     (self.inner)(message, priority)
   }
 
-  /// 内部アクター参照から`InternalMessageSender`を作成する（内部API）。
+  /// Creates an `InternalMessageSender` from an internal actor reference (internal API).
   ///
   /// # Arguments
-  /// * `actor_ref` - 送信先のアクター参照
+  /// * `actor_ref` - Actor reference to send to
   pub(crate) fn from_internal_ref<R>(actor_ref: InternalActorRef<DynMessage, R>) -> Self
   where
     R: MailboxFactory + Clone + 'static,
@@ -95,7 +95,7 @@ impl Drop for InternalMessageSender {
   }
 }
 
-/// 型安全なディスパッチャ。内部ディスパッチャをラップし、ユーザーメッセージを自動的にエンベロープ化する。
+/// Type-safe dispatcher. Wraps the internal dispatcher and automatically envelopes user messages.
 #[derive(Clone)]
 pub struct MessageSender<M>
 where
@@ -117,10 +117,10 @@ impl<M> MessageSender<M>
 where
   M: Element,
 {
-  /// 内部センダーから型付き`MessageSender`を作成する（内部API）。
+  /// Creates a typed `MessageSender` from an internal sender (internal API).
   ///
   /// # Arguments
-  /// * `inner` - 内部メッセージセンダー
+  /// * `inner` - Internal message sender
   pub(crate) fn new(inner: InternalMessageSender) -> Self {
     Self {
       inner,
@@ -128,32 +128,32 @@ where
     }
   }
 
-  /// 内部センダーから型付き`MessageSender`を作成する。
+  /// Creates a typed `MessageSender` from an internal sender.
   ///
   /// # Arguments
-  /// * `inner` - 内部メッセージセンダー
+  /// * `inner` - Internal message sender
   pub fn from_internal(inner: InternalMessageSender) -> Self {
     Self::new(inner)
   }
 
-  /// ユーザーメッセージをディスパッチする。
+  /// Dispatches a user message.
   ///
   /// # Arguments
-  /// * `message` - 送信するユーザーメッセージ
+  /// * `message` - User message to send
   ///
   /// # Returns
-  /// 送信成功時は`Ok(())`、失敗時はキューエラー
+  /// `Ok(())` on success, queue error on failure
   pub fn dispatch_user(&self, message: M) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> {
     self.dispatch_envelope(MessageEnvelope::user(message))
   }
 
-  /// メッセージエンベロープをディスパッチする。
+  /// Dispatches a message envelope.
   ///
   /// # Arguments
-  /// * `envelope` - 送信するメッセージエンベロープ
+  /// * `envelope` - Message envelope to send
   ///
   /// # Returns
-  /// 送信成功時は`Ok(())`、失敗時はキューエラー
+  /// `Ok(())` on success, queue error on failure
   pub fn dispatch_envelope(
     &self,
     envelope: MessageEnvelope<M>,
@@ -162,14 +162,14 @@ where
     self.inner.send_default(dyn_message)
   }
 
-  /// 指定された優先度でメッセージエンベロープをディスパッチする。
+  /// Dispatches a message envelope with the specified priority.
   ///
   /// # Arguments
-  /// * `envelope` - 送信するメッセージエンベロープ
-  /// * `priority` - メッセージの優先度
+  /// * `envelope` - Message envelope to send
+  /// * `priority` - Message priority
   ///
   /// # Returns
-  /// 送信成功時は`Ok(())`、失敗時はキューエラー
+  /// `Ok(())` on success, queue error on failure
   pub fn dispatch_with_priority(
     &self,
     envelope: MessageEnvelope<M>,
@@ -179,24 +179,24 @@ where
     self.inner.send_with_priority(dyn_message, priority)
   }
 
-  /// 内部センダーのクローンを取得する。
+  /// Gets a clone of the internal sender.
   ///
   /// # Returns
-  /// 内部メッセージセンダーのクローン
+  /// Clone of the internal message sender
   pub fn internal(&self) -> InternalMessageSender {
     self.inner.clone()
   }
 
-  /// 内部センダーに変換し、所有権を移動する。
+  /// Converts to the internal sender, transferring ownership.
   ///
   /// # Returns
-  /// 内部メッセージセンダー
+  /// Internal message sender
   pub fn into_internal(self) -> InternalMessageSender {
     self.inner
   }
 }
 
-/// メッセージに付随するメタデータ（内部表現）。
+/// Metadata accompanying a message (internal representation).
 #[derive(Debug, Clone, Default)]
 pub struct InternalMessageMetadata {
   sender: Option<InternalMessageSender>,
@@ -204,82 +204,82 @@ pub struct InternalMessageMetadata {
 }
 
 impl InternalMessageMetadata {
-  /// 送信者と応答者を指定して新しいメタデータを作成する。
+  /// Creates new metadata with sender and responder.
   ///
   /// # Arguments
-  /// * `sender` - 送信者のセンダー（オプション）
-  /// * `responder` - 応答者のセンダー（オプション）
+  /// * `sender` - Sender's dispatcher (optional)
+  /// * `responder` - Responder's dispatcher (optional)
   pub fn new(sender: Option<InternalMessageSender>, responder: Option<InternalMessageSender>) -> Self {
     Self { sender, responder }
   }
 
-  /// 送信者のセンダーへの参照を取得する。
+  /// Gets a reference to the sender's dispatcher.
   ///
   /// # Returns
-  /// 送信者が存在する場合は`Some(&InternalMessageSender)`、存在しない場合は`None`
+  /// `Some(&InternalMessageSender)` if sender exists, `None` otherwise
   pub fn sender(&self) -> Option<&InternalMessageSender> {
     self.sender.as_ref()
   }
 
-  /// 送信者のセンダーのクローンを取得する。
+  /// Gets a clone of the sender's dispatcher.
   ///
   /// # Returns
-  /// 送信者が存在する場合は`Some(InternalMessageSender)`、存在しない場合は`None`
+  /// `Some(InternalMessageSender)` if sender exists, `None` otherwise
   pub fn sender_cloned(&self) -> Option<InternalMessageSender> {
     self.sender.clone()
   }
 
-  /// 応答者のセンダーへの参照を取得する。
+  /// Gets a reference to the responder's dispatcher.
   ///
   /// # Returns
-  /// 応答者が存在する場合は`Some(&InternalMessageSender)`、存在しない場合は`None`
+  /// `Some(&InternalMessageSender)` if responder exists, `None` otherwise
   pub fn responder(&self) -> Option<&InternalMessageSender> {
     self.responder.as_ref()
   }
 
-  /// 応答者のセンダーのクローンを取得する。
+  /// Gets a clone of the responder's dispatcher.
   ///
   /// # Returns
-  /// 応答者が存在する場合は`Some(InternalMessageSender)`、存在しない場合は`None`
+  /// `Some(InternalMessageSender)` if responder exists, `None` otherwise
   pub fn responder_cloned(&self) -> Option<InternalMessageSender> {
     self.responder.clone()
   }
 
-  /// 送信者を設定して自身を返す（ビルダーパターン）。
+  /// Sets the sender and returns self (builder pattern).
   ///
   /// # Arguments
-  /// * `sender` - 設定する送信者のセンダー
+  /// * `sender` - Sender's dispatcher to set
   pub fn with_sender(mut self, sender: Option<InternalMessageSender>) -> Self {
     self.sender = sender;
     self
   }
 
-  /// 応答者を設定して自身を返す（ビルダーパターン）。
+  /// Sets the responder and returns self (builder pattern).
   ///
   /// # Arguments
-  /// * `responder` - 設定する応答者のセンダー
+  /// * `responder` - Responder's dispatcher to set
   pub fn with_responder(mut self, responder: Option<InternalMessageSender>) -> Self {
     self.responder = responder;
     self
   }
 }
 
-/// 外部 API 向けの型付きメタデータ。
+/// Typed metadata for the external API.
 #[derive(Debug, Clone, Default)]
 pub struct MessageMetadata {
   inner: InternalMessageMetadata,
 }
 
 impl MessageMetadata {
-  /// 新しい空のメタデータを作成する。
+  /// Creates new empty metadata.
   pub fn new() -> Self {
     Self::default()
   }
 
-  /// 送信者を設定して自身を返す（ビルダーパターン）。
+  /// Sets the sender and returns self (builder pattern).
   ///
   /// # Arguments
-  /// * `sender` - 設定する送信者のセンダー
+  /// * `sender` - Sender's dispatcher to set
   pub fn with_sender<U>(mut self, sender: MessageSender<U>) -> Self
   where
     U: Element, {
@@ -287,10 +287,10 @@ impl MessageMetadata {
     self
   }
 
-  /// 応答者を設定して自身を返す（ビルダーパターン）。
+  /// Sets the responder and returns self (builder pattern).
   ///
   /// # Arguments
-  /// * `responder` - 設定する応答者のセンダー
+  /// * `responder` - Responder's dispatcher to set
   pub fn with_responder<U>(mut self, responder: MessageSender<U>) -> Self
   where
     U: Element, {
@@ -298,48 +298,48 @@ impl MessageMetadata {
     self
   }
 
-  /// 指定された型の送信者センダーを取得する。
+  /// Gets the sender dispatcher of the specified type.
   ///
   /// # Returns
-  /// 送信者が存在する場合は`Some(MessageSender<U>)`、存在しない場合は`None`
+  /// `Some(MessageSender<U>)` if sender exists, `None` otherwise
   pub fn sender_as<U>(&self) -> Option<MessageSender<U>>
   where
     U: Element, {
     self.inner.sender_cloned().map(MessageSender::new)
   }
 
-  /// 指定された型の応答者センダーを取得する。
+  /// Gets the responder dispatcher of the specified type.
   ///
   /// # Returns
-  /// 応答者が存在する場合は`Some(MessageSender<U>)`、存在しない場合は`None`
+  /// `Some(MessageSender<U>)` if responder exists, `None` otherwise
   pub fn responder_as<U>(&self) -> Option<MessageSender<U>>
   where
     U: Element, {
     self.inner.responder_cloned().map(MessageSender::new)
   }
 
-  /// 指定された型のディスパッチャーを取得する（応答者優先）。
+  /// Gets the dispatcher of the specified type (prioritizing responder).
   ///
-  /// 応答者が存在する場合はそれを返し、存在しない場合は送信者を返す。
+  /// Returns the responder if it exists, otherwise returns the sender.
   ///
   /// # Returns
-  /// ディスパッチャーが存在する場合は`Some(MessageSender<U>)`、存在しない場合は`None`
+  /// `Some(MessageSender<U>)` if dispatcher exists, `None` otherwise
   pub fn dispatcher_for<U>(&self) -> Option<MessageSender<U>>
   where
     U: Element, {
     self.responder_as::<U>().or_else(|| self.sender_as::<U>())
   }
 
-  /// メタデータが空かどうかを判定する。
+  /// Determines if the metadata is empty.
   ///
   /// # Returns
-  /// 送信者も応答者も存在しない場合は`true`、それ以外は`false`
+  /// `true` if neither sender nor responder exists, `false` otherwise
   pub fn is_empty(&self) -> bool {
     self.inner.sender.is_none() && self.inner.responder.is_none()
   }
 }
 
-/// ユーザーメッセージとメタデータを保持するラッパー。
+/// Wrapper that holds a user message and metadata.
 #[derive(Debug, Clone)]
 pub struct UserMessage<U> {
   message: ManuallyDrop<U>,
@@ -347,10 +347,10 @@ pub struct UserMessage<U> {
 }
 
 impl<U> UserMessage<U> {
-  /// メッセージのみを持つ新しい`UserMessage`を作成する。
+  /// Creates a new `UserMessage` with only the message.
   ///
   /// # Arguments
-  /// * `message` - ユーザーメッセージ
+  /// * `message` - User message
   pub fn new(message: U) -> Self {
     Self {
       message: ManuallyDrop::new(message),
@@ -358,13 +358,13 @@ impl<U> UserMessage<U> {
     }
   }
 
-  /// メッセージとメタデータを持つ新しい`UserMessage`を作成する。
+  /// Creates a new `UserMessage` with message and metadata.
   ///
-  /// メタデータが空の場合は、メタデータなしで作成される。
+  /// If metadata is empty, it is created without metadata.
   ///
   /// # Arguments
-  /// * `message` - ユーザーメッセージ
-  /// * `metadata` - メッセージメタデータ
+  /// * `message` - User message
+  /// * `metadata` - Message metadata
   pub fn with_metadata(message: U, metadata: MessageMetadata) -> Self {
     if metadata.is_empty() {
       Self::new(message)
@@ -377,26 +377,26 @@ impl<U> UserMessage<U> {
     }
   }
 
-  /// メッセージへの参照を取得する。
+  /// Gets a reference to the message.
   ///
   /// # Returns
-  /// ユーザーメッセージへの参照
+  /// Reference to the user message
   pub fn message(&self) -> &U {
     &*self.message
   }
 
-  /// メタデータキーを取得する。
+  /// Gets the metadata key.
   ///
   /// # Returns
-  /// メタデータが存在する場合は`Some(MetadataKey)`、存在しない場合は`None`
+  /// `Some(MetadataKey)` if metadata exists, `None` otherwise
   pub fn metadata_key(&self) -> Option<MetadataKey> {
     self.metadata_key
   }
 
-  /// メッセージとメタデータキーに分解する。
+  /// Decomposes into message and metadata key.
   ///
   /// # Returns
-  /// `(メッセージ, メタデータキー)`のタプル
+  /// Tuple of `(message, metadata key)`
   pub fn into_parts(mut self) -> (U, Option<MetadataKey>) {
     let key = self.metadata_key.take();
     let message = unsafe { ManuallyDrop::take(&mut self.message) };
@@ -422,12 +422,12 @@ impl<U> Drop for UserMessage<U> {
   }
 }
 
-/// ユーザーメッセージとシステムメッセージを統合した型付きエンベロープ。
+/// Typed envelope that integrates user messages and system messages.
 #[derive(Debug, Clone)]
 pub enum MessageEnvelope<U> {
-  /// ユーザーメッセージを保持するバリアント。
+  /// Variant that holds a user message.
   User(UserMessage<U>),
-  /// システムメッセージを保持するバリアント。
+  /// Variant that holds a system message.
   System(SystemMessage),
 }
 
@@ -435,19 +435,19 @@ impl<U> MessageEnvelope<U>
 where
   U: Element,
 {
-  /// ユーザーメッセージのエンベロープを作成する。
+  /// Creates an envelope for a user message.
   ///
   /// # Arguments
-  /// * `message` - ユーザーメッセージ
+  /// * `message` - User message
   pub fn user(message: U) -> Self {
     MessageEnvelope::User(UserMessage::new(message))
   }
 
-  /// メタデータ付きユーザーメッセージのエンベロープを作成する。
+  /// Creates an envelope for a user message with metadata.
   ///
   /// # Arguments
-  /// * `message` - ユーザーメッセージ
-  /// * `metadata` - メッセージメタデータ
+  /// * `message` - User message
+  /// * `metadata` - Message metadata
   pub fn user_with_metadata(message: U, metadata: MessageMetadata) -> Self {
     MessageEnvelope::User(UserMessage::with_metadata(message, metadata))
   }

@@ -3,29 +3,29 @@ use core::time::Duration;
 
 use crate::FailureEventStream;
 
-/// `ActorSystem` 初期化時に必要な依存集合。
+/// Dependency collection required for `ActorSystem` initialization.
 ///
-/// アクターシステムの構築に必要なすべてのコンポーネントをまとめて保持します。
+/// Holds all components necessary for constructing the actor system.
 pub struct ActorSystemParts<MF, S, T, E> {
-  /// メールボックスファクトリ
+  /// Mailbox factory
   pub mailbox_factory: MF,
-  /// タスクスポーナー
+  /// Task spawner
   pub spawner: S,
-  /// タイマー
+  /// Timer
   pub timer: T,
-  /// イベントストリーム
+  /// Event stream
   pub event_stream: E,
 }
 
 impl<MF, S, T, E> ActorSystemParts<MF, S, T, E> {
-  /// 新しい `ActorSystemParts` を作成します。
+  /// Creates a new `ActorSystemParts`.
   ///
   /// # Arguments
   ///
-  /// * `mailbox_factory` - メールボックスファクトリ
-  /// * `spawner` - タスクスポーナー
-  /// * `timer` - タイマー
-  /// * `event_stream` - イベントストリーム
+  /// * `mailbox_factory` - Mailbox factory
+  /// * `spawner` - Task spawner
+  /// * `timer` - Timer
+  /// * `event_stream` - Event stream
   pub fn new(mailbox_factory: MF, spawner: S, timer: T, event_stream: E) -> Self {
     Self {
       mailbox_factory,
@@ -36,15 +36,15 @@ impl<MF, S, T, E> ActorSystemParts<MF, S, T, E> {
   }
 }
 
-/// `ActorSystem` 構築後もドライバが保持し続ける周辺コンポーネント。
+/// Peripheral components that the driver continues to hold after `ActorSystem` construction.
 ///
-/// メールボックスファクトリを除いた、ランタイム操作に必要なハンドル群。
+/// Set of handles required for runtime operations, excluding the mailbox factory.
 pub struct ActorSystemHandles<S, T, E> {
-  /// タスクスポーナー
+  /// Task spawner
   pub spawner: S,
-  /// タイマー
+  /// Timer
   pub timer: T,
-  /// イベントストリーム
+  /// Event stream
   pub event_stream: E,
 }
 
@@ -52,11 +52,11 @@ impl<MF, S, T, E> ActorSystemParts<MF, S, T, E>
 where
   E: FailureEventStream,
 {
-  /// `ActorSystemParts` をメールボックスファクトリとハンドル群に分割します。
+  /// Splits `ActorSystemParts` into mailbox factory and handles.
   ///
   /// # Returns
   ///
-  /// メールボックスファクトリと `ActorSystemHandles` のタプル
+  /// Tuple of mailbox factory and `ActorSystemHandles`
   pub fn split(self) -> (MF, ActorSystemHandles<S, T, E>) {
     let Self {
       mailbox_factory,
@@ -75,31 +75,31 @@ where
   }
 }
 
-/// 非同期タスク実行を抽象化するインターフェース。
+/// Interface for abstracting asynchronous task execution.
 ///
-/// 環境に依存しない方法で非同期タスクを生成するための抽象層を提供します。
+/// Provides an abstraction layer for spawning asynchronous tasks in an environment-independent manner.
 pub trait Spawn {
-  /// 新しい非同期タスクを生成します。
+  /// Spawns a new asynchronous task.
   ///
   /// # Arguments
   ///
-  /// * `fut` - 実行する非同期タスク
+  /// * `fut` - Asynchronous task to execute
   fn spawn(&self, fut: impl Future<Output = ()> + Send + 'static);
 }
 
-/// 汎用的なタイマー抽象。
+/// Generic timer abstraction.
 ///
-/// 環境に依存しない方法で遅延実行を実現するための抽象層を提供します。
+/// Provides an abstraction layer for delayed execution in an environment-independent manner.
 pub trait Timer {
-  /// スリープ操作の Future 型
+  /// Future type for sleep operation
   type SleepFuture<'a>: Future<Output = ()> + 'a
   where
     Self: 'a;
 
-  /// 指定された時間だけスリープする Future を返します。
+  /// Returns a Future that sleeps for the specified duration.
   ///
   /// # Arguments
   ///
-  /// * `duration` - スリープする時間
+  /// * `duration` - Duration to sleep
   fn sleep(&self, duration: Duration) -> Self::SleepFuture<'_>;
 }

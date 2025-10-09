@@ -1,24 +1,24 @@
 use alloc::collections::BTreeMap;
 use alloc::string::String;
 
-/// Failure に付随するメタデータ。将来 remote/cluster 層の情報を保持するために使用する。
+/// Metadata associated with Failure. Used to hold remote/cluster layer information in the future.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FailureMetadata {
-  /// 障害が発生したコンポーネント名
+  /// Component name where the failure occurred
   pub component: Option<String>,
-  /// 障害が発生したエンドポイント
+  /// Endpoint where the failure occurred
   pub endpoint: Option<String>,
-  /// 使用されたトランスポート
+  /// Transport used
   pub transport: Option<String>,
-  /// 追加のタグ情報
+  /// Additional tag information
   pub tags: BTreeMap<String, String>,
 }
 
 impl FailureMetadata {
-  /// 新しい空のメタデータを作成する。
+  /// Creates a new empty metadata.
   ///
   /// # Returns
-  /// 新しい`FailureMetadata`インスタンス
+  /// New `FailureMetadata` instance
   pub fn new() -> Self {
     Self {
       component: None,
@@ -28,50 +28,50 @@ impl FailureMetadata {
     }
   }
 
-  /// コンポーネント名を設定する。
+  /// Sets the component name.
   ///
   /// # Arguments
-  /// * `component` - コンポーネント名
+  /// * `component` - Component name
   ///
   /// # Returns
-  /// コンポーネント名が設定された`FailureMetadata`インスタンス
+  /// `FailureMetadata` instance with component name set
   pub fn with_component(mut self, component: impl Into<String>) -> Self {
     self.component = Some(component.into());
     self
   }
 
-  /// エンドポイントを設定する。
+  /// Sets the endpoint.
   ///
   /// # Arguments
-  /// * `endpoint` - エンドポイント
+  /// * `endpoint` - Endpoint
   ///
   /// # Returns
-  /// エンドポイントが設定された`FailureMetadata`インスタンス
+  /// `FailureMetadata` instance with endpoint set
   pub fn with_endpoint(mut self, endpoint: impl Into<String>) -> Self {
     self.endpoint = Some(endpoint.into());
     self
   }
 
-  /// トランスポートを設定する。
+  /// Sets the transport.
   ///
   /// # Arguments
-  /// * `transport` - トランスポート
+  /// * `transport` - Transport
   ///
   /// # Returns
-  /// トランスポートが設定された`FailureMetadata`インスタンス
+  /// `FailureMetadata` instance with transport set
   pub fn with_transport(mut self, transport: impl Into<String>) -> Self {
     self.transport = Some(transport.into());
     self
   }
 
-  /// タグを追加する。
+  /// Adds a tag.
   ///
   /// # Arguments
-  /// * `key` - タグのキー
-  /// * `value` - タグの値
+  /// * `key` - Tag key
+  /// * `value` - Tag value
   ///
   /// # Returns
-  /// タグが追加された`FailureMetadata`インスタンス
+  /// `FailureMetadata` instance with tag added
   pub fn insert_tag(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
     self.tags.insert(key.into(), value.into());
     self

@@ -1,17 +1,17 @@
 use crate::FailureEventListener;
 
-/// FailureEvent を外部へ配信するためのストリーム抽象。
+/// Stream abstraction for distributing FailureEvent externally.
 ///
-/// 実装は `actor-std` や `actor-embedded` といった周辺クレート側に配置し、
-/// `actor-core` からは依存逆転の形で利用する。
+/// Implementations are placed in peripheral crates like `actor-std` or `actor-embedded`,
+/// and are used from `actor-core` via dependency inversion.
 pub trait FailureEventStream: Clone + Send + Sync + 'static {
-  /// 購読を表すハンドル型。Drop 時に購読解除などの後処理を担う。
+  /// Handle type representing a subscription. Handles cleanup like unsubscribing on Drop.
   type Subscription: Send + 'static;
 
-  /// FailureEvent の通知を受け取るためのリスナを返す。
+  /// Returns a listener to receive FailureEvent notifications.
   fn listener(&self) -> FailureEventListener;
 
-  /// 新しい購読者を登録し、購読ハンドルを返す。
+  /// Registers a new subscriber and returns a subscription handle.
   fn subscribe(&self, listener: FailureEventListener) -> Self::Subscription;
 }
 
@@ -24,7 +24,7 @@ pub(crate) mod tests {
   use core::sync::atomic::{AtomicU64, Ordering};
   use std::sync::Mutex;
 
-  /// テスト専用のインメモリ実装。
+  /// In-memory implementation for testing only.
   #[derive(Clone, Default)]
   pub(crate) struct TestFailureEventStream {
     inner: Arc<TestFailureEventStreamInner>,

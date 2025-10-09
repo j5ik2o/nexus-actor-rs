@@ -8,10 +8,10 @@ use nexus_utils_core_rs::{Element, QueueError};
 
 use super::{ask_with_timeout, AskFuture, AskResult, AskTimeoutFuture};
 
-/// ルートアクターを操作するためのコンテキスト。
+/// Context for operating root actors.
 ///
-/// アクターシステムのトップレベルからアクターの生成やメッセージ送信を行います。
-/// ガーディアン戦略を通じて、子アクターの障害処理を管理します。
+/// Performs actor spawning and message sending from the top level of the actor system.
+/// Manages failure handling of child actors through guardian strategies.
 pub struct RootContext<'a, U, R, Strat>
 where
   U: Element,
@@ -31,15 +31,15 @@ where
   R::Signal: Clone,
   Strat: crate::api::guardian::GuardianStrategy<DynMessage, R>,
 {
-  /// 指定されたプロパティを使用して新しいアクターを生成します。
+  /// Spawns a new actor using the specified properties.
   ///
   /// # Arguments
   ///
-  /// * `props` - アクターの生成に使用するプロパティ
+  /// * `props` - Properties to use for spawning the actor
   ///
   /// # Returns
   ///
-  /// 生成されたアクターへの参照、またはメールボックスエラー
+  /// Reference to the spawned actor, or a mailbox error
   pub fn spawn(&mut self, props: Props<U, R>) -> Result<ActorRef<U, R>, QueueError<PriorityEnvelope<DynMessage>>> {
     let (internal_props, supervisor_cfg) = props.into_parts();
     let actor_ref = self
@@ -48,16 +48,16 @@ where
     Ok(ActorRef::new(actor_ref))
   }
 
-  /// 指定されたアクターにメッセージを送信し、応答を待つ Future を返します。
+  /// Sends a message to the specified actor and returns a Future that waits for a response.
   ///
   /// # Arguments
   ///
-  /// * `target` - メッセージの送信先アクター
-  /// * `message` - 送信するメッセージ
+  /// * `target` - Target actor to send the message to
+  /// * `message` - Message to send
   ///
   /// # Returns
   ///
-  /// 応答を受け取るための Future、またはエラー
+  /// Future for receiving the response, or an error
   pub fn request_future<V, Resp>(&self, target: &ActorRef<V, R>, message: V) -> AskResult<AskFuture<Resp>>
   where
     V: Element,
@@ -65,17 +65,17 @@ where
     target.request_future(message)
   }
 
-  /// 指定されたアクターにメッセージを送信し、タイムアウト付きで応答を待つ Future を返します。
+  /// Sends a message to the specified actor and returns a Future that waits for a response with timeout.
   ///
   /// # Arguments
   ///
-  /// * `target` - メッセージの送信先アクター
-  /// * `message` - 送信するメッセージ
-  /// * `timeout` - タイムアウトを示す Future
+  /// * `target` - Target actor to send the message to
+  /// * `message` - Message to send
+  /// * `timeout` - Future indicating timeout
   ///
   /// # Returns
   ///
-  /// タイムアウト付きで応答を受け取るための Future、またはエラー
+  /// Future for receiving the response with timeout, or an error
   pub fn request_future_with_timeout<V, Resp, TFut>(
     &self,
     target: &ActorRef<V, R>,
@@ -90,26 +90,26 @@ where
     Ok(ask_with_timeout(future, timeout))
   }
 
-  /// すべてのメッセージをディスパッチします。
+  /// Dispatches all messages.
   ///
   /// # Returns
   ///
-  /// 成功した場合は `Ok(())`、メールボックスエラーが発生した場合は `Err`
+  /// `Ok(())` on success, `Err` if a mailbox error occurs
   ///
-  /// # 非推奨
+  /// # Deprecated
   ///
-  /// バージョン 3.1.0 から非推奨です。代わりに `dispatch_next` または `run_until` を使用してください。
-  #[deprecated(since = "3.1.0", note = "dispatch_next / run_until を使用してください")]
+  /// Deprecated since version 3.1.0. Use `dispatch_next` or `run_until` instead.
+  #[deprecated(since = "3.1.0", note = "Use dispatch_next or run_until instead")]
   pub fn dispatch_all(&mut self) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> {
     #[allow(deprecated)]
     self.inner.dispatch_all()
   }
 
-  /// 次のメッセージを1つディスパッチします。
+  /// Dispatches one next message.
   ///
   /// # Returns
   ///
-  /// 成功した場合は `Ok(())`、メールボックスエラーが発生した場合は `Err`
+  /// `Ok(())` on success, `Err` if a mailbox error occurs
   pub async fn dispatch_next(&mut self) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> {
     self.inner.dispatch_next().await
   }

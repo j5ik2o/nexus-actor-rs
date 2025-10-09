@@ -12,9 +12,9 @@ use crate::ReceiveTimeoutSchedulerFactory;
 use crate::{FailureEventListener, FailureEventStream, MailboxFactory, PriorityEnvelope};
 use nexus_utils_core_rs::{Element, QueueError};
 
-/// アクターシステムの主要なインスタンス。
+/// Primary instance of the actor system.
 ///
-/// アクターの生成、管理、メッセージディスパッチを担当する。
+/// Responsible for actor spawning, management, and message dispatching.
 pub struct ActorSystem<U, R, Strat = AlwaysRestart>
 where
   U: Element,
@@ -27,9 +27,9 @@ where
   _marker: PhantomData<U>,
 }
 
-/// アクターシステムの実行ランナー。
+/// Execution runner for the actor system.
 ///
-/// `ActorSystem`をラップし、非同期ランタイムで実行するためのインターフェースを提供する。
+/// Wraps `ActorSystem` and provides an interface for execution on an asynchronous runtime.
 pub struct ActorSystemRunner<U, R, Strat = AlwaysRestart>
 where
   U: Element,
@@ -48,10 +48,10 @@ where
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
   R::Signal: Clone,
 {
-  /// メールボックスファクトリを指定して新しいアクターシステムを作成する。
+  /// Creates a new actor system with the specified mailbox factory.
   ///
   /// # Arguments
-  /// * `mailbox_factory` - メールボックスを生成するファクトリ
+  /// * `mailbox_factory` - Factory that generates mailboxes
   pub fn new(mailbox_factory: R) -> Self {
     Self {
       inner: InternalActorSystem::new(mailbox_factory),
@@ -60,21 +60,21 @@ where
     }
   }
 
-  /// 障害イベントリスナーを設定する。
+  /// Sets the failure event listener.
   ///
   /// # Arguments
-  /// * `listener` - 障害イベントを受信するリスナー（オプション）
+  /// * `listener` - Listener to receive failure events (optional)
   pub fn set_failure_event_listener(&mut self, listener: Option<FailureEventListener>) {
     self.inner.set_root_event_listener(listener);
   }
 
-  /// パーツからアクターシステムとハンドルを構築する。
+  /// Constructs an actor system and handles from parts.
   ///
   /// # Arguments
-  /// * `parts` - アクターシステムのパーツ
+  /// * `parts` - Actor system parts
   ///
   /// # Returns
-  /// `(ActorSystem, ActorSystemHandles)`のタプル
+  /// Tuple of `(ActorSystem, ActorSystemHandles)`
   pub fn from_parts<S, T, E>(parts: ActorSystemParts<R, S, T, E>) -> (Self, ActorSystemHandles<S, T, E>)
   where
     S: Spawn,
@@ -95,20 +95,20 @@ where
   R::Signal: Clone,
   Strat: crate::api::guardian::GuardianStrategy<DynMessage, R>,
 {
-  /// シャットダウントークンを取得する。
+  /// Gets the shutdown token.
   ///
   /// # Returns
-  /// シャットダウントークンのクローン
+  /// Clone of the shutdown token
   pub fn shutdown_token(&self) -> ShutdownToken {
     self.shutdown.clone()
   }
 
-  /// このシステムをランナーに変換する。
+  /// Converts this system into a runner.
   ///
-  /// ランナーは非同期ランタイムでの実行に適したインターフェースを提供する。
+  /// The runner provides an interface suitable for execution on an asynchronous runtime.
   ///
   /// # Returns
-  /// アクターシステムランナー
+  /// Actor system runner
   pub fn into_runner(self) -> ActorSystemRunner<U, R, Strat> {
     ActorSystemRunner {
       system: self,
@@ -116,10 +116,10 @@ where
     }
   }
 
-  /// 受信タイムアウトスケジューラーファクトリを設定する。
+  /// Sets the receive timeout scheduler factory.
   ///
   /// # Arguments
-  /// * `factory` - 受信タイムアウトスケジューラーを生成するファクトリ（オプション）
+  /// * `factory` - Factory that generates receive timeout schedulers (optional)
   pub fn set_receive_timeout_scheduler_factory(
     &mut self,
     factory: Option<Arc<dyn ReceiveTimeoutSchedulerFactory<DynMessage, R>>>,
@@ -127,12 +127,12 @@ where
     self.inner.set_receive_timeout_factory(factory);
   }
 
-  /// ルートコンテキストを取得する。
+  /// Gets the root context.
   ///
-  /// ルートコンテキストはアクターシステムのトップレベルでアクターを生成するために使用される。
+  /// The root context is used to spawn actors at the top level of the actor system.
   ///
   /// # Returns
-  /// ルートコンテキストへの可変参照
+  /// Mutable reference to the root context
   pub fn root_context(&mut self) -> RootContext<'_, U, R, Strat> {
     RootContext {
       inner: self.inner.root_context(),
@@ -140,38 +140,38 @@ where
     }
   }
 
-  /// 指定された条件が満たされるまでメッセージディスパッチを実行する。
+  /// Executes message dispatching until the specified condition is met.
   ///
   /// # Arguments
-  /// * `should_continue` - 継続条件を判定するクロージャ。`true`を返す限り実行を続ける
+  /// * `should_continue` - Closure that determines continuation condition. Continues execution while it returns `true`
   ///
   /// # Returns
-  /// 正常終了時は`Ok(())`、キューエラー時は`Err`
+  /// `Ok(())` on normal completion, `Err` on queue error
   pub async fn run_until<F>(&mut self, should_continue: F) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>>
   where
     F: FnMut() -> bool, {
     self.inner.run_until(should_continue).await
   }
 
-  /// メッセージディスパッチを永続的に実行する。
+  /// Executes message dispatching permanently.
   ///
-  /// この関数は正常には終了しない。エラー発生時のみ返る。
+  /// This function does not terminate normally. Returns only on error.
   ///
   /// # Returns
-  /// `Infallible`（正常終了しない）またはキューエラー
+  /// `Infallible` (does not terminate normally) or queue error
   pub async fn run_forever(&mut self) -> Result<Infallible, QueueError<PriorityEnvelope<DynMessage>>> {
     self.inner.run_forever().await
   }
 
-  /// 指定された条件が満たされるまでメッセージディスパッチをブロッキングで実行する。
+  /// Executes message dispatching in blocking mode until the specified condition is met.
   ///
-  /// この関数は標準ライブラリが有効な場合のみ使用可能。
+  /// This function is only available when the standard library is enabled.
   ///
   /// # Arguments
-  /// * `should_continue` - 継続条件を判定するクロージャ。`true`を返す限り実行を続ける
+  /// * `should_continue` - Closure that determines continuation condition. Continues execution while it returns `true`
   ///
   /// # Returns
-  /// 正常終了時は`Ok(())`、キューエラー時は`Err`
+  /// `Ok(())` on normal completion, `Err` on queue error
   #[cfg(feature = "std")]
   pub fn blocking_dispatch_loop<F>(
     &mut self,
@@ -182,29 +182,29 @@ where
     self.inner.blocking_dispatch_loop(should_continue)
   }
 
-  /// メッセージディスパッチをブロッキングで永続的に実行する。
+  /// Executes message dispatching permanently in blocking mode.
   ///
-  /// この関数は標準ライブラリが有効な場合のみ使用可能。正常には終了しない。
+  /// This function is only available when the standard library is enabled. Does not terminate normally.
   ///
   /// # Returns
-  /// `Infallible`（正常終了しない）またはキューエラー
+  /// `Infallible` (does not terminate normally) or queue error
   #[cfg(feature = "std")]
   pub fn blocking_dispatch_forever(&mut self) -> Result<Infallible, QueueError<PriorityEnvelope<DynMessage>>> {
     self.inner.blocking_dispatch_forever()
   }
 
-  /// 次のメッセージを1つディスパッチする。
+  /// Dispatches one next message.
   ///
-  /// キューが空の場合は新しいメッセージが到着するまで待機する。
+  /// Waits until a new message arrives if the queue is empty.
   ///
   /// # Returns
-  /// 正常終了時は`Ok(())`、キューエラー時は`Err`
+  /// `Ok(())` on normal completion, `Err` on queue error
   pub async fn dispatch_next(&mut self) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> {
     self.inner.dispatch_next().await
   }
 
-  /// Ready キューに溜まったメッセージを同期的に処理し、空になるまで繰り返す。
-  /// 新たにメッセージが到着するまで待機は行わない。
+  /// Synchronously processes messages accumulated in the Ready queue, repeating until empty.
+  /// Does not wait for new messages to arrive.
   pub fn run_until_idle(&mut self) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> {
     let shutdown = self.shutdown.clone();
     self.inner.run_until_idle(|| !shutdown.is_triggered())
@@ -219,76 +219,76 @@ where
   R::Signal: Clone,
   Strat: crate::api::guardian::GuardianStrategy<DynMessage, R>,
 {
-  /// シャットダウントークンを取得する。
+  /// Gets the shutdown token.
   ///
   /// # Returns
-  /// シャットダウントークンのクローン
+  /// Clone of the shutdown token
   pub fn shutdown_token(&self) -> ShutdownToken {
     self.system.shutdown.clone()
   }
 
-  /// メッセージディスパッチを永続的に実行する。
+  /// Executes message dispatching permanently.
   ///
-  /// この関数は正常には終了しない。エラー発生時のみ返る。
+  /// This function does not terminate normally. Returns only on error.
   ///
   /// # Returns
-  /// `Infallible`（正常終了しない）またはキューエラー
+  /// `Infallible` (does not terminate normally) or queue error
   pub async fn run_forever(mut self) -> Result<Infallible, QueueError<PriorityEnvelope<DynMessage>>> {
     self.system.run_forever().await
   }
 
-  /// ランナーをFutureとして実行する。
+  /// Executes the runner as a Future.
   ///
-  /// `run_forever`のエイリアス。非同期ランタイムでの実行に適した名前を提供する。
+  /// Alias for `run_forever`. Provides a name suitable for execution on an asynchronous runtime.
   ///
   /// # Returns
-  /// `Infallible`（正常終了しない）またはキューエラー
+  /// `Infallible` (does not terminate normally) or queue error
   pub async fn into_future(self) -> Result<Infallible, QueueError<PriorityEnvelope<DynMessage>>> {
     self.run_forever().await
   }
 
-  /// ランナーから内部のアクターシステムを取り出す。
+  /// Extracts the internal actor system from the runner.
   ///
   /// # Returns
-  /// 内部のアクターシステム
+  /// Internal actor system
   pub fn into_inner(self) -> ActorSystem<U, R, Strat> {
     self.system
   }
 }
 
-/// アクターシステムのシャットダウンを制御するトークン。
+/// Token that controls shutdown of the actor system.
 ///
-/// 複数のスレッドやタスクから共有でき、シャットダウン状態を協調的に管理する。
+/// Can be shared among multiple threads or tasks and cooperatively manages shutdown state.
 #[derive(Clone)]
 pub struct ShutdownToken {
   inner: Arc<AtomicBool>,
 }
 
 impl ShutdownToken {
-  /// 新しいシャットダウントークンを作成する。
+  /// Creates a new shutdown token.
   ///
-  /// 初期状態ではシャットダウンはトリガーされていない。
+  /// Shutdown is not triggered in the initial state.
   ///
   /// # Returns
-  /// 新しいシャットダウントークン
+  /// New shutdown token
   pub fn new() -> Self {
     Self {
       inner: Arc::new(AtomicBool::new(false)),
     }
   }
 
-  /// シャットダウンをトリガーする。
+  /// Triggers shutdown.
   ///
-  /// この操作は複数のスレッドから安全に呼び出せる。
-  /// 一度トリガーされると、状態をリセットすることはできない。
+  /// This operation can be safely called from multiple threads.
+  /// Once triggered, the state cannot be reset.
   pub fn trigger(&self) {
     self.inner.store(true, Ordering::SeqCst);
   }
 
-  /// シャットダウンがトリガーされているかどうかを確認する。
+  /// Checks whether shutdown has been triggered.
   ///
   /// # Returns
-  /// シャットダウンがトリガーされている場合は`true`、そうでない場合は`false`
+  /// `true` if shutdown has been triggered, `false` otherwise
   pub fn is_triggered(&self) -> bool {
     self.inner.load(Ordering::SeqCst)
   }

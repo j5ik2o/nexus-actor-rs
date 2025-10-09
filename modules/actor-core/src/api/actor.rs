@@ -1,7 +1,7 @@
-//! アクター API の集約モジュール。
+//! Actor API aggregation module.
 //!
-//! このモジュールから [`SystemMessage`] や [`PriorityEnvelope`] など
-//! ランタイム層で利用する基本型をまとめて再公開する。
+//! Re-exports basic types used by the runtime layer such as
+//! [`SystemMessage`] and [`PriorityEnvelope`] from this module.
 
 mod actor_ref;
 mod ask;

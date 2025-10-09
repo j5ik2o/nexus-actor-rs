@@ -15,9 +15,9 @@ use crate::api::MessageEnvelope;
 use core::cell::RefCell;
 use core::marker::PhantomData;
 
-/// アクター生成時の設定を保持するプロパティ。
+/// Properties that hold configuration for actor spawning.
 ///
-/// アクターの振る舞い、メールボックス設定、スーパーバイザー戦略などを含む。
+/// Includes actor behavior, mailbox settings, supervisor strategy, and more.
 pub struct Props<U, R>
 where
   U: Element,
@@ -36,11 +36,11 @@ where
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
   R::Signal: Clone,
 {
-  /// メッセージハンドラを指定して新しい`Props`を作成する。
+  /// Creates a new `Props` with the specified message handler.
   ///
   /// # Arguments
-  /// * `options` - メールボックスオプション
-  /// * `handler` - ユーザーメッセージを処理するハンドラ関数
+  /// * `options` - Mailbox options
+  /// * `handler` - Handler function to process user messages
   pub fn new<F>(options: MailboxOptions, handler: F) -> Self
   where
     F: for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, U) + 'static, {
@@ -56,23 +56,23 @@ where
     })
   }
 
-  /// Behaviorファクトリを指定して新しい`Props`を作成する。
+  /// Creates a new `Props` with the specified Behavior factory.
   ///
   /// # Arguments
-  /// * `options` - メールボックスオプション
-  /// * `behavior_factory` - アクターの振る舞いを生成するファクトリ関数
+  /// * `options` - Mailbox options
+  /// * `behavior_factory` - Factory function that generates actor behavior
   pub fn with_behavior<F>(options: MailboxOptions, behavior_factory: F) -> Self
   where
     F: Fn() -> Behavior<U, R> + 'static, {
     Self::with_behavior_and_system::<_, fn(&mut Context<'_, '_, U, R>, SystemMessage)>(options, behavior_factory, None)
   }
 
-  /// ユーザーメッセージハンドラとシステムメッセージハンドラを指定して新しい`Props`を作成する。
+  /// Creates a new `Props` with user message handler and system message handler.
   ///
   /// # Arguments
-  /// * `options` - メールボックスオプション
-  /// * `user_handler` - ユーザーメッセージを処理するハンドラ関数
-  /// * `system_handler` - システムメッセージを処理するハンドラ関数（オプション）
+  /// * `options` - Mailbox options
+  /// * `user_handler` - Handler function to process user messages
+  /// * `system_handler` - Handler function to process system messages (optional)
   pub fn with_system_handler<F, G>(options: MailboxOptions, user_handler: F, system_handler: Option<G>) -> Self
   where
     F: for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, U) + 'static,
@@ -93,14 +93,14 @@ where
     )
   }
 
-  /// Behaviorファクトリとシステムメッセージハンドラを指定して新しい`Props`を作成する。
+  /// Creates a new `Props` with Behavior factory and system message handler.
   ///
-  /// 最も柔軟な`Props`作成方法で、振る舞いとシステムメッセージハンドラの両方を指定できる。
+  /// The most flexible way to create `Props`, allowing specification of both behavior and system message handler.
   ///
   /// # Arguments
-  /// * `options` - メールボックスオプション
-  /// * `behavior_factory` - アクターの振る舞いを生成するファクトリ関数
-  /// * `system_handler` - システムメッセージを処理するハンドラ関数（オプション）
+  /// * `options` - Mailbox options
+  /// * `behavior_factory` - Factory function that generates actor behavior
+  /// * `system_handler` - Handler function to process system messages (optional)
   pub fn with_behavior_and_system<F, S>(
     options: MailboxOptions,
     behavior_factory: F,
@@ -140,10 +140,10 @@ where
     }
   }
 
-  /// 内部プロパティとスーパーバイザー設定に分解する（内部API）。
+  /// Decomposes into internal properties and supervisor configuration (internal API).
   ///
   /// # Returns
-  /// `(InternalProps, SupervisorStrategyConfig)`のタプル
+  /// Tuple of `(InternalProps, SupervisorStrategyConfig)`
   pub(crate) fn into_parts(self) -> (InternalProps<DynMessage, R>, SupervisorStrategyConfig) {
     (self.inner, self.supervisor)
   }
