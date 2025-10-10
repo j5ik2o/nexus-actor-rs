@@ -73,6 +73,7 @@ pub use timer::TokioTimer;
 pub use tokio_mailbox::{TokioMailbox, TokioMailboxFactory, TokioMailboxSender};
 pub use tokio_priority_mailbox::{TokioPriorityMailbox, TokioPriorityMailboxFactory, TokioPriorityMailboxSender};
 
+#[cfg(test)]
 use nexus_actor_core_rs::{ActorSystemConfig, ReceiveTimeoutFactoryShared};
 
 /// A prelude module that provides commonly used re-exported types and traits.
@@ -83,16 +84,6 @@ pub mod prelude {
     TokioTimer,
   };
   pub use nexus_actor_core_rs::actor_loop;
-}
-
-/// Configures a receive timeout scheduler within an `ActorSystemConfig`.
-///
-/// Call this helper before `ActorSystem::new_with_config` to enable receive timeout
-/// handling using Tokio timers.
-pub fn install_receive_timeout_scheduler(config: &mut ActorSystemConfig<TokioMailboxFactory>) {
-  config.receive_timeout_factory = Some(ReceiveTimeoutFactoryShared::new(
-    TokioReceiveTimeoutSchedulerFactory::new(),
-  ));
 }
 
 #[cfg(test)]
@@ -161,7 +152,9 @@ mod tests {
   async fn run_receive_timeout_triggers() {
     let factory = TokioMailboxFactory;
     let mut config = ActorSystemConfig::default();
-    install_receive_timeout_scheduler(&mut config);
+    config.receive_timeout_factory = Some(ReceiveTimeoutFactoryShared::new(
+      TokioReceiveTimeoutSchedulerFactory::new(),
+    ));
     let mut system: ActorSystem<u32, _> = ActorSystem::new_with_config(factory, config);
 
     let timeout_log: Arc<Mutex<Vec<SystemMessage>>> = Arc::new(Mutex::new(Vec::new()));
