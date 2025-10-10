@@ -64,6 +64,7 @@
 
 ### Scope D: クロスビルド・テスト整備
 - [ ] `thumbv6m-none-eabi` ターゲットでのクロスビルド CI step を追加。
+- [ ] `embedded_arc` 構成 (Embassy/Arc) のクロスビルド・テスト整備。
 - [ ] `embedded_rc` 例 (`rp2040_behaviors_greeter`) の手動手順を README/ドキュメントに追記。
 - [ ] std/embedded 双方の smoke テストを `make` タスクへ統合。
 
