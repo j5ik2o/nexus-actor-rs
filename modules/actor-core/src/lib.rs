@@ -80,10 +80,16 @@ use core::time::Duration;
 use nexus_utils_core_rs::QueueError;
 
 mod api;
+#[cfg(feature = "alloc")]
+mod extensions;
 mod runtime;
 mod shared;
 
 pub use api::*;
+#[cfg(feature = "alloc")]
+pub use extensions::{next_extension_id, Extension, ExtensionId, Extensions};
+#[cfg(feature = "alloc")]
+pub use extensions::{serializer_extension_id, SerializerRegistryExtension};
 pub use runtime::mailbox::traits::{SingleThread, ThreadSafe};
 pub use runtime::mailbox::{PriorityEnvelope, SystemMessage};
 pub use runtime::message::{

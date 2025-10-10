@@ -17,6 +17,7 @@ use crate::runtime::guardian::{Guardian, GuardianStrategy};
 use crate::runtime::message::DynMessage;
 use crate::ActorId;
 use crate::ActorPath;
+use crate::Extensions;
 use crate::FailureInfo;
 use crate::Supervisor;
 use crate::{Mailbox, SystemMessage};
@@ -47,6 +48,7 @@ where
   stopped: bool,
   receive_timeout_factory: Option<ReceiveTimeoutFactoryShared<M, R>>,
   receive_timeout_scheduler: Option<RefCell<Box<dyn ReceiveTimeoutScheduler>>>,
+  extensions: Extensions,
 }
 
 impl<M, R, Strat> ActorCell<M, R, Strat>
@@ -69,6 +71,7 @@ where
     supervisor: Box<dyn Supervisor<M>>,
     handler: Box<ActorHandlerFn<M, R>>,
     receive_timeout_factory: Option<ReceiveTimeoutFactoryShared<M, R>>,
+    extensions: Extensions,
   ) -> Self {
     let mut cell = Self {
       actor_id,
@@ -84,6 +87,7 @@ where
       stopped: false,
       receive_timeout_factory: None,
       receive_timeout_scheduler: None,
+      extensions,
     };
     cell.configure_receive_timeout_factory(receive_timeout_factory);
     cell
@@ -194,6 +198,7 @@ where
         self.actor_id,
         &mut self.watchers,
         receive_timeout,
+        self.extensions.clone(),
       );
       ctx.enter_priority(priority);
       (self.handler)(&mut ctx, message);
@@ -214,6 +219,7 @@ where
         self.actor_id,
         &mut self.watchers,
         receive_timeout,
+        self.extensions.clone(),
       );
       ctx.enter_priority(priority);
       (self.handler)(&mut ctx, message);
@@ -304,6 +310,7 @@ where
       watchers,
       map_system,
       parent_path,
+      extensions,
     } = spec;
 
     let control_ref = InternalActorRef::new(sender.clone());
@@ -321,6 +328,7 @@ where
       supervisor,
       handler,
       self.receive_timeout_factory.clone(),
+      extensions,
     );
     new_children.push(cell);
     Ok(())

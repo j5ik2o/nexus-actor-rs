@@ -3,7 +3,7 @@ use alloc::boxed::Box;
 use crate::runtime::context::InternalActorRef;
 use crate::runtime::guardian::GuardianStrategy;
 use crate::NoopSupervisor;
-use crate::{MailboxFactory, PriorityEnvelope, Supervisor};
+use crate::{Extensions, MailboxFactory, PriorityEnvelope, Supervisor};
 use nexus_utils_core_rs::{Element, QueueError};
 
 use super::{InternalActorSystem, InternalProps};
@@ -61,5 +61,9 @@ where
 
   pub async fn dispatch_next(&mut self) -> Result<(), QueueError<PriorityEnvelope<M>>> {
     self.system.scheduler.dispatch_next().await
+  }
+
+  pub fn extensions(&self) -> Extensions {
+    self.system.extensions()
   }
 }

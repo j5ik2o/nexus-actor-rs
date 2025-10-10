@@ -2,6 +2,9 @@ use crate::runtime::context::ActorContext;
 use crate::runtime::message::{DynMessage, MetadataStorageMode};
 use crate::ActorId;
 use crate::ActorPath;
+use crate::Extension;
+use crate::ExtensionId;
+use crate::Extensions;
 use crate::MailboxFactory;
 use crate::PriorityEnvelope;
 use crate::RuntimeBound;
@@ -41,6 +44,7 @@ where
   R::Concurrency: MetadataStorageMode, {
   inner: &'r mut ActorContext<'ctx, DynMessage, R, dyn Supervisor<DynMessage>>,
   metadata: Option<MessageMetadata<R::Concurrency>>,
+  extensions: Extensions,
   _marker: PhantomData<U>,
 }
 
@@ -184,9 +188,11 @@ where
   R::Concurrency: MetadataStorageMode,
 {
   pub(super) fn new(inner: &'r mut ActorContext<'ctx, DynMessage, R, dyn Supervisor<DynMessage>>) -> Self {
+    let extensions = inner.extensions();
     Self {
       inner,
       metadata: None,
+      extensions,
       _marker: PhantomData,
     }
   }
@@ -203,11 +209,26 @@ where
     inner: &'r mut ActorContext<'ctx, DynMessage, R, dyn Supervisor<DynMessage>>,
     metadata: MessageMetadata<R::Concurrency>,
   ) -> Self {
+    let extensions = inner.extensions();
     Self {
       inner,
       metadata: Some(metadata),
+      extensions,
       _marker: PhantomData,
     }
+  }
+
+  /// Returns the shared extension registry.
+  pub fn extensions(&self) -> Extensions {
+    self.extensions.clone()
+  }
+
+  /// Applies the provided closure to the extension identified by `id`.
+  pub fn extension<E, F, T>(&self, id: ExtensionId, f: F) -> Option<T>
+  where
+    E: Extension,
+    F: FnOnce(&E) -> T, {
+    self.extensions.with::<E, _, _>(id, f)
   }
 
   /// Gets the actor ID of this actor.

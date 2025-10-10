@@ -1,6 +1,6 @@
 use crate::runtime::message::{DynMessage, MetadataStorageMode};
 use crate::runtime::system::InternalRootContext;
-use crate::{ActorRef, MailboxFactory, PriorityEnvelope, Props};
+use crate::{ActorRef, Extension, ExtensionId, Extensions, MailboxFactory, PriorityEnvelope, Props};
 use alloc::boxed::Box;
 use core::future::Future;
 use core::marker::PhantomData;
@@ -114,5 +114,18 @@ where
   /// `Ok(())` on success, `Err` if a mailbox error occurs
   pub async fn dispatch_next(&mut self) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> {
     self.inner.dispatch_next().await
+  }
+
+  /// Returns the extension registry associated with the actor system.
+  pub fn extensions(&self) -> Extensions {
+    self.inner.extensions()
+  }
+
+  /// Applies the provided closure to the extension identified by `id`.
+  pub fn extension<E, F, T>(&self, id: ExtensionId, f: F) -> Option<T>
+  where
+    E: Extension,
+    F: FnOnce(&E) -> T, {
+    self.extensions().with::<E, _, _>(id, f)
   }
 }

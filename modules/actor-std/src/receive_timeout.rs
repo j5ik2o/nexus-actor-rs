@@ -91,8 +91,9 @@ impl Drop for TokioReceiveTimeoutScheduler {
 ///
 /// Receives the priority mailbox producer and SystemMessage conversion closure,
 /// spawns an internal scheduler task, and returns a `ReceiveTimeoutScheduler`.
-/// Simply registering it via `install_receive_timeout_scheduler` adds `ReceiveTimeout`
-/// support to the Tokio runtime.
+/// Assigning it via `ActorSystemConfig::with_receive_timeout_factory` or
+/// `ActorSystemConfig::set_receive_timeout_factory` enables
+/// `ReceiveTimeout` support for the Tokio runtime.
 pub struct TokioReceiveTimeoutSchedulerFactory;
 
 impl TokioReceiveTimeoutSchedulerFactory {
