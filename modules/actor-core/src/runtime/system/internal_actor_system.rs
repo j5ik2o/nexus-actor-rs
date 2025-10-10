@@ -8,6 +8,34 @@ use nexus_utils_core_rs::{Element, QueueError};
 
 use super::InternalRootContext;
 
+/// Internal configuration used while assembling [`InternalActorSystem`].
+pub struct InternalActorSystemSettings<M, R>
+where
+  M: Element,
+  R: MailboxFactory + Clone,
+  R::Queue<PriorityEnvelope<M>>: Clone,
+  R::Signal: Clone, {
+  /// Listener invoked for failures reaching the root guardian.
+  pub root_event_listener: Option<FailureEventListener>,
+  /// Receive-timeout scheduler factory applied to newly spawned actors.
+  pub receive_timeout_factory: Option<ReceiveTimeoutFactoryShared<M, R>>,
+}
+
+impl<M, R> Default for InternalActorSystemSettings<M, R>
+where
+  M: Element,
+  R: MailboxFactory + Clone,
+  R::Queue<PriorityEnvelope<M>>: Clone,
+  R::Signal: Clone,
+{
+  fn default() -> Self {
+    Self {
+      root_event_listener: None,
+      receive_timeout_factory: None,
+    }
+  }
+}
+
 pub(crate) struct InternalActorSystem<M, R, Strat = AlwaysRestart>
 where
   M: Element + 'static,
@@ -18,6 +46,7 @@ where
   pub(super) scheduler: PriorityScheduler<M, R, Strat>,
 }
 
+#[allow(dead_code)]
 impl<M, R> InternalActorSystem<M, R, AlwaysRestart>
 where
   M: Element,
@@ -26,9 +55,18 @@ where
   R::Signal: Clone,
 {
   pub fn new(mailbox_factory: R) -> Self {
-    Self {
-      scheduler: PriorityScheduler::new(mailbox_factory),
-    }
+    Self::new_with_settings(mailbox_factory, InternalActorSystemSettings::default())
+  }
+
+  pub fn new_with_settings(mailbox_factory: R, settings: InternalActorSystemSettings<M, R>) -> Self {
+    let mut scheduler = PriorityScheduler::new(mailbox_factory);
+    let InternalActorSystemSettings {
+      root_event_listener,
+      receive_timeout_factory,
+    } = settings;
+    scheduler.set_root_event_listener(root_event_listener);
+    scheduler.set_receive_timeout_factory(receive_timeout_factory);
+    Self { scheduler }
   }
 }
 
@@ -68,14 +106,6 @@ where
 
   pub async fn dispatch_next(&mut self) -> Result<(), QueueError<PriorityEnvelope<M>>> {
     self.scheduler.dispatch_next().await
-  }
-
-  pub fn set_root_event_listener(&mut self, listener: Option<FailureEventListener>) {
-    self.scheduler.set_root_event_listener(listener);
-  }
-
-  pub fn set_receive_timeout_factory(&mut self, factory: Option<ReceiveTimeoutFactoryShared<M, R>>) {
-    self.scheduler.set_receive_timeout_factory(factory);
   }
 
   pub fn drain_ready(&mut self) -> Result<bool, QueueError<PriorityEnvelope<M>>> {

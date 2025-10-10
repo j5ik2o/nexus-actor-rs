@@ -73,8 +73,7 @@ pub use timer::TokioTimer;
 pub use tokio_mailbox::{TokioMailbox, TokioMailboxFactory, TokioMailboxSender};
 pub use tokio_priority_mailbox::{TokioPriorityMailbox, TokioPriorityMailboxFactory, TokioPriorityMailboxSender};
 
-use nexus_actor_core_rs::{ActorSystem, ReceiveTimeoutFactoryShared};
-use nexus_utils_std_rs::Element;
+use nexus_actor_core_rs::{ActorSystemConfig, ReceiveTimeoutFactoryShared};
 
 /// A prelude module that provides commonly used re-exported types and traits.
 pub mod prelude {
@@ -86,25 +85,14 @@ pub mod prelude {
   pub use nexus_actor_core_rs::actor_loop;
 }
 
-/// Installs a receive timeout scheduler into the actor system.
+/// Configures a receive timeout scheduler within an `ActorSystemConfig`.
 ///
-/// This function sets up a Tokio-based receive timeout scheduler factory
-/// in the specified actor system. This function must be called during
-/// actor system initialization to use the receive timeout functionality.
-///
-/// # Arguments
-///
-/// * `system` - A mutable reference to the actor system where the receive timeout scheduler will be installed
-///
-/// # Type Parameters
-///
-/// * `U` - The type of user messages handled by the actor system (must implement `Element` trait)
-pub fn install_receive_timeout_scheduler<U>(system: &mut ActorSystem<U, TokioMailboxFactory>)
-where
-  U: Element, {
-  system.set_receive_timeout_scheduler_factory(Some(ReceiveTimeoutFactoryShared::new(
+/// Call this helper before `ActorSystem::new_with_config` to enable receive timeout
+/// handling using Tokio timers.
+pub fn install_receive_timeout_scheduler(config: &mut ActorSystemConfig<TokioMailboxFactory>) {
+  config.receive_timeout_factory = Some(ReceiveTimeoutFactoryShared::new(
     TokioReceiveTimeoutSchedulerFactory::new(),
-  )));
+  ));
 }
 
 #[cfg(test)]
@@ -172,8 +160,9 @@ mod tests {
 
   async fn run_receive_timeout_triggers() {
     let factory = TokioMailboxFactory;
-    let mut system: ActorSystem<u32, _> = ActorSystem::new(factory);
-    install_receive_timeout_scheduler(&mut system);
+    let mut config = ActorSystemConfig::default();
+    install_receive_timeout_scheduler(&mut config);
+    let mut system: ActorSystem<u32, _> = ActorSystem::new_with_config(factory, config);
 
     let timeout_log: Arc<Mutex<Vec<SystemMessage>>> = Arc::new(Mutex::new(Vec::new()));
     let props = Props::with_system_handler(

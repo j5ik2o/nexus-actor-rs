@@ -25,7 +25,7 @@ pub use behavior::{ActorAdapter, Behavior, BehaviorDirective, Behaviors, Supervi
 pub use context::{Context, ContextLogLevel, ContextLogger, MessageAdapterRef, SetupContext};
 pub use props::Props;
 pub use root_context::RootContext;
-pub use system::{ActorSystem, ActorSystemRunner, ShutdownToken};
+pub use system::{ActorSystem, ActorSystemConfig, ActorSystemRunner, ShutdownToken};
 pub use system_support::{ActorSystemHandles, ActorSystemParts, Spawn, Timer};
 
 #[doc(hidden)]

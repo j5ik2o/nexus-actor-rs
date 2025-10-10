@@ -10,7 +10,7 @@ use super::root_context::RootContext;
 use super::{ActorSystemHandles, ActorSystemParts, Spawn, Timer};
 use crate::api::guardian::AlwaysRestart;
 use crate::runtime::message::DynMessage;
-use crate::runtime::system::InternalActorSystem;
+use crate::runtime::system::{InternalActorSystem, InternalActorSystemSettings};
 use crate::ReceiveTimeoutFactoryShared;
 use crate::{FailureEventListener, FailureEventStream, MailboxFactory, PriorityEnvelope};
 use nexus_utils_core_rs::{Element, QueueError};
@@ -28,6 +28,32 @@ where
   inner: InternalActorSystem<DynMessage, R, Strat>,
   shutdown: ShutdownToken,
   _marker: PhantomData<U>,
+}
+
+/// Configuration options applied when constructing an [`ActorSystem`].
+pub struct ActorSystemConfig<R>
+where
+  R: MailboxFactory + Clone + 'static,
+  R::Queue<PriorityEnvelope<DynMessage>>: Clone,
+  R::Signal: Clone, {
+  /// Listener invoked when failures bubble up to the root guardian.
+  pub failure_event_listener: Option<FailureEventListener>,
+  /// Receive-timeout scheduler factory used by all actors spawned in the system.
+  pub receive_timeout_factory: Option<ReceiveTimeoutFactoryShared<DynMessage, R>>,
+}
+
+impl<R> Default for ActorSystemConfig<R>
+where
+  R: MailboxFactory + Clone + 'static,
+  R::Queue<PriorityEnvelope<DynMessage>>: Clone,
+  R::Signal: Clone,
+{
+  fn default() -> Self {
+    Self {
+      failure_event_listener: None,
+      receive_timeout_factory: None,
+    }
+  }
 }
 
 /// Execution runner for the actor system.
@@ -56,19 +82,20 @@ where
   /// # Arguments
   /// * `mailbox_factory` - Factory that generates mailboxes
   pub fn new(mailbox_factory: R) -> Self {
+    Self::new_with_config(mailbox_factory, ActorSystemConfig::default())
+  }
+
+  /// Creates a new actor system with an explicit configuration.
+  pub fn new_with_config(mailbox_factory: R, config: ActorSystemConfig<R>) -> Self {
+    let settings = InternalActorSystemSettings {
+      root_event_listener: config.failure_event_listener,
+      receive_timeout_factory: config.receive_timeout_factory,
+    };
     Self {
-      inner: InternalActorSystem::new(mailbox_factory),
+      inner: InternalActorSystem::new_with_settings(mailbox_factory, settings),
       shutdown: ShutdownToken::default(),
       _marker: PhantomData,
     }
-  }
-
-  /// Sets the failure event listener.
-  ///
-  /// # Arguments
-  /// * `listener` - Listener to receive failure events (optional)
-  pub fn set_failure_event_listener(&mut self, listener: Option<FailureEventListener>) {
-    self.inner.set_root_event_listener(listener);
   }
 
   /// Constructs an actor system and handles from parts.
@@ -84,9 +111,11 @@ where
     T: Timer,
     E: FailureEventStream, {
     let (mailbox_factory, handles) = parts.split();
-    let mut system = Self::new(mailbox_factory);
-    system.set_failure_event_listener(Some(handles.event_stream.listener()));
-    (system, handles)
+    let config = ActorSystemConfig {
+      failure_event_listener: Some(handles.event_stream.listener()),
+      receive_timeout_factory: None,
+    };
+    (Self::new_with_config(mailbox_factory, config), handles)
   }
 }
 
@@ -117,14 +146,6 @@ where
       system: self,
       _marker: PhantomData,
     }
-  }
-
-  /// Sets the receive timeout scheduler factory.
-  ///
-  /// # Arguments
-  /// * `factory` - Factory that generates receive timeout schedulers (optional)
-  pub fn set_receive_timeout_scheduler_factory(&mut self, factory: Option<ReceiveTimeoutFactoryShared<DynMessage, R>>) {
-    self.inner.set_receive_timeout_factory(factory);
   }
 
   /// Gets the root context.
