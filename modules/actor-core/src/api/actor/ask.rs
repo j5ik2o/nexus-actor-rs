@@ -2,19 +2,57 @@
 use alloc::rc::Rc as Arc;
 #[cfg(target_has_atomic = "ptr")]
 use alloc::sync::Arc;
+#[cfg(not(target_has_atomic = "ptr"))]
+use core::cell::RefCell;
 use core::cell::UnsafeCell;
 use core::fmt;
 use core::future::Future;
 use core::pin::Pin;
-use core::sync::atomic::{AtomicU8, Ordering};
 use core::task::{Context, Poll};
 
 use crate::api::{InternalMessageSender, MessageEnvelope, MessageSender};
 use crate::runtime::message::{take_metadata, DynMessage};
 use crate::PriorityEnvelope;
-use futures::task::AtomicWaker;
 use nexus_utils_core_rs::sync::ArcShared;
 use nexus_utils_core_rs::{Element, QueueError};
+use portable_atomic::{AtomicU8, Ordering};
+
+#[cfg(target_has_atomic = "ptr")]
+use futures::task::AtomicWaker;
+
+#[cfg(not(target_has_atomic = "ptr"))]
+mod local_waker {
+  use core::cell::RefCell;
+  use core::task::Waker;
+
+  /// Single-threaded waker used on targets without atomic pointer support.
+  #[derive(Default)]
+  pub struct LocalWaker {
+    stored: RefCell<Option<Waker>>,
+  }
+
+  impl LocalWaker {
+    pub fn new() -> Self {
+      Self::default()
+    }
+
+    pub fn register(&self, waker: &Waker) {
+      *self.stored.borrow_mut() = Some(waker.clone());
+    }
+
+    pub fn wake(&self) {
+      if let Some(waker) = self.stored.borrow_mut().take() {
+        waker.wake();
+      }
+    }
+  }
+}
+
+#[cfg(target_has_atomic = "ptr")]
+type SharedWaker = AtomicWaker;
+
+#[cfg(not(target_has_atomic = "ptr"))]
+type SharedWaker = local_waker::LocalWaker;
 
 #[cfg(target_has_atomic = "ptr")]
 type DispatchFn = dyn Fn(DynMessage, i8) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> + Send + Sync;
@@ -73,7 +111,7 @@ const STATE_RESPONDER_DROPPED: u8 = 3;
 struct AskShared<Resp> {
   state: AtomicU8,
   value: UnsafeCell<Option<Resp>>,
-  waker: AtomicWaker,
+  waker: SharedWaker,
 }
 
 impl<Resp> AskShared<Resp> {
@@ -81,7 +119,7 @@ impl<Resp> AskShared<Resp> {
     Self {
       state: AtomicU8::new(STATE_PENDING),
       value: UnsafeCell::new(None),
-      waker: AtomicWaker::new(),
+      waker: SharedWaker::new(),
     }
   }
 
