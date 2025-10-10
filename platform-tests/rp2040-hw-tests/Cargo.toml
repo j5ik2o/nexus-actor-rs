@@ -29,7 +29,7 @@ cortex-m-rt = { version = "0.7", features = ["device"], optional = true }
 defmt = { version = "0.3", optional = true }
 defmt-rtt = { version = "0.4", optional = true }
 panic-probe = { version = "0.3", features = ["print-defmt"], optional = true }
-rp2040-hal = { version = "0.10", features = ["rt", "critical-section-impl"], optional = true }
+rp2040-hal = { version = "0.11", features = ["rt", "critical-section-impl"], optional = true }
 embedded-hal = { version = "0.2", optional = true }
 
 [dev-dependencies]
