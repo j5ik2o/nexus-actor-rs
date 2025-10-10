@@ -1,9 +1,14 @@
+#[cfg(not(target_has_atomic = "ptr"))]
+use core::cell::Cell;
+#[cfg(target_has_atomic = "ptr")]
 use core::sync::atomic::{AtomicUsize, Ordering};
 use core::{
   fmt,
   task::{Context, Poll},
   time::Duration,
 };
+#[cfg(not(target_has_atomic = "ptr"))]
+use critical_section::with;
 
 /// Key for identifying items registered in a DeadlineTimer.
 ///
@@ -289,7 +294,10 @@ pub trait DeadlineTimer {
 /// ```
 #[derive(Debug)]
 pub struct DeadlineTimerKeyAllocator {
+  #[cfg(target_has_atomic = "ptr")]
   counter: AtomicUsize,
+  #[cfg(not(target_has_atomic = "ptr"))]
+  counter: Cell<usize>,
 }
 
 impl DeadlineTimerKeyAllocator {
@@ -302,8 +310,16 @@ impl DeadlineTimerKeyAllocator {
   /// Returns a newly created `DeadlineTimerKeyAllocator`.
   #[inline]
   pub const fn new() -> Self {
-    Self {
-      counter: AtomicUsize::new(1),
+    #[cfg(target_has_atomic = "ptr")]
+    {
+      Self {
+        counter: AtomicUsize::new(1),
+      }
+    }
+
+    #[cfg(not(target_has_atomic = "ptr"))]
+    {
+      Self { counter: Cell::new(1) }
     }
   }
 
@@ -321,9 +337,28 @@ impl DeadlineTimerKeyAllocator {
   /// Even if the counter overflows, it safely restarts from 1.
   #[inline]
   pub fn allocate(&self) -> DeadlineTimerKey {
-    let next = self.counter.fetch_add(1, Ordering::Relaxed) as u64;
-    let raw = if next == 0 { 1 } else { next };
-    DeadlineTimerKey::from_raw(raw)
+    #[cfg(target_has_atomic = "ptr")]
+    {
+      let next = self.counter.fetch_add(1, Ordering::Relaxed) as u64;
+      let raw = if next == 0 { 1 } else { next };
+      DeadlineTimerKey::from_raw(raw)
+    }
+
+    #[cfg(not(target_has_atomic = "ptr"))]
+    {
+      let issued = with(|_| {
+        let current = self.counter.get();
+        let next = current.wrapping_add(1);
+        let stored = if next == 0 { 1 } else { next };
+        self.counter.set(stored);
+        if current == 0 {
+          1
+        } else {
+          current
+        }
+      });
+      DeadlineTimerKey::from_raw(issued as u64)
+    }
   }
 
   /// Checks the next key to be issued (for testing purposes).
@@ -341,7 +376,15 @@ impl DeadlineTimerKeyAllocator {
   /// the returned key may not actually be the next one issued.
   #[inline]
   pub fn peek(&self) -> DeadlineTimerKey {
-    DeadlineTimerKey::from_raw(self.counter.load(Ordering::Relaxed) as u64)
+    #[cfg(target_has_atomic = "ptr")]
+    {
+      DeadlineTimerKey::from_raw(self.counter.load(Ordering::Relaxed) as u64)
+    }
+
+    #[cfg(not(target_has_atomic = "ptr"))]
+    {
+      with(|_| DeadlineTimerKey::from_raw(self.counter.get() as u64))
+    }
   }
 }
 

@@ -10,17 +10,19 @@ readme = "../../README.md"
 repository = "https://github.com/j5ik2o/nexus-actor-rs"
 
 [features]
-default = ["alloc", "embedded_rc"]
+default = ["alloc", "embedded_rc", "rp2040-board"]
 alloc = []
 embedded_rc = ["nexus-utils-embedded-rs/rc"]
 embedded_arc = ["nexus-utils-embedded-rs/arc", "dep:embassy-sync"]
 embassy_executor = ["dep:embassy-executor"]
+rp2040-board = ["dep:rp2040-hal", "dep:rp2040-boot2"]
+rp2350-board = ["dep:rp235x-hal"]
 
 [dependencies]
 nexus-actor-core-rs = { path = "../actor-core", default-features = false, features = ["alloc"] }
 nexus-utils-embedded-rs = { path = "../utils-embedded", default-features = false }
 critical-section = { version = "1", default-features = false }
-spin = { version = "0.10", default-features = false, features = ["mutex", "use_ticket_mutex"] }
+spin = { version = "0.10", default-features = false, features = ["mutex", "spin_mutex", "portable_atomic"] }
 alloc-cortex-m = { version = "0.4", optional = true }
 cortex-m = { version = "0.7", optional = true }
 cortex-m-rt = { version = "0.7", optional = true }
@@ -29,21 +31,29 @@ rp2040-hal = { version = "0.11", default-features = false, features = ["critical
 embedded-hal = { version = "0.2", optional = true }
 embassy-sync = { version = "0.7", default-features = false, optional = true }
 embassy-executor = { version = "0.9", default-features = false, optional = true }
+portable-atomic = { version = "1.11", default-features = false, features = ["critical-section"] }
 
 [dev-dependencies]
 critical-section = "1"
-futures = { version = "0.3", features = ["std"] }
 static_cell = { version = "2" }
+
+[target.'cfg(not(target_os = "none"))'.dev-dependencies]
+futures = { version = "0.3", default-features = false, features = ["std"] }
 
 [target.'cfg(target_os = "none")'.dependencies]
 alloc-cortex-m = "0.4"
 cortex-m = "0.7"
 cortex-m-rt = { version = "0.7", features = ["device"] }
 panic-halt = "0.2"
-rp2040-boot2 = "0.3"
-rp2040-hal = { version = "0.11", default-features = false, features = ["critical-section-impl"] }
 embedded-hal = "0.2"
+rp2040-boot2 = { version = "0.3", optional = true }
+rp2040-hal = { version = "0.11", default-features = false, features = ["critical-section-impl"], optional = true }
+rp235x-hal = { version = "0.3", default-features = false, features = ["critical-section-impl"], optional = true }
 
 [[example]]
 name = "rp2350_arc"
 required-features = ["embedded_arc"]
+
+[[example]]
+name = "rp2350_behaviors_greeter"
+required-features = ["embedded_arc", "rp2350-board"]

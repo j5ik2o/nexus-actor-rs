@@ -1,16 +1,69 @@
+#[cfg(not(target_has_atomic = "ptr"))]
+use alloc::rc::Rc as Arc;
+#[cfg(target_has_atomic = "ptr")]
 use alloc::sync::Arc;
 use core::cell::UnsafeCell;
 use core::fmt;
 use core::future::Future;
 use core::pin::Pin;
-use core::sync::atomic::{AtomicU8, Ordering};
 use core::task::{Context, Poll};
 
 use crate::api::{InternalMessageSender, MessageEnvelope, MessageSender};
-use crate::runtime::message::{take_metadata, DynMessage};
+use crate::runtime::mailbox::traits::MailboxConcurrency;
+use crate::runtime::message::{discard_metadata, DynMessage};
 use crate::PriorityEnvelope;
-use futures::task::AtomicWaker;
+use nexus_utils_core_rs::sync::ArcShared;
 use nexus_utils_core_rs::{Element, QueueError};
+use portable_atomic::{AtomicU8, Ordering};
+
+#[cfg(target_has_atomic = "ptr")]
+use futures::task::AtomicWaker;
+
+#[cfg(not(target_has_atomic = "ptr"))]
+mod local_waker {
+  use core::cell::RefCell;
+  use core::task::Waker;
+
+  /// Single-threaded waker used on targets without atomic pointer support.
+  #[derive(Default)]
+  pub struct LocalWaker {
+    stored: RefCell<Option<Waker>>,
+  }
+
+  impl LocalWaker {
+    pub fn new() -> Self {
+      Self::default()
+    }
+
+    pub fn register(&self, waker: &Waker) {
+      *self.stored.borrow_mut() = Some(waker.clone());
+    }
+
+    pub fn wake(&self) {
+      if let Some(waker) = self.stored.borrow_mut().take() {
+        waker.wake();
+      }
+    }
+  }
+}
+
+#[cfg(target_has_atomic = "ptr")]
+type SharedWaker = AtomicWaker;
+
+#[cfg(not(target_has_atomic = "ptr"))]
+type SharedWaker = local_waker::LocalWaker;
+
+#[cfg(target_has_atomic = "ptr")]
+type DispatchFn = dyn Fn(DynMessage, i8) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> + Send + Sync;
+
+#[cfg(not(target_has_atomic = "ptr"))]
+type DispatchFn = dyn Fn(DynMessage, i8) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>>;
+
+#[cfg(target_has_atomic = "ptr")]
+type DropHookFn = dyn Fn() + Send + Sync;
+
+#[cfg(not(target_has_atomic = "ptr"))]
+type DropHookFn = dyn Fn();
 
 /// Type alias representing the result of an `ask` operation as `Result`.
 pub type AskResult<T> = Result<T, AskError>;
@@ -57,7 +110,7 @@ const STATE_RESPONDER_DROPPED: u8 = 3;
 struct AskShared<Resp> {
   state: AtomicU8,
   value: UnsafeCell<Option<Resp>>,
-  waker: AtomicWaker,
+  waker: SharedWaker,
 }
 
 impl<Resp> AskShared<Resp> {
@@ -65,7 +118,7 @@ impl<Resp> AskShared<Resp> {
     Self {
       state: AtomicU8::new(STATE_PENDING),
       value: UnsafeCell::new(None),
-      waker: AtomicWaker::new(),
+      waker: SharedWaker::new(),
     }
   }
 
@@ -249,15 +302,16 @@ where
 ///
 /// # Returns
 /// Tuple of (`AskFuture`, `MessageSender`)
-pub(crate) fn create_ask_handles<Resp>() -> (AskFuture<Resp>, MessageSender<Resp>)
+pub(crate) fn create_ask_handles<Resp, C>() -> (AskFuture<Resp>, MessageSender<Resp, C>)
 where
-  Resp: Element, {
+  Resp: Element,
+  C: MailboxConcurrency, {
   let shared = Arc::new(AskShared::<Resp>::new());
   let future = AskFuture::new(shared.clone());
   let dispatch_state = shared.clone();
   let drop_state = shared.clone();
 
-  let dispatch = Arc::new(move |message: DynMessage, _priority: i8| {
+  let dispatch_impl: Arc<DispatchFn> = Arc::new(move |message: DynMessage, _priority: i8| {
     let envelope = message
       .downcast::<MessageEnvelope<Resp>>()
       .unwrap_or_else(|_| panic!("ask responder received mismatched message type"));
@@ -265,7 +319,7 @@ where
       MessageEnvelope::User(user) => {
         let (value, metadata_key) = user.into_parts();
         if let Some(key) = metadata_key {
-          let _ = take_metadata(key);
+          discard_metadata(key);
         }
         if !dispatch_state.complete(value) {
           // Discard value if response destination was already cancelled
@@ -277,12 +331,14 @@ where
     }
     Ok(())
   });
+  let dispatch = ArcShared::from_arc(dispatch_impl);
 
-  let drop_hook = Arc::new(move || {
+  let drop_hook_impl: Arc<DropHookFn> = Arc::new(move || {
     drop_state.responder_dropped();
   });
+  let drop_hook = ArcShared::from_arc(drop_hook_impl);
 
-  let internal = InternalMessageSender::with_drop_hook(dispatch, drop_hook);
+  let internal = InternalMessageSender::<C>::with_drop_hook(dispatch, drop_hook);
   let responder = MessageSender::new(internal);
   (future, responder)
 }

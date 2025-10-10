@@ -81,14 +81,38 @@ use nexus_utils_core_rs::QueueError;
 
 mod api;
 mod runtime;
+mod shared;
 
 pub use api::*;
+pub use runtime::mailbox::traits::{SingleThread, ThreadSafe};
 pub use runtime::mailbox::{PriorityEnvelope, SystemMessage};
-pub use runtime::message::{store_metadata, take_metadata, DynMessage, MetadataKey};
+pub use runtime::message::{
+  discard_metadata, store_metadata, take_metadata, DynMessage, MetadataKey, MetadataStorageMode,
+};
 pub use runtime::scheduler::{ReceiveTimeoutScheduler, ReceiveTimeoutSchedulerFactory};
+pub use shared::{FailureEventHandlerShared, FailureEventListenerShared, MapSystemShared, ReceiveTimeoutFactoryShared};
+
+/// Marker trait capturing the synchronization guarantees required by runtime-dependent types.
+#[cfg(target_has_atomic = "ptr")]
+pub trait RuntimeBound: Send + Sync {}
+
+#[cfg(target_has_atomic = "ptr")]
+impl<T: Send + Sync> RuntimeBound for T {}
+
+#[cfg(not(target_has_atomic = "ptr"))]
+/// Marker trait for single-threaded targets without atomic pointer support.
+pub trait RuntimeBound {}
+
+#[cfg(not(target_has_atomic = "ptr"))]
+impl<T> RuntimeBound for T {}
 
 /// Function type alias for converting system messages to message type.
+#[cfg(target_has_atomic = "ptr")]
 pub type MapSystemFn<M> = dyn Fn(SystemMessage) -> M + Send + Sync;
+
+/// Function type alias for converting system messages on non-atomic targets.
+#[cfg(not(target_has_atomic = "ptr"))]
+pub type MapSystemFn<M> = dyn Fn(SystemMessage) -> M;
 
 /// Minimal actor loop implementation.
 ///

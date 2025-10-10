@@ -4,11 +4,10 @@
 //! a mechanism for delivering `SystemMessage::ReceiveTimeout` to actors.
 
 use core::time::Duration;
-use std::sync::Arc;
 
 use futures::future::poll_fn;
 use nexus_actor_core_rs::{
-  DynMessage, MailboxFactory, MapSystemFn, PriorityEnvelope, QueueMailboxProducer, ReceiveTimeoutScheduler,
+  DynMessage, MailboxFactory, MapSystemShared, PriorityEnvelope, QueueMailboxProducer, ReceiveTimeoutScheduler,
   ReceiveTimeoutSchedulerFactory, SystemMessage,
 };
 use nexus_utils_std_rs::{DeadlineTimer, DeadlineTimerExpired, DeadlineTimerKey, TimerDeadline, TokioDeadlineTimer};
@@ -59,7 +58,7 @@ pub struct TokioReceiveTimeoutScheduler {
 impl TokioReceiveTimeoutScheduler {
   fn spawn_task(
     sender: TokioSender,
-    map_system: Arc<MapSystemFn<DynMessage>>,
+    map_system: MapSystemShared<DynMessage>,
   ) -> (UnboundedSender<Command>, JoinHandle<()>) {
     let (tx, rx) = unbounded_channel();
     let handle = tokio::spawn(run_scheduler(rx, sender, map_system));
@@ -110,7 +109,7 @@ impl Default for TokioReceiveTimeoutSchedulerFactory {
 }
 
 impl ReceiveTimeoutSchedulerFactory<DynMessage, TokioMailboxFactory> for TokioReceiveTimeoutSchedulerFactory {
-  fn create(&self, sender: TokioSender, map_system: Arc<MapSystemFn<DynMessage>>) -> Box<dyn ReceiveTimeoutScheduler> {
+  fn create(&self, sender: TokioSender, map_system: MapSystemShared<DynMessage>) -> Box<dyn ReceiveTimeoutScheduler> {
     let (tx, handle) = TokioReceiveTimeoutScheduler::spawn_task(sender, map_system);
     Box::new(TokioReceiveTimeoutScheduler { tx, handle })
   }
@@ -123,7 +122,7 @@ async fn wait_for_expired(timer: &mut TokioDeadlineTimer<()>) -> DeadlineTimerEx
 async fn run_scheduler(
   mut commands: UnboundedReceiver<Command>,
   sender: TokioSender,
-  map_system: Arc<MapSystemFn<DynMessage>>,
+  map_system: MapSystemShared<DynMessage>,
 ) {
   let mut timer = TokioDeadlineTimer::new();
   let mut state = TimerState::new();

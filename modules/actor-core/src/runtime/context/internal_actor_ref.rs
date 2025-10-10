@@ -1,5 +1,5 @@
 use crate::SystemMessage;
-use crate::{MailboxFactory, PriorityEnvelope, QueueMailboxProducer};
+use crate::{MailboxFactory, PriorityEnvelope, QueueMailboxProducer, RuntimeBound};
 use nexus_utils_core_rs::{Element, QueueError};
 
 /// Actor reference. Wraps QueueMailboxProducer and provides message sending API.
@@ -16,8 +16,8 @@ unsafe impl<M, R> Send for InternalActorRef<M, R>
 where
   M: Element,
   R: MailboxFactory,
-  R::Queue<PriorityEnvelope<M>>: Clone + Send + Sync,
-  R::Signal: Clone + Send + Sync,
+  R::Queue<PriorityEnvelope<M>>: Clone + RuntimeBound,
+  R::Signal: Clone + RuntimeBound,
 {
 }
 
@@ -25,8 +25,8 @@ unsafe impl<M, R> Sync for InternalActorRef<M, R>
 where
   M: Element,
   R: MailboxFactory,
-  R::Queue<PriorityEnvelope<M>>: Clone + Send + Sync,
-  R::Signal: Clone + Send + Sync,
+  R::Queue<PriorityEnvelope<M>>: Clone + RuntimeBound,
+  R::Signal: Clone + RuntimeBound,
 {
 }
 

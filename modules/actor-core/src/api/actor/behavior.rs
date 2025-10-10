@@ -1,13 +1,17 @@
 use alloc::boxed::Box;
+#[cfg(not(target_has_atomic = "ptr"))]
+use alloc::rc::Rc as Arc;
+#[cfg(target_has_atomic = "ptr")]
 use alloc::sync::Arc;
 
 use crate::api::supervision::{NoopSupervisor, Supervisor, SupervisorDirective};
 use crate::api::MessageEnvelope;
-use crate::runtime::context::MapSystemFn;
-use crate::runtime::message::DynMessage;
+use crate::runtime::message::{DynMessage, MetadataStorageMode};
 use crate::MailboxFactory;
+use crate::MapSystemShared;
 use crate::PriorityEnvelope;
 use crate::SystemMessage;
+use nexus_utils_core_rs::sync::ArcShared;
 use nexus_utils_core_rs::Element;
 
 use super::Context;
@@ -138,7 +142,8 @@ where
   U: Element,
   R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
-  R::Signal: Clone, {
+  R::Signal: Clone,
+  R::Concurrency: MetadataStorageMode, {
   /// Maintain the same Behavior
   Same,
   /// Transition to a new Behavior
@@ -154,7 +159,7 @@ where
   R::Signal: Clone, {
   handler: Box<ReceiveFn<U, R>>,
   supervisor: SupervisorStrategyConfig,
-  signal_handler: Option<Arc<SignalFn<U, R>>>,
+  signal_handler: Option<ArcShared<SignalFn<U, R>>>,
 }
 
 impl<U, R> BehaviorState<U, R>
@@ -163,6 +168,7 @@ where
   R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
   R::Signal: Clone,
+  R::Concurrency: MetadataStorageMode,
 {
   fn new(handler: Box<ReceiveFn<U, R>>, supervisor: SupervisorStrategyConfig) -> Self {
     Self {
@@ -172,11 +178,11 @@ where
     }
   }
 
-  fn signal_handler(&self) -> Option<Arc<SignalFn<U, R>>> {
+  fn signal_handler(&self) -> Option<ArcShared<SignalFn<U, R>>> {
     self.signal_handler.clone()
   }
 
-  fn set_signal_handler(&mut self, handler: Arc<SignalFn<U, R>>) {
+  fn set_signal_handler(&mut self, handler: ArcShared<SignalFn<U, R>>) {
     self.signal_handler = Some(handler);
   }
 }
@@ -194,7 +200,7 @@ where
   /// Message receiving state
   Receive(BehaviorState<U, R>),
   /// Execute setup processing to generate Behavior
-  Setup(Arc<SetupFn<U, R>>, Option<Arc<SignalFn<U, R>>>),
+  Setup(ArcShared<SetupFn<U, R>>, Option<ArcShared<SignalFn<U, R>>>),
   /// Stopped state
   Stopped,
 }
@@ -205,6 +211,7 @@ where
   R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
   R::Signal: Clone,
+  R::Concurrency: MetadataStorageMode,
 {
   /// Constructs a `Behavior` with specified message receive handler.
   ///
@@ -259,7 +266,7 @@ where
   pub fn setup<F>(init: F) -> Self
   where
     F: for<'r, 'ctx> Fn(&mut Context<'r, 'ctx, U, R>) -> Behavior<U, R> + 'static, {
-    Self::Setup(Arc::new(init), None)
+    Self::Setup(ArcShared::from_arc(Arc::new(init)), None)
   }
 
   /// Gets supervisor configuration (internal API).
@@ -277,11 +284,12 @@ where
   pub fn receive_signal<F>(self, handler: F) -> Self
   where
     F: for<'r, 'ctx> Fn(&mut Context<'r, 'ctx, U, R>, Signal) -> BehaviorDirective<U, R> + 'static, {
-    let handler = Arc::new(handler) as Arc<SignalFn<U, R>>;
+    let handler: Arc<SignalFn<U, R>> = Arc::new(handler);
+    let handler = ArcShared::from_arc(handler);
     self.attach_signal_arc(Some(handler))
   }
 
-  fn attach_signal_arc(mut self, handler: Option<Arc<SignalFn<U, R>>>) -> Self {
+  fn attach_signal_arc(mut self, handler: Option<ArcShared<SignalFn<U, R>>>) -> Self {
     if let Some(handler) = handler {
       match &mut self {
         Behavior::Receive(state) => {
@@ -310,6 +318,7 @@ impl Behaviors {
     R: MailboxFactory + Clone + 'static,
     R::Queue<PriorityEnvelope<DynMessage>>: Clone,
     R::Signal: Clone,
+    R::Concurrency: MetadataStorageMode,
     F: for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, U) -> BehaviorDirective<U, R> + 'static, {
     Behavior::receive(handler)
   }
@@ -331,6 +340,7 @@ impl Behaviors {
     R: MailboxFactory + Clone + 'static,
     R::Queue<PriorityEnvelope<DynMessage>>: Clone,
     R::Signal: Clone,
+    R::Concurrency: MetadataStorageMode,
     F: FnMut(U) -> BehaviorDirective<U, R> + 'static, {
     Behavior::receive_message(handler)
   }
@@ -372,6 +382,7 @@ impl Behaviors {
     R: MailboxFactory + Clone + 'static,
     R::Queue<PriorityEnvelope<DynMessage>>: Clone,
     R::Signal: Clone,
+    R::Concurrency: MetadataStorageMode,
     F: for<'r, 'ctx> Fn(&mut Context<'r, 'ctx, U, R>) -> Behavior<U, R> + 'static, {
     Behavior::setup(init)
   }
@@ -393,6 +404,7 @@ where
   R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
   R::Signal: Clone,
+  R::Concurrency: MetadataStorageMode,
 {
   /// Sets supervisor strategy.
   ///
@@ -415,7 +427,7 @@ where
   R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
   R::Signal: Clone, {
-  behavior_factory: Arc<dyn Fn() -> Behavior<U, R> + 'static>,
+  behavior_factory: ArcShared<dyn Fn() -> Behavior<U, R> + 'static>,
   pub(super) behavior: Behavior<U, R>,
   pub(super) system_handler: Option<Box<SystemHandlerFn<U, R>>>,
 }
@@ -426,13 +438,14 @@ where
   R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
   R::Signal: Clone,
+  R::Concurrency: MetadataStorageMode,
 {
   /// Creates a new `ActorAdapter`.
   ///
   /// # Arguments
   /// * `behavior_factory` - Factory function to create Behavior
   /// * `system_handler` - System message handler (optional)
-  pub fn new<S>(behavior_factory: Arc<dyn Fn() -> Behavior<U, R> + 'static>, system_handler: Option<S>) -> Self
+  pub fn new<S>(behavior_factory: ArcShared<dyn Fn() -> Behavior<U, R> + 'static>, system_handler: Option<S>) -> Self
   where
     S: for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, SystemMessage) + 'static, {
     let behavior = behavior_factory();
@@ -484,8 +497,8 @@ where
   }
 
   /// Creates a SystemMessage mapper for Guardian/Scheduler.
-  pub fn create_map_system() -> Arc<MapSystemFn<DynMessage>> {
-    Arc::new(|sys| DynMessage::new(MessageEnvelope::<U>::System(sys)))
+  pub fn create_map_system() -> MapSystemShared<DynMessage> {
+    MapSystemShared::new(|sys| DynMessage::new(MessageEnvelope::<U>::System(sys)))
   }
 
   /// Gets supervisor configuration (internal API).
@@ -507,7 +520,7 @@ where
     }
   }
 
-  fn current_signal_handler(&self) -> Option<Arc<SignalFn<U, R>>> {
+  fn current_signal_handler(&self) -> Option<ArcShared<SignalFn<U, R>>> {
     match &self.behavior {
       Behavior::Receive(state) => state.signal_handler(),
       Behavior::Setup(_, handler) => handler.clone(),

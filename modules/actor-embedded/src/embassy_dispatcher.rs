@@ -1,9 +1,8 @@
 #![cfg(feature = "embassy_executor")]
 
 use embassy_executor::Spawner;
-use nexus_actor_core_rs::guardian::GuardianStrategy;
-use nexus_actor_core_rs::{ActorSystem, MailboxFactory, PriorityEnvelope};
-use nexus_utils_core_rs::Element;
+use nexus_actor_core_rs::{ActorSystem, GuardianStrategy, MailboxFactory, PriorityEnvelope};
+use nexus_utils_embedded_rs::Element;
 
 /// Helper to register `ActorSystem::run_forever` with Embassy's `Spawner`.
 ///

@@ -6,10 +6,10 @@ use crate::runtime::mailbox::test_support::TestMailboxFactory;
 use crate::runtime::message::DynMessage;
 use crate::{MailboxOptions, SystemMessage};
 use alloc::rc::Rc;
-use alloc::sync::Arc;
 use alloc::vec::Vec;
 use core::cell::RefCell;
 
+use crate::MapSystemShared;
 #[cfg(feature = "std")]
 use futures::executor::block_on;
 use nexus_utils_core_rs::{Element, DEFAULT_PRIORITY};
@@ -30,7 +30,7 @@ fn actor_system_spawns_and_processes_messages() {
   let factory = TestMailboxFactory::unbounded();
   let mut system: InternalActorSystem<DynMessage, _, AlwaysRestart> = InternalActorSystem::new(factory);
 
-  let map_system = Arc::new(|_: SystemMessage| DynMessage::new(Message::System));
+  let map_system = MapSystemShared::new(|_: SystemMessage| DynMessage::new(Message::System));
   let log: Rc<RefCell<Vec<u32>>> = Rc::new(RefCell::new(Vec::new()));
   let log_clone = log.clone();
 

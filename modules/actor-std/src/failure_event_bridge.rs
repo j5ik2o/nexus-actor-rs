@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use nexus_actor_core_rs::{FailureEvent, FailureEventListener};
 use tokio::sync::broadcast;
 
@@ -34,7 +32,7 @@ impl TokioFailureEventBridge {
   /// A listener function that broadcasts failure events
   pub fn listener(&self) -> FailureEventListener {
     let sender = self.sender.clone();
-    Arc::new(move |event: FailureEvent| {
+    FailureEventListener::new(move |event: FailureEvent| {
       let _ = sender.send(event.clone());
     })
   }

@@ -25,4 +25,6 @@ nexus-utils-core-rs = { path = "../utils-core", default-features = false, featur
 
 [dev-dependencies]
 static_assertions = { workspace = true }
+
+[target.'cfg(not(target_os = "none"))'.dev-dependencies]
 futures = { version = "0.3", default-features = false, features = ["alloc", "executor", "std", "async-await"] }

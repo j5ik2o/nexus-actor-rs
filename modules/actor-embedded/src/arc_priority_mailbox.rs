@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 use core::marker::PhantomData;
 
 use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, RawMutex};
@@ -5,8 +7,8 @@ use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, RawMutex};
 use nexus_actor_core_rs::{
   Mailbox, MailboxOptions, PriorityEnvelope, QueueMailbox, QueueMailboxProducer, QueueMailboxRecv,
 };
-use nexus_utils_embedded_rs::collections::queue::priority::ArcPriorityQueue;
-use nexus_utils_embedded_rs::collections::queue::ring::ArcRingQueue;
+use nexus_utils_embedded_rs::queue::priority::ArcPriorityQueue;
+use nexus_utils_embedded_rs::queue::ring::ArcRingQueue;
 use nexus_utils_embedded_rs::{
   Element, QueueBase, QueueError, QueueReader, QueueRw, QueueSize, QueueWriter, DEFAULT_CAPACITY, PRIORITY_LEVELS,
 };
@@ -177,7 +179,7 @@ where
   inner: QueueMailboxProducer<ArcPriorityQueues<M, RM>, ArcSignal<RM>>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct ArcPriorityMailboxFactory<RM = CriticalSectionRawMutex>
 where
   RM: RawMutex, {
@@ -250,6 +252,20 @@ where
     match requested {
       QueueSize::Limitless => self.regular_capacity,
       QueueSize::Limited(value) => value,
+    }
+  }
+}
+
+impl<RM> Clone for ArcPriorityMailboxFactory<RM>
+where
+  RM: RawMutex,
+{
+  fn clone(&self) -> Self {
+    Self {
+      control_capacity_per_level: self.control_capacity_per_level,
+      regular_capacity: self.regular_capacity,
+      levels: self.levels,
+      _marker: PhantomData,
     }
   }
 }

@@ -9,7 +9,7 @@ use core::task::{Context, Poll};
 use nexus_utils_core_rs::{Element, MpscBuffer, MpscHandle, MpscQueue, QueueSize, RingBufferBackend, Shared};
 
 use super::queue_mailbox::{MailboxOptions, QueueMailbox};
-use super::traits::{MailboxFactory, MailboxPair, MailboxSignal};
+use super::traits::{MailboxFactory, MailboxPair, MailboxSignal, ThreadSafe};
 
 #[derive(Clone, Debug, Default)]
 pub struct TestMailboxFactory {
@@ -133,6 +133,7 @@ impl<'a> Future for TestSignalWait<'a> {
 }
 
 impl MailboxFactory for TestMailboxFactory {
+  type Concurrency = ThreadSafe;
   type Queue<M>
     = TestQueue<M>
   where

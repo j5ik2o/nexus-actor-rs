@@ -1,20 +1,20 @@
-use alloc::sync::Arc;
 use core::marker::PhantomData;
 
 use nexus_utils_core_rs::Element;
 
 use super::failure::FailureEvent;
+use crate::{FailureEventHandlerShared, FailureEventListenerShared};
 use crate::{FailureInfo, MailboxFactory, PriorityEnvelope};
 
 /// Handler for notifying failure events externally.
 ///
 /// Receives actor failure information and performs tasks like logging or notifications to monitoring systems.
-pub type FailureEventHandler = Arc<dyn Fn(&FailureInfo) + Send + Sync>;
+pub type FailureEventHandler = FailureEventHandlerShared;
 
 /// Listener for receiving failure events as a stream.
 ///
 /// Subscribes to failure events from the entire actor system and executes custom processing.
-pub type FailureEventListener = Arc<dyn Fn(FailureEvent) + Send + Sync>;
+pub type FailureEventListener = FailureEventListenerShared;
 
 /// Sink for controlling how `FailureInfo` is propagated upward.
 ///

@@ -1,12 +1,16 @@
 use alloc::rc::Rc;
+#[cfg(not(target_has_atomic = "ptr"))]
+use alloc::rc::Rc as Arc;
+#[cfg(target_has_atomic = "ptr")]
 use alloc::sync::Arc;
 
 use crate::runtime::context::ActorContext;
-use crate::runtime::message::{take_metadata, DynMessage};
+use crate::runtime::message::{take_metadata, DynMessage, MetadataStorageMode};
 use crate::runtime::system::InternalProps;
 use crate::Supervisor;
 use crate::SystemMessage;
 use crate::{MailboxFactory, MailboxOptions, PriorityEnvelope};
+use nexus_utils_core_rs::sync::ArcShared;
 use nexus_utils_core_rs::Element;
 
 use super::behavior::SupervisorStrategyConfig;
@@ -23,7 +27,8 @@ where
   U: Element,
   R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
-  R::Signal: Clone, {
+  R::Signal: Clone,
+  R::Concurrency: MetadataStorageMode, {
   inner: InternalProps<DynMessage, R>,
   _marker: PhantomData<U>,
   supervisor: SupervisorStrategyConfig,
@@ -35,6 +40,7 @@ where
   R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
   R::Signal: Clone,
+  R::Concurrency: MetadataStorageMode,
 {
   /// Creates a new `Props` with the specified message handler.
   ///
@@ -110,6 +116,7 @@ where
     F: Fn() -> Behavior<U, R> + 'static,
     S: for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, SystemMessage) + 'static, {
     let behavior_factory: Arc<dyn Fn() -> Behavior<U, R> + 'static> = Arc::new(behavior_factory);
+    let behavior_factory = ArcShared::from_arc(behavior_factory);
     let mut adapter = ActorAdapter::new(behavior_factory.clone(), system_handler);
     let map_system = ActorAdapter::<U, R>::create_map_system();
     let supervisor = adapter.supervisor_config();
@@ -121,7 +128,9 @@ where
       match envelope {
         MessageEnvelope::User(user) => {
           let (message, metadata_key) = user.into_parts();
-          let metadata = metadata_key.and_then(take_metadata).unwrap_or_default();
+          let metadata = metadata_key
+            .and_then(take_metadata::<R::Concurrency>)
+            .unwrap_or_default();
           let mut typed_ctx = Context::with_metadata(ctx, metadata);
           adapter.handle_user(&mut typed_ctx, message);
         }

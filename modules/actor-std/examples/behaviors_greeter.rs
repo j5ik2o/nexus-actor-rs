@@ -20,9 +20,9 @@ impl Element for Command {}
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
   // tracing サブスクライバを初期化（既に設定済みなら無視）
-  let _ = FmtSubscriber::builder()
-    .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-    .try_init();
+  let env_filter = tracing_subscriber::EnvFilter::try_from_default_env()
+    .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"));
+  let _ = FmtSubscriber::builder().with_env_filter(env_filter).try_init();
 
   let mut system: ActorSystem<Command, _> = ActorSystem::new(TokioMailboxFactory);
   let mut root = system.root_context();

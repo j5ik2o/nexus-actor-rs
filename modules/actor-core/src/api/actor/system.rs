@@ -1,3 +1,6 @@
+#[cfg(not(target_has_atomic = "ptr"))]
+use alloc::rc::Rc as Arc;
+#[cfg(target_has_atomic = "ptr")]
 use alloc::sync::Arc;
 use core::convert::Infallible;
 use core::marker::PhantomData;
@@ -8,7 +11,7 @@ use super::{ActorSystemHandles, ActorSystemParts, Spawn, Timer};
 use crate::api::guardian::AlwaysRestart;
 use crate::runtime::message::DynMessage;
 use crate::runtime::system::InternalActorSystem;
-use crate::ReceiveTimeoutSchedulerFactory;
+use crate::ReceiveTimeoutFactoryShared;
 use crate::{FailureEventListener, FailureEventStream, MailboxFactory, PriorityEnvelope};
 use nexus_utils_core_rs::{Element, QueueError};
 
@@ -120,10 +123,7 @@ where
   ///
   /// # Arguments
   /// * `factory` - Factory that generates receive timeout schedulers (optional)
-  pub fn set_receive_timeout_scheduler_factory(
-    &mut self,
-    factory: Option<Arc<dyn ReceiveTimeoutSchedulerFactory<DynMessage, R>>>,
-  ) {
+  pub fn set_receive_timeout_scheduler_factory(&mut self, factory: Option<ReceiveTimeoutFactoryShared<DynMessage, R>>) {
     self.inner.set_receive_timeout_factory(factory);
   }
 

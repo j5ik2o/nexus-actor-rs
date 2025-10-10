@@ -2,6 +2,8 @@ use core::future::Future;
 
 use nexus_utils_core_rs::{Element, QueueError, QueueRw, QueueSize};
 
+use crate::runtime::message::MetadataStorageMode;
+
 use super::queue_mailbox::MailboxOptions;
 
 /// Type alias for mailbox and producer pair.
@@ -99,11 +101,29 @@ pub trait MailboxSignal: Clone {
   fn wait(&self) -> Self::WaitFuture<'_>;
 }
 
+/// Marker trait describing the synchronization requirements for a mailbox factory.
+pub trait MailboxConcurrency: Copy + 'static {}
+
+/// Thread-safe mailbox mode requiring `Send + Sync` types.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ThreadSafe;
+
+impl MailboxConcurrency for ThreadSafe {}
+
+/// Single-threaded mailbox mode without additional synchronization requirements.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct SingleThread;
+
+impl MailboxConcurrency for SingleThread {}
+
 /// Factory trait for creating mailboxes.
 ///
 /// Generates mailbox and queue implementations according to
 /// specific async runtimes (Tokio, Async-std, etc.).
 pub trait MailboxFactory {
+  /// Declares the concurrency mode for this factory.
+  type Concurrency: MailboxConcurrency + MetadataStorageMode;
+
   /// Type of notification signal
   type Signal: MailboxSignal;
 

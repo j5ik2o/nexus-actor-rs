@@ -1,9 +1,8 @@
 use core::convert::Infallible;
 
-use alloc::sync::Arc;
-
 use crate::runtime::guardian::{AlwaysRestart, GuardianStrategy};
-use crate::runtime::scheduler::{PriorityScheduler, ReceiveTimeoutSchedulerFactory};
+use crate::runtime::scheduler::PriorityScheduler;
+use crate::ReceiveTimeoutFactoryShared;
 use crate::{FailureEventListener, MailboxFactory, PriorityEnvelope};
 use nexus_utils_core_rs::{Element, QueueError};
 
@@ -75,7 +74,7 @@ where
     self.scheduler.set_root_event_listener(listener);
   }
 
-  pub fn set_receive_timeout_factory(&mut self, factory: Option<Arc<dyn ReceiveTimeoutSchedulerFactory<M, R>>>) {
+  pub fn set_receive_timeout_factory(&mut self, factory: Option<ReceiveTimeoutFactoryShared<M, R>>) {
     self.scheduler.set_receive_timeout_factory(factory);
   }
 

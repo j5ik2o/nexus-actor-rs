@@ -1,9 +1,8 @@
-use alloc::sync::Arc;
-
-use crate::runtime::context::{InternalActorRef, MapSystemFn};
+use crate::runtime::context::InternalActorRef;
 use crate::EscalationSink;
 use crate::FailureInfo;
 use crate::MailboxFactory;
+use crate::MapSystemShared;
 use crate::{PriorityEnvelope, SystemMessage};
 use nexus_utils_core_rs::Element;
 
@@ -15,7 +14,7 @@ where
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone, {
   control_ref: InternalActorRef<M, R>,
-  map_system: Arc<MapSystemFn<M>>,
+  map_system: MapSystemShared<M>,
 }
 
 impl<M, R> ParentGuardianSink<M, R>
@@ -25,7 +24,7 @@ where
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
 {
-  pub(crate) fn new(control_ref: InternalActorRef<M, R>, map_system: Arc<MapSystemFn<M>>) -> Self {
+  pub(crate) fn new(control_ref: InternalActorRef<M, R>, map_system: MapSystemShared<M>) -> Self {
     Self {
       control_ref,
       map_system,

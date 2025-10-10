@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use nexus_actor_core_rs::ThreadSafe;
 use nexus_actor_core_rs::{
   Mailbox, MailboxFactory, MailboxOptions, MailboxPair, MailboxSignal, QueueMailbox, QueueMailboxProducer,
   QueueMailboxRecv,
@@ -191,6 +192,7 @@ impl TokioMailboxFactory {
 }
 
 impl MailboxFactory for TokioMailboxFactory {
+  type Concurrency = ThreadSafe;
   type Queue<M>
     = TokioQueue<M>
   where

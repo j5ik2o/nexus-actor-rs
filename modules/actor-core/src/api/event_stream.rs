@@ -47,7 +47,7 @@ pub(crate) mod tests {
 
     fn listener(&self) -> FailureEventListener {
       let inner = self.inner.clone();
-      Arc::new(move |event: FailureEvent| {
+      FailureEventListener::new(move |event: FailureEvent| {
         let snapshot: Vec<FailureEventListener> = {
           let guard = inner.listeners.lock().unwrap();
           guard.iter().map(|(_, listener)| listener.clone()).collect()

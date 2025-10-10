@@ -6,18 +6,59 @@ use core::marker::PhantomData;
 use core::pin::Pin;
 use core::task::{Context, Poll, Waker};
 
+#[cfg(feature = "embedded_rc")]
+use nexus_actor_core_rs::SingleThread;
+#[cfg(not(feature = "embedded_rc"))]
+use nexus_actor_core_rs::ThreadSafe;
 use nexus_actor_core_rs::{
   Mailbox, MailboxFactory, MailboxOptions, MailboxPair, MailboxSignal, QueueMailbox, QueueMailboxProducer,
   QueueMailboxRecv,
 };
+#[cfg(not(feature = "embedded_rc"))]
+use nexus_utils_embedded_rs::ArcLocalMpscUnboundedQueue;
+#[cfg(feature = "embedded_rc")]
 use nexus_utils_embedded_rs::RcMpscUnboundedQueue;
 use nexus_utils_embedded_rs::{Element, QueueBase, QueueError, QueueRw, QueueSize};
+
+#[cfg(feature = "embedded_rc")]
+type LocalQueueInner<M> = Rc<RcMpscUnboundedQueue<M>>;
+
+#[cfg(not(feature = "embedded_rc"))]
+type LocalQueueInner<M> = ArcLocalMpscUnboundedQueue<M>;
+
+#[cfg(feature = "embedded_rc")]
+fn new_queue<M>() -> LocalQueueInner<M>
+where
+  M: Element, {
+  Rc::new(RcMpscUnboundedQueue::new())
+}
+
+#[cfg(not(feature = "embedded_rc"))]
+fn new_queue<M>() -> LocalQueueInner<M>
+where
+  M: Element, {
+  ArcLocalMpscUnboundedQueue::new()
+}
+
+#[cfg(feature = "embedded_rc")]
+fn clone_queue<M>(inner: &LocalQueueInner<M>) -> LocalQueueInner<M>
+where
+  M: Element, {
+  Rc::clone(inner)
+}
+
+#[cfg(not(feature = "embedded_rc"))]
+fn clone_queue<M>(inner: &LocalQueueInner<M>) -> LocalQueueInner<M>
+where
+  M: Element, {
+  inner.clone()
+}
 
 #[derive(Debug)]
 pub struct LocalQueue<M>
 where
   M: Element, {
-  inner: Rc<RcMpscUnboundedQueue<M>>,
+  inner: LocalQueueInner<M>,
 }
 
 impl<M> LocalQueue<M>
@@ -25,12 +66,16 @@ where
   M: Element,
 {
   fn new() -> Self {
-    Self {
-      inner: Rc::new(RcMpscUnboundedQueue::new()),
-    }
+    Self { inner: new_queue() }
   }
 
+  #[cfg(feature = "embedded_rc")]
   fn as_ref(&self) -> &RcMpscUnboundedQueue<M> {
+    &self.inner
+  }
+
+  #[cfg(not(feature = "embedded_rc"))]
+  fn as_ref(&self) -> &ArcLocalMpscUnboundedQueue<M> {
     &self.inner
   }
 }
@@ -41,7 +86,7 @@ where
 {
   fn clone(&self) -> Self {
     Self {
-      inner: Rc::clone(&self.inner),
+      inner: clone_queue(&self.inner),
     }
   }
 }
@@ -190,6 +235,10 @@ impl LocalMailboxFactory {
 }
 
 impl MailboxFactory for LocalMailboxFactory {
+  #[cfg(feature = "embedded_rc")]
+  type Concurrency = SingleThread;
+  #[cfg(not(feature = "embedded_rc"))]
+  type Concurrency = ThreadSafe;
   type Queue<M>
     = LocalQueue<M>
   where

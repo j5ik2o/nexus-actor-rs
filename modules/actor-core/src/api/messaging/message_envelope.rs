@@ -1,35 +1,76 @@
+#[cfg(not(target_has_atomic = "ptr"))]
+use alloc::rc::Rc as Arc;
+#[cfg(target_has_atomic = "ptr")]
 use alloc::sync::Arc;
 
 use crate::runtime::context::InternalActorRef;
-use crate::runtime::message::{store_metadata, take_metadata, DynMessage, MetadataKey};
+use crate::runtime::mailbox::traits::{MailboxConcurrency, ThreadSafe};
+use crate::runtime::message::{discard_metadata, store_metadata, DynMessage, MetadataKey, MetadataStorageMode};
 use crate::SystemMessage;
-use crate::{MailboxFactory, PriorityEnvelope};
+use crate::{MailboxFactory, PriorityEnvelope, RuntimeBound};
 use core::marker::PhantomData;
 use core::mem::{forget, ManuallyDrop};
+use nexus_utils_core_rs::sync::ArcShared;
 use nexus_utils_core_rs::{Element, QueueError, DEFAULT_PRIORITY};
 
+#[cfg(target_has_atomic = "ptr")]
 type SendFn = dyn Fn(DynMessage, i8) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> + Send + Sync;
+
+#[cfg(not(target_has_atomic = "ptr"))]
+type SendFn = dyn Fn(DynMessage, i8) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>>;
+
+#[cfg(target_has_atomic = "ptr")]
+type DropHookFn = dyn Fn() + Send + Sync;
+
+#[cfg(not(target_has_atomic = "ptr"))]
+type DropHookFn = dyn Fn();
 
 /// Internal dispatcher that abstracts the sending destination. Used for ask responses and similar purposes.
 #[derive(Clone)]
-pub struct InternalMessageSender {
-  inner: Arc<SendFn>,
-  drop_hook: Option<Arc<dyn Fn() + Send + Sync>>,
+pub struct InternalMessageSender<C: MailboxConcurrency = ThreadSafe> {
+  inner: ArcShared<SendFn>,
+  drop_hook: Option<ArcShared<DropHookFn>>,
+  _marker: PhantomData<C>,
 }
 
-impl core::fmt::Debug for InternalMessageSender {
+impl<C> core::fmt::Debug for InternalMessageSender<C>
+where
+  C: MailboxConcurrency,
+{
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     f.write_str("MessageSender(..)")
   }
 }
 
-impl InternalMessageSender {
+impl<C> InternalMessageSender<C>
+where
+  C: MailboxConcurrency,
+{
+  /// Creates an `InternalMessageSender` from an internal actor reference for a factory that uses this concurrency mode.
+  ///
+  /// # Arguments
+  /// * `actor_ref` - Actor reference to send to
+  pub(crate) fn from_factory_ref<R>(actor_ref: InternalActorRef<DynMessage, R>) -> Self
+  where
+    R: MailboxFactory<Concurrency = C> + Clone + 'static,
+    R::Queue<PriorityEnvelope<DynMessage>>: Clone + RuntimeBound + 'static,
+    R::Signal: Clone + RuntimeBound + 'static, {
+    let sender = actor_ref.clone();
+    Self::new(ArcShared::from_arc(Arc::new(move |message, priority| {
+      sender.try_send_with_priority(message, priority)
+    })))
+  }
+
   /// Creates a new `InternalMessageSender` with the specified send function.
   ///
   /// # Arguments
   /// * `inner` - Function that executes message sending
-  pub fn new(inner: Arc<SendFn>) -> Self {
-    Self { inner, drop_hook: None }
+  pub fn new(inner: ArcShared<SendFn>) -> Self {
+    Self {
+      inner,
+      drop_hook: None,
+      _marker: PhantomData,
+    }
   }
 
   /// Creates an `InternalMessageSender` with a drop hook (internal API).
@@ -37,10 +78,11 @@ impl InternalMessageSender {
   /// # Arguments
   /// * `inner` - Function that executes message sending
   /// * `drop_hook` - Hook function executed on drop
-  pub(crate) fn with_drop_hook(inner: Arc<SendFn>, drop_hook: Arc<dyn Fn() + Send + Sync>) -> Self {
+  pub(crate) fn with_drop_hook(inner: ArcShared<SendFn>, drop_hook: ArcShared<DropHookFn>) -> Self {
     Self {
       inner,
       drop_hook: Some(drop_hook),
+      _marker: PhantomData,
     }
   }
 
@@ -70,24 +112,12 @@ impl InternalMessageSender {
   ) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> {
     (self.inner)(message, priority)
   }
-
-  /// Creates an `InternalMessageSender` from an internal actor reference (internal API).
-  ///
-  /// # Arguments
-  /// * `actor_ref` - Actor reference to send to
-  pub(crate) fn from_internal_ref<R>(actor_ref: InternalActorRef<DynMessage, R>) -> Self
-  where
-    R: MailboxFactory + Clone + 'static,
-    R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
-    R::Signal: Clone + Send + Sync + 'static, {
-    let sender = actor_ref.clone();
-    Self::new(Arc::new(move |message, priority| {
-      sender.try_send_with_priority(message, priority)
-    }))
-  }
 }
 
-impl Drop for InternalMessageSender {
+impl<C> Drop for InternalMessageSender<C>
+where
+  C: MailboxConcurrency,
+{
   fn drop(&mut self) {
     if let Some(hook) = &self.drop_hook {
       hook();
@@ -95,33 +125,50 @@ impl Drop for InternalMessageSender {
   }
 }
 
+impl InternalMessageSender {
+  /// Thread-safe helper retained for existing call sites.
+  #[allow(dead_code)]
+  pub(crate) fn from_internal_ref<R>(actor_ref: InternalActorRef<DynMessage, R>) -> Self
+  where
+    R: MailboxFactory + Clone + 'static,
+    R::Queue<PriorityEnvelope<DynMessage>>: Clone + RuntimeBound + 'static,
+    R::Signal: Clone + RuntimeBound + 'static, {
+    let sender = actor_ref.clone();
+    Self::new(ArcShared::from_arc(Arc::new(move |message, priority| {
+      sender.try_send_with_priority(message, priority)
+    })))
+  }
+}
+
 /// Type-safe dispatcher. Wraps the internal dispatcher and automatically envelopes user messages.
 #[derive(Clone)]
-pub struct MessageSender<M>
+pub struct MessageSender<M, C: MailboxConcurrency = ThreadSafe>
 where
   M: Element, {
-  inner: InternalMessageSender,
+  inner: InternalMessageSender<C>,
   _marker: PhantomData<fn(M)>,
 }
 
-impl<M> core::fmt::Debug for MessageSender<M>
+impl<M, C> core::fmt::Debug for MessageSender<M, C>
 where
   M: Element,
+  C: MailboxConcurrency,
 {
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     f.debug_tuple("MessageSender").finish()
   }
 }
 
-impl<M> MessageSender<M>
+impl<M, C> MessageSender<M, C>
 where
   M: Element,
+  C: MailboxConcurrency,
 {
   /// Creates a typed `MessageSender` from an internal sender (internal API).
   ///
   /// # Arguments
   /// * `inner` - Internal message sender
-  pub(crate) fn new(inner: InternalMessageSender) -> Self {
+  pub(crate) fn new(inner: InternalMessageSender<C>) -> Self {
     Self {
       inner,
       _marker: PhantomData,
@@ -132,7 +179,7 @@ where
   ///
   /// # Arguments
   /// * `inner` - Internal message sender
-  pub fn from_internal(inner: InternalMessageSender) -> Self {
+  pub fn from_internal(inner: InternalMessageSender<C>) -> Self {
     Self::new(inner)
   }
 
@@ -183,7 +230,7 @@ where
   ///
   /// # Returns
   /// Clone of the internal message sender
-  pub fn internal(&self) -> InternalMessageSender {
+  pub fn internal(&self) -> InternalMessageSender<C> {
     self.inner.clone()
   }
 
@@ -191,25 +238,28 @@ where
   ///
   /// # Returns
   /// Internal message sender
-  pub fn into_internal(self) -> InternalMessageSender {
+  pub fn into_internal(self) -> InternalMessageSender<C> {
     self.inner
   }
 }
 
 /// Metadata accompanying a message (internal representation).
-#[derive(Debug, Clone, Default)]
-pub struct InternalMessageMetadata {
-  sender: Option<InternalMessageSender>,
-  responder: Option<InternalMessageSender>,
+#[derive(Debug, Clone)]
+pub struct InternalMessageMetadata<C: MailboxConcurrency = ThreadSafe> {
+  sender: Option<InternalMessageSender<C>>,
+  responder: Option<InternalMessageSender<C>>,
 }
 
-impl InternalMessageMetadata {
+impl<C> InternalMessageMetadata<C>
+where
+  C: MailboxConcurrency,
+{
   /// Creates new metadata with sender and responder.
   ///
   /// # Arguments
   /// * `sender` - Sender's dispatcher (optional)
   /// * `responder` - Responder's dispatcher (optional)
-  pub fn new(sender: Option<InternalMessageSender>, responder: Option<InternalMessageSender>) -> Self {
+  pub fn new(sender: Option<InternalMessageSender<C>>, responder: Option<InternalMessageSender<C>>) -> Self {
     Self { sender, responder }
   }
 
@@ -217,7 +267,7 @@ impl InternalMessageMetadata {
   ///
   /// # Returns
   /// `Some(&InternalMessageSender)` if sender exists, `None` otherwise
-  pub fn sender(&self) -> Option<&InternalMessageSender> {
+  pub fn sender(&self) -> Option<&InternalMessageSender<C>> {
     self.sender.as_ref()
   }
 
@@ -225,7 +275,7 @@ impl InternalMessageMetadata {
   ///
   /// # Returns
   /// `Some(InternalMessageSender)` if sender exists, `None` otherwise
-  pub fn sender_cloned(&self) -> Option<InternalMessageSender> {
+  pub fn sender_cloned(&self) -> Option<InternalMessageSender<C>> {
     self.sender.clone()
   }
 
@@ -233,7 +283,7 @@ impl InternalMessageMetadata {
   ///
   /// # Returns
   /// `Some(&InternalMessageSender)` if responder exists, `None` otherwise
-  pub fn responder(&self) -> Option<&InternalMessageSender> {
+  pub fn responder(&self) -> Option<&InternalMessageSender<C>> {
     self.responder.as_ref()
   }
 
@@ -241,7 +291,7 @@ impl InternalMessageMetadata {
   ///
   /// # Returns
   /// `Some(InternalMessageSender)` if responder exists, `None` otherwise
-  pub fn responder_cloned(&self) -> Option<InternalMessageSender> {
+  pub fn responder_cloned(&self) -> Option<InternalMessageSender<C>> {
     self.responder.clone()
   }
 
@@ -249,7 +299,7 @@ impl InternalMessageMetadata {
   ///
   /// # Arguments
   /// * `sender` - Sender's dispatcher to set
-  pub fn with_sender(mut self, sender: Option<InternalMessageSender>) -> Self {
+  pub fn with_sender(mut self, sender: Option<InternalMessageSender<C>>) -> Self {
     self.sender = sender;
     self
   }
@@ -258,19 +308,34 @@ impl InternalMessageMetadata {
   ///
   /// # Arguments
   /// * `responder` - Responder's dispatcher to set
-  pub fn with_responder(mut self, responder: Option<InternalMessageSender>) -> Self {
+  pub fn with_responder(mut self, responder: Option<InternalMessageSender<C>>) -> Self {
     self.responder = responder;
     self
   }
 }
 
-/// Typed metadata for the external API.
-#[derive(Debug, Clone, Default)]
-pub struct MessageMetadata {
-  inner: InternalMessageMetadata,
+impl<C> Default for InternalMessageMetadata<C>
+where
+  C: MailboxConcurrency,
+{
+  fn default() -> Self {
+    Self {
+      sender: None,
+      responder: None,
+    }
+  }
 }
 
-impl MessageMetadata {
+/// Typed metadata for the external API.
+#[derive(Debug, Clone)]
+pub struct MessageMetadata<C: MetadataStorageMode = ThreadSafe> {
+  inner: InternalMessageMetadata<C>,
+}
+
+impl<C> MessageMetadata<C>
+where
+  C: MetadataStorageMode,
+{
   /// Creates new empty metadata.
   pub fn new() -> Self {
     Self::default()
@@ -280,7 +345,7 @@ impl MessageMetadata {
   ///
   /// # Arguments
   /// * `sender` - Sender's dispatcher to set
-  pub fn with_sender<U>(mut self, sender: MessageSender<U>) -> Self
+  pub fn with_sender<U>(mut self, sender: MessageSender<U, C>) -> Self
   where
     U: Element, {
     self.inner = self.inner.with_sender(Some(sender.into_internal()));
@@ -291,7 +356,7 @@ impl MessageMetadata {
   ///
   /// # Arguments
   /// * `responder` - Responder's dispatcher to set
-  pub fn with_responder<U>(mut self, responder: MessageSender<U>) -> Self
+  pub fn with_responder<U>(mut self, responder: MessageSender<U, C>) -> Self
   where
     U: Element, {
     self.inner = self.inner.with_responder(Some(responder.into_internal()));
@@ -302,7 +367,7 @@ impl MessageMetadata {
   ///
   /// # Returns
   /// `Some(MessageSender<U>)` if sender exists, `None` otherwise
-  pub fn sender_as<U>(&self) -> Option<MessageSender<U>>
+  pub fn sender_as<U>(&self) -> Option<MessageSender<U, C>>
   where
     U: Element, {
     self.inner.sender_cloned().map(MessageSender::new)
@@ -312,7 +377,7 @@ impl MessageMetadata {
   ///
   /// # Returns
   /// `Some(MessageSender<U>)` if responder exists, `None` otherwise
-  pub fn responder_as<U>(&self) -> Option<MessageSender<U>>
+  pub fn responder_as<U>(&self) -> Option<MessageSender<U, C>>
   where
     U: Element, {
     self.inner.responder_cloned().map(MessageSender::new)
@@ -324,7 +389,7 @@ impl MessageMetadata {
   ///
   /// # Returns
   /// `Some(MessageSender<U>)` if dispatcher exists, `None` otherwise
-  pub fn dispatcher_for<U>(&self) -> Option<MessageSender<U>>
+  pub fn dispatcher_for<U>(&self) -> Option<MessageSender<U, C>>
   where
     U: Element, {
     self.responder_as::<U>().or_else(|| self.sender_as::<U>())
@@ -336,6 +401,17 @@ impl MessageMetadata {
   /// `true` if neither sender nor responder exists, `false` otherwise
   pub fn is_empty(&self) -> bool {
     self.inner.sender.is_none() && self.inner.responder.is_none()
+  }
+}
+
+impl<C> Default for MessageMetadata<C>
+where
+  C: MetadataStorageMode,
+{
+  fn default() -> Self {
+    Self {
+      inner: InternalMessageMetadata::default(),
+    }
   }
 }
 
@@ -365,7 +441,9 @@ impl<U> UserMessage<U> {
   /// # Arguments
   /// * `message` - User message
   /// * `metadata` - Message metadata
-  pub fn with_metadata(message: U, metadata: MessageMetadata) -> Self {
+  pub fn with_metadata<C>(message: U, metadata: MessageMetadata<C>) -> Self
+  where
+    C: MetadataStorageMode, {
     if metadata.is_empty() {
       Self::new(message)
     } else {
@@ -414,7 +492,7 @@ impl<U> From<U> for UserMessage<U> {
 impl<U> Drop for UserMessage<U> {
   fn drop(&mut self) {
     if let Some(key) = self.metadata_key.take() {
-      let _ = take_metadata(key);
+      discard_metadata(key);
     }
     unsafe {
       ManuallyDrop::drop(&mut self.message);
@@ -448,7 +526,9 @@ where
   /// # Arguments
   /// * `message` - User message
   /// * `metadata` - Message metadata
-  pub fn user_with_metadata(message: U, metadata: MessageMetadata) -> Self {
+  pub fn user_with_metadata<C>(message: U, metadata: MessageMetadata<C>) -> Self
+  where
+    C: MetadataStorageMode, {
     MessageEnvelope::User(UserMessage::with_metadata(message, metadata))
   }
 }

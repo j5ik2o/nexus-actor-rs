@@ -16,3 +16,4 @@ std = ["alloc"]
 
 [dependencies]
 async-trait = { version = "0.1.82", default-features = false }
+critical-section = { version = "1", optional = false }

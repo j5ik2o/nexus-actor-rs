@@ -5,10 +5,10 @@ use crate::runtime::mailbox::PriorityChannel;
 use crate::ActorId;
 use crate::ActorPath;
 use crate::MailboxFactory;
+use crate::MapSystemShared;
 use crate::SupervisorDirective;
 use crate::{PriorityEnvelope, SystemMessage};
 use ::core::fmt;
-use alloc::sync::Arc;
 use nexus_utils_core_rs::{Element, DEFAULT_PRIORITY};
 
 #[test]
@@ -20,7 +20,12 @@ fn guardian_sends_restart_message() {
   let parent_id = ActorId(1);
   let parent_path = ActorPath::new();
   let (actor_id, _path) = guardian
-    .register_child(ref_control.clone(), Arc::new(|sys| sys), Some(parent_id), &parent_path)
+    .register_child(
+      ref_control.clone(),
+      MapSystemShared::new(|sys| sys),
+      Some(parent_id),
+      &parent_path,
+    )
     .unwrap();
 
   let first_envelope = mailbox.queue().poll().unwrap().unwrap();
@@ -55,7 +60,12 @@ fn guardian_sends_stop_message() {
   let parent_id = ActorId(7);
   let parent_path = ActorPath::new();
   let (actor_id, _path) = guardian
-    .register_child(ref_control.clone(), Arc::new(|sys| sys), Some(parent_id), &parent_path)
+    .register_child(
+      ref_control.clone(),
+      MapSystemShared::new(|sys| sys),
+      Some(parent_id),
+      &parent_path,
+    )
     .unwrap();
 
   let watch_envelope = mailbox.queue().poll().unwrap().unwrap();
@@ -76,7 +86,12 @@ fn guardian_emits_unwatch_on_remove() {
   let parent_id = ActorId(3);
   let parent_path = ActorPath::new();
   let (actor_id, _path) = guardian
-    .register_child(ref_control.clone(), Arc::new(|sys| sys), Some(parent_id), &parent_path)
+    .register_child(
+      ref_control.clone(),
+      MapSystemShared::new(|sys| sys),
+      Some(parent_id),
+      &parent_path,
+    )
     .unwrap();
 
   // consume watch message

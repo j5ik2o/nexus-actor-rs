@@ -16,6 +16,25 @@ pub trait Shared<T: ?Sized>: Clone + Deref<Target = T> {
   }
 }
 
+/// Marker trait that expresses the synchronisation guarantees required for shared closures.
+///
+/// * On targets that provide atomic pointer operations (`target_has_atomic = "ptr"`), this marker
+///   requires `Send + Sync`, matching the capabilities of `alloc::sync::Arc`.
+/// * On targets without atomic support (e.g. RP2040), the marker imposes no additional bounds so
+///   that `Rc`-backed implementations can be used safely in single-threaded contexts.
+#[cfg(target_has_atomic = "ptr")]
+pub trait SharedBound: Send + Sync {}
+
+#[cfg(target_has_atomic = "ptr")]
+impl<T: Send + Sync> SharedBound for T {}
+
+#[cfg(not(target_has_atomic = "ptr"))]
+/// Marker trait used when atomic pointer support is unavailable.
+pub trait SharedBound {}
+
+#[cfg(not(target_has_atomic = "ptr"))]
+impl<T> SharedBound for T {}
+
 #[cfg(test)]
 mod tests {
   extern crate alloc;
