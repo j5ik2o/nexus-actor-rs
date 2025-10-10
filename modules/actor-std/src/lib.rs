@@ -152,9 +152,9 @@ mod tests {
   async fn run_receive_timeout_triggers() {
     let factory = TokioMailboxFactory;
     let mut config = ActorSystemConfig::default();
-    config.receive_timeout_factory = Some(ReceiveTimeoutFactoryShared::new(
+    config.set_receive_timeout_factory(Some(ReceiveTimeoutFactoryShared::new(
       TokioReceiveTimeoutSchedulerFactory::new(),
-    ));
+    )));
     let mut system: ActorSystem<u32, _> = ActorSystem::new_with_config(factory, config);
 
     let timeout_log: Arc<Mutex<Vec<SystemMessage>>> = Arc::new(Mutex::new(Vec::new()));

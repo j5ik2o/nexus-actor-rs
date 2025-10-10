@@ -37,9 +37,9 @@ where
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
   R::Signal: Clone, {
   /// Listener invoked when failures bubble up to the root guardian.
-  pub failure_event_listener: Option<FailureEventListener>,
+  failure_event_listener: Option<FailureEventListener>,
   /// Receive-timeout scheduler factory used by all actors spawned in the system.
-  pub receive_timeout_factory: Option<ReceiveTimeoutFactoryShared<DynMessage, R>>,
+  receive_timeout_factory: Option<ReceiveTimeoutFactoryShared<DynMessage, R>>,
 }
 
 impl<R> Default for ActorSystemConfig<R>
@@ -53,6 +53,49 @@ where
       failure_event_listener: None,
       receive_timeout_factory: None,
     }
+  }
+}
+
+impl<R> ActorSystemConfig<R>
+where
+  R: MailboxFactory + Clone + 'static,
+  R::Queue<PriorityEnvelope<DynMessage>>: Clone,
+  R::Signal: Clone,
+{
+  /// Sets the failure event listener.
+  pub fn with_failure_event_listener(mut self, listener: Option<FailureEventListener>) -> Self {
+    self.failure_event_listener = listener;
+    self
+  }
+
+  /// Sets the receive-timeout factory.
+  pub fn with_receive_timeout_factory(
+    mut self,
+    factory: Option<ReceiveTimeoutFactoryShared<DynMessage, R>>,
+  ) -> Self {
+    self.receive_timeout_factory = factory;
+    self
+  }
+
+  /// Mutable setter for the failure event listener.
+  pub fn set_failure_event_listener(&mut self, listener: Option<FailureEventListener>) {
+    self.failure_event_listener = listener;
+  }
+
+  /// Mutable setter for the receive-timeout factory.
+  pub fn set_receive_timeout_factory(
+    &mut self,
+    factory: Option<ReceiveTimeoutFactoryShared<DynMessage, R>>,
+  ) {
+    self.receive_timeout_factory = factory;
+  }
+
+  pub(crate) fn failure_event_listener(&self) -> Option<FailureEventListener> {
+    self.failure_event_listener.clone()
+  }
+
+  pub(crate) fn receive_timeout_factory(&self) -> Option<ReceiveTimeoutFactoryShared<DynMessage, R>> {
+    self.receive_timeout_factory.clone()
   }
 }
 
@@ -88,8 +131,8 @@ where
   /// Creates a new actor system with an explicit configuration.
   pub fn new_with_config(mailbox_factory: R, config: ActorSystemConfig<R>) -> Self {
     let settings = InternalActorSystemSettings {
-      root_event_listener: config.failure_event_listener,
-      receive_timeout_factory: config.receive_timeout_factory,
+      root_event_listener: config.failure_event_listener(),
+      receive_timeout_factory: config.receive_timeout_factory(),
     };
     Self {
       inner: InternalActorSystem::new_with_settings(mailbox_factory, settings),
@@ -111,10 +154,8 @@ where
     T: Timer,
     E: FailureEventStream, {
     let (mailbox_factory, handles) = parts.split();
-    let config = ActorSystemConfig {
-      failure_event_listener: Some(handles.event_stream.listener()),
-      receive_timeout_factory: None,
-    };
+    let config = ActorSystemConfig::default()
+      .with_failure_event_listener(Some(handles.event_stream.listener()));
     (Self::new_with_config(mailbox_factory, config), handles)
   }
 }

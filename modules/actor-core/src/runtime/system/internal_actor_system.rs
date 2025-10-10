@@ -16,9 +16,9 @@ where
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone, {
   /// Listener invoked for failures reaching the root guardian.
-  pub root_event_listener: Option<FailureEventListener>,
+  pub(crate) root_event_listener: Option<FailureEventListener>,
   /// Receive-timeout scheduler factory applied to newly spawned actors.
-  pub receive_timeout_factory: Option<ReceiveTimeoutFactoryShared<M, R>>,
+  pub(crate) receive_timeout_factory: Option<ReceiveTimeoutFactoryShared<M, R>>,
 }
 
 impl<M, R> Default for InternalActorSystemSettings<M, R>

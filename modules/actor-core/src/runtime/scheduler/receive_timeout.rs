@@ -27,7 +27,8 @@ pub trait ReceiveTimeoutScheduler: Send {
 ///
 /// Receives a priority mailbox and SystemMessage conversion function when creating actors,
 /// and assembles a runtime-specific `ReceiveTimeoutScheduler`.
-/// By assigning via `ActorSystemConfig::receive_timeout_factory` before constructing the system,
+/// By configuring the system through `ActorSystemConfig::with_receive_timeout_factory` or
+/// `ActorSystemConfig::set_receive_timeout_factory` before constructing it,
 /// all actors can handle timeouts with the same policy.
 pub trait ReceiveTimeoutSchedulerFactory<M, R>: Send + Sync
 where
