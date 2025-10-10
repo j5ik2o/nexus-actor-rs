@@ -12,11 +12,12 @@ repository = "https://github.com/j5ik2o/nexus-actor-rs"
 [features]
 default = ["alloc"]
 alloc = []
-std = ["alloc", "tracing", "futures/std", "futures/executor"]
+std = ["alloc", "tracing", "futures/std", "futures/executor", "nexus-serialization-core-rs/serde-json"]
 test-support = []
 
 [dependencies]
 nexus-utils-core-rs = { path = "../utils-core", default-features = false, features = ["alloc"] }
+nexus-serialization-core-rs = { path = "../serialization-core", default-features = false, features = ["alloc"] }
 tracing = { version = "0.1", default-features = false, features = ["std"], optional = true }
 futures = { version = "0.3", default-features = false, features = ["alloc"] }
 spin = { version = "0.9", default-features = false, features = ["mutex", "spin_mutex", "once", "portable_atomic", "rwlock"] }
@@ -25,6 +26,8 @@ critical-section = { version = "1.2", default-features = false }
 
 [dev-dependencies]
 criterion = "0.5"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 
 [[bench]]
 name = "metadata_table"

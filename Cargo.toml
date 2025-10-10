@@ -9,6 +9,7 @@ members = [
   "modules/actor-embedded",
   "modules/remote-core",
   "modules/cluster-core",
+  "modules/serialization-core",
   "platform-tests/rp2040-hw-tests",
   "platform-tests/rp2350-hw-tests"
 ]

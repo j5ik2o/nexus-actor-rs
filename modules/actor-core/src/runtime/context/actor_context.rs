@@ -5,6 +5,9 @@ use core::marker::PhantomData;
 
 use crate::ActorId;
 use crate::ActorPath;
+use crate::Extension;
+use crate::ExtensionId;
+use crate::Extensions;
 use crate::Supervisor;
 use crate::{MailboxFactory, MailboxOptions, PriorityEnvelope, QueueMailboxProducer};
 use nexus_utils_core_rs::{Element, QueueError, QueueSize};
@@ -36,6 +39,7 @@ where
   watchers: &'a mut Vec<ActorId>,
   current_priority: Option<i8>,
   receive_timeout: Option<&'a RefCell<Box<dyn ReceiveTimeoutScheduler>>>,
+  extensions: Extensions,
   _marker: PhantomData<M>,
 }
 
@@ -56,6 +60,7 @@ where
     actor_id: ActorId,
     watchers: &'a mut Vec<ActorId>,
     receive_timeout: Option<&'a RefCell<Box<dyn ReceiveTimeoutScheduler>>>,
+    extensions: Extensions,
   ) -> Self {
     Self {
       runtime,
@@ -68,8 +73,22 @@ where
       watchers,
       current_priority: None,
       receive_timeout,
+      extensions,
       _marker: PhantomData,
     }
+  }
+
+  /// Returns a clone of the extension registry.
+  pub fn extensions(&self) -> Extensions {
+    self.extensions.clone()
+  }
+
+  /// Applies the provided closure to the extension identified by `id`.
+  pub fn extension<E, F, T>(&self, id: ExtensionId, f: F) -> Option<T>
+  where
+    E: Extension,
+    F: FnOnce(&E) -> T, {
+    self.extensions.with::<E, _, _>(id, f)
   }
 
   pub fn runtime(&self) -> &R {
@@ -130,6 +149,7 @@ where
       watchers,
       map_system,
       parent_path: self.actor_path.clone(),
+      extensions: self.extensions.clone(),
     });
     actor_ref
   }

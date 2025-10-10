@@ -1,14 +1,19 @@
 #![cfg(feature = "alloc")]
 
-#[cfg(target_has_atomic = "ptr")]
-use alloc::sync::Arc as SharedArc;
 #[cfg(not(target_has_atomic = "ptr"))]
 use alloc::rc::Rc as SharedArc;
+#[cfg(target_has_atomic = "ptr")]
+use alloc::sync::Arc as SharedArc;
 use alloc::vec::Vec;
 use core::any::Any;
 use core::fmt::{self, Debug, Formatter};
 use portable_atomic::{AtomicI32, Ordering};
 
+#[cfg(feature = "std")]
+use nexus_serialization_core_rs::json::{shared_json_serializer, SERDE_JSON_SERIALIZER_ID};
+use nexus_serialization_core_rs::registry::InMemorySerializerRegistry;
+use nexus_serialization_core_rs::serializer::Serializer;
+use nexus_serialization_core_rs::RegistryError;
 use nexus_utils_core_rs::sync::ArcShared;
 use spin::RwLock;
 
@@ -16,11 +21,30 @@ use spin::RwLock;
 pub type ExtensionId = i32;
 
 static NEXT_EXTENSION_ID: AtomicI32 = AtomicI32::new(0);
+static SERIALIZER_EXTENSION_ID: AtomicI32 = AtomicI32::new(-1);
 
 /// 新しい ExtensionId を払い出します。
 #[must_use]
 pub fn next_extension_id() -> ExtensionId {
   NEXT_EXTENSION_ID.fetch_add(1, Ordering::SeqCst)
+}
+
+fn acquire_serializer_extension_id() -> ExtensionId {
+  let current = SERIALIZER_EXTENSION_ID.load(Ordering::SeqCst);
+  if current >= 0 {
+    return current;
+  }
+  let new_id = next_extension_id();
+  match SERIALIZER_EXTENSION_ID.compare_exchange(-1, new_id, Ordering::SeqCst, Ordering::SeqCst) {
+    Ok(_) => new_id,
+    Err(existing) => existing,
+  }
+}
+
+/// Serializer 拡張の予約済み ExtensionId を取得します。
+#[must_use]
+pub fn serializer_extension_id() -> ExtensionId {
+  acquire_serializer_extension_id()
 }
 
 /// ActorSystem に組み込まれる拡張の共通インターフェース。
@@ -124,9 +148,55 @@ impl Clone for Extensions {
 impl Debug for Extensions {
   fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     let guard = self.slots.read();
-    f.debug_struct("Extensions")
-      .field("len", &guard.len())
-      .finish()
+    f.debug_struct("Extensions").field("len", &guard.len()).finish()
+  }
+}
+
+/// Extension that exposes the shared serializer registry.
+pub struct SerializerRegistryExtension {
+  id: ExtensionId,
+  registry: InMemorySerializerRegistry,
+}
+
+impl SerializerRegistryExtension {
+  /// Creates a new registry extension and installs built-in serializers.
+  #[must_use]
+  pub fn new() -> Self {
+    let extension = Self {
+      id: serializer_extension_id(),
+      registry: InMemorySerializerRegistry::new(),
+    };
+    extension.install_builtin_serializers();
+    extension
+  }
+
+  fn install_builtin_serializers(&self) {
+    #[cfg(feature = "std")]
+    {
+      if self.registry.get(SERDE_JSON_SERIALIZER_ID).is_none() {
+        let serializer = shared_json_serializer();
+        let _ = self.registry.register(serializer);
+      }
+    }
+  }
+
+  /// Returns a reference to the underlying registry.
+  #[must_use]
+  pub fn registry(&self) -> &InMemorySerializerRegistry {
+    &self.registry
+  }
+
+  /// Registers a serializer implementation, returning an error when the ID clashes.
+  pub fn register_serializer<S>(&self, serializer: ArcShared<S>) -> Result<(), RegistryError>
+  where
+    S: Serializer + 'static, {
+    self.registry.register(serializer)
+  }
+}
+
+impl Extension for SerializerRegistryExtension {
+  fn extension_id(&self) -> ExtensionId {
+    self.id
   }
 }
 
@@ -134,8 +204,8 @@ impl Debug for Extensions {
 mod tests {
   extern crate alloc;
 
-  use super::*;
   use super::SharedArc;
+  use super::*;
 
   #[derive(Debug)]
   struct DummyExtension {

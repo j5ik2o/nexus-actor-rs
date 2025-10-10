@@ -7,6 +7,7 @@ use super::*;
 use super::{ask_with_timeout, AskError};
 use crate::api::guardian::AlwaysRestart;
 use crate::api::{InternalMessageSender, MessageEnvelope, MessageMetadata, MessageSender};
+use crate::next_extension_id;
 use crate::runtime::mailbox::test_support::TestMailboxFactory;
 use crate::runtime::message::{take_metadata, DynMessage};
 use crate::ActorId;
@@ -14,6 +15,8 @@ use crate::MailboxOptions;
 use crate::PriorityEnvelope;
 use crate::SystemMessage;
 use crate::ThreadSafe;
+use crate::{serializer_extension_id, SerializerRegistryExtension};
+use crate::{Extension, ExtensionId};
 use alloc::rc::Rc;
 #[cfg(not(target_has_atomic = "ptr"))]
 use alloc::rc::Rc as Arc;
@@ -25,7 +28,10 @@ use core::cell::RefCell;
 use core::future::Future;
 use core::pin::Pin;
 use core::task::{Context as TaskContext, Poll, RawWaker, RawWakerVTable, Waker};
+use nexus_serialization_core_rs::json::SERDE_JSON_SERIALIZER_ID;
 use nexus_utils_core_rs::{Element, QueueError};
+use serde::{Deserialize, Serialize};
+use serde_json;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 
 #[derive(Clone, Debug)]
@@ -39,9 +45,43 @@ struct ChildMessage {
 impl Element for ParentMessage {}
 impl Element for ChildMessage {}
 
+use core::sync::atomic::{AtomicUsize, Ordering};
 use futures::executor::block_on;
 use futures::future;
 use nexus_utils_core_rs::sync::ArcShared;
+
+#[derive(Debug)]
+struct CounterExtension {
+  id: ExtensionId,
+  hits: AtomicUsize,
+}
+
+impl CounterExtension {
+  fn new() -> Self {
+    Self {
+      id: next_extension_id(),
+      hits: AtomicUsize::new(0),
+    }
+  }
+
+  fn extension_id(&self) -> ExtensionId {
+    self.id
+  }
+
+  fn increment(&self) {
+    let _ = self.hits.fetch_add(1, Ordering::SeqCst);
+  }
+
+  fn value(&self) -> usize {
+    self.hits.load(Ordering::SeqCst)
+  }
+}
+
+impl Extension for CounterExtension {
+  fn extension_id(&self) -> ExtensionId {
+    self.id
+  }
+}
 
 #[cfg(target_has_atomic = "ptr")]
 type NoopDispatchFn = dyn Fn(DynMessage, i8) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> + Send + Sync;
@@ -157,6 +197,83 @@ fn typed_actor_system_handles_user_messages() {
   block_on(root.dispatch_next()).expect("dispatch");
 
   assert_eq!(log.borrow().as_slice(), &[11]);
+}
+
+fn spawn_actor_with_counter_extension() -> (
+  ActorSystem<u32, TestMailboxFactory, AlwaysRestart>,
+  ExtensionId,
+  ArcShared<CounterExtension>,
+) {
+  let factory = TestMailboxFactory::unbounded();
+  let extension = CounterExtension::new();
+  let extension_id = extension.extension_id();
+  let extension_handle = ArcShared::new(extension);
+  let extension_probe = extension_handle.clone();
+
+  let config = ActorSystemConfig::default().with_extension_handle(extension_handle);
+  let system: ActorSystem<u32, _, AlwaysRestart> = ActorSystem::new_with_config(factory, config);
+  (system, extension_id, extension_probe)
+}
+
+#[test]
+fn actor_context_accesses_registered_extension() {
+  let (mut system, extension_id, extension_probe) = spawn_actor_with_counter_extension();
+  let mut root = system.root_context();
+  assert_eq!(
+    root.extension::<CounterExtension, _, _>(extension_id, |ext| ext.value()),
+    Some(0)
+  );
+
+  let props = Props::with_behavior(MailboxOptions::default(), move || {
+    Behaviors::receive(move |ctx: &mut Context<'_, '_, u32, TestMailboxFactory>, msg: u32| {
+      let _ = msg;
+      ctx
+        .extension::<CounterExtension, _, _>(extension_id, |ext| {
+          ext.increment();
+        })
+        .expect("extension registered");
+      Behaviors::same()
+    })
+  });
+
+  let actor_ref = root.spawn(props).expect("spawn actor");
+  actor_ref.tell(42).expect("tell message");
+  block_on(root.dispatch_next()).expect("dispatch message");
+
+  assert_eq!(extension_probe.value(), 1);
+  assert_eq!(
+    system.extension::<CounterExtension, _, _>(extension_id, |ext| ext.value()),
+    Some(1)
+  );
+}
+
+#[test]
+fn serializer_extension_provides_json_roundtrip() {
+  let (system, _, _) = spawn_actor_with_counter_extension();
+
+  #[derive(Debug, Serialize, Deserialize, PartialEq)]
+  struct JsonPayload {
+    number: u32,
+  }
+
+  let roundtrip = system
+    .extensions()
+    .with::<SerializerRegistryExtension, _, _>(serializer_extension_id(), |ext| {
+      let serializer = ext
+        .registry()
+        .get(SERDE_JSON_SERIALIZER_ID)
+        .expect("serde json registered");
+      let payload = JsonPayload { number: 7 };
+      let encoded = serde_json::to_vec(&payload).expect("encode json");
+      let message = serializer
+        .serialize_with_type_name(encoded.as_slice(), "JsonPayload")
+        .expect("serialize message");
+      let decoded = serializer.deserialize(&message).expect("deserialize message");
+      serde_json::from_slice::<JsonPayload>(&decoded).expect("decode json")
+    })
+    .expect("serializer extension available");
+
+  assert_eq!(roundtrip, JsonPayload { number: 7 });
 }
 
 #[test]

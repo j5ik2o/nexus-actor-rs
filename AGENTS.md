@@ -3,6 +3,7 @@
 ## 重要な注意事項
 
 - **応対言語**: 必ず日本語で応対すること
+- **コメント言語**: rustdoc(`///`や`//!`)は英語、それ以外のコメントやドキュメントは日本語で記述すること
 - **タスクの完了条件**: テストはすべてパスすること
 - **テストの扱い**: 行うべきテストをコメントアウトしたり無視したりしないこと
 - **実装方針**:
@@ -31,6 +32,7 @@
 - 実機テストは原則 `thumb` 向けクロスビルドでコンパイル可能かを確認しつつ、ロジック検証はホスト (x86_64/aarch64) 上で `cargo test` を実行する運用とする。
 - `cargo clippy --workspace --all-targets` : Lint 警告 0 を 維持。
 - `cargo +nightly fmt` : `rustfmt.toml` (max_width 120、tab_spaces 2) に 従い 整形。
+- `makers fmt` : プロジェクト標準のコード整形（`rustfmt.toml` に準拠）を実行。
 - `cargo make coverage` / `./coverage.sh` : grcov HTML を `target/coverage/html/index.html` に 出力。
 
 ## コーディングスタイルと命名規約

@@ -11,8 +11,13 @@ use super::{ActorSystemHandles, ActorSystemParts, Spawn, Timer};
 use crate::api::guardian::AlwaysRestart;
 use crate::runtime::message::DynMessage;
 use crate::runtime::system::{InternalActorSystem, InternalActorSystemSettings};
+use crate::serializer_extension_id;
 use crate::ReceiveTimeoutFactoryShared;
-use crate::{FailureEventListener, FailureEventStream, MailboxFactory, PriorityEnvelope};
+use crate::{
+  Extension, ExtensionId, Extensions, FailureEventListener, FailureEventStream, MailboxFactory, PriorityEnvelope,
+  SerializerRegistryExtension,
+};
+use nexus_utils_core_rs::sync::ArcShared;
 use nexus_utils_core_rs::{Element, QueueError};
 
 /// Primary instance of the actor system.
@@ -27,6 +32,7 @@ where
   Strat: crate::api::guardian::GuardianStrategy<DynMessage, R>, {
   inner: InternalActorSystem<DynMessage, R, Strat>,
   shutdown: ShutdownToken,
+  extensions: Extensions,
   _marker: PhantomData<U>,
 }
 
@@ -40,6 +46,8 @@ where
   failure_event_listener: Option<FailureEventListener>,
   /// Receive-timeout scheduler factory used by all actors spawned in the system.
   receive_timeout_factory: Option<ReceiveTimeoutFactoryShared<DynMessage, R>>,
+  /// Extension registry configured for the actor system.
+  extensions: Extensions,
 }
 
 impl<R> Default for ActorSystemConfig<R>
@@ -52,6 +60,7 @@ where
     Self {
       failure_event_listener: None,
       receive_timeout_factory: None,
+      extensions: Extensions::new(),
     }
   }
 }
@@ -69,10 +78,7 @@ where
   }
 
   /// Sets the receive-timeout factory.
-  pub fn with_receive_timeout_factory(
-    mut self,
-    factory: Option<ReceiveTimeoutFactoryShared<DynMessage, R>>,
-  ) -> Self {
+  pub fn with_receive_timeout_factory(mut self, factory: Option<ReceiveTimeoutFactoryShared<DynMessage, R>>) -> Self {
     self.receive_timeout_factory = factory;
     self
   }
@@ -83,10 +89,7 @@ where
   }
 
   /// Mutable setter for the receive-timeout factory.
-  pub fn set_receive_timeout_factory(
-    &mut self,
-    factory: Option<ReceiveTimeoutFactoryShared<DynMessage, R>>,
-  ) {
+  pub fn set_receive_timeout_factory(&mut self, factory: Option<ReceiveTimeoutFactoryShared<DynMessage, R>>) {
     self.receive_timeout_factory = factory;
   }
 
@@ -96,6 +99,50 @@ where
 
   pub(crate) fn receive_timeout_factory(&self) -> Option<ReceiveTimeoutFactoryShared<DynMessage, R>> {
     self.receive_timeout_factory.clone()
+  }
+
+  /// Replaces the extension registry in the configuration.
+  pub fn with_extensions(mut self, extensions: Extensions) -> Self {
+    self.extensions = extensions;
+    self
+  }
+
+  /// Registers an extension handle in the configuration.
+  pub fn with_extension_handle<E>(self, extension: ArcShared<E>) -> Self
+  where
+    E: Extension, {
+    let extensions = &self.extensions;
+    extensions.register(extension);
+    self
+  }
+
+  /// Registers an extension value in the configuration by wrapping it with `ArcShared`.
+  pub fn with_extension_value<E>(self, extension: E) -> Self
+  where
+    E: Extension, {
+    self.with_extension_handle(ArcShared::new(extension))
+  }
+
+  /// Returns the registered extensions.
+  pub fn extensions(&self) -> Extensions {
+    self.extensions.clone()
+  }
+
+  /// Mutably overrides the extensions registry.
+  pub fn set_extensions(&mut self, extensions: Extensions) {
+    self.extensions = extensions;
+  }
+
+  /// Registers an extension on the existing registry.
+  pub fn register_extension<E>(&self, extension: ArcShared<E>)
+  where
+    E: Extension, {
+    self.extensions.register(extension);
+  }
+
+  /// Registers a dynamically typed extension on the existing registry.
+  pub fn register_extension_dyn(&self, extension: ArcShared<dyn Extension>) {
+    self.extensions.register_dyn(extension);
   }
 }
 
@@ -130,13 +177,21 @@ where
 
   /// Creates a new actor system with an explicit configuration.
   pub fn new_with_config(mailbox_factory: R, config: ActorSystemConfig<R>) -> Self {
+    let extensions_handle = config.extensions();
+    if extensions_handle.get(serializer_extension_id()).is_none() {
+      let extension = ArcShared::new(SerializerRegistryExtension::new());
+      extensions_handle.register(extension);
+    }
+    let extensions = extensions_handle.clone();
     let settings = InternalActorSystemSettings {
       root_event_listener: config.failure_event_listener(),
       receive_timeout_factory: config.receive_timeout_factory(),
+      extensions: extensions.clone(),
     };
     Self {
       inner: InternalActorSystem::new_with_settings(mailbox_factory, settings),
       shutdown: ShutdownToken::default(),
+      extensions,
       _marker: PhantomData,
     }
   }
@@ -154,8 +209,7 @@ where
     T: Timer,
     E: FailureEventStream, {
     let (mailbox_factory, handles) = parts.split();
-    let config = ActorSystemConfig::default()
-      .with_failure_event_listener(Some(handles.event_stream.listener()));
+    let config = ActorSystemConfig::default().with_failure_event_listener(Some(handles.event_stream.listener()));
     (Self::new_with_config(mailbox_factory, config), handles)
   }
 }
@@ -200,6 +254,38 @@ where
       inner: self.inner.root_context(),
       _marker: PhantomData,
     }
+  }
+
+  /// Returns a clone of the shared extension registry.
+  pub fn extensions(&self) -> Extensions {
+    self.extensions.clone()
+  }
+
+  /// Applies a closure to the specified extension and returns its result.
+  pub fn extension<E, F, T>(&self, id: ExtensionId, f: F) -> Option<T>
+  where
+    E: Extension,
+    F: FnOnce(&E) -> T, {
+    self.extensions.with::<E, _, _>(id, f)
+  }
+
+  /// Registers an extension handle with the running actor system.
+  pub fn register_extension<E>(&self, extension: ArcShared<E>)
+  where
+    E: Extension, {
+    self.extensions.register(extension);
+  }
+
+  /// Registers a dynamically typed extension handle with the running actor system.
+  pub fn register_extension_dyn(&self, extension: ArcShared<dyn Extension>) {
+    self.extensions.register_dyn(extension);
+  }
+
+  /// Registers an extension value by wrapping it with `ArcShared`.
+  pub fn register_extension_value<E>(&self, extension: E)
+  where
+    E: Extension, {
+    self.register_extension(ArcShared::new(extension));
   }
 
   /// Executes message dispatching until the specified condition is met.

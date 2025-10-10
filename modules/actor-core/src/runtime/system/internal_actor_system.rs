@@ -3,7 +3,7 @@ use core::convert::Infallible;
 use crate::runtime::guardian::{AlwaysRestart, GuardianStrategy};
 use crate::runtime::scheduler::PriorityScheduler;
 use crate::ReceiveTimeoutFactoryShared;
-use crate::{FailureEventListener, MailboxFactory, PriorityEnvelope};
+use crate::{Extensions, FailureEventListener, MailboxFactory, PriorityEnvelope};
 use nexus_utils_core_rs::{Element, QueueError};
 
 use super::InternalRootContext;
@@ -19,6 +19,8 @@ where
   pub(crate) root_event_listener: Option<FailureEventListener>,
   /// Receive-timeout scheduler factory applied to newly spawned actors.
   pub(crate) receive_timeout_factory: Option<ReceiveTimeoutFactoryShared<M, R>>,
+  /// Shared registry of actor system extensions.
+  pub(crate) extensions: Extensions,
 }
 
 impl<M, R> Default for InternalActorSystemSettings<M, R>
@@ -32,6 +34,7 @@ where
     Self {
       root_event_listener: None,
       receive_timeout_factory: None,
+      extensions: Extensions::new(),
     }
   }
 }
@@ -44,6 +47,7 @@ where
   R::Signal: Clone,
   Strat: GuardianStrategy<M, R>, {
   pub(super) scheduler: PriorityScheduler<M, R, Strat>,
+  extensions: Extensions,
 }
 
 #[allow(dead_code)]
@@ -59,14 +63,15 @@ where
   }
 
   pub fn new_with_settings(mailbox_factory: R, settings: InternalActorSystemSettings<M, R>) -> Self {
-    let mut scheduler = PriorityScheduler::new(mailbox_factory);
     let InternalActorSystemSettings {
       root_event_listener,
       receive_timeout_factory,
+      extensions,
     } = settings;
+    let mut scheduler = PriorityScheduler::new(mailbox_factory, extensions.clone());
     scheduler.set_root_event_listener(root_event_listener);
     scheduler.set_receive_timeout_factory(receive_timeout_factory);
-    Self { scheduler }
+    Self { scheduler, extensions }
   }
 }
 
@@ -122,5 +127,9 @@ where
       }
     }
     Ok(())
+  }
+
+  pub fn extensions(&self) -> Extensions {
+    self.extensions.clone()
   }
 }

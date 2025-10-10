@@ -9,6 +9,7 @@ use crate::runtime::supervision::CompositeEscalationSink;
 use crate::ActorId;
 use crate::ActorPath;
 use crate::EscalationSink;
+use crate::Extensions;
 use crate::FailureInfo;
 use crate::Supervisor;
 use crate::{MailboxFactory, MailboxOptions, PriorityEnvelope};
@@ -34,6 +35,7 @@ where
   escalations: Vec<FailureInfo>,
   escalation_sink: CompositeEscalationSink<M, R>,
   receive_timeout_factory: Option<ReceiveTimeoutFactoryShared<M, R>>,
+  extensions: Extensions,
 }
 
 #[allow(dead_code)]
@@ -44,7 +46,7 @@ where
   R::Queue<PriorityEnvelope<M>>: Clone,
   R::Signal: Clone,
 {
-  pub fn new(runtime: R) -> Self {
+  pub fn new(runtime: R, extensions: Extensions) -> Self {
     Self {
       runtime: runtime.clone(),
       guardian: Guardian::new(AlwaysRestart),
@@ -52,10 +54,11 @@ where
       escalations: Vec::new(),
       escalation_sink: CompositeEscalationSink::new(),
       receive_timeout_factory: None,
+      extensions,
     }
   }
 
-  pub fn with_strategy<Strat>(runtime: R, strategy: Strat) -> PriorityScheduler<M, R, Strat>
+  pub fn with_strategy<Strat>(runtime: R, strategy: Strat, extensions: Extensions) -> PriorityScheduler<M, R, Strat>
   where
     Strat: GuardianStrategy<M, R>, {
     PriorityScheduler {
@@ -65,6 +68,7 @@ where
       escalations: Vec::new(),
       escalation_sink: CompositeEscalationSink::new(),
       receive_timeout_factory: None,
+      extensions,
     }
   }
 }
@@ -109,6 +113,7 @@ where
       supervisor,
       handler_box,
       self.receive_timeout_factory.clone(),
+      self.extensions.clone(),
     );
     self.actors.push(cell);
     Ok(control_ref)

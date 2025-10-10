@@ -3,6 +3,7 @@ use alloc::vec::Vec;
 
 use crate::ActorId;
 use crate::ActorPath;
+use crate::Extensions;
 use crate::Supervisor;
 use crate::{MailboxFactory, PriorityEnvelope, QueueMailbox, QueueMailboxProducer};
 use nexus_utils_core_rs::Element;
@@ -22,4 +23,5 @@ where
   pub watchers: Vec<ActorId>,
   pub map_system: MapSystemShared<M>,
   pub parent_path: ActorPath,
+  pub extensions: Extensions,
 }
