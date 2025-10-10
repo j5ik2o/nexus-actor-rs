@@ -90,7 +90,11 @@ pub use runtime::scheduler::{ReceiveTimeoutScheduler, ReceiveTimeoutSchedulerFac
 pub use shared::{FailureEventHandlerShared, FailureEventListenerShared, MapSystemShared, ReceiveTimeoutFactoryShared};
 
 /// Function type alias for converting system messages to message type.
+#[cfg(target_has_atomic = "ptr")]
 pub type MapSystemFn<M> = dyn Fn(SystemMessage) -> M + Send + Sync;
+
+#[cfg(not(target_has_atomic = "ptr"))]
+pub type MapSystemFn<M> = dyn Fn(SystemMessage) -> M;
 
 /// Minimal actor loop implementation.
 ///

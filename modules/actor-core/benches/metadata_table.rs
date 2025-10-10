@@ -2,6 +2,9 @@
 
 extern crate alloc;
 
+#[cfg(not(target_has_atomic = "ptr"))]
+use alloc::rc::Rc as Arc;
+#[cfg(target_has_atomic = "ptr")]
 use alloc::sync::Arc;
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
@@ -9,13 +12,18 @@ use nexus_actor_core_rs::{
   take_metadata, DynMessage, InternalMessageSender, MessageEnvelope, MessageMetadata, MessageSender, PriorityEnvelope,
 };
 use nexus_utils_core_rs::sync::ArcShared;
+
+#[cfg(target_has_atomic = "ptr")]
+type NoopDispatchFn = dyn Fn(DynMessage, i8) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> + Send + Sync;
+
+#[cfg(not(target_has_atomic = "ptr"))]
+type NoopDispatchFn = dyn Fn(DynMessage, i8) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>>;
 use nexus_utils_core_rs::{Element, QueueError};
 
 fn noop_sender<M>() -> MessageSender<M>
 where
   M: Element, {
-  let dispatch_impl: Arc<dyn Fn(DynMessage, i8) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> + Send + Sync> =
-    Arc::new(|_, _| Ok(()));
+  let dispatch_impl: Arc<NoopDispatchFn> = Arc::new(|_, _| Ok(()));
   let dispatch = ArcShared::from_arc(dispatch_impl);
   let internal = InternalMessageSender::new(dispatch);
   MessageSender::from_internal(internal)

@@ -1,10 +1,31 @@
+#[cfg(not(target_has_atomic = "ptr"))]
+use alloc::rc::Rc as Arc;
+#[cfg(target_has_atomic = "ptr")]
 use alloc::sync::Arc;
 use core::ops::Deref;
 
 use crate::runtime::scheduler::ReceiveTimeoutSchedulerFactory;
 use crate::{FailureEvent, FailureInfo, MailboxFactory, PriorityEnvelope, SystemMessage};
-use nexus_utils_core_rs::sync::ArcShared;
+use nexus_utils_core_rs::sync::{ArcShared, SharedBound};
 use nexus_utils_core_rs::Element;
+
+#[cfg(target_has_atomic = "ptr")]
+type MapSystemFn<M> = dyn Fn(SystemMessage) -> M + Send + Sync;
+
+#[cfg(not(target_has_atomic = "ptr"))]
+type MapSystemFn<M> = dyn Fn(SystemMessage) -> M;
+
+#[cfg(target_has_atomic = "ptr")]
+type FailureEventHandlerFn = dyn Fn(&FailureInfo) + Send + Sync;
+
+#[cfg(not(target_has_atomic = "ptr"))]
+type FailureEventHandlerFn = dyn Fn(&FailureInfo);
+
+#[cfg(target_has_atomic = "ptr")]
+type FailureEventListenerFn = dyn Fn(FailureEvent) + Send + Sync;
+
+#[cfg(not(target_has_atomic = "ptr"))]
+type FailureEventListenerFn = dyn Fn(FailureEvent);
 
 /// Shared handle to a system message mapper function.
 ///
@@ -12,31 +33,31 @@ use nexus_utils_core_rs::Element;
 /// different backends (`Arc`, `Rc`, etc.) can be plugged in later without
 /// touching the call sites in `actor-core`.
 pub struct MapSystemShared<M> {
-  inner: ArcShared<dyn Fn(SystemMessage) -> M + Send + Sync>,
+  inner: ArcShared<MapSystemFn<M>>,
 }
 
 impl<M> MapSystemShared<M> {
   /// Creates a new shared mapper from a function or closure.
   pub fn new<F>(f: F) -> Self
   where
-    F: Fn(SystemMessage) -> M + Send + Sync + 'static, {
+    F: Fn(SystemMessage) -> M + SharedBound + 'static, {
     Self {
       inner: ArcShared::from_arc(Arc::new(f)),
     }
   }
 
   /// Wraps an existing shared mapper.
-  pub fn from_shared(inner: ArcShared<dyn Fn(SystemMessage) -> M + Send + Sync>) -> Self {
+  pub fn from_shared(inner: ArcShared<MapSystemFn<M>>) -> Self {
     Self { inner }
   }
 
   /// Consumes the wrapper and returns the underlying `Arc`.
-  pub fn into_arc(self) -> Arc<dyn Fn(SystemMessage) -> M + Send + Sync> {
+  pub fn into_arc(self) -> Arc<MapSystemFn<M>> {
     self.inner.into_arc()
   }
 
   /// Returns the inner shared handle.
-  pub fn as_shared(&self) -> &ArcShared<dyn Fn(SystemMessage) -> M + Send + Sync> {
+  pub fn as_shared(&self) -> &ArcShared<MapSystemFn<M>> {
     &self.inner
   }
 }
@@ -50,7 +71,7 @@ impl<M> Clone for MapSystemShared<M> {
 }
 
 impl<M> Deref for MapSystemShared<M> {
-  type Target = dyn Fn(SystemMessage) -> M + Send + Sync;
+  type Target = MapSystemFn<M>;
 
   fn deref(&self) -> &Self::Target {
     &*self.inner
@@ -107,26 +128,26 @@ impl<M, R> Deref for ReceiveTimeoutFactoryShared<M, R> {
 
 /// Shared wrapper for failure event handlers.
 pub struct FailureEventHandlerShared {
-  inner: ArcShared<dyn Fn(&FailureInfo) + Send + Sync>,
+  inner: ArcShared<FailureEventHandlerFn>,
 }
 
 impl FailureEventHandlerShared {
   /// Creates a new shared handler from a closure.
   pub fn new<F>(handler: F) -> Self
   where
-    F: Fn(&FailureInfo) + Send + Sync + 'static, {
+    F: Fn(&FailureInfo) + SharedBound + 'static, {
     Self {
       inner: ArcShared::from_arc(Arc::new(handler)),
     }
   }
 
   /// Wraps an existing shared handler reference.
-  pub fn from_shared(inner: ArcShared<dyn Fn(&FailureInfo) + Send + Sync>) -> Self {
+  pub fn from_shared(inner: ArcShared<FailureEventHandlerFn>) -> Self {
     Self { inner }
   }
 
   /// Consumes the wrapper and returns the underlying shared handler.
-  pub fn into_shared(self) -> ArcShared<dyn Fn(&FailureInfo) + Send + Sync> {
+  pub fn into_shared(self) -> ArcShared<FailureEventHandlerFn> {
     self.inner
   }
 }
@@ -140,7 +161,7 @@ impl Clone for FailureEventHandlerShared {
 }
 
 impl Deref for FailureEventHandlerShared {
-  type Target = dyn Fn(&FailureInfo) + Send + Sync;
+  type Target = FailureEventHandlerFn;
 
   fn deref(&self) -> &Self::Target {
     &*self.inner
@@ -149,26 +170,26 @@ impl Deref for FailureEventHandlerShared {
 
 /// Shared wrapper for failure event listeners.
 pub struct FailureEventListenerShared {
-  inner: ArcShared<dyn Fn(FailureEvent) + Send + Sync>,
+  inner: ArcShared<FailureEventListenerFn>,
 }
 
 impl FailureEventListenerShared {
   /// Creates a new shared listener from a closure.
   pub fn new<F>(listener: F) -> Self
   where
-    F: Fn(FailureEvent) + Send + Sync + 'static, {
+    F: Fn(FailureEvent) + SharedBound + 'static, {
     Self {
       inner: ArcShared::from_arc(Arc::new(listener)),
     }
   }
 
   /// Wraps an existing shared listener.
-  pub fn from_shared(inner: ArcShared<dyn Fn(FailureEvent) + Send + Sync>) -> Self {
+  pub fn from_shared(inner: ArcShared<FailureEventListenerFn>) -> Self {
     Self { inner }
   }
 
   /// Consumes the wrapper and returns the underlying shared listener.
-  pub fn into_shared(self) -> ArcShared<dyn Fn(FailureEvent) + Send + Sync> {
+  pub fn into_shared(self) -> ArcShared<FailureEventListenerFn> {
     self.inner
   }
 }
@@ -182,7 +203,7 @@ impl Clone for FailureEventListenerShared {
 }
 
 impl Deref for FailureEventListenerShared {
-  type Target = dyn Fn(FailureEvent) + Send + Sync;
+  type Target = FailureEventListenerFn;
 
   fn deref(&self) -> &Self::Target {
     &*self.inner

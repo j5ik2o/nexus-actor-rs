@@ -14,7 +14,10 @@ use crate::MailboxOptions;
 use crate::PriorityEnvelope;
 use crate::SystemMessage;
 use alloc::rc::Rc;
+#[cfg(not(target_has_atomic = "ptr"))]
+use alloc::rc::Rc as Arc;
 use alloc::string::String;
+#[cfg(target_has_atomic = "ptr")]
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use core::cell::RefCell;
@@ -39,10 +42,16 @@ use futures::executor::block_on;
 use futures::future;
 use nexus_utils_core_rs::sync::ArcShared;
 
+#[cfg(target_has_atomic = "ptr")]
+type NoopDispatchFn = dyn Fn(DynMessage, i8) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> + Send + Sync;
+
+#[cfg(not(target_has_atomic = "ptr"))]
+type NoopDispatchFn = dyn Fn(DynMessage, i8) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>>;
+
 fn noop_sender<M>() -> MessageSender<M>
 where
   M: Element, {
-  let dispatch_impl: Arc<dyn Fn(DynMessage, i8) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> + Send + Sync> =
+  let dispatch_impl: Arc<NoopDispatchFn> =
     Arc::new(|_message: DynMessage, _priority: i8| -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> { Ok(()) });
   let dispatch = ArcShared::from_arc(dispatch_impl);
   let internal = InternalMessageSender::new(dispatch);

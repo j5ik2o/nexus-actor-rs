@@ -1,3 +1,6 @@
+#[cfg(not(target_has_atomic = "ptr"))]
+use alloc::rc::Rc as Arc;
+#[cfg(target_has_atomic = "ptr")]
 use alloc::sync::Arc;
 
 use crate::runtime::context::InternalActorRef;
@@ -9,13 +12,23 @@ use core::mem::{forget, ManuallyDrop};
 use nexus_utils_core_rs::sync::ArcShared;
 use nexus_utils_core_rs::{Element, QueueError, DEFAULT_PRIORITY};
 
+#[cfg(target_has_atomic = "ptr")]
 type SendFn = dyn Fn(DynMessage, i8) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> + Send + Sync;
+
+#[cfg(not(target_has_atomic = "ptr"))]
+type SendFn = dyn Fn(DynMessage, i8) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>>;
+
+#[cfg(target_has_atomic = "ptr")]
+type DropHookFn = dyn Fn() + Send + Sync;
+
+#[cfg(not(target_has_atomic = "ptr"))]
+type DropHookFn = dyn Fn();
 
 /// Internal dispatcher that abstracts the sending destination. Used for ask responses and similar purposes.
 #[derive(Clone)]
 pub struct InternalMessageSender {
   inner: ArcShared<SendFn>,
-  drop_hook: Option<ArcShared<dyn Fn() + Send + Sync>>,
+  drop_hook: Option<ArcShared<DropHookFn>>,
 }
 
 impl core::fmt::Debug for InternalMessageSender {
@@ -38,7 +51,7 @@ impl InternalMessageSender {
   /// # Arguments
   /// * `inner` - Function that executes message sending
   /// * `drop_hook` - Hook function executed on drop
-  pub(crate) fn with_drop_hook(inner: ArcShared<SendFn>, drop_hook: ArcShared<dyn Fn() + Send + Sync>) -> Self {
+  pub(crate) fn with_drop_hook(inner: ArcShared<SendFn>, drop_hook: ArcShared<DropHookFn>) -> Self {
     Self {
       inner,
       drop_hook: Some(drop_hook),

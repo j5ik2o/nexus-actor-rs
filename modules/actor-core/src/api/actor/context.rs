@@ -6,11 +6,21 @@ use crate::MailboxFactory;
 use crate::PriorityEnvelope;
 use crate::Supervisor;
 use crate::SystemMessage;
-use alloc::{boxed::Box, string::String, sync::Arc};
+#[cfg(not(target_has_atomic = "ptr"))]
+use alloc::rc::Rc as Arc;
+#[cfg(target_has_atomic = "ptr")]
+use alloc::sync::Arc;
+use alloc::{boxed::Box, string::String};
 use core::future::Future;
 use core::marker::PhantomData;
 use core::time::Duration;
-use nexus_utils_core_rs::sync::ArcShared;
+use nexus_utils_core_rs::sync::{ArcShared, SharedBound};
+
+#[cfg(target_has_atomic = "ptr")]
+type AdapterFn<Ext, U> = dyn Fn(Ext) -> U + Send + Sync;
+
+#[cfg(not(target_has_atomic = "ptr"))]
+type AdapterFn<Ext, U> = dyn Fn(Ext) -> U;
 use nexus_utils_core_rs::{Element, QueueError, DEFAULT_PRIORITY};
 
 use super::{
@@ -272,8 +282,8 @@ where
   pub fn message_adapter<Ext, F>(&self, f: F) -> MessageAdapterRef<Ext, U, R>
   where
     Ext: Element,
-    F: Fn(Ext) -> U + Send + Sync + 'static, {
-    let adapter_impl: Arc<dyn Fn(Ext) -> U + Send + Sync> = Arc::new(f);
+    F: Fn(Ext) -> U + SharedBound + 'static, {
+    let adapter_impl: Arc<AdapterFn<Ext, U>> = Arc::new(f);
     MessageAdapterRef::new(self.self_ref(), ArcShared::from_arc(adapter_impl))
   }
 
@@ -590,7 +600,7 @@ where
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
   R::Signal: Clone, {
   target: ActorRef<U, R>,
-  adapter: ArcShared<dyn Fn(Ext) -> U + Send + Sync>,
+  adapter: ArcShared<AdapterFn<Ext, U>>,
 }
 
 impl<Ext, U, R> MessageAdapterRef<Ext, U, R>
@@ -601,7 +611,7 @@ where
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
   R::Signal: Clone,
 {
-  pub(crate) fn new(target: ActorRef<U, R>, adapter: ArcShared<dyn Fn(Ext) -> U + Send + Sync>) -> Self {
+  pub(crate) fn new(target: ActorRef<U, R>, adapter: ArcShared<AdapterFn<Ext, U>>) -> Self {
     Self { target, adapter }
   }
 

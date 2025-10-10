@@ -1,3 +1,6 @@
+#[cfg(not(target_has_atomic = "ptr"))]
+use alloc::rc::Rc as Arc;
+#[cfg(target_has_atomic = "ptr")]
 use alloc::sync::Arc;
 use core::cell::UnsafeCell;
 use core::fmt;
@@ -12,6 +15,18 @@ use crate::PriorityEnvelope;
 use futures::task::AtomicWaker;
 use nexus_utils_core_rs::sync::ArcShared;
 use nexus_utils_core_rs::{Element, QueueError};
+
+#[cfg(target_has_atomic = "ptr")]
+type DispatchFn = dyn Fn(DynMessage, i8) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> + Send + Sync;
+
+#[cfg(not(target_has_atomic = "ptr"))]
+type DispatchFn = dyn Fn(DynMessage, i8) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>>;
+
+#[cfg(target_has_atomic = "ptr")]
+type DropHookFn = dyn Fn() + Send + Sync;
+
+#[cfg(not(target_has_atomic = "ptr"))]
+type DropHookFn = dyn Fn();
 
 /// Type alias representing the result of an `ask` operation as `Result`.
 pub type AskResult<T> = Result<T, AskError>;
@@ -258,30 +273,29 @@ where
   let dispatch_state = shared.clone();
   let drop_state = shared.clone();
 
-  let dispatch_impl: Arc<dyn Fn(DynMessage, i8) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> + Send + Sync> =
-    Arc::new(move |message: DynMessage, _priority: i8| {
-      let envelope = message
-        .downcast::<MessageEnvelope<Resp>>()
-        .unwrap_or_else(|_| panic!("ask responder received mismatched message type"));
-      match envelope {
-        MessageEnvelope::User(user) => {
-          let (value, metadata_key) = user.into_parts();
-          if let Some(key) = metadata_key {
-            let _ = take_metadata(key);
-          }
-          if !dispatch_state.complete(value) {
-            // Discard value if response destination was already cancelled
-          }
+  let dispatch_impl: Arc<DispatchFn> = Arc::new(move |message: DynMessage, _priority: i8| {
+    let envelope = message
+      .downcast::<MessageEnvelope<Resp>>()
+      .unwrap_or_else(|_| panic!("ask responder received mismatched message type"));
+    match envelope {
+      MessageEnvelope::User(user) => {
+        let (value, metadata_key) = user.into_parts();
+        if let Some(key) = metadata_key {
+          let _ = take_metadata(key);
         }
-        MessageEnvelope::System(_) => {
-          panic!("ask responder received system message");
+        if !dispatch_state.complete(value) {
+          // Discard value if response destination was already cancelled
         }
       }
-      Ok(())
-    });
+      MessageEnvelope::System(_) => {
+        panic!("ask responder received system message");
+      }
+    }
+    Ok(())
+  });
   let dispatch = ArcShared::from_arc(dispatch_impl);
 
-  let drop_hook_impl: Arc<dyn Fn() + Send + Sync> = Arc::new(move || {
+  let drop_hook_impl: Arc<DropHookFn> = Arc::new(move || {
     drop_state.responder_dropped();
   });
   let drop_hook = ArcShared::from_arc(drop_hook_impl);

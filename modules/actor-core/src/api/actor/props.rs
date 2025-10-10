@@ -1,4 +1,7 @@
 use alloc::rc::Rc;
+#[cfg(not(target_has_atomic = "ptr"))]
+use alloc::rc::Rc as Arc;
+#[cfg(target_has_atomic = "ptr")]
 use alloc::sync::Arc;
 
 use crate::runtime::context::ActorContext;
