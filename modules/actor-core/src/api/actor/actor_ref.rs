@@ -1,5 +1,5 @@
 use crate::runtime::context::InternalActorRef;
-use crate::runtime::message::DynMessage;
+use crate::runtime::message::{DynMessage, MetadataStorageMode};
 use crate::SystemMessage;
 use crate::{MailboxFactory, PriorityEnvelope, RuntimeBound};
 use core::future::Future;
@@ -19,7 +19,8 @@ where
   U: Element,
   R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
-  R::Signal: Clone, {
+  R::Signal: Clone,
+  R::Concurrency: MetadataStorageMode, {
   inner: InternalActorRef<DynMessage, R>,
   _marker: PhantomData<U>,
 }
@@ -30,6 +31,7 @@ where
   R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
   R::Signal: Clone,
+  R::Concurrency: MetadataStorageMode,
 {
   /// Creates a new `ActorRef` from an internal reference.
   ///
@@ -55,7 +57,7 @@ where
   /// # Arguments
   /// * `message` - User message to wrap
   /// * `metadata` - Metadata attached to the message
-  pub(crate) fn wrap_user_with_metadata(message: U, metadata: MessageMetadata) -> DynMessage {
+  pub(crate) fn wrap_user_with_metadata(message: U, metadata: MessageMetadata<R::Concurrency>) -> DynMessage {
     DynMessage::new(MessageEnvelope::user_with_metadata(message, metadata))
   }
 
@@ -80,7 +82,7 @@ where
   pub(crate) fn tell_with_metadata(
     &self,
     message: U,
-    metadata: MessageMetadata,
+    metadata: MessageMetadata<R::Concurrency>,
   ) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>> {
     let dyn_message = Self::wrap_user_with_metadata(message, metadata);
     self.send_envelope(dyn_message, DEFAULT_PRIORITY)
@@ -128,11 +130,11 @@ where
   ///
   /// # Returns
   /// Message dispatcher for sending messages
-  pub fn to_dispatcher(&self) -> MessageSender<U>
+  pub fn to_dispatcher(&self) -> MessageSender<U, R::Concurrency>
   where
     R::Queue<PriorityEnvelope<DynMessage>>: Clone + RuntimeBound + 'static,
     R::Signal: Clone + RuntimeBound + 'static, {
-    let internal = InternalMessageSender::from_internal_ref(self.inner.clone());
+    let internal = InternalMessageSender::<R::Concurrency>::from_factory_ref(self.inner.clone());
     MessageSender::new(internal)
   }
 
@@ -163,11 +165,11 @@ where
   pub(crate) fn request_with_dispatcher<S>(
     &self,
     message: U,
-    sender: MessageSender<S>,
+    sender: MessageSender<S, R::Concurrency>,
   ) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>>
   where
     S: Element, {
-    let metadata = MessageMetadata::new().with_sender(sender);
+    let metadata = MessageMetadata::<R::Concurrency>::new().with_sender(sender);
     self.tell_with_metadata(message, metadata)
   }
 
@@ -181,8 +183,8 @@ where
   pub(crate) fn request_future<Resp>(&self, message: U) -> AskResult<AskFuture<Resp>>
   where
     Resp: Element, {
-    let (future, responder) = create_ask_handles::<Resp>();
-    let metadata = MessageMetadata::new().with_responder(responder);
+    let (future, responder) = create_ask_handles::<Resp, R::Concurrency>();
+    let metadata = MessageMetadata::<R::Concurrency>::new().with_responder(responder);
     self.tell_with_metadata(message, metadata)?;
     Ok(future)
   }
@@ -211,13 +213,15 @@ where
   pub(crate) fn request_future_with_dispatcher<Resp, S>(
     &self,
     message: U,
-    sender: MessageSender<S>,
+    sender: MessageSender<S, R::Concurrency>,
   ) -> AskResult<AskFuture<Resp>>
   where
     Resp: Element,
     S: Element, {
-    let (future, responder) = create_ask_handles::<Resp>();
-    let metadata = MessageMetadata::new().with_sender(sender).with_responder(responder);
+    let (future, responder) = create_ask_handles::<Resp, R::Concurrency>();
+    let metadata = MessageMetadata::<R::Concurrency>::new()
+      .with_sender(sender)
+      .with_responder(responder);
     self.tell_with_metadata(message, metadata)?;
     Ok(future)
   }
@@ -239,8 +243,8 @@ where
     R::Queue<PriorityEnvelope<DynMessage>>: Clone + RuntimeBound + 'static,
     R::Signal: Clone + RuntimeBound + 'static, {
     let mut timeout = Some(timeout);
-    let (future, responder) = create_ask_handles::<Resp>();
-    let metadata = MessageMetadata::new().with_responder(responder);
+    let (future, responder) = create_ask_handles::<Resp, R::Concurrency>();
+    let metadata = MessageMetadata::<R::Concurrency>::new().with_responder(responder);
     match self.tell_with_metadata(message, metadata) {
       Ok(()) => Ok(ask_with_timeout(future, timeout.take().unwrap())),
       Err(err) => Err(AskError::from(err)),
@@ -279,18 +283,20 @@ where
   pub(crate) fn request_future_with_timeout_dispatcher<Resp, S, TFut>(
     &self,
     message: U,
-    sender: MessageSender<S>,
+    sender: MessageSender<S, R::Concurrency>,
     timeout: TFut,
   ) -> AskResult<AskTimeoutFuture<Resp, TFut>>
   where
     Resp: Element,
     S: Element,
     TFut: Future<Output = ()> + Unpin,
-    R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
-    R::Signal: Clone + Send + Sync + 'static, {
+    R::Queue<PriorityEnvelope<DynMessage>>: Clone + RuntimeBound + 'static,
+    R::Signal: Clone + RuntimeBound + 'static, {
     let mut timeout = Some(timeout);
-    let (future, responder) = create_ask_handles::<Resp>();
-    let metadata = MessageMetadata::new().with_sender(sender).with_responder(responder);
+    let (future, responder) = create_ask_handles::<Resp, R::Concurrency>();
+    let metadata = MessageMetadata::<R::Concurrency>::new()
+      .with_sender(sender)
+      .with_responder(responder);
     match self.tell_with_metadata(message, metadata) {
       Ok(()) => Ok(ask_with_timeout(future, timeout.take().unwrap())),
       Err(err) => Err(AskError::from(err)),
@@ -309,11 +315,11 @@ where
   pub fn ask_with<Resp, F>(&self, factory: F) -> AskResult<AskFuture<Resp>>
   where
     Resp: Element,
-    F: FnOnce(MessageSender<Resp>) -> U, {
-    let (future, responder) = create_ask_handles::<Resp>();
+    F: FnOnce(MessageSender<Resp, R::Concurrency>) -> U, {
+    let (future, responder) = create_ask_handles::<Resp, R::Concurrency>();
     let responder_for_message = MessageSender::new(responder.internal());
     let message = factory(responder_for_message);
-    let metadata = MessageMetadata::new().with_responder(responder);
+    let metadata = MessageMetadata::<R::Concurrency>::new().with_responder(responder);
     self.tell_with_metadata(message, metadata)?;
     Ok(future)
   }
@@ -329,13 +335,13 @@ where
   pub fn ask_with_timeout<Resp, F, TFut>(&self, factory: F, timeout: TFut) -> AskResult<AskTimeoutFuture<Resp, TFut>>
   where
     Resp: Element,
-    F: FnOnce(MessageSender<Resp>) -> U,
+    F: FnOnce(MessageSender<Resp, R::Concurrency>) -> U,
     TFut: Future<Output = ()> + Unpin, {
     let mut timeout = Some(timeout);
-    let (future, responder) = create_ask_handles::<Resp>();
+    let (future, responder) = create_ask_handles::<Resp, R::Concurrency>();
     let responder_for_message = MessageSender::new(responder.internal());
     let message = factory(responder_for_message);
-    let metadata = MessageMetadata::new().with_responder(responder);
+    let metadata = MessageMetadata::<R::Concurrency>::new().with_responder(responder);
     match self.tell_with_metadata(message, metadata) {
       Ok(()) => Ok(ask_with_timeout(future, timeout.take().unwrap())),
       Err(err) => Err(AskError::from(err)),

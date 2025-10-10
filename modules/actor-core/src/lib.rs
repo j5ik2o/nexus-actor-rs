@@ -84,8 +84,11 @@ mod runtime;
 mod shared;
 
 pub use api::*;
+pub use runtime::mailbox::traits::{SingleThread, ThreadSafe};
 pub use runtime::mailbox::{PriorityEnvelope, SystemMessage};
-pub use runtime::message::{store_metadata, take_metadata, DynMessage, MetadataKey};
+pub use runtime::message::{
+  discard_metadata, store_metadata, take_metadata, DynMessage, MetadataKey, MetadataStorageMode,
+};
 pub use runtime::scheduler::{ReceiveTimeoutScheduler, ReceiveTimeoutSchedulerFactory};
 pub use shared::{FailureEventHandlerShared, FailureEventListenerShared, MapSystemShared, ReceiveTimeoutFactoryShared};
 
@@ -107,6 +110,7 @@ impl<T> RuntimeBound for T {}
 #[cfg(target_has_atomic = "ptr")]
 pub type MapSystemFn<M> = dyn Fn(SystemMessage) -> M + Send + Sync;
 
+/// Function type alias for converting system messages on non-atomic targets.
 #[cfg(not(target_has_atomic = "ptr"))]
 pub type MapSystemFn<M> = dyn Fn(SystemMessage) -> M;
 

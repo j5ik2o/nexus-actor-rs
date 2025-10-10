@@ -77,6 +77,8 @@ pub use concurrent::{
   AsyncBarrier, AsyncBarrierBackend, CountDownLatch, CountDownLatchBackend, GuardHandle, Synchronized,
   SynchronizedMutexBackend, SynchronizedRw, SynchronizedRwBackend, WaitGroup, WaitGroupBackend,
 };
+#[cfg(feature = "alloc")]
+pub use sync::RcShared;
 pub use sync::{ArcShared, Flag, Shared, SharedBound, SharedFactory, SharedFn, StateCell};
 pub use timing::{
   DeadlineTimer, DeadlineTimerError, DeadlineTimerExpired, DeadlineTimerKey, DeadlineTimerKeyAllocator, TimerDeadline,

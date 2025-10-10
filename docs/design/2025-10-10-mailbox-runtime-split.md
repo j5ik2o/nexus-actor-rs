@@ -52,3 +52,9 @@ pub struct SingleThread;
 2. `ThreadSafe` コードパスで `Send + Sync` を維持しつつ、`SingleThread` で `RcShared` が動作することを確認。
 3. `embedded_arc` / `embedded_rc` 両構成のクロスビルドテストを整備（Scope D）。
 4. ドキュメント更新とサンプル修正。
+
+## Step 2 Kickoff: Message Sender の concurrency-aware 化
+- `InternalMessageSender` / `MessageSender` を `InternalMessageSender<C>` / `MessageSender<M, C>` にリファクタリングし、`MailboxConcurrency` マーカー（`ThreadSafe` / `SingleThread`）で型パラメータ化した。
+- 当面は `ThreadSafe` をデフォルト指定しつつ、クラスタ外ペイロードにも影響しない形で `MailboxFactory::Concurrency` の宣言だけを追加。将来的に `SingleThread` を選択するファクトリは新しい型パラメータに差し替えるだけでよい。
+- メタデータ層 (`InternalMessageMetadata<C>` / `MessageMetadata<C>`) も同じマーカーでパラメータ化し、後続ステップで `MailboxFactory::Concurrency` と同期させる準備を整えた。
+- `ThreadSafe` / `SingleThread` を `nexus_actor_core_rs` から再エクスポートし、上位クレートが marker を直接指定できるようにした。次ステップではメタデータテーブルと `MessageMetadata<C>` の連携、および `SingleThread` 実装の実際の導入を進める。

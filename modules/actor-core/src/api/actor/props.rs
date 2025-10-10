@@ -5,7 +5,7 @@ use alloc::rc::Rc as Arc;
 use alloc::sync::Arc;
 
 use crate::runtime::context::ActorContext;
-use crate::runtime::message::{take_metadata, DynMessage};
+use crate::runtime::message::{take_metadata, DynMessage, MetadataStorageMode};
 use crate::runtime::system::InternalProps;
 use crate::Supervisor;
 use crate::SystemMessage;
@@ -27,7 +27,8 @@ where
   U: Element,
   R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
-  R::Signal: Clone, {
+  R::Signal: Clone,
+  R::Concurrency: MetadataStorageMode, {
   inner: InternalProps<DynMessage, R>,
   _marker: PhantomData<U>,
   supervisor: SupervisorStrategyConfig,
@@ -39,6 +40,7 @@ where
   R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
   R::Signal: Clone,
+  R::Concurrency: MetadataStorageMode,
 {
   /// Creates a new `Props` with the specified message handler.
   ///
@@ -126,7 +128,9 @@ where
       match envelope {
         MessageEnvelope::User(user) => {
           let (message, metadata_key) = user.into_parts();
-          let metadata = metadata_key.and_then(take_metadata).unwrap_or_default();
+          let metadata = metadata_key
+            .and_then(take_metadata::<R::Concurrency>)
+            .unwrap_or_default();
           let mut typed_ctx = Context::with_metadata(ctx, metadata);
           adapter.handle_user(&mut typed_ctx, message);
         }

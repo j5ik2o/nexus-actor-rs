@@ -1,3 +1,6 @@
+#[cfg(not(target_has_atomic = "ptr"))]
+use alloc::rc::Rc as Arc;
+#[cfg(target_has_atomic = "ptr")]
 use alloc::sync::Arc;
 use core::convert::Infallible;
 use core::marker::PhantomData;

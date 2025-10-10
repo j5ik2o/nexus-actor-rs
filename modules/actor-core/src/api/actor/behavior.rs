@@ -1,9 +1,12 @@
 use alloc::boxed::Box;
+#[cfg(not(target_has_atomic = "ptr"))]
+use alloc::rc::Rc as Arc;
+#[cfg(target_has_atomic = "ptr")]
 use alloc::sync::Arc;
 
 use crate::api::supervision::{NoopSupervisor, Supervisor, SupervisorDirective};
 use crate::api::MessageEnvelope;
-use crate::runtime::message::DynMessage;
+use crate::runtime::message::{DynMessage, MetadataStorageMode};
 use crate::MailboxFactory;
 use crate::MapSystemShared;
 use crate::PriorityEnvelope;
@@ -139,7 +142,8 @@ where
   U: Element,
   R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
-  R::Signal: Clone, {
+  R::Signal: Clone,
+  R::Concurrency: MetadataStorageMode, {
   /// Maintain the same Behavior
   Same,
   /// Transition to a new Behavior
@@ -164,6 +168,7 @@ where
   R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
   R::Signal: Clone,
+  R::Concurrency: MetadataStorageMode,
 {
   fn new(handler: Box<ReceiveFn<U, R>>, supervisor: SupervisorStrategyConfig) -> Self {
     Self {
@@ -206,6 +211,7 @@ where
   R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
   R::Signal: Clone,
+  R::Concurrency: MetadataStorageMode,
 {
   /// Constructs a `Behavior` with specified message receive handler.
   ///
@@ -312,6 +318,7 @@ impl Behaviors {
     R: MailboxFactory + Clone + 'static,
     R::Queue<PriorityEnvelope<DynMessage>>: Clone,
     R::Signal: Clone,
+    R::Concurrency: MetadataStorageMode,
     F: for<'r, 'ctx> FnMut(&mut Context<'r, 'ctx, U, R>, U) -> BehaviorDirective<U, R> + 'static, {
     Behavior::receive(handler)
   }
@@ -333,6 +340,7 @@ impl Behaviors {
     R: MailboxFactory + Clone + 'static,
     R::Queue<PriorityEnvelope<DynMessage>>: Clone,
     R::Signal: Clone,
+    R::Concurrency: MetadataStorageMode,
     F: FnMut(U) -> BehaviorDirective<U, R> + 'static, {
     Behavior::receive_message(handler)
   }
@@ -374,6 +382,7 @@ impl Behaviors {
     R: MailboxFactory + Clone + 'static,
     R::Queue<PriorityEnvelope<DynMessage>>: Clone,
     R::Signal: Clone,
+    R::Concurrency: MetadataStorageMode,
     F: for<'r, 'ctx> Fn(&mut Context<'r, 'ctx, U, R>) -> Behavior<U, R> + 'static, {
     Behavior::setup(init)
   }
@@ -395,6 +404,7 @@ where
   R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
   R::Signal: Clone,
+  R::Concurrency: MetadataStorageMode,
 {
   /// Sets supervisor strategy.
   ///
@@ -428,6 +438,7 @@ where
   R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
   R::Signal: Clone,
+  R::Concurrency: MetadataStorageMode,
 {
   /// Creates a new `ActorAdapter`.
   ///

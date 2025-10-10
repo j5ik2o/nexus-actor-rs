@@ -1,4 +1,4 @@
-use crate::runtime::message::DynMessage;
+use crate::runtime::message::{DynMessage, MetadataStorageMode};
 use crate::runtime::system::InternalRootContext;
 use crate::{ActorRef, MailboxFactory, PriorityEnvelope, Props};
 use alloc::boxed::Box;
@@ -18,6 +18,7 @@ where
   R: MailboxFactory + Clone + 'static,
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
   R::Signal: Clone,
+  R::Concurrency: MetadataStorageMode,
   Strat: crate::api::guardian::GuardianStrategy<DynMessage, R>, {
   pub(crate) inner: InternalRootContext<'a, DynMessage, R, Strat>,
   pub(crate) _marker: PhantomData<U>,
@@ -29,6 +30,7 @@ where
   R: MailboxFactory + Clone,
   R::Queue<PriorityEnvelope<DynMessage>>: Clone,
   R::Signal: Clone,
+  R::Concurrency: MetadataStorageMode,
   Strat: crate::api::guardian::GuardianStrategy<DynMessage, R>,
 {
   /// Spawns a new actor using the specified properties.

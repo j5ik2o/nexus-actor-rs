@@ -4,7 +4,7 @@ mod queue_mailbox;
 pub mod test_support;
 #[cfg(test)]
 mod tests;
-mod traits;
+pub mod traits;
 
 #[cfg(any(test, feature = "test-support"))]
 pub use messages::PriorityChannel;

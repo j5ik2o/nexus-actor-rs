@@ -2,8 +2,6 @@
 use alloc::rc::Rc as Arc;
 #[cfg(target_has_atomic = "ptr")]
 use alloc::sync::Arc;
-#[cfg(not(target_has_atomic = "ptr"))]
-use core::cell::RefCell;
 use core::cell::UnsafeCell;
 use core::fmt;
 use core::future::Future;
@@ -11,7 +9,8 @@ use core::pin::Pin;
 use core::task::{Context, Poll};
 
 use crate::api::{InternalMessageSender, MessageEnvelope, MessageSender};
-use crate::runtime::message::{take_metadata, DynMessage};
+use crate::runtime::mailbox::traits::MailboxConcurrency;
+use crate::runtime::message::{discard_metadata, DynMessage};
 use crate::PriorityEnvelope;
 use nexus_utils_core_rs::sync::ArcShared;
 use nexus_utils_core_rs::{Element, QueueError};
@@ -303,9 +302,10 @@ where
 ///
 /// # Returns
 /// Tuple of (`AskFuture`, `MessageSender`)
-pub(crate) fn create_ask_handles<Resp>() -> (AskFuture<Resp>, MessageSender<Resp>)
+pub(crate) fn create_ask_handles<Resp, C>() -> (AskFuture<Resp>, MessageSender<Resp, C>)
 where
-  Resp: Element, {
+  Resp: Element,
+  C: MailboxConcurrency, {
   let shared = Arc::new(AskShared::<Resp>::new());
   let future = AskFuture::new(shared.clone());
   let dispatch_state = shared.clone();
@@ -319,7 +319,7 @@ where
       MessageEnvelope::User(user) => {
         let (value, metadata_key) = user.into_parts();
         if let Some(key) = metadata_key {
-          let _ = take_metadata(key);
+          discard_metadata(key);
         }
         if !dispatch_state.complete(value) {
           // Discard value if response destination was already cancelled
@@ -338,7 +338,7 @@ where
   });
   let drop_hook = ArcShared::from_arc(drop_hook_impl);
 
-  let internal = InternalMessageSender::with_drop_hook(dispatch, drop_hook);
+  let internal = InternalMessageSender::<C>::with_drop_hook(dispatch, drop_hook);
   let responder = MessageSender::new(internal);
   (future, responder)
 }

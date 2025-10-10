@@ -6,6 +6,7 @@ use core::marker::PhantomData;
 use core::pin::Pin;
 use core::task::{Context, Poll, Waker};
 
+use nexus_actor_core_rs::SingleThread;
 use nexus_actor_core_rs::{
   Mailbox, MailboxFactory, MailboxOptions, MailboxPair, MailboxSignal, QueueMailbox, QueueMailboxProducer,
   QueueMailboxRecv,
@@ -190,6 +191,7 @@ impl LocalMailboxFactory {
 }
 
 impl MailboxFactory for LocalMailboxFactory {
+  type Concurrency = SingleThread;
   type Queue<M>
     = LocalQueue<M>
   where

@@ -10,6 +10,7 @@ use core::task::{Context, Poll};
 use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, RawMutex};
 use embassy_sync::signal::Signal;
 
+use nexus_actor_core_rs::ThreadSafe;
 use nexus_actor_core_rs::{
   Mailbox, MailboxFactory, MailboxOptions, MailboxPair, MailboxSignal, QueueMailbox, QueueMailboxProducer,
   QueueMailboxRecv,
@@ -160,6 +161,7 @@ impl<RM> MailboxFactory for ArcMailboxFactory<RM>
 where
   RM: RawMutex,
 {
+  type Concurrency = ThreadSafe;
   type Queue<M>
     = ArcMpscUnboundedQueue<M, RM>
   where

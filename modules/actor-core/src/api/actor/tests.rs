@@ -13,6 +13,7 @@ use crate::ActorId;
 use crate::MailboxOptions;
 use crate::PriorityEnvelope;
 use crate::SystemMessage;
+use crate::ThreadSafe;
 use alloc::rc::Rc;
 #[cfg(not(target_has_atomic = "ptr"))]
 use alloc::rc::Rc as Arc;
@@ -48,7 +49,7 @@ type NoopDispatchFn = dyn Fn(DynMessage, i8) -> Result<(), QueueError<PriorityEn
 #[cfg(not(target_has_atomic = "ptr"))]
 type NoopDispatchFn = dyn Fn(DynMessage, i8) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>>;
 
-fn noop_sender<M>() -> MessageSender<M>
+fn noop_sender<M>() -> MessageSender<M, ThreadSafe>
 where
   M: Element, {
   let dispatch_impl: Arc<NoopDispatchFn> =
@@ -184,26 +185,29 @@ fn test_typed_actor_handles_system_stop() {
 
 #[test]
 fn user_message_releases_metadata_on_drop() {
-  let metadata = MessageMetadata::new().with_sender(noop_sender::<ParentMessage>());
+  let metadata = MessageMetadata::<ThreadSafe>::new().with_sender(noop_sender::<ParentMessage>());
   let envelope = MessageEnvelope::user_with_metadata(ParentMessage("ping".into()), metadata);
   let key = match &envelope {
     MessageEnvelope::User(user) => user.metadata_key().expect("metadata key expected"),
     MessageEnvelope::System(_) => unreachable!(),
   };
   drop(envelope);
-  assert!(take_metadata(key).is_none(), "metadata key should be released on drop");
+  assert!(
+    take_metadata::<ThreadSafe>(key).is_none(),
+    "metadata key should be released on drop"
+  );
 }
 
 #[test]
 fn metadata_key_consumed_once() {
-  let metadata = MessageMetadata::new().with_sender(noop_sender::<ParentMessage>());
+  let metadata = MessageMetadata::<ThreadSafe>::new().with_sender(noop_sender::<ParentMessage>());
   let envelope = MessageEnvelope::user_with_metadata(ParentMessage("pong".into()), metadata);
   let key = match envelope {
     MessageEnvelope::User(user) => user.into_parts().1.expect("metadata key expected"),
     MessageEnvelope::System(_) => unreachable!(),
   };
-  assert!(take_metadata(key).is_some());
-  assert!(take_metadata(key).is_none());
+  assert!(take_metadata::<ThreadSafe>(key).is_some());
+  assert!(take_metadata::<ThreadSafe>(key).is_none());
 }
 
 #[test]
@@ -626,7 +630,7 @@ where
 
 #[test]
 fn ask_future_completes_successfully() {
-  let (future, responder) = create_ask_handles::<u32>();
+  let (future, responder) = create_ask_handles::<u32, ThreadSafe>();
   responder.dispatch_user(7_u32).expect("dispatch succeeds");
 
   let result = resolve(future);
@@ -635,7 +639,7 @@ fn ask_future_completes_successfully() {
 
 #[test]
 fn ask_future_timeout_returns_error() {
-  let (future, _responder) = create_ask_handles::<u32>();
+  let (future, _responder) = create_ask_handles::<u32, ThreadSafe>();
   let timed = ask_with_timeout(future, future::ready(()));
 
   let result = resolve(timed);
@@ -648,7 +652,7 @@ fn ask_future_timeout_returns_error() {
 
 #[test]
 fn ask_future_responder_drop_propagates() {
-  let (future, responder) = create_ask_handles::<u32>();
+  let (future, responder) = create_ask_handles::<u32, ThreadSafe>();
   drop(responder);
 
   let result = resolve(future);
@@ -657,7 +661,7 @@ fn ask_future_responder_drop_propagates() {
 
 #[test]
 fn ask_future_cancelled_on_drop() {
-  let (future, responder) = create_ask_handles::<u32>();
+  let (future, responder) = create_ask_handles::<u32, ThreadSafe>();
   drop(future);
   drop(responder);
 }

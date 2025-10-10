@@ -1,3 +1,6 @@
+#[cfg(not(target_has_atomic = "ptr"))]
+use alloc::rc::Rc as Arc;
+#[cfg(target_has_atomic = "ptr")]
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 
@@ -11,6 +14,12 @@ pub struct EmbeddedFailureEventHub {
   inner: Arc<Mutex<EmbeddedFailureEventHubState>>,
 }
 
+#[cfg(not(target_has_atomic = "ptr"))]
+unsafe impl Send for EmbeddedFailureEventHub {}
+
+#[cfg(not(target_has_atomic = "ptr"))]
+unsafe impl Sync for EmbeddedFailureEventHub {}
+
 #[derive(Default)]
 struct EmbeddedFailureEventHubState {
   next_id: u64,
@@ -21,6 +30,12 @@ pub struct EmbeddedFailureEventSubscription {
   inner: Arc<Mutex<EmbeddedFailureEventHubState>>,
   id: u64,
 }
+
+#[cfg(not(target_has_atomic = "ptr"))]
+unsafe impl Send for EmbeddedFailureEventSubscription {}
+
+#[cfg(not(target_has_atomic = "ptr"))]
+unsafe impl Sync for EmbeddedFailureEventSubscription {}
 
 impl EmbeddedFailureEventHub {
   /// Creates a new `EmbeddedFailureEventHub`.
