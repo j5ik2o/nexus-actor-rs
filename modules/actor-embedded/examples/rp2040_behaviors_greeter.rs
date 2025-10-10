@@ -28,7 +28,7 @@ use rp2040_boot2;
 use rp2040_hal::{
   self as hal,
   clocks::Clock,
-  gpio::{pin::bank0::Gpio25, FunctionSioOutput},
+  gpio::{bank0::Gpio25, FunctionSioOutput, PullDown},
   pac,
   sio::Sio,
   watchdog::Watchdog,
@@ -200,7 +200,7 @@ fn delay_ms(ms: u32, sys_hz: u32) {
 }
 
 #[cfg(all(target_arch = "arm", target_os = "none"))]
-type LedPin = hal::gpio::Pin<Gpio25, FunctionSioOutput, hal::gpio::PullDownDisabled>;
+type LedPin = hal::gpio::Pin<Gpio25, FunctionSioOutput, PullDown>;
 
 #[cfg(all(target_arch = "arm", target_os = "none"))]
 type LedHandle = Rc<RefCell<LedPin>>;
