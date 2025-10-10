@@ -33,7 +33,7 @@ rp235x-hal = { version = "0.3", features = ["rt", "defmt", "critical-section-imp
 embedded-hal = { version = "0.2", optional = true }
 
 [dev-dependencies]
-defmt-test = "0.3"
+defmt-test = "0.4"
 
 [[test]]
 name = "hardware"
