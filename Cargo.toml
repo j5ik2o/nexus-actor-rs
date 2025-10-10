@@ -8,7 +8,9 @@ members = [
   "modules/actor-std",
   "modules/actor-embedded",
   "modules/remote-core",
-  "modules/cluster-core"
+  "modules/cluster-core",
+  "platform-tests/rp2040-hw-tests",
+  "platform-tests/rp2350-hw-tests"
 ]
 
 [workspace.dependencies]

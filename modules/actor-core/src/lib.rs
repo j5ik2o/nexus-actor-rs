@@ -82,6 +82,8 @@ use nexus_utils_core_rs::QueueError;
 mod api;
 mod runtime;
 mod shared;
+#[cfg(feature = "alloc")]
+mod extensions;
 
 pub use api::*;
 pub use runtime::mailbox::traits::{SingleThread, ThreadSafe};
@@ -91,6 +93,8 @@ pub use runtime::message::{
 };
 pub use runtime::scheduler::{ReceiveTimeoutScheduler, ReceiveTimeoutSchedulerFactory};
 pub use shared::{FailureEventHandlerShared, FailureEventListenerShared, MapSystemShared, ReceiveTimeoutFactoryShared};
+#[cfg(feature = "alloc")]
+pub use extensions::{next_extension_id, Extension, ExtensionId, Extensions};
 
 /// Marker trait capturing the synchronization guarantees required by runtime-dependent types.
 #[cfg(target_has_atomic = "ptr")]

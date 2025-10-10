@@ -1,0 +1,41 @@
+[package]
+name = "rp2040-hw-tests"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+authors = ["nexus-actor contributors"]
+publish = false
+resolver = "2"
+
+[lib]
+path = "src/lib.rs"
+test = false
+bench = false
+doctest = false
+
+[features]
+default = []
+hardware-tests = [
+  "dep:cortex-m-rt",
+  "dep:defmt",
+  "dep:defmt-rtt",
+  "dep:panic-probe",
+  "dep:rp2040-hal",
+  "dep:embedded-hal"
+]
+
+[dependencies]
+cortex-m-rt = { version = "0.7", features = ["device"], optional = true }
+defmt = { version = "0.3", optional = true }
+defmt-rtt = { version = "0.4", optional = true }
+panic-probe = { version = "0.3", features = ["print-defmt"], optional = true }
+rp2040-hal = { version = "0.10", features = ["rt", "critical-section-impl"], optional = true }
+embedded-hal = { version = "0.2", optional = true }
+
+[dev-dependencies]
+defmt-test = "0.3"
+
+[[test]]
+name = "hardware"
+harness = false
+required-features = ["hardware-tests"]

@@ -27,6 +27,8 @@
 ## ビルド・テスト・開発コマンド
 - `cargo build --workspace` : 全 クレート を ビルド。
 - `cargo test --workspace` : 全 テスト 実行。部分 実行 は `cargo test -p core actor::dispatch::tests::`。
+- 忘れずに RP2040/RP2350 向けクロスビルド確認：`cargo check -p nexus-actor-core-rs --target thumbv6m-none-eabi`（RP2040）と `cargo check -p nexus-actor-core-rs --target thumbv8m.main-none-eabi`（RP2350 相当）。
+- 実機テストは原則 `thumb` 向けクロスビルドでコンパイル可能かを確認しつつ、ロジック検証はホスト (x86_64/aarch64) 上で `cargo test` を実行する運用とする。
 - `cargo clippy --workspace --all-targets` : Lint 警告 0 を 維持。
 - `cargo +nightly fmt` : `rustfmt.toml` (max_width 120、tab_spaces 2) に 従い 整形。
 - `cargo make coverage` / `./coverage.sh` : grcov HTML を `target/coverage/html/index.html` に 出力。
