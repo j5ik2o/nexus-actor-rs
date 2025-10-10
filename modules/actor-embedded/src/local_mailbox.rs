@@ -14,10 +14,10 @@ use nexus_actor_core_rs::{
   Mailbox, MailboxFactory, MailboxOptions, MailboxPair, MailboxSignal, QueueMailbox, QueueMailboxProducer,
   QueueMailboxRecv,
 };
-#[cfg(feature = "embedded_rc")]
-use nexus_utils_embedded_rs::RcMpscUnboundedQueue;
 #[cfg(not(feature = "embedded_rc"))]
 use nexus_utils_embedded_rs::ArcLocalMpscUnboundedQueue;
+#[cfg(feature = "embedded_rc")]
+use nexus_utils_embedded_rs::RcMpscUnboundedQueue;
 use nexus_utils_embedded_rs::{Element, QueueBase, QueueError, QueueRw, QueueSize};
 
 #[cfg(feature = "embedded_rc")]
@@ -66,9 +66,7 @@ where
   M: Element,
 {
   fn new() -> Self {
-    Self {
-      inner: new_queue(),
-    }
+    Self { inner: new_queue() }
   }
 
   #[cfg(feature = "embedded_rc")]
