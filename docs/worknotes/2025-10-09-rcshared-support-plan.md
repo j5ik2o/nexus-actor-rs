@@ -42,3 +42,32 @@
    - [ ] 設計レビューで問題なければ、CI 設定やドキュメント更新に取り掛かる。
 
 レビュー後に本計画へ合意が得られ次第、順次実装タスクへ着手する。
+
+
+## Step3 詳細計画（Pending）
+
+### Scope A: メッセージ送受信境界の整理
+- [ ] `InternalMessageSender` / `MessageSender` の `Send + Sync` 要件をプラットフォーム別に切り替える。
+    - std: `Send + Sync`
+    - embedded_rc: single-thread 前提のローカル送信 (`ArcShared` が `Rc` の場合)`
+- [ ] `Ask` 実装（`AtomicWaker` 使用箇所）を `target_has_atomic` で分岐し、非アトミック環境ではローカル waker に落とし込む。
+- [ ] `MetadataTable` などグローバル状態が `Spin Mutex` に依存している箇所を `critical-section` ベースへ移行。
+
+### Scope B: Mailbox/Runtime 境界
+- [ ] `MailboxFactory` の associated type にプラットフォーム別境界 (`RuntimeBound`) を導入。
+- [ ] `ActorCell` / `PriorityScheduler` / `InternalActorRef` が保持する queue/signal 型のトレイト境界を `RuntimeBound` に更新。
+- [ ] `ReceiveTimeoutSchedulerFactory` が要求する `Send + Sync` を条件付きに整理（std→`Send + Sync`, embedded→none）。
+
+### Scope C: DynMessage と Any 境界
+- [ ] `DynMessage` を `Box<dyn Any + Send + Sync>` から `Box<dyn Any + RuntimeBound>` 相当へ再設計。
+- [ ] タイプダウンキャスト (`downcast`) まわりの安全性確認とテスト追加。
+
+### Scope D: クロスビルド・テスト整備
+- [ ] `thumbv6m-none-eabi` ターゲットでのクロスビルド CI step を追加。
+- [ ] `embedded_rc` 例 (`rp2040_behaviors_greeter`) の手動手順を README/ドキュメントに追記。
+- [ ] std/embedded 双方の smoke テストを `make` タスクへ統合。
+
+### リスク管理
+- std 向け互換性を第一優先とし、各 scope を独立した PR に分割。
+- `DynMessage` の再設計は Scope C で別ブランチに切り出し、先行して Scope A/B の変更から着手する。
+- 各 scope の終了後に `thumbv6m-none-eabi` ビルド確認を実施し regression を防ぐ。
