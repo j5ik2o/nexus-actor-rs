@@ -21,6 +21,7 @@ tracing = { version = "0.1", default-features = false, features = ["std"], optio
 futures = { version = "0.3", default-features = false, features = ["alloc"] }
 spin = { version = "0.9", default-features = false, features = ["mutex", "spin_mutex", "once", "portable_atomic"] }
 portable-atomic = { version = "1.11", default-features = false, features = ["critical-section"] }
+critical-section = { version = "1.2", default-features = false }
 
 [dev-dependencies]
 criterion = "0.5"
