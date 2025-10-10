@@ -6,7 +6,7 @@ use alloc::sync::Arc;
 use crate::runtime::context::InternalActorRef;
 use crate::runtime::message::{store_metadata, take_metadata, DynMessage, MetadataKey};
 use crate::SystemMessage;
-use crate::{MailboxFactory, PriorityEnvelope};
+use crate::{MailboxFactory, PriorityEnvelope, RuntimeBound};
 use core::marker::PhantomData;
 use core::mem::{forget, ManuallyDrop};
 use nexus_utils_core_rs::sync::ArcShared;
@@ -92,8 +92,8 @@ impl InternalMessageSender {
   pub(crate) fn from_internal_ref<R>(actor_ref: InternalActorRef<DynMessage, R>) -> Self
   where
     R: MailboxFactory + Clone + 'static,
-    R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
-    R::Signal: Clone + Send + Sync + 'static, {
+    R::Queue<PriorityEnvelope<DynMessage>>: Clone + RuntimeBound + 'static,
+    R::Signal: Clone + RuntimeBound + 'static, {
     let sender = actor_ref.clone();
     Self::new(ArcShared::from_arc(Arc::new(move |message, priority| {
       sender.try_send_with_priority(message, priority)

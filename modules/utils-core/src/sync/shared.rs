@@ -29,6 +29,7 @@ pub trait SharedBound: Send + Sync {}
 impl<T: Send + Sync> SharedBound for T {}
 
 #[cfg(not(target_has_atomic = "ptr"))]
+/// Marker trait used when atomic pointer support is unavailable.
 pub trait SharedBound {}
 
 #[cfg(not(target_has_atomic = "ptr"))]

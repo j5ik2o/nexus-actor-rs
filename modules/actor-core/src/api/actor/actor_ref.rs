@@ -1,7 +1,7 @@
 use crate::runtime::context::InternalActorRef;
 use crate::runtime::message::DynMessage;
 use crate::SystemMessage;
-use crate::{MailboxFactory, PriorityEnvelope};
+use crate::{MailboxFactory, PriorityEnvelope, RuntimeBound};
 use core::future::Future;
 use core::marker::PhantomData;
 use nexus_utils_core_rs::{Element, QueueError, DEFAULT_PRIORITY};
@@ -130,8 +130,8 @@ where
   /// Message dispatcher for sending messages
   pub fn to_dispatcher(&self) -> MessageSender<U>
   where
-    R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
-    R::Signal: Clone + Send + Sync + 'static, {
+    R::Queue<PriorityEnvelope<DynMessage>>: Clone + RuntimeBound + 'static,
+    R::Signal: Clone + RuntimeBound + 'static, {
     let internal = InternalMessageSender::from_internal_ref(self.inner.clone());
     MessageSender::new(internal)
   }
@@ -149,8 +149,8 @@ where
   ) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>>
   where
     S: Element,
-    R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
-    R::Signal: Clone + Send + Sync + 'static, {
+    R::Queue<PriorityEnvelope<DynMessage>>: Clone + RuntimeBound + 'static,
+    R::Signal: Clone + RuntimeBound + 'static, {
     self.request_with_dispatcher(message, sender.to_dispatcher())
   }
 
@@ -197,8 +197,8 @@ where
   where
     Resp: Element,
     S: Element,
-    R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
-    R::Signal: Clone + Send + Sync + 'static, {
+    R::Queue<PriorityEnvelope<DynMessage>>: Clone + RuntimeBound + 'static,
+    R::Signal: Clone + RuntimeBound + 'static, {
     self.request_future_with_dispatcher(message, sender.to_dispatcher())
   }
 
@@ -236,8 +236,8 @@ where
   where
     Resp: Element,
     TFut: Future<Output = ()> + Unpin,
-    R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
-    R::Signal: Clone + Send + Sync + 'static, {
+    R::Queue<PriorityEnvelope<DynMessage>>: Clone + RuntimeBound + 'static,
+    R::Signal: Clone + RuntimeBound + 'static, {
     let mut timeout = Some(timeout);
     let (future, responder) = create_ask_handles::<Resp>();
     let metadata = MessageMetadata::new().with_responder(responder);
@@ -264,8 +264,8 @@ where
     Resp: Element,
     S: Element,
     TFut: Future<Output = ()> + Unpin,
-    R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
-    R::Signal: Clone + Send + Sync + 'static, {
+    R::Queue<PriorityEnvelope<DynMessage>>: Clone + RuntimeBound + 'static,
+    R::Signal: Clone + RuntimeBound + 'static, {
     self.request_future_with_timeout_dispatcher(message, sender.to_dispatcher(), timeout)
   }
 

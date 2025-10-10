@@ -4,6 +4,7 @@ use crate::ActorId;
 use crate::ActorPath;
 use crate::MailboxFactory;
 use crate::PriorityEnvelope;
+use crate::RuntimeBound;
 use crate::Supervisor;
 use crate::SystemMessage;
 #[cfg(not(target_has_atomic = "ptr"))]
@@ -340,8 +341,8 @@ where
 
   pub(crate) fn self_dispatcher(&self) -> MessageSender<U>
   where
-    R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
-    R::Signal: Clone + Send + Sync + 'static, {
+    R::Queue<PriorityEnvelope<DynMessage>>: Clone + RuntimeBound + 'static,
+    R::Signal: Clone + RuntimeBound + 'static, {
     self.self_ref().to_dispatcher()
   }
 
@@ -362,8 +363,8 @@ where
   ) -> Result<(), QueueError<PriorityEnvelope<DynMessage>>>
   where
     V: Element,
-    R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
-    R::Signal: Clone + Send + Sync + 'static, {
+    R::Queue<PriorityEnvelope<DynMessage>>: Clone + RuntimeBound + 'static,
+    R::Signal: Clone + RuntimeBound + 'static, {
     let metadata = MessageMetadata::new().with_sender(self.self_dispatcher());
     target.tell_with_metadata(message, metadata)
   }
@@ -386,8 +387,8 @@ where
   where
     V: Element,
     S: Element,
-    R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
-    R::Signal: Clone + Send + Sync + 'static, {
+    R::Queue<PriorityEnvelope<DynMessage>>: Clone + RuntimeBound + 'static,
+    R::Signal: Clone + RuntimeBound + 'static, {
     let metadata = MessageMetadata::new().with_sender(sender.to_dispatcher());
     target.tell_with_metadata(message, metadata)
   }
@@ -427,8 +428,8 @@ where
   pub fn respond<Resp>(&mut self, message: Resp) -> AskResult<()>
   where
     Resp: Element,
-    R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
-    R::Signal: Clone + Send + Sync + 'static, {
+    R::Queue<PriorityEnvelope<DynMessage>>: Clone + RuntimeBound + 'static,
+    R::Signal: Clone + RuntimeBound + 'static, {
     let metadata = self.message_metadata().cloned().ok_or(AskError::MissingResponder)?;
     metadata.respond_with(self, message)
   }
@@ -448,8 +449,8 @@ where
     V: Element,
     Resp: Element,
     F: FnOnce(MessageSender<Resp>) -> V,
-    R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
-    R::Signal: Clone + Send + Sync + 'static, {
+    R::Queue<PriorityEnvelope<DynMessage>>: Clone + RuntimeBound + 'static,
+    R::Signal: Clone + RuntimeBound + 'static, {
     let (future, responder) = create_ask_handles::<Resp>();
     let responder_for_message = MessageSender::new(responder.internal());
     let message = factory(responder_for_message);
@@ -480,8 +481,8 @@ where
     Resp: Element,
     F: FnOnce(MessageSender<Resp>) -> V,
     TFut: Future<Output = ()> + Unpin,
-    R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
-    R::Signal: Clone + Send + Sync + 'static, {
+    R::Queue<PriorityEnvelope<DynMessage>>: Clone + RuntimeBound + 'static,
+    R::Signal: Clone + RuntimeBound + 'static, {
     let mut timeout = Some(timeout);
     let (future, responder) = create_ask_handles::<Resp>();
     let responder_for_message = MessageSender::new(responder.internal());
@@ -507,8 +508,8 @@ where
   where
     V: Element,
     Resp: Element,
-    R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
-    R::Signal: Clone + Send + Sync + 'static, {
+    R::Queue<PriorityEnvelope<DynMessage>>: Clone + RuntimeBound + 'static,
+    R::Signal: Clone + RuntimeBound + 'static, {
     let (future, responder) = create_ask_handles::<Resp>();
     let metadata = MessageMetadata::new()
       .with_sender(self.self_dispatcher())
@@ -536,8 +537,8 @@ where
     V: Element,
     Resp: Element,
     TFut: Future<Output = ()> + Unpin,
-    R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
-    R::Signal: Clone + Send + Sync + 'static, {
+    R::Queue<PriorityEnvelope<DynMessage>>: Clone + RuntimeBound + 'static,
+    R::Signal: Clone + RuntimeBound + 'static, {
     let mut timeout = Some(timeout);
     let (future, responder) = create_ask_handles::<Resp>();
     let metadata = MessageMetadata::new()
@@ -579,8 +580,8 @@ impl MessageMetadata {
     Resp: Element,
     U: Element,
     R: MailboxFactory + Clone + 'static,
-    R::Queue<PriorityEnvelope<DynMessage>>: Clone + Send + Sync + 'static,
-    R::Signal: Clone + Send + Sync + 'static, {
+    R::Queue<PriorityEnvelope<DynMessage>>: Clone + RuntimeBound + 'static,
+    R::Signal: Clone + RuntimeBound + 'static, {
     let dispatcher = self.dispatcher_for::<Resp>().ok_or(AskError::MissingResponder)?;
     let dispatch_metadata = MessageMetadata::new().with_sender(ctx.self_dispatcher());
     let envelope = MessageEnvelope::user_with_metadata(message, dispatch_metadata);

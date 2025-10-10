@@ -89,6 +89,20 @@ pub use runtime::message::{store_metadata, take_metadata, DynMessage, MetadataKe
 pub use runtime::scheduler::{ReceiveTimeoutScheduler, ReceiveTimeoutSchedulerFactory};
 pub use shared::{FailureEventHandlerShared, FailureEventListenerShared, MapSystemShared, ReceiveTimeoutFactoryShared};
 
+/// Marker trait capturing the synchronization guarantees required by runtime-dependent types.
+#[cfg(target_has_atomic = "ptr")]
+pub trait RuntimeBound: Send + Sync {}
+
+#[cfg(target_has_atomic = "ptr")]
+impl<T: Send + Sync> RuntimeBound for T {}
+
+#[cfg(not(target_has_atomic = "ptr"))]
+/// Marker trait for single-threaded targets without atomic pointer support.
+pub trait RuntimeBound {}
+
+#[cfg(not(target_has_atomic = "ptr"))]
+impl<T> RuntimeBound for T {}
+
 /// Function type alias for converting system messages to message type.
 #[cfg(target_has_atomic = "ptr")]
 pub type MapSystemFn<M> = dyn Fn(SystemMessage) -> M + Send + Sync;
