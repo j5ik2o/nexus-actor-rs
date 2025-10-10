@@ -8,5 +8,5 @@ mod state;
 pub use arc_shared::ArcShared;
 pub use flag::Flag;
 pub use function::{SharedFactory, SharedFn};
-pub use shared::Shared;
+pub use shared::{Shared, SharedBound};
 pub use state::StateCell;

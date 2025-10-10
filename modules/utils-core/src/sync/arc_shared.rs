@@ -1,8 +1,16 @@
+#[cfg(not(target_has_atomic = "ptr"))]
+use alloc::rc::Rc as Arc;
+#[cfg(target_has_atomic = "ptr")]
 use alloc::sync::Arc;
 
 use super::Shared;
 
 /// Shared wrapper backed by `alloc::sync::Arc`.
+///
+/// Targets that lack atomic pointer operations (`target_has_atomic = "ptr"`)
+/// do not provide `alloc::sync::Arc`. In those environments we transparently
+/// fall back to `alloc::rc::Rc`, allowing higher layers to keep using a unified
+/// shared abstraction.
 pub struct ArcShared<T: ?Sized>(Arc<T>);
 
 impl<T: ?Sized> ArcShared<T> {
