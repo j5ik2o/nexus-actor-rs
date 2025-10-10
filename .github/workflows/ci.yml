@@ -33,6 +33,7 @@ jobs:
     needs:
       - no-std
       - embassy
+      - cross
     steps:
       - uses: actions/checkout@v5
       - uses: arduino/setup-protoc@v3
@@ -60,3 +61,15 @@ jobs:
         with:
           toolchain: nightly
       - run: cargo test -p nexus-utils-embedded-rs --no-default-features --features embassy --no-run
+  cross:
+    name: cross
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: nightly
+          targets: thumbv6m-none-eabi,thumbv8m.main-none-eabi
+      - run: cargo check -p nexus-actor-core-rs --target thumbv6m-none-eabi
+      - run: cargo check -p nexus-actor-core-rs --target thumbv8m.main-none-eabi
