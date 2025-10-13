@@ -27,7 +27,7 @@ hardware-tests = [
 [dependencies]
 cortex-m-rt = { version = "0.7", features = ["device"], optional = true }
 defmt = { version = "0.3", optional = true }
-defmt-rtt = { version = "0.4", optional = true }
+defmt-rtt = { version = "1.1", optional = true }
 panic-probe = { version = "0.3", features = ["print-defmt"], optional = true }
 rp235x-hal = { version = "0.3", features = ["rt", "defmt", "critical-section-impl"], optional = true }
 embedded-hal = { version = "0.2", optional = true }
